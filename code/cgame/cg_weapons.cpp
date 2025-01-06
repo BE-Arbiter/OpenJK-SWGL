@@ -583,6 +583,9 @@ void CG_RegisterWeapon( int weaponNum ) {
 		theFxScheduler.RegisterEffect( "atst/wall_impact" );
 		theFxScheduler.RegisterEffect( "atst/flesh_impact" );
 		theFxScheduler.RegisterEffect( "atst/droid_impact" );
+		cgs.media.emplacedHealthBarShader = cgi_R_RegisterShaderNoMip("gfx/hud/health_frame");
+		cgs.media.turretComputerOverlayShader = cgi_R_RegisterShaderNoMip("gfx/hud/generic_target");
+		cgs.media.turretCrossHairShader = cgi_R_RegisterShaderNoMip("gfx/2d/panel_crosshair");
 		break;
 
 	case WP_ATST_SIDE:
@@ -704,6 +707,9 @@ void CG_RegisterWeapon( int weaponNum ) {
 		theFxScheduler.RegisterEffect( "turret/shot" );
 		theFxScheduler.RegisterEffect( "turret/wall_impact" );
 		theFxScheduler.RegisterEffect( "turret/flesh_impact" );
+		cgs.media.emplacedHealthBarShader = cgi_R_RegisterShaderNoMip("gfx/hud/health_frame");
+		cgs.media.turretComputerOverlayShader = cgi_R_RegisterShaderNoMip("gfx/hud/generic_target");
+		cgs.media.turretCrossHairShader = cgi_R_RegisterShaderNoMip("gfx/2d/panel_crosshair");
 		break;
 
 	case WP_TUSKEN_RIFLE:
@@ -735,6 +741,9 @@ void CG_RegisterWeapon( int weaponNum ) {
 
 	case WP_TIE_FIGHTER:
 		theFxScheduler.RegisterEffect( "ships/imp_blastershot" );
+		cgs.media.emplacedHealthBarShader = cgi_R_RegisterShaderNoMip("gfx/hud/health_frame");
+		cgs.media.turretComputerOverlayShader = cgi_R_RegisterShaderNoMip("gfx/hud/generic_target");
+		cgs.media.turretCrossHairShader = cgi_R_RegisterShaderNoMip("gfx/2d/panel_crosshair");
 		break;
 
 	case WP_CLONECARBINE:
