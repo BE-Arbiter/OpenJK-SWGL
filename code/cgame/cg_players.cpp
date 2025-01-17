@@ -1751,11 +1751,11 @@ static qboolean CG_CheckLookTarget( centity_t *cent, vec3_t	lookAngles, float *l
 				{//We turn heads faster than headbob speed, but not as fast as if watching an enemy
 					if ( cent->gent->client->NPC_class == CLASS_ROCKETTROOPER )
 					{//they look around slowly and deliberately
-						*lookingSpeed = LOOK_DEFAULT_SPEED*0.25f;
+						*lookingSpeed = (LOOK_DEFAULT_SPEED*0.25f) * (cg.frametime / (1000.0 / TARGET_FPS));
 					}
 					else
 					{
-						*lookingSpeed = LOOK_DEFAULT_SPEED;
+						*lookingSpeed = (LOOK_DEFAULT_SPEED) * (cg.frametime / (1000.0 / TARGET_FPS));
 					}
 				}
 
@@ -2549,7 +2549,7 @@ static void CG_G2PlayerAngles( centity_t *cent, vec3_t legs[3], vec3_t angles )
 	float		legsYawSwingTolMin, legsYawSwingTolMax;
 	float		yawSpeed, maxYawSpeed, lookingSpeed;
 	*/
-	float		lookAngleSpeed = LOOK_TALKING_SPEED;//shut up the compiler
+	float		lookAngleSpeed = LOOK_TALKING_SPEED * (cg.frametime / (1000.0 / TARGET_FPS));//shut up the compiler
 	//float		swing, scale;
 	//int			i;
 	qboolean	looking = qfalse, talking = qfalse;
@@ -2894,7 +2894,7 @@ static void CG_G2PlayerAngles( centity_t *cent, vec3_t legs[3], vec3_t angles )
 			}
 			else if ( talking )
 			{//Slow for head bobbing
-				lookAngleSpeed = LOOK_TALKING_SPEED;
+				lookAngleSpeed = LOOK_TALKING_SPEED * (cg.frametime / (1000.0 / TARGET_FPS));
 			}
 			else if ( looking )
 			{//Not talking, set it up for looking at enemy, CheckLookTarget will scale it down if neccessary
@@ -2902,7 +2902,7 @@ static void CG_G2PlayerAngles( centity_t *cent, vec3_t legs[3], vec3_t angles )
 			}
 			else if ( cent->gent->client->renderInfo.lookingDebounceTime > cg.time )
 			{//Not looking, not talking, head is returning from a talking head bob, use talking speed
-				lookAngleSpeed = LOOK_TALKING_SPEED;
+				lookAngleSpeed = LOOK_TALKING_SPEED * (cg.frametime / (1000.0 / TARGET_FPS));
 			}
 
 			if ( looking || talking )
@@ -3095,7 +3095,7 @@ static void CG_PlayerAngles( centity_t *cent, vec3_t legs[3], vec3_t torso[3], v
 	float		torsoPitchClampMin, torsoPitchClampMax;
 	float		legsYawSwingTolMin, legsYawSwingTolMax;
 	float		maxYawSpeed, yawSpeed, lookingSpeed;
-	float		lookAngleSpeed = LOOK_TALKING_SPEED;//shut up the compiler
+	float		lookAngleSpeed = LOOK_TALKING_SPEED * (cg.frametime / (1000.0 / TARGET_FPS));//shut up the compiler
 	float		swing, scale;
 	int			i;
 	qboolean	looking = qfalse, talking = qfalse;
@@ -3344,7 +3344,7 @@ static void CG_PlayerAngles( centity_t *cent, vec3_t legs[3], vec3_t torso[3], v
 	}
 	else if ( talking )
 	{//Slow for head bobbing
-		lookAngleSpeed = LOOK_TALKING_SPEED;
+		lookAngleSpeed = LOOK_TALKING_SPEED * (cg.frametime / (1000.0 / TARGET_FPS));
 	}
 	else if ( looking )
 	{//Not talking, set it up for looking at enemy, CheckLookTarget will scale it down if neccessary
@@ -3352,7 +3352,7 @@ static void CG_PlayerAngles( centity_t *cent, vec3_t legs[3], vec3_t torso[3], v
 	}
 	else if ( cent->gent->client->renderInfo.lookingDebounceTime > cg.time )
 	{//Not looking, not talking, head is returning from a talking head bob, use talking speed
-		lookAngleSpeed = LOOK_TALKING_SPEED;
+		lookAngleSpeed = LOOK_TALKING_SPEED * (cg.frametime / (1000.0 / TARGET_FPS));
 	}
 
 	if ( looking || talking )
