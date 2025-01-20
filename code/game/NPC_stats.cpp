@@ -120,6 +120,8 @@ stringID_table_t attrTable[] =
 	ENUM2STRING(ATTR_INQUISITOR),
 	ENUM2STRING(ATTR_CASUAL_WALK),
 	ENUM2STRING(ATTR_NO_TWIRL),
+	ENUM2STRING(ATTR_COMMANDO),
+	ENUM2STRING(ATTR_BRAWLER),
 	{ "",	-1 }
 };
 
@@ -2025,6 +2027,7 @@ extern void G_MatchPlayerWeapon( gentity_t *ent );
 extern void G_InitPlayerFromCvars( gentity_t *ent );
 extern void G_SetG2PlayerModel( gentity_t * const ent, const char *modelName, const char *customSkin, const char *surfOff, const char *surfOn );
 void setYounglingSkin(gentity_t* NPC, char *custom_skin, int custom_skin_size);
+void NPC_AssignRandom(gentity_t* ent, char* playerModel);
 qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 {
 	const char	*token;
@@ -2658,6 +2661,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					value = NPC->NPC_model;
 
 				Q_strncpyz( playerModel, value, sizeof(playerModel));
+
 				if (NPC == player)
 				{
 					gi.cvar_set("g_char_model", playerModel);
@@ -2674,6 +2678,10 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					continue;
 				}
 				Q_strncpyz( customSkin, value, sizeof(customSkin));
+
+				// Trying to avoid the risk of the player getting a skin they didn't want.
+				if (!Q_stricmp("random", value) && NPC == player)
+					value = "default";
 				continue;
 			}
 			else if (NPC != player 
@@ -4568,6 +4576,12 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 		}
 	}
 
+	if (!Q_stricmp(customSkin, "random") || !Q_stricmp(NPC->NPC_skin, "random"))
+	{
+		NPC_AssignRandom(NPC, playerModel);
+		strcpy(customSkin, NPC->NPC_skin);
+	}
+
 /*
 Ghoul2 Insert Start
 */
@@ -4965,4 +4979,55 @@ void setYounglingSkin(gentity_t* NPC, char *custom_skin, int custom_skin_size)
 	skin += "lower_a1";
 
 	Q_strncpyz(custom_skin, skin.c_str(), custom_skin_size);
+}
+
+void NPC_AssignRandom(gentity_t* ent, char* playerModel)
+{
+	if (!ent)
+		return;
+
+	if (!ent->NPC_skin)
+		return;
+
+	std::string headList[64];
+	std::string torsoList[64];
+	std::string lowerList[64];
+	char filelist[2048];
+	char	skinname[64];
+	char* fileptr;
+	int		filelen;
+	int		numfiles;
+	int j;
+	int headCount = 0, torsoCount = 0, lowerCount = 0;
+	numfiles = gi.FS_GetFileList(va("models/players/%s", playerModel), ".skin", filelist, sizeof(filelist));
+	fileptr = filelist;
+
+	for (j = 0; j < numfiles; j++, fileptr += filelen + 1)
+	{
+		filelen = strlen(fileptr);
+		COM_StripExtension(fileptr, skinname, sizeof(skinname));
+		if (Q_stricmpn(skinname, "head_", 5) == 0)
+		{
+			headList[headCount++] = skinname;
+		}
+		else if (Q_stricmpn(skinname, "torso_", 6) == 0)
+		{
+			torsoList[torsoCount++] = skinname;
+		}
+		else if (Q_stricmpn(skinname, "lower_", 6) == 0)
+		{
+			lowerList[lowerCount++] = skinname;
+		}
+	}
+
+	if (!headList[0].empty() && !torsoList[0].empty() && !lowerList[0].empty())
+	{
+		std::string newSkin;
+		newSkin.append(headList[Q_irand(0, headCount - 1)]);
+		newSkin.append("|");
+		newSkin.append(torsoList[Q_irand(0, torsoCount - 1)]);
+		newSkin.append("|");
+		newSkin.append(lowerList[Q_irand(0, lowerCount - 1)]);
+		ent->NPC_skin = G_NewString(newSkin.c_str());
+	}
 }

@@ -1383,7 +1383,7 @@ void Kyle_TryGrab( void )
 
 qboolean Kyle_CanDoGrab( void )
 {
-	if ( NPC->client->NPC_class == CLASS_KYLE && (NPC->spawnflags&1) )
+	if ( (NPC->client->NPC_class == CLASS_KYLE && (NPC->spawnflags&1)) || NPC->attrFlags & ATTR_BRAWLER )
 	{//Boss Kyle
 		if ( NPC->enemy && NPC->enemy->client )
 		{//have a valid enemy
@@ -7929,7 +7929,8 @@ void NPC_BSJedi_Default( void )
 	if (TIMER_Done(NPC, "saber_switch") &&
 		(!Q_stricmp(CAL_KESTIS, NPC->NPC_type)
 			|| !Q_stricmp(CAL_KESTIS_SURVIVOR, NPC->NPC_type)
-			|| !Q_stricmp(CAL_KESTIS_INQUISITOR, NPC->NPC_type)))
+			|| !Q_stricmp(CAL_KESTIS_INQUISITOR, NPC->NPC_type)
+			|| !Q_stricmp(DAGAN, NPC->NPC_type)))
 	{
 		if (!Q_stricmp("cal_kestis_staff", NPC->client->ps.saber[0].name))
 		{
@@ -7948,6 +7949,28 @@ void NPC_BSJedi_Default( void )
 			NPC->client->ps.saber[0].blade[0].color = currentColor;
 			NPC->client->ps.saber[0].blade[1].color = currentColor;
 			
+		}
+		else if (!Q_stricmp("dagan_gera_staff", NPC->client->ps.saber[0].name))
+		{
+			saber_colors_t currentColor = NPC->client->ps.saber[0].blade[0].color;
+
+			WP_SetSaber(NPC, 0, "dagan_gera");
+			WP_SetSaber(NPC, 1, "dagan_gera_short");
+
+			NPC->client->ps.saber[0].blade[0].color = currentColor;
+			NPC->client->ps.saber[1].blade[0].color = currentColor;
+
+		}
+		else if ((!Q_stricmp("dagan_gera", NPC->client->ps.saber[0].name) && !Q_stricmp("dagan_gera_short", NPC->client->ps.saber[1].name)) || (!Q_stricmp("dagan_gera_short", NPC->client->ps.saber[0].name) && !Q_stricmp("dagan_gera", NPC->client->ps.saber[1].name)))
+		{
+			saber_colors_t currentColor = NPC->client->ps.saber[0].blade[0].color;
+
+			WP_SetSaber(NPC, 0, "dagan_gera_staff");
+			WP_SetSaber(NPC, 1, "none");
+
+			NPC->client->ps.saber[0].blade[0].color = currentColor;
+			NPC->client->ps.saber[0].blade[1].color = currentColor;
+
 		}
 		TIMER_Set(NPC, "saber_switch", Q_irand(5000, 20000));
 	}

@@ -3345,6 +3345,7 @@ void SP_NPC_SWGL_Jedi(gentity_t *self)
 		else
 		{//random!
 			int sanityCheck = 20;	//just in case
+			npc_pick = Q_irand(0, 4);
 			while (sanityCheck--)
 			{
 				switch (npc_pick)
@@ -3364,82 +3365,6 @@ void SP_NPC_SWGL_Jedi(gentity_t *self)
 				case 4:
 					self->NPC_type = "kotor_jedi5";
 					break;
-				case 5:
-					self->NPC_type = "kotor_jedi6";
-					break;
-				case 6:
-					self->NPC_type = "kotor_jedi7";
-					break;
-				case 7:
-					self->NPC_type = "kotor_jedi8";
-					break;
-				case 8:
-					self->NPC_type = "kotor_jedi9";
-					break;
-				case 9:
-					self->NPC_type = "kotor_jedi10";
-					break;
-				case 10:
-					self->NPC_type = "kotor_jedi11";
-					break;
-				case 11:
-					self->NPC_type = "kotor_jedi12";
-					break;
-				case 12:
-					self->NPC_type = "kotor_jedi13";
-					break;
-				case 13:
-					self->NPC_type = "kotor_jedi14";
-					break;
-				case 14:
-					self->NPC_type = "kotor_jedi15";
-					break;
-				case 15:
-					self->NPC_type = "kotor_jedi16";
-					break;
-				case 16:
-					self->NPC_type = "kotor_jedi17";
-					break;
-				case 17:
-					self->NPC_type = "kotor_jedi18";
-					break;
-				case 18:
-					self->NPC_type = "kotor_jedi19";
-					break;
-				case 19:
-					self->NPC_type = "kotor_jedi20";
-					break;
-				case 20:
-					self->NPC_type = "kotor_jedi21";
-					break;
-				case 21:
-					self->NPC_type = "kotor_jedi22";
-					break;
-				case 22:
-					self->NPC_type = "kotor_jedi23";
-					break;
-				case 23:
-					self->NPC_type = "kotor_jedi24";
-					break;
-				case 24:
-					self->NPC_type = "kotor_jedi25";
-					break;
-				case 25:
-					self->NPC_type = "kotor_jedi26";
-					break;
-				case 26:
-					self->NPC_type = "kotor_jedi27";
-					break;
-				case 27:
-					self->NPC_type = "kotor_jedi28";
-					break;
-				case 28:
-					self->NPC_type = "kotor_jedi29";
-					break;
-				case 29:
-					self->NPC_type = "kotor_jedi30";
-					break;
-				case 30:
 				default://just in case
 					self->NPC_type = "kotor_jedi1";
 					break;
@@ -3452,7 +3377,7 @@ void SP_NPC_SWGL_Jedi(gentity_t *self)
 			}
 		}
 	}
-
+	self->NPC_skin = "random";
 	SP_NPC_spawner(self);
 }
 /*QUAKED NPC_Prisoner(1 0 0) (-16 -16 -24) (16 16 40) ELDER x x x DROPTOFLOOR CINEMATIC NOTSOLID STARTINSOLID SHY
@@ -6018,7 +5943,7 @@ void NPC_Anim_f(void)
 		{
 			continue;
 		}		
-		if ((ent->targetname && Q_stricmp(name, ent->targetname) == 0))
+		if (ent->targetname && ent->NPC && (Q_stricmp(name, ent->targetname) == 0 || !Q_stricmp("all", name)))
 		{		
 
 			if (!Q_stricmp(anim, "remove") || !Q_stricmp(anim, "none"))
@@ -6093,7 +6018,7 @@ void NPC_Enemy_f(void)
 		{
 			continue;
 		}
-		if ((ent->targetname && Q_stricmp(name, ent->targetname) == 0))
+		if (ent->targetname && ent->NPC && (Q_stricmp(name, ent->targetname) == 0 || !Q_stricmp("all", name)))
 		{
 			if (!Q_stricmp(enemy, "none"))
 			{
@@ -6112,10 +6037,18 @@ void NPC_Enemy_f(void)
 				ent->enemy = NULL;
 				
 			}
+			else if (!Q_stricmp(enemy, "all"))
+			{
+				ent->client->savedPlayerTeam = ent->client->playerTeam;
+				ent->client->savedEnemyTeam = ent->client->enemyTeam;
+
+				ent->client->playerTeam = TEAM_SOLO;
+				ent->client->enemyTeam = TEAM_SOLO;
+			}
 			else
 			{
 				ent->enemy = G_Find(NULL, FOFS(targetname), (char*)enemy);
-				if (ent->enemy->client->playerTeam == ent->client->playerTeam)
+				if (ent->enemy && ent->enemy->client->playerTeam == ent->client->playerTeam)
 				{
 					ent->client->savedPlayerTeam = ent->client->playerTeam;
 					ent->client->savedEnemyTeam = ent->client->enemyTeam;
@@ -6183,7 +6116,7 @@ void NPC_Team_f(void)
 		{
 			continue;
 		}
-		if ((ent->targetname && Q_stricmp(name, ent->targetname) == 0))
+		if (ent->targetname && ent->NPC && (Q_stricmp(name, ent->targetname) == 0 || !Q_stricmp("all", name)))
 		{
 			ent->client->playerTeam = team;
 			if (ent->enemy &&
@@ -6253,7 +6186,7 @@ void NPC_Weapon_f(void)
 		{
 			continue;
 		}
-		if ((ent->targetname && Q_stricmp(name, ent->targetname) == 0))
+		if (ent->targetname && ent->NPC && (Q_stricmp(name, ent->targetname) == 0 || !Q_stricmp("all", name)))
 		{
 			G_SetWeapon(ent, weapon);
 		}
@@ -6300,7 +6233,7 @@ void NPC_Saber_f(void)
 		{
 			continue;
 		}
-		if ((ent->targetname && Q_stricmp(name, ent->targetname) == 0))
+		if (ent->targetname && ent->NPC && (Q_stricmp(name, ent->targetname) == 0 || !Q_stricmp("all", name)))
 		{
 			ent->s.weapon = WP_SABER;
 
@@ -6396,6 +6329,7 @@ void NPC_Remove_f(void)
 	{
 		gi.Printf(S_COLOR_RED"Error, Expected:\n");
 		gi.Printf(S_COLOR_RED"NPC remove '[NPC targetname]' - removes the NPC from the game\n");
+		gi.Printf(S_COLOR_RED"NPC remove all - removes all NPCs from the game\n");
 		return;
 	}
 
@@ -6407,8 +6341,9 @@ void NPC_Remove_f(void)
 			continue;
 		}
 		// Entity needs to be an NPC, NOT THE PLAYER!
-		if ((ent->targetname && Q_stricmp(targetname, ent->targetname) == 0) && (ent->NPC && ent != player))
+		if ((!Q_stricmp("all", targetname) || (ent->targetname && Q_stricmp(targetname, ent->targetname) == 0)) && (ent->NPC && ent != player))
 		{
+			gi.Printf(S_COLOR_GREEN"Removing NPC %s named %s\n", ent->NPC_type, ent->targetname);
 			G_UseTargets2(ent, ent, ent->target3);
 			ent->s.eFlags |= EF_NODRAW;
 			ent->svFlags &= ~SVF_NPC;
@@ -6420,6 +6355,150 @@ void NPC_Remove_f(void)
 			//Disappear in half a second
 			ent->e_ThinkFunc = thinkF_G_FreeEntity;
 			ent->nextthink = level.time + FRAMETIME;
+		}
+		if (ent && (ent->svFlags & SVF_NPC_PRECACHE))
+		{//a spawner
+			if ((ent->targetname && Q_stricmp(targetname, ent->targetname) == 0)
+				|| Q_stricmp(targetname, "all") == 0)
+			{
+				gi.Printf(S_COLOR_GREEN"Removing NPC spawner %s named %s\n", ent->NPC_type, ent->targetname);
+				G_FreeEntity(ent);
+			}
+		}
+	}
+}
+
+extern void G_SetG2PlayerModel(gentity_t* const ent, const char* modelName, const char* customSkin, const char* surfOff, const char* surfOn);
+extern void G_RemovePlayerModel(gentity_t* pEnt);
+void NPC_Model_f(void)
+{
+	int			n;
+	gentity_t* ent;
+	char* targetname;
+	char* model;
+	char* skin;
+
+	targetname = gi.argv(2);
+	model = gi.argv(3);
+	skin = gi.argv(4);
+
+	if (!*targetname || !*model)
+	{
+		gi.Printf(S_COLOR_RED"Error, Expected:\n");
+		gi.Printf(S_COLOR_RED"NPC model '[NPC targetname]' '[New Model]' '[New Skin (Optional)]' - Sets the NPC's playermodel to a new one.\n");
+		return;
+	}
+
+	for (n = 1; n < ENTITYNUM_MAX_NORMAL; n++)
+	{
+		ent = &g_entities[n];
+		if (!ent->inuse)
+		{
+			continue;
+		}
+		// Entity needs to be an NPC, NOT THE PLAYER!
+		if ((!Q_stricmp("all", targetname) || ent->targetname && Q_stricmp(targetname, ent->targetname) == 0) && (ent->NPC && ent != player))
+		{
+			G_RemovePlayerModel(ent);
+			if(!*skin)
+				G_SetG2PlayerModel(ent, model, "default", NULL, NULL);
+			else
+				G_SetG2PlayerModel(ent, model, skin, NULL, NULL);
+		}
+	}
+}
+
+void NPC_Skin_f(void)
+{
+	int			n;
+	gentity_t* ent;
+	char* targetname;
+	char* skinName;
+
+	targetname = gi.argv(2);
+	skinName = gi.argv(3);
+
+	if (!*targetname || !*skinName)
+	{
+		gi.Printf(S_COLOR_RED"Error, Expected:\n");
+		gi.Printf(S_COLOR_RED"NPC skin '[NPC targetname]' '[Model/Skin Path]' - Sets the NPC's skin to a new one. Example: stormtrooper/model_blue\n");
+		return;
+	}
+
+	for (n = 1; n < ENTITYNUM_MAX_NORMAL; n++)
+	{
+		ent = &g_entities[n];
+		if (!ent->inuse)
+		{
+			continue;
+		}
+		// Entity needs to be an NPC, NOT THE PLAYER!
+		if ((!Q_stricmp("all", targetname) || ent->targetname && Q_stricmp(targetname, ent->targetname) == 0) && (ent->NPC && ent != player))
+		{
+			char skinPath[MAX_QPATH];
+
+			std::string model(ent->ghoul2[ent->playerModel].mFileName + 15, strlen(ent->ghoul2[ent->playerModel].mFileName) - 15);
+
+			model.erase(model.find("/model"));
+			//model = model.substr(0, strlen(ent->ghoul2[ent->playerModel].mFileName) - model.find("/"));
+			if (!strchr(skinName, '|'))
+			{
+				strcpy(skinPath, va("models/players/%s/model_%s.skin", model.c_str(), skinName));
+			}
+			else
+			{
+				strcpy(skinPath, va("models/players/%s/|%s", model.c_str(), skinName));
+			}
+
+			int skin = gi.RE_RegisterSkin(skinPath);
+			gi.G2API_SetSkin(&ent->ghoul2[ent->playerModel], G_SkinIndex(skinPath), skin);
+		}
+	}
+}
+
+void NPC_Follow_f(void)
+{
+	int			n;
+	gentity_t* ent;
+	char* targetname;
+	char* newLeader;
+
+	targetname = gi.argv(2);
+	newLeader = gi.argv(3);
+
+	if (!*targetname || !*newLeader)
+	{
+		gi.Printf(S_COLOR_RED"Error, Expected:\n");
+		gi.Printf(S_COLOR_RED"NPC follow '[NPC targetname]' '[Targetname OR Player OR none]' - Command NPC to follow another.\n");
+		return;
+	}
+
+	for (n = 1; n < ENTITYNUM_MAX_NORMAL; n++)
+	{
+		ent = &g_entities[n];
+		if (!ent->inuse)
+		{
+			continue;
+		}
+		// Entity needs to be an NPC, NOT THE PLAYER!
+		if ((!Q_stricmp("all", targetname) || ent->targetname && Q_stricmp(targetname, ent->targetname) == 0) && (ent->NPC && ent != player))
+		{
+			gentity_t* leader = G_Find(NULL, FOFS(targetname), (char*)newLeader);
+
+			if (leader == NULL)
+			{
+				ent->client->leader = NULL;
+				return;
+			}
+			else if (leader->health <= 0)
+			{
+				ent->client->leader = NULL;
+				return;
+			}
+			else
+			{
+				ent->client->leader = leader;
+			}
 		}
 	}
 }
@@ -6541,9 +6620,21 @@ void Svcmd_NPC_f(void)
 	{
 		NPC_Sound_f();
 	}
-	else if (Q_stricmp(cmd, "remove") == 0)
+	else if (Q_stricmp(cmd, "remove") == 0 || Q_stricmp(cmd, "clear") == 0)
 	{
 		NPC_Remove_f();
+	}
+	else if (Q_stricmp(cmd, "model") == 0 || Q_stricmp(cmd, "playermodel") == 0)
+	{
+		NPC_Model_f();
+	}
+	else if (Q_stricmp(cmd, "skin") == 0 || Q_stricmp(cmd, "appearance") == 0)
+	{
+		NPC_Skin_f();
+	}
+	else if (Q_stricmp(cmd, "follow") == 0)
+	{
+		NPC_Follow_f();
 	}
 	else if (Q_stricmp(cmd, "showbounds") == 0)
 	{//Toggle on and off

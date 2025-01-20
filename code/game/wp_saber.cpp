@@ -188,6 +188,8 @@ vec3_t	g_saberFlashPos = {0,0,0};
 
 const char* CG_GetForceLightning(gentity_t* ent);
 
+extern gentity_t* WP_FireThermalDetonator(gentity_t* ent, qboolean alt_fire);
+
 int forcePowerDarkLight[NUM_FORCE_POWERS] = //0 == neutral
 { //nothing should be usable at rank 0..
 	FORCE_LIGHTSIDE,//FP_HEAL,//instant
@@ -11004,6 +11006,7 @@ void ForceGrip( gentity_t *self )
 				&& traceEnt->s.weapon != WP_CONCUSSION	// so rax can't drop his
 				&& !FalseEmperorMission() // Player shouldn't be disarmed in the False Emperor mission (because that would be very bad)
 				&& !(traceEnt->attrFlags & ATTR_HERO) // Heroes can't be disarmed
+				&& !(traceEnt->attrFlags & ATTR_COMMANDO) // Commandos can't be disarmed either
 				)
 			{
 				if (traceEnt->client->NPC_class == CLASS_BOBAFETT || traceEnt->client->NPC_class == CLASS_MANDALORIAN || traceEnt->client->NPC_class == CLASS_JANGO)
@@ -11702,6 +11705,7 @@ void ForceGrasp(gentity_t *self)
 				&& traceEnt->s.weapon != WP_CONCUSSION	// so rax can't drop his
 				&& traceEnt->client->playerTeam != self->client->playerTeam
 				&& !(traceEnt->attrFlags & ATTR_HERO) // Heroes can't be disarmed
+				&& !(traceEnt->attrFlags & ATTR_COMMANDO) // Commandos can't be disarmed either
 				)
 			{
 				if (traceEnt->client->NPC_class == CLASS_BOBAFETT || traceEnt->client->NPC_class == CLASS_MANDALORIAN || traceEnt->client->NPC_class == CLASS_JANGO)
@@ -12292,7 +12296,8 @@ qboolean CanBeFeared(gentity_t *self, gentity_t *traceEnt)
 		|| traceEnt->client->NPC_class == CLASS_TAVION
 		|| traceEnt->client->NPC_class == CLASS_DESANN
 		|| traceEnt->client->NPC_class == CLASS_ALORA
-		|| traceEnt->attrFlags & ATTR_HERO)
+		|| traceEnt->attrFlags & ATTR_HERO
+		|| traceEnt->attrFlags & ATTR_COMMANDO)
 	{
 		return qfalse;
 	}
@@ -15903,6 +15908,15 @@ else
 					}
 					return;
 				}
+			}
+			else if (gripEnt->NPC
+				&& gripEnt->client
+				&& (gripEnt->attrFlags & ATTR_COMMANDO)
+				&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20)))
+			{
+				WP_FireThermalDetonator(gripEnt, qtrue);
+				NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+				WP_ForcePowerStop(self, FP_GRIP);
 			}
 			else if (IsKnightfallBoss(gripEnt))
 			{
