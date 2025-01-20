@@ -9,6 +9,8 @@
 #define ATTR_INQUISITOR 0x00000010 // Member of the Inquisitorious
 #define ATTR_CASUAL_WALK 0x00000020 // Walks normally (like Kyle Katarn in Jedi Outcast) instead of the other saber animations.
 #define ATTR_NO_TWIRL 0x00000040 // Doesn't saber twirl.
+#define ATTR_COMMANDO 0x00000080 // Commandos can pull a few tricks out of their sleeves
+#define ATTR_BRAWLER 0x00000100 // Uses Kyle's melee attacks while fighting
 
 // Old Republic
 #define HAVOC_MAJOR "Havoc_Major"
@@ -129,6 +131,7 @@
 #define CAL_KESTIS_INQUISITOR "Cal_Kestis_Inquisitor"
 #define ABELOTH "abeloth"
 #define VALKORION "valkorion"
+#define DAGAN "Dagan_Gera"
 
 
 
