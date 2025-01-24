@@ -971,6 +971,27 @@ static void Svcmd_Spawn_f(void)
 
 	NPC_PrecacheByClassName(NPCspawner->NPC_type);
 
+	// If the NPC is random, we need to clear the variables, that way they won't be all confused and stuff.
+	if (!Q_stricmp("jedi_random", NPCspawner->NPC_type)
+		|| !Q_stricmp("kotor_jedi", NPCspawner->NPC_type)
+		|| !Q_stricmp("prequel_jedi", NPCspawner->NPC_type)
+		|| !Q_stricmp("swtor_jedi", NPCspawner->NPC_type)
+		|| !Q_stricmp("swtor_sith", NPCspawner->NPC_type)
+		|| !Q_stricmp("jedi_youngling", NPCspawner->NPC_type))
+	{
+		NPCspawner->NPC_skin = NULL;
+
+		NPCspawner->NPC_SaberOne = NULL;
+
+		NPCspawner->NPC_model = NULL;
+		
+		NPCspawner->NPC_SaberTwo = NULL;
+
+		NPCspawner->NPC_SaberOneColor = NULL;
+
+		NPCspawner->NPC_SaberTwoColor = NULL;
+	}
+
 	if (!Q_stricmp("jedi_random", NPCspawner->NPC_type))
 	{//special case, for testing
 		NPCspawner->NPC_type = NULL;
