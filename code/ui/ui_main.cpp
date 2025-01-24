@@ -113,6 +113,8 @@ void			UI_UpdateVideoSetup ( void );
 static void		UI_UpdateCharacterCvars ( void );
 static void		UI_GetCharacterCvars ( void );
 static void		UI_GetCharacterCustomization( void );
+static void		UI_RandomSkin(void);
+static void		UI_RandomRGB(void);
 static void		UI_RGBSaberCvars(void);
 static void		UI_UpdateSaberCvars ( void );
 static void		UI_GetSaberCvars ( void );
@@ -196,6 +198,8 @@ static void UI_CharacterSelect(const char** args);
 static void UI_ApplySaberStyles(void);
 
 static void UI_ShowMissionInfo(void);
+
+static void UI_CharacterDefaultSkin(void);
 
 // Movedata Sounds
 enum
@@ -1761,6 +1765,10 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			UI_UpdateCharacterSkin();
 		}
+		else if (Q_stricmp(name, "char_default_skin") == 0)
+		{
+			UI_CharacterDefaultSkin();
+		}
 		else if (Q_stricmp(name, "saber_type") == 0)
 		{
 			UI_UpdateSaberType();
@@ -1798,6 +1806,14 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if (Q_stricmp(name, "getcharcvars") == 0)
 		{
 			UI_GetCharacterCvars();
+		}
+		else if (Q_stricmp(name, "random_skin") == 0)
+		{
+			UI_RandomSkin();
+		}
+		else if (Q_stricmp(name, "random_rgb") == 0)
+		{
+			UI_RandomRGB();
 		}
 		else if (Q_stricmp(name, "savePage") == 0)
 		{
@@ -3472,16 +3488,6 @@ static void UI_BuildPlayerModel_List(qboolean inGameLoad)
 				continue;
 			}
 			uiInfo.playerSpeciesCount++;
-			/*if (!inGameLoad && ui_PrecacheModels.integer)
-			{
-				CGhoul2Info_v ghoul2;
-				Com_sprintf(fpath, sizeof(fpath), "models/players/%s/model.glm", dirptr);
-				int g2Model = DC->g2_InitGhoul2Model(ghoul2, fpath, 0, 0, 0, 0, 0);
-				if (g2Model >= 0)
-				{
-					DC->g2_RemoveGhoul2Model(ghoul2, 0);
-				}
-			}*/
 		}
 	}
 
@@ -5282,6 +5288,36 @@ static void UI_GetCharacterCvars ( void )
 			uiInfo.playerSpeciesIndex = i;
 		}
 	}
+}
+
+static void UI_RandomSkin(void)
+{
+	for (int i = 0; i < uiInfo.playerSpeciesCount; i++)
+	{
+		if (!Q_stricmp(Cvar_VariableString("ui_char_model"), uiInfo.playerSpecies[i].Name))
+		{
+			// Usual menu and item variables
+			menuDef_t* menu;
+			itemDef_t* item;
+			menu = Menu_GetFocused();
+			item = (itemDef_s*)Menu_FindItemByName(menu, "character");
+
+			// Update the feeders so they'll reflect whatever is picked. Passing a random number since we don't need to store or save anything.
+			UI_FeederSelection(FEEDER_PLAYER_SKIN_HEAD, Q_irand(0, uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinHeadCount - 1), item);
+			UI_FeederSelection(FEEDER_PLAYER_SKIN_TORSO, Q_irand(0, uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinTorsoCount - 1), item);
+			UI_FeederSelection(FEEDER_PLAYER_SKIN_LEGS, Q_irand(0, uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinLegCount - 1), item);
+
+			return;
+			
+		}
+	}
+}
+
+static void UI_RandomRGB(void)
+{
+	Cvar_Set("ui_char_color_red", va("%i", Q_irand(0, 255)));
+	Cvar_Set("ui_char_color_green", va("%i", Q_irand(0, 255)));
+	Cvar_Set("ui_char_color_blue", va("%i", Q_irand(0, 255)));
 }
 
 static void UI_GetCharacterCustomization(void)
@@ -7599,6 +7635,91 @@ static void UI_UpdateCharacterSkin( void )
 				);
 
 	ItemParse_model_g2skin_go( item, skin );
+}
+
+static void UI_CharacterDefaultSkin(void)
+{
+	menuDef_t* menu;
+	itemDef_t* item;
+	char skin[MAX_QPATH];
+
+	menu = Menu_GetFocused();	// Get current menu
+
+	if (!menu)
+	{
+		return;
+	}
+	
+	item = (itemDef_s*)Menu_FindItemByName(menu, "character");
+
+	if (!item)
+	{
+		Com_Error(ERR_FATAL, "UI_CharacterDefaultSkin: Could not find item (character) in menu (%s)", menu->window.name);
+	}
+
+	// Two possibilities for characters. Either they have custom skins or they don't.
+	for (int i = 0; i < uiInfo.playerSpeciesCount; i++)
+	{
+		if (!Q_stricmp(Cvar_VariableString("ui_char_model"), uiInfo.playerSpecies[i].Name))
+		{
+			uiInfo.playerSpeciesIndex = i;
+			if (uiInfo.playerSpecies[i].SkinHeadCount > 0
+				&& uiInfo.playerSpecies[i].SkinTorsoCount > 0
+				&& uiInfo.playerSpecies[i].SkinLegCount > 0)
+			{
+				// Just have the head, torso, and legs set to the first possible selection to make things easier.
+				UI_FeederSelection(FEEDER_PLAYER_SKIN_HEAD, 0, item);
+				UI_FeederSelection(FEEDER_PLAYER_SKIN_TORSO, 0, item);
+				UI_FeederSelection(FEEDER_PLAYER_SKIN_LEGS, 0, item);
+
+				// Show and Hide certain items
+				Menu_ShowItemByName(menu, "heads", qtrue);
+				Menu_ShowItemByName(menu, "torso", qfalse);
+				Menu_ShowItemByName(menu, "lower", qfalse);
+				Menu_ShowItemByName(menu, "Customization", qtrue);
+				Menu_ShowItemByName(menu, "Presets", qtrue);
+				Menu_ShowItemByName(menu, "SkinTitle", qfalse);
+				Menu_ShowItemByName(menu, "SkinList", qfalse);
+				Menu_ShowItemByName(menu, "Skins", qfalse);
+				break;
+			}
+			else
+			{
+				// Just in case a model doesn't have a "default" skin, we still pick the 1st element anyway.
+				UI_FeederSelection(FEEDER_MODEL_SKINS, 0, item);
+
+				for (int j = 0; j < uiInfo.playerSpecies[i].SkinCount; j++)
+				{
+					if (!Q_stricmp(uiInfo.playerSpecies[i].Skin[j].name, "model_default"))
+					{						
+						UI_FeederSelection(FEEDER_MODEL_SKINS, j, item);
+						break;
+					}
+				}
+				// Show and Hide certain items
+				Menu_ShowItemByName(menu, "heads", qfalse);
+				Menu_ShowItemByName(menu, "torso", qfalse);
+				Menu_ShowItemByName(menu, "lower", qfalse);
+				Menu_ShowItemByName(menu, "Customization", qfalse);
+				Menu_ShowItemByName(menu, "Presets", qfalse);
+				Menu_ShowItemByName(menu, "SkinTitle", qtrue);
+				Menu_ShowItemByName(menu, "SkinList", qtrue);
+				Menu_ShowItemByName(menu, "Skins", qfalse);
+			}
+			break;
+			
+
+		}
+	}
+
+	Com_sprintf(skin, sizeof(skin), "models/players/%s/|%s|%s|%s",
+		Cvar_VariableString("ui_char_model"),
+		Cvar_VariableString("ui_char_skin_head"),
+		Cvar_VariableString("ui_char_skin_torso"),
+		Cvar_VariableString("ui_char_skin_legs")
+	);
+
+	ItemParse_model_g2skin_go(item, skin);
 }
 
 static void UI_UpdateCharacter( qboolean changedModel )
