@@ -11388,8 +11388,7 @@ qboolean ToBeAffectedByStasis(gentity_t *self, gentity_t *traceEnt)
 		|| traceEnt->client->NPC_class == CLASS_SAND_CREATURE
 		|| traceEnt->client->NPC_class == CLASS_DROIDEKA
 			|| traceEnt->client->NPC_class == CLASS_VEHICLE
-		|| traceEnt->client->NPC_class == CLASS_ASSASSIN_DROID
-		|| traceEnt->client->NPC_class == CLASS_DROIDEKA			
+		|| traceEnt->client->NPC_class == CLASS_ASSASSIN_DROID	
 		|| traceEnt->client->NPC_class == CLASS_HAZARD_TROOPER
 		|| traceEnt->client->NPC_class == CLASS_INTERROGATOR
 		|| traceEnt->client->NPC_class == CLASS_ATST

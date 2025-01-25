@@ -920,13 +920,36 @@ void WP_FireSBD(gentity_t *ent)
 	WP_TraceSetStart(ent, muzzle, vec3_origin, vec3_origin);
 	if (ent->client->NPC_class == CLASS_DROIDEKA)
 	{
-		vectoangles(forwardVec, angs);
-		if (ent->count)
-			angs[YAW] += -3;
-		else
-			angs[YAW] += 3;
+		if (NPC && NPC->enemy)
+		{
+			float enemyDist = DistanceSquared(NPC->currentOrigin, NPC->enemy->currentOrigin);
+			vectoangles(forwardVec, angs);
+			float baseAngle = 3.0f;
+			float baseDist = 66596.9531f;
 
-		AngleVectors(angs, forwardVec, NULL, NULL);
+			float angle = baseAngle * (baseDist/enemyDist);
+			if (angle > 14)
+				angle = 14.0f;
+			if (angle < 1)
+				angle = 1.0f;
+
+			if (ent->count)
+				angs[YAW] += (angle * -1);
+			else
+				angs[YAW] += angle;
+
+			AngleVectors(angs, forwardVec, NULL, NULL);
+		}
+		else
+		{	
+			vectoangles(forwardVec, angs);
+			if (ent->count)
+				angs[YAW] += -2.0f;
+			else
+				angs[YAW] += 2.0f;
+
+			AngleVectors(angs, forwardVec, NULL, NULL);
+		}
 
 	}
 

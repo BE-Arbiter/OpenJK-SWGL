@@ -156,18 +156,25 @@ void DekaShield_Update()
 		return;
 	}
 
+	// Negative values are bad, mkay?
+	if (NPC->client->ps.stats[STAT_ARMOR] < 0)
+		NPC->client->ps.stats[STAT_ARMOR] = 0;
 
 	// Recharge Shields
 	//------------------
- 	NPC->client->ps.stats[STAT_ARMOR] += 1;
-	if (NPC->client->ps.stats[STAT_ARMOR]>250)
+	if (TIMER_Done(NPC, "recharge"))
 	{
-		NPC->client->ps.stats[STAT_ARMOR] = 250;
+		NPC->client->ps.stats[STAT_ARMOR] += Q_irand(1,5);
+		if (NPC->client->ps.stats[STAT_ARMOR] > 250)
+		{
+			NPC->client->ps.stats[STAT_ARMOR] = 250;
+		}
+		TIMER_Set(NPC, "recharge", Q_irand(500, 1500));
 	}
 
 	// If We Have Enough, Turn The Shield On
 	//----------------------------------------------------------------------------
- 	if (NPC->client->ps.stats[STAT_ARMOR]>100)
+ 	if (NPC->client->ps.stats[STAT_ARMOR] > 100)
 	{
 		// Droidekas turn off their shields when they're rolling
 		if (!PM_RunningAnim(NPC->client->ps.legsAnim))
@@ -208,9 +215,8 @@ void DekaShield_Update()
 
 	// Shields Gone
 	//--------------
-	else
+	else if (NPC->client->ps.stats[STAT_ARMOR] <= 0)
 	{
 		DekaShield_TurnOff();
-
 	}
 }
