@@ -8384,14 +8384,10 @@ qboolean G_CheckEnemyPresence( gentity_t *ent, int dir, float radius, float tole
 	return qfalse;
 }
 //OTHER JEDI POWERS=========================================================================
-//OTHER JEDI POWERS=========================================================================
-//OTHER JEDI POWERS=========================================================================
-//OTHER JEDI POWERS=========================================================================
-//OTHER JEDI POWERS=========================================================================
-extern gentity_t *TossClientItems( gentity_t *self );
+extern gentity_t *TossClientItems_Configurable( gentity_t *self , bool fromConsoleCommand);
 extern void ChangeWeapon( gentity_t *ent, int newWeapon );
 
-void WP_DropWeapon_Configurable( gentity_t *dropper, vec3_t velocity, bool forceDropAll, bool deleteWeapon,bool forceNoWeapon)
+void WP_DropWeapon_Configurable( gentity_t *dropper, vec3_t velocity, bool fromConsoleCommand, bool deleteWeapon,bool forceNoWeapon)
 {
 	if ( !dropper || !dropper->client )
 	{
@@ -8399,11 +8395,19 @@ void WP_DropWeapon_Configurable( gentity_t *dropper, vec3_t velocity, bool force
 	}
 	int	replaceWeap = WP_NONE;
 	int oldWeap = dropper->s.weapon;
-	//Don't drop WP_MELEE 
-	if (oldWeap == WP_MELEE) {
+	//Don't drop WP_MELEE nor WP_NONE
+	if (oldWeap == WP_MELEE || oldWeap == WP_NONE) {
 		return;
 	}
-	gentity_t *weapon = TossClientItems( dropper );
+	bool isLeftSaber = false;
+	if (oldWeap == WP_SABER && dropper->weaponModel[1] > 0) {
+		isLeftSaber = true;
+	}
+	gentity_t *weapon = TossClientItems_Configurable( dropper , fromConsoleCommand);
+	//If the player did the drop, don't change weapon
+	if (isLeftSaber && fromConsoleCommand) {
+		return;
+	}
 	//Randomly, NPC will charge the player with melee (10%)
 	if ( (oldWeap == WP_THERMAL || (Q_irand(0, 99) < 10) ) && dropper->NPC && !forceNoWeapon )
 	{
@@ -8421,7 +8425,7 @@ void WP_DropWeapon_Configurable( gentity_t *dropper, vec3_t velocity, bool force
 	dropper->client->ps.weapons[replaceWeap] = 1;
 	if ( !dropper->s.number )
 	{
-		if ( oldWeap == WP_THERMAL && !forceDropAll)
+		if ( oldWeap == WP_THERMAL && !fromConsoleCommand)
 		{
 			dropper->client->ps.ammo[weaponData[oldWeap].ammoIndex] -= weaponData[oldWeap].energyPerShot;
 		}

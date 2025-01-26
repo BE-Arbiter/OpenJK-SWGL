@@ -50,7 +50,7 @@ extern void ForceBlast(gentity_t *self);
 extern void G_CreateG2AttachedWeaponModel( gentity_t *ent, const char *psWeaponModel, int boltNum, int weaponNum );
 extern void G_StartMatrixEffect( gentity_t *ent, int meFlags = 0, int length = 1000, float timeScale = 0.0f, int spinTime = 0 );
 extern void ItemUse_Bacta(gentity_t *ent);
-extern void WP_DropWeapon_Configurable(gentity_t* dropper, vec3_t velocity, bool forceDropAll, bool deleteWeapon,bool forceNoWeapon);
+extern void WP_DropWeapon_Configurable(gentity_t* dropper, vec3_t velocity, bool fromConsoleCommand, bool deleteWeapon,bool forceNoWeapon);
 extern gentity_t *G_GetSelfForPlayerCmd( void );
 
 /*
