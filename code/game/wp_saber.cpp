@@ -8390,7 +8390,8 @@ qboolean G_CheckEnemyPresence( gentity_t *ent, int dir, float radius, float tole
 //OTHER JEDI POWERS=========================================================================
 extern gentity_t *TossClientItems( gentity_t *self );
 extern void ChangeWeapon( gentity_t *ent, int newWeapon );
-void WP_DropWeapon( gentity_t *dropper, vec3_t velocity )
+
+void WP_DropWeapon_Configurable( gentity_t *dropper, vec3_t velocity, bool forceDropAll, bool deleteWeapon,bool forceNoWeapon)
 {
 	if ( !dropper || !dropper->client )
 	{
@@ -8398,9 +8399,14 @@ void WP_DropWeapon( gentity_t *dropper, vec3_t velocity )
 	}
 	int	replaceWeap = WP_NONE;
 	int oldWeap = dropper->s.weapon;
+	//Don't drop WP_MELEE 
+	if (oldWeap == WP_MELEE) {
+		return;
+	}
 	gentity_t *weapon = TossClientItems( dropper );
-	if ( oldWeap == WP_THERMAL && dropper->NPC )
-	{//Hmm, maybe all NPCs should go into melee?  Not too many, though, or they mob you and look silly
+	//Randomly, NPC will charge the player with melee (10%)
+	if ( (oldWeap == WP_THERMAL || (Q_irand(0, 99) < 10) ) && dropper->NPC && !forceNoWeapon )
+	{
 		replaceWeap = WP_MELEE;
 	}
 	if ( dropper->ghoul2.IsValid() )
@@ -8415,7 +8421,7 @@ void WP_DropWeapon( gentity_t *dropper, vec3_t velocity )
 	dropper->client->ps.weapons[replaceWeap] = 1;
 	if ( !dropper->s.number )
 	{
-		if ( oldWeap == WP_THERMAL )
+		if ( oldWeap == WP_THERMAL && !forceDropAll)
 		{
 			dropper->client->ps.ammo[weaponData[oldWeap].ammoIndex] -= weaponData[oldWeap].energyPerShot;
 		}
@@ -8435,7 +8441,10 @@ void WP_DropWeapon( gentity_t *dropper, vec3_t velocity )
 	{
 		dropper->NPC->last_ucmd.weapon = replaceWeap;
 	}
-	if ( weapon != NULL && velocity && !VectorCompare( velocity, vec3_origin ) )
+	if ( weapon != NULL && deleteWeapon) {
+		G_FreeEntity(weapon);
+	}
+	else if ( weapon != NULL && velocity && !VectorCompare( velocity, vec3_origin ) )
 	{//weapon should have a direction to it's throw
 		VectorScale( velocity, 3, weapon->s.pos.trDelta );//NOTE: Presumes it is moving already...?
 		if ( weapon->s.pos.trDelta[2] < 150 )
@@ -8445,6 +8454,10 @@ void WP_DropWeapon( gentity_t *dropper, vec3_t velocity )
 		//FIXME: gets stuck inside it's former owner...
 		weapon->forcePushTime = level.time + 600; // let the push effect last for 600 ms
 	}
+}
+
+void WP_DropWeapon(gentity_t* dropper, vec3_t velocity) {
+	WP_DropWeapon_Configurable(dropper, velocity, false, false,false);
 }
 
 void WP_KnockdownTurret( gentity_t *self, gentity_t *pas )
