@@ -31,7 +31,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_vehicles.h"
 
 
-extern weaponData_t weaponData[WP_NUM_WEAPONS];
+extern int weaponCount;
+extern weaponIndexes_t weaponIndexes[MAX_WEAPONS];
+extern weaponData_t weaponData[MAX_WEAPONS];
 extern ammoData_t ammoData[AMMO_MAX];
 
 
@@ -250,16 +252,16 @@ FindItemForWeapon
 
 ===============
 */
-gitem_t	*FindItemForWeapon( weapon_t weapon ) {
+gitem_t	*FindItemForWeapon( int weaponNum ) {
 	int		i;
 
 	for ( i = 1 ; i < bg_numItems ; i++ ) {
-		if ( bg_itemlist[i].giType == IT_WEAPON && bg_itemlist[i].giTag == weapon ) {
+		if ( bg_itemlist[i].giType == IT_WEAPON && bg_itemlist[i].giTag == weaponNum) {
 			return &bg_itemlist[i];
 		}
 	}
 
-	Com_Error( ERR_DROP, "Couldn't find item for weapon %i", weapon);
+	Com_Error( ERR_DROP, "Couldn't find item for weapon num %d", weaponNum);
 	return NULL;
 }
 

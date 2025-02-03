@@ -29,7 +29,10 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "gameinfo.h"
 #include "../game/weapons.h"
 
-weaponData_t weaponData[WP_NUM_WEAPONS];
+/* Define the differents data associated with weapons */
+int weaponCount;
+weaponIndexes_t weaponIndexes[MAX_WEAPONS];
+weaponData_t weaponData[MAX_WEAPONS];
 ammoData_t ammoData[AMMO_MAX];
 
 extern void WP_LoadWeaponParms (void);

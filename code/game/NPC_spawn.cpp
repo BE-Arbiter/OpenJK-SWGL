@@ -1116,7 +1116,7 @@ void NPC_SetWeapons(gentity_t *ent)
 	{
 		ent->client->ps.weapons[i] = 0;
 	}
-	for (int curWeap = WP_SABER; curWeap < WP_NUM_WEAPONS; curWeap++)
+	for (int curWeap = WP_SABER; curWeap < weaponCount; curWeap++)
 	{
 		if ((weapons & (1 << curWeap)))
 		{
@@ -6103,7 +6103,7 @@ void NPC_Weapon_f(void)
 	{
 		gi.Printf(S_COLOR_RED "'NPC Weapon' unrecognized weapon code %s!\n", wp);
 		gi.Printf(S_COLOR_RED "Valid weapon names are:\n");
-		for (int n = WP_NONE; n < WP_NUM_WEAPONS; n++)
+		for (int n = WP_NONE; n < weaponCount; n++)
 		{
 			gi.Printf(S_COLOR_RED "%s\n", GetStringForID(WPTable, n));
 		}

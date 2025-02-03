@@ -25,605 +25,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 // this is excluded from PCH usage 'cos it looks kinda scary to me, being game and ui.... -Ste
 #include "g_local.h"
-
-typedef struct {
-	const char	*name;
-	void	(*func)(centity_t *cent, const struct weaponInfo_s *weapon );
-} func_t;
-
-// Bryar
-void FX_BryarProjectileThink(  centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_BryarAltProjectileThink(  centity_t *cent, const struct weaponInfo_s *weapon );
-
-// Blaster
-void FX_BlasterProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_BlasterAltFireThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-// Clone
-void FX_CloneProjectileThink(centity_t *cent, const struct weaponInfo_s *weapon);
-void FX_CloneAltFireThink(centity_t *cent, const struct weaponInfo_s *weapon);
-void FX_CloneAltProjectileThink(centity_t *cent, const struct weaponInfo_s *weapon);
-void FX_CloneCommandoProjectileThink(centity_t *cent, const struct weaponInfo_s *weapon);
-
-
-// Bowcaster
-void FX_BowcasterProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-// Heavy Repeater
-void FX_RepeaterProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_RepeaterAltProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-// DEMP2
-void FX_DEMP2_ProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_DEMP2_AltProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-// Golan Arms Flechette
-void FX_FlechetteProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_FlechetteAltProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-// Personal Rocket Launcher
-void FX_RocketProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_RocketAltProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-// Concussion Rifle
-void FX_ConcProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-// Emplaced weapon
-void FX_EmplacedProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-// Turret weapon
-void FX_TurretProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-// ATST Main weapon
-void FX_ATSTMainProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-// ATST Side weapons
-void FX_ATSTSideMainProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_ATSTSideAltProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-//Tusken projectile
-void FX_TuskenShotProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-//Noghri projectile
-void FX_NoghriShotProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-
-// Table used to attach an extern missile function string to the actual cgame function
-func_t	funcs[] = {
-	{"bryar_func",			FX_BryarProjectileThink},
-	{"bryar_alt_func",		FX_BryarAltProjectileThink},
-	{"blaster_func",		FX_BlasterProjectileThink},
-	{"blaster_alt_func",	FX_BlasterAltFireThink},
-	{"bowcaster_func",		FX_BowcasterProjectileThink},
-	{"repeater_func",		FX_RepeaterProjectileThink},
-	{"repeater_alt_func",	FX_RepeaterAltProjectileThink},
-	{"demp2_func",			FX_DEMP2_ProjectileThink},
-	{"demp2_alt_func",		FX_DEMP2_AltProjectileThink},
-	{"flechette_func",		FX_FlechetteProjectileThink},
-	{"flechette_alt_func",	FX_FlechetteAltProjectileThink},
-	{"rocket_func",			FX_RocketProjectileThink},
-	{"rocket_alt_func",		FX_RocketAltProjectileThink},
-	{"conc_func",			FX_ConcProjectileThink},
-	{"emplaced_func",		FX_EmplacedProjectileThink},
-	{"turret_func",			FX_TurretProjectileThink},
-	{"atstmain_func",		FX_ATSTMainProjectileThink},
-	{"atst_side_alt_func",	FX_ATSTSideAltProjectileThink},
-	{"atst_side_main_func",	FX_ATSTSideMainProjectileThink},
-	{"tusk_shot_func",		FX_TuskenShotProjectileThink},
-	{"noghri_shot_func",	FX_NoghriShotProjectileThink},
-	{ "clone_func",			FX_CloneProjectileThink},
-	{ "clone_alt_func",     FX_CloneAltFireThink },
-	{ "clone_pistol_alt_func", FX_CloneAltProjectileThink },
-	{ "clone_commando_alt_func", FX_CloneCommandoProjectileThink },
-	{NULL,					NULL}
-};
-
-qboolean playerUsableWeapons[WP_NUM_WEAPONS] =
-{
-	qtrue,//WP_NONE,
-
-	// Player weapons
-	qtrue,//WP_SABER,
-	qtrue,//WP_BLASTER_PISTOL,	// player and NPC weapon
-	qtrue,//WP_BLASTER,			// player and NPC weapon
-	qtrue,//WP_DISRUPTOR,		// player and NPC weapon
-	qtrue,//WP_BOWCASTER,		// NPC weapon - player can pick this up, but never starts with them
-	qtrue,//WP_REPEATER,		// NPC weapon - player can pick this up, but never starts with them
-	qtrue,//WP_DEMP2,			// NPC weapon - player can pick this up, but never starts with them
-	qtrue,//WP_FLECHETTE,		// NPC weapon - player can pick this up, but never starts with them
-	qtrue,//WP_ROCKET_LAUNCHER,	// NPC weapon - player can pick this up, but never starts with them
-	qtrue,//WP_THERMAL,			// player and NPC weapon
-	qtrue,//WP_TRIP_MINE,		// NPC weapon - player can pick this up, but never starts with them
-	qtrue,//WP_DET_PACK,		// NPC weapon - player can pick this up, but never starts with them
-	qtrue,//WP_CONCUSSION,		// NPC weapon - player can pick this up, but never starts with them
-
-	//extras
-	qtrue,//WP_MELEE,			// player and NPC weapon - Any ol' melee attack
-
-	//when in atst
-	qtrue,//WP_ATST_MAIN,
-	qtrue,//WP_ATST_SIDE,
-
-	// These can never be gotten directly by the player
-	qtrue,//WP_STUN_BATON,		// stupid weapon, should remove
-
-	//NPC weapons
-	qtrue,//WP_BRYAR_PISTOL,	// NPC weapon - player can pick this up, but never starts with them
-
-	qfalse,//WP_EMPLACED_GUN,
-
-	qfalse,//WP_BOT_LASER,		// Probe droid	- Laser blast
-
-	qfalse,//WP_TURRET,			// turret guns
-
-	qfalse,//WP_TIE_FIGHTER,
-
-	qfalse,//WP_RAPID_FIRE_CONC,
-
-	qfalse,//WP_JAWA,
-	qtrue,//WP_TUSKEN_RIFLE,
-	qfalse,//WP_TUSKEN_STAFF,
-	qfalse,//WP_SCEPTER,
-	qtrue,//WP_NOGHRI_STICK,
-
-	qtrue,//WP_BATTLEDROID
-	qtrue,//WP_THEFIRSTORDER,
-	qtrue,//WP_CLONECARBINE,
-	qtrue,//WP_REBELBLASTER,
-	qtrue,//WP_CLONERIFLE,
-	qtrue,//WP_CLONECOMMANDO,
-	qtrue,//WP_REBELRIFLE,
-	qtrue,//WP_REY,
-	qtrue,//WP_JANGO,
-	qtrue,//WP_BOBA,
-	qtrue,//WP_CLONEPISTOL
-
-	//# #eol
-	//WP_NUM_WEAPONS
-};
-
-//qboolean COM_ParseInt( char **data, int *i );
-//qboolean COM_ParseString( char **data, char **s );
-//qboolean COM_ParseFloat( char **data, float *f );
-
-struct wpnParms_s
-{
-	int	weaponNum;	// Current weapon number
-	int	ammoNum;
-} wpnParms;
-
-void WPN_Ammo (const char **holdBuf);
-void WPN_AmmoIcon (const char **holdBuf);
-void WPN_AmmoMax (const char **holdBuf);
-void WPN_AmmoLowCnt (const char **holdBuf);
-void WPN_AmmoType (const char **holdBuf);
-void WPN_EnergyPerShot (const char **holdBuf);
-void WPN_FireTime (const char **holdBuf);
-void WPN_FiringSnd (const char **holdBuf);
-void WPN_AltFiringSnd(const char **holdBuf );
-void WPN_StopSnd( const char **holdBuf );
-void WPN_ChargeSnd (const char **holdBuf);
-void WPN_AltChargeSnd (const char **holdBuf);
-void WPN_SelectSnd (const char **holdBuf);
-void WPN_Range (const char **holdBuf);
-void WPN_WeaponClass ( const char **holdBuf);
-void WPN_WeaponIcon (const char **holdBuf);
-void WPN_WeaponModel (const char **holdBuf);
-void WPN_WeaponType (const char **holdBuf);
-void WPN_AltEnergyPerShot (const char **holdBuf);
-void WPN_AltFireTime (const char **holdBuf);
-void WPN_AltRange (const char **holdBuf);
-void WPN_BarrelCount(const char **holdBuf);
-void WPN_MissileName(const char **holdBuf);
-void WPN_AltMissileName(const char **holdBuf);
-void WPN_MissileSound(const char **holdBuf);
-void WPN_AltMissileSound(const char **holdBuf);
-void WPN_MissileLight(const char **holdBuf);
-void WPN_AltMissileLight(const char **holdBuf);
-void WPN_MissileLightColor(const char **holdBuf);
-void WPN_AltMissileLightColor(const char **holdBuf);
-void WPN_FuncName(const char **holdBuf);
-void WPN_AltFuncName(const char **holdBuf);
-void WPN_MissileHitSound(const char **holdBuf);
-void WPN_AltMissileHitSound(const char **holdBuf);
-void WPN_MuzzleEffect(const char **holdBuf);
-void WPN_AltMuzzleEffect(const char **holdBuf);
-void WPN_TertiaryMuzzleEffect(const char **holdBuf);
-// OPENJK ADD
-
-void WPN_Damage(const char **holdBuf);
-void WPN_AltDamage(const char **holdBuf);
-void WPN_SplashDamage(const char **holdBuf);
-void WPN_SplashRadius(const char **holdBuf);
-void WPN_AltSplashDamage(const char **holdBuf);
-void WPN_AltSplashRadius(const char **holdBuf);
-
-void WPN_TertiaryEnergyPerShot(const char **holdBuf);
-void WPN_TertiaryFireTime(const char **holdBuf);
-void WPN_TertiaryRange(const char **holdBuf);
-
-void WPN_ScopeType(const char **holdBuf);
-
-void WPN_MainFireOptions(const char **holdBuf);
-void WPN_AltFireOptions(const char **holdBuf);
-void WPN_TertiaryFireOptions(const char **holdBuf);
-
-void WPN_WeaponModel2(const char **holdBuf);
-
-// Legacy weapons.dat force fields
-void WPN_FuncSkip(const char **holdBuf);
-
-typedef struct
-{
-	const char	*parmName;
-	void	(*func)(const char **holdBuf);
-} wpnParms_t;
-
-int defaultDamageCopy[WP_NUM_WEAPONS];
-
-// This is used as a fallback for each new field, in case they're using base files --eez
-const int defaultDamage[] = {
-	0,							// WP_NONE
-	0,							// WP_SABER				// handled elsewhere
-	BRYAR_PISTOL_DAMAGE,		// WP_BLASTER_PISTOL
-	BLASTER_DAMAGE,				// WP_BLASTER
-	DISRUPTOR_MAIN_DAMAGE,		// WP_DISRUPTOR
-	BOWCASTER_DAMAGE,			// WP_BOWCASTER
-	REPEATER_DAMAGE,			// WP_REPEATER
-	DEMP2_DAMAGE,				// WP_DEMP2
-	FLECHETTE_DAMAGE,			// WP_FLECHETTE
-	ROCKET_DAMAGE,				// WP_ROCKET_LAUNCHER
-	TD_DAMAGE,					// WP_THERMAL
-	LT_DAMAGE,					// WP_TRIP_MINE
-	FLECHETTE_MINE_DAMAGE,		// WP_DET_PACK			// HACK, this is what the code sez.
-	CONC_DAMAGE,				// WP_CONCUSSION
-
-	0,							// WP_MELEE				// handled by the melee attack function
-
-	ATST_MAIN_DAMAGE,			// WP_ATST_MAIN
-	ATST_SIDE_MAIN_DAMAGE,		// WP_ATST_SIDE
-
-	STUN_BATON_DAMAGE,			// WP_STUN_BATON
-
-	BRYAR_PISTOL_DAMAGE,		// WP_BRYAR_PISTOL
-	EMPLACED_DAMAGE,			// WP_EMPLACED_GUN
-	BRYAR_PISTOL_DAMAGE,		// WP_BOT_LASER
-	0,							// WP_TURRET			// handled elsewhere
-	EMPLACED_DAMAGE,			// WP_TIE_FIGHTER
-	EMPLACED_DAMAGE,			// WP_RAPID_FIRE_CONC,
-
-	BRYAR_PISTOL_DAMAGE,		// WP_JAWA
-	0,							// WP_TUSKEN_RIFLE
-	0,							// WP_TUSKEN_STAFF
-	0,							// WP_SCEPTER
-	0,							// WP_NOGHRI_STICK
-
-	E5_DAMAGE,					// WP_BATTLEDROID
-	F_11D_DAMAGE,				// WP_THEFIRSTORDER
-	CLONECARBINE_DAMAGE,		// WP_CLONECARBINE
-	REBELBLASTER_DAMAGE,		// WP_REBELBLASTER
-	CLONERIFLE_DAMAGE,			// WP_CLONERIFLE
-	CLONECOMMANDO_DAMAGE,		// WP_CLONECOMMANDO
-	REBELRIFLE_DAMAGE,			// WP_REBELRIFLE
-	REY_DAMAGE,					// WP_REY
-	JANGO_DAMAGE,				// WP_JANGO
-	BOBA_DAMAGE,				// WP_BOBA
-	CLONEPISTOL_DAMAGE,			// WP_CLONEPISTOL
-};
-
-const int defaultAltDamage[] = {
-	0,						// WP_NONE
-	0,						// WP_SABER					// handled elsewhere
-	BRYAR_PISTOL_DAMAGE,	// WP_BLASTER_PISTOL
-	BLASTER_DAMAGE,			// WP_BLASTER
-	DISRUPTOR_ALT_DAMAGE,	// WP_DISRUPTOR
-	BOWCASTER_DAMAGE,		// WP_BOWCASTER
-	REPEATER_ALT_DAMAGE,	// WP_REPEATER
-	DEMP2_ALT_DAMAGE,		// WP_DEMP2
-	FLECHETTE_ALT_DAMAGE,	// WP_FLECHETTE
-	ROCKET_DAMAGE,			// WP_ROCKET_LAUNCHER
-	TD_ALT_DAMAGE,			// WP_THERMAL
-	LT_DAMAGE,				// WP_TRIP_MINE
-	FLECHETTE_MINE_DAMAGE,	// WP_DET_PACK				// HACK, this is what the code sez.
-	CONC_ALT_DAMAGE,		// WP_CONCUSION
-
-	0,						// WP_MELEE					// handled by the melee attack function
-
-	ATST_MAIN_DAMAGE,		// WP_ATST_MAIN
-	ATST_SIDE_ALT_DAMAGE,	// WP_ATST_SIDE
-
-	STUN_BATON_ALT_DAMAGE,	// WP_STUN_BATON
-
-	BRYAR_PISTOL_DAMAGE,	// WP_BRYAR_PISTOL
-	EMPLACED_DAMAGE,		// WP_EMPLACED_GUN
-	BRYAR_PISTOL_DAMAGE,	// WP_BOT_LASER
-	0,						// WP_TURRET				// handled elsewhere
-	EMPLACED_DAMAGE,		// WP_TIE_FIGHTER
-	0,						// WP_RAPID_FIRE_CONC		// repeater alt damage is used instead
-
-	BRYAR_PISTOL_DAMAGE,	// WP_JAWA
-	0,						// WP_TUSKEN_RIFLE
-	0,						// WP_TUSKEN_STAFF
-	0,						// WP_SCEPTER
-	0,						// WP_NOGHRI_STICK
-
-	E5_ALT_DAMAGE,			// WP_BATTLEDROID
-	F_11D_SCOPE_DAMAGE,		// WP_THEFIRSTORDER
-	CLONECARBINE_ALT_DAMAGE, // WP_CLONECARBINE
-	REBELBLASTER_SCOPE_DAMAGE,// WP_REBELBLASTER
-	CLONERIFLE_ALT_DAMAGE,		// WP_CLONERIFLE
-	CLONECOMMANDO_ALT_DAMAGE,// WP_CLONECOMMANDO
-	REBELRIFLE_SCOPE_DAMAGE,// WP_REBELRIFLE
-	REY_DAMAGE,				// WP_REY
-	JANGO_ALT_DAMAGE,		// WP_JANGO
-	BOBA_SCOPE_DAMAGE,		// WP_BOBA
-	CLONEPISTOL_ALT_DAMAGE,		// WP_CLONEPISTOL
-};
-
-const int defaultSplashDamage[] = {
-	0,								// WP_NONE
-	0,								// WP_SABER
-	0,								// WP_BLASTER_PISTOL
-	0,								// WP_BLASTER
-	0,								// WP_DISRUPTOR
-	BOWCASTER_SPLASH_DAMAGE,		// WP_BOWCASTER
-	0,								// WP_REPEATER
-	0,								// WP_DEMP2
-	0,								// WP_FLECHETTE
-	ROCKET_SPLASH_DAMAGE,			// WP_ROCKET_LAUNCHER
-	TD_SPLASH_DAM,					// WP_THERMAL
-	LT_SPLASH_DAM,					// WP_TRIP_MINE
-	FLECHETTE_MINE_SPLASH_DAMAGE,	// WP_DET_PACK		// HACK, this is what the code sez.
-	CONC_SPLASH_DAMAGE,				// WP_CONCUSSION
-
-	0,								// WP_MELEE
-
-	0,								// WP_ATST_MAIN
-	ATST_SIDE_MAIN_SPLASH_DAMAGE,	// WP_ATST_SIDE
-
-	0,								// WP_STUN_BATON
-
-	0,								// WP_BRYAR_PISTOL
-	0,								// WP_EMPLACED_GUN
-	0,								// WP_BOT_LASER
-	0,								// WP_TURRET
-	0,								// WP_TIE_FIGHTER
-	0,								// WP_RAPID_FIRE_CONC
-
-	0,								// WP_JAWA
-	0,								// WP_TUSKEN_RIFLE
-	0,								// WP_TUSKEN_STAFF
-	0,								// WP_SCEPTER
-	0,								// WP_NOGHRI_STICK
-
-	0,								// WP_BATTLEDROID
-	0,				   				// WP_THEFIRSTORDER
-	0,				   				// WP_CLONECARBINE
-	0,				   				// WP_REBELBLASTER
-	0,				   				// WP_CLONERIFLE
-	0,				   				// WP_CLONECOMMANDO
-	0,						   	 	// WP_REBELRIFLE
-	0,				   				// WP_REY
-	0,				   				// WP_JANGO
-	0,				   				// WP_BOBA
-	0,				   				// WP_CLONEPISTOL
-};
-
-const float defaultSplashRadius[] = {
-	0.0f,							// WP_NONE
-	0.0f,							// WP_SABER
-	0.0f,							// WP_BLASTER_PISTOL
-	0.0f,							// WP_BLASTER
-	0.0f,							// WP_DISRUPTOR
-	BOWCASTER_SPLASH_RADIUS,		// WP_BOWCASTER
-	0.0f,							// WP_REPEATER
-	0.0f,							// WP_DEMP2
-	0.0f,							// WP_FLECHETTE
-	ROCKET_SPLASH_RADIUS,			// WP_ROCKET_LAUNCHER
-	TD_SPLASH_RAD,					// WP_THERMAL
-	LT_SPLASH_RAD,					// WP_TRIP_MINE
-	FLECHETTE_MINE_SPLASH_RADIUS,	// WP_DET_PACK		// HACK, this is what the code sez.
-	CONC_SPLASH_RADIUS,				// WP_CONCUSSION
-
-	0.0f,							// WP_MELEE
-
-	0.0f,							// WP_ATST_MAIN
-	ATST_SIDE_MAIN_SPLASH_RADIUS,	// WP_ATST_SIDE
-
-	0.0f,							// WP_STUN_BATON
-
-	0.0f,							// WP_BRYAR_PISTOL
-	0.0f,							// WP_EMPLACED_GUN
-	0.0f,							// WP_BOT_LASER
-	0.0f,							// WP_TURRET
-	0.0f,							// WP_TIE_FIGHTER
-	0.0f,							// WP_RAPID_FIRE_CONC
-
-	0.0f,							// WP_JAWA
-	0.0f,							// WP_TUSKEN_RIFLE
-	0.0f,							// WP_TUSKEN_STAFF
-	0.0f,							// WP_SCEPTER
-	0.0f,							// WP_NOGHRI_STICK
-
-	0.0f,							// WP_BATTLEDROID
-	0.0f,							// WP_THEFIRSTORDER
-	0.0f,							// WP_CLONECARBINE
-	0.0f,							// WP_REBELBLASTER
-	0.0f,							// WP_CLONERIFLE
-	0.0f,							// WP_CLONECOMMANDO
-	0.0f,							// WP_REBELRIFLE
-	0.0f,							// WP_REY
-	0.0f,							// WP_JANGO
-	0.0f,							// WP_BOBA
-	0.0f,							// WP_CLONEPISTOL
-};
-
-const int defaultAltSplashDamage[] = {
-	0,								// WP_NONE
-	0,								// WP_SABER			// handled elsewhere
-	0,								// WP_BLASTER_PISTOL
-	0,								// WP_BLASTER
-	0,								// WP_DISRUPTOR
-	BOWCASTER_SPLASH_DAMAGE,		// WP_BOWCASTER
-	REPEATER_ALT_SPLASH_DAMAGE,		// WP_REPEATER
-	DEMP2_ALT_DAMAGE,				// WP_DEMP2
-	FLECHETTE_ALT_SPLASH_DAM,		// WP_FLECHETTE
-	ROCKET_SPLASH_DAMAGE,			// WP_ROCKET_LAUNCHER
-	TD_ALT_SPLASH_DAM,				// WP_THERMAL
-	TD_ALT_SPLASH_DAM,				// WP_TRIP_MINE
-	FLECHETTE_MINE_SPLASH_DAMAGE,	// WP_DET_PACK		// HACK, this is what the code sez.
-	0,								// WP_CONCUSSION
-
-	0,								// WP_MELEE			// handled by the melee attack function
-
-	0,								// WP_ATST_MAIN
-	ATST_SIDE_ALT_SPLASH_DAMAGE,	// WP_ATST_SIDE
-
-	0,								// WP_STUN_BATON
-
-	0,								// WP_BRYAR_PISTOL
-	0,								// WP_EMPLACED_GUN
-	0,								// WP_BOT_LASER
-	0,								// WP_TURRET		// handled elsewhere
-	0,								// WP_TIE_FIGHTER
-	0,								// WP_RAPID_FIRE_CONC
-
-	0,								// WP_JAWA
-	0,								// WP_TUSKEN_RIFLE
-	0,								// WP_TUSKEN_STAFF
-	0,								// WP_SCEPTER
-	0,								// WP_NOGHRI_STICK
-
-	0,								// WP_BATTLEDROID
-	0,								// WP_THEFIRSTORDER
-	0,								// WP_CLONECARBINE
-	0,								// WP_REBELBLASTER
-	0,				   				// WP_CLONERIFLE
-	CLONECOMMANDO_ALT_SPLASH_DAMAGE,// WP_CLONECOMMANDO
-	0,				   				// WP_REBELRIFLE
-	0,				   				// WP_REY
-	0,				   				// WP_JANGO
-	0,				   				// WP_BOBA
-	0,				   				// WP_CLONEPISTOL
-};
-
-const float defaultAltSplashRadius[] = {
-	0.0f,							// WP_NONE
-	0.0f,							// WP_SABER		// handled elsewhere
-	0.0f,							// WP_BLASTER_PISTOL
-	0.0f,							// WP_BLASTER
-	0.0f,							// WP_DISRUPTOR
-	BOWCASTER_SPLASH_RADIUS,		// WP_BOWCASTER
-	REPEATER_ALT_SPLASH_RADIUS,		// WP_REPEATER
-	DEMP2_ALT_SPLASHRADIUS,			// WP_DEMP2
-	FLECHETTE_ALT_SPLASH_RAD,		// WP_FLECHETTE
-	ROCKET_SPLASH_RADIUS,			// WP_ROCKET_LAUNCHER
-	TD_ALT_SPLASH_RAD,				// WP_THERMAL
-	LT_SPLASH_RAD,					// WP_TRIP_MINE
-	FLECHETTE_ALT_SPLASH_RAD,		// WP_DET_PACK		// HACK, this is what the code sez.
-	0.0f,							// WP_CONCUSSION
-
-	0.0f,							// WP_MELEE			// handled by the melee attack function
-
-	0.0f,							// WP_ATST_MAIN
-	ATST_SIDE_ALT_SPLASH_RADIUS,	// WP_ATST_SIDE
-
-	0.0f,							// WP_STUN_BATON
-
-	0.0f,							// WP_BRYAR_PISTOL
-	0.0f,							// WP_EMPLACED_GUN
-	0.0f,							// WP_BOT_LASER
-	0.0f,							// WP_TURRET		// handled elsewhere
-	0.0f,							// WP_TIE_FIGHTER
-	0.0f,							// WP_RAPID_FIRE_CONC
-
-	0.0f,							// WP_JAWA
-	0.0f,							// WP_TUSKEN_RIFLE
-	0.0f,							// WP_TUSKEN_STAFF
-	0.0f,							// WP_SCEPTER
-	0.0f,							// WP_NOGHRI_STICK
-
-	0.0f,							// WP_BATTLEDROID
-	0.0f,							// WP_THEFIRSTORDER
-	0.0f,							// WP_CLONECARBINE
-	0.0f,							// WP_REBELBLASTER
-	0.0f,							// WP_CLONERIFLE
-	CLONECOMMANDO_ALT_SPLASH_RADIUS,// WP_CLONECOMMANDO
-	0.0f,							// WP_REBELRIFLE
-	0.0f,							// WP_REY
-	0.0f,							// WP_JANGO
-	0.0f,							// WP_BOBA
-	0.0f,							// WP_CLONEPISTOL
-};
-
-wpnParms_t WpnParms[] =
-{
-	{ "ammo",				WPN_Ammo },	//ammo
-	{ "ammoicon",			WPN_AmmoIcon },
-	{ "ammomax",			WPN_AmmoMax },
-	{ "ammolowcount",		WPN_AmmoLowCnt }, //weapons
-	{ "ammotype",			WPN_AmmoType },
-	{ "energypershot",	WPN_EnergyPerShot },
-	{ "fireTime",			WPN_FireTime },
-	{ "firingsound",		WPN_FiringSnd },
-	{ "altfiringsound",	WPN_AltFiringSnd },
-//	{ "flashsound",		WPN_FlashSnd },
-//	{ "altflashsound",	WPN_AltFlashSnd },
-	{ "stopsound",		WPN_StopSnd },
-	{ "chargesound",		WPN_ChargeSnd },
-	{ "altchargesound",	WPN_AltChargeSnd },
-	{ "selectsound",		WPN_SelectSnd },
-	{ "range",			WPN_Range },
-	{ "weaponclass",		WPN_WeaponClass },
-	{ "weaponicon",		WPN_WeaponIcon },
-	{ "weaponmodel",		WPN_WeaponModel },
-	{ "weapontype",		WPN_WeaponType },
-	{ "altenergypershot",	WPN_AltEnergyPerShot },
-	{ "altfireTime",		WPN_AltFireTime },
-	{ "altrange",			WPN_AltRange },
-	{ "barrelcount",		WPN_BarrelCount },
-	{ "missileModel",		WPN_MissileName },
-	{ "altmissileModel", 	WPN_AltMissileName },
-	{ "missileSound",		WPN_MissileSound },
-	{ "altmissileSound", 	WPN_AltMissileSound },
-	{ "missileLight",		WPN_MissileLight },
-	{ "altmissileLight", 	WPN_AltMissileLight },
-	{ "missileLightColor",WPN_MissileLightColor },
-	{ "altmissileLightColor",	WPN_AltMissileLightColor },
-	{ "missileFuncName",		WPN_FuncName },
-	{ "altmissileFuncName",	WPN_AltFuncName },
-	{ "missileHitSound",		WPN_MissileHitSound },
-	{ "altmissileHitSound",	WPN_AltMissileHitSound },
-	{ "muzzleEffect",			WPN_MuzzleEffect },
-	{ "altmuzzleEffect",		WPN_AltMuzzleEffect },
-	{ "tertiarymuzzleEffect",	WPN_TertiaryMuzzleEffect },
-	// OPENJK NEW FIELDS
-	{ "damage",			WPN_Damage },
-	{ "altdamage",		WPN_AltDamage },
-	{ "splashDamage",		WPN_SplashDamage },
-	{ "splashRadius",		WPN_SplashRadius },
-	{ "altSplashDamage",	WPN_AltSplashDamage },
-	{ "altSplashRadius",	WPN_AltSplashRadius },
-
-	{ "tertiaryenergypershot",	WPN_TertiaryEnergyPerShot },
-	{ "tertiaryfiretime",		WPN_TertiaryFireTime },
-	{ "tertiaryrange",			WPN_TertiaryRange },
-
-	{ "scopeType",			WPN_ScopeType },
-
-	{ "mainfireopt",		WPN_MainFireOptions},
-	{ "altfireopt",			WPN_AltFireOptions},
-	{ "tertiaryfireopt",	WPN_TertiaryFireOptions},
-
-	{ "weaponmodel2",		WPN_WeaponModel2 },
-
-	// Old legacy files contain these, so we skip them to shut up warnings
-	{ "firingforce",		WPN_FuncSkip },
-	{ "chargeforce",		WPN_FuncSkip },
-	{ "altchargeforce",	WPN_FuncSkip },
-	{ "selectforce",		WPN_FuncSkip },
-};
-
-static const size_t numWpnParms = ARRAY_LEN(WpnParms);
+#include "g_weaponLoad.h"
 
 void WPN_FuncSkip( const char **holdBuf)
 {
@@ -632,6 +34,7 @@ void WPN_FuncSkip( const char **holdBuf)
 
 void WPN_WeaponType( const char **holdBuf)
 {
+	int i;
 	int weaponNum;
 	const char	*tokenStr;
 
@@ -640,94 +43,30 @@ void WPN_WeaponType( const char **holdBuf)
 		return;
 	}
 
-	// FIXME : put this in an array (maybe a weaponDataInternal array???)
-	if (!Q_stricmp(tokenStr,"WP_NONE"))
-		weaponNum = WP_NONE;
-	else if (!Q_stricmp(tokenStr,"WP_SABER"))
-		weaponNum = WP_SABER;
-	else if (!Q_stricmp(tokenStr,"WP_BLASTER_PISTOL"))
-		weaponNum = WP_BLASTER_PISTOL;
-	else if (!Q_stricmp(tokenStr,"WP_BRYAR_PISTOL"))
-		weaponNum = WP_BRYAR_PISTOL;
-	else if (!Q_stricmp(tokenStr,"WP_BLASTER"))
-		weaponNum = WP_BLASTER;
-	else if (!Q_stricmp(tokenStr,"WP_DISRUPTOR"))
-		weaponNum = WP_DISRUPTOR;
-	else if (!Q_stricmp(tokenStr,"WP_BOWCASTER"))
-		weaponNum = WP_BOWCASTER;
-	else if (!Q_stricmp(tokenStr,"WP_REPEATER"))
-		weaponNum = WP_REPEATER;
-	else if (!Q_stricmp(tokenStr,"WP_DEMP2"))
-		weaponNum = WP_DEMP2;
-	else if (!Q_stricmp(tokenStr,"WP_FLECHETTE"))
-		weaponNum = WP_FLECHETTE;
-	else if (!Q_stricmp(tokenStr,"WP_ROCKET_LAUNCHER"))
-		weaponNum = WP_ROCKET_LAUNCHER;
-	else if (!Q_stricmp(tokenStr,"WP_CONCUSSION"))
-		weaponNum = WP_CONCUSSION;
-	else if (!Q_stricmp(tokenStr,"WP_THERMAL"))
-		weaponNum = WP_THERMAL;
-	else if (!Q_stricmp(tokenStr,"WP_TRIP_MINE"))
-		weaponNum = WP_TRIP_MINE;
-	else if (!Q_stricmp(tokenStr,"WP_DET_PACK"))
-		weaponNum = WP_DET_PACK;
-	else if (!Q_stricmp(tokenStr,"WP_STUN_BATON"))
-		weaponNum = WP_STUN_BATON;
-	else if (!Q_stricmp(tokenStr,"WP_BOT_LASER"))
-		weaponNum = WP_BOT_LASER;
-	else if (!Q_stricmp(tokenStr,"WP_EMPLACED_GUN"))
-		weaponNum = WP_EMPLACED_GUN;
-	else if (!Q_stricmp(tokenStr,"WP_MELEE"))
-		weaponNum = WP_MELEE;
-	else if (!Q_stricmp(tokenStr,"WP_TURRET"))
-		weaponNum = WP_TURRET;
-	else if (!Q_stricmp(tokenStr,"WP_ATST_MAIN"))
-		weaponNum = WP_ATST_MAIN;
-	else if (!Q_stricmp(tokenStr,"WP_ATST_SIDE"))
-		weaponNum = WP_ATST_SIDE;
-	else if (!Q_stricmp(tokenStr,"WP_TIE_FIGHTER"))
-		weaponNum = WP_TIE_FIGHTER;
-	else if (!Q_stricmp(tokenStr,"WP_RAPID_FIRE_CONC"))
-		weaponNum = WP_RAPID_FIRE_CONC;
-	else if (!Q_stricmp(tokenStr,"WP_JAWA"))
-		weaponNum = WP_JAWA;
-	else if (!Q_stricmp(tokenStr,"WP_TUSKEN_RIFLE"))
-		weaponNum = WP_TUSKEN_RIFLE;
-	else if (!Q_stricmp(tokenStr,"WP_TUSKEN_STAFF"))
-		weaponNum = WP_TUSKEN_STAFF;
-	else if (!Q_stricmp(tokenStr,"WP_SCEPTER"))
-		weaponNum = WP_SCEPTER;
-	else if (!Q_stricmp(tokenStr,"WP_NOGHRI_STICK"))
-		weaponNum = WP_NOGHRI_STICK;
-	else if (!Q_stricmp(tokenStr, "WP_BATTLEDROID"))
-		weaponNum = WP_BATTLEDROID;
-	else if (!Q_stricmp(tokenStr, "WP_THEFIRSTORDER"))
-		weaponNum = WP_THEFIRSTORDER;
-	else if (!Q_stricmp(tokenStr, "WP_CLONECARBINE"))
-		weaponNum = WP_CLONECARBINE;
-	else if (!Q_stricmp(tokenStr, "WP_REBELBLASTER"))
-		weaponNum = WP_REBELBLASTER;
-	else if (!Q_stricmp(tokenStr, "WP_CLONERIFLE"))
-		weaponNum = WP_CLONERIFLE;
-	else if (!Q_stricmp(tokenStr, "WP_CLONECOMMANDO"))
-		weaponNum = WP_CLONECOMMANDO;
-	else if (!Q_stricmp(tokenStr, "WP_REBELRIFLE"))
-		weaponNum = WP_REBELRIFLE;
-	else if (!Q_stricmp(tokenStr, "WP_REY"))
-		weaponNum = WP_REY;
-	else if (!Q_stricmp(tokenStr, "WP_JANGO"))
-		weaponNum = WP_JANGO;
-	else if (!Q_stricmp(tokenStr, "WP_BOBA"))
-		weaponNum = WP_BOBA;
-	else if (!Q_stricmp(tokenStr, "WP_CLONEPISTOL"))
-		weaponNum = WP_CLONEPISTOL;
-	else
+	for (i = 0;i < numHcWeaponIndexes;i++)
 	{
-		weaponNum = 0;
-		gi.Printf(S_COLOR_YELLOW"WARNING: bad weapontype in external weapon data '%s'\n", tokenStr);
+		if (!Q_stricmp(tokenStr, _weaponIndexes[i].weaponClass))
+		{
+			weaponNum = _weaponIndexes[i].index;
+			break;
+		}
 	}
 
+	if (i == numHcWeaponIndexes)	// !Find parameter
+	{
+		if (weaponCount >= MAX_WEAPONS) {
+			weaponNum = 0;
+			gi.Printf(S_COLOR_YELLOW"WARNING: too many weapons in external weapon data(%d); Parsing '%s'\n", MAX_WEAPONS, tokenStr);
+		}
+		weaponNum = weaponCount;
+		weaponCount++;
+		
+	}
+	
 	wpnParms.weaponNum = weaponNum;
+
+	weaponIndexes[weaponNum].index = weaponNum;
+	strcpy(weaponIndexes[weaponNum].weaponClass, tokenStr);
 }
 
 //--------------------------------------------
@@ -1198,7 +537,6 @@ static void WP_ParseWeaponParms(const char **holdBuf)
 
 		if (!Q_stricmp( token, "}" ))	// End of data for this weapon
 			break;
-
 		// Loop through possible parameters
 		for (i=0;i<numWpnParms;++i)
 		{
@@ -1575,6 +913,7 @@ void WPN_Damage(const char **holdBuf)
 	}
 
 	weaponData[wpnParms.weaponNum].damage = tokenInt;
+	defaultDamageCopy[wpnParms.weaponNum] = tokenInt;
 }
 
 //--------------------------------------------
@@ -1830,6 +1169,58 @@ void WPN_WeaponModel2(const char **holdBuf)
 }
 
 //--------------------------------------------
+void WPN_BaseWeapon(const char **holdBuf)
+{
+	int len;
+	const char	*tokenStr;
+
+	if ( COM_ParseString(holdBuf,&tokenStr))
+	{
+		return;
+	}
+
+	len = strlen(tokenStr);
+	len++;
+	if (len > 32)
+	{
+		len = 32;
+		gi.Printf(S_COLOR_YELLOW"WARNING: Base weapon too long in external WEAPONS.DAT '%s'\n", tokenStr);
+	}
+
+	Q_strncpyz(weaponData[wpnParms.weaponNum].baseclass,tokenStr,len);
+}
+
+//--------------------------------------------
+
+void WPN_Velocity(const char** holdBuf)
+{
+	float	tokenFlt;
+
+	if (COM_ParseFloat(holdBuf, &tokenFlt))
+	{
+		SkipRestOfLine(holdBuf);
+		return;
+	}
+
+	weaponData[wpnParms.weaponNum].mVelocity = tokenFlt;
+}
+
+//--------------------------------------------
+
+void WPN_AltVelocity(const char** holdBuf)
+{
+	float	tokenFlt;
+
+	if (COM_ParseFloat(holdBuf, &tokenFlt))
+	{
+		SkipRestOfLine(holdBuf);
+		return;
+	}
+
+	weaponData[wpnParms.weaponNum].mAltVelocity = tokenFlt;
+}
+
+//--------------------------------------------
 static void WP_ParseParms(const char *buffer)
 {
 	const char	*holdBuf;
@@ -1853,6 +1244,7 @@ static void WP_ParseParms(const char *buffer)
 
 }
 
+
 //--------------------------------------------
 void WP_LoadWeaponParms (void)
 {
@@ -1868,9 +1260,15 @@ void WP_LoadWeaponParms (void)
 
 	// initialise the data area
 	memset(weaponData, 0, sizeof(weaponData));
+	memset(weaponIndexes, 0, sizeof(weaponIndexes));
+	memset(defaultDamageCopy, 0, sizeof(defaultDamageCopy));
+
+	// initialise the weapon Count;
+	weaponCount = numHcWeaponIndexes;
+
 
 	// put in the default values, because backwards compatibility is awesome!
-	for(int i = 0; i < WP_NUM_WEAPONS; i++)
+	for(int i = 0; i <  numHcWeaponIndexes; i++)
 	{
 		weaponData[i].damage = defaultDamage[i];
 		weaponData[i].altDamage = defaultAltDamage[i];
@@ -1878,10 +1276,193 @@ void WP_LoadWeaponParms (void)
 		weaponData[i].altSplashDamage = defaultAltSplashDamage[i];
 		weaponData[i].splashRadius = defaultSplashRadius[i];
 		weaponData[i].altSplashRadius = defaultAltSplashRadius[i];
+		weaponData[i].playerUsable = playerUsable[i];
+		weaponData[i].mVelocity = defaultsWeaponSpeed[i][0];
+		weaponData[i].mAltVelocity = defaultsWeaponSpeed[i][1];
 		defaultDamageCopy[i] = defaultDamage[i];
 	}
+	//put in the qunset flag for playerUsable since 0 = false;
+	for (int i = numHcWeaponIndexes; i < MAX_WEAPONS ; i++) {
+		weaponData[i].playerUsable = qunset;
 
+	}
 	WP_ParseParms(buffer);
 
 	gi.FS_FreeFile( buffer );	//let go of the buffer
+
+	//Read files containing Dynamics Weapons
+	char*	holdChar;
+	char	weaponFileList[2048];			//	The list of file names read in
+	int		fileCount;
+	int		fileNameSize;
+
+	//Read all the externals file
+	fileCount = gi.FS_GetFileList("ext_data/ext_weapons/", ".dat", weaponFileList, sizeof(weaponFileList));
+
+	holdChar = weaponFileList;
+
+	Com_Printf("Found %d External files\n", fileCount);
+	for (int i = 0; i < fileCount; i++, holdChar += fileNameSize + 1)
+	{
+		fileNameSize = strlen(holdChar);
+
+		Com_Printf( "Parsing %s\n", holdChar );
+		char* fileBuffer;
+		int fileLen;
+
+		fileLen = gi.FS_ReadFile(va("ext_data/ext_weapons/%s",holdChar), (void**)&fileBuffer);
+
+		if (fileLen == -1)
+		{
+			Com_Printf("Error reading file\n");
+		}
+		else
+		{
+			WP_ParseParms(fileBuffer);
+
+			gi.FS_FreeFile(fileBuffer);	//let go of the buffer
+		}
+	}
+
+	//Get unset data from each weapon which is a copy of another;
+	for (int i = 0; i <  weaponCount; i++) {
+		if (!weaponData[i].baseclass[0]) {
+			continue;
+		}
+		bool found = false;
+		for (int j = 0; j < weaponCount; j++) {
+			if (i == j || Q_stricmp(weaponData[i].baseclass,weaponData[j].classname)) {
+				continue;
+			}
+			found = true;
+			//Copying the weapon Strings from one to another
+			if (weaponData[i].weaponMdl[0] == 0) {
+				strcpy(weaponData[i].weaponMdl,weaponData[j].weaponMdl);
+			}
+			if (weaponData[i].firingSnd[0] == 0) {
+				strcpy(weaponData[i].firingSnd,weaponData[j].firingSnd);
+			}
+			if (weaponData[i].altFiringSnd[0] == 0) {
+				strcpy(weaponData[i].altFiringSnd,weaponData[j].altFiringSnd);
+			}
+			if (weaponData[i].stopSnd[0] == 0) {
+				strcpy(weaponData[i].stopSnd,weaponData[j].stopSnd);
+			}
+			if (weaponData[i].chargeSnd[0] == 0) {
+				strcpy(weaponData[i].chargeSnd,weaponData[j].chargeSnd);
+			}
+			if (weaponData[i].altChargeSnd[0] == 0) {
+				strcpy(weaponData[i].altChargeSnd,weaponData[j].altChargeSnd);
+			}
+			if (weaponData[i].selectSnd[0] == 0) {
+				strcpy(weaponData[i].selectSnd,weaponData[j].selectSnd);
+			}
+			if(weaponData[i].weaponIcon[0] == 0){
+				strcpy(weaponData[i].weaponIcon, weaponData[j].weaponIcon);
+			}
+			if(weaponData[i].missileMdl[0] == 0){
+				strcpy(weaponData[i].missileMdl, weaponData[j].missileMdl);
+			}
+			if(weaponData[i].alt_missileMdl[0] == 0){
+				strcpy(weaponData[i].alt_missileMdl, weaponData[j].alt_missileMdl);
+			}
+			if(weaponData[i].alt_missileSound[0] == 0){
+				strcpy(weaponData[i].alt_missileSound, weaponData[j].alt_missileSound);
+			}
+			if(weaponData[i].missileHitSound[0] == 0){
+				strcpy(weaponData[i].missileHitSound, weaponData[j].missileHitSound);
+			}
+			if(weaponData[i].altmissileHitSound[0] == 0){
+				strcpy(weaponData[i].altmissileHitSound, weaponData[j].altmissileHitSound);
+			}
+			if(weaponData[i].mMuzzleEffect[0] == 0){
+				strcpy(weaponData[i].mMuzzleEffect, weaponData[j].mMuzzleEffect);
+			}
+			if(weaponData[i].mAltMuzzleEffect[0] == 0){
+				strcpy(weaponData[i].mAltMuzzleEffect, weaponData[j].mAltMuzzleEffect);
+			}
+			if(weaponData[i].mTertiaryMuzzleEffect[0] == 0){
+				strcpy(weaponData[i].mTertiaryMuzzleEffect, weaponData[j].mTertiaryMuzzleEffect);
+			}
+			if(weaponData[i].weaponMdl2[0] == 0){
+				strcpy(weaponData[i].weaponMdl2, weaponData[j].weaponMdl2);
+			}
+            //Copying the int arrays
+			if(weaponData[i].mainFireOpt[0] == 0 && weaponData[i].mainFireOpt[1] == 0 && weaponData[i].mainFireOpt[2] == 0){
+			    weaponData[i].mainFireOpt[0] = weaponData[j].mainFireOpt[0];
+			    weaponData[i].mainFireOpt[1] = weaponData[j].mainFireOpt[1];
+			    weaponData[i].mainFireOpt[2] = weaponData[j].mainFireOpt[2];
+			}
+
+			if(weaponData[i].altFireOpt[0] == 0 && weaponData[i].altFireOpt[1] == 0 && weaponData[i].altFireOpt[2] == 0){
+			    weaponData[i].altFireOpt[0] = weaponData[j].altFireOpt[0];
+			    weaponData[i].altFireOpt[1] = weaponData[j].altFireOpt[1];
+			    weaponData[i].altFireOpt[2] = weaponData[j].altFireOpt[2];
+			}
+
+			if(weaponData[i].tertiaryFireOpt[0] == 0 && weaponData[i].tertiaryFireOpt[1] == 0 && weaponData[i].tertiaryFireOpt[2] == 0){
+			    weaponData[i].tertiaryFireOpt[0] = weaponData[j].tertiaryFireOpt[0];
+			    weaponData[i].tertiaryFireOpt[1] = weaponData[j].tertiaryFireOpt[1];
+			    weaponData[i].tertiaryFireOpt[2] = weaponData[j].tertiaryFireOpt[2];
+			}
+			//Copiyng raw values.
+			weaponData[i].ammoIndex = weaponData[i].ammoIndex == 0 ? weaponData[j].ammoIndex : weaponData[i].ammoIndex ;
+			weaponData[i].ammoLow = weaponData[i].ammoLow == 0 ? weaponData[j].ammoLow : weaponData[i].ammoLow ;
+
+			weaponData[i].energyPerShot = weaponData[i].energyPerShot == 0 ? weaponData[j].energyPerShot : weaponData[i].energyPerShot ;
+			weaponData[i].fireTime = weaponData[i].fireTime == 0 ? weaponData[j].fireTime : weaponData[i].fireTime ;
+			weaponData[i].range = weaponData[i].range == 0 ? weaponData[j].range : weaponData[i].range ;
+
+			weaponData[i].altEnergyPerShot = weaponData[i].altEnergyPerShot == 0 ? weaponData[j].altEnergyPerShot : weaponData[i].altEnergyPerShot ;
+			weaponData[i].altFireTime = weaponData[i].altFireTime == 0 ? weaponData[j].altFireTime : weaponData[i].altFireTime ;
+			weaponData[i].altRange = weaponData[i].altRange == 0 ? weaponData[j].altRange : weaponData[i].altRange ;
+
+			weaponData[i].numBarrels = weaponData[i].numBarrels == 0 ? weaponData[j].numBarrels : weaponData[i].numBarrels;
+
+			weaponData[i].alt_missileDlight = weaponData[i].alt_missileDlight == 0 ? weaponData[j].alt_missileDlight : weaponData[i].alt_missileDlight ;
+
+			weaponData[i].mMuzzleEffectID = weaponData[i].mMuzzleEffectID == 0 ? weaponData[j].mMuzzleEffectID : weaponData[i].mMuzzleEffectID;
+			weaponData[i].mAltMuzzleEffectID = weaponData[i].mAltMuzzleEffectID == 0 ? weaponData[j].mAltMuzzleEffectID : weaponData[i].mAltMuzzleEffectID;
+			weaponData[i].mTertiaryMuzzleEffectID = weaponData[i].mTertiaryMuzzleEffectID == 0 ? weaponData[j].mTertiaryMuzzleEffectID : weaponData[i].mTertiaryMuzzleEffectID;
+
+			weaponData[i].damage = weaponData[i].damage == 0 ? weaponData[j].damage : weaponData[i].damage;
+			weaponData[i].altDamage = weaponData[i].altDamage == 0 ? weaponData[j].altDamage : weaponData[i].altDamage;
+			weaponData[i].splashDamage = weaponData[i].splashDamage == 0 ? weaponData[j].splashDamage : weaponData[i].splashDamage;
+			weaponData[i].altSplashDamage = weaponData[i].altSplashDamage == 0 ? weaponData[j].altSplashDamage : weaponData[i].altSplashDamage;
+			weaponData[i].splashRadius = weaponData[i].splashRadius == 0 ? weaponData[j].splashRadius : weaponData[i].splashRadius ;
+			weaponData[i].altSplashRadius = weaponData[i].altSplashRadius == 0 ? weaponData[j].altSplashRadius : weaponData[i].altSplashRadius ;
+
+			weaponData[i].tertiaryEnergyPerShot = weaponData[i].tertiaryEnergyPerShot == 0 ? weaponData[j].tertiaryEnergyPerShot : weaponData[i].tertiaryEnergyPerShot;
+			weaponData[i].tertiaryFireTime = weaponData[i].tertiaryFireTime == 0 ? weaponData[j].tertiaryFireTime : weaponData[i].tertiaryFireTime;
+			weaponData[i].tertiaryRange = weaponData[i].tertiaryRange == 0 ? weaponData[j].tertiaryRange : weaponData[i].tertiaryRange;
+
+			weaponData[i].scopeType = weaponData[i].scopeType == 0 ? weaponData[j].scopeType : weaponData[i].scopeType;
+
+			weaponData[i].secondaryMdl = weaponData[i].secondaryMdl == 0 ? weaponData[j].secondaryMdl : weaponData[i].secondaryMdl;
+			weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[j].playerUsable;
+			weaponData[i].mVelocity = weaponData[i].mVelocity == 0 ? weaponData[j].mVelocity : weaponData[j].mVelocity;
+			weaponData[i].mAltVelocity = weaponData[i].mAltVelocity == 0 ? weaponData[j].mAltVelocity : weaponData[j].mAltVelocity;
+			weaponData[i].baseWeaponNum = j;
+			//copying weapon Function pointers
+			weaponData[i].func = weaponData[i].func == 0 ? weaponData[j].func : weaponData[i].func;
+			weaponData[i].altfunc = weaponData[i].altfunc == 0 ? weaponData[j].altfunc : weaponData[i].altfunc;
+
+			defaultDamageCopy[i] = defaultDamageCopy[i] == 0 ? defaultDamageCopy[j] : defaultDamageCopy[i];
+
+			//Copying vectors
+			if (weaponData[i].missileDlightColor[0] == 0 && weaponData[i].missileDlightColor[1] == 0 && weaponData[i].missileDlightColor[2] == 0) {
+				VectorCopy(weaponData[j].missileDlightColor, weaponData[i].missileDlightColor);
+			}
+
+			if (weaponData[i].alt_missileDlightColor[0] == 0 && weaponData[i].alt_missileDlightColor[1] == 0 && weaponData[i].alt_missileDlightColor[2] == 0) {
+				VectorCopy(weaponData[j].alt_missileDlightColor, weaponData[i].alt_missileDlightColor);
+			}
+			//The first one is the good one...
+			break;
+		}
+		if(!found){
+		    gi.Printf(S_COLOR_YELLOW"WARNING: Weapon '%s' is marked as alternate of base weapon '%s' but base weapon was not found\n",weaponData[i].classname,weaponData[i].baseclass);
+		}
+	}
+	//globals.weaponCount = weaponCount;
 }

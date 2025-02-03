@@ -1786,7 +1786,7 @@ Ghoul2 Insert End
 
 	// Preregister all of the weapons that were not already
 	// registered to avoid lag when using cheats like "give all".
-	for (i = 0; i < WP_NUM_WEAPONS; i++)
+	for (i = 0; i < weaponCount; i++)
 	{
 		if (CG_IsWeaponUsablePlayer(i))
 		{

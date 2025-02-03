@@ -1290,7 +1290,7 @@ void SP_misc_model_breakable( gentity_t *ent )
 /*		G_SoundIndex( "sound/weapons/tie_fighter/tie_fire2.wav" );
 		G_SoundIndex( "sound/weapons/tie_fighter/tie_fire3.wav" );*/
 		G_SoundIndex( "sound/weapons/tie_fighter/TIEexplode.wav" );
-		RegisterItem( FindItemForWeapon( WP_TIE_FIGHTER ));
+		RegisterItem( FindItemForWeapon((int) WP_TIE_FIGHTER ));
 
 		ent->s.eFlags |= EF_LESS_ATTEN;
 

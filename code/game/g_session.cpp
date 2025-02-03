@@ -95,7 +95,7 @@ void G_WriteClientSessionData( gclient_t *client ) {
 
 
 	s2 = "";
-	for (i=0;i< WP_NUM_WEAPONS; i++)
+	for (i=0;i< weaponCount; i++)
 	{
 		s2 = va("%s %i",s2, client->sess.missionStats.weaponUsed[i]);
 	}

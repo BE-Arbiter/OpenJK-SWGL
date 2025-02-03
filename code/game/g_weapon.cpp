@@ -43,58 +43,15 @@ int g_rocketLockEntNum = ENTITYNUM_NONE;
 int g_rocketLockTime = 0;
 int	g_rocketSlackTime = 0;
 
-// Weapon Helper Functions
-float weaponSpeed[WP_NUM_WEAPONS][2] =
-{
-	{ 0,0 },//WP_NONE,
-	{ 0,0 },//WP_SABER,				 // NOTE: lots of code assumes this is the first weapon (... which is crap) so be careful -Ste.
-	{ BRYAR_PISTOL_VEL,BRYAR_PISTOL_VEL },//WP_BLASTER_PISTOL,
-	{ BLASTER_VELOCITY,BLASTER_VELOCITY },//WP_BLASTER,
-	{ Q3_INFINITE,Q3_INFINITE },//WP_DISRUPTOR,
-	{ BOWCASTER_VELOCITY,BOWCASTER_VELOCITY },//WP_BOWCASTER,
-	{ REPEATER_VELOCITY,REPEATER_ALT_VELOCITY },//WP_REPEATER,
-	{ DEMP2_VELOCITY,DEMP2_ALT_RANGE },//WP_DEMP2,
-	{ FLECHETTE_VEL,FLECHETTE_MINE_VEL },//WP_FLECHETTE,
-	{ ROCKET_VELOCITY,ROCKET_ALT_VELOCITY },//WP_ROCKET_LAUNCHER,
-	{ TD_VELOCITY,TD_ALT_VELOCITY },//WP_THERMAL,
-	{ 0,0 },//WP_TRIP_MINE,
-	{ 0,0 },//WP_DET_PACK,
-	{ CONC_VELOCITY,Q3_INFINITE },//WP_CONCUSSION,
-	{ 0,0 },//WP_MELEE,			// Any ol' melee attack
-	{ 0,0 },//WP_STUN_BATON,
-	{ BRYAR_PISTOL_VEL,BRYAR_PISTOL_VEL },//WP_BRYAR_PISTOL,
-	{ EMPLACED_VEL,EMPLACED_VEL },//WP_EMPLACED_GUN,
-	{ BRYAR_PISTOL_VEL,BRYAR_PISTOL_VEL },//WP_BOT_LASER,		// Probe droid	- Laser blast
-	{ 0,0 },//WP_TURRET,			// turret guns
-	{ ATST_MAIN_VEL,ATST_MAIN_VEL },//WP_ATST_MAIN,
-	{ ATST_SIDE_MAIN_VELOCITY,ATST_SIDE_ALT_NPC_VELOCITY },//WP_ATST_SIDE,
-	{ EMPLACED_VEL,EMPLACED_VEL },//WP_TIE_FIGHTER,
-	{ EMPLACED_VEL,REPEATER_ALT_VELOCITY },//WP_RAPID_FIRE_CONC,
-	{ 0,0 },//WP_JAWA,
-	{ TUSKEN_RIFLE_VEL,TUSKEN_RIFLE_VEL },//WP_TUSKEN_RIFLE,
-	{ 0,0 },//WP_TUSKEN_STAFF,
-	{ 0,0 },//WP_SCEPTER,
-	{ 0,0 },//WP_NOGHRI_STICK,
-	{ E5_VELOCITY, E5_VELOCITY }, // WP_BATTLEDROID,
-	{ F_11D_VELOCITY, F_11D_VELOCITY },// WP_THEFIRSTORDER,
-	{ CLONECARBINE_VELOCITY, CLONECARBINE_VELOCITY },// WP_CLONECARBINE,
-	{ CLONERIFLE_VELOCITY, CLONERIFLE_VELOCITY },// WP_CLONERIFLE
-	{ REBELBLASTER_VELOCITY, REBELBLASTER_VELOCITY },// WP_REBELBLASTER
-	{ CLONECOMMANDO_VELOCITY, CLONECOMMANDO_VELOCITY },// WP_CLONECOMMANDO
-	{ REBELRIFLE_VELOCITY, REBELRIFLE_VELOCITY },// WP_REBELRIFLE
-	{ REY_VEL,REY_VEL },//WP_REY,
-	{ JANGO_VELOCITY, JANGO_VELOCITY },// WP_JANGO
-	{ BOBA_VELOCITY, BOBA_VELOCITY },// WP_BOBA
-	{ CLONEPISTOL_VELOCITY, CLONEPISTOL_VELOCITY },// WP_CLONEPISTOL
-};
+
 
 float WP_SpeedOfMissileForWeapon( int wp, qboolean alt_fire )
 {
 	if ( alt_fire )
 	{
-		return weaponSpeed[wp][1];
+		return weaponData[wp].mAltVelocity;
 	}
-	return weaponSpeed[wp][0];
+	return weaponData[wp].mVelocity;
 }
 
 //-----------------------------------------------------------------------------
@@ -347,6 +304,11 @@ void ViewHeightFix(const gentity_t *const ent)
 
 qboolean W_AccuracyLoggableWeapon( int weapon, qboolean alt_fire, int mod )
 {
+	int weaponNum = weapon;
+	if (weaponData[weaponNum].baseWeaponNum) {
+		weaponNum = weaponData[weaponNum].baseWeaponNum;
+	}
+
 	if ( mod != MOD_UNKNOWN )
 	{
 		switch( mod )
@@ -396,16 +358,16 @@ qboolean W_AccuracyLoggableWeapon( int weapon, qboolean alt_fire, int mod )
 		//atst
 		case MOD_ENERGY:
 		case MOD_EXPLOSIVE:
-			if ( weapon == WP_ATST_MAIN || weapon == WP_ATST_SIDE )
+			if (weaponNum == WP_ATST_MAIN || weaponNum == WP_ATST_SIDE )
 			{
 				return qtrue;
 			}
 			break;
 		}
 	}
-	else if ( weapon != WP_NONE )
+	else if (weaponNum != WP_NONE )
 	{
-		switch( weapon )
+		switch(weaponNum)
 		{
 		case WP_BRYAR_PISTOL:
 		case WP_BLASTER_PISTOL:
@@ -503,8 +465,12 @@ void CalcMuzzlePoint( gentity_t *const ent, vec3_t forwardVec, vec3_t right, vec
 	}
 
 	VectorCopy( ent->currentOrigin, muzzlePoint );
+	int weaponNum = ent->s.weapon;
+	if (weaponData[weaponNum].baseWeaponNum) {
+		weaponNum = weaponData[weaponNum].baseWeaponNum;
+	}
 
-	switch( ent->s.weapon )
+	switch(weaponNum)
 	{
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
@@ -595,7 +561,7 @@ void CalcMuzzlePoint( gentity_t *const ent, vec3_t forwardVec, vec3_t right, vec
 }
 
 // Muzzle point table...
-vec3_t WP_MuzzlePoint[WP_NUM_WEAPONS] =
+vec3_t WP_MuzzlePoint[] =
 {//	Fwd,	right,	up.
 	{0,		0,		0	},	// WP_NONE,
 	{8	,	16,		0	},	// WP_SABER,
@@ -1441,7 +1407,14 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 	}
 
 	// fire the specific weapon
-	switch( ent->s.weapon )
+
+	int weaponNum = ent->s.weapon;
+	int weaponDataNum = weaponNum;
+	if (weaponData[weaponNum].baseWeaponNum) {
+		weaponNum = weaponData[weaponNum].baseWeaponNum;
+	}
+
+	switch(weaponNum)
 	{
 	// Player weapons
 	//-----------------

@@ -236,7 +236,7 @@ void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 			ent->client->ps.weapons[i] = 1;
 		}
 		// Skip the unusable weapons, add in extra weapons.
-		for (int i = WP_BATTLEDROID; i < WP_NUM_WEAPONS; i++)
+		for (int i = WP_BATTLEDROID; i < weaponCount; i++)
 		{
 			ent->client->ps.weapons[i] = 1;
 		}
@@ -252,7 +252,7 @@ void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 
 	if ( !give_all && !Q_stricmp( name, "eweaps" ) )	//for developing, gives you all the weapons, including enemy
 	{
-		for ( int i = 0; i < WP_NUM_WEAPONS; i++ )
+		for ( int i = 0; i < weaponCount; i++ )
 		{
 			ent->client->ps.weapons[i] = 1;
 		}

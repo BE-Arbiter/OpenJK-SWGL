@@ -292,7 +292,7 @@ gentity_t *G_DropSaberItem( const char *saberType, saber_colors_t saberColor, ve
 			}
 			newItem->count = 1;
 			newItem->flags = FL_DROPPED_ITEM;
-			G_SpawnItem( newItem, FindItemForWeapon( WP_SABER ) );
+			G_SpawnItem( newItem, FindItemForWeapon((int) WP_SABER ) );
 			newItem->s.pos.trType = TR_GRAVITY;
 			newItem->s.pos.trTime = level.time;
 			VectorCopy( saberVel, newItem->s.pos.trDelta );
@@ -1284,9 +1284,9 @@ void ClearRegisteredItems( void ) {
 	itemRegistered[ bg_numItems ] = 0;
 
 	//these are given in g_client, ClientSpawn(), but MUST be registered HERE, BEFORE cgame starts.
-	RegisterItem(FindItemForWeapon(WP_MELEE));	//has no item /////// Jace Solaris fix
-	RegisterItem(FindItemForWeapon(WP_BRYAR_PISTOL));	//these are given in g_client, ClientSpawn(), but MUST be registered HERE, BEFORE cgame starts./////// Jace Solaris fix
-	RegisterItem(FindItemForWeapon(WP_STUN_BATON)); /////// Jace Solaris fix
+	RegisterItem(FindItemForWeapon((int) WP_MELEE));	//has no item /////// Jace Solaris fix
+	RegisterItem(FindItemForWeapon((int) WP_BRYAR_PISTOL));	//these are given in g_client, ClientSpawn(), but MUST be registered HERE, BEFORE cgame starts./////// Jace Solaris fix
+	RegisterItem(FindItemForWeapon((int) WP_STUN_BATON)); /////// Jace Solaris fix
 
 	RegisterItem(FindItemForInventory(INV_ELECTROBINOCULARS));
 	RegisterItem(FindItemForInventory(INV_BACTA_CANISTER));

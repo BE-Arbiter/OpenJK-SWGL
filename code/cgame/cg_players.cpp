@@ -9561,6 +9561,7 @@ Ghoul2 Insert End
 					}
 				}
 
+
 				if (( cent->currentState.eFlags & EF_FIRING || cent->currentState.eFlags & EF_ALT_FIRING ) && effect )
 				{
 					vec3_t up={0,0,1}, ax[3];
@@ -9570,15 +9571,7 @@ Ghoul2 Insert End
 					CrossProduct( up, ax[0], ax[1] );
 					CrossProduct( ax[0], ax[1], ax[2] );
 
-					if (( cent->gent && cent->gent->NPC ) || cg.renderingThirdPerson )
-					{
-						theFxScheduler.PlayEffect( effect, flash.origin, ax );
-					}
-					else
-					{
-						// We got an effect and we're firing, so let 'er rip.
-						theFxScheduler.PlayEffect( effect, flash.origin, ax );
-					}
+					theFxScheduler.PlayEffect( effect, flash.origin, ax );
 				}
 			}
 

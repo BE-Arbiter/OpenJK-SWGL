@@ -1434,7 +1434,7 @@ void NPC_PrecacheWeapons( team_t playerTeam, int spawnflags, char *NPCtype )
 {
 	int weapons = NPC_WeaponsForTeam( playerTeam, spawnflags, NPCtype );
 	gitem_t	*item;
-	for ( int curWeap = WP_SABER; curWeap < WP_NUM_WEAPONS; curWeap++ )
+	for ( int curWeap = WP_SABER; curWeap < weaponCount; curWeap++ )
 	{
 		if ( (weapons & ( 1 << curWeap )) )
 		{
@@ -1897,7 +1897,7 @@ void CG_NPC_Precache ( gentity_t *spawner )
 				continue;
 			}
 			int weap = GetIDForString( WPTable, value );
-			if ( weap >= WP_NONE && weap < WP_NUM_WEAPONS )
+			if ( weap >= WP_NONE && weap < weaponCount)
 			{
 				if ( weap > WP_NONE )
 				{
@@ -3756,7 +3756,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				//FIXME: need to precache the weapon, too?  (in above func)
 				int weap = GetIDForString( WPTable, value );
-				if ( weap >= WP_NONE && weap < WP_NUM_WEAPONS )
+				if ( weap >= WP_NONE && weap < weaponCount)
 				{
 					NPC->client->ps.weapon = weap;
 					NPC->client->ps.weapons[weap] = 1;

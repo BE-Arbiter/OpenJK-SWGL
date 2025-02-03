@@ -267,6 +267,8 @@ static void IT_Name(const char **holdBuf)
 		itemNum = ITM_GOODIE_KEY_PICKUP;
 	else if (!Q_stricmp(tokenStr,"ITM_SECURITY_KEY_PICKUP"))
 		itemNum = ITM_SECURITY_KEY_PICKUP;
+	else if (!Q_stricmp(tokenStr,"ITM_BRYAR_BLASTER_PICKUP"))
+		itemNum = ITM_BRYAR_BLASTER_PICKUP;
 	else
 	{
 		itemNum = 0;
@@ -411,6 +413,8 @@ static void IT_Tag(const char **holdBuf)
 		tag = WP_CLONECOMMANDO;
 	else if (!Q_stricmp(tokenStr, "WP_REBELRIFLE"))
 		tag = WP_REBELRIFLE;
+	else if (!Q_stricmp(tokenStr, "WP_BRYAR_BLASTER"))
+		tag = WP_HC_NUM_WEAPONS;
 	else if (!Q_stricmp(tokenStr, "WP_REY"))
 		tag = WP_REY;
 	else if (!Q_stricmp(tokenStr, "WP_JANGO"))

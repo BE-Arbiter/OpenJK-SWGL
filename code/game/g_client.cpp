@@ -79,11 +79,11 @@ void SP_info_player_deathmatch(gentity_t *ent) {
 
 	if ( ent->spawnflags & 32 ) // STUN_BATON
 	{
-		RegisterItem( FindItemForWeapon( WP_STUN_BATON ));
+		RegisterItem( FindItemForWeapon((int) WP_STUN_BATON ));
 	}
 	else
 	{
-		RegisterItem( FindItemForWeapon( WP_SABER ) );	//these are given in ClientSpawn(), but we register them now before cgame starts
+		RegisterItem( FindItemForWeapon((int) WP_SABER ) );	//these are given in ClientSpawn(), but we register them now before cgame starts
 		saberInfo_t	saber;
 		WP_SaberParseParms( g_saber->string, &saber );//get saber sounds and models cached before client begins
 		if (saber.model) G_ModelIndex( saber.model );
@@ -688,7 +688,7 @@ void Player_CacheFromPrevLevel(void)
 				}
 				else
 				{
-					RegisterItem(FindItemForWeapon((weapon_t)i++));
+					RegisterItem(FindItemForWeapon(i++));
 				}
 			}
 			else
@@ -2647,9 +2647,9 @@ qboolean ClientSpawn(gentity_t *ent, SavedGameJustLoaded_e eSavedGameJustLoaded 
 		// force the base weapon up
 		client->ps.weaponstate = WEAPON_READY;
 
-		for ( i = FIRST_WEAPON; i < WP_NUM_WEAPONS; i++ ) // don't give ammo for explosives
+		for ( i = FIRST_WEAPON; i < weaponCount; i++ ) // don't give ammo for explosives
 		{
-			if ( playerUsableWeapons[i] && (client->ps.weapons[i]) )
+			if ( weaponData[i].playerUsable && (client->ps.weapons[i]) )
 			{//if starting with this weapon, gimme max ammo for it
 				client->ps.ammo[weaponData[i].ammoIndex] = ammoData[weaponData[i].ammoIndex].max;
 			}

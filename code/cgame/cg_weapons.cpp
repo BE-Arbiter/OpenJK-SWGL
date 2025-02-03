@@ -228,23 +228,28 @@ void CG_RegisterWeapon( int weaponNum ) {
 		weaponInfo->alt_missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].altfunc;
 	}
 
-	switch ( weaponNum )	//extra client only stuff
+	int baseWeaponNum = weaponNum;
+	if (weaponData[weaponNum].baseWeaponNum) {
+		baseWeaponNum = weaponData[weaponNum].baseWeaponNum;
+	}
+	switch (baseWeaponNum)	//extra client only stuff
 	{
 	case WP_SABER:
+	{
 		//saber/force FX
-		theFxScheduler.RegisterEffect( "sparks/spark_nosnd" );//was "sparks/spark"
-		theFxScheduler.RegisterEffect( "sparks/blood_sparks2" );
-		theFxScheduler.RegisterEffect( "force/force_touch" );
-		theFxScheduler.RegisterEffect( "saber/saber_block" );
-		theFxScheduler.RegisterEffect( "saber/saber_cut" );
+		theFxScheduler.RegisterEffect("sparks/spark_nosnd");//was "sparks/spark"
+		theFxScheduler.RegisterEffect("sparks/blood_sparks2");
+		theFxScheduler.RegisterEffect("force/force_touch");
+		theFxScheduler.RegisterEffect("saber/saber_block");
+		theFxScheduler.RegisterEffect("saber/saber_cut");
 		//theFxScheduler.RegisterEffect( "saber/limb_bolton" );
-		theFxScheduler.RegisterEffect( "saber/fizz" );
-		theFxScheduler.RegisterEffect( "saber/boil" );
+		theFxScheduler.RegisterEffect("saber/fizz");
+		theFxScheduler.RegisterEffect("saber/boil");
 		//theFxScheduler.RegisterEffect( "saber/fire" );//was "sparks/spark"
 
-		cgs.effects.forceHeal			= theFxScheduler.RegisterEffect( "force/heal" );
+		cgs.effects.forceHeal = theFxScheduler.RegisterEffect("force/heal");
 		//cgs.effects.forceInvincibility	= theFxScheduler.RegisterEffect( "force/invin" );
-		cgs.effects.forceConfusion		= theFxScheduler.RegisterEffect( "force/confusion" );
+		cgs.effects.forceConfusion = theFxScheduler.RegisterEffect("force/confusion");
 		cgs.effects.forceLightning = theFxScheduler.RegisterEffect("force/lightning");
 		cgs.effects.forceLightningWide = theFxScheduler.RegisterEffect("force/lightningwide");
 		cgs.effects.redForceLightning = theFxScheduler.RegisterEffect("force/redlightning");
@@ -265,8 +270,8 @@ void CG_RegisterWeapon( int weaponNum ) {
 		cgs.effects.blackForceLightningWide = theFxScheduler.RegisterEffect("force/blacklightningwide");
 
 		//new Jedi Academy force power effects
-		cgs.effects.forceDrain		= theFxScheduler.RegisterEffect( "mp/drain" );
-		cgs.effects.forceDrainWide	= theFxScheduler.RegisterEffect( "mp/drainwide" );
+		cgs.effects.forceDrain = theFxScheduler.RegisterEffect("mp/drain");
+		cgs.effects.forceDrainWide = theFxScheduler.RegisterEffect("mp/drainwide");
 		//cgs.effects.forceDrained	= theFxScheduler.RegisterEffect( "mp/drainhit");
 
 		cgs.effects.destructionProjectile = theFxScheduler.RegisterEffect("force/destruction");
@@ -284,26 +289,26 @@ void CG_RegisterWeapon( int weaponNum ) {
 		//saber sounds
 		//cgi_S_RegisterSound( "sound/weapons/saber/saberon.wav" );
 		//cgi_S_RegisterSound( "sound/weapons/saber/enemy_saber_on.wav" );
-		cgi_S_RegisterSound( "sound/weapons/saber/saberonquick.wav" );
+		cgi_S_RegisterSound("sound/weapons/saber/saberonquick.wav");
 		//cgi_S_RegisterSound( "sound/weapons/saber/saberoff.wav" );
 		//cgi_S_RegisterSound( "sound/weapons/saber/enemy_saber_off.wav" );
-		cgi_S_RegisterSound( "sound/weapons/saber/saberspinoff.wav" );
-		cgi_S_RegisterSound( "sound/weapons/saber/saberoffquick.wav" );
-		for ( i = 1; i < 4; i++ )
+		cgi_S_RegisterSound("sound/weapons/saber/saberspinoff.wav");
+		cgi_S_RegisterSound("sound/weapons/saber/saberoffquick.wav");
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberbounce%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/saberbounce%d.wav", i));
 		}
-		for ( i = 1; i < 4; i++ )
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberhit%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/saberhit%d.wav", i));
 		}
-		for ( i = 1; i < 4; i++ )
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberhitwall%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/saberhitwall%d.wav", i));
 		}
-		for ( i = 1; i < 10; i++ )
+		for (i = 1; i < 10; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberblock%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/saberblock%d.wav", i));
 		}
 		/*
 		for ( i = 1; i < 6; i++ )
@@ -311,126 +316,126 @@ void CG_RegisterWeapon( int weaponNum ) {
 			cgi_S_RegisterSound( va( "sound/weapons/saber/saberhum%d.wav", i ) );
 		}
 		*/
-		for ( i = 1; i < 10; i++ )
+		for (i = 1; i < 10; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberhup%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/saberhup%d.wav", i));
 		}
-		for ( i = 1; i < 4; i++ )
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberspin%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/saberspin%d.wav", i));
 		}
-		cgi_S_RegisterSound( "sound/weapons/saber/saber_catch.wav" );
-		for ( i = 1; i < 4; i++ )
+		cgi_S_RegisterSound("sound/weapons/saber/saber_catch.wav");
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/bounce%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/bounce%d.wav", i));
 		}
-		cgi_S_RegisterSound( "sound/weapons/saber/hitwater.wav" );
-		cgi_S_RegisterSound( "sound/weapons/saber/boiling.wav" );
-		for ( i = 1; i < 4; i++ )
+		cgi_S_RegisterSound("sound/weapons/saber/hitwater.wav");
+		cgi_S_RegisterSound("sound/weapons/saber/boiling.wav");
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/rainfizz%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/rainfizz%d.wav", i));
 		}
-		cgi_S_RegisterSound( "sound/movers/objects/saber_slam" );
+		cgi_S_RegisterSound("sound/movers/objects/saber_slam");
 
 		//force sounds
-		cgi_S_RegisterSound( "sound/weapons/force/heal.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/speed.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/speedloop.mp3" );
-		for ( i = 1; i < 5; i++ )
+		cgi_S_RegisterSound("sound/weapons/force/heal.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/speed.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/speedloop.mp3");
+		for (i = 1; i < 5; i++)
 		{
 			cgi_S_RegisterSound(va("sound/weapons/force/heal%d.mp3", i));
-			cgi_S_RegisterSound( va( "sound/weapons/force/heal%d_m.mp3", i ) );
-			cgi_S_RegisterSound( va( "sound/weapons/force/heal%d_f.mp3", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/force/heal%d_m.mp3", i));
+			cgi_S_RegisterSound(va("sound/weapons/force/heal%d_f.mp3", i));
 		}
-		cgi_S_RegisterSound( "sound/weapons/force/lightning.wav" );
-		cgi_S_RegisterSound( "sound/weapons/force/lightning2.wav" );
-		for ( i = 1; i < 4; i++ )
+		cgi_S_RegisterSound("sound/weapons/force/lightning.wav");
+		cgi_S_RegisterSound("sound/weapons/force/lightning2.wav");
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/force/lightninghit%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/force/lightninghit%d.wav", i));
 		}
-		cgi_S_RegisterSound( "sound/weapons/force/push.wav" );
-		cgi_S_RegisterSound( "sound/weapons/force/pull.wav" );
-		cgi_S_RegisterSound( "sound/weapons/force/jump.wav" );
-		cgi_S_RegisterSound( "sound/weapons/force/jumpbuild.wav" );
-		cgi_S_RegisterSound( "sound/weapons/force/grip.mp3" );
+		cgi_S_RegisterSound("sound/weapons/force/push.wav");
+		cgi_S_RegisterSound("sound/weapons/force/pull.wav");
+		cgi_S_RegisterSound("sound/weapons/force/jump.wav");
+		cgi_S_RegisterSound("sound/weapons/force/jumpbuild.wav");
+		cgi_S_RegisterSound("sound/weapons/force/grip.mp3");
 		//new Jedi Academy force sounds
-		cgi_S_RegisterSound( "sound/weapons/force/absorb.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/absorbhit.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/absorbloop.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/protect.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/protecthit.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/protectloop.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/rage.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/ragehit.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/rageloop.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/see.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/seeloop.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/drain.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/drained.mp3" );
+		cgi_S_RegisterSound("sound/weapons/force/absorb.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/absorbhit.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/absorbloop.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/protect.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/protecthit.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/protectloop.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/rage.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/ragehit.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/rageloop.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/see.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/seeloop.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/drain.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/drained.mp3");
 		//force graphics
 		cgs.media.playerShieldDamage = cgi_R_RegisterShader("gfx/misc/personalshield");
 		//cgs.media.forceSightBubble = cgi_R_RegisterShader("gfx/misc/sightbubble");
 		//cgs.media.forceShell = cgi_R_RegisterShader("powerups/forceshell");
 		cgs.media.forceShell = cgi_R_RegisterShader("gfx/misc/forceprotect");
 		cgs.media.sightShell = cgi_R_RegisterShader("powerups/sightshell");
-		cgi_R_RegisterShader( "gfx/2d/jsense" );
+		cgi_R_RegisterShader("gfx/2d/jsense");
 		//force effects - FIXME: only if someone has these powers?
-		theFxScheduler.RegisterEffect( "force/rage2" );
+		theFxScheduler.RegisterEffect("force/rage2");
 		//theFxScheduler.RegisterEffect( "force/heal_joint" );
-		theFxScheduler.RegisterEffect( "force/heal2" );
-		theFxScheduler.RegisterEffect( "force/drain_hand" );
+		theFxScheduler.RegisterEffect("force/heal2");
+		theFxScheduler.RegisterEffect("force/drain_hand");
 
 		//saber graphics
-		cgs.media.saberBlurShader			= cgi_R_RegisterShader("gfx/effects/sabers/saberBlur");
-		cgs.media.swordTrailShader			= cgi_R_RegisterShader("gfx/effects/sabers/swordTrail");
-		cgs.media.yellowDroppedSaberShader	= cgi_R_RegisterShader("gfx/effects/yellow_glow");
-		cgi_R_RegisterShader( "gfx/effects/saberDamageGlow" );
-		cgi_R_RegisterShader( "gfx/effects/solidWhite_cull" );
-		cgi_R_RegisterShader( "gfx/effects/forcePush" );
-		cgi_R_RegisterShader( "gfx/effects/saberFlare" );
-		cgs.media.redSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/red_glow" );
-		cgs.media.redSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/red_line" );
-		cgs.media.orangeSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/orange_glow" );
-		cgs.media.orangeSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/orange_line" );
-		cgs.media.yellowSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/yellow_glow" );
-		cgs.media.yellowSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/yellow_line" );
-		cgs.media.greenSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/green_glow" );
-		cgs.media.greenSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/green_line" );
-		cgs.media.blueSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/blue_glow" );
-		cgs.media.blueSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/blue_line" );
-		cgs.media.purpleSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/purple_glow" );
-		cgs.media.purpleSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/purple_line" );
+		cgs.media.saberBlurShader = cgi_R_RegisterShader("gfx/effects/sabers/saberBlur");
+		cgs.media.swordTrailShader = cgi_R_RegisterShader("gfx/effects/sabers/swordTrail");
+		cgs.media.yellowDroppedSaberShader = cgi_R_RegisterShader("gfx/effects/yellow_glow");
+		cgi_R_RegisterShader("gfx/effects/saberDamageGlow");
+		cgi_R_RegisterShader("gfx/effects/solidWhite_cull");
+		cgi_R_RegisterShader("gfx/effects/forcePush");
+		cgi_R_RegisterShader("gfx/effects/saberFlare");
+		cgs.media.redSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/red_glow");
+		cgs.media.redSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/red_line");
+		cgs.media.orangeSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/orange_glow");
+		cgs.media.orangeSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/orange_line");
+		cgs.media.yellowSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/yellow_glow");
+		cgs.media.yellowSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/yellow_line");
+		cgs.media.greenSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/green_glow");
+		cgs.media.greenSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/green_line");
+		cgs.media.blueSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/blue_glow");
+		cgs.media.blueSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/blue_line");
+		cgs.media.purpleSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/purple_glow");
+		cgs.media.purpleSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/purple_line");
 		cgs.media.unstableRedSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/unstable_red_glow");
 		cgs.media.unstableRedSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/unstable_red_line");
-		cgs.media.blackSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/black_glow" );
-		cgs.media.blackSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/black_line" );
-		cgs.media.blackSaberBlurShader		= cgi_R_RegisterShader("gfx/effects/sabers/blackSaberBlur");
-		cgs.media.rgbSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/rgb_glow" );
-		cgs.media.rgbSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/rgb_line" );
-		cgs.media.darkSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/darksaber_glow" );
-		cgs.media.darkSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/darksaber_line" );
-		cgs.media.darkSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/darksabercore" );
-		cgs.media.darkSaberGlowShader       = cgi_R_RegisterShader( "gfx/effects/sabers/darksaberglow" );
+		cgs.media.blackSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/black_glow");
+		cgs.media.blackSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/black_line");
+		cgs.media.blackSaberBlurShader = cgi_R_RegisterShader("gfx/effects/sabers/blackSaberBlur");
+		cgs.media.rgbSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/rgb_glow");
+		cgs.media.rgbSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/rgb_line");
+		cgs.media.darkSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/darksaber_glow");
+		cgs.media.darkSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/darksaber_line");
+		cgs.media.darkSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/darksabercore");
+		cgs.media.darkSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/darksaberglow");
 
-		cgs.media.forceCoronaShader			= cgi_R_RegisterShaderNoMip( "gfx/hud/force_swirl" );
+		cgs.media.forceCoronaShader = cgi_R_RegisterShaderNoMip("gfx/hud/force_swirl");
 
 		//new Jedi Academy force graphics
-		cgs.media.drainShader				= cgi_R_RegisterShader( "gfx/misc/redLine" );
+		cgs.media.drainShader = cgi_R_RegisterShader("gfx/misc/redLine");
 
 		//for grip slamming into walls
-		theFxScheduler.RegisterEffect( "env/impact_dustonly" );
-		cgi_S_RegisterSound( "sound/weapons/melee/punch1.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/melee/punch2.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/melee/punch3.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/melee/punch4.mp3" );
+		theFxScheduler.RegisterEffect("env/impact_dustonly");
+		cgi_S_RegisterSound("sound/weapons/melee/punch1.mp3");
+		cgi_S_RegisterSound("sound/weapons/melee/punch2.mp3");
+		cgi_S_RegisterSound("sound/weapons/melee/punch3.mp3");
+		cgi_S_RegisterSound("sound/weapons/melee/punch4.mp3");
 
 		//For kicks with saber staff...
-		theFxScheduler.RegisterEffect( "melee/kick_impact" );
+		theFxScheduler.RegisterEffect("melee/kick_impact");
 
 		//Kothos beam
-		cgi_R_RegisterShader( "gfx/misc/dr1" );
+		cgi_R_RegisterShader("gfx/misc/dr1");
 		break;
-
+	}
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL: // enemy version
 	case WP_JAWA:
@@ -1515,7 +1520,7 @@ int CG_WeaponCheck( int weaponIndex )
 
 int cgi_UI_GetItemText(char *menuFile,char *itemName, char *text);
 
-const char *weaponDesc[WP_NUM_WEAPONS - 1] =
+const char *weaponDesc[MAX_WEAPONS] =
 {
 "SABER_DESC",
 "NEW_BLASTER_PISTOL_DESC",
@@ -1580,7 +1585,7 @@ void CG_DrawDataPadWeaponSelect( void )
 
 	// count the number of weapons owned
 	weaponCount = 0;
-	for ( i = 1 ; i < WP_NUM_WEAPONS ; i++ )
+	for ( i = 1 ; i < weaponCount ; i++ )
 	{
 		if ( cg.snap->ps.weapons[i] )
 		{
@@ -1618,9 +1623,9 @@ void CG_DrawDataPadWeaponSelect( void )
 	{
 		cg.DataPadWeaponSelect = FIRST_WEAPON;
 	}
-	else if (cg.DataPadWeaponSelect>=WP_NUM_WEAPONS)
+	else if (cg.DataPadWeaponSelect>= weaponCount)
 	{
-		cg.DataPadWeaponSelect = WP_NUM_WEAPONS - 1;
+		cg.DataPadWeaponSelect = weaponCount - 1;
 	}
 
 	// What weapon does the player currently have selected
@@ -1634,7 +1639,7 @@ void CG_DrawDataPadWeaponSelect( void )
 	}
 	if (weaponSelectI<1)
 	{
-		weaponSelectI = WP_NUM_WEAPONS - 1;
+		weaponSelectI = weaponCount - 1;
 	}
 
 	const float smallIconSize_x = 40 * cgs.widthRatioCoef, smallIconSize_y = 40;
@@ -1664,7 +1669,7 @@ void CG_DrawDataPadWeaponSelect( void )
 
 		if (weaponSelectI<1)
 		{
-			weaponSelectI = WP_NUM_WEAPONS - 1;
+			weaponSelectI = weaponCount - 1;
 		}
 
 		if ( !(cg.snap->ps.weapons[weaponSelectI]))	// Does he have this weapon?
@@ -1733,7 +1738,7 @@ void CG_DrawDataPadWeaponSelect( void )
 		weaponSelectI = cg.DataPadWeaponSelect + 1;
 	}
 
-	if (weaponSelectI>= WP_NUM_WEAPONS)
+	if (weaponSelectI>= weaponCount)
 	{
 		weaponSelectI = 1;
 	}
@@ -1752,7 +1757,7 @@ void CG_DrawDataPadWeaponSelect( void )
 		{
 			weaponSelectI = WP_CONCUSSION;
 		}
-		if (weaponSelectI>= WP_NUM_WEAPONS)
+		if (weaponSelectI>= weaponCount)
 		{
 			weaponSelectI = 1;
 		}
@@ -1933,10 +1938,9 @@ void CG_DrawWeaponSelect( void )
 	// count the number of weapons owned
 	count = 0;
 	isOnVeh = (G_IsRidingVehicle(cg_entities[0].gent)!=0);
- 	for ( i = 1 ; i < WP_NUM_WEAPONS ; i++ )
+ 	for ( i = 1 ; i < weaponCount ; i++ )
 	{
-		if ((cg.snap->ps.weapons[i])  &&
-			playerUsableWeapons[i] &&
+		if ((cg.snap->ps.weapons[i])  && weaponData[i].playerUsable &&
 			(!isOnVeh || i==WP_NONE || i==WP_SABER || i==WP_BLASTER))
 		{
 			count++;
@@ -1978,7 +1982,7 @@ void CG_DrawWeaponSelect( void )
 	}
 	if (i<1)
 	{
-		i = WP_NUM_WEAPONS;
+		i = weaponCount;
 	}
 
 	smallIconSize_x = 40 * cgs.widthRatioCoef;
@@ -2018,10 +2022,10 @@ void CG_DrawWeaponSelect( void )
 		}
 		if (i<1)
 		{
-			i = WP_NUM_WEAPONS;
+			i = weaponCount;
 		}
 
-		if ( !(cg.snap->ps.weapons[i] && playerUsableWeapons[i]) )	// Does he have this weapon?
+		if ( !(cg.snap->ps.weapons[i] && weaponData[i].playerUsable) )	// Does he have this weapon?
 		{
 			if ( i == WP_CONCUSSION )
 			{
@@ -2096,7 +2100,7 @@ void CG_DrawWeaponSelect( void )
 	{
 		i = cg.weaponSelect + 1;
 	}
-	if (i>= WP_NUM_WEAPONS)
+	if (i>= weaponCount)
 	{
 		i = 1;
 	}
@@ -2117,12 +2121,12 @@ void CG_DrawWeaponSelect( void )
 		{
 			i = WP_CONCUSSION;
 		}
-		if (i>= WP_NUM_WEAPONS)
+		if (i>= weaponCount)
 		{
 			i = 1;
 		}
 
-		if ( !(cg.snap->ps.weapons[i] && playerUsableWeapons[i]))	// Does he have this weapon?
+		if ( !(cg.snap->ps.weapons[i] && weaponData[i].playerUsable))	// Does he have this weapon?
 		{
 			if ( i == WP_CONCUSSION )
 			{
@@ -2205,7 +2209,7 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 {
 	int	usage_for_weap;
 
-	if (i >= WP_NUM_WEAPONS || !playerUsableWeapons[i])
+	if (i >= weaponCount || !weaponData[i].playerUsable)
 	{
 #ifndef FINAL_BUILD
 		Com_Printf("CG_WeaponSelectable() passed illegal index of %d!\n",i);
@@ -2359,7 +2363,7 @@ void CG_NextWeapon_f( void ) {
 		firstWeapon = 0;	// include WP_NONE here
 	}
 
-	for ( i = 0 ; i < WP_NUM_WEAPONS ; i++ )
+	for ( i = 0 ; i < weaponCount; i++ )
 	{
 
 		//*SIGH*... Hack to put concussion rifle before rocketlauncher
@@ -2380,7 +2384,7 @@ void CG_NextWeapon_f( void ) {
 			cg.weaponSelect++;
 		}
 
-		if ( cg.weaponSelect < firstWeapon || cg.weaponSelect >= WP_NUM_WEAPONS) {
+		if ( cg.weaponSelect < firstWeapon || cg.weaponSelect >= weaponCount) {
 			cg.weaponSelect = firstWeapon;
 		}
 
@@ -2415,7 +2419,7 @@ void CG_DPNextWeapon_f( void ) {
 
 	original = cg.DataPadWeaponSelect;
 
-	for ( i = 0 ; i < WP_NUM_WEAPONS ; i++ )
+	for ( i = 0 ; i < weaponCount; i++ )
 	{
 
 		//*SIGH*... Hack to put concussion rifle before rocketlauncher
@@ -2436,7 +2440,7 @@ void CG_DPNextWeapon_f( void ) {
 			cg.DataPadWeaponSelect++;
 		}
 
-		if ( cg.DataPadWeaponSelect < FIRST_WEAPON || cg.DataPadWeaponSelect >= WP_NUM_WEAPONS ) {
+		if ( cg.DataPadWeaponSelect < FIRST_WEAPON || cg.DataPadWeaponSelect >= weaponCount) {
 			cg.DataPadWeaponSelect = FIRST_WEAPON;
 		}
 
@@ -2481,7 +2485,7 @@ void CG_DPPrevWeapon_f( void )
 
 	original = cg.DataPadWeaponSelect;
 
-	for ( i = 0 ; i < WP_NUM_WEAPONS ; i++ )
+	for ( i = 0 ; i < weaponCount; i++ )
 	{
 
 		//*SIGH*... Hack to put concussion rifle before rocketlauncher
@@ -2502,9 +2506,9 @@ void CG_DPPrevWeapon_f( void )
 			cg.DataPadWeaponSelect--;
 		}
 
-		if ( cg.DataPadWeaponSelect < FIRST_WEAPON || cg.DataPadWeaponSelect >= WP_NUM_WEAPONS )
+		if ( cg.DataPadWeaponSelect < FIRST_WEAPON || cg.DataPadWeaponSelect >= weaponCount)
 		{
-			cg.DataPadWeaponSelect = WP_NUM_WEAPONS;
+			cg.DataPadWeaponSelect = weaponCount;
 		}
 
 		if ( CG_WeaponSelectable( cg.DataPadWeaponSelect, original, qtrue ) )
@@ -2571,7 +2575,7 @@ void CG_PrevWeapon_f( void ) {
 		firstWeapon = 0;	// include WP_NONE here
 	}
 
-	for ( i = 0 ; i < WP_NUM_WEAPONS ; i++ ) {
+	for ( i = 0 ; i < weaponCount; i++ ) {
 
 		//*SIGH*... Hack to put concussion rifle before rocketlauncher
 		if ( cg.weaponSelect == WP_ROCKET_LAUNCHER )
@@ -2592,8 +2596,8 @@ void CG_PrevWeapon_f( void ) {
 		}
 
 
-		if ( cg.weaponSelect < firstWeapon || cg.weaponSelect >= WP_NUM_WEAPONS ) {
-			cg.weaponSelect = WP_NUM_WEAPONS;
+		if ( cg.weaponSelect < firstWeapon || cg.weaponSelect >= weaponCount) {
+			cg.weaponSelect = weaponCount;
 		}
 
 		if ( CG_WeaponSelectable( cg.weaponSelect, original, qfalse ) )
@@ -2616,7 +2620,7 @@ void CG_ChangeWeapon( int num )
 {
 	gentity_t	*player = &g_entities[0];
 
-	if ( num < WP_NONE || num >= WP_NUM_WEAPONS )
+	if ( num < WP_NONE || num >= weaponCount)
 	{
 		return;
 	}
@@ -2709,7 +2713,7 @@ void CG_Weapon_f( void )
 
 	num = atoi( CG_Argv( 1 ) );
 
-	if ( num < WP_NONE || num >= WP_NUM_WEAPONS ) {
+	if ( num < WP_NONE || num >= weaponCount) {
 		return;
 	}
 
@@ -2905,7 +2909,7 @@ void CG_FireWeapon( centity_t *cent, qboolean alt_fire )
 	if ( ent->weapon == WP_NONE ) {
 		return;
 	}
-	if ( ent->weapon >= WP_NUM_WEAPONS ) {
+	if ( ent->weapon >= weaponCount) {
 		CG_Error( "CG_FireWeapon: ent->weapon >= WP_NUM_WEAPONS" );
 		return;
 	}
@@ -3286,8 +3290,11 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 			}
 		}
 	}
-
-	switch (weapon)
+	int baseWeapon = weapon;
+	if (weaponData[weapon].baseWeaponNum) {
+		baseWeapon = weaponData[weapon].baseWeaponNum;
+	}
+	switch (baseWeapon)
 	{
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:

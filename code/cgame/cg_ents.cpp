@@ -1113,7 +1113,7 @@ static void CG_Missile( centity_t *cent ) {
 		return;
 
 	s1 = &cent->currentState;
-	if ( s1->weapon >= WP_NUM_WEAPONS ) {
+	if ( s1->weapon >= weaponCount) {
 		s1->weapon = 0;
 	}
 	weapon = &cg_weapons[s1->weapon];

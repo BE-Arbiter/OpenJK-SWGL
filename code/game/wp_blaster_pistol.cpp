@@ -35,7 +35,7 @@ void WP_FireBryarPistol( gentity_t *ent, qboolean alt_fire )
 //---------------------------------------------------------
 {
 	vec3_t	start;
-	int		damage = !alt_fire ? weaponData[WP_BRYAR_PISTOL].damage : weaponData[WP_BRYAR_PISTOL].altDamage;
+	int		damage = !alt_fire ? weaponData[ent->s.weapon].damage : weaponData[ent->s.weapon].altDamage;
 
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
@@ -67,18 +67,10 @@ void WP_FireBryarPistol( gentity_t *ent, qboolean alt_fire )
 
 	WP_MissileTargetHint(ent, start, forwardVec);
 
-	gentity_t	*missile = CreateMissile( start, forwardVec, BRYAR_PISTOL_VEL, 10000, ent, alt_fire );
+	gentity_t* missile = CreateMissile(start, forwardVec, alt_fire? weaponData[ent->s.weapon].mAltVelocity : weaponData[ent->s.weapon].mVelocity, 10000, ent, alt_fire);
 
 	missile->classname = "bryar_proj";
-	if ( ent->s.weapon == WP_BLASTER_PISTOL
-		|| ent->s.weapon == WP_JAWA )
-	{//*SIGH*... I hate our weapon system...
-		missile->s.weapon = ent->s.weapon;
-	}
-	else
-	{
-		missile->s.weapon = WP_BRYAR_PISTOL;
-	}
+	missile->s.weapon = ent->s.weapon;
 
 	if ( alt_fire )
 	{

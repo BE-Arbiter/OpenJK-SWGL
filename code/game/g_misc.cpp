@@ -946,7 +946,7 @@ void InitShooter( gentity_t *ent, int weapon ) {
 	ent->e_UseFunc = useF_Use_Shooter;
 	ent->s.weapon = weapon;
 
-	RegisterItem( FindItemForWeapon( (weapon_t) weapon ) );
+	RegisterItem( FindItemForWeapon( weapon ) );
 
 	G_SetMovedir( ent->s.angles, ent->movedir );
 
@@ -1839,7 +1839,7 @@ void SP_misc_trip_mine( gentity_t *self )
 		return;
 	}
 
-	RegisterItem( FindItemForWeapon( WP_TRIP_MINE ));	//precache the weapon
+	RegisterItem( FindItemForWeapon((int) WP_TRIP_MINE ));	//precache the weapon
 
 	self->count = 2/*TRIPWIRE_STYLE*/;
 
@@ -3085,10 +3085,10 @@ void SP_misc_atst_drivable( gentity_t *ent )
 	VectorSet( ent->s.modelScale, 1.0f, 1.0f, 1.0f );
 
 	//register my weapons, sounds and model
-	RegisterItem( FindItemForWeapon( WP_ATST_MAIN ));	//precache the weapon
-	RegisterItem( FindItemForWeapon( WP_ATST_SIDE ));	//precache the weapon
+	RegisterItem( FindItemForWeapon((int) WP_ATST_MAIN ));	//precache the weapon
+	RegisterItem( FindItemForWeapon((int) WP_ATST_SIDE ));	//precache the weapon
 	//HACKHACKHACKTEMP - until ATST gets real weapons of it's own?
-	RegisterItem( FindItemForWeapon( WP_EMPLACED_GUN ));	//precache the weapon
+	RegisterItem( FindItemForWeapon((int) WP_EMPLACED_GUN ));	//precache the weapon
 //	RegisterItem( FindItemForWeapon( WP_ROCKET_LAUNCHER ));	//precache the weapon
 //	RegisterItem( FindItemForWeapon( WP_BOWCASTER ));	//precache the weapon
 	//HACKHACKHACKTEMP - until ATST gets real weapons of it's own?

@@ -7041,8 +7041,8 @@ static void UI_GiveWeapon ( const int weaponIndex )
 	if (cl->gentity && cl->gentity->client)
 	{
 		playerState_t*	pState = cl->gentity->client;
-
-		if (weaponIndex<WP_NUM_WEAPONS)
+		//TODO - CORRECT THIS
+		if (weaponIndex< 64 )
 		{
 			pState->weapons[weaponIndex] = 1;
 		}
@@ -7063,7 +7063,8 @@ static void UI_EquipWeapon ( const int weaponIndex )
 	{
 		playerState_t*	pState = cl->gentity->client;
 
-		if (weaponIndex<WP_NUM_WEAPONS)
+		//TODO - CORRECT THIS
+		if (weaponIndex< 64)
 		{
 			pState->weapon = weaponIndex;
 			//force it to change
@@ -7203,8 +7204,8 @@ static void	UI_AddWeaponSelection ( const int weaponIndex, const int ammoIndex, 
 		if (cl->gentity && cl->gentity->client)
 		{
 			playerState_t*	pState = cl->gentity->client;
-
-			if ((weaponIndex>0) && (weaponIndex<WP_NUM_WEAPONS))
+			//TODO FIX THIS
+			if ((weaponIndex>0) && (weaponIndex< 64))
 			{
 				pState->weapons[weaponIndex] = 1;
 			}
@@ -7309,7 +7310,8 @@ static void UI_RemoveWeaponSelection ( const int weaponSelectionIndex )
 		{
 			playerState_t*	pState = cl->gentity->client;
 
-			if ((weaponIndex>0) && (weaponIndex<WP_NUM_WEAPONS))
+			//TODO - CORRECT THIS
+			if ((weaponIndex>0) && (weaponIndex< 64))
 			{
 				pState->weapons[weaponIndex] = 0;
 			}
@@ -7495,7 +7497,8 @@ static void	UI_AddThrowWeaponSelection ( const int weaponIndex, const int ammoIn
 		{
 			playerState_t*	pState = cl->gentity->client;
 
-			if ((weaponIndex>0) && (weaponIndex<WP_NUM_WEAPONS))
+			//TODO - CORRECT THIS
+			if ((weaponIndex>0) && (weaponIndex< 64))
 			{
 				pState->weapons[weaponIndex] = 1;
 			}
@@ -7574,7 +7577,8 @@ static void UI_RemoveThrowWeaponSelection ( void )
 		{
 			playerState_t*	pState = cl->gentity->client;
 
-			if ((uiInfo.selectedThrowWeapon>0) && (uiInfo.selectedThrowWeapon<WP_NUM_WEAPONS))
+			//TODO - CORRECT THIS
+			if ((uiInfo.selectedThrowWeapon>0) && (uiInfo.selectedThrowWeapon< 64))
 			{
 				pState->weapons[uiInfo.selectedThrowWeapon] = 0;
 			}

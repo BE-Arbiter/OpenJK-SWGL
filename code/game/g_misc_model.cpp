@@ -417,17 +417,17 @@ void SP_misc_model_gun_rack( gentity_t *ent )
 	// If BLASTER is checked...or nothing is checked then we'll do blasters
 	if (( ent->spawnflags & RACK_BLASTER ) || !(ent->spawnflags & ( RACK_BLASTER | RACK_REPEATER | RACK_ROCKET )))
 	{
-		blaster	= FindItemForWeapon( WP_BLASTER );
+		blaster	= FindItemForWeapon((int) WP_BLASTER );
 	}
 
 	if (( ent->spawnflags & RACK_REPEATER ))
 	{
-		repeater = FindItemForWeapon( WP_REPEATER );
+		repeater = FindItemForWeapon((int) WP_REPEATER );
 	}
 
 	if (( ent->spawnflags & RACK_ROCKET ))
 	{
-		rocket = FindItemForWeapon( WP_ROCKET_LAUNCHER );
+		rocket = FindItemForWeapon((int) WP_ROCKET_LAUNCHER );
 	}
 
 	//---------weapon types
@@ -509,7 +509,7 @@ void SP_misc_model_ammo_rack( gentity_t *ent )
 	{
 		if ( ent->spawnflags & RACK_WEAPONS )
 		{
-			RegisterItem( FindItemForWeapon( WP_BLASTER ));
+			RegisterItem( FindItemForWeapon((int) WP_BLASTER ));
 		}
 		RegisterItem( FindItemForAmmo( AMMO_BLASTER ));
 	}
@@ -518,7 +518,7 @@ void SP_misc_model_ammo_rack( gentity_t *ent )
 	{
 		if ( ent->spawnflags & RACK_WEAPONS )
 		{
-			RegisterItem( FindItemForWeapon( WP_REPEATER ));
+			RegisterItem( FindItemForWeapon((int) WP_REPEATER ));
 		}
 		RegisterItem( FindItemForAmmo( AMMO_METAL_BOLTS ));
 	}

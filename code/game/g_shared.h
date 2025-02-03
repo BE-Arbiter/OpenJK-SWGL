@@ -524,7 +524,7 @@ public:
 	int				torsoAttacksCnt;				// # of times torso was hit with saber
 	int				otherAttacksCnt;				// # of times anything else on a monster was hit with saber
 	int				forceUsed[NUM_FORCE_POWERS];	// # of times each force power was used
-	int				weaponUsed[WP_NUM_WEAPONS];		// # of times each weapon was used
+	int				weaponUsed[MAX_WEAPONS];		// # of times each weapon was used
 
 
 	void sg_export(

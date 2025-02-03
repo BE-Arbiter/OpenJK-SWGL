@@ -150,7 +150,7 @@ extern cvar_t	*g_saberNewControlScheme;
 extern cvar_t	*g_stepSlideFix;
 extern cvar_t	*g_saberAutoBlocking;
 extern cvar_t	*g_char_model;
-extern int defaultDamageCopy[WP_NUM_WEAPONS];
+extern int defaultDamageCopy[MAX_WEAPONS];
 
 qboolean CasualWalker(pmove_t* pm);
 
@@ -8946,7 +8946,7 @@ static void PM_BeginWeaponChange( int weapon ) {
 		}
 	}
 
-	if ( weapon < WP_NONE || weapon >= WP_NUM_WEAPONS ) {
+	if ( weapon < WP_NONE || weapon >= weaponCount ) {
 		return;
 	}
 
@@ -9053,7 +9053,7 @@ static void PM_FinishWeaponChange( void ) {
 		}
 	}
 	weapon = pm->cmd.weapon;
-	if ( weapon < WP_NONE || weapon >= WP_NUM_WEAPONS ) {
+	if ( weapon < WP_NONE || weapon >= weaponCount) {
 		weapon = WP_NONE;
 	}
 
@@ -9069,7 +9069,7 @@ static void PM_FinishWeaponChange( void ) {
 	if ( trueSwitch && pm->ps->weapon == WP_EMPLACED_GUN && !(pm->ps->eFlags & EF_LOCKED_TO_WEAPON) )
 	{
 		gitem_t *item;
-		item = FindItemForWeapon( WP_EMPLACED_GUN );
+		item = FindItemForWeapon((int) WP_EMPLACED_GUN );
 		gentity_t *dropped = Drop_Item(pm->gent, item, 0, qfalse);
 		dropped->count = pm->ps->ammo[AMMO_EMPLACED];
 		gi.G2API_InitGhoul2Model( dropped->ghoul2, "models/map_objects/hoth/eweb_model.glm", G_ModelIndex( "models/map_objects/hoth/eweb_model.glm" ), NULL_HANDLE, NULL_HANDLE, 0, 0);

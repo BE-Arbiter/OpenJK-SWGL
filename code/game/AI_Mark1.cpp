@@ -91,8 +91,8 @@ void NPC_Mark1_Precache(void)
 
 	RegisterItem( FindItemForAmmo( 	AMMO_METAL_BOLTS));
 	RegisterItem( FindItemForAmmo( AMMO_BLASTER ));
-	RegisterItem( FindItemForWeapon( WP_BOWCASTER ));
-	RegisterItem( FindItemForWeapon( WP_BRYAR_PISTOL ));
+	RegisterItem( FindItemForWeapon((int) WP_BOWCASTER ));
+	RegisterItem( FindItemForWeapon((int) WP_BRYAR_PISTOL ));
 }
 
 /*

@@ -209,7 +209,7 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 		|| weapon == WP_MELEE )
 	{//never drop these
 	}
-	else if ( weapon > WP_SABER && weapon < WP_NUM_WEAPONS && playerUsableWeapons[weapon] )//&& self->client->ps.ammo[ weaponData[weapon].ammoIndex ]
+	else if ( weapon > WP_SABER && weapon < weaponCount && weaponData[weapon].playerUsable )//&& self->client->ps.ammo[ weaponData[weapon].ammoIndex ]
 	{
 		self->s.weapon = WP_NONE;
 
@@ -220,7 +220,7 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 		}
 		else
 		{// find the item type for this weapon
-			item = FindItemForWeapon( (weapon_t) weapon );
+			item = FindItemForWeapon( weapon );
 		}
 		if ( item && !dropped )
 		{

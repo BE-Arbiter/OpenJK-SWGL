@@ -92,12 +92,10 @@ typedef enum //# weapon_e
 	WP_CLONEPISTOL,
 
 	//# #eol
-	WP_NUM_WEAPONS
+	WP_HC_NUM_WEAPONS
 } weapon_t;
 
 #define FIRST_WEAPON		WP_SABER		// this is the first weapon for next and prev weapon switching
-
-extern qboolean playerUsableWeapons[WP_NUM_WEAPONS];
 
 // AMMO_NONE must be first and AMMO_MAX must be last, cause weapon load validates based off of these vals
 typedef enum //# ammo_e
@@ -116,9 +114,17 @@ typedef enum //# ammo_e
 } ammo_t;
 
 
+typedef struct weaponIndexes_s
+{
+	char weaponClass[32];
+	int index;
+} weaponIndexes_t;
+
 typedef struct weaponData_s
 {
 	char	classname[32];		// Spawning name
+	char	baseclass[32];		// Base Weapon
+	int		baseWeaponNum;		// Base WeaponNum;
 	char	weaponMdl[64];		// Weapon Model
 	char	firingSnd[64];		// Sound made when fired
 	char	altFiringSnd[64];	// Sound made when alt-fired
@@ -171,6 +177,8 @@ typedef struct weaponData_s
 	int		altSplashDamage;
 	float	splashRadius;
 	float	altSplashRadius;
+	float	mVelocity;
+	float	mAltVelocity;
 
 	int 	tertiaryEnergyPerShot;
 	int 	tertiaryFireTime;
@@ -184,6 +192,7 @@ typedef struct weaponData_s
 
 	char	weaponMdl2[64];
 	qboolean secondaryMdl;
+	qboolean playerUsable;
 
 } weaponData_t;
 

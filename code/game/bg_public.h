@@ -736,7 +736,9 @@ typedef struct ginfoitem_s
 
 //==============================================================================
 
-extern weaponData_t weaponData[WP_NUM_WEAPONS];
+extern int weaponCount;
+extern weaponIndexes_t weaponIndexes[MAX_WEAPONS];
+extern weaponData_t weaponData[MAX_WEAPONS];
 
 //==============================================================================
 extern ammoData_t ammoData[AMMO_MAX];
@@ -744,7 +746,7 @@ extern ammoData_t ammoData[AMMO_MAX];
 //==============================================================================
 
 gitem_t	*FindItem( const char *className );
-gitem_t	*FindItemForWeapon( weapon_t weapon );
+gitem_t	*FindItemForWeapon( int weapon );
 gitem_t	*FindItemForInventory( int inv );
 
 #define	ITEM_INDEX(x) ((x)-bg_itemlist)
