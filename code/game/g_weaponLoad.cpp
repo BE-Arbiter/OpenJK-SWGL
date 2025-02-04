@@ -880,6 +880,50 @@ void WPN_AltMuzzleEffect(const char **holdBuf)
 }
 
 //--------------------------------------------
+void WPN_ProjectileEffect(const char **holdBuf)
+{
+	const char	*tokenStr;
+
+	if ( COM_ParseString(holdBuf,&tokenStr))
+	{
+		return;
+	}
+	size_t len = strlen( tokenStr );
+
+	len++;
+	if (len > 64)
+	{
+		len = 64;
+		gi.Printf(S_COLOR_YELLOW"WARNING: projectileEffect '%s' too long in external WEAPONS.DAT\n", tokenStr);
+	}
+
+	G_EffectIndex( tokenStr );
+	Q_strncpyz(weaponData[wpnParms.weaponNum].projectileEffect,tokenStr,len);
+}
+
+//--------------------------------------------
+void WPN_AltProjectileEffect(const char** holdBuf)
+{
+	const char	*tokenStr;
+
+	if ( COM_ParseString(holdBuf,&tokenStr))
+	{
+		return;
+	}
+	size_t len = strlen( tokenStr );
+
+	len++;
+	if (len > 64)
+	{
+		len = 64;
+		gi.Printf(S_COLOR_YELLOW"WARNING: alt_projectileEffect '%s' too long in external WEAPONS.DAT\n", tokenStr);
+	}
+
+	G_EffectIndex( tokenStr );
+	Q_strncpyz(weaponData[wpnParms.weaponNum].alt_projectileEffect,tokenStr,len);
+}
+
+//--------------------------------------------
 void WPN_TertiaryMuzzleEffect(const char **holdBuf)
 {
 	const char	*tokenStr;
@@ -1442,6 +1486,13 @@ void WP_LoadWeaponParms (void)
 			if(weaponData[i].weaponMdl2[0] == 0){
 				strcpy(weaponData[i].weaponMdl2, weaponData[j].weaponMdl2);
 			}
+			if (weaponData[i].projectileEffect[0] == 0) {
+				strcpy(weaponData[i].projectileEffect, weaponData[j].projectileEffect);
+			}
+			if (weaponData[i].alt_projectileEffect[0] == 0) {
+				strcpy(weaponData[i].alt_projectileEffect, weaponData[j].alt_projectileEffect);
+			}
+
             //Copying the int arrays
 			if(weaponData[i].mainFireOpt[0] == 0 && weaponData[i].mainFireOpt[1] == 0 && weaponData[i].mainFireOpt[2] == 0){
 			    weaponData[i].mainFireOpt[0] = weaponData[j].mainFireOpt[0];

@@ -76,6 +76,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 			|| (item->giType == IT_WEAPON && item->giTag == -1 && !Q_stricmp(item->giTagName, weaponData[weaponNum].classname))
 		){
 			weaponInfo->item = item;
+			Com_Printf(S_COLOR_CYAN, "Found item %s for weapon %s", item->classname, weaponData[weaponNum].classname);
 			break;
 		}
 	}
@@ -221,6 +222,14 @@ void CG_RegisterWeapon( int weaponNum ) {
 	if ( weaponData[weaponNum].mTertiaryMuzzleEffect[0] )
 	{
 		weaponData[weaponNum].mTertiaryMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].mTertiaryMuzzleEffect );
+	}
+	if ( weaponData[weaponNum].projectileEffect[0] )
+	{
+		weaponInfo->projectileEffect = weaponData[weaponNum].projectileEffectID;
+	}
+	if ( weaponData[weaponNum].alt_projectileEffect[0] )
+	{
+		weaponInfo->alt_projectileEffect = weaponData[weaponNum].alt_projectileEffectID;
 	}
 
 	//fixme: don't really need to copy these, should just use directly

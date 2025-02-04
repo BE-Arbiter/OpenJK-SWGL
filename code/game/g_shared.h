@@ -1738,6 +1738,9 @@ typedef struct weaponInfo_s {
 	sfxHandle_t		alt_missileSound;
 	void			(*alt_missileTrailFunc)( centity_t *, const struct weaponInfo_s *wi );
 
+	fxHandle_t		projectileEffect;
+	fxHandle_t		alt_projectileEffect;
+
 //	sfxHandle_t		flashSound;
 //	sfxHandle_t		altFlashSound;
 

@@ -267,14 +267,12 @@ static void IT_Name(const char **holdBuf)
 		itemNum = ITM_GOODIE_KEY_PICKUP;
 	else if (!Q_stricmp(tokenStr,"ITM_SECURITY_KEY_PICKUP"))
 		itemNum = ITM_SECURITY_KEY_PICKUP;
-	else if (!Q_stricmp(tokenStr,"ITM_BRYAR_BLASTER_PICKUP"))
-		itemNum = ITM_BRYAR_BLASTER_PICKUP;
 	else {
+		itemNum = bg_numItems;
 		if (itemNum == MAX_ITEMS) {
 			itemNum = 0;
 			gi.Printf(S_COLOR_YELLOW"WARNING: too many items in external items data(%d); Parsing '%s'\n", MAX_ITEMS, tokenStr);
 		}
-		itemNum = bg_numItems;
 		bg_numItems++;
 
 	}
@@ -566,6 +564,7 @@ static void IT_Tag(const char **holdBuf)
 		/* ITs a dynamic weapon*/
 		tag = -1;
 		bg_itemlist[itemParms.itemNum].giTagName = G_NewString(tokenStr);
+		gi.Printf(S_COLOR_CYAN"Found Dynamic Weapon Item: '%s'\n", tokenStr);
 	}
 	else
 	{

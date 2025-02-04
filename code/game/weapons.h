@@ -171,6 +171,10 @@ typedef struct weaponData_s
 	char	mTertiaryMuzzleEffect[64];
 	int		mTertiaryMuzzleEffectID;
 
+	char	projectileEffect[64];
+	char	alt_projectileEffect[64];
+
+
 	int		damage;
 	int		defaultDamage;
 	int		altDamage;

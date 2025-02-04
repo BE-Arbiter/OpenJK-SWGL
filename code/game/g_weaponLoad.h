@@ -237,6 +237,9 @@ void WPN_PlayerUsable(const char** holdBuf);
 void WPN_IsPistol(const char** holdBuf);
 void WPN_DescriptionKey(const char** holdBuf);
 
+void WPN_ProjectileEffect(const char** holdBuf);
+void WPN_AltProjectileEffect(const char** holdBuf);
+
 // Legacy weapons.dat force fields
 void WPN_FuncSkip(const char** holdBuf);
 
@@ -286,6 +289,8 @@ wpnParms_t WpnParms[] =
 	{ "muzzleEffect",			WPN_MuzzleEffect },
 	{ "altmuzzleEffect",		WPN_AltMuzzleEffect },
 	{ "tertiarymuzzleEffect",	WPN_TertiaryMuzzleEffect },
+	{ "projectileEffect",			WPN_ProjectileEffect },
+	{ "altProjectileEffect",		WPN_AltProjectileEffect},
 	// OPENJK NEW FIELDS
 	{ "damage",				WPN_Damage },
 	{ "altdamage",			WPN_AltDamage },

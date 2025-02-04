@@ -66,11 +66,14 @@ void FX_BlasterProjectileThink( centity_t *cent, const struct weaponInfo_s *weap
 		float scale = ( dif / 75.0f ) * 0.95f + 0.05f;
 
 		VectorScale( forward, scale, forward );
-	}
+	}   
 
 	if ( cent->gent && cent->gent->owner && cent->gent->owner->s.number > 0 )
 	{
 		theFxScheduler.PlayEffect( "blaster/NPCshot", cent->lerpOrigin, forward );
+	}
+	else if (weapon->projectileEffect) {
+		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
 	}
 	else
 	{

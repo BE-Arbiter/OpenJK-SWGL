@@ -64,7 +64,7 @@ void WP_FireBlasterMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean a
 	gentity_t *missile = CreateMissile( start, dir, velocity, 10000, ent, altFire );
 
 	missile->classname = "blaster_proj";
-	missile->s.weapon = WP_BLASTER;
+	missile->s.weapon = ent->s.weapon;
 
 	// Do the damages
 	if (ent->s.number != 0 && ((ent->client->NPC_class != CLASS_BOBAFETT && ent->client->NPC_class != CLASS_MANDALORIAN && ent->client->NPC_class != CLASS_JANGO) && ent->client->NPC_class != CLASS_MANDALORIAN && ent->client->NPC_class != CLASS_JANGO))
