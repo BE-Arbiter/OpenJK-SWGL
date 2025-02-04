@@ -1495,10 +1495,10 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].scopeType = weaponData[i].scopeType == 0 ? weaponData[j].scopeType : weaponData[i].scopeType;
 
 			weaponData[i].secondaryMdl = weaponData[i].secondaryMdl == 0 ? weaponData[j].secondaryMdl : weaponData[i].secondaryMdl;
-			weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[j].playerUsable;
-			weaponData[i].isPistol = weaponData[i].isPistol == qunset ? weaponData[j].isPistol : weaponData[j].isPistol;
-			weaponData[i].mVelocity = weaponData[i].mVelocity == 0 ? weaponData[j].mVelocity : weaponData[j].mVelocity;
-			weaponData[i].mAltVelocity = weaponData[i].mAltVelocity == 0 ? weaponData[j].mAltVelocity : weaponData[j].mAltVelocity;
+			weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[i].playerUsable;
+			weaponData[i].isPistol = weaponData[i].isPistol == qunset ? weaponData[j].isPistol : weaponData[i].isPistol;
+			weaponData[i].mVelocity = weaponData[i].mVelocity == 0 ? weaponData[j].mVelocity : weaponData[i].mVelocity;
+			weaponData[i].mAltVelocity = weaponData[i].mAltVelocity == 0 ? weaponData[j].mAltVelocity : weaponData[i].mAltVelocity;
 			weaponData[i].baseWeaponNum = j;
 			//copying weapon Function pointers
 			weaponData[i].func = weaponData[i].func == 0 ? weaponData[j].func : weaponData[i].func;
