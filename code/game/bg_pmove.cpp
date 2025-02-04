@@ -150,7 +150,6 @@ extern cvar_t	*g_saberNewControlScheme;
 extern cvar_t	*g_stepSlideFix;
 extern cvar_t	*g_saberAutoBlocking;
 extern cvar_t	*g_char_model;
-extern int defaultDamageCopy[MAX_WEAPONS];
 
 qboolean CasualWalker(pmove_t* pm);
 
@@ -13478,10 +13477,6 @@ static void PM_Weapon( void )
 	int fire_time = 0;
 	int burst_fire_delay = 0;
 	int burst_shots = 0;
-	qboolean is_pistol = (qboolean)(pm->ps->weapon == WP_BLASTER_PISTOL
-									|| pm->ps->weapon == WP_REY
-									|| pm->ps->weapon == WP_JANGO
-									|| pm->ps->weapon == WP_CLONEPISTOL);
 
 	if (pm->cmd.buttons & BUTTON_ATTACK)
 	{	
@@ -13614,7 +13609,7 @@ static void PM_Weapon( void )
 
 	if (pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer())
 	{
-		if (is_pistol)
+		if (weaponData[pm->ps->weapon].isPistol)
 		{
 			// If you don't have a weapon in your left hand and you just turned dual wielding on.
 			if (pm->gent->weaponModel[1] <= 0 && cg_dualWielding.integer)
@@ -14339,10 +14334,10 @@ static void PM_Weapon( void )
 		weaponData[pm->ps->weapon].damage = HIGH_POWERED_DAMAGE;
 	}
 	// If the damages are different.
-	else if (weaponData[pm->ps->weapon].damage != defaultDamageCopy[pm->ps->weapon])
+	else if (weaponData[pm->ps->weapon].damage != weaponData[pm->ps->weapon].defaultDamage)
 	{
 		// Load back the default damage of that weapon.
-		weaponData[pm->ps->weapon].damage = defaultDamageCopy[pm->ps->weapon];
+		weaponData[pm->ps->weapon].damage = weaponData[pm->ps->weapon].defaultDamage;
 	}
 
 	if ( g_timescale != NULL )

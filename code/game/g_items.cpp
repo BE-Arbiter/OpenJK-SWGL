@@ -458,18 +458,17 @@ extern void CG_ChangeWeapon( int num );
 int Pickup_Weapon (gentity_t *ent, gentity_t *other)
 {
 	int		quantity;
+	int weaponNum = ent->item->giTag;
 	qboolean	hadWeapon = qfalse;
 
-	/*
-	if ( ent->count || (ent->activator && !ent->activator->s.number) )
-	{
-		quantity = ent->count;
+	if (weaponNum == -1) {
+		for (int i = 0; i < weaponCount; i++) {
+			if (!Q_stricmp(weaponData[i].classname, ent->item->giTagName)) {
+				weaponNum = i;
+				break;
+			}
+		}
 	}
-	else
-	{
-		quantity = ent->item->quantity;
-	}
-	*/
 
 	// dropped items are always picked up
 	if ( ent->flags & FL_DROPPED_ITEM )
@@ -482,13 +481,13 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other)
 	}
 
 	// add the weapon
-	if ( other->client->ps.weapons[ent->item->giTag] )
+	if ( other->client->ps.weapons[weaponNum] )
 	{
 		hadWeapon = qtrue;
 	}
-	other->client->ps.weapons[ent->item->giTag] = 1;
+	other->client->ps.weapons[weaponNum] = 1;
 
-	if ( ent->item->giTag == WP_SABER && (!hadWeapon || ent->NPC_type != NULL) )
+	if (weaponNum == WP_SABER && (!hadWeapon || ent->NPC_type != NULL) )
 	{//didn't have a saber or it is specifying a certain kind of saber to use
 		if ( !Pickup_Saber( other, hadWeapon, ent ) )
 		{
@@ -499,24 +498,24 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other)
 	if ( other->s.number )
 	{//NPC
 		if ( other->s.weapon == WP_NONE
-			|| ent->item->giTag == WP_SABER )
+			|| weaponNum == WP_SABER )
 		{//NPC with no weapon picked up a weapon, change to this weapon
 			//FIXME: clear/set the alt-fire flag based on the picked up weapon and my class?
-			other->client->ps.weapon = ent->item->giTag;
+			other->client->ps.weapon = weaponNum;
 			other->client->ps.weaponstate = WEAPON_RAISING;
-			ChangeWeapon( other, ent->item->giTag );
-			if ( ent->item->giTag == WP_SABER )
+			ChangeWeapon( other, weaponNum);
+			if (weaponNum == WP_SABER )
 			{
 				other->client->ps.SaberActivate();
 				WP_SaberAddG2SaberModels( other );
 			}
 			else
 			{
-				G_CreateG2AttachedWeaponModel( other, weaponData[ent->item->giTag].weaponMdl, other->handRBolt, 0 );
+				G_CreateG2AttachedWeaponModel( other, weaponData[weaponNum].weaponMdl, other->handRBolt, 0 );
 			}
 		}
 	}
-	if ( ent->item->giTag == WP_SABER )
+	if (weaponNum == WP_SABER )
 	{//picked up a saber
 		if ( other->s.weapon != WP_SABER )
 		{//player picking up saber
@@ -540,7 +539,7 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other)
 	if ( quantity )
 	{
 		// Give ammo
-		Add_Ammo( other, ent->item->giTag, quantity );
+		Add_Ammo( other, weaponNum, quantity );
 	}
 	return 5;
 }

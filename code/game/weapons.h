@@ -172,6 +172,7 @@ typedef struct weaponData_s
 	int		mTertiaryMuzzleEffectID;
 
 	int		damage;
+	int		defaultDamage;
 	int		altDamage;
 	int		splashDamage;
 	int		altSplashDamage;
@@ -193,6 +194,9 @@ typedef struct weaponData_s
 	char	weaponMdl2[64];
 	qboolean secondaryMdl;
 	qboolean playerUsable;
+	qboolean isPistol;
+	char	descriptionKey[128];
+	char	nameKey[128];
 
 } weaponData_t;
 

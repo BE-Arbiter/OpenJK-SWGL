@@ -136,7 +136,6 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 	gentity_t	*dropped2 = NULL;
 	gitem_t		*item = NULL;
 	int			weapon;
-	qboolean 	is_pistol = qfalse;
 
 	if ( self->client->NPC_class == CLASS_SEEKER
 		|| self->client->NPC_class == CLASS_REMOTE
@@ -150,10 +149,6 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 
 	// drop the weapon if not a saber or enemy-only weapon
 	weapon = self->s.weapon;
-	is_pistol = (qboolean)(self->weaponModel[1] > 0 && (weapon == WP_BLASTER_PISTOL
-							|| weapon == WP_REY
-							|| weapon == WP_JANGO
-							|| weapon == WP_CLONEPISTOL));
 
 	if ( weapon == WP_SABER )
 	{
@@ -314,7 +309,7 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 			}
 		}
 
-		if (item && !dropped2 && is_pistol)
+		if (item && !dropped2 && weaponData[weapon].isPistol)
 		{
 			dropped2 = Drop_Item(self, item, 45, qtrue);
 			dropped2->e_ThinkFunc = thinkF_NULL;

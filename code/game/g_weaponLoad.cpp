@@ -60,13 +60,14 @@ void WPN_WeaponType( const char **holdBuf)
 		}
 		weaponNum = weaponCount;
 		weaponCount++;
-		
+		Com_Printf(S_COLOR_CYAN"Dynamic Weapon found : %s\n", tokenStr);
 	}
 	
 	wpnParms.weaponNum = weaponNum;
 
 	weaponIndexes[weaponNum].index = weaponNum;
 	strcpy(weaponIndexes[weaponNum].weaponClass, tokenStr);
+	
 }
 
 //--------------------------------------------
@@ -913,7 +914,7 @@ void WPN_Damage(const char **holdBuf)
 	}
 
 	weaponData[wpnParms.weaponNum].damage = tokenInt;
-	defaultDamageCopy[wpnParms.weaponNum] = tokenInt;
+	weaponData[wpnParms.weaponNum].defaultDamage = tokenInt;
 }
 
 //--------------------------------------------
@@ -1221,6 +1222,59 @@ void WPN_AltVelocity(const char** holdBuf)
 }
 
 //--------------------------------------------
+
+void WPN_PlayerUsable(const char** holdBuf)
+{
+	int tokenInt;
+
+	if (COM_ParseInt(holdBuf, &tokenInt))
+	{
+		SkipRestOfLine(holdBuf);
+		return;
+	}
+
+	weaponData[wpnParms.weaponNum].playerUsable = (qboolean) tokenInt;
+}
+
+//--------------------------------------------
+
+void WPN_IsPistol(const char** holdBuf)
+{
+	int tokenInt;
+
+	if (COM_ParseInt(holdBuf, &tokenInt))
+	{
+		SkipRestOfLine(holdBuf);
+		return;
+	}
+
+	weaponData[wpnParms.weaponNum].isPistol = (qboolean) tokenInt;
+}
+
+//--------------------------------------------
+void WPN_DescriptionKey(const char** holdBuf)
+{
+	const char* tokenStr;
+
+	if (COM_ParseString(holdBuf, &tokenStr))
+	{
+		return;
+	}
+	size_t len = strlen(tokenStr);
+
+	len++;
+	if (len > 128)
+	{
+		len = 128;
+		gi.Printf(S_COLOR_YELLOW"WARNING: descriptionKey '%s' too long in external WEAPONS.DAT\n", tokenStr);
+	}
+
+	G_EffectIndex(tokenStr);
+	Q_strncpyz(weaponData[wpnParms.weaponNum].descriptionKey, tokenStr, len);
+}
+
+
+//--------------------------------------------
 static void WP_ParseParms(const char *buffer)
 {
 	const char	*holdBuf;
@@ -1261,7 +1315,6 @@ void WP_LoadWeaponParms (void)
 	// initialise the data area
 	memset(weaponData, 0, sizeof(weaponData));
 	memset(weaponIndexes, 0, sizeof(weaponIndexes));
-	memset(defaultDamageCopy, 0, sizeof(defaultDamageCopy));
 
 	// initialise the weapon Count;
 	weaponCount = numHcWeaponIndexes;
@@ -1271,19 +1324,21 @@ void WP_LoadWeaponParms (void)
 	for(int i = 0; i <  numHcWeaponIndexes; i++)
 	{
 		weaponData[i].damage = defaultDamage[i];
+		weaponData[i].defaultDamage = defaultDamage[i];
 		weaponData[i].altDamage = defaultAltDamage[i];
 		weaponData[i].splashDamage = defaultSplashDamage[i];
 		weaponData[i].altSplashDamage = defaultAltSplashDamage[i];
 		weaponData[i].splashRadius = defaultSplashRadius[i];
 		weaponData[i].altSplashRadius = defaultAltSplashRadius[i];
-		weaponData[i].playerUsable = playerUsable[i];
+		weaponData[i].playerUsable = defaultPlayerUsable[i];
 		weaponData[i].mVelocity = defaultsWeaponSpeed[i][0];
 		weaponData[i].mAltVelocity = defaultsWeaponSpeed[i][1];
-		defaultDamageCopy[i] = defaultDamage[i];
+		weaponData[i].isPistol = defaultIsPistol[i];
 	}
 	//put in the qunset flag for playerUsable since 0 = false;
 	for (int i = numHcWeaponIndexes; i < MAX_WEAPONS ; i++) {
 		weaponData[i].playerUsable = qunset;
+		weaponData[i].isPistol = qunset;
 
 	}
 	WP_ParseParms(buffer);
@@ -1426,6 +1481,7 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].mTertiaryMuzzleEffectID = weaponData[i].mTertiaryMuzzleEffectID == 0 ? weaponData[j].mTertiaryMuzzleEffectID : weaponData[i].mTertiaryMuzzleEffectID;
 
 			weaponData[i].damage = weaponData[i].damage == 0 ? weaponData[j].damage : weaponData[i].damage;
+			weaponData[i].defaultDamage = weaponData[i].defaultDamage == 0 ? weaponData[j].defaultDamage : weaponData[i].defaultDamage;
 			weaponData[i].altDamage = weaponData[i].altDamage == 0 ? weaponData[j].altDamage : weaponData[i].altDamage;
 			weaponData[i].splashDamage = weaponData[i].splashDamage == 0 ? weaponData[j].splashDamage : weaponData[i].splashDamage;
 			weaponData[i].altSplashDamage = weaponData[i].altSplashDamage == 0 ? weaponData[j].altSplashDamage : weaponData[i].altSplashDamage;
@@ -1440,6 +1496,7 @@ void WP_LoadWeaponParms (void)
 
 			weaponData[i].secondaryMdl = weaponData[i].secondaryMdl == 0 ? weaponData[j].secondaryMdl : weaponData[i].secondaryMdl;
 			weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[j].playerUsable;
+			weaponData[i].isPistol = weaponData[i].isPistol == qunset ? weaponData[j].isPistol : weaponData[j].isPistol;
 			weaponData[i].mVelocity = weaponData[i].mVelocity == 0 ? weaponData[j].mVelocity : weaponData[j].mVelocity;
 			weaponData[i].mAltVelocity = weaponData[i].mAltVelocity == 0 ? weaponData[j].mAltVelocity : weaponData[j].mAltVelocity;
 			weaponData[i].baseWeaponNum = j;
@@ -1447,7 +1504,6 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].func = weaponData[i].func == 0 ? weaponData[j].func : weaponData[i].func;
 			weaponData[i].altfunc = weaponData[i].altfunc == 0 ? weaponData[j].altfunc : weaponData[i].altfunc;
 
-			defaultDamageCopy[i] = defaultDamageCopy[i] == 0 ? defaultDamageCopy[j] : defaultDamageCopy[i];
 
 			//Copying vectors
 			if (weaponData[i].missileDlightColor[0] == 0 && weaponData[i].missileDlightColor[1] == 0 && weaponData[i].missileDlightColor[2] == 0) {

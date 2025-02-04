@@ -269,10 +269,14 @@ static void IT_Name(const char **holdBuf)
 		itemNum = ITM_SECURITY_KEY_PICKUP;
 	else if (!Q_stricmp(tokenStr,"ITM_BRYAR_BLASTER_PICKUP"))
 		itemNum = ITM_BRYAR_BLASTER_PICKUP;
-	else
-	{
-		itemNum = 0;
-		gi.Printf("WARNING: bad itemname in external item data '%s'\n", tokenStr);
+	else {
+		if (itemNum == MAX_ITEMS) {
+			itemNum = 0;
+			gi.Printf(S_COLOR_YELLOW"WARNING: too many items in external items data(%d); Parsing '%s'\n", MAX_ITEMS, tokenStr);
+		}
+		itemNum = bg_numItems;
+		bg_numItems++;
+
 	}
 
 	itemParms.itemNum = itemNum;
@@ -413,8 +417,6 @@ static void IT_Tag(const char **holdBuf)
 		tag = WP_CLONECOMMANDO;
 	else if (!Q_stricmp(tokenStr, "WP_REBELRIFLE"))
 		tag = WP_REBELRIFLE;
-	else if (!Q_stricmp(tokenStr, "WP_BRYAR_BLASTER"))
-		tag = WP_HC_NUM_WEAPONS;
 	else if (!Q_stricmp(tokenStr, "WP_REY"))
 		tag = WP_REY;
 	else if (!Q_stricmp(tokenStr, "WP_JANGO"))
@@ -558,6 +560,12 @@ static void IT_Tag(const char **holdBuf)
 	else if (!Q_stricmp(tokenStr,"ITM_SHIELD_LRG_PICKUP"))
 	{
 		tag = ITM_SHIELD_LRG_PICKUP;
+	}
+	else if(!Q_stricmpn( tokenStr, "WEAPON_", 7 ) )
+	{
+		/* ITs a dynamic weapon*/
+		tag = -1;
+		bg_itemlist[itemParms.itemNum].giTagName = G_NewString(tokenStr);
 	}
 	else
 	{
@@ -778,4 +786,40 @@ void IT_LoadItemParms (void)
 	IT_ParseParms(buffer);
 
 	gi.FS_FreeFile( buffer );	//let go of the buffer
+	
+
+	//Read files containing Dynamics Weapons
+	char* holdChar;
+	char	weaponFileList[2048];			//	The list of file names read in
+	int		fileCount;
+	int		fileNameSize;
+
+	//Read all the externals file
+	fileCount = gi.FS_GetFileList("ext_data/ext_items/", ".dat", weaponFileList, sizeof(weaponFileList));
+
+	holdChar = weaponFileList;
+
+	Com_Printf("Found %d External files\n", fileCount);
+	for (int i = 0; i < fileCount; i++, holdChar += fileNameSize + 1)
+	{
+		fileNameSize = strlen(holdChar);
+
+		Com_Printf("Parsing %s\n", holdChar);
+		char* fileBuffer;
+		int fileLen;
+
+		fileLen = gi.FS_ReadFile(va("ext_data/ext_items/%s", holdChar), (void**)&fileBuffer);
+
+		if (fileLen == -1)
+		{
+			Com_Printf("Error reading file\n");
+		}
+		else
+		{
+			IT_ParseParms(fileBuffer);
+
+			gi.FS_FreeFile(fileBuffer);	//let go of the buffer
+		}
+	}
+
 }

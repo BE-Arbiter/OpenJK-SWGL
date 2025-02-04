@@ -711,6 +711,7 @@ typedef struct gitem_s {
 	itemType_t  giType;			// IT_* flags
 
 	int			giTag;
+	const char	*giTagName;
 
 	const char	*precaches;		// string of all models and images this item will use
 	const char	*sounds;		// string of all sounds this item will use
@@ -720,7 +721,7 @@ typedef struct gitem_s {
 
 // included in both the game dll and the client
 extern	gitem_t	bg_itemlist[];
-extern	const int		bg_numItems;
+extern	int		bg_numItems;
 
 
 //==============================================================================

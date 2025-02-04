@@ -58,7 +58,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 	weaponInfo = &cg_weapons[weaponNum];
 
 	// error checking
-	if ( weaponNum == 0 ) {
+	if ( weaponNum <= 0 ) {
 		return;
 	}
 
@@ -72,10 +72,16 @@ void CG_RegisterWeapon( int weaponNum ) {
 
 	// find the weapon in the item list
 	for ( item = bg_itemlist + 1 ; item->classname ; item++ ) {
-		if ( item->giType == IT_WEAPON && item->giTag == weaponNum ) {
+		if( ( item->giType == IT_WEAPON && item->giTag == weaponNum ) 
+			|| (item->giType == IT_WEAPON && item->giTag == -1 && !Q_stricmp(item->giTagName, weaponData[weaponNum].classname))
+		){
 			weaponInfo->item = item;
 			break;
 		}
+	}
+	//Overwrite correctly the item
+	if (item->giTag == -1) {
+		item->giTag = weaponNum;
 	}
 	// if we couldn't find which weapon this is, give us an error
 	if ( !item->classname ) {
@@ -106,7 +112,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 
 	if ( weaponInfo->weaponModel == 0 )
 	{
-		CG_Error( "Couldn't find weapon model %s for weapon %s\n", currWeaponMdl, weaponData[weaponNum].classname);
+		CG_Error( "Couldn't find weapon model %s for weapon %s(%d)\n", currWeaponMdl, weaponData[weaponNum].classname,weaponNum);
 		return;
 	}
 
@@ -732,7 +738,19 @@ void CG_RegisterItemVisuals( int itemNum ) {
 
 	if ( item->giType == IT_WEAPON )
 	{
-		CG_RegisterWeapon( item->giTag );
+		if (item->giTag >= 0) {
+			CG_RegisterWeapon(item->giTag);
+		}
+		//Case dynamic weapons
+		else if (item->giTag < 0) {
+			int _wpnum;
+			for (_wpnum = 0; _wpnum < weaponCount; _wpnum++) {
+				if(!Q_stricmp(item->giTagName,weaponData[_wpnum].classname)){
+					CG_RegisterWeapon(_wpnum);
+					break;
+				}
+			}
+		}
 	}
 
 	// some ammo types are actually the weapon, like in the case of explosives
@@ -2880,8 +2898,7 @@ CG_PlayerIsDualWielding
 */
 qboolean CG_PlayerIsDualWielding(int weapon)
 {
-	return (qboolean)(cg_dualWielding.integer && (weapon == WP_BLASTER_PISTOL
-					|| weapon == WP_REY || weapon == WP_JANGO || weapon == WP_CLONEPISTOL));
+	return (qboolean)(cg_dualWielding.integer && weaponData[weapon].isPistol);
 }
 
 

@@ -239,10 +239,10 @@ force saberthrow pickup item
 "count"     level of force power this holocron gives activator ( range: 0-3, default 1)
 */
 
-gitem_t	bg_itemlist[ITM_NUM_ITEMS+1];//need a null on the end
+gitem_t	bg_itemlist[MAX_ITEMS+1];//need a null on the end
 
 //int		bg_numItems = sizeof(bg_itemlist) / sizeof(bg_itemlist[0]) ;
-const int		bg_numItems = ITM_NUM_ITEMS;
+int		bg_numItems = ITM_NUM_HC_ITEMS;
 
 
 
