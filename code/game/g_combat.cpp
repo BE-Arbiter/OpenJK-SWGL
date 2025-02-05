@@ -5608,7 +5608,8 @@ qboolean G_ImmuneToGas( gentity_t *ent )
 		|| ent->client->NPC_class == CLASS_ASSASSIN_DROID
 		|| ent->client->NPC_class == CLASS_HAZARD_TROOPER
 		|| ent->client->NPC_class == CLASS_VEHICLE
-		|| ent->client->NPC_class == CLASS_DROIDEKA)
+		|| ent->client->NPC_class == CLASS_DROIDEKA
+		|| ent->attrFlags & ATTR_DROID)
 	{
 		return qtrue;
 	}
@@ -5674,7 +5675,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 	}
 
 	// Aquatic people can't drown! IT'S. NOT. CANON!!!! (And makes no sense)
-	if (mod == MOD_WATER && targ->attrFlags & ATTR_AQUATIC)
+	if (mod == MOD_WATER && (targ->attrFlags & ATTR_AQUATIC || targ->attrFlags & ATTR_DROID))
 		return;
 
 	// if we are the player and we are locked to an emplaced gun, we have to reroute damage to the gun....sigh.
@@ -5811,15 +5812,21 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 		if (mod != MOD_CONC && mod != MOD_CONC_ALT && mod != MOD_DETPACK && mod != MOD_EMPLACED 
 		&& mod != MOD_EXPLOSIVE && mod != MOD_EXPLOSIVE_SPLASH && mod != MOD_ROCKET 
 		&& mod != MOD_ROCKET_ALT && mod != MOD_THERMAL && mod != MOD_THERMAL_ALT 
-		&& mod != MOD_REPEATER_ALT && mod != MOD_FLECHETTE_ALT)
+		&& mod != MOD_REPEATER_ALT && mod != MOD_FLECHETTE_ALT && mod != MOD_SABER && mod != MOD_DISRUPTOR)
 		{
 			damage *= 5.0f;
 		}
 	}
 
-	if (targ && targ->attrFlags & ATTR_HERO)
+	if (targ && targ->client && targ->attrFlags & ATTR_HERO)
 	{
-		damage *= 0.5f;
+		// We'll give a small damage reduction for hero Jedi and Sith, but not much.
+		if (targ->client->ps.weapon == WP_SABER && targ->client->ps.forcePowerLevel[FP_SABER_DEFENSE] > FORCE_LEVEL_1)
+			damage *= 0.9f;
+		else if (targ->client->NPC_class == CLASS_REBORN && targ->client->ps.weapon != WP_SABER) // Gunner NPCs with the Reborn class also get less of a damage reduction
+			damage *= 0.75f;
+		else // Everyone else
+			damage *= 0.5f;
 	}
 
 	// no more weakling allies!
@@ -5923,7 +5930,8 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 			client->NPC_class == CLASS_R5D2 ||
 			client->NPC_class == CLASS_SEEKER ||
 			client->NPC_class == CLASS_INTERROGATOR ||
-			client->NPC_class == CLASS_DROIDEKA
+			client->NPC_class == CLASS_DROIDEKA ||
+			targ->attrFlags & ATTR_DROID
 		)
 	   )
 	{
@@ -5988,7 +5996,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 		{
 			if ( client->NPC_class == CLASS_PROTOCOL || client->NPC_class == CLASS_SEEKER ||
 				client->NPC_class == CLASS_R2D2 || client->NPC_class == CLASS_R5D2 ||
-				client->NPC_class == CLASS_MOUSE || client->NPC_class == CLASS_GONK )
+				client->NPC_class == CLASS_MOUSE || client->NPC_class == CLASS_GONK || targ->attrFlags & ATTR_DROID)
 			{
 				// DEMP2 does more damage to these guys.
 				damage *= 2;
@@ -6455,6 +6463,16 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 //			attacker->client->ps.persistant[PERS_HITS] -= damage;
 		} else {
 //			attacker->client->ps.persistant[PERS_HITS] += damage;
+		}
+	}
+
+	if (attacker && attacker->attrFlags & ATTR_SADISTIC)
+	{
+		if (attacker->health > 0)
+		{
+			attacker->health += damage * 0.5f;
+			if (attacker->health > attacker->max_health)
+				attacker->health = attacker->max_health;
 		}
 	}
 

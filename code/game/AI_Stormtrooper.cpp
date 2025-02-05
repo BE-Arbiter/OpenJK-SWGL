@@ -2734,6 +2734,24 @@ void NPC_BSST_Attack( void )
 extern qboolean G_TuskenAttackAnimDamage( gentity_t *self );
 void NPC_BSST_Default( void )
 {
+	if (NPC->attrFlags & ATTR_COMMANDO && NPC->s.weapon != WP_SABER && TIMER_Done(NPC, "fire_type_decide"))
+	{
+		if (!Q_irand(0, 1))
+		{
+			NPC->NPC->scriptFlags |= SCF_ALT_FIRE;
+			ChangeWeapon(NPC, NPC->client->ps.weapon);
+		}
+		else
+		{
+			NPC->NPC->scriptFlags &= ~SCF_ALT_FIRE;
+			ChangeWeapon(NPC, NPC->client->ps.weapon);
+		}
+
+		// More aggressive individuals should probably decide to change up their fighting style more often.
+		TIMER_Set(NPC, "fire_type_decide", (Q_irand(5000, 15000) / NPCInfo->stats.aggression));
+
+	}
+
 	if( NPCInfo->scriptFlags & SCF_FIRE_WEAPON )
 	{
 		WeaponThink( qtrue );

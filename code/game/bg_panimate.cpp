@@ -4472,6 +4472,13 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 			{
 				*animSpeed *= gent->client->ps.saber[1].animSpeedScale;
 			}
+			if (gent->attrFlags & ATTR_BERSERKER)
+			{
+				if (gent->health <= (gent->max_health * 0.5f))
+					*animSpeed *= 2.0f;
+				else if (gent->health <= (gent->max_health * 0.75f))
+					*animSpeed *= 1.5f;
+			}
 		}
 	}
 	if ( gent

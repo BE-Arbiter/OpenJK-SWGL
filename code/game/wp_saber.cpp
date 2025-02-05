@@ -2273,7 +2273,7 @@ qboolean WP_SaberDamageEffects( trace_t *tr, const vec3_t start, float length, f
 					if ( npc_class == CLASS_SEEKER || npc_class == CLASS_PROBE || npc_class == CLASS_MOUSE || npc_class == CLASS_REMOTE ||
 					     npc_class == CLASS_GONK || npc_class == CLASS_R2D2 || npc_class == CLASS_R5D2 ||
 					     npc_class == CLASS_PROTOCOL || npc_class == CLASS_MARK1 || npc_class == CLASS_MARK2 ||
-					     npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST || npc_class == CLASS_SENTRY )
+					     npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST || npc_class == CLASS_SENTRY || hitEnt->attrFlags & ATTR_DROID)
 					{
 						if ( !WP_SaberBladeUseSecondBladeStyle( saber, bladeNum )
 							&& saber->hitOtherEffect )
@@ -2937,7 +2937,7 @@ qboolean WP_SaberDamageForTrace( int ignore, vec3_t start, vec3_t end, float dmg
 							if ( npc_class == CLASS_SEEKER || npc_class == CLASS_PROBE || npc_class == CLASS_MOUSE ||
 								 npc_class == CLASS_GONK || npc_class == CLASS_R2D2 || npc_class == CLASS_R5D2 || npc_class == CLASS_REMOTE ||
 								 npc_class == CLASS_PROTOCOL || npc_class == CLASS_MARK1 || npc_class == CLASS_MARK2 ||
-							     npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST || npc_class == CLASS_SENTRY )
+							     npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST || npc_class == CLASS_SENTRY || hitEnt->attrFlags & ATTR_DROID)
 							{
 								if ( !WP_SaberBladeUseSecondBladeStyle( &attacker->client->ps.saber[saberNum], bladeNum )
 									&& attacker->client->ps.saber[saberNum].hitOtherEffect )
@@ -10605,7 +10605,9 @@ void ForceTelepathy( gentity_t *self )
 			}
 			else if ( traceEnt->s.weapon != WP_SABER
 				&& traceEnt->client->NPC_class != CLASS_REBORN 
-				&& !(traceEnt->attrFlags & ATTR_HERO))
+				&& !(traceEnt->attrFlags & ATTR_HERO)
+				&& !(traceEnt->attrFlags & ATTR_DROID)
+				&& !(traceEnt->attrFlags & ATTR_COMMANDO))
 			{//haha!  Jedi aren't easily confused!
 				if ( self->client->ps.forcePowerLevel[FP_TELEPATHY] > FORCE_LEVEL_2
 					&& traceEnt->s.weapon != WP_NONE		//don't charm people who aren't capable of fighting... like ugnaughts and droids, just confuse them
@@ -10658,7 +10660,8 @@ void ForceTelepathy( gentity_t *self )
 			}
 			else
 			{
-				NPC_Jedi_PlayConfusionSound( traceEnt );
+				if(!(traceEnt->attrFlags & ATTR_DROID))
+					NPC_Jedi_PlayConfusionSound( traceEnt );
 			}
 			WP_ForcePowerStart( self, FP_TELEPATHY, override );
 		}
@@ -11400,7 +11403,8 @@ qboolean ToBeAffectedByStasis(gentity_t *self, gentity_t *traceEnt)
 		|| traceEnt->client->NPC_class == CLASS_R5D2
 		|| traceEnt->client->NPC_class == CLASS_REMOTE
 		|| traceEnt->client->NPC_class == CLASS_SABER_DROID
-		|| traceEnt->client->NPC_class == CLASS_SEEKER)
+		|| traceEnt->client->NPC_class == CLASS_SEEKER
+		|| traceEnt->attrFlags & ATTR_DROID)
 	{
 		return qfalse;
 	}
@@ -12210,7 +12214,8 @@ void ForceFear(gentity_t *self)
 			}
 			else
 			{
-				NPC_Jedi_PlayConfusionSound(traceEnt);
+				if(!(traceEnt->attrFlags & ATTR_DROID))
+					NPC_Jedi_PlayConfusionSound(traceEnt);
 			}
 			WP_ForcePowerStart(self, FP_FEAR, override);
 		}
@@ -12296,7 +12301,8 @@ qboolean CanBeFeared(gentity_t *self, gentity_t *traceEnt)
 		|| traceEnt->client->NPC_class == CLASS_DESANN
 		|| traceEnt->client->NPC_class == CLASS_ALORA
 		|| traceEnt->attrFlags & ATTR_HERO
-		|| traceEnt->attrFlags & ATTR_COMMANDO)
+		|| traceEnt->attrFlags & ATTR_COMMANDO
+		|| traceEnt->attrFlags & ATTR_DROID)
 	{
 		return qfalse;
 	}
@@ -12898,7 +12904,7 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, flo
 					 npc_class == CLASS_MOUSE || npc_class == CLASS_GONK || npc_class == CLASS_R2D2 || npc_class == CLASS_REMOTE ||
 					 npc_class == CLASS_R5D2 || npc_class == CLASS_PROTOCOL || npc_class == CLASS_MARK1 ||
 					 npc_class == CLASS_MARK2 || npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST ) ||
-					 npc_class == CLASS_SENTRY )
+					 npc_class == CLASS_SENTRY || traceEnt->attrFlags & ATTR_DROID)
 				{
 					traceEnt->client->ps.powerups[PW_FORCE_SHOCKED] = level.time + 4000;
 				}
@@ -13182,6 +13188,9 @@ qboolean ForceDrain2( gentity_t *self )
 	if (traceEnt == player && player->flags & FL_NOFORCE)
 		return qfalse;
 
+	if (traceEnt->attrFlags & ATTR_DROID)
+		return qfalse;
+
 	if ( traceEnt->client )
 	{
 		if ( traceEnt->client->ps.forceJumpZStart )
@@ -13367,6 +13376,8 @@ qboolean FP_ForceDrainableEnt( gentity_t *victim )
 	{
 		return qfalse;
 	}
+	if (victim->attrFlags & ATTR_DROID)
+		return qfalse;
 	switch ( victim->client->NPC_class )
 	{
 	case CLASS_SAND_CREATURE://??
@@ -15535,6 +15546,15 @@ else if (gripEnt->NPC
 		WP_ForcePowerStop(self, FP_GRASP);
 		return;
 	}
+}
+else if (gripEnt->NPC
+	&& gripEnt->client
+	&& (gripEnt->attrFlags & ATTR_COMMANDO)
+	&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20)))
+{
+	WP_FireThermalDetonator(gripEnt, qtrue);
+	NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+	WP_ForcePowerStop(self, FP_GRASP);
 }
 else if (PM_SaberInAttack(self->client->ps.saberMove)
 	|| PM_SaberInStart(self->client->ps.saberMove))

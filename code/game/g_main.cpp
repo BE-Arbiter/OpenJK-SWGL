@@ -270,6 +270,8 @@ cvar_t	*g_adoptcharstats;
 
 qboolean	stop_icarus = qfalse;
 
+cvar_t	*g_allowAttributes;
+
 cvar_t	*static_cam;
 
 extern char *G_GetLocationForEnt( gentity_t *ent );
@@ -797,6 +799,8 @@ void G_InitCvars( void ) {
 	gi.cvar( "g_clearstats", "1", CVAR_ROM|CVAR_NORESTART);
 
 	static_cam = gi.cvar("static_Cam", "0", CVAR_NORESTART);
+
+	g_allowAttributes = gi.cvar("g_allowAttributes", "1", CVAR_ARCHIVE);
 
 }
 /*

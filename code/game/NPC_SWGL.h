@@ -11,6 +11,9 @@
 #define ATTR_NO_TWIRL 0x00000040 // Doesn't saber twirl.
 #define ATTR_COMMANDO 0x00000080 // Commandos can pull a few tricks out of their sleeves
 #define ATTR_BRAWLER 0x00000100 // Uses Kyle's melee attacks while fighting
+#define	ATTR_DROID	 0x00000200 // They're a droid. Take increased damage from electrical attacks. Can't be mind tricked, drown, or suffocate.
+#define ATTR_SADISTIC 0x00000400 // Enjoys inflicting harm on others. Heals upon inflicting damage.
+#define ATTR_BERSERKER	 0x0000800	// Increased attacking speed at certain health thresholds
 
 // Old Republic
 #define HAVOC_MAJOR "Havoc_Major"

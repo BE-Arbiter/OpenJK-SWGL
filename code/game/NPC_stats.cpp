@@ -53,6 +53,7 @@ extern qboolean saberFound;
 
 extern cvar_t *g_allowAlignmentChange;
 extern cvar_t* g_adoptcharstats;
+extern cvar_t* g_allowAttributes;
 
 #define		MAX_MODELS_PER_LEVEL	60
 
@@ -122,6 +123,9 @@ stringID_table_t attrTable[] =
 	ENUM2STRING(ATTR_NO_TWIRL),
 	ENUM2STRING(ATTR_COMMANDO),
 	ENUM2STRING(ATTR_BRAWLER),
+	ENUM2STRING(ATTR_DROID),
+	ENUM2STRING(ATTR_SADISTIC),
+	ENUM2STRING(ATTR_BERSERKER),
 	{ "",	-1 }
 };
 
@@ -3784,7 +3788,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 			}
 
 			// NPC attributes
-			if (!Q_stricmp(token, "attribute"))
+			if (!Q_stricmp(token, "attribute") && g_allowAttributes->integer)
 			{
 				if (COM_ParseString(&p, &value))
 				{

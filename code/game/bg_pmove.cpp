@@ -1066,7 +1066,8 @@ qboolean PM_GentCantJump( gentity_t *gent )
 		gent->client->NPC_class == CLASS_R5D2 ||
 		gent->client->NPC_class == CLASS_SEEKER ||
 		gent->client->NPC_class == CLASS_REMOTE ||
-		gent->client->NPC_class == CLASS_SENTRY ) )
+		gent->client->NPC_class == CLASS_SENTRY ||
+		gent->client->NPC_class == CLASS_DROIDEKA))
 	{
 		return qtrue;
 	}
@@ -9162,7 +9163,7 @@ static void PM_BeginWeaponChange( int weapon ) {
 	}
 }
 
-
+extern qboolean NoSaberTwirlCharacter(gentity_t* ent);
 /*
 ===============
 PM_FinishWeaponChange
@@ -9266,7 +9267,10 @@ static void PM_FinishWeaponChange( void ) {
 		{//actually did switch weapons, play anim
 			if (!G_IsRidingVehicle(pm->gent))
 			{
-				PM_SetSaberMove(LS_DRAW);
+				if (!NoSaberTwirlCharacter(pm->gent))
+					PM_SetSaberMove(LS_DRAW);
+				else
+					PM_SetSaberMove(LS_READY);
 			}
 		}
 	}

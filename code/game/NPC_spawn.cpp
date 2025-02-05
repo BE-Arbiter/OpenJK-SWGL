@@ -55,6 +55,7 @@ extern void NPC_GalakMech_Init(gentity_t* ent);
 extern saber_colors_t TranslateSaberColor(const char* name);
 
 extern stringID_table_t WPTable[];
+extern stringID_table_t attrTable[];
 
 #define	NSF_DROP_TO_FLOOR	16
 
@@ -1960,6 +1961,8 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 		for(int i = FP_FIRST; i < NUM_FORCE_POWERS; i++)
 			newent->NPC_FPLevel[i] = ent->NPC_FPLevel[i];
 	}
+	if (ent->attrFlags)
+		newent->attrFlags = ent->attrFlags;
 
 	if (ent->NPC_color_red)
 		newent->NPC_color_red = ent->NPC_color_red;
@@ -5458,6 +5461,8 @@ void SP_NPC_Droid_Saber(gentity_t *self)
 NPC_Spawn_f
 */
 bool isInteger(const std::string& s);
+
+extern cvar_t* g_allowAttributes;
 static void NPC_Spawn_f(void)
 {
 	gentity_t		*NPCspawner = G_Spawn();
@@ -5606,6 +5611,15 @@ static void NPC_Spawn_f(void)
 		{
 			//force powers
 			int fp = GetIDForString(FPTable, gi.argv(spawnCommand));
+			if (fp < 0)
+			{
+				if (g_allowAttributes->integer)
+				{
+					int attr = GetIDForString(attrTable, gi.argv(spawnCommand));
+					if (attr >= 0)
+						NPCspawner->attrFlags |= attr;
+				}
+			}
 			int		n;
 			if (fp >= FP_FIRST && fp < NUM_FORCE_POWERS)
 			{
