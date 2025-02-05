@@ -174,7 +174,7 @@ void WP_FireRocket( gentity_t *ent, qboolean alt_fire )
 //---------------------------------------------------------
 {
 	vec3_t	start;
-	int		damage	= weaponData[WP_ROCKET_LAUNCHER].damage;
+	int		damage	= weaponData[ent->s.weapon].damage;
 	float	vel = ROCKET_VELOCITY;
 
 	if ( alt_fire )
@@ -188,7 +188,7 @@ void WP_FireRocket( gentity_t *ent, qboolean alt_fire )
 	gentity_t *missile = CreateMissile( start, forwardVec, vel, 10000, ent, alt_fire );
 
 	missile->classname = "rocket_proj";
-	missile->s.weapon = WP_ROCKET_LAUNCHER;
+	missile->s.weapon = ent->s.weapon;
 	missile->mass = 10;
 
 	// Do the damages
@@ -301,8 +301,8 @@ void WP_FireRocket( gentity_t *ent, qboolean alt_fire )
 	}
 
 	missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
-	missile->splashDamage = weaponData[WP_ROCKET_LAUNCHER].splashDamage;
-	missile->splashRadius = weaponData[WP_ROCKET_LAUNCHER].splashRadius;
+	missile->splashDamage = weaponData[ent->s.weapon].splashDamage;
+	missile->splashRadius = weaponData[ent->s.weapon].splashRadius;
 
 	// we don't want it to ever bounce
 	missile->bounceCount = 0;

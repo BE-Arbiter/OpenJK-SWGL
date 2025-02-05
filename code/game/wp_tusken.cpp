@@ -65,7 +65,7 @@ void WP_FireTuskenRifle( gentity_t *ent )
 	gentity_t	*missile = CreateMissile( start, forwardVec, TUSKEN_RIFLE_VEL, 10000, ent, qfalse );
 
 	missile->classname = "trifle_proj";
-	missile->s.weapon = WP_TUSKEN_RIFLE;
+	missile->s.weapon = ent->s.weapon;
 
 	if ( ent->s.number < MAX_CLIENTS || g_spskill->integer >= 2 )
 	{

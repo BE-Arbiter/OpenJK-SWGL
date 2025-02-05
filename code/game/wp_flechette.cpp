@@ -36,7 +36,7 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 {
 	vec3_t		fwd, angs, start;
 	gentity_t	*missile;
-	float		damage = weaponData[WP_FLECHETTE].damage, vel = FLECHETTE_VEL;
+	float		damage = weaponData[ent->s.weapon].damage, vel = FLECHETTE_VEL;
 
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
@@ -75,7 +75,7 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 		missile = CreateMissile( start, fwd, vel, 10000, ent );
 
 		missile->classname = "flech_proj";
-		missile->s.weapon = WP_FLECHETTE;
+		missile->s.weapon = ent->s.weapon;
 
 		VectorSet( missile->maxs, FLECHETTE_SIZE, FLECHETTE_SIZE, FLECHETTE_SIZE );
 		VectorScale( missile->maxs, -1, missile->mins );
@@ -221,7 +221,7 @@ static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *
 
 	missile->e_ThinkFunc = thinkF_WP_flechette_alt_blow;
 
-	missile->s.weapon = WP_FLECHETTE;
+	missile->s.weapon = self->s.weapon;
 	missile->classname = "flech_alt";
 	missile->mass = 4;
 
@@ -236,10 +236,10 @@ static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *
 
 	missile->s.eFlags |= EF_BOUNCE_HALF;
 
-	missile->damage = weaponData[WP_FLECHETTE].altDamage;
+	missile->damage = weaponData[self->s.weapon].altDamage;
 	missile->dflags = 0;
-	missile->splashDamage = weaponData[WP_FLECHETTE].altSplashDamage;
-	missile->splashRadius = weaponData[WP_FLECHETTE].altSplashRadius;
+	missile->splashDamage = weaponData[self->s.weapon].altSplashDamage;
+	missile->splashRadius = weaponData[self->s.weapon].altSplashRadius;
 
 	missile->svFlags = SVF_USE_CURRENT_ORIGIN;
 

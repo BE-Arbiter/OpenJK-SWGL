@@ -13011,7 +13011,8 @@ static bool PM_DoChargedWeapons( void )
 
 	//FIXME: make jedi aware they're being aimed at with a charged-up weapon (strafe and be evasive?)
 	// If you want your weapon to be a charging weapon, just set this bit up
-	switch( pm->ps->weapon )
+	int baseWeapon = weaponData[pm->ps->weapon].baseWeaponNum ? weaponData[pm->ps->weapon].baseWeaponNum : pm->ps->weapon;
+	switch(baseWeapon)
 	{
 	//------------------
 	case WP_BRYAR_PISTOL:
@@ -13191,8 +13192,9 @@ static int PM_DoChargingAmmoUsage( int *amount )
 //---------------------------------------
 {
 	int count = 0;
-
-	if ( pm->ps->weapon == WP_BOWCASTER && !( pm->cmd.buttons & BUTTON_ALT_ATTACK ))
+	int weapon = pm->ps->weapon;
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+	if (baseWeapon == WP_BOWCASTER && !( pm->cmd.buttons & BUTTON_ALT_ATTACK ))
 	{
 		// this code is duplicated ( I know, I know ) in G_weapon.cpp for the bowcaster alt-fire
 		count = ( level.time - pm->ps->weaponChargeTime ) / BOWCASTER_CHARGE_UNIT;
@@ -13213,9 +13215,9 @@ static int PM_DoChargingAmmoUsage( int *amount )
 		}
 
 		// Only bother with these checks if we don't have infinite ammo
-		if ( pm->ps->ammo[ weaponData[pm->ps->weapon].ammoIndex ] != -1 )
+		if ( pm->ps->ammo[ weaponData[weapon].ammoIndex ] != -1 )
 		{
-			int dif = pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] - *amount * count;
+			int dif = pm->ps->ammo[weaponData[weapon].ammoIndex] - *amount * count;
 
 			// If we have enough ammo to do the full charged shot, we are ok
 			if ( dif < 0 )
@@ -13236,8 +13238,8 @@ static int PM_DoChargingAmmoUsage( int *amount )
 		// now that count is cool, get the real ammo usage
 		*amount *= count;
 	}
-	else if(  ( pm->ps->weapon == WP_BRYAR_PISTOL && pm->cmd.buttons & BUTTON_ALT_ATTACK )
-			  || ( pm->ps->weapon == WP_BLASTER_PISTOL && pm->cmd.buttons & BUTTON_ALT_ATTACK ) )
+	else if(  ( baseWeapon == WP_BRYAR_PISTOL && pm->cmd.buttons & BUTTON_ALT_ATTACK )
+			  || (baseWeapon == WP_BLASTER_PISTOL && pm->cmd.buttons & BUTTON_ALT_ATTACK ) )
 	{
 		// this code is duplicated ( I know, I know ) in G_weapon.cpp for the bryar alt-fire
 		count = ( level.time - pm->ps->weaponChargeTime ) / BRYAR_CHARGE_UNIT;
@@ -13252,9 +13254,9 @@ static int PM_DoChargingAmmoUsage( int *amount )
 		}
 
 		// Only bother with these checks if we don't have infinite ammo
-		if ( pm->ps->ammo[ weaponData[pm->ps->weapon].ammoIndex ] != -1 )
+		if ( pm->ps->ammo[ weaponData[weapon].ammoIndex ] != -1 )
 		{
-			int dif = pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] - *amount * count;
+			int dif = pm->ps->ammo[weaponData[weapon].ammoIndex] - *amount * count;
 
 			// If we have enough ammo to do the full charged shot, we are ok
 			if ( dif < 0 )
@@ -13275,7 +13277,7 @@ static int PM_DoChargingAmmoUsage( int *amount )
 		// now that count is cool, get the real ammo usage
 		*amount *= count;
 	}
-	else if ( pm->ps->weapon == WP_DEMP2 && pm->cmd.buttons & BUTTON_ALT_ATTACK )
+	else if (baseWeapon == WP_DEMP2 && pm->cmd.buttons & BUTTON_ALT_ATTACK )
 	{
 		// this code is duplicated ( I know, I know ) in G_weapon.cpp for the demp2 alt-fire
 		count = ( level.time - pm->ps->weaponChargeTime ) / DEMP2_CHARGE_UNIT;
@@ -13290,9 +13292,9 @@ static int PM_DoChargingAmmoUsage( int *amount )
 		}
 
 		// Only bother with these checks if we don't have infinite ammo
-		if ( pm->ps->ammo[ weaponData[pm->ps->weapon].ammoIndex ] != -1 )
+		if ( pm->ps->ammo[ weaponData[weapon].ammoIndex ] != -1 )
 		{
-			int dif = pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] - *amount * count;
+			int dif = pm->ps->ammo[weaponData[weapon].ammoIndex] - *amount * count;
 
 			// If we have enough ammo to do the full charged shot, we are ok
 			if ( dif < 0 )
@@ -13314,12 +13316,12 @@ static int PM_DoChargingAmmoUsage( int *amount )
 		*amount *= count;
 
 		// this is an after-thought.  should probably re-write the function to do this naturally.
-		if ( *amount > pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] )
+		if ( *amount > pm->ps->ammo[weaponData[weapon].ammoIndex] )
 		{
-			*amount = pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex];
+			*amount = pm->ps->ammo[weaponData[weapon].ammoIndex];
 		}
 	}
-	else if ( pm->ps->weapon == WP_DISRUPTOR && pm->cmd.buttons & BUTTON_ALT_ATTACK ) // BUTTON_ATTACK will have been mapped to BUTTON_ALT_ATTACK if we are zoomed
+	else if (baseWeapon == WP_DISRUPTOR && pm->cmd.buttons & BUTTON_ALT_ATTACK ) // BUTTON_ATTACK will have been mapped to BUTTON_ALT_ATTACK if we are zoomed
 	{
 		// this code is duplicated ( I know, I know ) in G_weapon.cpp for the disruptor alt-fire
 		count = ( level.time - pm->ps->weaponChargeTime ) / DISRUPTOR_CHARGE_UNIT;
@@ -13334,9 +13336,9 @@ static int PM_DoChargingAmmoUsage( int *amount )
 		}
 
 		// Only bother with these checks if we don't have infinite ammo
-		if ( pm->ps->ammo[ weaponData[pm->ps->weapon].ammoIndex ] != -1 )
+		if ( pm->ps->ammo[ weaponData[weapon].ammoIndex ] != -1 )
 		{
-			int dif = pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] - *amount * count;
+			int dif = pm->ps->ammo[weaponData[weapon].ammoIndex] - *amount * count;
 
 			// If we have enough ammo to do the full charged shot, we are ok
 			if ( dif < 0 )
@@ -13358,9 +13360,9 @@ static int PM_DoChargingAmmoUsage( int *amount )
 		*amount *= count;
 
 		// this is an after-thought.  should probably re-write the function to do this naturally.
-		if ( *amount > pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] )
+		if ( *amount > pm->ps->ammo[weaponData[weapon].ammoIndex] )
 		{
-			*amount = pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex];
+			*amount = pm->ps->ammo[weaponData[weapon].ammoIndex];
 		}
 	}
 
@@ -13886,7 +13888,8 @@ static void PM_Weapon( void )
 		}
 		else
 		{
-			switch(pm->ps->weapon)
+			int baseWeapon = weaponData[pm->ps->weapon].baseWeaponNum ? weaponData[pm->ps->weapon].baseWeaponNum : pm->ps->weapon;
+			switch(baseWeapon)
 			{
 				/*
 			case WP_SABER://1 - handed
@@ -14756,9 +14759,12 @@ void PM_AdjustAttackStates( pmove_t *pm )
 {
 	int amount;
 
-	int main_firing_type = weaponData[pm->ps->weapon].mainFireOpt[FIRING_TYPE];
-	int alt_firing_type = weaponData[pm->ps->weapon].altFireOpt[FIRING_TYPE];
-	int tertiary_firing_type = weaponData[pm->ps->weapon].tertiaryFireOpt[FIRING_TYPE];
+	int weapon = pm->ps->weapon;
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+
+	int main_firing_type = weaponData[weapon].mainFireOpt[FIRING_TYPE];
+	int alt_firing_type = weaponData[weapon].altFireOpt[FIRING_TYPE];
+	int tertiary_firing_type = weaponData[weapon].tertiaryFireOpt[FIRING_TYPE];
 	int burst_shots = 0;
 
 	qboolean primFireDown = qfalse;
@@ -14797,14 +14803,14 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	// get ammo usage
 	if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
 	{
-		amount = pm->ps->ammo[weaponData[ pm->ps->weapon ].ammoIndex] - weaponData[pm->ps->weapon].altEnergyPerShot;
+		amount = pm->ps->ammo[weaponData[ weapon ].ammoIndex] - weaponData[weapon].altEnergyPerShot;
 	}
 	else
 	{
-		amount = pm->ps->ammo[weaponData[ pm->ps->weapon ].ammoIndex] - weaponData[pm->ps->weapon].energyPerShot;
+		amount = pm->ps->ammo[weaponData[ weapon ].ammoIndex] - weaponData[weapon].energyPerShot;
 	}
-
-	if ( pm->ps->weapon == WP_SABER && (!cg.zoomMode||pm->ps->clientNum) )
+	//FIXME : is baseWeapon Necessary here?
+	if ( weapon == WP_SABER && (!cg.zoomMode||pm->ps->clientNum) )
 	{//don't let the alt-attack be interpreted as an actual attack command
 		if ( pm->ps->saberInFlight )
 		{
@@ -14831,7 +14837,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	}
 
 	// disruptor alt-fire should toggle the zoom mode, but only bother doing this for the player?
-	if ( pm->ps->weapon == WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING )
+	if ( baseWeapon == WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING )
 	{
 		// we are not alt-firing yet, but the alt-attack button was just pressed and
 		//	we either are ducking ( in which case we don't care if they are moving )...or they are not ducking...and also not moving right/forward.
@@ -14872,8 +14878,8 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			//	just use whatever ammo was selected from above
 			if ( cg.zoomMode == 2 )
 			{
-				amount = pm->ps->ammo[weaponData[ pm->ps->weapon ].ammoIndex] -
-							weaponData[pm->ps->weapon].altEnergyPerShot;
+				amount = pm->ps->ammo[weaponData[weapon].ammoIndex] -
+							weaponData[weapon].altEnergyPerShot;
 			}
 		}
 		else
@@ -14884,18 +14890,18 @@ void PM_AdjustAttackStates( pmove_t *pm )
 
 	}
 
-	if ( pm->ps->weapon != WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING && weaponData[pm->ps->weapon].scopeType >= ST_A280 )
+	if ( baseWeapon != WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING && weaponData[weapon].scopeType >= ST_A280 )
 	{
 		// If you are not holding down main, you are not currently alt-firing,
 		// you press the alt key, and the alt firing type is not high powered.
 		if (!(pm->cmd.buttons & BUTTON_ATTACK)
 			&& !(pm->ps->eFlags & EF_ALT_FIRING) && pm->cmd.buttons & BUTTON_ALT_ATTACK 
 			&& (main_firing_type != FT_HIGH_POWERED && alt_firing_type != FT_HIGH_POWERED)
-			&& !(pm->ps->weapon == WP_CLONECOMMANDO && pm->ps->tertiaryMode))
+			&& !(weapon == WP_CLONECOMMANDO && pm->ps->tertiaryMode))
 		{
 			if (cg.zoomMode == 0)
 			{
-				switch (weaponData[pm->ps->weapon].scopeType)
+				switch (weaponData[weapon].scopeType)
 				{
 					case ST_A280:
 						cg.zoomMode = ST_A280;
@@ -14961,7 +14967,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	// you have no scope, tertiary mode is not enabled, and you have an alt firing type.
 	// When you have a scope, alt click doesn't get through.
 	if (!(pm->cmd.buttons & BUTTON_ATTACK) && pm->cmd.buttons & BUTTON_ALT_ATTACK
-		&& !(pm->ps->eFlags & EF_ALT_FIRING) && weaponData[pm->ps->weapon].scopeType < ST_A280
+		&& !(pm->ps->eFlags & EF_ALT_FIRING) && weaponData[weapon].scopeType < ST_A280
 		&& pm->ps->tertiaryMode == qfalse && alt_firing_type >= FT_AUTOMATIC)
 	{
 		// Don't let the alt-fire get through.
@@ -14972,7 +14978,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		pm->ps->firing_attack &= ~MAIN_ATTACK;
 
 		// Setting burst_shots.
-		burst_shots = weaponData[pm->ps->weapon].altFireOpt[SHOTS_PER_BURST];
+		burst_shots = weaponData[weapon].altFireOpt[SHOTS_PER_BURST];
 		pm->ps->firing_attack |= ALT_ATTACK;
 	}
 	// If a you press the main key, alt click is not pressed(this is to avoid one overriding the other),
@@ -14991,7 +14997,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			}
 			else
 			{
-				burst_shots = weaponData[pm->ps->weapon].tertiaryFireOpt[SHOTS_PER_BURST];
+				burst_shots = weaponData[weapon].tertiaryFireOpt[SHOTS_PER_BURST];
 				pm->ps->firing_attack |= TERTIARY_ATTACK;
 
 				// I don't want an extra shot to get through right after
@@ -15005,24 +15011,24 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		// If you are scoped.
 		else if (cg.zoomMode >= ST_A280)
 		{
-			burst_shots = weaponData[pm->ps->weapon].altFireOpt[SHOTS_PER_BURST];
+			burst_shots = weaponData[weapon].altFireOpt[SHOTS_PER_BURST];
 			pm->ps->firing_attack |= ALT_ATTACK;
 		}
 		// Default main.
 		else
 		{
-			burst_shots = weaponData[pm->ps->weapon].mainFireOpt[SHOTS_PER_BURST];
+			burst_shots = weaponData[weapon].mainFireOpt[SHOTS_PER_BURST];
 			pm->ps->firing_attack |= MAIN_ATTACK;
 		}
 	}
-	else if (weaponData[pm->ps->weapon].scopeType < ST_A280 
+	else if (weaponData[weapon].scopeType < ST_A280 
 		&& (tertiary_firing_type >= FT_AUTOMATIC || alt_firing_type >= FT_AUTOMATIC || main_firing_type >= FT_AUTOMATIC))
 	{
 		// Don't let the alt-fire get through.
 		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
 	}
 
-	if (pm->ps->weapon == WP_CLONECOMMANDO && pm->ps->tertiaryMode)
+	if (weapon == WP_CLONECOMMANDO && pm->ps->tertiaryMode)
 	{
 		// Don't let the alt-fire get through.
 		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
@@ -15057,7 +15063,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	}
 
 	// set the firing flag for continuous beam weapons, phaser will fire even if out of ammo
-	if ( (( pm->cmd.buttons & BUTTON_ATTACK || pm->cmd.buttons & BUTTON_ALT_ATTACK ) && ( amount >= 0 || pm->ps->weapon == WP_SABER )) )
+	if ( (( pm->cmd.buttons & BUTTON_ATTACK || pm->cmd.buttons & BUTTON_ALT_ATTACK ) && ( amount >= 0 || weapon == WP_SABER )) )
 	{
 		if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
 		{
@@ -15110,7 +15116,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	}
 
 	// disruptor should convert a main fire to an alt-fire if the gun is currently zoomed
-	if ( pm->ps->weapon == WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) )
+	if ( baseWeapon == WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) )
 	{
 		if ( pm->cmd.buttons & BUTTON_ATTACK && cg.zoomMode == 2 )
 		{
@@ -15125,10 +15131,10 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		}
 	}
 	
-	if (pm->ps->weapon != WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)))
+	if (baseWeapon != WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)))
 	{
 		// If you have a scope.
-		if (weaponData[pm->ps->weapon].scopeType >= ST_A280)
+		if (weaponData[weapon].scopeType >= ST_A280)
 		{
 			// High powered shot only works with tertiary.
 			if (main_firing_type == FT_HIGH_POWERED || alt_firing_type == FT_HIGH_POWERED)
@@ -15143,7 +15149,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			}
 		}
 		// If you don't have a scope, but a firing type.
-		else if (weaponData[pm->ps->weapon].scopeType < ST_A280)
+		else if (weaponData[weapon].scopeType < ST_A280)
 		{
 			// If you have the firing type of high powered, you can not use main or alt click.
 			// High powered firing type is useless without a scope.

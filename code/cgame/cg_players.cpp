@@ -9609,43 +9609,44 @@ Ghoul2 Insert End
 	{
 		playerState_t *ps = &cg.predicted_player_state;
 
-		if (( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BRYAR_PISTOL )
-			|| ( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BLASTER_PISTOL )
-			|| ( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_REY )
-			|| ( ps->weapon == WP_BOWCASTER && ps->weaponstate == WEAPON_CHARGING )
-			|| ( ps->weapon == WP_DEMP2 && ps->weaponstate == WEAPON_CHARGING_ALT ))
+		//Normally, the weapons should not charging if they are not supposed to...
+		if ( ps->weaponstate == WEAPON_CHARGING_ALT || ps->weaponstate == WEAPON_CHARGING )
 		{
 			int		shader = 0;
 			float	val = 0.0f, scale = 1.0f;
 			vec3_t	WHITE	= {1.0f,1.0f,1.0f};
-
-			if ( ps->weapon == WP_BRYAR_PISTOL
-				|| ps->weapon == WP_BLASTER_PISTOL )
+			int weapon = ps->weapon;
+			int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+			if (baseWeapon == WP_BRYAR_PISTOL
+				|| baseWeapon  == WP_BLASTER_PISTOL )
 			{
 				// Hardcoded max charge time of 1 second
 				val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 				shader = cgi_R_RegisterShader( "gfx/effects/bryarFrontFlash" );
 			}
-			else if ( ps->weapon == WP_REY)
+			else if (baseWeapon == WP_REY)
 			{
 				// Hardcoded max charge time of 0.5 second
 				val = ( cg.time - ps->weaponChargeTime ) * 0.0005f;
 				shader = cgi_R_RegisterShader( "gfx/effects/bryarFrontFlash" );
 			}
-			else if ( ps->weapon == WP_BOWCASTER )
+			else if ( baseWeapon == WP_BOWCASTER )
 			{
 				// Hardcoded max charge time of 1 second
 				val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 				shader = cgi_R_RegisterShader( "gfx/effects/greenFrontFlash" );
 			}
-			else if ( ps->weapon == WP_DEMP2 )
+			else if ( baseWeapon == WP_DEMP2 )
 			{
 				// Hardcoded max charge time of 1 second
 				val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 				shader = cgi_R_RegisterShader( "gfx/misc/lightningFlash" );
 				scale = 1.75f;
 			}
-
+			//Overwrite the muzzle effect if needed
+			if (weaponData[weapon].chargeMuzzleShaderID) {
+				shader = weaponData[weapon].chargeMuzzleShaderID;
+			}
 			if ( val < 0.0f )
 			{
 				val = 0.0f;

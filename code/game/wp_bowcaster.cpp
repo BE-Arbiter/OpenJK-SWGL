@@ -34,7 +34,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 static void WP_BowcasterMainFire( gentity_t *ent )
 //---------------------------------------------------------
 {
-	int			damage	= weaponData[WP_BOWCASTER].damage, count;
+	int			damage	= weaponData[ent->s.weapon].damage, count;
 	float		vel;
 	vec3_t		angs, dir, start;
 	gentity_t	*missile;
@@ -109,7 +109,7 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 		missile = CreateMissile( start, dir, vel, 10000, ent );
 
 		missile->classname = "bowcaster_proj";
-		missile->s.weapon = WP_BOWCASTER;
+		missile->s.weapon = ent->s.weapon;
 
 		VectorSet( missile->maxs, BOWCASTER_SIZE, BOWCASTER_SIZE, BOWCASTER_SIZE );
 		VectorScale( missile->maxs, -1, missile->mins );
@@ -123,8 +123,8 @@ static void WP_BowcasterMainFire( gentity_t *ent )
 		missile->dflags = DAMAGE_DEATH_KNOCKBACK;
 		missile->methodOfDeath = MOD_BOWCASTER;
 		missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
-		missile->splashDamage = weaponData[WP_BOWCASTER].splashDamage;
-		missile->splashRadius = weaponData[WP_BOWCASTER].splashRadius;
+		missile->splashDamage = weaponData[ent->s.weapon].splashDamage;
+		missile->splashRadius = weaponData[ent->s.weapon].splashRadius;
 
 		// we don't want it to bounce
 		missile->bounceCount = 0;
@@ -137,7 +137,7 @@ static void WP_BowcasterAltFire( gentity_t *ent )
 //---------------------------------------------------------
 {
 	vec3_t	start;
-	int		damage	= weaponData[WP_BOWCASTER].altDamage;
+	int		damage	= weaponData[ent->s.weapon].altDamage;
 
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
@@ -147,7 +147,7 @@ static void WP_BowcasterAltFire( gentity_t *ent )
 	gentity_t *missile = CreateMissile( start, forwardVec, BOWCASTER_VELOCITY, 10000, ent, qtrue );
 
 	missile->classname = "bowcaster_alt_proj";
-	missile->s.weapon = WP_BOWCASTER;
+	missile->s.weapon = ent->s.weapon;
 
 	// Do the damages
 	if ( ent->s.number != 0 )
@@ -183,8 +183,8 @@ static void WP_BowcasterAltFire( gentity_t *ent )
 	missile->dflags = DAMAGE_DEATH_KNOCKBACK;
 	missile->methodOfDeath = MOD_BOWCASTER_ALT;
 	missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
-	missile->splashDamage = weaponData[WP_BOWCASTER].altSplashDamage;
-	missile->splashRadius = weaponData[WP_BOWCASTER].altSplashRadius;
+	missile->splashDamage = weaponData[ent->s.weapon].altSplashDamage;
+	missile->splashRadius = weaponData[ent->s.weapon].altSplashRadius;
 }
 
 //---------------------------------------------------------

@@ -223,13 +223,17 @@ void CG_RegisterWeapon( int weaponNum ) {
 	{
 		weaponData[weaponNum].mTertiaryMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].mTertiaryMuzzleEffect );
 	}
+	if ( weaponData[weaponNum].chargeMuzzleShader[0] )
+	{
+		weaponData[weaponNum].chargeMuzzleShaderID = cgi_R_RegisterShader( weaponData[weaponNum].chargeMuzzleShader);
+	}
 	if ( weaponData[weaponNum].projectileEffect[0] )
 	{
-		weaponInfo->projectileEffect = weaponData[weaponNum].projectileEffectID;
+		weaponInfo->projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].projectileEffect);
 	}
 	if ( weaponData[weaponNum].alt_projectileEffect[0] )
 	{
-		weaponInfo->alt_projectileEffect = weaponData[weaponNum].alt_projectileEffectID;
+		weaponInfo->alt_projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].alt_projectileEffect);
 	}
 
 	//fixme: don't really need to copy these, should just use directly
@@ -1413,43 +1417,49 @@ void CG_AddViewWeapon( playerState_t *ps )
 
 	// Do special charge bits
 	//-----------------------
-	if (( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BRYAR_PISTOL )
-			|| ( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BLASTER_PISTOL )
-			|| ( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_REY )
-			|| ( ps->weapon == WP_BOWCASTER && ps->weaponstate == WEAPON_CHARGING )
-			|| ( ps->weapon == WP_DEMP2 && ps->weaponstate == WEAPON_CHARGING_ALT ))
+	//Should not be important...
+	if ( ps->weaponstate == WEAPON_CHARGING_ALT || ps->weaponstate == WEAPON_CHARGING )
 	{
 		int		shader = 0;
+
+		int weapon = ps->weapon;
+		int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+
 		float	val = 0.0f, scale = 1.0f;
 		vec3_t	WHITE	= {1.0f,1.0f,1.0f};
 
-		if ( ps->weapon == WP_BRYAR_PISTOL
-			|| ps->weapon == WP_BLASTER_PISTOL )
+		if (baseWeapon == WP_BRYAR_PISTOL
+			|| baseWeapon == WP_BLASTER_PISTOL )
 		{
 			// Hardcoded max charge time of 1 second
 			val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 			shader = cgi_R_RegisterShader( "gfx/effects/bryarFrontFlash" );
 		}
 
-		if (ps->weapon == WP_REY)
+		if (baseWeapon == WP_REY)
 		{
 			// Hardcoded max charge time of 0.5 second
 			val = ( cg.time - ps->weaponChargeTime ) * 0.0005f;
 			shader = cgi_R_RegisterShader( "gfx/effects/bryarFrontFlash" );
 		}
 
-		else if ( ps->weapon == WP_BOWCASTER )
+		else if (baseWeapon  == WP_BOWCASTER )
 		{
 			// Hardcoded max charge time of 1 second
 			val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 			shader = cgi_R_RegisterShader( "gfx/effects/greenFrontFlash" );
 		}
-		else if ( ps->weapon == WP_DEMP2 )
+		else if (baseWeapon == WP_DEMP2 )
 		{
 			// Hardcoded max charge time of 1 second
 			val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 			shader = cgi_R_RegisterShader( "gfx/misc/lightningFlash" );
 			scale = 1.75f;
+		}
+
+		//Overwrite the muzzle effect if needed
+		if (weaponData[weapon].chargeMuzzleShaderID) {
+			shader = weaponData[weapon].chargeMuzzleShaderID;
 		}
 
 		if ( val < 0.0f )
@@ -3103,8 +3113,8 @@ Caused by an EV_MISSILE_MISS event, or directly by local bullet tracing
 void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, qboolean altFire )
 {
 	int parm;
-
-	switch( weapon )
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+	switch(baseWeapon)
 	{
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:

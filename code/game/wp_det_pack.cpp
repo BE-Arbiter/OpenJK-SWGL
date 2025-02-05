@@ -75,18 +75,18 @@ static void WP_DropDetPack( gentity_t *self, vec3_t start, vec3_t dir )
 	missile->fxID = G_EffectIndex( "detpack/explosion" ); // if we set an explosion effect, explode death can use that instead
 
 	missile->classname = "detpack";
-	missile->s.weapon = WP_DET_PACK;
+	missile->s.weapon = self->s.weapon;
 
 	missile->s.pos.trType = TR_GRAVITY;
 
 	missile->s.eFlags |= EF_MISSILE_STICK;
 	missile->e_TouchFunc = touchF_charge_stick;
 
-	missile->damage = weaponData[WP_DET_PACK].damage;
+	missile->damage = weaponData[self->s.weapon].damage;
 	missile->methodOfDeath = MOD_DETPACK;
 
-	missile->splashDamage = weaponData[WP_DET_PACK].splashDamage;
-	missile->splashRadius = weaponData[WP_DET_PACK].splashRadius;
+	missile->splashDamage = weaponData[self->s.weapon].splashDamage;
+	missile->splashRadius = weaponData[self->s.weapon].splashRadius;
 	missile->splashMethodOfDeath = MOD_DETPACK;// ?SPLASH;
 
 	missile->clipmask = (CONTENTS_SOLID|CONTENTS_BODY|CONTENTS_SHOTCLIP);//MASK_SHOT;
@@ -96,7 +96,7 @@ static void WP_DropDetPack( gentity_t *self, vec3_t start, vec3_t dir )
 
 	missile->s.radius = 30;
 	VectorSet( missile->s.modelScale, 1.0f, 1.0f, 1.0f );
-	gi.G2API_InitGhoul2Model( missile->ghoul2, weaponData[WP_DET_PACK].missileMdl, G_ModelIndex( weaponData[WP_DET_PACK].missileMdl ),
+	gi.G2API_InitGhoul2Model( missile->ghoul2, weaponData[self->s.weapon].missileMdl, G_ModelIndex( weaponData[self->s.weapon].missileMdl ),
 		NULL_HANDLE, NULL_HANDLE, 0, 0);
 
 	AddSoundEvent( NULL, missile->currentOrigin, 128, AEL_MINOR, qtrue );

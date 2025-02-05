@@ -35,7 +35,7 @@ static void WP_RepeaterMainFire( gentity_t *ent, vec3_t dir )
 //---------------------------------------------------------
 {
 	vec3_t	start;
-	int		damage	= weaponData[WP_REPEATER].damage;
+	int		damage	= weaponData[ent->s.weapon].damage;
 
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
@@ -45,7 +45,7 @@ static void WP_RepeaterMainFire( gentity_t *ent, vec3_t dir )
 	gentity_t *missile = CreateMissile( start, dir, REPEATER_VELOCITY, 10000, ent );
 
 	missile->classname = "repeater_proj";
-	missile->s.weapon = WP_REPEATER;
+	missile->s.weapon = ent->s.weapon;
 
 	// Do the damages
 	if ( ent->s.number != 0 )
@@ -85,7 +85,7 @@ static void WP_RepeaterAltFire( gentity_t *ent )
 //---------------------------------------------------------
 {
 	vec3_t	start;
-	int		damage	= weaponData[WP_REPEATER].altDamage;
+	int		damage	= weaponData[ent->s.weapon].altDamage;
 	gentity_t *missile = NULL;
 
 	VectorCopy( muzzle, start );
@@ -102,7 +102,7 @@ static void WP_RepeaterAltFire( gentity_t *ent )
 	}
 
 	missile->classname = "repeater_alt_proj";
-	missile->s.weapon = WP_REPEATER;
+	missile->s.weapon = ent->s.weapon;
 	missile->mass = 10;
 
 	// Do the damages
@@ -139,8 +139,8 @@ static void WP_RepeaterAltFire( gentity_t *ent )
 	missile->methodOfDeath = MOD_REPEATER_ALT;
 	missile->splashMethodOfDeath = MOD_REPEATER_ALT;
 	missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
-	missile->splashDamage = weaponData[WP_REPEATER].altSplashDamage;
-	missile->splashRadius = weaponData[WP_REPEATER].altSplashRadius;
+	missile->splashDamage = weaponData[ent->s.weapon].altSplashDamage;
+	missile->splashRadius = weaponData[ent->s.weapon].altSplashRadius;
 
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;

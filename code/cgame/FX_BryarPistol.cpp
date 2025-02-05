@@ -66,7 +66,10 @@ void FX_BryarProjectileThink(  centity_t *cent, const struct weaponInfo_s *weapo
 	if ( cent->gent && cent->gent->owner && cent->gent->owner->s.number > 0 )
 	{
 		theFxScheduler.PlayEffect( "bryar/NPCshot", cent->lerpOrigin, forward );
-	} 
+	}
+	else if (weapon->projectileEffect) {
+		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+	}
 	else
 	{
 		theFxScheduler.PlayEffect( cgs.effects.bryarShotEffect, cent->lerpOrigin, forward );
@@ -134,10 +137,20 @@ void FX_BryarAltProjectileThink(  centity_t *cent, const struct weaponInfo_s *we
 	for ( int t = 1; t < cent->gent->count; t++ )
 	{
 		// just add ourselves over, and over, and over when we are charged
-		theFxScheduler.PlayEffect( cgs.effects.bryarPowerupShotEffect, cent->lerpOrigin, forward );
+		if (weapon->projectileEffect) {
+			theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+		}
+		else {
+			theFxScheduler.PlayEffect(cgs.effects.bryarPowerupShotEffect, cent->lerpOrigin, forward);
+		}
 	}
 
-	theFxScheduler.PlayEffect( cgs.effects.bryarShotEffect, cent->lerpOrigin, forward );
+	if (weapon->projectileEffect) {
+		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+	}
+	else {
+		theFxScheduler.PlayEffect(cgs.effects.bryarShotEffect, cent->lerpOrigin, forward);
+	}
 }
 
 /*

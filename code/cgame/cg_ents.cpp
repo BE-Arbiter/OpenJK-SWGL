@@ -1177,7 +1177,8 @@ static void CG_Missile( centity_t *cent ) {
 	}
 	else if (s1->powerups & (1 << PW_FORCE_PROJECTILE))
 	{
-		if (s1->weapon == WP_CONCUSSION)
+		int baseWeapon = weaponData[s1->weapon].baseWeaponNum ? weaponData[s1->weapon].baseWeaponNum : s1->weapon;
+		if (baseWeapon == WP_CONCUSSION)
 		{
 			FX_DestructionProjectileThink(cent, weapon);
 			cgi_R_AddLightToScene(cent->lerpOrigin, 125, 1.0f, 0.65f, 0.0f); /////// Jace Solaris fix
@@ -1185,7 +1186,7 @@ static void CG_Missile( centity_t *cent ) {
 			return;
 
 		}
-		else if (s1->weapon == WP_ROCKET_LAUNCHER)
+		else if (baseWeapon == WP_ROCKET_LAUNCHER)
 		{
 			FX_BlastProjectileThink(cent, weapon);
 			cgi_R_AddLightToScene(cent->lerpOrigin, 125,1.0f, 0.65f, 0.0f);/////// Jace Solaris fix
@@ -1193,7 +1194,7 @@ static void CG_Missile( centity_t *cent ) {
 			return;
 
 		}
-		else if (s1->weapon == WP_DISRUPTOR)
+		else if (baseWeapon == WP_DISRUPTOR)
 		{
 			FX_StrikeProjectileThink(cent, weapon);
 			cgi_R_AddLightToScene(cent->lerpOrigin, 125, 1.0f, 0.65f, 0.0f);/////// Jace Solaris fix

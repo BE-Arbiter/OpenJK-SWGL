@@ -63,7 +63,7 @@ void WP_FireNoghriStick( gentity_t *ent )
 	gentity_t *missile = CreateMissile( muzzle, dir, velocity, 10000, ent, qfalse );
 
 	missile->classname = "noghri_proj";
-	missile->s.weapon = WP_NOGHRI_STICK;
+	missile->s.weapon = ent->s.weapon;
 
 	// Do the damages
 	if ( ent->s.number != 0 )

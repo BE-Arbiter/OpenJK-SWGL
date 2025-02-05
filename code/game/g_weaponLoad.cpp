@@ -946,6 +946,28 @@ void WPN_TertiaryMuzzleEffect(const char **holdBuf)
 }
 
 //--------------------------------------------
+void WPN_ChargeMuzzleEffect(const char **holdBuf)
+{
+	const char	*tokenStr;
+
+	if ( COM_ParseString(holdBuf,&tokenStr))
+	{
+		return;
+	}
+	size_t len = strlen( tokenStr );
+
+	len++;
+	if (len > 64)
+	{
+		len = 64;
+		gi.Printf(S_COLOR_YELLOW"WARNING: chargeMuzzleEffect '%s' too long in external WEAPONS.DAT\n", tokenStr);
+	}
+
+	G_EffectIndex( tokenStr );
+	Q_strncpyz(weaponData[wpnParms.weaponNum].chargeMuzzleShader,tokenStr,len);
+}
+
+//--------------------------------------------
 
 void WPN_Damage(const char **holdBuf)
 {
@@ -1483,6 +1505,9 @@ void WP_LoadWeaponParms (void)
 			if(weaponData[i].mTertiaryMuzzleEffect[0] == 0){
 				strcpy(weaponData[i].mTertiaryMuzzleEffect, weaponData[j].mTertiaryMuzzleEffect);
 			}
+			if(weaponData[i].chargeMuzzleShader[0] == 0){
+				strcpy(weaponData[i].chargeMuzzleShader, weaponData[j].chargeMuzzleShader);
+			}
 			if(weaponData[i].weaponMdl2[0] == 0){
 				strcpy(weaponData[i].weaponMdl2, weaponData[j].weaponMdl2);
 			}
@@ -1530,6 +1555,7 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].mMuzzleEffectID = weaponData[i].mMuzzleEffectID == 0 ? weaponData[j].mMuzzleEffectID : weaponData[i].mMuzzleEffectID;
 			weaponData[i].mAltMuzzleEffectID = weaponData[i].mAltMuzzleEffectID == 0 ? weaponData[j].mAltMuzzleEffectID : weaponData[i].mAltMuzzleEffectID;
 			weaponData[i].mTertiaryMuzzleEffectID = weaponData[i].mTertiaryMuzzleEffectID == 0 ? weaponData[j].mTertiaryMuzzleEffectID : weaponData[i].mTertiaryMuzzleEffectID;
+			weaponData[i].chargeMuzzleShaderID = weaponData[i].chargeMuzzleShaderID == 0 ? weaponData[j].chargeMuzzleShaderID : weaponData[i].chargeMuzzleShaderID;
 
 			weaponData[i].damage = weaponData[i].damage == 0 ? weaponData[j].damage : weaponData[i].damage;
 			weaponData[i].defaultDamage = weaponData[i].defaultDamage == 0 ? weaponData[j].defaultDamage : weaponData[i].defaultDamage;

@@ -209,6 +209,7 @@ void WPN_AltMissileHitSound(const char** holdBuf);
 void WPN_MuzzleEffect(const char** holdBuf);
 void WPN_AltMuzzleEffect(const char** holdBuf);
 void WPN_TertiaryMuzzleEffect(const char** holdBuf);
+void WPN_ChargeMuzzleEffect(const char** holdBuf);
 // OPENJK ADD
 
 void WPN_Damage(const char** holdBuf);
@@ -289,6 +290,7 @@ wpnParms_t WpnParms[] =
 	{ "muzzleEffect",			WPN_MuzzleEffect },
 	{ "altmuzzleEffect",		WPN_AltMuzzleEffect },
 	{ "tertiarymuzzleEffect",	WPN_TertiaryMuzzleEffect },
+	{ "chargeMuzzleShader",	WPN_ChargeMuzzleEffect },
 	{ "projectileEffect",			WPN_ProjectileEffect },
 	{ "altProjectileEffect",		WPN_AltProjectileEffect},
 	// OPENJK NEW FIELDS

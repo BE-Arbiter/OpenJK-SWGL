@@ -2228,7 +2228,7 @@ static void CG_DrawZoomMask( void )
 		float cx, cy;
 		float max;
 
-		max = cg_entities[0].gent->client->ps.ammo[weaponData[WP_DISRUPTOR].ammoIndex] / (float)ammoData[weaponData[WP_DISRUPTOR].ammoIndex].max;
+		max = cg_entities[0].gent->client->ps.ammo[weaponData[cent->gent->s.weapon].ammoIndex] / (float)ammoData[weaponData[cent->gent->s.weapon].ammoIndex].max;
 
 		if ( max > 1.0f )
 		{
