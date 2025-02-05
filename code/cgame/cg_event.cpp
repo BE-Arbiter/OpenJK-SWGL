@@ -112,6 +112,12 @@ void CG_ItemPickup( int itemNum, qboolean bHadItem ) {
 				cgi_Cvar_Set( "cg_WeaponPickupText", va("%s %s\n", text, data));
 				cg.weaponPickupTextTime	= cg.time + 5000;
 			}
+			//Dynamic Weapons
+			else if (cgi_SP_GetStringTextString(va("%s_NAME", bg_itemlist[itemNum].classname), text, sizeof(text)))
+			{
+				cgi_Cvar_Set("cg_WeaponPickupText", va("%s %s\n", text, data));
+				cg.weaponPickupTextTime = cg.time + 5000;
+			}
 		}
 	}
 
