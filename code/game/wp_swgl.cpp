@@ -1240,8 +1240,8 @@ void WP_FireReyPistol( gentity_t *ent, qboolean alt_fire )
 void WP_FireJangoPistolMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire)
 //---------------------------------------------------------
 {
-	int velocity = JANGO_VELOCITY;
-	int	damage = altFire ? weaponData[WP_JANGO].altDamage : weaponData[WP_JANGO].damage;
+	int	velocity = altFire ? weaponData[ent->s.weapon].mAltVelocity : weaponData[ent->s.weapon].mVelocity;
+	int	damage = altFire ? weaponData[ent->s.weapon].altDamage : weaponData[ent->s.weapon].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{
@@ -1271,7 +1271,7 @@ void WP_FireJangoPistolMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolea
 	gentity_t *missile = CreateMissile(start, dir, velocity, 10000, ent, altFire);
 
 	missile->classname = "blaster_proj";
-	missile->s.weapon = WP_JANGO;
+	missile->s.weapon = ent->s.weapon;
 
 	// Do the damages
 	if (ent->s.number != 0 && (ent->client->NPC_class != CLASS_BOBAFETT && ent->client->NPC_class != CLASS_MANDALORIAN && ent->client->NPC_class != CLASS_JANGO))

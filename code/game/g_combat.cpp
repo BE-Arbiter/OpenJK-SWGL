@@ -200,9 +200,8 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 	{//FIXME: either drop the pistol and make the pickup only give ammo or drop ammo
 	}
 	*/
-	else if ( weapon == WP_STUN_BATON
-		|| weapon == WP_MELEE )
-	{//never drop these
+	else if (weapon == WP_MELEE )
+	{//never drop this
 	}
 	else if ( weapon > WP_SABER && weapon < weaponCount && weaponData[weapon].playerUsable )//&& self->client->ps.ammo[ weaponData[weapon].ammoIndex ]
 	{
@@ -309,7 +308,8 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 			}
 		}
 
-		if (item && !dropped2 && weaponData[weapon].weaponCategory == WC_PISTOL)
+		//Drop the second pistol if you have two.
+		if (item && !dropped2 && (self->weaponModel[1] > 0) && weaponData[weapon].weaponCategory == WC_PISTOL)
 		{
 			dropped2 = Drop_Item(self, item, 45, qtrue);
 			dropped2->e_ThinkFunc = thinkF_NULL;

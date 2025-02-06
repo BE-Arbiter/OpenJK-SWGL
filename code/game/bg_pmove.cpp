@@ -14291,6 +14291,11 @@ static void PM_Weapon( void )
 		weaponData[pm->ps->weapon].damage = weaponData[pm->ps->weapon].defaultDamage;
 	}
 
+	//TODO: TO KEEP or NOT?
+	//Shoot faster in dual fire
+	if (pm->gent->weaponModel[1] > 0) {
+		addTime /= 2;
+	}
 	if ( g_timescale != NULL )
 	{
 		if ( g_timescale->value < 1.0f )

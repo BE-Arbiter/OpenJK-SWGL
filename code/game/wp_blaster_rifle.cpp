@@ -33,7 +33,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 void WP_FireBlasterMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire )
 //---------------------------------------------------------
 {
-	int velocity	= BLASTER_VELOCITY;
+	int velocity = altFire ? weaponData[ent->s.weapon].mAltVelocity : weaponData[ent->s.weapon].mVelocity;
 	int	damage		= altFire ? weaponData[ent->s.weapon].altDamage : weaponData[ent->s.weapon].damage;
 
 	if ( ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE )
@@ -107,6 +107,11 @@ void WP_FireBlasterMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean a
 
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
+
+	if (ent->weaponModel[1] > 0)
+	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
+		ent->count = (ent->count) ? 0 : 1;
+	}
 }
 
 //---------------------------------------------------------

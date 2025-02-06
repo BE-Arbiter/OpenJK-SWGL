@@ -1326,6 +1326,9 @@ void WPN_WeaponCategory(const char** holdBuf)
 	else if (!Q_stricmp(tokenStr, "WC_HEAVY")) {
 		weaponCategory = WC_HEAVY;
 	}
+	else if (!Q_stricmp(tokenStr, "WC_GRENADE")) {
+		weaponCategory = WC_EXPLOSIVE;
+	}
 	else if (!Q_stricmp(tokenStr, "WC_EXPLOSIVE")) {
 		weaponCategory = WC_EXPLOSIVE;
 	}
