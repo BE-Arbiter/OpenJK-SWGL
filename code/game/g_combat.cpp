@@ -309,7 +309,7 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 			}
 		}
 
-		if (item && !dropped2 && weaponData[weapon].isPistol)
+		if (item && !dropped2 && weaponData[weapon].weaponCategory == WC_PISTOL)
 		{
 			dropped2 = Drop_Item(self, item, 45, qtrue);
 			dropped2->e_ThinkFunc = thinkF_NULL;

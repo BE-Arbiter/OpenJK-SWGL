@@ -5545,75 +5545,77 @@ PM_TorsoAnimation
 -------------------------
 */
 
-void PM_TorsoAnimation( void )
+void PM_TorsoAnimation(void)
 {//FIXME: Write a much smarter and more appropriate anim picking routine logic...
 //	int	oldAnim;
-	if ( PM_InKnockDown( pm->ps ) || PM_InRoll( pm->ps ))
+	if (PM_InKnockDown(pm->ps) || PM_InRoll(pm->ps))
 	{//in knockdown
 		return;
 	}
 
-	if ( (pm->ps->eFlags&EF_HELD_BY_WAMPA) )
+	if ((pm->ps->eFlags & EF_HELD_BY_WAMPA))
 	{
 		return;
 	}
 
-	if ( (pm->ps->eFlags&EF_FORCE_DRAINED) )
+	if ((pm->ps->eFlags & EF_FORCE_DRAINED))
 	{//being drained
 		//PM_SetAnim( pm, SETANIM_TORSO, BOTH_HUGGEE1, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 		return;
 	}
-	if ( (pm->ps->forcePowersActive&(1<<FP_DRAIN))
-		&& pm->ps->forceDrainEntityNum < ENTITYNUM_WORLD )
+	if ((pm->ps->forcePowersActive & (1 << FP_DRAIN))
+		&& pm->ps->forceDrainEntityNum < ENTITYNUM_WORLD)
 	{//draining
 		//PM_SetAnim( pm, SETANIM_TORSO, BOTH_HUGGER1, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 		return;
 	}
 
-	if( pm->gent && pm->gent->NPC && (pm->gent->NPC->scriptFlags & SCF_FORCED_MARCH) )
+	if (pm->gent && pm->gent->NPC && (pm->gent->NPC->scriptFlags & SCF_FORCED_MARCH))
 	{
 		return;
 	}
 
-	if(pm->gent != NULL && pm->gent->client)
+	int weapon = pm->ps->weapon;
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+	if (pm->gent != NULL && pm->gent->client)
 	{
 		pm->gent->client->renderInfo.torsoFpsMod = 1.0f;
 	}
 
-	if ( pm->gent && pm->ps && pm->ps->eFlags & EF_LOCKED_TO_WEAPON )
+	if (pm->gent && pm->ps && pm->ps->eFlags & EF_LOCKED_TO_WEAPON)
 	{
-		if ( pm->gent->owner && pm->gent->owner->e_UseFunc == useF_emplaced_gun_use )//ugly way to tell, but...
+		if (pm->gent->owner && pm->gent->owner->e_UseFunc == useF_emplaced_gun_use)//ugly way to tell, but...
 		{//full body
-			PM_SetAnim(pm,SETANIM_BOTH,BOTH_GUNSIT1,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD);//SETANIM_FLAG_NORMAL
+			PM_SetAnim(pm, SETANIM_BOTH, BOTH_GUNSIT1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);//SETANIM_FLAG_NORMAL
 		}
 		else
 		{//torso
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_GUNSIT1,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD);//SETANIM_FLAG_NORMAL
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUNSIT1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);//SETANIM_FLAG_NORMAL
 		}
 		return;
 	}
-/*	else if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_VEHICLE && pm->ps->clientNum < MAX_CLIENTS && (m_pVehicleInfo[((CVehicleNPC *)pm->gent->NPC)->m_iVehicleTypeID].numHands == 2 || g_speederControlScheme->value == 2) )
-	{//can't look around
-		PM_SetAnim(pm,SETANIM_TORSO,m_pVehicleInfo[((CVehicleNPC *)pm->gent->NPC)->m_iVehicleTypeID].riderAnim,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD);
-		return;
-	}*/
+	/*	else if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_VEHICLE && pm->ps->clientNum < MAX_CLIENTS && (m_pVehicleInfo[((CVehicleNPC *)pm->gent->NPC)->m_iVehicleTypeID].numHands == 2 || g_speederControlScheme->value == 2) )
+		{//can't look around
+			PM_SetAnim(pm,SETANIM_TORSO,m_pVehicleInfo[((CVehicleNPC *)pm->gent->NPC)->m_iVehicleTypeID].riderAnim,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD);
+			return;
+		}*/
 
-	if ( pm->ps->taunting > level.time )
+		/* ANIMATION : TAUNTING */
+	if (pm->ps->taunting > level.time)
 	{
-		if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_ALORA )
+		if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_ALORA)
 		{
-			PM_SetAnim(pm,SETANIM_BOTH,BOTH_ALORA_TAUNT,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD);//SETANIM_FLAG_NORMAL
+			PM_SetAnim(pm, SETANIM_BOTH, BOTH_ALORA_TAUNT, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);//SETANIM_FLAG_NORMAL
 		}
-		else if ( pm->ps->weapon == WP_SABER && pm->ps->saberAnimLevel == SS_DUAL && PM_HasAnimation( pm->gent, BOTH_DUAL_TAUNT ) )
+		else if (weapon == WP_SABER && pm->ps->saberAnimLevel == SS_DUAL && PM_HasAnimation(pm->gent, BOTH_DUAL_TAUNT))
 		{
-			PM_SetAnim(pm,SETANIM_BOTH,BOTH_DUAL_TAUNT,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD);//SETANIM_FLAG_NORMAL
+			PM_SetAnim(pm, SETANIM_BOTH, BOTH_DUAL_TAUNT, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);//SETANIM_FLAG_NORMAL
 		}
-		else if ( pm->ps->weapon == WP_SABER
-			&& pm->ps->saberAnimLevel == SS_STAFF )//pm->ps->saber[0].type == SABER_STAFF )
+		else if (weapon == WP_SABER && pm->ps->saberAnimLevel == SS_STAFF)//pm->ps->saber[0].type == SABER_STAFF )
 		{//turn on the blades
-			if ( PM_HasAnimation( pm->gent, BOTH_STAFF_TAUNT ) )
+			if (PM_HasAnimation(pm->gent, BOTH_STAFF_TAUNT))
 			{
-				PM_SetAnim(pm,SETANIM_BOTH,BOTH_STAFF_TAUNT,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD);//SETANIM_FLAG_NORMAL
+				PM_SetAnim(pm, SETANIM_BOTH, BOTH_STAFF_TAUNT, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);//SETANIM_FLAG_NORMAL
 			}
 			/*
 			else
@@ -5641,10 +5643,10 @@ void PM_TorsoAnimation( void )
 			}
 			*/
 		}
-		else if ( PM_HasAnimation( pm->gent, BOTH_GESTURE1 ) )
+		else if (PM_HasAnimation(pm->gent, BOTH_GESTURE1))
 		{
-			PM_SetAnim(pm,SETANIM_BOTH,BOTH_GESTURE1,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD);//SETANIM_FLAG_NORMAL
-			pm->gent->client->ps.SaberActivateTrail( 100 );
+			PM_SetAnim(pm, SETANIM_BOTH, BOTH_GESTURE1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);//SETANIM_FLAG_NORMAL
+			pm->gent->client->ps.SaberActivateTrail(100);
 			//FIXME: will this reset?
 			//FIXME: force-control (yellow glow) effect on hand and saber?
 		}
@@ -5654,111 +5656,111 @@ void PM_TorsoAnimation( void )
 		}
 		return;
 	}
-
-	if (pm->ps->weapon == WP_SABER )		// WP_LIGHTSABER
+	/* WEAPON = SABER */
+	if (weapon == WP_SABER)		// WP_LIGHTSABER
 	{
 		qboolean saberInAir = qfalse;
-		if ( pm->ps->SaberLength() && !pm->ps->saberInFlight )
+		if (pm->ps->SaberLength() && !pm->ps->saberInFlight)
 		{
 			PM_TorsoAnimLightsaber();
 		}
 		else
 		{
-			if ( pm->ps->forcePowersActive&(1<<FP_GRIP) && pm->ps->forcePowerLevel[FP_GRIP] > FORCE_LEVEL_1 )
+			if (pm->ps->forcePowersActive & (1 << FP_GRIP) && pm->ps->forcePowerLevel[FP_GRIP] > FORCE_LEVEL_1)
 			{//holding an enemy aloft with force-grip
 				return;
 			}
-			if (pm->ps->forcePowersActive&(1 << FP_GRASP) && pm->ps->forcePowerLevel[FP_GRASP] > FORCE_LEVEL_1)
+			if (pm->ps->forcePowersActive & (1 << FP_GRASP) && pm->ps->forcePowerLevel[FP_GRASP] > FORCE_LEVEL_1)
 			{//holding an enemy aloft with force-grasp
 				return;
 			}
-			if ( pm->ps->forcePowersActive&(1<<FP_LIGHTNING) && pm->ps->forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_1 )
+			if (pm->ps->forcePowersActive & (1 << FP_LIGHTNING) && pm->ps->forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_1)
 			{//lightning
 				return;
 			}
-			if ( pm->ps->forcePowersActive&(1<<FP_DRAIN) )
+			if (pm->ps->forcePowersActive & (1 << FP_DRAIN))
 			{//drain
 				return;
 			}
 
 			saberInAir = qtrue;
 
-			if ( PM_SaberInBrokenParry( pm->ps->saberMove ) || pm->ps->saberBlocked == BLOCKED_PARRY_BROKEN || PM_DodgeAnim( pm->ps->torsoAnim ) )
+			if (PM_SaberInBrokenParry(pm->ps->saberMove) || pm->ps->saberBlocked == BLOCKED_PARRY_BROKEN || PM_DodgeAnim(pm->ps->torsoAnim))
 			{//we're stuck in a broken parry
 				PM_TorsoAnimLightsaber();
 			}
 			else
 			{
-				if ( pm->ps->saberEntityNum < ENTITYNUM_NONE && pm->ps->saberEntityNum > 0 )//player is 0
-					{//
-					if ( &g_entities[pm->ps->saberEntityNum] != NULL && g_entities[pm->ps->saberEntityNum].s.pos.trType == TR_STATIONARY )
+				if (pm->ps->saberEntityNum < ENTITYNUM_NONE && pm->ps->saberEntityNum > 0)//player is 0
+				{//
+					if (&g_entities[pm->ps->saberEntityNum] != NULL && g_entities[pm->ps->saberEntityNum].s.pos.trType == TR_STATIONARY)
 					{//fell to the ground and we're not trying to pull it back
 						saberInAir = qfalse;
 					}
 				}
 
-				if ( pm->ps->saberInFlight
+				if (pm->ps->saberInFlight
 					&& saberInAir
 					&& (!pm->ps->dualSabers //not using 2 sabers
 						|| !pm->ps->saber[1].Active() //left one off
 						|| pm->ps->torsoAnim == BOTH_SABERDUAL_STANCE//not attacking
 						|| pm->ps->torsoAnim == BOTH_SABERPULL//not attacking
 						|| pm->ps->torsoAnim == BOTH_STAND1//not attacking
-						|| PM_RunningAnim( pm->ps->torsoAnim ) //not attacking
-						|| PM_WalkingAnim( pm->ps->torsoAnim ) //not attacking
-						|| PM_JumpingAnim( pm->ps->torsoAnim )//not attacking
-						|| PM_SwimmingAnim( pm->ps->torsoAnim ) )//not attacking
+						|| PM_RunningAnim(pm->ps->torsoAnim) //not attacking
+						|| PM_WalkingAnim(pm->ps->torsoAnim) //not attacking
+						|| PM_JumpingAnim(pm->ps->torsoAnim)//not attacking
+						|| PM_SwimmingAnim(pm->ps->torsoAnim))//not attacking
 					)
 				{
-					if ( !PM_ForceAnim( pm->ps->torsoAnim ) || pm->ps->torsoAnimTimer < 300 )
+					if (!PM_ForceAnim(pm->ps->torsoAnim) || pm->ps->torsoAnimTimer < 300)
 					{//don't interrupt a force power anim
-						if ( pm->ps->torsoAnim != BOTH_LOSE_SABER
-							|| !pm->ps->torsoAnimTimer )
+						if (pm->ps->torsoAnim != BOTH_LOSE_SABER
+							|| !pm->ps->torsoAnimTimer)
 						{
-							PM_SetAnim( pm, SETANIM_TORSO,BOTH_SABERPULL,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+							PM_SetAnim(pm, SETANIM_TORSO, BOTH_SABERPULL, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
 						}
 					}
 				}
 				else
 				{
-					if ( PM_InSlopeAnim( pm->ps->legsAnim ) )
+					if (PM_InSlopeAnim(pm->ps->legsAnim))
 					{//HMM... this probably breaks the saber putaway and select anims
-						if ( pm->ps->SaberLength() > 0 )
+						if (pm->ps->SaberLength() > 0)
 						{
-							PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND2,SETANIM_FLAG_NORMAL);
+							PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND2, SETANIM_FLAG_NORMAL);
 						}
 						else
 						{
-							PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND1,SETANIM_FLAG_NORMAL);
+							PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL);
 						}
 					}
 					else
 					{
-						if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) && pm->ps->torsoAnim == BOTH_BUTTON_HOLD )
+						if ((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()) && pm->ps->torsoAnim == BOTH_BUTTON_HOLD)
 						{//using something
-							if ( !pm->ps->useTime )
+							if (!pm->ps->useTime)
 							{//stopped holding it, release
-								PM_SetAnim( pm, SETANIM_TORSO, BOTH_BUTTON_RELEASE, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+								PM_SetAnim(pm, SETANIM_TORSO, BOTH_BUTTON_RELEASE, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
 							}//else still holding, leave it as it is
 						}
 						else
 						{
-							PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
+							PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
 						}
 					}
 				}
 			}
 		}
 
-		if (pm->ps->weaponTime<= 0 && (pm->ps->saberMove==LS_READY || pm->ps->SaberLength()==0) && !saberInAir)
+		if (pm->ps->weaponTime <= 0 && (pm->ps->saberMove == LS_READY || pm->ps->SaberLength() == 0) && !saberInAir)
 		{
 			TorsoAgainstWindTest(pm->gent);
 		}
 		return;
 	}
 
-	if ( PM_ForceAnim( pm->ps->torsoAnim )
-		&& pm->ps->torsoAnimTimer > 0 )
+	if (PM_ForceAnim(pm->ps->torsoAnim)
+		&& pm->ps->torsoAnimTimer > 0)
 	{//in a force anim, don't do a stand anim
 		return;
 	}
@@ -5766,103 +5768,101 @@ void PM_TorsoAnimation( void )
 
 	qboolean weaponBusy = qfalse;
 
-	if ( pm->ps->weapon == WP_NONE )
+	if (weapon == WP_NONE)
 	{
 		weaponBusy = qfalse;
 	}
-	else if ( pm->ps->weaponstate == WEAPON_FIRING || pm->ps->weaponstate == WEAPON_CHARGING || pm->ps->weaponstate == WEAPON_CHARGING_ALT )
+	else if (pm->ps->weaponstate == WEAPON_FIRING || pm->ps->weaponstate == WEAPON_CHARGING || pm->ps->weaponstate == WEAPON_CHARGING_ALT)
 	{
 		weaponBusy = qtrue;
 	}
-	else if ( pm->ps->lastShotTime > level.time - 3000 )
+	else if (pm->ps->lastShotTime > level.time - 3000)
 	{
 		weaponBusy = qtrue;
 	}
-	else if ( pm->ps->weaponTime > 0 )
+	else if (pm->ps->weaponTime > 0)
 	{
 		weaponBusy = qtrue;
 	}
-	else if ( pm->gent && pm->gent->client->fireDelay > 0 )
+	else if (pm->gent && pm->gent->client->fireDelay > 0)
 	{
 		weaponBusy = qtrue;
 	}
-	else if ( TorsoAgainstWindTest(pm->gent) )
+	else if (TorsoAgainstWindTest(pm->gent))
 	{
 		return;
 	}
-	else if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) && cg.zoomTime > cg.time - 5000 )
+	else if ((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()) && cg.zoomTime > cg.time - 5000)
 	{//if we used binoculars recently, aim weapon
 		weaponBusy = qtrue;
 		pm->ps->weaponstate = WEAPON_IDLE;
 	}
-	else if ( pm->ps->pm_flags & PMF_DUCKED )
+	else if (pm->ps->pm_flags & PMF_DUCKED)
 	{//ducking is considered on alert... plus looks stupid to have arms hanging down when crouched
 		weaponBusy = qtrue;
 	}
 
-	if (	pm->ps->weapon == WP_NONE ||
-			pm->ps->weaponstate == WEAPON_READY ||
-			pm->ps->weaponstate == WEAPON_CHARGING ||
-			pm->ps->weaponstate == WEAPON_CHARGING_ALT )
+	if (weapon == WP_NONE || pm->ps->weaponstate == WEAPON_READY 
+		|| pm->ps->weaponstate == WEAPON_CHARGING || pm->ps->weaponstate == WEAPON_CHARGING_ALT)
 	{
-		if ( pm->ps->weapon == WP_SABER && pm->ps->SaberLength() )
+		if (weapon == WP_SABER && pm->ps->SaberLength())
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK1,SETANIM_FLAG_NORMAL);//TORSO_WEAPONREADY1
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK1, SETANIM_FLAG_NORMAL);//TORSO_WEAPONREADY1
 		}
-		else if( pm->ps->legsAnim == BOTH_RUN1 && !weaponBusy )
+		else if (pm->ps->legsAnim == BOTH_RUN1 && !weaponBusy)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_RUN1,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_RUN1, SETANIM_FLAG_NORMAL);
 		}
-		else if( pm->ps->legsAnim == BOTH_RUN2 && !weaponBusy )//&& pm->ps->saberAnimLevel != SS_STAFF )
+		else if (pm->ps->legsAnim == BOTH_RUN2 && !weaponBusy)//&& pm->ps->saberAnimLevel != SS_STAFF )
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_RUN2,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_RUN2, SETANIM_FLAG_NORMAL);
 		}
-		else if( pm->ps->legsAnim == BOTH_RUN4 && !weaponBusy )//&& pm->ps->saberAnimLevel != SS_STAFF )
+		else if (pm->ps->legsAnim == BOTH_RUN4 && !weaponBusy)//&& pm->ps->saberAnimLevel != SS_STAFF )
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_RUN4,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_RUN4, SETANIM_FLAG_NORMAL);
 		}
-		else if( pm->ps->legsAnim == BOTH_RUN_STAFF && !weaponBusy )
+		else if (pm->ps->legsAnim == BOTH_RUN_STAFF && !weaponBusy)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_RUN_STAFF,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_RUN_STAFF, SETANIM_FLAG_NORMAL);
 		}
-		else if( pm->ps->legsAnim == BOTH_RUN_DUAL && !weaponBusy )
+		else if (pm->ps->legsAnim == BOTH_RUN_DUAL && !weaponBusy)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_RUN_DUAL,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_RUN_DUAL, SETANIM_FLAG_NORMAL);
 		}
-		else if( pm->ps->legsAnim == BOTH_WALK1 && !weaponBusy  )
+		else if (pm->ps->legsAnim == BOTH_WALK1 && !weaponBusy)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_WALK1,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_WALK1, SETANIM_FLAG_NORMAL);
 		}
-		else if( pm->ps->legsAnim == BOTH_WALK2 && !weaponBusy  )
+		else if (pm->ps->legsAnim == BOTH_WALK2 && !weaponBusy)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_WALK2,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_WALK2, SETANIM_FLAG_NORMAL);
 		}
-		else if( pm->ps->legsAnim == BOTH_WALK_STAFF && !weaponBusy  )
+		else if (pm->ps->legsAnim == BOTH_WALK_STAFF && !weaponBusy)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_WALK_STAFF,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_WALK_STAFF, SETANIM_FLAG_NORMAL);
 		}
-		else if( pm->ps->legsAnim == BOTH_WALK_DUAL&& !weaponBusy  )
+		else if (pm->ps->legsAnim == BOTH_WALK_DUAL && !weaponBusy)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_WALK_DUAL,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_WALK_DUAL, SETANIM_FLAG_NORMAL);
 		}
-		else if( pm->ps->legsAnim == BOTH_CROUCH1IDLE && pm->ps->clientNum != 0 )//player falls through
+		else if (pm->ps->legsAnim == BOTH_CROUCH1IDLE && pm->ps->clientNum != 0)//player falls through
 		{
 			//??? Why nothing?  What if you were running???
 			//PM_SetAnim(pm,SETANIM_TORSO,BOTH_CROUCH1IDLE,SETANIM_FLAG_NORMAL);
 		}
-		else if( pm->ps->legsAnim == BOTH_JUMP1 && !weaponBusy )
+		else if (pm->ps->legsAnim == BOTH_JUMP1 && !weaponBusy)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_JUMP1,SETANIM_FLAG_NORMAL, 100);	// Only blend over 100ms
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_JUMP1, SETANIM_FLAG_NORMAL, 100);	// Only blend over 100ms
 		}
-		else if( pm->ps->legsAnim == BOTH_SWIM_IDLE1 && !weaponBusy )
+		else if (pm->ps->legsAnim == BOTH_SWIM_IDLE1 && !weaponBusy)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_SWIM_IDLE1,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_SWIM_IDLE1, SETANIM_FLAG_NORMAL);
 		}
-		else if( pm->ps->legsAnim == BOTH_SWIMFORWARD && !weaponBusy )
+		else if (pm->ps->legsAnim == BOTH_SWIMFORWARD && !weaponBusy)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_SWIMFORWARD,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_SWIMFORWARD, SETANIM_FLAG_NORMAL);
 		}
-		else if ( pm->ps->weapon == WP_NONE )
+		else if (pm->ps->weapon == WP_NONE)
 		{
 			int legsAnim = pm->ps->legsAnim;
 			/*
@@ -5873,620 +5873,447 @@ void PM_TorsoAnimation( void )
 				PM_SwimmingAnim( legsAnim ) )
 			*/
 			{
-				PM_SetAnim(pm, SETANIM_TORSO, legsAnim, SETANIM_FLAG_NORMAL );
+				PM_SetAnim(pm, SETANIM_TORSO, legsAnim, SETANIM_FLAG_NORMAL);
 			}
 		}
 		else
 		{//Used to default to both_stand1 which is an arms-down anim
-			if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) && pm->ps->torsoAnim == BOTH_BUTTON_HOLD )
+			if ((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()) && pm->ps->torsoAnim == BOTH_BUTTON_HOLD)
 			{//using something
-				if ( !pm->ps->useTime )
+				if (!pm->ps->useTime)
 				{//stopped holding it, release
-					PM_SetAnim( pm, SETANIM_TORSO, BOTH_BUTTON_RELEASE, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_BUTTON_RELEASE, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
 				}//else still holding, leave it as it is
 			}
-			else if ( pm->gent != NULL
-				&& (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent))
+			else if (pm->gent != NULL
+				&& (pm->gent->s.number < MAX_CLIENTS || G_ControlledByPlayer(pm->gent))
 				&& pm->ps->weaponstate != WEAPON_CHARGING
-				&& pm->ps->weaponstate != WEAPON_CHARGING_ALT )
+				&& pm->ps->weaponstate != WEAPON_CHARGING_ALT)
 			{//PLayer- temp hack for weapon frame
-				if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_RANCOR )
+				if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_RANCOR)
 				{//ignore
 				}
-				else if ( pm->ps->weapon == WP_MELEE )
+				else if (pm->ps->weapon == WP_MELEE)
 				{//hehe
-					PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND6,SETANIM_FLAG_NORMAL);
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND6, SETANIM_FLAG_NORMAL);
 				}
 				else
 				{
-					PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND1,SETANIM_FLAG_NORMAL);
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL);
 				}
 			}
-			else if ( PM_InSpecialJump( pm->ps->legsAnim ) )
+			else if (PM_InSpecialJump(pm->ps->legsAnim))
 			{//use legs anim
 				//FIXME: or just use whatever's currently playing?
 				//PM_SetAnim( pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL );
 			}
-			else
+			else if (baseWeapon == WP_SABER)
 			{
-				switch(pm->ps->weapon)
+				if (pm->ps->saberMove > LS_NONE && pm->ps->saberMove < LS_MOVE_MAX)
 				{
-				// ********************************************************
-				case WP_SABER:		// WP_LIGHTSABER
-					// Ready pose for Lightsaber
-//					PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK1,SETANIM_FLAG_NORMAL);//TORSO_WEAPONREADY1
-					// Select the next proper pose for the lightsaber assuming that there are no attacks.
-					if (pm->ps->saberMove > LS_NONE && pm->ps->saberMove < LS_MOVE_MAX)
-					{
-						PM_SetSaberMove(saberMoveData[pm->ps->saberMove].chain_idle);
-					}
-					break;
-				// ********************************************************
-
-				case WP_BRYAR_PISTOL:
-					//FIXME: if recently fired, hold the ready!
-					if ( pm->ps->weaponstate == WEAPON_CHARGING_ALT || weaponBusy )
-					{
-						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY2,SETANIM_FLAG_NORMAL);
-					}
-					else if ( PM_RunningAnim( pm->ps->legsAnim )
-						|| PM_WalkingAnim( pm->ps->legsAnim )
-						|| PM_JumpingAnim( pm->ps->legsAnim )
-						|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-					{//running w/1-handed weapon uses full-body anim
-						PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-					}
-					else
-					{
-						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY2,SETANIM_FLAG_NORMAL);
-					}
-					break;
-				case WP_BLASTER_PISTOL:
-				case WP_REY:
-				case WP_JANGO:
-				case WP_CLONEPISTOL:
-					if ( pm->gent
-						&& pm->gent->weaponModel[1] > 0 )
-					{//dual pistols
-						if ( weaponBusy )
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,BOTH_GUNSIT1,SETANIM_FLAG_NORMAL);
-						}
-						else if ( PM_RunningAnim( pm->ps->legsAnim )
-							|| PM_WalkingAnim( pm->ps->legsAnim )
-							|| PM_JumpingAnim( pm->ps->legsAnim )
-							|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-						{//running w/1-handed weapon uses full-body anim
-							PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-						}
-						else
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND6,SETANIM_FLAG_NORMAL);
-						}
-					}
-					else
-					{//single pistols
-						if ( pm->ps->weaponstate == WEAPON_CHARGING_ALT || weaponBusy )
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY2,SETANIM_FLAG_NORMAL);
-						}
-						else if ( PM_RunningAnim( pm->ps->legsAnim )
-							|| PM_WalkingAnim( pm->ps->legsAnim )
-							|| PM_JumpingAnim( pm->ps->legsAnim )
-							|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-						{//running w/1-handed weapon uses full-body anim
-							PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-						}
-						else
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY2,SETANIM_FLAG_NORMAL);
-						}
-					}
-					break;
-				case WP_NONE:
-					//NOTE: should never get here
-					break;
-				case WP_MELEE:
-					if ( PM_RunningAnim( pm->ps->legsAnim )
-						|| PM_WalkingAnim( pm->ps->legsAnim )
-						|| PM_JumpingAnim( pm->ps->legsAnim )
-						|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-					{//running w/1-handed weapon uses full-body anim
-						PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-					}
-					else
-					{
-						if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_RANCOR )
-						{//ignore
-						}
-						else if ( pm->gent && pm->gent->client && !PM_DroidMelee( pm->gent->client->NPC_class ) )
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND6,SETANIM_FLAG_NORMAL);
-						}
-						else
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND1,SETANIM_FLAG_NORMAL);
-						}
-					}
-					break;
-				case WP_TUSKEN_STAFF:
-					if ( PM_RunningAnim( pm->ps->legsAnim )
-						|| PM_WalkingAnim( pm->ps->legsAnim )
-						|| PM_JumpingAnim( pm->ps->legsAnim )
-						|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-					{//running w/1-handed weapon uses full-body anim
-						PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-					}
-					else
-					{
-						PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND3, SETANIM_FLAG_NORMAL);
-					}
-					break;
-
-				case WP_NOGHRI_STICK:
-					PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY3,SETANIM_FLAG_NORMAL);
-					//PM_SetAnim(pm,SETANIM_LEGS,BOTH_ATTACK2,SETANIM_FLAG_NORMAL);
-					break;
-
-				case WP_BLASTER:
-				case WP_THEFIRSTORDER:
-				case WP_REBELBLASTER:
-					PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY3,SETANIM_FLAG_NORMAL);
-					//PM_SetAnim(pm,SETANIM_LEGS,BOTH_ATTACK2,SETANIM_FLAG_NORMAL);
-					break;
-				case WP_DISRUPTOR:
-				case WP_TUSKEN_RIFLE:
-					if ( (pm->ps->weaponstate != WEAPON_FIRING
-							&& pm->ps->weaponstate != WEAPON_CHARGING
-							&& pm->ps->weaponstate != WEAPON_CHARGING_ALT)
-							|| PM_RunningAnim( pm->ps->legsAnim )
-							|| PM_WalkingAnim( pm->ps->legsAnim )
-							|| PM_JumpingAnim( pm->ps->legsAnim )
-							|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-					{//running sniper weapon uses normal ready
-						if ( pm->ps->clientNum )
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL );
-						}
-						else
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL );
-						}
-					}
-					else
-					{
-						if ( pm->ps->clientNum )
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, TORSO_WEAPONREADY4, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );//TORSO_WEAPONREADY4//SETANIM_FLAG_RESTART|
-						}
-						else
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, TORSO_WEAPONREADY4, SETANIM_FLAG_NORMAL );
-						}
-					}
-					break;
-				case WP_BOT_LASER:
-					PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONIDLE2,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-					break;
-				case WP_THERMAL:
-					if ( pm->ps->weaponstate != WEAPON_FIRING
-						&& pm->ps->weaponstate != WEAPON_CHARGING
-						&& pm->ps->weaponstate != WEAPON_CHARGING_ALT
-						&& (PM_RunningAnim( pm->ps->legsAnim )
-							|| PM_WalkingAnim( pm->ps->legsAnim )
-							|| PM_JumpingAnim( pm->ps->legsAnim )
-							|| PM_SwimmingAnim( pm->ps->legsAnim )) )
-					{//running w/1-handed weapon uses full-body anim
-						PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-					}
-					else
-					{
-						if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) && (pm->ps->weaponstate == WEAPON_CHARGING || pm->ps->weaponstate == WEAPON_CHARGING_ALT) )
-						{//player pulling back to throw
-							if ( PM_StandingAnim( pm->ps->legsAnim ) )
-							{
-								PM_SetAnim( pm, SETANIM_LEGS, BOTH_THERMAL_READY, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-							}
-							else if ( pm->ps->legsAnim == BOTH_THERMAL_READY )
-							{//sigh... hold it so pm_footsteps doesn't override
-								if ( pm->ps->legsAnimTimer < 100 )
-								{
-									pm->ps->legsAnimTimer = 100;
-								}
-							}
-							PM_SetAnim( pm, SETANIM_TORSO, BOTH_THERMAL_READY, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-						}
-						else
-						{
-							if ( weaponBusy )
-							{
-								PM_SetAnim( pm, SETANIM_TORSO, TORSO_WEAPONREADY10, SETANIM_FLAG_NORMAL );
-							}
-							else
-							{
-								PM_SetAnim( pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL );
-							}
-						}
-					}
-					break;
-				case WP_REPEATER:
-				case WP_BATTLEDROID:
-				case WP_CLONECARBINE:
-				case WP_CLONERIFLE:
-				case WP_CLONECOMMANDO:
-				case WP_REBELRIFLE:
-				case WP_BOBA:
-					if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_GALAKMECH )
-					{//
-						if ( pm->gent->alt_fire )
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY3,SETANIM_FLAG_NORMAL);
-						}
-						else
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY1,SETANIM_FLAG_NORMAL);
-						}
-					}
-					else
-					{
-						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY3,SETANIM_FLAG_NORMAL);
-					}
-					break;
-				case WP_TRIP_MINE:
-				case WP_DET_PACK:
-					if ( PM_RunningAnim( pm->ps->legsAnim )
-						|| PM_WalkingAnim( pm->ps->legsAnim )
-						|| PM_JumpingAnim( pm->ps->legsAnim )
-						|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-					{//running w/1-handed weapon uses full-body anim
-						PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-					}
-					else
-					{
-						if ( weaponBusy )
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL );
-						}
-						else
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL );
-						}
-					}
-					break;
-				default:
-					PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY3,SETANIM_FLAG_NORMAL);
-					break;
+					PM_SetSaberMove(saberMoveData[pm->ps->saberMove].chain_idle);
 				}
 			}
-		}
-	}
-	else if ( pm->ps->weaponstate == WEAPON_IDLE )
-	{
-		if( pm->ps->legsAnim == BOTH_GUARD_LOOKAROUND1 )
-		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_GUARD_LOOKAROUND1,SETANIM_FLAG_NORMAL);
-		}
-		else if( pm->ps->legsAnim == BOTH_GUARD_IDLE1 )
-		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_GUARD_IDLE1,SETANIM_FLAG_NORMAL);
-		}
-		else if( pm->ps->legsAnim == BOTH_STAND1IDLE1
-			|| pm->ps->legsAnim == BOTH_STAND2IDLE1
-			|| pm->ps->legsAnim == BOTH_STAND2IDLE2
-			|| pm->ps->legsAnim == BOTH_STAND3IDLE1
-			|| pm->ps->legsAnim == BOTH_STAND5IDLE1 )
-		{
-			PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-			pm->ps->saberMove = LS_READY;
-		}
-		else if( pm->ps->legsAnim == BOTH_STAND2TO4 )
-		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND2TO4,SETANIM_FLAG_NORMAL);
-		}
-		else if( pm->ps->legsAnim == BOTH_STAND4TO2 )
-		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND4TO2,SETANIM_FLAG_NORMAL);
-		}
-		else if( pm->ps->legsAnim == BOTH_STAND4 )
-		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND4,SETANIM_FLAG_NORMAL);
-		}
-		else if( pm->ps->legsAnim == BOTH_SWIM_IDLE1 )
-		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_SWIM_IDLE1,SETANIM_FLAG_NORMAL);
-		}
-		else if( pm->ps->legsAnim == BOTH_SWIMFORWARD )
-		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_SWIMFORWARD,SETANIM_FLAG_NORMAL);
-		}
-		else if ( PM_InSpecialJump( pm->ps->legsAnim ) )
-		{//use legs anim
-			//FIXME: or just use whatever's currently playing?
-			//PM_SetAnim( pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL );
-		}
-		else if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) && pm->ps->torsoAnim == BOTH_BUTTON_HOLD )
-		{//using something
-			if ( !pm->ps->useTime )
-			{//stopped holding it, release
-				PM_SetAnim( pm, SETANIM_TORSO, BOTH_BUTTON_RELEASE, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-			}//else still holding, leave it as it is
-		}
-		else
-		{
-			if ( !weaponBusy
-				&& pm->ps->weapon != WP_BOWCASTER
-				&& pm->ps->weapon != WP_REPEATER
-				&& pm->ps->weapon != WP_FLECHETTE
-				&& pm->ps->weapon != WP_ROCKET_LAUNCHER
-				&& pm->ps->weapon != WP_CONCUSSION
-				&& pm->ps->weapon != WP_BATTLEDROID
-				&& pm->ps->weapon != WP_CLONECARBINE
-				&& pm->ps->weapon != WP_CLONERIFLE
-				&& pm->ps->weapon != WP_CLONECOMMANDO
-				&& pm->ps->weapon != WP_REBELRIFLE
-				&& pm->ps->weapon != WP_BOBA
-				&& pm->ps->weapon != WP_REY
-				&& pm->ps->weapon != WP_JANGO
-				&& pm->ps->weapon != WP_CLONEPISTOL
-				&& ( PM_RunningAnim( pm->ps->legsAnim )
-					|| (PM_WalkingAnim( pm->ps->legsAnim ) && (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()))
-					|| PM_JumpingAnim( pm->ps->legsAnim )
-					|| PM_SwimmingAnim( pm->ps->legsAnim ) ) )
-			{//running w/1-handed or light 2-handed weapon uses full-body anim if you're not using the weapon right now
-				PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-			}
-			else
+			//CLASS_GALAKMECH Case
+			else if(pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_GALAKMECH)
 			{
-				switch ( pm->ps->weapon )
+				if (pm->gent->alt_fire)
 				{
-				// ********************************************************
-				case WP_SABER:		// WP_LIGHTSABER
-					// Shouldn't get here, should go to TorsoAnimLightsaber
-					break;
-				// ********************************************************
-
-				case WP_BRYAR_PISTOL:
-					if ( pm->ps->weaponstate == WEAPON_CHARGING_ALT || weaponBusy )
+					PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY1, SETANIM_FLAG_NORMAL);
+				}
+			}
+			else if (weaponData[weapon].weaponCategory == WC_PISTOL) 
+			{
+				if (pm->gent && pm->gent->weaponModel[1] > 0)
+				{//dual pistols
+					if (pm->ps->weaponstate == WEAPON_CHARGING_ALT || weaponBusy)
 					{
-						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY2,SETANIM_FLAG_NORMAL);
+						PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUNSIT1, SETANIM_FLAG_NORMAL);
 					}
-					else if ( PM_RunningAnim( pm->ps->legsAnim )
-						|| PM_WalkingAnim( pm->ps->legsAnim )
-						|| PM_JumpingAnim( pm->ps->legsAnim )
-						|| PM_SwimmingAnim( pm->ps->legsAnim ) )
+					else if (PM_RunningAnim(pm->ps->legsAnim)
+						|| PM_WalkingAnim(pm->ps->legsAnim)
+						|| PM_JumpingAnim(pm->ps->legsAnim)
+						|| PM_SwimmingAnim(pm->ps->legsAnim))
 					{//running w/1-handed weapon uses full-body anim
-						PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
+						PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
 					}
 					else
 					{
-						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONIDLE2,SETANIM_FLAG_NORMAL);
+						PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND6, SETANIM_FLAG_NORMAL);
 					}
-					break;
-				case WP_BLASTER_PISTOL:
-				case WP_REY:
-				case WP_JANGO:
-				case WP_CLONEPISTOL:
-					if ( pm->gent
-						&& pm->gent->weaponModel[1] > 0 )
-					{//dual pistols
-						if ( weaponBusy )
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,BOTH_GUNSIT1,SETANIM_FLAG_NORMAL);
-						}
-						else if ( PM_RunningAnim( pm->ps->legsAnim )
-							|| PM_WalkingAnim( pm->ps->legsAnim )
-							|| PM_JumpingAnim( pm->ps->legsAnim )
-							|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-						{//running w/1-handed weapon uses full-body anim
-							PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-						}
-						else
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND1,SETANIM_FLAG_NORMAL);
-						}
+				}
+				else if (weaponData[weapon].weaponCategory == WC_NONE) {
+					void; //Do nothing
+				}
+				else
+				{//single pistols
+					if (pm->ps->weaponstate == WEAPON_CHARGING_ALT || weaponBusy)
+					{
+						PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY2, SETANIM_FLAG_NORMAL);
 					}
-					else
-					{//single pistols
-						if ( pm->ps->weaponstate == WEAPON_CHARGING_ALT || weaponBusy )
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY2,SETANIM_FLAG_NORMAL);
-						}
-						else if ( PM_RunningAnim( pm->ps->legsAnim )
-								|| PM_WalkingAnim( pm->ps->legsAnim )
-								|| PM_JumpingAnim( pm->ps->legsAnim )
-								|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-						{//running w/1-handed weapon uses full-body anim
-							PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-						}
-						else
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONIDLE2,SETANIM_FLAG_NORMAL);
-						}
-					}
-					break;
-
-				case WP_NONE:
-					//NOTE: should never get here
-					break;
-
-				case WP_MELEE:
-					if ( PM_RunningAnim( pm->ps->legsAnim )
-						|| PM_WalkingAnim( pm->ps->legsAnim )
-						|| PM_JumpingAnim( pm->ps->legsAnim )
-						|| PM_SwimmingAnim( pm->ps->legsAnim ) )
+					else if (PM_RunningAnim(pm->ps->legsAnim)
+						|| PM_WalkingAnim(pm->ps->legsAnim)
+						|| PM_JumpingAnim(pm->ps->legsAnim)
+						|| PM_SwimmingAnim(pm->ps->legsAnim))
 					{//running w/1-handed weapon uses full-body anim
-						PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
+						PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
 					}
 					else
 					{
-						if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_RANCOR )
-						{//ignore
-						}
-						else if ( pm->gent && pm->gent->client && !PM_DroidMelee( pm->gent->client->NPC_class ) )
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND6,SETANIM_FLAG_NORMAL);
-						}
-						else
-						{
-							PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND1,SETANIM_FLAG_NORMAL);
-						}
+						PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY2, SETANIM_FLAG_NORMAL);
 					}
-					break;
-
-				case WP_TUSKEN_STAFF:
-					if ( PM_RunningAnim( pm->ps->legsAnim )
-						|| PM_WalkingAnim( pm->ps->legsAnim )
-						|| PM_JumpingAnim( pm->ps->legsAnim )
-						|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-					{//running w/1-handed weapon uses full-body anim
-						PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
+				}
+			}
+			else if (weaponData[weapon].weaponCategory == WC_MELEE) 
+			{
+				if (PM_RunningAnim(pm->ps->legsAnim)
+					|| PM_WalkingAnim(pm->ps->legsAnim)
+					|| PM_JumpingAnim(pm->ps->legsAnim)
+					|| PM_SwimmingAnim(pm->ps->legsAnim))
+				{//running w/1-handed weapon uses full-body anim
+					PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
+				}
+				else
+				{
+					if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_RANCOR)
+					{//ignore
+					}
+					else if (pm->gent && pm->gent->client && !PM_DroidMelee(pm->gent->client->NPC_class))
+					{
+						PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND6, SETANIM_FLAG_NORMAL);
 					}
 					else
 					{
-						PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND3, SETANIM_FLAG_NORMAL);
+						PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL);
 					}
-					break;
+				}
+			}
+			else if (weaponData[weapon].weaponCategory == WC_MELEE_1H)
+			{
+				if (PM_RunningAnim(pm->ps->legsAnim)
+					|| PM_WalkingAnim(pm->ps->legsAnim)
+					|| PM_JumpingAnim(pm->ps->legsAnim)
+					|| PM_SwimmingAnim(pm->ps->legsAnim))
+				{//running w/1-handed weapon uses full-body anim
+					PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND3, SETANIM_FLAG_NORMAL);
+				}
+			}
+			else if (weaponData[weapon].weaponCategory == WC_MELEE_2H)
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
+			}
+			if (baseWeapon == WP_DISRUPTOR || baseWeapon == WP_TUSKEN_RIFLE) {
+				if ((pm->ps->weaponstate != WEAPON_FIRING
+					&& pm->ps->weaponstate != WEAPON_CHARGING
+					&& pm->ps->weaponstate != WEAPON_CHARGING_ALT)
+					|| PM_RunningAnim(pm->ps->legsAnim)
+					|| PM_WalkingAnim(pm->ps->legsAnim)
+					|| PM_JumpingAnim(pm->ps->legsAnim)
+					|| PM_SwimmingAnim(pm->ps->legsAnim))
+				{//running sniper weapon uses normal ready
+					PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY4, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);//TORSO_WEAPONREADY4//SETANIM_FLAG_RESTART|
 
-				case WP_NOGHRI_STICK:
-					if ( weaponBusy )
-					{
-						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY3,SETANIM_FLAG_NORMAL);
-					}
-					else
-					{
-						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONIDLE3,SETANIM_FLAG_NORMAL);
-					}
-					break;
-
-				case WP_BLASTER:
-					if ( weaponBusy )
-					{
-						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY3,SETANIM_FLAG_NORMAL);
-					}
-					else
-					{
-						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONIDLE3,SETANIM_FLAG_NORMAL);
-					}
-					break;
-
-				case WP_DISRUPTOR:
-				case WP_TUSKEN_RIFLE:
-					if ( (pm->ps->weaponstate != WEAPON_FIRING
-							&& pm->ps->weaponstate != WEAPON_CHARGING
-							&& pm->ps->weaponstate != WEAPON_CHARGING_ALT)
-							|| PM_RunningAnim( pm->ps->legsAnim )
-							|| PM_WalkingAnim( pm->ps->legsAnim )
-							|| PM_JumpingAnim( pm->ps->legsAnim )
-							|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-					{//running sniper weapon uses normal ready
-						if ( pm->ps->clientNum )
+				}
+			}
+			if (baseWeapon == WP_BOT_LASER) {
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE2, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+			}
+			if (weaponData[weapon].weaponCategory == WC_GRENADE) 
+			{
+				if (pm->ps->weaponstate != WEAPON_FIRING
+					&& pm->ps->weaponstate != WEAPON_CHARGING
+					&& pm->ps->weaponstate != WEAPON_CHARGING_ALT
+					&& (PM_RunningAnim(pm->ps->legsAnim)
+						|| PM_WalkingAnim(pm->ps->legsAnim)
+						|| PM_JumpingAnim(pm->ps->legsAnim)
+						|| PM_SwimmingAnim(pm->ps->legsAnim)))
+				{//running w/1-handed weapon uses full-body anim
+					PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
+				}
+				else
+				{
+					if ((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()) && (pm->ps->weaponstate == WEAPON_CHARGING || pm->ps->weaponstate == WEAPON_CHARGING_ALT))
+					{//player pulling back to throw
+						if (PM_StandingAnim(pm->ps->legsAnim))
 						{
-							PM_SetAnim( pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL );
+							PM_SetAnim(pm, SETANIM_LEGS, BOTH_THERMAL_READY, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
 						}
-						else
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL );
+						else if (pm->ps->legsAnim == BOTH_THERMAL_READY)
+						{//sigh... hold it so pm_footsteps doesn't override
+							if (pm->ps->legsAnimTimer < 100)
+							{
+								pm->ps->legsAnimTimer = 100;
+							}
 						}
-					}
-					else
-					{
-						if ( pm->ps->clientNum )
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, TORSO_WEAPONREADY4, SETANIM_FLAG_NORMAL );
-						}
-						else
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, TORSO_WEAPONREADY4, SETANIM_FLAG_NORMAL );
-						}
-					}
-					break;
-
-				case WP_BOT_LASER:
-					PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONIDLE2,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-					break;
-
-				case WP_THERMAL:
-					if ( PM_RunningAnim( pm->ps->legsAnim )
-						|| PM_WalkingAnim( pm->ps->legsAnim )
-						|| PM_JumpingAnim( pm->ps->legsAnim )
-						|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-					{//running w/1-handed weapon uses full-body anim
-						PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-					}
-					else
-					{
-						if ( weaponBusy )
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, TORSO_WEAPONIDLE10, SETANIM_FLAG_NORMAL );
-						}
-						else
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL );
-						}
-					}
-					break;
-
-				case WP_REPEATER:
-				case WP_BATTLEDROID:
-				case WP_THEFIRSTORDER:
-				case WP_CLONECARBINE:
-				case WP_REBELBLASTER:
-					if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_GALAKMECH)
-					{
-						if (pm->gent->alt_fire)
-						{
-							PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE3, SETANIM_FLAG_NORMAL);
-						}
-						else
-						{
-							PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE1, SETANIM_FLAG_NORMAL);
-						}
+						PM_SetAnim(pm, SETANIM_TORSO, BOTH_THERMAL_READY, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
 					}
 					else
 					{
 						if (weaponBusy)
 						{
-							PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
+							PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY10, SETANIM_FLAG_NORMAL);
 						}
 						else
 						{
-							PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE3, SETANIM_FLAG_NORMAL);
+							PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL);
 						}
 					}
-					break;
-				case WP_TRIP_MINE:
-				case WP_DET_PACK:
-					if ( PM_RunningAnim( pm->ps->legsAnim )
-						|| PM_WalkingAnim( pm->ps->legsAnim )
-						|| PM_JumpingAnim( pm->ps->legsAnim )
-						|| PM_SwimmingAnim( pm->ps->legsAnim ) )
-					{//running w/1-handed weapon uses full-body anim
-						PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
-					}
-					else
-					{
-						if ( weaponBusy )
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, TORSO_WEAPONIDLE3, SETANIM_FLAG_NORMAL );
-						}
-						else
-						{
-							PM_SetAnim( pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL );
-						}
-					}
-					break;
-
-				default:
-					if ( weaponBusy )
-					{
-						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY3,SETANIM_FLAG_NORMAL);
-					}
-					else
-					{
-						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONIDLE3,SETANIM_FLAG_NORMAL);
-					}
-					break;
 				}
+			}
+			if (weaponData[weapon].weaponCategory == WC_EXPLOSIVE)
+			{
+				if (PM_RunningAnim(pm->ps->legsAnim)
+					|| PM_WalkingAnim(pm->ps->legsAnim)
+					|| PM_JumpingAnim(pm->ps->legsAnim)
+					|| PM_SwimmingAnim(pm->ps->legsAnim))
+				{//running w/1-handed weapon uses full-body anim
+					PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
+				}
+				else
+				{
+					if (weaponBusy)
+					{
+						PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
+					}
+					else
+					{
+						PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL);
+					}
+				}
+			}
+			else if (weaponData[weapon].weaponCategory == WC_NONE) {
+				void; //Do nothing
+			}
+			else
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
+			}
+		}
+	}
+	else if (pm->ps->weaponstate == WEAPON_IDLE)
+	{
+		if (pm->ps->legsAnim == BOTH_GUARD_LOOKAROUND1)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUARD_LOOKAROUND1, SETANIM_FLAG_NORMAL);
+		}
+		else if (pm->ps->legsAnim == BOTH_GUARD_IDLE1)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUARD_IDLE1, SETANIM_FLAG_NORMAL);
+		}
+		else if (pm->ps->legsAnim == BOTH_STAND1IDLE1
+			|| pm->ps->legsAnim == BOTH_STAND2IDLE1
+			|| pm->ps->legsAnim == BOTH_STAND2IDLE2
+			|| pm->ps->legsAnim == BOTH_STAND3IDLE1
+			|| pm->ps->legsAnim == BOTH_STAND5IDLE1)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
+			pm->ps->saberMove = LS_READY;
+		}
+		else if (pm->ps->legsAnim == BOTH_STAND2TO4)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND2TO4, SETANIM_FLAG_NORMAL);
+		}
+		else if (pm->ps->legsAnim == BOTH_STAND4TO2)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND4TO2, SETANIM_FLAG_NORMAL);
+		}
+		else if (pm->ps->legsAnim == BOTH_STAND4)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND4, SETANIM_FLAG_NORMAL);
+		}
+		else if (pm->ps->legsAnim == BOTH_SWIM_IDLE1)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_SWIM_IDLE1, SETANIM_FLAG_NORMAL);
+		}
+		else if (pm->ps->legsAnim == BOTH_SWIMFORWARD)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_SWIMFORWARD, SETANIM_FLAG_NORMAL);
+		}
+		else if (PM_InSpecialJump(pm->ps->legsAnim))
+		{//use legs anim
+			//FIXME: or just use whatever's currently playing?
+			//PM_SetAnim( pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL );
+		}
+		else if ((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()) && pm->ps->torsoAnim == BOTH_BUTTON_HOLD)
+		{//using something
+			if (!pm->ps->useTime)
+			{//stopped holding it, release
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_BUTTON_RELEASE, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+			}//else still holding, leave it as it is
+		}
+		//running w/1-handed or light 2-handed weapon uses full-body anim if you're not using the weapon right now
+		else if (!weaponBusy && !(pm->ps->weaponstate == WEAPON_CHARGING_ALT)
+			&& (weaponData[weapon].weaponCategory == WC_PISTOL || weaponData[weapon].weaponCategory == WC_LIGHT || weaponData[weapon].weaponCategory == WC_MELEE_1H)
+			&& (PM_RunningAnim(pm->ps->legsAnim) || PM_WalkingAnim(pm->ps->legsAnim)
+				|| PM_JumpingAnim(pm->ps->legsAnim) || PM_SwimmingAnim(pm->ps->legsAnim)))
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
+		}
+		//GalakMech Special Case
+		else if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_GALAKMECH)
+		{
+			if (pm->gent->alt_fire)
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE3, SETANIM_FLAG_NORMAL);
+			}
+			else
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE1, SETANIM_FLAG_NORMAL);
+			}
+		}
+		//Pistol Animations
+		else if (weaponData[weapon].weaponCategory == WC_PISTOL)
+		{   //Dual
+			if (pm->gent && pm->gent->weaponModel[1] > 0)
+			{
+				if (pm->ps->weaponstate == WEAPON_CHARGING_ALT || weaponBusy)
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUNSIT1, SETANIM_FLAG_NORMAL);
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL);
+				}
+			}
+			//Single
+			else {
+				if (pm->ps->weaponstate == WEAPON_CHARGING_ALT || weaponBusy)
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY2, SETANIM_FLAG_NORMAL);
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE2, SETANIM_FLAG_NORMAL);
+				}
+			}
+		}
+		//Melee Animations
+		else if (weaponData[weapon].weaponCategory == WC_MELEE)
+		{
+			if (PM_RunningAnim(pm->ps->legsAnim) || PM_WalkingAnim(pm->ps->legsAnim)
+				|| PM_JumpingAnim(pm->ps->legsAnim) || PM_SwimmingAnim(pm->ps->legsAnim))
+			{//running w/1-handed weapon uses full-body anim
+				PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
+			}
+			else
+			{
+				if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_RANCOR)
+				{//ignore
+				}
+				else if (pm->gent && pm->gent->client && !PM_DroidMelee(pm->gent->client->NPC_class))
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND6, SETANIM_FLAG_NORMAL);
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL);
+				}
+			}
+		}
+		//1 Handed Melee Animation
+		else if (weaponData[weapon].weaponCategory == WC_MELEE_1H)
+		{
+			if (PM_RunningAnim(pm->ps->legsAnim) || PM_WalkingAnim(pm->ps->legsAnim)
+				|| PM_JumpingAnim(pm->ps->legsAnim) || PM_SwimmingAnim(pm->ps->legsAnim))
+			{//running w/1-handed weapon uses full-body anim
+				PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
+			}
+			else
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND3, SETANIM_FLAG_NORMAL);
+			}
+		}
+		else if (weaponData[weapon].weaponCategory == WC_MELEE_2H)
+		{
+			if (weaponBusy)
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
+			}
+			else
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE3, SETANIM_FLAG_NORMAL);
+			}
+		}
+		/* Special Sniper Case */
+		else if (baseWeapon == WP_DISRUPTOR || baseWeapon == WP_TUSKEN_RIFLE) {
+			if ((pm->ps->weaponstate != WEAPON_FIRING && pm->ps->weaponstate != WEAPON_CHARGING && pm->ps->weaponstate != WEAPON_CHARGING_ALT)
+				|| PM_RunningAnim(pm->ps->legsAnim) || PM_WalkingAnim(pm->ps->legsAnim)
+				|| PM_JumpingAnim(pm->ps->legsAnim) || PM_SwimmingAnim(pm->ps->legsAnim))
+			{//running sniper weapon uses normal ready
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
+			}
+			else
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY4, SETANIM_FLAG_NORMAL);
+			}
+		}
+		else if (baseWeapon == WP_BOT_LASER) {
+			PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE2, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+		}
+		else if (weaponData[weapon].weaponCategory == WC_GRENADE)
+		{
+			if (PM_RunningAnim(pm->ps->legsAnim)
+				|| PM_WalkingAnim(pm->ps->legsAnim)
+				|| PM_JumpingAnim(pm->ps->legsAnim)
+				|| PM_SwimmingAnim(pm->ps->legsAnim))
+			{//running w/1-handed weapon uses full-body anim
+				PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
+			}
+			else
+			{
+				if (weaponBusy)
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE10, SETANIM_FLAG_NORMAL);
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL);
+				}
+			}
+		}
+		else if (weaponData[weapon].weaponCategory == WC_EXPLOSIVE)
+		{
+			if (PM_RunningAnim(pm->ps->legsAnim) || PM_WalkingAnim(pm->ps->legsAnim)
+				|| PM_JumpingAnim(pm->ps->legsAnim) || PM_SwimmingAnim(pm->ps->legsAnim))
+			{//running w/1-handed weapon uses full-body anim
+				PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
+			}
+			else
+			{
+				if (weaponBusy)
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE3, SETANIM_FLAG_NORMAL);
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL);
+				}
+			}
+		}
+		else if (weaponData[weapon].weaponCategory == WC_NONE) {
+			void; //Do nothing
+		}
+		//WC_LIGHT,WC_HEAVY,Unknown Cases...
+		else {
+			if (weaponBusy)
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
+			}
+			else
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE3, SETANIM_FLAG_NORMAL);
 			}
 		}
 	}

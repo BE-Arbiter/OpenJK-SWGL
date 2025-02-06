@@ -235,7 +235,7 @@ void WPN_BaseWeapon(const char** holdBuf);
 void WPN_Velocity(const char** holdBuf);
 void WPN_AltVelocity(const char** holdBuf);
 void WPN_PlayerUsable(const char** holdBuf);
-void WPN_IsPistol(const char** holdBuf);
+void WPN_WeaponCategory(const char** holdBuf);
 void WPN_DescriptionKey(const char** holdBuf);
 
 void WPN_ProjectileEffect(const char** holdBuf);
@@ -315,7 +315,7 @@ wpnParms_t WpnParms[] =
 	{ "velocity",			WPN_Velocity },
 	{ "altVelocity",		WPN_AltVelocity },
 	{ "playerUsable",		WPN_PlayerUsable },
-	{ "isPistol",			WPN_IsPistol },
+	{ "weaponCategory",			WPN_WeaponCategory },
 	{ "descriptionKey",		WPN_DescriptionKey},
 	// Old legacy files contain these, so we skip them to shut up warnings
 	{ "firingforce",		WPN_FuncSkip },
@@ -477,64 +477,64 @@ const qboolean defaultPlayerUsable[] = {
 	qtrue,//WP_CLONEPISTOL
 };
 
-const qboolean defaultIsPistol[] = {
-	qfalse,//WP_NONE,
+const weaponCategory_t defaultWeaponType[] = {
+	WC_NONE,//WP_NONE,
 
 	// Player weapons
-	qfalse,//WP_SABER,
-	qtrue,//WP_BLASTER_PISTOL,	// player and NPC weapon
-	qfalse,//WP_BLASTER,			// player and NPC weapon
-	qfalse,//WP_DISRUPTOR,		// player and NPC weapon
-	qfalse,//WP_BOWCASTER,		// NPC weapon - player can pick this up, but never starts with them
-	qfalse,//WP_REPEATER,		// NPC weapon - player can pick this up, but never starts with them
-	qfalse,//WP_DEMP2,			// NPC weapon - player can pick this up, but never starts with them
-	qfalse,//WP_FLECHETTE,		// NPC weapon - player can pick this up, but never starts with them
-	qfalse,//WP_ROCKET_LAUNCHER,	// NPC weapon - player can pick this up, but never starts with them
-	qfalse,//WP_THERMAL,			// player and NPC weapon
-	qfalse,//WP_TRIP_MINE,		// NPC weapon - player can pick this up, but never starts with them
-	qfalse,//WP_DET_PACK,		// NPC weapon - player can pick this up, but never starts with them
-	qfalse,//WP_CONCUSSION,		// NPC weapon - player can pick this up, but never starts with them
+	WC_MELEE_1H,//WP_SABER,
+	WC_PISTOL,//WP_BLASTER_PISTOL,	// player and NPC weapon
+	WC_LIGHT,//WP_BLASTER,			// player and NPC weapon
+	WC_LIGHT,//WP_DISRUPTOR,		// player and NPC weapon
+	WC_HEAVY,//WP_BOWCASTER,		// NPC weapon - player can pick this up, but never starts with them
+	WC_HEAVY,//WP_REPEATER,		// NPC weapon - player can pick this up, but never starts with them
+	WC_LIGHT,//WP_DEMP2,			// NPC weapon - player can pick this up, but never starts with them
+	WC_HEAVY,//WP_FLECHETTE,		// NPC weapon - player can pick this up, but never starts with them
+	WC_HEAVY,//WP_ROCKET_LAUNCHER,	// NPC weapon - player can pick this up, but never starts with them
+	WC_GRENADE,//WP_THERMAL,			// player and NPC weapon
+	WC_EXPLOSIVE,//WP_TRIP_MINE,		// NPC weapon - player can pick this up, but never starts with them
+	WC_EXPLOSIVE,//WP_DET_PACK,		// NPC weapon - player can pick this up, but never starts with them
+	WC_HEAVY,//WP_CONCUSSION,		// NPC weapon - player can pick this up, but never starts with them
 
 	//extras
-	qfalse,//WP_MELEE,			// player and NPC weapon - Any ol' melee attack
+	WC_MELEE,//WP_MELEE,			// player and NPC weapon - Any ol' melee attack
 
 	//when in atst
-	qfalse,//WP_ATST_MAIN,
-	qfalse,//WP_ATST_SIDE,
+	WC_NONE,//WP_ATST_MAIN,
+	WC_NONE,//WP_ATST_SIDE,
 
 	// These can never be gotten directly by the player
-	qfalse,//WP_STUN_BATON,		// stupid weapon, should remove
+	WC_MELEE_1H,//WP_STUN_BATON,		// stupid weapon, should remove
 
 	//NPC weapons
-	qtrue,//WP_BRYAR_PISTOL,	// NPC weapon - player can pick this up, but never starts with them
+	WC_PISTOL,//WP_BRYAR_PISTOL,	// NPC weapon - player can pick this up, but never starts with them
 
-	qfalse,//WP_EMPLACED_GUN,
+	WC_NONE,//WP_EMPLACED_GUN,
 
-	qfalse,//WP_BOT_LASER,		// Probe droid	- Laser blast
+	WC_NONE,//WP_BOT_LASER,		// Probe droid	- Laser blast
 
-	qfalse,//WP_TURRET,			// turret guns
+	WC_NONE,//WP_TURRET,			// turret guns
 
-	qfalse,//WP_TIE_FIGHTER,
+	WC_NONE,//WP_TIE_FIGHTER,
 
-	qfalse,//WP_RAPID_FIRE_CONC,
+	WC_HEAVY,//WP_RAPID_FIRE_CONC,
 
-	qfalse,//WP_JAWA,
-	qfalse,//WP_TUSKEN_RIFLE,
-	qfalse,//WP_TUSKEN_STAFF,
-	qfalse,//WP_SCEPTER,
-	qfalse,//WP_NOGHRI_STICK,
+	WC_LIGHT,//WP_JAWA,
+	WC_LIGHT,//WP_TUSKEN_RIFLE,
+	WC_MELEE_1H,//WP_TUSKEN_STAFF,
+	WC_MELEE_2H,//WP_SCEPTER,
+	WC_MELEE_2H,//WP_NOGHRI_STICK,
 
-	qfalse,//WP_BATTLEDROID
-	qfalse,//WP_THEFIRSTORDER,
-	qfalse,//WP_CLONECARBINE,
-	qfalse,//WP_REBELBLASTER,
-	qfalse,//WP_CLONERIFLE,
-	qfalse,//WP_CLONECOMMANDO,
-	qfalse,//WP_REBELRIFLE,
-	qtrue,//WP_REY,
-	qtrue,//WP_JANGO,
-	qfalse,//WP_BOBA,
-	qtrue,//WP_CLONEPISTOL
+	WC_LIGHT,//WP_BATTLEDROID
+	WC_LIGHT,//WP_THEFIRSTORDER,
+	WC_LIGHT,//WP_CLONECARBINE,
+	WC_LIGHT,//WP_REBELBLASTER,
+	WC_HEAVY,//WP_CLONERIFLE,
+	WC_HEAVY,//WP_CLONECOMMANDO,
+	WC_HEAVY,//WP_REBELRIFLE,
+	WC_PISTOL,//WP_REY,
+	WC_PISTOL,//WP_JANGO,
+	WC_HEAVY,//WP_BOBA,
+	WC_PISTOL,//WP_CLONEPISTOL
 };
 
 const int defaultDamage[] = {

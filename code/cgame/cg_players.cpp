@@ -8886,7 +8886,7 @@ SkipTrueView:
 					&& cent->gent->client->NPC_class == CLASS_REBORN//cultist
 					&& cent->gent->NPC->rank >= RANK_LT_COMM//commando
 					*/
-					&& weaponData[cent->gent->s.weapon].isPistol//using pistol
+					&& weaponData[cent->gent->s.weapon].weaponCategory == WC_PISTOL//using pistol
 					&& cent->gent->weaponModel[1] )//one in each hand
 				{
 
@@ -9615,6 +9615,7 @@ Ghoul2 Insert End
 			int		shader = 0;
 			float	val = 0.0f, scale = 1.0f;
 			vec3_t	WHITE	= {1.0f,1.0f,1.0f};
+
 			int weapon = ps->weapon;
 			int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 			if (baseWeapon == WP_BRYAR_PISTOL

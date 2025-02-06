@@ -1304,17 +1304,36 @@ void WPN_PlayerUsable(const char** holdBuf)
 
 //--------------------------------------------
 
-void WPN_IsPistol(const char** holdBuf)
+void WPN_WeaponCategory(const char** holdBuf)
 {
-	int tokenInt;
+	const char* tokenStr;
+	weaponCategory_t weaponCategory = WC_NONE;
 
-	if (COM_ParseInt(holdBuf, &tokenInt))
+	if (COM_ParseString(holdBuf, &tokenStr))
 	{
-		SkipRestOfLine(holdBuf);
 		return;
 	}
 
-	weaponData[wpnParms.weaponNum].isPistol = (qboolean) tokenInt;
+	if (!Q_stricmp(tokenStr, "WC_NONE")) {
+		weaponCategory = WC_NONE;
+	}
+	else if (!Q_stricmp(tokenStr, "WC_PISTOL")) {
+		weaponCategory = WC_PISTOL;
+	}
+	else if (!Q_stricmp(tokenStr, "WC_LIGHT")) {
+		weaponCategory = WC_LIGHT;
+	}
+	else if (!Q_stricmp(tokenStr, "WC_HEAVY")) {
+		weaponCategory = WC_HEAVY;
+	}
+	else if (!Q_stricmp(tokenStr, "WC_EXPLOSIVE")) {
+		weaponCategory = WC_EXPLOSIVE;
+	}
+	else {
+		weaponCategory = WC_NONE;
+		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for WeaponType in external WEAPONS.DAT\n", tokenStr);
+	}
+	weaponData[wpnParms.weaponNum].weaponCategory = weaponCategory;
 }
 
 //--------------------------------------------
@@ -1399,12 +1418,12 @@ void WP_LoadWeaponParms (void)
 		weaponData[i].playerUsable = defaultPlayerUsable[i];
 		weaponData[i].mVelocity = defaultsWeaponSpeed[i][0];
 		weaponData[i].mAltVelocity = defaultsWeaponSpeed[i][1];
-		weaponData[i].isPistol = defaultIsPistol[i];
+		weaponData[i].weaponCategory = defaultWeaponType[i];
 	}
 	//put in the qunset flag for playerUsable since 0 = false;
 	for (int i = numHcWeaponIndexes; i < MAX_WEAPONS ; i++) {
 		weaponData[i].playerUsable = qunset;
-		weaponData[i].isPistol = qunset;
+		weaponData[i].weaponCategory = WC_NONE;
 
 	}
 	WP_ParseParms(buffer);
@@ -1573,7 +1592,7 @@ void WP_LoadWeaponParms (void)
 
 			weaponData[i].secondaryMdl = weaponData[i].secondaryMdl == 0 ? weaponData[j].secondaryMdl : weaponData[i].secondaryMdl;
 			weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[i].playerUsable;
-			weaponData[i].isPistol = weaponData[i].isPistol == qunset ? weaponData[j].isPistol : weaponData[i].isPistol;
+			weaponData[i].weaponCategory = weaponData[i].weaponCategory == WC_NONE ? weaponData[j].weaponCategory : weaponData[i].weaponCategory;
 			weaponData[i].mVelocity = weaponData[i].mVelocity == 0 ? weaponData[j].mVelocity : weaponData[i].mVelocity;
 			weaponData[i].mAltVelocity = weaponData[i].mAltVelocity == 0 ? weaponData[j].mAltVelocity : weaponData[i].mAltVelocity;
 			weaponData[i].baseWeaponNum = j;

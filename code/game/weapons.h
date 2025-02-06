@@ -120,6 +120,18 @@ typedef struct weaponIndexes_s
 	int index;
 } weaponIndexes_t;
 
+typedef enum{
+	WC_NONE, //Only for weapon none else is "unset"
+	WC_MELEE, //Like melee
+	WC_MELEE_1H, //Like Saber
+	WC_MELEE_2H, //Like nogri staff
+	WC_PISTOL, // Like bryar
+	WC_LIGHT, // Like blaster
+	WC_HEAVY, //Like Bowcaster or rocket launcher
+	WC_GRENADE, //Like thermal
+	WC_EXPLOSIVE //Like detpack
+} weaponCategory_t;
+
 typedef struct weaponData_s
 {
 	char	classname[32];		// Spawning name
@@ -200,7 +212,7 @@ typedef struct weaponData_s
 	char	weaponMdl2[64];
 	qboolean secondaryMdl;
 	qboolean playerUsable;
-	qboolean isPistol;
+	weaponCategory_t weaponCategory;
 	char	descriptionKey[128];
 	char	nameKey[128];
 

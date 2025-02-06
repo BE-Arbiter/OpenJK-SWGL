@@ -45,7 +45,8 @@ extern qboolean PM_SaberInSpecialAttack( int anim );
 void G_MissileBounceEffect( gentity_t *ent, vec3_t org, vec3_t dir, qboolean hitWorld )
 {
 	//FIXME: have an EV_BOUNCE_MISSILE event that checks the s.weapon and does the appropriate effect
-	switch( ent->s.weapon )
+	int baseWeapon = weaponData[ent->s.weapon].baseWeaponNum ? weaponData[ent->s.weapon].baseWeaponNum : ent->s.weapon;
+	switch(baseWeapon)
 	{
 	case WP_BOWCASTER:
 		if ( hitWorld )
@@ -75,7 +76,8 @@ void G_MissileBounceEffect( gentity_t *ent, vec3_t org, vec3_t dir, qboolean hit
 void G_MissileReflectEffect( gentity_t *ent, vec3_t org, vec3_t dir )
 {
 	//FIXME: have an EV_BOUNCE_MISSILE event that checks the s.weapon and does the appropriate effect
-	switch( ent->s.weapon )
+	int baseWeapon = weaponData[ent->s.weapon].baseWeaponNum ? weaponData[ent->s.weapon].baseWeaponNum : ent->s.weapon;
+	switch (baseWeapon)
 	{
 	case WP_BOWCASTER:
 		G_PlayEffect( "bowcaster/deflect", ent->currentOrigin, dir );

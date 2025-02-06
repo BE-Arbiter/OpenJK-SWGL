@@ -13475,6 +13475,8 @@ static void PM_Weapon( void )
 	int			addTime, amount, trueCount = 1;
 	qboolean	delayed_fire = qfalse;
 
+	int weapon = pm->ps->weapon;
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 	int firing_type = 0;
 	int fire_time = 0;
 	int burst_fire_delay = 0;
@@ -13611,7 +13613,7 @@ static void PM_Weapon( void )
 
 	if (pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer())
 	{
-		if (weaponData[pm->ps->weapon].isPistol)
+		if (weaponData[pm->ps->weapon].weaponCategory == WC_PISTOL)
 		{
 			// If you don't have a weapon in your left hand and you just turned dual wielding on.
 			if (pm->gent->weaponModel[1] <= 0 && cg_dualWielding.integer)
@@ -13680,31 +13682,21 @@ static void PM_Weapon( void )
 		{
 			PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND1,SETANIM_FLAG_NORMAL);
 		}
-		else
+		else if (weaponData[pm->ps->weapon].weaponCategory == WC_PISTOL)
 		{
-			switch(pm->ps->weapon)
-			{
-			case WP_BRYAR_PISTOL:
-			case WP_BLASTER_PISTOL:
-			case WP_REY:
-			case WP_JANGO:
-			case WP_CLONEPISTOL:
-				if ( pm->gent
-					&& pm->gent->weaponModel[1] > 0 )
-				{//dual pistols
-					//FIXME: should be a better way of detecting a dual-pistols user so it's not hardcoded to the saboteurcommando...
-					PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND1,SETANIM_FLAG_NORMAL);
-				}
-				else
-				{//single pistol
-					PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONIDLE2,SETANIM_FLAG_NORMAL);
-				}
-				break;
-
-				default:
-					PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONIDLE3,SETANIM_FLAG_NORMAL);
-					break;
+			if (pm->gent
+				&& pm->gent->weaponModel[1] > 0)
+			{//dual pistols
+				//FIXME: should be a better way of detecting a dual-pistols user so it's not hardcoded to the saboteurcommando...
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND1, SETANIM_FLAG_NORMAL);
 			}
+			else
+			{//single pistol
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE2, SETANIM_FLAG_NORMAL);
+			}
+		}
+		else{
+			PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONIDLE3,SETANIM_FLAG_NORMAL);
 		}
 		return;
 	}
@@ -13757,18 +13749,18 @@ static void PM_Weapon( void )
 		}
 	}
 
- 	if(!delayed_fire)
+	if (!delayed_fire)
 	{
-		if ( pm->ps->weapon == WP_MELEE	&& (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) )
+		if (pm->ps->weapon == WP_MELEE && (pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()))
 		{//melee
-			if ( (pm->cmd.buttons&(BUTTON_ATTACK|BUTTON_ALT_ATTACK)) != (BUTTON_ATTACK|BUTTON_ALT_ATTACK) )
+			if ((pm->cmd.buttons & (BUTTON_ATTACK | BUTTON_ALT_ATTACK)) != (BUTTON_ATTACK | BUTTON_ALT_ATTACK))
 			{//not holding both buttons
-				if ( (pm->cmd.buttons&BUTTON_ATTACK)&&(pm->ps->pm_flags&PMF_ATTACK_HELD) )
+				if ((pm->cmd.buttons & BUTTON_ATTACK) && (pm->ps->pm_flags & PMF_ATTACK_HELD))
 				{//held button
 					//clear it
 					pm->cmd.buttons &= ~BUTTON_ATTACK;
 				}
-				if ( (pm->cmd.buttons&BUTTON_ALT_ATTACK)&&(pm->ps->pm_flags&PMF_ALT_ATTACK_HELD) )
+				if ((pm->cmd.buttons & BUTTON_ALT_ATTACK) && (pm->ps->pm_flags & PMF_ALT_ATTACK_HELD))
 				{//held button
 					//clear it
 					pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
@@ -13776,25 +13768,25 @@ static void PM_Weapon( void )
 			}
 		}
 		// check for fire
-		if ( !(pm->cmd.buttons & (BUTTON_ATTACK|BUTTON_ALT_ATTACK)) )
+		if (!(pm->cmd.buttons & (BUTTON_ATTACK | BUTTON_ALT_ATTACK)))
 		{
 			pm->ps->weaponTime = 0;
 
-			if ( pm->gent && pm->gent->client && pm->gent->client->fireDelay > 0 )
+			if (pm->gent && pm->gent->client && pm->gent->client->fireDelay > 0)
 			{//Still firing
 				pm->ps->weaponstate = WEAPON_FIRING;
 			}
-			else if ( pm->ps->weaponstate != WEAPON_READY )
+			else if (pm->ps->weaponstate != WEAPON_READY)
 			{
-				if ( !pm->gent || !pm->gent->NPC || pm->gent->attackDebounceTime < level.time )
+				if (!pm->gent || !pm->gent->NPC || pm->gent->attackDebounceTime < level.time)
 				{
 					pm->ps->weaponstate = WEAPON_IDLE;
 				}
 			}
 
-			if ( pm->ps->weapon == WP_MELEE
-				&& (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer())
-				&& PM_KickMove( pm->ps->saberMove ) )
+			if (pm->ps->weapon == WP_MELEE
+				&& (pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer())
+				&& PM_KickMove(pm->ps->saberMove))
 			{//melee, not attacking, clear move
 				pm->ps->saberMove = LS_NONE;
 			}
@@ -13817,21 +13809,21 @@ static void PM_Weapon( void )
 			}
 		}
 
-		if (pm->gent->s.m_iVehicleNum!=0)
+		if (pm->gent->s.m_iVehicleNum != 0)
 		{
 			// No Anims if on Veh
 		}
 
 		// start the animation even if out of ammo
-		else if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_ROCKETTROOPER && (!Q_stricmp("rockettrooper2", pm->gent->NPC_type) || !Q_stricmp("rockettrooper2officer", pm->gent->NPC_type)))
+		else if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_ROCKETTROOPER && (!Q_stricmp("rockettrooper2", pm->gent->NPC_type) || !Q_stricmp("rockettrooper2officer", pm->gent->NPC_type)))
 		{
-			if ( pm->gent->client->moveType == MT_FLYSWIM )
+			if (pm->gent->client->moveType == MT_FLYSWIM)
 			{
-				PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK2,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK2, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 			}
 			else
 			{
-				PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK1,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 			}
 		}
 
@@ -13847,307 +13839,263 @@ static void PM_Weapon( void )
 			}
 		}
 #ifndef BASE_SAVE_COMPAT
-		else if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_HAZARD_TROOPER )
+		else if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_HAZARD_TROOPER)
 		{
 			// Kneel attack
 			//--------------
-			if( pm->cmd.upmove == -127 )
+			if (pm->cmd.upmove == -127)
 			{
-				PM_SetAnim(pm,SETANIM_TORSO, BOTH_KNEELATTACK, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_KNEELATTACK, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 			}
 			else
 			{
-				PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK1,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 			}
 
 			// Standing attack
 			//-----------------
 		}
 #endif
-		else if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_ASSASSIN_DROID )
+		else if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_ASSASSIN_DROID)
 		{
 			// Crouched Attack
- 			if (PM_CrouchAnim(pm->gent->client->ps.legsAnim))
+			if (PM_CrouchAnim(pm->gent->client->ps.legsAnim))
 			{
-				PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK2,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLDLESS);
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK2, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLDLESS);
 			}
 
 			// Standing Attack
 			//-----------------
 			else
 			{
-			//	if (PM_StandingAnim(pm->gent->client->ps.legsAnim))
-			//	{
-			//		PM_SetAnim(pm,SETANIM_BOTH,BOTH_ATTACK3,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLDLESS);
-			//	}
-			//	else
+				//	if (PM_StandingAnim(pm->gent->client->ps.legsAnim))
+				//	{
+				//		PM_SetAnim(pm,SETANIM_BOTH,BOTH_ATTACK3,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLDLESS);
+				//	}
+				//	else
 				{
-					PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK3,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLDLESS);
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK3, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLDLESS);
 				}
 			}
 		}
-		else
+		else if (weaponData[weapon].weaponCategory == WC_PISTOL)
 		{
-			int baseWeapon = weaponData[pm->ps->weapon].baseWeaponNum ? weaponData[pm->ps->weapon].baseWeaponNum : pm->ps->weapon;
-			switch(baseWeapon)
-			{
-				/*
-			case WP_SABER://1 - handed
-				PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK1,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-				break;
-	*/
-			case WP_BRYAR_PISTOL://1-handed
-			case WP_BLASTER_PISTOL://1-handed
-			case WP_REY:
-			case WP_JANGO:
-			case WP_CLONEPISTOL:
-				if ( pm->gent && pm->gent->weaponModel[1] > 0 )
-				{//dual pistols
-					PM_SetAnim(pm,SETANIM_TORSO,BOTH_GUNSIT1,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-				}
-				else
-				{//single pistol
-					PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK2,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-				}
-				break;
-
-			case WP_MELEE:
-
-				// since there's no RACE_BOTS, I listed all the droids that have might have melee attacks - dmv
-				if ( pm->gent && pm->gent->client )
-				{
-					if ( PM_DroidMelee( pm->gent->client->NPC_class ) )
-					{
-						if ( rand() & 1 )
-							PM_SetAnim(pm,SETANIM_BOTH,BOTH_MELEE1,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD);
-						else
-							PM_SetAnim(pm,SETANIM_BOTH,BOTH_MELEE2,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD);
-					}
-					else
-					{
-						int anim = -1;
-						if ( (pm->ps->clientNum < MAX_CLIENTS ||PM_ControlledByPlayer())
-							&& g_debugMelee->integer )
-						{
-							if ( (pm->cmd.buttons&BUTTON_ALT_ATTACK) )
-							{
-								if ( (pm->cmd.buttons&BUTTON_ATTACK) )
-								{
-									PM_TryGrab();
-								}
-								else if ( !(pm->ps->pm_flags&PMF_ALT_ATTACK_HELD) )
-								{
-									PM_CheckKick();
-								}
-							}
-							else if ( !(pm->ps->pm_flags&PMF_ATTACK_HELD) )
-							{
-								anim = PM_PickAnim( pm->gent, BOTH_MELEE1, BOTH_MELEE2 );
-							}
-						}
-						else
-						{
-							anim = PM_PickAnim( pm->gent, BOTH_MELEE1, BOTH_MELEE2 );
-						}
-						if ( anim != -1 )
-						{
-							if ( VectorCompare( pm->ps->velocity, vec3_origin ) && pm->cmd.upmove >= 0 )
-							{
-								PM_SetAnim( pm, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART );
-							}
-							else
-							{
-								PM_SetAnim( pm, SETANIM_TORSO, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART );
-							}
-						}
-					}
-				}
-				break;
-
-			case WP_TUSKEN_RIFLE:
-				if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-				{//shoot
-					//in alt-fire, sniper mode
-					PM_SetAnim( pm, SETANIM_TORSO, BOTH_ATTACK4, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-				}
-				else
-				{//melee
-					int anim = PM_PickAnim( pm->gent, BOTH_TUSKENATTACK1, BOTH_TUSKENATTACK3 );	// Rifle
-					if ( VectorCompare( pm->ps->velocity, vec3_origin ) && pm->cmd.upmove >= 0 )
-					{
-						PM_SetAnim( pm, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART );
-					}
-					else
-					{
-						PM_SetAnim( pm, SETANIM_TORSO, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART );
-					}
-				}
-				break;
-
-			case WP_TUSKEN_STAFF:
-
-				if ( pm->gent && pm->gent->client )
-				{
-					int anim;
-					int flags = (SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART);
-					if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) )
-					{//player
-						if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-						{
-							if ( pm->cmd.buttons & BUTTON_ATTACK )
-							{
-								anim = BOTH_TUSKENATTACK3;
-							}
-							else
-							{
-								anim = BOTH_TUSKENATTACK2;
-							}
-						}
-						else
-						{
-							anim = BOTH_TUSKENATTACK1;
-						}
-					}
-					else
-					{// npc
-						if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-						{
-							anim = BOTH_TUSKENLUNGE1;
-							if (pm->ps->torsoAnimTimer>0)
-							{
-								flags &= ~SETANIM_FLAG_RESTART;
-							}
-						}
-						else
-						{
-							anim = PM_PickAnim( pm->gent, BOTH_TUSKENATTACK1, BOTH_TUSKENATTACK3 );
-						}
-					}
-					if ( VectorCompare( pm->ps->velocity, vec3_origin ) && pm->cmd.upmove >= 0 )
-					{
-						PM_SetAnim( pm, SETANIM_BOTH, anim,  flags, 0);
-					}
-					else
-					{
-						PM_SetAnim( pm, SETANIM_TORSO, anim, flags, 0);
-					}
-				}
-				break;
-
-			case WP_NOGHRI_STICK:
-
-				if ( pm->gent && pm->gent->client )
-				{
-					int anim;
-					if ( pm->cmd.buttons & BUTTON_ATTACK )
-					{
-						anim = BOTH_ATTACK3;
-					}
-					else
-					{
-						anim = PM_PickAnim( pm->gent, BOTH_TUSKENATTACK1, BOTH_TUSKENATTACK3 );
-					}
-					if ( anim != BOTH_ATTACK3 && VectorCompare( pm->ps->velocity, vec3_origin ) && pm->cmd.upmove >= 0 )
-					{
-						PM_SetAnim( pm, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART );
-					}
-					else
-					{
-						PM_SetAnim( pm, SETANIM_TORSO, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART );
-					}
-				}
-				break;
-
-			case WP_BLASTER:
-				PM_SetAnim( pm, SETANIM_TORSO, BOTH_ATTACK3, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART);
-				break;
-
-			case WP_DISRUPTOR:
-				if ( ((pm->ps->clientNum >= MAX_CLIENTS&&!PM_ControlledByPlayer())&& pm->gent && pm->gent->NPC && (pm->gent->NPC->scriptFlags&SCF_ALT_FIRE)) ||
-					((pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) && cg.zoomMode == 2 ) )
-				{//NPC or player in alt-fire, sniper mode
-					PM_SetAnim( pm, SETANIM_TORSO, BOTH_ATTACK4, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-				}
-				else
-				{//in primary fire mode
-					PM_SetAnim( pm, SETANIM_TORSO, BOTH_ATTACK3, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART);
-				}
-				break;
-
-			case WP_BOT_LASER:
-				PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK1,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-				break;
-
-			case WP_THERMAL:
-				if ( (pm->ps->clientNum >= MAX_CLIENTS&&!PM_ControlledByPlayer()) )
-				{
-					if ( PM_StandingAnim( pm->ps->legsAnim ) )
-					{
-						PM_SetAnim( pm, SETANIM_LEGS, BOTH_ATTACK10, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-					}
-					PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK10,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-				}
-				else
-				{
-					if ( BG_AllowThirdPersonSpecialMove( pm->ps ) )
-					{
-						if ( PM_StandingAnim( pm->ps->legsAnim )
-							|| pm->ps->legsAnim == BOTH_THERMAL_READY )
-						{
-							PM_SetAnim( pm, SETANIM_LEGS, BOTH_THERMAL_THROW, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-						}
-						PM_SetAnim(pm,SETANIM_TORSO,BOTH_THERMAL_THROW,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD);//|SETANIM_FLAG_RESTART
-					}
-					else
-					{
-						PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK2,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-					}
-				}
-				break;
-
-			case WP_EMPLACED_GUN:
-				// Guess we don't play an attack animation?  Maybe we should have a custom one??
-				break;
-
-			case WP_NONE:
-				// no anim
-				break;
-
-			case WP_REPEATER:
-			case WP_BATTLEDROID:
-			case WP_THEFIRSTORDER:
-			case WP_CLONECARBINE:
-			case WP_REBELBLASTER:
-			case WP_CLONERIFLE:
-			case WP_CLONECOMMANDO:
-			case WP_REBELRIFLE:
-			case WP_BOBA:
-				if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_GALAKMECH )
-				{//
-					if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-					{
-						PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK3,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-					}
-					else
-					{
-						PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK1,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-					}
-				}
-				else
-				{
-					PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK3,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-				}
-				break;
-
-			case WP_TRIP_MINE:
-			case WP_DET_PACK:
-				PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK11,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-				break;
-
-			default://2-handed heavy weapon
-				PM_SetAnim(pm,SETANIM_TORSO,BOTH_ATTACK3,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
-				break;
+			if (pm->gent && pm->gent->weaponModel[1] > 0)
+			{//dual pistols
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUNSIT1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 			}
+			else
+			{//single pistol
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK2, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+			}
+		}
+		else if (weaponData[weapon].weaponCategory == WC_MELEE)
+		{
+			// since there's no RACE_BOTS, I listed all the droids that have might have melee attacks - dmv
+			if (pm->gent && pm->gent->client)
+			{
+				if (PM_DroidMelee(pm->gent->client->NPC_class))
+				{
+					if (rand() & 1)
+						PM_SetAnim(pm, SETANIM_BOTH, BOTH_MELEE1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+					else
+						PM_SetAnim(pm, SETANIM_BOTH, BOTH_MELEE2, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+				}
+				else
+				{
+					int anim = -1;
+					if ((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer())
+						&& g_debugMelee->integer)
+					{
+						if ((pm->cmd.buttons & BUTTON_ALT_ATTACK))
+						{
+							if ((pm->cmd.buttons & BUTTON_ATTACK))
+							{
+								PM_TryGrab();
+							}
+							else if (!(pm->ps->pm_flags & PMF_ALT_ATTACK_HELD))
+							{
+								PM_CheckKick();
+							}
+						}
+						else if (!(pm->ps->pm_flags & PMF_ATTACK_HELD))
+						{
+							anim = PM_PickAnim(pm->gent, BOTH_MELEE1, BOTH_MELEE2);
+						}
+					}
+					else
+					{
+						anim = PM_PickAnim(pm->gent, BOTH_MELEE1, BOTH_MELEE2);
+					}
+					if (anim != -1)
+					{
+						if (VectorCompare(pm->ps->velocity, vec3_origin) && pm->cmd.upmove >= 0)
+						{
+							PM_SetAnim(pm, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+						}
+						else
+						{
+							PM_SetAnim(pm, SETANIM_TORSO, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+						}
+					}
+				}
+			}
+		}
+		else if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_GALAKMECH)
+		{//
+			if (pm->cmd.buttons & BUTTON_ALT_ATTACK)
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK3, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+			}
+			else
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+			}
+		}
+		else if (baseWeapon == WP_BOT_LASER)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+		}
+		else if (baseWeapon == WP_DISRUPTOR)
+		{
+			if (((pm->ps->clientNum >= MAX_CLIENTS && !PM_ControlledByPlayer()) && pm->gent && pm->gent->NPC && (pm->gent->NPC->scriptFlags & SCF_ALT_FIRE)) ||
+				((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()) && cg.zoomMode == 2))
+			{//NPC or player in alt-fire, sniper mode
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK4, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+			}
+			else
+			{//in primary fire mode
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK3, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+			}
+		}
+		else if (baseWeapon == WP_TUSKEN_RIFLE)
+		{
+			if (pm->cmd.buttons & BUTTON_ALT_ATTACK)
+			{//shoot
+				//in alt-fire, sniper mode
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK4, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+			}
+			else
+			{//melee
+				int anim = PM_PickAnim(pm->gent, BOTH_TUSKENATTACK1, BOTH_TUSKENATTACK3);	// Rifle
+				if (VectorCompare(pm->ps->velocity, vec3_origin) && pm->cmd.upmove >= 0)
+				{
+					PM_SetAnim(pm, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+				}
+			}
+		}
+		else if (weaponData[weapon].weaponCategory == WC_MELEE_1H)
+		{
+			if (pm->gent && pm->gent->client)
+			{
+				int anim;
+				int flags = (SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+				if ((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()))
+				{//player
+					if (pm->cmd.buttons & BUTTON_ALT_ATTACK)
+					{
+						if (pm->cmd.buttons & BUTTON_ATTACK)
+						{
+							anim = BOTH_TUSKENATTACK3;
+						}
+						else
+						{
+							anim = BOTH_TUSKENATTACK2;
+						}
+					}
+					else
+					{
+						anim = BOTH_TUSKENATTACK1;
+					}
+				}
+				else
+				{// npc
+					if (pm->cmd.buttons & BUTTON_ALT_ATTACK)
+					{
+						anim = BOTH_TUSKENLUNGE1;
+						if (pm->ps->torsoAnimTimer > 0)
+						{
+							flags &= ~SETANIM_FLAG_RESTART;
+						}
+					}
+					else
+					{
+						anim = PM_PickAnim(pm->gent, BOTH_TUSKENATTACK1, BOTH_TUSKENATTACK3);
+					}
+				}
+				if (VectorCompare(pm->ps->velocity, vec3_origin) && pm->cmd.upmove >= 0)
+				{
+					PM_SetAnim(pm, SETANIM_BOTH, anim, flags, 0);
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, anim, flags, 0);
+				}
+			}
+		}
+		else if (weaponData[weapon].weaponCategory == WC_MELEE_2H)
+		{
+			if (pm->gent && pm->gent->client)
+			{
+				int anim;
+				if (pm->cmd.buttons & BUTTON_ATTACK)
+				{
+					anim = BOTH_ATTACK3;
+				}
+				else
+				{
+					anim = PM_PickAnim(pm->gent, BOTH_TUSKENATTACK1, BOTH_TUSKENATTACK3);
+				}
+				if (anim != BOTH_ATTACK3 && VectorCompare(pm->ps->velocity, vec3_origin) && pm->cmd.upmove >= 0)
+				{
+					PM_SetAnim(pm, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+				}
+			}
+		}
+		else if (weaponData[weapon].weaponCategory == WC_GRENADE)
+		{
+			if ((pm->ps->clientNum >= MAX_CLIENTS && !PM_ControlledByPlayer()))
+			{
+				if (PM_StandingAnim(pm->ps->legsAnim))
+				{
+					PM_SetAnim(pm, SETANIM_LEGS, BOTH_ATTACK10, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+				}
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK10, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+			}
+			else
+			{
+				if (BG_AllowThirdPersonSpecialMove(pm->ps))
+				{
+					if (PM_StandingAnim(pm->ps->legsAnim)
+						|| pm->ps->legsAnim == BOTH_THERMAL_READY)
+					{
+						PM_SetAnim(pm, SETANIM_LEGS, BOTH_THERMAL_THROW, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+					}
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_THERMAL_THROW, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);//|SETANIM_FLAG_RESTART
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK2, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+				}
+			}
+		}
+		else if (weaponData[weapon].weaponCategory == WC_NONE) {
+			void; //Do nothing
+		}
+		else if (weaponData[weapon].weaponCategory == WC_EXPLOSIVE) {
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK11, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+		}
+		else {
+
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK3, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 		}
 	}
 
@@ -15165,7 +15113,8 @@ void PM_AdjustAttackStates( pmove_t *pm )
 qboolean PM_WeaponOkOnVehicle( int weapon )
 {
 	//FIXME: check g_vehicleInfo for our vehicle?
-	switch ( weapon )
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+	switch (baseWeapon)
 	{
 	case WP_NONE:
 	case WP_SABER:

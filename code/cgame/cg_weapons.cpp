@@ -2933,7 +2933,7 @@ CG_PlayerIsDualWielding
 */
 qboolean CG_PlayerIsDualWielding(int weapon)
 {
-	return (qboolean)(cg_dualWielding.integer && weaponData[weapon].isPistol);
+	return (qboolean)(cg_dualWielding.integer && weaponData[weapon].weaponCategory == WC_PISTOL);
 }
 
 
