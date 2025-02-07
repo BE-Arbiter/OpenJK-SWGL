@@ -79,7 +79,7 @@ void WP_FireBattleDroidMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolea
 //---------------------------------------------------------
 {
 	int velocity = E5_VELOCITY;
-	int	damage = altFire ? weaponData[WP_BATTLEDROID].altDamage : weaponData[WP_BATTLEDROID].damage;
+	int	damage = altFire ? weaponData[WP_BATTLEDROID].attackData[1].damage : weaponData[WP_BATTLEDROID].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{
@@ -205,7 +205,7 @@ void WP_FireFirstOrderMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 //---------------------------------------------------------
 {
 	int velocity = F_11D_VELOCITY;
-	int	damage = altFire ? weaponData[WP_THEFIRSTORDER].altDamage : weaponData[WP_THEFIRSTORDER].damage;
+	int	damage = altFire ? weaponData[WP_THEFIRSTORDER].attackData[1].damage : weaponData[WP_THEFIRSTORDER].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{
@@ -348,7 +348,7 @@ void WP_FireCloneCarbineMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboole
 //---------------------------------------------------------
 {
 	int velocity = CLONECARBINE_VELOCITY;
-	int	damage = altFire ? weaponData[WP_CLONECARBINE].altDamage : weaponData[WP_CLONECARBINE].damage;
+	int	damage = altFire ? weaponData[WP_CLONECARBINE].attackData[1].damage : weaponData[WP_CLONECARBINE].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{
@@ -474,7 +474,7 @@ void WP_FireRebelBlasterMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboole
 //---------------------------------------------------------
 {
 	int velocity = REBELBLASTER_VELOCITY;
-	int	damage = altFire ? weaponData[WP_REBELBLASTER].altDamage : weaponData[WP_REBELBLASTER].damage;
+	int	damage = altFire ? weaponData[WP_REBELBLASTER].attackData[1].damage : weaponData[WP_REBELBLASTER].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{
@@ -614,7 +614,7 @@ void WP_FireCloneRifleMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 //---------------------------------------------------------
 {
 	int velocity = CLONERIFLE_VELOCITY;
-	int	damage = altFire ? weaponData[WP_CLONERIFLE].altDamage : weaponData[WP_CLONERIFLE].damage;
+	int	damage = altFire ? weaponData[WP_CLONERIFLE].attackData[1].damage : weaponData[WP_CLONERIFLE].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{
@@ -850,11 +850,11 @@ void WP_FireCloneCommandoMissile(gentity_t *ent, vec3_t start, vec3_t dir, qbool
 	}
 	else if (altFire)
 	{
-		damage = weaponData[WP_CLONECOMMANDO].altDamage;
+		damage = weaponData[WP_CLONECOMMANDO].attackData[1].damage;
 	}
 	else
 	{
-		damage = weaponData[WP_CLONECOMMANDO].damage;
+		damage = weaponData[WP_CLONECOMMANDO].attackData[0].damage;
 	}
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
@@ -915,8 +915,8 @@ void WP_FireCloneCommandoMissile(gentity_t *ent, vec3_t start, vec3_t dir, qbool
 		missile->s.pos.trType = TR_GRAVITY;
 		missile->s.pos.trDelta[2] += 200.0f;
 		missile->methodOfDeath = MOD_CLONECOMMANDO_ALT;
-		missile->splashDamage = weaponData[WP_CLONECOMMANDO].altSplashDamage;
-		missile->splashRadius = weaponData[WP_CLONECOMMANDO].altSplashRadius;
+		missile->splashDamage = weaponData[WP_CLONECOMMANDO].attackData[1].splashDamage;
+		missile->splashRadius = weaponData[WP_CLONECOMMANDO].attackData[1].splashRadius;
 
 		// Shove us backwards.
 		VectorMA(ent->client->ps.velocity, kick, forwardVec, ent->client->ps.velocity);
@@ -994,7 +994,7 @@ void WP_FireRebelRifleMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 //---------------------------------------------------------
 {
 	int velocity = REBELRIFLE_VELOCITY;
-	int	damage = altFire ? weaponData[WP_REBELRIFLE].altDamage : weaponData[WP_REBELRIFLE].damage;
+	int	damage = altFire ? weaponData[WP_REBELRIFLE].attackData[1].damage : weaponData[WP_REBELRIFLE].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{
@@ -1145,7 +1145,7 @@ void WP_FireReyPistol( gentity_t *ent, qboolean alt_fire )
 //---------------------------------------------------------
 {
 	vec3_t	start;
-	int	damage = !alt_fire ? weaponData[WP_REY].damage : weaponData[WP_REY].altDamage;
+	int	damage = !alt_fire ? weaponData[WP_REY].attackData[0].damage : weaponData[WP_REY].attackData[1].damage;
 
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
@@ -1240,8 +1240,8 @@ void WP_FireReyPistol( gentity_t *ent, qboolean alt_fire )
 void WP_FireJangoPistolMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire)
 //---------------------------------------------------------
 {
-	int	velocity = altFire ? weaponData[ent->s.weapon].mAltVelocity : weaponData[ent->s.weapon].mVelocity;
-	int	damage = altFire ? weaponData[ent->s.weapon].altDamage : weaponData[ent->s.weapon].damage;
+	int	velocity = altFire ? weaponData[ent->s.weapon].attackData[1].mVelocity : weaponData[ent->s.weapon].attackData[0].mVelocity;
+	int	damage = altFire ? weaponData[ent->s.weapon].attackData[1].damage : weaponData[ent->s.weapon].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{
@@ -1372,7 +1372,7 @@ void WP_FireBobaRifleMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 //---------------------------------------------------------
 {
 	int velocity = BOBA_VELOCITY;
-	int	damage = altFire ? weaponData[WP_BOBA].altDamage : weaponData[WP_BOBA].damage;
+	int	damage = altFire ? weaponData[WP_BOBA].attackData[1].damage : weaponData[WP_BOBA].attackData[0].damage;
 
 	if ( ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE )
 	{
@@ -1514,7 +1514,7 @@ void WP_FireClonePistolMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolea
 //---------------------------------------------------------
 {
 	int velocity = CLONEPISTOL_VELOCITY;
-	int	damage = altFire ? weaponData[WP_CLONEPISTOL].altDamage : weaponData[WP_CLONEPISTOL].damage;
+	int	damage = altFire ? weaponData[WP_CLONEPISTOL].attackData[1].damage : weaponData[WP_CLONEPISTOL].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{

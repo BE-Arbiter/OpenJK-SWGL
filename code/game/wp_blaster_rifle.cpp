@@ -33,8 +33,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 void WP_FireBlasterMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire )
 //---------------------------------------------------------
 {
-	int velocity = altFire ? weaponData[ent->s.weapon].mAltVelocity : weaponData[ent->s.weapon].mVelocity;
-	int	damage		= altFire ? weaponData[ent->s.weapon].altDamage : weaponData[ent->s.weapon].damage;
+	int velocity = altFire ? weaponData[ent->s.weapon].attackData[1].mVelocity : weaponData[ent->s.weapon].attackData[0].mVelocity;
+	int	damage		= altFire ? weaponData[ent->s.weapon].attackData[1].damage : weaponData[ent->s.weapon].attackData[0].damage;
 
 	if ( ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE )
 	{

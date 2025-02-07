@@ -27,7 +27,35 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_local.h"
 #include "g_weaponLoad.h"
 
-void WPN_FuncSkip( const char **holdBuf)
+static void SetWeaponDataInt(const char** holdBuf, int* dest)
+{
+	int		tokenInt;
+
+	if (COM_ParseInt(holdBuf, &tokenInt))
+	{
+		SkipRestOfLine(holdBuf);
+		return;
+	}
+
+	*dest = tokenInt;
+}
+
+static void SetWeaponDataFlt(const char** holdBuf, float* dest)
+{
+	float	tokenFlt;
+
+	if (COM_ParseFloat(holdBuf, &tokenFlt))
+	{
+		SkipRestOfLine(holdBuf);
+		return;
+	}
+
+	*dest = tokenFlt;
+}
+
+//--------------------------------------------
+
+void WPN_FuncSkip(const char** holdBuf)
 {
 	SkipRestOfLine(holdBuf);
 }
@@ -971,91 +999,43 @@ void WPN_ChargeMuzzleEffect(const char **holdBuf)
 
 void WPN_Damage(const char **holdBuf)
 {
-	int		tokenInt;
-
-	if( COM_ParseInt(holdBuf,&tokenInt))
-	{
-		SkipRestOfLine(holdBuf);
-		return;
-	}
-
-	weaponData[wpnParms.weaponNum].damage = tokenInt;
-	weaponData[wpnParms.weaponNum].defaultDamage = tokenInt;
+	SetWeaponDataInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].damage);
+	weaponData[wpnParms.weaponNum].defaultDamage = weaponData[wpnParms.weaponNum].attackData[0].damage;
 }
 
 //--------------------------------------------
 
 void WPN_AltDamage(const char **holdBuf)
 {
-	int		tokenInt;
-
-	if( COM_ParseInt(holdBuf,&tokenInt))
-	{
-		SkipRestOfLine(holdBuf);
-		return;
-	}
-
-	weaponData[wpnParms.weaponNum].altDamage = tokenInt;
+	SetWeaponDataInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].damage);
 }
 
 //--------------------------------------------
 
 void WPN_SplashDamage(const char **holdBuf)
 {
-	int		tokenInt;
-
-	if( COM_ParseInt(holdBuf,&tokenInt))
-	{
-		SkipRestOfLine(holdBuf);
-		return;
-	}
-
-	weaponData[wpnParms.weaponNum].splashDamage = tokenInt;
+	SetWeaponDataInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].splashDamage);
 }
 
 //--------------------------------------------
 
 void WPN_SplashRadius(const char **holdBuf)
 {
-	float	tokenFlt;
-
-	if( COM_ParseFloat(holdBuf,&tokenFlt))
-	{
-		SkipRestOfLine(holdBuf);
-		return;
-	}
-
-	weaponData[wpnParms.weaponNum].splashRadius = tokenFlt;
+	SetWeaponDataFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].splashRadius);
 }
 
 //--------------------------------------------
 
 void WPN_AltSplashDamage(const char **holdBuf)
 {
-	int		tokenInt;
-
-	if( COM_ParseInt(holdBuf,&tokenInt))
-	{
-		SkipRestOfLine(holdBuf);
-		return;
-	}
-
-	weaponData[wpnParms.weaponNum].altSplashDamage = tokenInt;
+	SetWeaponDataInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].splashDamage);
 }
 
 //--------------------------------------------
 
 void WPN_AltSplashRadius(const char **holdBuf)
 {
-	float	tokenFlt;
-
-	if( COM_ParseFloat(holdBuf,&tokenFlt))
-	{
-		SkipRestOfLine(holdBuf);
-		return;
-	}
-
-	weaponData[wpnParms.weaponNum].altSplashRadius = tokenFlt;
+	SetWeaponDataFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].splashRadius);
 }
 
 //--------------------------------------------
@@ -1261,30 +1241,14 @@ void WPN_BaseWeapon(const char **holdBuf)
 
 void WPN_Velocity(const char** holdBuf)
 {
-	float	tokenFlt;
-
-	if (COM_ParseFloat(holdBuf, &tokenFlt))
-	{
-		SkipRestOfLine(holdBuf);
-		return;
-	}
-
-	weaponData[wpnParms.weaponNum].mVelocity = tokenFlt;
+	SetWeaponDataFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].mVelocity);
 }
 
 //--------------------------------------------
 
 void WPN_AltVelocity(const char** holdBuf)
 {
-	float	tokenFlt;
-
-	if (COM_ParseFloat(holdBuf, &tokenFlt))
-	{
-		SkipRestOfLine(holdBuf);
-		return;
-	}
-
-	weaponData[wpnParms.weaponNum].mAltVelocity = tokenFlt;
+	SetWeaponDataFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].mVelocity);
 }
 
 //--------------------------------------------
@@ -1409,18 +1373,18 @@ void WP_LoadWeaponParms (void)
 
 
 	// put in the default values, because backwards compatibility is awesome!
-	for(int i = 0; i < numHcWeaponIndexes; i++)
+	for(int i = 0; i <  numHcWeaponIndexes; i++)
 	{
-		weaponData[i].damage = defaultDamage[i];
+		weaponData[i].attackData[0].damage = defaultDamage[i];
 		weaponData[i].defaultDamage = defaultDamage[i];
-		weaponData[i].altDamage = defaultAltDamage[i];
-		weaponData[i].splashDamage = defaultSplashDamage[i];
-		weaponData[i].altSplashDamage = defaultAltSplashDamage[i];
-		weaponData[i].splashRadius = defaultSplashRadius[i];
-		weaponData[i].altSplashRadius = defaultAltSplashRadius[i];
+		weaponData[i].attackData[1].damage = defaultAltDamage[i];
+		weaponData[i].attackData[0].splashDamage = defaultSplashDamage[i];
+		weaponData[i].attackData[1].splashDamage = defaultAltSplashDamage[i];
+		weaponData[i].attackData[0].splashRadius = defaultSplashRadius[i];
+		weaponData[i].attackData[1].splashRadius = defaultAltSplashRadius[i];
 		weaponData[i].playerUsable = defaultPlayerUsable[i];
-		weaponData[i].mVelocity = defaultsWeaponSpeed[i][0];
-		weaponData[i].mAltVelocity = defaultsWeaponSpeed[i][1];
+		weaponData[i].attackData[0].mVelocity = defaultsWeaponSpeed[i][0];
+		weaponData[i].attackData[1].mVelocity = defaultsWeaponSpeed[i][1];
 		weaponData[i].weaponCategory = defaultWeaponType[i];
 		strcpy(weaponData[i].classname, _weaponIndexes[i].weaponClass);
 		strcpy(weaponData[i].descriptionKey, defaultDescriptionKeys[i]);
@@ -1581,13 +1545,13 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].mTertiaryMuzzleEffectID = weaponData[i].mTertiaryMuzzleEffectID == 0 ? weaponData[j].mTertiaryMuzzleEffectID : weaponData[i].mTertiaryMuzzleEffectID;
 			weaponData[i].chargeMuzzleShaderID = weaponData[i].chargeMuzzleShaderID == 0 ? weaponData[j].chargeMuzzleShaderID : weaponData[i].chargeMuzzleShaderID;
 
-			weaponData[i].damage = weaponData[i].damage == 0 ? weaponData[j].damage : weaponData[i].damage;
 			weaponData[i].defaultDamage = weaponData[i].defaultDamage == 0 ? weaponData[j].defaultDamage : weaponData[i].defaultDamage;
-			weaponData[i].altDamage = weaponData[i].altDamage == 0 ? weaponData[j].altDamage : weaponData[i].altDamage;
-			weaponData[i].splashDamage = weaponData[i].splashDamage == 0 ? weaponData[j].splashDamage : weaponData[i].splashDamage;
-			weaponData[i].altSplashDamage = weaponData[i].altSplashDamage == 0 ? weaponData[j].altSplashDamage : weaponData[i].altSplashDamage;
-			weaponData[i].splashRadius = weaponData[i].splashRadius == 0 ? weaponData[j].splashRadius : weaponData[i].splashRadius ;
-			weaponData[i].altSplashRadius = weaponData[i].altSplashRadius == 0 ? weaponData[j].altSplashRadius : weaponData[i].altSplashRadius ;
+			for (int k = 0; k < 2; k++) {
+				weaponData[i].attackData[k].damage = weaponData[i].attackData[k].damage == 0 ? weaponData[j].attackData[k].damage : weaponData[i].attackData[k].damage;
+				weaponData[i].attackData[k].splashDamage = weaponData[i].attackData[k].splashDamage == 0 ? weaponData[j].attackData[k].splashDamage : weaponData[i].attackData[k].splashDamage;
+				weaponData[i].attackData[k].splashRadius = weaponData[i].attackData[k].splashRadius == 0 ? weaponData[j].attackData[k].splashRadius : weaponData[i].attackData[k].splashRadius;
+				weaponData[i].attackData[k].mVelocity = weaponData[i].attackData[k].mVelocity == 0 ? weaponData[j].attackData[k].mVelocity : weaponData[i].attackData[k].mVelocity;
+			}
 
 			weaponData[i].tertiaryEnergyPerShot = weaponData[i].tertiaryEnergyPerShot == 0 ? weaponData[j].tertiaryEnergyPerShot : weaponData[i].tertiaryEnergyPerShot;
 			weaponData[i].tertiaryFireTime = weaponData[i].tertiaryFireTime == 0 ? weaponData[j].tertiaryFireTime : weaponData[i].tertiaryFireTime;
@@ -1598,8 +1562,6 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].secondaryMdl = weaponData[i].secondaryMdl == 0 ? weaponData[j].secondaryMdl : weaponData[i].secondaryMdl;
 			weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[i].playerUsable;
 			weaponData[i].weaponCategory = weaponData[i].weaponCategory == WC_NONE ? weaponData[j].weaponCategory : weaponData[i].weaponCategory;
-			weaponData[i].mVelocity = weaponData[i].mVelocity == 0 ? weaponData[j].mVelocity : weaponData[i].mVelocity;
-			weaponData[i].mAltVelocity = weaponData[i].mAltVelocity == 0 ? weaponData[j].mAltVelocity : weaponData[i].mAltVelocity;
 			weaponData[i].baseWeaponNum = j;
 			//copying weapon Function pointers
 			weaponData[i].func = weaponData[i].func == 0 ? weaponData[j].func : weaponData[i].func;

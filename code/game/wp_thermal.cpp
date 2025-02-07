@@ -38,7 +38,7 @@ void thermalDetonatorExplode( gentity_t *ent )
 	{
 		ent->takedamage = qfalse; // don't allow double deaths!
 
-		G_Damage( ent->activator, ent, ent->owner, vec3_origin, ent->currentOrigin, weaponData[WP_THERMAL].altDamage, 0, MOD_EXPLOSIVE );
+		G_Damage( ent->activator, ent, ent->owner, vec3_origin, ent->currentOrigin, weaponData[WP_THERMAL].attackData[1].damage, 0, MOD_EXPLOSIVE );
 		G_PlayEffect( "thermal/explosion", ent->currentOrigin );
 		G_PlayEffect( "thermal/shockwave", ent->currentOrigin );
 
@@ -59,7 +59,7 @@ void thermalDetonatorExplode( gentity_t *ent )
 
 		ent->takedamage = qfalse; // don't allow double deaths!
 
-		G_RadiusDamage( ent->currentOrigin, ent->owner, weaponData[WP_THERMAL].splashDamage, weaponData[WP_THERMAL].splashRadius, NULL, MOD_EXPLOSIVE_SPLASH );
+		G_RadiusDamage( ent->currentOrigin, ent->owner, weaponData[WP_THERMAL].attackData[0].splashDamage, weaponData[WP_THERMAL].attackData[0].splashRadius, NULL, MOD_EXPLOSIVE_SPLASH );
 
 		G_PlayEffect( "thermal/explosion", ent->currentOrigin );
 		G_PlayEffect( "thermal/shockwave", ent->currentOrigin );
@@ -420,10 +420,10 @@ gentity_t *WP_FireThermalDetonator( gentity_t *ent, qboolean alt_fire )
 
 	bolt->s.loopSound = G_SoundIndex( "sound/weapons/thermal/thermloop.wav" );
 
-	bolt->damage = weaponData[WP_THERMAL].damage * damageScale;
+	bolt->damage = weaponData[WP_THERMAL].attackData[0].damage * damageScale;
 	bolt->dflags = 0;
-	bolt->splashDamage = weaponData[WP_THERMAL].splashDamage * damageScale;
-	bolt->splashRadius = weaponData[WP_THERMAL].splashRadius;
+	bolt->splashDamage = weaponData[WP_THERMAL].attackData[0].splashDamage * damageScale;
+	bolt->splashRadius = weaponData[WP_THERMAL].attackData[0].splashRadius;
 
 	bolt->s.eType = ET_MISSILE;
 	bolt->svFlags = SVF_USE_CURRENT_ORIGIN;

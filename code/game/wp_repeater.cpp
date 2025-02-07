@@ -35,7 +35,7 @@ static void WP_RepeaterMainFire( gentity_t *ent, vec3_t dir )
 //---------------------------------------------------------
 {
 	vec3_t	start;
-	int		damage	= weaponData[ent->s.weapon].damage;
+	int		damage	= weaponData[ent->s.weapon].attackData[0].damage;
 
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
@@ -85,7 +85,7 @@ static void WP_RepeaterAltFire( gentity_t *ent )
 //---------------------------------------------------------
 {
 	vec3_t	start;
-	int		damage	= weaponData[ent->s.weapon].altDamage;
+	int		damage	= weaponData[ent->s.weapon].attackData[1].damage;
 	gentity_t *missile = NULL;
 
 	VectorCopy( muzzle, start );
@@ -139,8 +139,8 @@ static void WP_RepeaterAltFire( gentity_t *ent )
 	missile->methodOfDeath = MOD_REPEATER_ALT;
 	missile->splashMethodOfDeath = MOD_REPEATER_ALT;
 	missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
-	missile->splashDamage = weaponData[ent->s.weapon].altSplashDamage;
-	missile->splashRadius = weaponData[ent->s.weapon].altSplashRadius;
+	missile->splashDamage = weaponData[ent->s.weapon].attackData[1].splashDamage;
+	missile->splashRadius = weaponData[ent->s.weapon].attackData[1].splashRadius;
 
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;

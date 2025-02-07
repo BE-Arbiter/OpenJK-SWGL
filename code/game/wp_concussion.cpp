@@ -29,7 +29,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 static void WP_FireConcussionAlt( gentity_t *ent )
 {//a rail-gun-like beam
-	int			damage = weaponData[ent->s.weapon].altDamage, skip, traces = DISRUPTOR_ALT_TRACES;
+	int			damage = weaponData[ent->s.weapon].attackData[1].damage, skip, traces = DISRUPTOR_ALT_TRACES;
 	qboolean	render_impact = qtrue;
 	vec3_t		start, end;
 	vec3_t		muzzle2, spot, dir;
@@ -253,7 +253,7 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 static void WP_FireConcussion( gentity_t *ent )
 {//a fast rocket-like projectile
 	vec3_t	start;
-	int		damage	= weaponData[ent->s.weapon].damage;
+	int		damage	= weaponData[ent->s.weapon].attackData[0].damage;
 	float	vel = CONC_VELOCITY;
 
 	if (ent->s.number >= MAX_CLIENTS)
@@ -313,8 +313,8 @@ static void WP_FireConcussion( gentity_t *ent )
 	missile->splashMethodOfDeath = MOD_CONC;
 
 	missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
-	missile->splashDamage = weaponData[ent->s.weapon].splashDamage;
-	missile->splashRadius = weaponData[ent->s.weapon].splashRadius;
+	missile->splashDamage = weaponData[ent->s.weapon].attackData[0].splashDamage;
+	missile->splashRadius = weaponData[ent->s.weapon].attackData[0].splashRadius;
 
 	// we don't want it to ever bounce
 	missile->bounceCount = 0;

@@ -36,7 +36,7 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 {
 	vec3_t		fwd, angs, start;
 	gentity_t	*missile;
-	float		damage = weaponData[ent->s.weapon].damage, vel = FLECHETTE_VEL;
+	float		damage = weaponData[ent->s.weapon].attackData[0].damage, vel = FLECHETTE_VEL;
 
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
@@ -236,10 +236,10 @@ static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *
 
 	missile->s.eFlags |= EF_BOUNCE_HALF;
 
-	missile->damage = weaponData[self->s.weapon].altDamage;
+	missile->damage = weaponData[self->s.weapon].attackData[1].damage;
 	missile->dflags = 0;
-	missile->splashDamage = weaponData[self->s.weapon].altSplashDamage;
-	missile->splashRadius = weaponData[self->s.weapon].altSplashRadius;
+	missile->splashDamage = weaponData[self->s.weapon].attackData[1].splashDamage;
+	missile->splashRadius = weaponData[self->s.weapon].attackData[1].splashRadius;
 
 	missile->svFlags = SVF_USE_CURRENT_ORIGIN;
 

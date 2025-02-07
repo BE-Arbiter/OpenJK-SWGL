@@ -132,8 +132,36 @@ typedef enum{
 	WC_EXPLOSIVE //Like detpack
 } weaponCategory_t;
 
+typedef struct weaponAttackData_s
+{
+	char	firingSnd[64];		// Sound made when fired
+	char	chargeSnd[64];		// sound to start when the weapon initiates the charging sequence
+	char	missileHitSound[64];	// Missile impact sound
+
+	int		energyPerShot;		// Amount of energy used per shot
+	int		fireTime;			// Amount of time between firings
+	int		range;				// Range of weapon
+	
+	char	missileMdl[64];		// Missile Model
+	char	missileSound[64];	// Missile flight sound
+	float  	missileDlight;		// what is says
+	vec3_t 	missileDlightColor;	// ditto
+
+	void	*missileFunc;
+	
+	char	mMuzzleEffect[64];
+	int		mMuzzleEffectID;
+	char	projectileEffect[64];
+	
+	int		damage;
+	int		splashDamage;
+	float	splashRadius;
+	float	mVelocity;
+} weaponAttackData_t;
+
 typedef struct weaponData_s
 {
+	weaponAttackData_t attackData[2];
 	char	classname[32];		// Spawning name
 	char	baseclass[32];		// Base Weapon
 	int		baseWeaponNum;		// Base WeaponNum;
@@ -188,16 +216,7 @@ typedef struct weaponData_s
 	char	projectileEffect[64];
 	char	alt_projectileEffect[64];
 
-
-	int		damage;
 	int		defaultDamage;
-	int		altDamage;
-	int		splashDamage;
-	int		altSplashDamage;
-	float	splashRadius;
-	float	altSplashRadius;
-	float	mVelocity;
-	float	mAltVelocity;
 
 	int 	tertiaryEnergyPerShot;
 	int 	tertiaryFireTime;

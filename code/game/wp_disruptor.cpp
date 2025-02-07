@@ -34,7 +34,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 static void WP_DisruptorMainFire( gentity_t *ent )
 //---------------------------------------------------------
 {
-	int			damage = weaponData[ent->s.weapon].damage;
+	int			damage = weaponData[ent->s.weapon].attackData[0].damage;
 	qboolean	render_impact = qtrue;
 	vec3_t		start, end, spot;
 	trace_t		tr;
@@ -146,7 +146,7 @@ static void WP_DisruptorMainFire( gentity_t *ent )
 void WP_DisruptorAltFire( gentity_t *ent )
 //---------------------------------------------------------
 {
-	int			damage = weaponData[ent->s.weapon].altDamage, skip, traces = DISRUPTOR_ALT_TRACES;
+	int			damage = weaponData[ent->s.weapon].attackData[1].damage, skip, traces = DISRUPTOR_ALT_TRACES;
 	qboolean	render_impact = qtrue;
 	vec3_t		start, end;
 	vec3_t		muzzle2, spot, dir;
@@ -206,7 +206,7 @@ void WP_DisruptorAltFire( gentity_t *ent )
 		}
 		//else do full traces
 
-		damage = damage * count + weaponData[ent->s.weapon].damage * 0.5f; // give a boost to low charge shots
+		damage = damage * count + weaponData[ent->s.weapon].attackData[0].damage * 0.5f; // give a boost to low charge shots
 	}
 
 	skip = ent->s.number;

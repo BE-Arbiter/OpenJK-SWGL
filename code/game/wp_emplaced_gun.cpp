@@ -67,7 +67,7 @@ void WP_FireTurboLaserMissile( gentity_t *ent, vec3_t start, vec3_t dir )
 void WP_EmplacedFire( gentity_t *ent )
 //---------------------------------------------------------
 {
-	float damage = weaponData[WP_EMPLACED_GUN].damage * ( ent->NPC ? 0.1f : 1.0f );
+	float damage = weaponData[WP_EMPLACED_GUN].attackData[0].damage * ( ent->NPC ? 0.1f : 1.0f );
 	float vel = EMPLACED_VEL * ( ent->NPC ? 0.4f : 1.0f );
 
 	WP_MissileTargetHint(ent, muzzle, forwardVec);

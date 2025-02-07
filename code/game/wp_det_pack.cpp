@@ -82,11 +82,11 @@ static void WP_DropDetPack( gentity_t *self, vec3_t start, vec3_t dir )
 	missile->s.eFlags |= EF_MISSILE_STICK;
 	missile->e_TouchFunc = touchF_charge_stick;
 
-	missile->damage = weaponData[self->s.weapon].damage;
+	missile->damage = weaponData[self->s.weapon].attackData[0].damage;
 	missile->methodOfDeath = MOD_DETPACK;
 
-	missile->splashDamage = weaponData[self->s.weapon].splashDamage;
-	missile->splashRadius = weaponData[self->s.weapon].splashRadius;
+	missile->splashDamage = weaponData[self->s.weapon].attackData[0].splashDamage;
+	missile->splashRadius = weaponData[self->s.weapon].attackData[0].splashRadius;
 	missile->splashMethodOfDeath = MOD_DETPACK;// ?SPLASH;
 
 	missile->clipmask = (CONTENTS_SOLID|CONTENTS_BODY|CONTENTS_SHOTCLIP);//MASK_SHOT;
