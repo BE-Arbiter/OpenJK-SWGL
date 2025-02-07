@@ -252,6 +252,7 @@ FindItemForWeapon
 
 ===============
 */
+extern void InitItemForWeapon(gitem_t* item, int weaponNum);
 gitem_t	*FindItemForWeapon( int weaponNum ) {
 	int		i;
 
@@ -260,9 +261,15 @@ gitem_t	*FindItemForWeapon( int weaponNum ) {
 			return &bg_itemlist[i];
 		}
 	}
-
-	Com_Error( ERR_DROP, "Couldn't find item for weapon num %d", weaponNum);
-	return NULL;
+	if (i == MAX_ITEMS) {
+		Com_Error(ERR_DROP, "Couldn't find item for weapon num %d", weaponNum);
+		return NULL;
+	}
+	//If the player Add a weapon, then load a new level, his loadout could be initialized from last level
+	// Because order was changed...
+	InitItemForWeapon(&bg_itemlist[i], weaponNum);
+	bg_numItems++;
+	return &bg_itemlist[i];
 }
 
 //----------------------------------------------

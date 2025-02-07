@@ -839,6 +839,7 @@ void CG_DPNextForcePower_f( void );
 void CG_DPPrevForcePower_f( void );
 
 
+void InitItemForWeapon(gitem_t* item, int weaponNum);
 void CG_RegisterWeapon( int weaponNum );
 void CG_RegisterItemVisuals( int itemNum );
 void CG_RegisterItemSounds( int itemNum );
