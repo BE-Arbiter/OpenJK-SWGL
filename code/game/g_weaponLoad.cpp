@@ -54,6 +54,28 @@ static void SetWeaponDataFlt(const char** holdBuf, float* dest)
 }
 
 //--------------------------------------------
+void SetWeaponDataStr(const char **holdBuf, char* dest, int maxLen, char* identifier)
+{
+	int len;	
+	const char*tokenStr;
+
+	if ( COM_ParseString(holdBuf,&tokenStr))
+	{
+		return;
+	}
+
+	len = strlen(tokenStr);
+	len++;
+	if (len > maxLen)
+	{
+		len = maxLen;
+		gi.Printf(S_COLOR_YELLOW"WARNING: %s too long in external WEAPONS.DAT '%s'\n", identifier, tokenStr);
+	}
+
+	Q_strncpyz(dest,tokenStr,len);
+}
+
+//--------------------------------------------
 
 void WPN_FuncSkip(const char** holdBuf)
 {
@@ -101,68 +123,20 @@ void WPN_WeaponType( const char **holdBuf)
 //--------------------------------------------
 void WPN_WeaponClass(const char **holdBuf)
 {
-	int len;
-	const char	*tokenStr;
-
-	if (COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 32)
-	{
-		len = 32;
-		gi.Printf(S_COLOR_YELLOW"WARNING: weaponclass too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].classname,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].classname, 32, "weaponclass");
 }
 
 
 //--------------------------------------------
 void WPN_WeaponModel(const char **holdBuf)
 {
-	int len;
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: weaponMdl too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].weaponMdl,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].weaponMdl, 64, "weaponMdl");
 }
 
 //--------------------------------------------
 void WPN_WeaponIcon(const char **holdBuf)
 {
-	int len;
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: weaponIcon too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].weaponIcon,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].weaponIcon, 64, "weaponIcon");
 }
 
 //--------------------------------------------
@@ -208,134 +182,37 @@ void WPN_AmmoLowCnt(const char **holdBuf)
 //--------------------------------------------
 void WPN_FiringSnd(const char **holdBuf)
 {
-	const char	*tokenStr;
-	int		len;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: firingSnd too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].firingSnd,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].firingSnd, 64, "firingSnd");
 }
 
 //--------------------------------------------
 void WPN_AltFiringSnd( const char **holdBuf )
 {
-	const char	*tokenStr;
-	int		len;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: altFiringSnd too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].altFiringSnd,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].altFiringSnd, 64, "altFiringSnd");
 }
 
 //--------------------------------------------
 void WPN_StopSnd( const char **holdBuf )
 {
-	const char	*tokenStr;
-	int		len;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: stopSnd too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].stopSnd,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].stopSnd, 64, "stopSnd");
 }
 
 //--------------------------------------------
 void WPN_ChargeSnd(const char **holdBuf)
 {
-	const char	*tokenStr;
-	int		len;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: chargeSnd too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].chargeSnd,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].chargeSnd, 64, "chargeSnd");
 }
 
 //--------------------------------------------
 void WPN_AltChargeSnd(const char **holdBuf)
 {
-	const char	*tokenStr;
-	int		len;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: altChargeSnd too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].altChargeSnd,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].altChargeSnd, 64, "altChargeSnd");
 }
 
 //--------------------------------------------
 void WPN_SelectSnd( const char **holdBuf )
 {
-	const char	*tokenStr;
-	int		len;
-
-	if ( COM_ParseString( holdBuf,&tokenStr ))
-	{
-		return;
-	}
-
-	len = strlen( tokenStr );
-	len++;
-
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: selectSnd too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz( weaponData[wpnParms.weaponNum].selectSnd,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].selectSnd, 64, "selectSnd");
 }
 
 //--------------------------------------------
@@ -494,24 +371,7 @@ void WPN_Ammo(const char **holdBuf)
 //--------------------------------------------
 void WPN_AmmoIcon(const char **holdBuf)
 {
-	const char	*tokenStr;
-	int		len;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: ammoicon too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(ammoData[wpnParms.ammoNum].icon,tokenStr,len);
-
+	SetWeaponDataStr(holdBuf, ammoData[wpnParms.ammoNum].icon, 64, "ammoicon");
 }
 
 //--------------------------------------------
@@ -587,139 +447,37 @@ static void WP_ParseWeaponParms(const char **holdBuf)
 //--------------------------------------------
 void WPN_MissileName(const char **holdBuf)
 {
-	int len;
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: MissileName too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].missileMdl,tokenStr,len);
-
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].missileMdl, 64, "MissileName");
 }
 
 //--------------------------------------------
 void WPN_AltMissileName(const char **holdBuf)
 {
-	int len;
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: AltMissileName too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].alt_missileMdl,tokenStr,len);
-
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].alt_missileMdl, 64, "AltMissileName");
 }
-
 
 //--------------------------------------------
 void WPN_MissileHitSound(const char **holdBuf)
 {
-	int len;
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: MissileHitSound too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].missileHitSound,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].missileHitSound, 64, "MissileHitSound");
 }
 
 //--------------------------------------------
 void WPN_AltMissileHitSound(const char **holdBuf)
 {
-	int len;
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: AltMissileHitSound too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].altmissileHitSound,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].altmissileHitSound, 64, "AltMissileHitSound");
 }
 
 //--------------------------------------------
 void WPN_MissileSound(const char **holdBuf)
 {
-	int len;
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: MissileSound too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].missileSound,tokenStr,len);
-
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].missileSound, 64, "MissileSound");
 }
-
 
 //--------------------------------------------
 void WPN_AltMissileSound(const char **holdBuf)
 {
-	int len;
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: AltMissileSound too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].alt_missileSound,tokenStr,len);
-
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].alt_missileSound, 64, "AltMissileSound");
 }
 
 //--------------------------------------------
@@ -866,133 +624,43 @@ void WPN_AltFuncName(const char **holdBuf)
 //--------------------------------------------
 void WPN_MuzzleEffect(const char **holdBuf)
 {
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-	size_t len = strlen( tokenStr );
-
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: MuzzleEffect '%s' too long in external WEAPONS.DAT\n", tokenStr);
-	}
-
-	G_EffectIndex( tokenStr );
-	Q_strncpyz(weaponData[wpnParms.weaponNum].mMuzzleEffect,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].mMuzzleEffect, 64, "MuzzleEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].mMuzzleEffect );
 }
 
 //--------------------------------------------
 void WPN_AltMuzzleEffect(const char **holdBuf)
 {
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-	size_t len = strlen( tokenStr );
-
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: AltMuzzleEffect '%s' too long in external WEAPONS.DAT\n", tokenStr);
-	}
-
-	G_EffectIndex( tokenStr );
-	Q_strncpyz(weaponData[wpnParms.weaponNum].mAltMuzzleEffect,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].mAltMuzzleEffect, 64, "AltMuzzleEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].mAltMuzzleEffect );
 }
 
 //--------------------------------------------
 void WPN_ProjectileEffect(const char **holdBuf)
 {
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-	size_t len = strlen( tokenStr );
-
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: projectileEffect '%s' too long in external WEAPONS.DAT\n", tokenStr);
-	}
-
-	G_EffectIndex( tokenStr );
-	Q_strncpyz(weaponData[wpnParms.weaponNum].projectileEffect,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].projectileEffect, 64, "projectileEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].projectileEffect );
 }
 
 //--------------------------------------------
 void WPN_AltProjectileEffect(const char** holdBuf)
 {
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-	size_t len = strlen( tokenStr );
-
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: alt_projectileEffect '%s' too long in external WEAPONS.DAT\n", tokenStr);
-	}
-
-	G_EffectIndex( tokenStr );
-	Q_strncpyz(weaponData[wpnParms.weaponNum].alt_projectileEffect,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].alt_projectileEffect, 64, "alt_projectileEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].alt_projectileEffect );
 }
 
 //--------------------------------------------
 void WPN_TertiaryMuzzleEffect(const char **holdBuf)
 {
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-	size_t len = strlen( tokenStr );
-
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: TertiaryMuzzleEffect '%s' too long in external WEAPONS.DAT\n", tokenStr);
-	}
-
-	G_EffectIndex( tokenStr );
-	Q_strncpyz(weaponData[wpnParms.weaponNum].mTertiaryMuzzleEffect,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].mTertiaryMuzzleEffect, 64, "TertiaryMuzzleEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].mTertiaryMuzzleEffect );
 }
 
 //--------------------------------------------
 void WPN_ChargeMuzzleEffect(const char **holdBuf)
 {
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-	size_t len = strlen( tokenStr );
-
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: chargeMuzzleEffect '%s' too long in external WEAPONS.DAT\n", tokenStr);
-	}
-
-	G_EffectIndex( tokenStr );
-	Q_strncpyz(weaponData[wpnParms.weaponNum].chargeMuzzleShader,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].chargeMuzzleShader, 64, "chargeMuzzleEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].chargeMuzzleShader );
 }
 
 //--------------------------------------------
@@ -1196,45 +864,13 @@ void WPN_TertiaryFireOptions(const char **holdBuf)
 //--------------------------------------------
 void WPN_WeaponModel2(const char **holdBuf)
 {
-	int len;
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: weaponMdl too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].weaponMdl2,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].weaponMdl2, 64, "weaponMdl2");
 }
 
 //--------------------------------------------
 void WPN_BaseWeapon(const char **holdBuf)
 {
-	int len;
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > 32)
-	{
-		len = 32;
-		gi.Printf(S_COLOR_YELLOW"WARNING: Base weapon too long in external WEAPONS.DAT '%s'\n", tokenStr);
-	}
-
-	Q_strncpyz(weaponData[wpnParms.weaponNum].baseclass,tokenStr,len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].baseclass, 32, "Base weapon");
 }
 
 //--------------------------------------------
@@ -1306,23 +942,7 @@ void WPN_WeaponCategory(const char** holdBuf)
 //--------------------------------------------
 void WPN_DescriptionKey(const char** holdBuf)
 {
-	const char* tokenStr;
-
-	if (COM_ParseString(holdBuf, &tokenStr))
-	{
-		return;
-	}
-	size_t len = strlen(tokenStr);
-
-	len++;
-	if (len > 128)
-	{
-		len = 128;
-		gi.Printf(S_COLOR_YELLOW"WARNING: descriptionKey '%s' too long in external WEAPONS.DAT\n", tokenStr);
-	}
-
-	G_EffectIndex(tokenStr);
-	Q_strncpyz(weaponData[wpnParms.weaponNum].descriptionKey, tokenStr, len);
+	SetWeaponDataStr(holdBuf, weaponData[wpnParms.weaponNum].descriptionKey, 128, "descriptionKey");
 }
 
 
