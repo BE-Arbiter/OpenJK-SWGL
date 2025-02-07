@@ -375,6 +375,7 @@ float defaultsWeaponSpeed[][2] =
 
 const char* defaultDescriptionKeys[WP_HC_NUM_WEAPONS] =
 {
+"",
 "SABER_DESC",
 "NEW_BLASTER_PISTOL_DESC",
 "BLASTER_RIFLE_DESC",
@@ -414,7 +415,6 @@ const char* defaultDescriptionKeys[WP_HC_NUM_WEAPONS] =
 "JANGO_DESC",
 "BOBA_DESC",
 "CLONEPISTOL_DESC",
-
 };
 
 const qboolean defaultPlayerUsable[] = {

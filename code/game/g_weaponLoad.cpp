@@ -1409,7 +1409,7 @@ void WP_LoadWeaponParms (void)
 
 
 	// put in the default values, because backwards compatibility is awesome!
-	for(int i = 0; i <  numHcWeaponIndexes; i++)
+	for(int i = 0; i < numHcWeaponIndexes; i++)
 	{
 		weaponData[i].damage = defaultDamage[i];
 		weaponData[i].defaultDamage = defaultDamage[i];
@@ -1422,6 +1422,8 @@ void WP_LoadWeaponParms (void)
 		weaponData[i].mVelocity = defaultsWeaponSpeed[i][0];
 		weaponData[i].mAltVelocity = defaultsWeaponSpeed[i][1];
 		weaponData[i].weaponCategory = defaultWeaponType[i];
+		strcpy(weaponData[i].classname, _weaponIndexes[i].weaponClass);
+		strcpy(weaponData[i].descriptionKey, defaultDescriptionKeys[i]);
 	}
 	//put in the qunset flag for playerUsable since 0 = false;
 	for (int i = numHcWeaponIndexes; i < MAX_WEAPONS ; i++) {
