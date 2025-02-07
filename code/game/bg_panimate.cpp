@@ -5930,7 +5930,7 @@ void PM_TorsoAnimation(void)
 			{
 				if (pm->gent && pm->gent->weaponModel[1] > 0)
 				{//dual pistols
-					if (pm->ps->weaponstate == WEAPON_CHARGING_ALT || weaponBusy)
+					if (weaponBusy)
 					{
 						PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUNSIT1, SETANIM_FLAG_NORMAL);
 					}
@@ -5951,7 +5951,7 @@ void PM_TorsoAnimation(void)
 				}
 				else
 				{//single pistols
-					if (pm->ps->weaponstate == WEAPON_CHARGING_ALT || weaponBusy)
+					if (weaponBusy)
 					{
 						PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY2, SETANIM_FLAG_NORMAL);
 					}
@@ -6010,7 +6010,7 @@ void PM_TorsoAnimation(void)
 			{
 				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
 			}
-			if (baseWeapon == WP_DISRUPTOR || baseWeapon == WP_TUSKEN_RIFLE) {
+			else if (baseWeapon == WP_DISRUPTOR || baseWeapon == WP_TUSKEN_RIFLE) {
 				if ((pm->ps->weaponstate != WEAPON_FIRING
 					&& pm->ps->weaponstate != WEAPON_CHARGING
 					&& pm->ps->weaponstate != WEAPON_CHARGING_ALT)
@@ -6027,10 +6027,10 @@ void PM_TorsoAnimation(void)
 
 				}
 			}
-			if (baseWeapon == WP_BOT_LASER) {
+			else if (baseWeapon == WP_BOT_LASER) {
 				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE2, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 			}
-			if (weaponData[weapon].weaponCategory == WC_GRENADE) 
+			else if (weaponData[weapon].weaponCategory == WC_GRENADE)
 			{
 				if (pm->ps->weaponstate != WEAPON_FIRING
 					&& pm->ps->weaponstate != WEAPON_CHARGING
@@ -6072,7 +6072,7 @@ void PM_TorsoAnimation(void)
 					}
 				}
 			}
-			if (weaponData[weapon].weaponCategory == WC_EXPLOSIVE)
+			else if (weaponData[weapon].weaponCategory == WC_EXPLOSIVE)
 			{
 				if (PM_RunningAnim(pm->ps->legsAnim)
 					|| PM_WalkingAnim(pm->ps->legsAnim)
@@ -6098,6 +6098,7 @@ void PM_TorsoAnimation(void)
 			}
 			else
 			{
+				Com_Printf(S_COLOR_CYAN"Here => ELSE => weaponData[%d].weaponCategory = %d\n", weapon, weaponData[weapon].weaponCategory);
 				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
 			}
 		}
@@ -6178,7 +6179,7 @@ void PM_TorsoAnimation(void)
 		{   //Dual
 			if (pm->gent && pm->gent->weaponModel[1] > 0)
 			{
-				if (pm->ps->weaponstate == WEAPON_CHARGING_ALT || weaponBusy)
+				if (weaponBusy)
 				{
 					PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUNSIT1, SETANIM_FLAG_NORMAL);
 				}
@@ -6189,7 +6190,7 @@ void PM_TorsoAnimation(void)
 			}
 			//Single
 			else {
-				if (pm->ps->weaponstate == WEAPON_CHARGING_ALT || weaponBusy)
+				if (weaponBusy)
 				{
 					PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY2, SETANIM_FLAG_NORMAL);
 				}
