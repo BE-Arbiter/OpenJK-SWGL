@@ -254,15 +254,25 @@ FindItemForWeapon
 */
 gitem_t	*FindItemForWeapon( int weaponNum ) {
 	int		i;
+	gitem_t* item = NULL;
 
 	for ( i = 1 ; i < bg_numItems ; i++ ) {
-		if ( bg_itemlist[i].giType == IT_WEAPON && bg_itemlist[i].giTag == weaponNum) {
-			return &bg_itemlist[i];
+		if ( (bg_itemlist[i].giType == IT_WEAPON && bg_itemlist[i].giTag == weaponNum)
+				|| (bg_itemlist[i].giType == IT_WEAPON && bg_itemlist[i].giTag == -1 && !Q_stricmp(bg_itemlist[i].giTagName, weaponData[weaponNum].classname))){
+			item = &bg_itemlist[i];
+			break;
 		}
 	}
+	//Overwrite correctly the item
+	if (item && item->giTag == -1) {
+		item->giTag = weaponNum;
+	}
+	// if we couldn't find which weapon this is, give us an error
+	if (!item->classname) {
+		CG_Error("Couldn't find item for weapon %s\nNeed to update Items.dat!", weaponData[weaponNum].classname);
+	}
 
-	Com_Error( ERR_DROP, "Couldn't find item for weapon num %d", weaponNum);
-	return NULL;
+	return item;
 }
 
 //----------------------------------------------
