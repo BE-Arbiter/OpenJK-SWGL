@@ -197,7 +197,6 @@ extern int PM_PickAnim( gentity_t *self, int minAnim, int maxAnim );
 
 extern void DoImpact( gentity_t *self, gentity_t *other, qboolean damageSelf, trace_t *trace );
 
-#define	PHASER_RECHARGE_TIME	100
 extern saberMoveName_t transitionMove[Q_NUM_QUADS][Q_NUM_QUADS];
 
 extern Vehicle_t *G_IsRidingVehicle( gentity_t *ent );
@@ -14282,13 +14281,13 @@ static void PM_Weapon( void )
 	// If the current firing type is high powered.
 	if (firing_type == FT_HIGH_POWERED)
 	{
-		weaponData[pm->ps->weapon].damage = HIGH_POWERED_DAMAGE;
+		weaponData[pm->ps->weapon].attackData[0].damage = HIGH_POWERED_DAMAGE;
 	}
 	// If the damages are different.
-	else if (weaponData[pm->ps->weapon].damage != weaponData[pm->ps->weapon].defaultDamage)
+	else if (weaponData[pm->ps->weapon].attackData[0].damage != weaponData[pm->ps->weapon].defaultDamage)
 	{
 		// Load back the default damage of that weapon.
-		weaponData[pm->ps->weapon].damage = weaponData[pm->ps->weapon].defaultDamage;
+		weaponData[pm->ps->weapon].attackData[0].damage = weaponData[pm->ps->weapon].defaultDamage;
 	}
 
 	//TODO: TO KEEP or NOT?

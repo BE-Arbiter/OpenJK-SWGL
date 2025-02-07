@@ -34,7 +34,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 typedef	std::map< sstring_t, unsigned char  >	namePrecache_m;
 extern namePrecache_m	*as_preCacheMap;
 extern void CG_RegisterNPCCustomSounds( clientInfo_t *ci );
-extern qboolean G_AddSexToMunroString ( char *string, qboolean qDoBoth );
 extern int G_ParseAnimFileSet( const char *skeletonName, const char *modelName=0);
 extern void CG_DrawDataPadInventorySelect( void );
 
