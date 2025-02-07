@@ -193,7 +193,7 @@ void G_ReadSessionData( gclient_t *client ) {
       /* Get next token: */
       var = strtok( NULL, " " );
 	}
-	assert (i==WP_NUM_WEAPONS);
+	assert (i== weaponCount);
 }
 
 

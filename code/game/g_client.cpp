@@ -697,7 +697,7 @@ void Player_CacheFromPrevLevel(void)
 			}
 			var = strtok(NULL, " ");
 		}
-		assert(i == WP_NUM_WEAPONS);
+		assert(i == weaponCount);
 	}
 }
 
@@ -841,7 +841,7 @@ static void Player_RestoreFromPrevLevel(gentity_t *ent, SavedGameJustLoaded_e eS
 				/* Get next token: */
 				var = strtok( NULL, " " );
 			}
-			assert (i==WP_NUM_WEAPONS);
+			assert (i== weaponCount);
 			
 			//ammo
 			gi.Cvar_VariableStringBuffer( "playerammo", s, sizeof(s) );
