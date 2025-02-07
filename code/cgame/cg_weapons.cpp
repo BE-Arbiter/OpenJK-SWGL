@@ -173,51 +173,51 @@ void CG_RegisterWeapon( int weaponNum ) {
 	}
 
 	// register the sounds for the weapon
-	if (weaponData[weaponNum].firingSnd[0]) {
-		weaponInfo->firingSound = cgi_S_RegisterSound( weaponData[weaponNum].firingSnd );
+	if (weaponData[weaponNum].attackData[0].firingSnd[0]) {
+		weaponInfo->firingSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[0].firingSnd );
 	}
-	if (weaponData[weaponNum].altFiringSnd[0]) {
-		weaponInfo->altFiringSound = cgi_S_RegisterSound( weaponData[weaponNum].altFiringSnd );
+	if (weaponData[weaponNum].attackData[1].firingSnd[0]) {
+		weaponInfo->altFiringSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[1].firingSnd );
 	}
 	if (weaponData[weaponNum].stopSnd[0]) {
 		weaponInfo->stopSound = cgi_S_RegisterSound( weaponData[weaponNum].stopSnd );
 	}
-	if (weaponData[weaponNum].chargeSnd[0]) {
-		weaponInfo->chargeSound = cgi_S_RegisterSound( weaponData[weaponNum].chargeSnd );
+	if (weaponData[weaponNum].attackData[0].chargeSnd[0]) {
+		weaponInfo->chargeSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[0].chargeSnd );
 	}
-	if (weaponData[weaponNum].altChargeSnd[0]) {
-		weaponInfo->altChargeSound = cgi_S_RegisterSound( weaponData[weaponNum].altChargeSnd );
+	if (weaponData[weaponNum].attackData[1].chargeSnd[0]) {
+		weaponInfo->altChargeSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[1].chargeSnd );
 	}
 	if (weaponData[weaponNum].selectSnd[0]) {
 		weaponInfo->selectSound = cgi_S_RegisterSound( weaponData[weaponNum].selectSnd );
 	}
 
 	// give us missile models if we should
-	if (weaponData[weaponNum].missileMdl[0]) 	{
-		weaponInfo->missileModel = cgi_R_RegisterModel(weaponData[weaponNum].missileMdl );
+	if (weaponData[weaponNum].attackData[0].missileMdl[0]) 	{
+		weaponInfo->missileModel = cgi_R_RegisterModel(weaponData[weaponNum].attackData[0].missileMdl );
 	}
-	if (weaponData[weaponNum].alt_missileMdl[0]) 	{
-		weaponInfo->alt_missileModel = cgi_R_RegisterModel(weaponData[weaponNum].alt_missileMdl );
+	if (weaponData[weaponNum].attackData[1].missileMdl[0]) 	{
+		weaponInfo->alt_missileModel = cgi_R_RegisterModel(weaponData[weaponNum].attackData[1].missileMdl );
 	}
-	if (weaponData[weaponNum].missileSound[0]) {
-		weaponInfo->missileSound = cgi_S_RegisterSound( weaponData[weaponNum].missileSound );
+	if (weaponData[weaponNum].attackData[0].missileSound[0]) {
+		weaponInfo->missileSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[0].missileSound );
 	}
-	if (weaponData[weaponNum].alt_missileSound[0]) {
-		weaponInfo->alt_missileSound = cgi_S_RegisterSound( weaponData[weaponNum].alt_missileSound );
+	if (weaponData[weaponNum].attackData[1].missileSound[0]) {
+		weaponInfo->alt_missileSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[1].missileSound );
 	}
-	if (weaponData[weaponNum].missileHitSound[0]) {
-		weaponInfo->missileHitSound = cgi_S_RegisterSound( weaponData[weaponNum].missileHitSound );
+	if (weaponData[weaponNum].attackData[0].missileHitSound[0]) {
+		weaponInfo->missileHitSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[0].missileHitSound );
 	}
-	if (weaponData[weaponNum].altmissileHitSound[0]) {
-		weaponInfo->altmissileHitSound = cgi_S_RegisterSound( weaponData[weaponNum].altmissileHitSound );
+	if (weaponData[weaponNum].attackData[1].missileHitSound[0]) {
+		weaponInfo->altmissileHitSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[1].missileHitSound );
 	}
-	if ( weaponData[weaponNum].mMuzzleEffect[0] )
+	if ( weaponData[weaponNum].attackData[0].mMuzzleEffect[0] )
 	{
-		weaponData[weaponNum].mMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].mMuzzleEffect );
+		weaponData[weaponNum].attackData[0].mMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].attackData[0].mMuzzleEffect );
 	}
-	if ( weaponData[weaponNum].mAltMuzzleEffect[0] )
+	if ( weaponData[weaponNum].attackData[1].mMuzzleEffect[0] )
 	{
-		weaponData[weaponNum].mAltMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].mAltMuzzleEffect );
+		weaponData[weaponNum].attackData[1].mMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].attackData[1].mMuzzleEffect );
 	}
 	if ( weaponData[weaponNum].mTertiaryMuzzleEffect[0] )
 	{
@@ -227,24 +227,24 @@ void CG_RegisterWeapon( int weaponNum ) {
 	{
 		weaponData[weaponNum].chargeMuzzleShaderID = cgi_R_RegisterShader( weaponData[weaponNum].chargeMuzzleShader);
 	}
-	if ( weaponData[weaponNum].projectileEffect[0] )
+	if ( weaponData[weaponNum].attackData[0].projectileEffect[0] )
 	{
-		weaponInfo->projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].projectileEffect);
+		weaponInfo->projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[0].projectileEffect);
 	}
-	if ( weaponData[weaponNum].alt_projectileEffect[0] )
+	if ( weaponData[weaponNum].attackData[1].projectileEffect[0] )
 	{
-		weaponInfo->alt_projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].alt_projectileEffect);
+		weaponInfo->alt_projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[1].projectileEffect);
 	}
 
 	//fixme: don't really need to copy these, should just use directly
 	// give ourselves the functions if we can
-	if (weaponData[weaponNum].func)
+	if (weaponData[weaponNum].attackData[0].missileFunc)
 	{
-		weaponInfo->missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].func;
+		weaponInfo->missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].attackData[0].missileFunc;
 	}
-	if (weaponData[weaponNum].altfunc)
+	if (weaponData[weaponNum].attackData[1].missileFunc)
 	{
-		weaponInfo->alt_missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].altfunc;
+		weaponInfo->alt_missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].attackData[1].missileFunc;
 	}
 
 	int baseWeaponNum = weaponNum;
@@ -1033,11 +1033,11 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 //		CG_PositionEntityOnTag( &flash, &gun, gun.hModel, "tag_flash");
 
 		// Try and get a default muzzle so we have one to fall back on
-		if ( wData->mMuzzleEffect[0] )
+		if ( wData->attackData[0].mMuzzleEffect[0] )
 		{
 			if (firing_attack & ALT_ATTACK)
 			{
-				effect = &wData->mAltMuzzleEffect[0];
+				effect = &wData->attackData[1].mMuzzleEffect[0];
 			}
 			else if (firing_attack & TERTIARY_ATTACK)
 			{
@@ -1046,16 +1046,16 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 			else
 			{	
 				// We need to make sure that the base guns also get their sound.
-				effect = &wData->mMuzzleEffect[0];
+				effect = &wData->attackData[0].mMuzzleEffect[0];
 			}
 		}
 
 		if ( cent->altFire )
 		{
 			// We're alt-firing, so see if we need to override with a custom alt-fire effect
-			if ( wData->mAltMuzzleEffect[0] )
+			if ( wData->attackData[1].mMuzzleEffect[0] )
 			{
-				effect = &wData->mAltMuzzleEffect[0];
+				effect = &wData->attackData[1].mMuzzleEffect[0];
 			}
 		}
 

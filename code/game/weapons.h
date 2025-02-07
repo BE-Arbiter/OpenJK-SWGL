@@ -162,59 +162,28 @@ typedef struct weaponAttackData_s
 typedef struct weaponData_s
 {
 	weaponAttackData_t attackData[2];
+
 	char	classname[32];		// Spawning name
 	char	baseclass[32];		// Base Weapon
 	int		baseWeaponNum;		// Base WeaponNum;
 	char	weaponMdl[64];		// Weapon Model
-	char	firingSnd[64];		// Sound made when fired
-	char	altFiringSnd[64];	// Sound made when alt-fired
-//	char	flashSnd[64];		// Sound made by flash
-//	char	altFlashSnd[64];	// Sound made by an alt-flash
 	char	stopSnd[64];		// Sound made when weapon stops firing
-	char	chargeSnd[64];		// sound to start when the weapon initiates the charging sequence
-	char	altChargeSnd[64];	// alt sound to start when the weapon initiates the charging sequence
 	char	selectSnd[64];		// the sound to play when this weapon gets selected
 
 	int		ammoIndex;			// Index to proper ammo slot
 	int		ammoLow;			// Count when ammo is low
 
 	int		energyPerShot;		// Amount of energy used per shot
-	int		fireTime;			// Amount of time between firings
-	int		range;				// Range of weapon
 
 	int		altEnergyPerShot;	// Amount of energy used for alt-fire
-	int		altFireTime;		// Amount of time between alt-firings
-	int		altRange;			// Range of alt-fire
 
 	char	weaponIcon[64];		// Name of weapon icon file
 	int		numBarrels;			// how many barrels should we expect for this weapon?
 
-	char	missileMdl[64];		// Missile Model
-	char	missileSound[64];	// Missile flight sound
-	float  	missileDlight;		// what is says
-	vec3_t 	missileDlightColor;	// ditto
-
-	char	alt_missileMdl[64];		// Missile Model
-	char	alt_missileSound[64];	// Missile sound
-	float  	alt_missileDlight;		// what is says
-	vec3_t 	alt_missileDlightColor;	// ditto
-
-	char	missileHitSound[64];	// Missile impact sound
-	char	altmissileHitSound[64];	// alt Missile impact sound
-	void	*func;
-	void	*altfunc;
-
-	char	mMuzzleEffect[64];
-	int		mMuzzleEffectID;
-	char	mAltMuzzleEffect[64];
-	int		mAltMuzzleEffectID;
 	char	mTertiaryMuzzleEffect[64];
 	int		mTertiaryMuzzleEffectID;
 	char	chargeMuzzleShader[64];
 	int		chargeMuzzleShaderID;
-
-	char	projectileEffect[64];
-	char	alt_projectileEffect[64];
 
 	int		defaultDamage;
 

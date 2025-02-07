@@ -180,13 +180,13 @@ void WPN_AmmoLowCnt(const char **holdBuf)
 //--------------------------------------------
 void WPN_FiringSnd(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].firingSnd, 64, "firingSnd");
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].firingSnd, 64, "firingSnd");
 }
 
 //--------------------------------------------
 void WPN_AltFiringSnd( const char **holdBuf )
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].altFiringSnd, 64, "altFiringSnd");
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].firingSnd, 64, "altFiringSnd");
 }
 
 //--------------------------------------------
@@ -198,13 +198,13 @@ void WPN_StopSnd( const char **holdBuf )
 //--------------------------------------------
 void WPN_ChargeSnd(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].chargeSnd, 64, "chargeSnd");
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].chargeSnd, 64, "chargeSnd");
 }
 
 //--------------------------------------------
 void WPN_AltChargeSnd(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].altChargeSnd, 64, "altChargeSnd");
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].chargeSnd, 64, "altChargeSnd");
 }
 
 //--------------------------------------------
@@ -216,37 +216,37 @@ void WPN_SelectSnd( const char **holdBuf )
 //--------------------------------------------
 void WPN_FireTime(const char **holdBuf)
 {
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].fireTime, 0, MAX_FIRETIME, "Firetime");
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].fireTime, 0, MAX_FIRETIME, "Firetime");
 }
 
 //--------------------------------------------
 void WPN_Range(const char **holdBuf)
 {
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].range, 0, MAX_RANGE, "Range");
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].range, 0, MAX_RANGE, "Range");
 }
 
 //--------------------------------------------
 void WPN_EnergyPerShot(const char **holdBuf)
 {
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].energyPerShot, 0, MAX_AMMO_STORAGE, "EnergyPerShot");
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].energyPerShot, 0, MAX_AMMO_STORAGE, "EnergyPerShot");
 }
 
 //--------------------------------------------
 void WPN_AltFireTime(const char **holdBuf)
 {
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].altFireTime, 0, MAX_FIRETIME, "altFireTime");
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].fireTime, 0, MAX_FIRETIME, "altFireTime");
 }
 
 //--------------------------------------------
 void WPN_AltRange(const char **holdBuf)
 {
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].altRange, 0, MAX_RANGE, "altRange");
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].range, 0, MAX_RANGE, "altRange");
 }
 
 //--------------------------------------------
 void WPN_AltEnergyPerShot(const char **holdBuf)
 {
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].altEnergyPerShot, 0, MAX_AMMO_STORAGE, "altEnergyPerShot");
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].energyPerShot, 0, MAX_AMMO_STORAGE, "altEnergyPerShot");
 }
 
 //--------------------------------------------
@@ -337,37 +337,37 @@ static void WP_ParseWeaponParms(const char **holdBuf)
 //--------------------------------------------
 void WPN_MissileName(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].missileMdl, 64, "MissileName");
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].missileMdl, 64, "MissileName");
 }
 
 //--------------------------------------------
 void WPN_AltMissileName(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].alt_missileMdl, 64, "AltMissileName");
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].missileMdl, 64, "AltMissileName");
 }
 
 //--------------------------------------------
 void WPN_MissileHitSound(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].missileHitSound, 64, "MissileHitSound");
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].missileHitSound, 64, "MissileHitSound");
 }
 
 //--------------------------------------------
 void WPN_AltMissileHitSound(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].altmissileHitSound, 64, "AltMissileHitSound");
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].missileHitSound, 64, "AltMissileHitSound");
 }
 
 //--------------------------------------------
 void WPN_MissileSound(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].missileSound, 64, "MissileSound");
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].missileSound, 64, "MissileSound");
 }
 
 //--------------------------------------------
 void WPN_AltMissileSound(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].alt_missileSound, 64, "AltMissileSound");
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].missileSound, 64, "AltMissileSound");
 }
 
 //--------------------------------------------
@@ -389,7 +389,7 @@ void WPN_MissileLightColor(const char **holdBuf)
 			gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelightcolor in external weapon data '%f'\n", tokenFlt);
 			continue;
 		}
-		weaponData[wpnParms.weaponNum].missileDlightColor[i] = tokenFlt;
+		weaponData[wpnParms.weaponNum].attackData[0].missileDlightColor[i] = tokenFlt;
 	}
 
 }
@@ -413,7 +413,7 @@ void WPN_AltMissileLightColor(const char **holdBuf)
 			gi.Printf(S_COLOR_YELLOW"WARNING: bad altmissilelightcolor in external weapon data '%f'\n", tokenFlt);
 			continue;
 		}
-		weaponData[wpnParms.weaponNum].alt_missileDlightColor[i] = tokenFlt;
+		weaponData[wpnParms.weaponNum].attackData[1].missileDlightColor[i] = tokenFlt;
 	}
 
 }
@@ -433,7 +433,7 @@ void WPN_MissileLight(const char **holdBuf)
 	{
 		gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelight in external weapon data '%f'\n", tokenFlt);
 	}
-	weaponData[wpnParms.weaponNum].missileDlight = tokenFlt;
+	weaponData[wpnParms.weaponNum].attackData[0].missileDlight = tokenFlt;
 }
 
 //--------------------------------------------
@@ -450,7 +450,7 @@ void WPN_AltMissileLight(const char **holdBuf)
 	{
 		gi.Printf(S_COLOR_YELLOW"WARNING: bad altmissilelight in external weapon data '%f'\n", tokenFlt);
 	}
-	weaponData[wpnParms.weaponNum].alt_missileDlight = tokenFlt;
+	weaponData[wpnParms.weaponNum].attackData[1].missileDlight = tokenFlt;
 }
 
 
@@ -475,7 +475,7 @@ void WPN_FuncName(const char **holdBuf)
 	for ( func_t* s=funcs ; s->name ; s++ ) {
 		if ( !Q_stricmp(s->name, tokenStr) ) {
 			// found it
-			weaponData[wpnParms.weaponNum].func = (void*)s->func;
+			weaponData[wpnParms.weaponNum].attackData[0].missileFunc = (void*)s->func;
 			return;
 		}
 	}
@@ -504,7 +504,7 @@ void WPN_AltFuncName(const char **holdBuf)
 	for ( func_t* s=funcs ; s->name ; s++ ) {
 		if ( !Q_stricmp(s->name, tokenStr) ) {
 			// found it
-			weaponData[wpnParms.weaponNum].altfunc = (void*)s->func;
+			weaponData[wpnParms.weaponNum].attackData[1].missileFunc = (void*)s->func;
 			return;
 		}
 	}
@@ -514,29 +514,29 @@ void WPN_AltFuncName(const char **holdBuf)
 //--------------------------------------------
 void WPN_MuzzleEffect(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].mMuzzleEffect, 64, "MuzzleEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].mMuzzleEffect );
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].mMuzzleEffect, 64, "MuzzleEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[0].mMuzzleEffect );
 }
 
 //--------------------------------------------
 void WPN_AltMuzzleEffect(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].mAltMuzzleEffect, 64, "AltMuzzleEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].mAltMuzzleEffect );
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].mMuzzleEffect, 64, "AltMuzzleEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[1].mMuzzleEffect );
 }
 
 //--------------------------------------------
 void WPN_ProjectileEffect(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].projectileEffect, 64, "projectileEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].projectileEffect );
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].projectileEffect, 64, "projectileEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[0].projectileEffect );
 }
 
 //--------------------------------------------
 void WPN_AltProjectileEffect(const char** holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].alt_projectileEffect, 64, "alt_projectileEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].alt_projectileEffect );
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].projectileEffect, 64, "alt_projectileEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[1].projectileEffect );
 }
 
 //--------------------------------------------
@@ -915,47 +915,14 @@ void WP_LoadWeaponParms (void)
 			if (weaponData[i].weaponMdl[0] == 0) {
 				strcpy(weaponData[i].weaponMdl,weaponData[j].weaponMdl);
 			}
-			if (weaponData[i].firingSnd[0] == 0) {
-				strcpy(weaponData[i].firingSnd,weaponData[j].firingSnd);
-			}
-			if (weaponData[i].altFiringSnd[0] == 0) {
-				strcpy(weaponData[i].altFiringSnd,weaponData[j].altFiringSnd);
-			}
 			if (weaponData[i].stopSnd[0] == 0) {
 				strcpy(weaponData[i].stopSnd,weaponData[j].stopSnd);
-			}
-			if (weaponData[i].chargeSnd[0] == 0) {
-				strcpy(weaponData[i].chargeSnd,weaponData[j].chargeSnd);
-			}
-			if (weaponData[i].altChargeSnd[0] == 0) {
-				strcpy(weaponData[i].altChargeSnd,weaponData[j].altChargeSnd);
 			}
 			if (weaponData[i].selectSnd[0] == 0) {
 				strcpy(weaponData[i].selectSnd,weaponData[j].selectSnd);
 			}
 			if(weaponData[i].weaponIcon[0] == 0){
 				strcpy(weaponData[i].weaponIcon, weaponData[j].weaponIcon);
-			}
-			if(weaponData[i].missileMdl[0] == 0){
-				strcpy(weaponData[i].missileMdl, weaponData[j].missileMdl);
-			}
-			if(weaponData[i].alt_missileMdl[0] == 0){
-				strcpy(weaponData[i].alt_missileMdl, weaponData[j].alt_missileMdl);
-			}
-			if(weaponData[i].alt_missileSound[0] == 0){
-				strcpy(weaponData[i].alt_missileSound, weaponData[j].alt_missileSound);
-			}
-			if(weaponData[i].missileHitSound[0] == 0){
-				strcpy(weaponData[i].missileHitSound, weaponData[j].missileHitSound);
-			}
-			if(weaponData[i].altmissileHitSound[0] == 0){
-				strcpy(weaponData[i].altmissileHitSound, weaponData[j].altmissileHitSound);
-			}
-			if(weaponData[i].mMuzzleEffect[0] == 0){
-				strcpy(weaponData[i].mMuzzleEffect, weaponData[j].mMuzzleEffect);
-			}
-			if(weaponData[i].mAltMuzzleEffect[0] == 0){
-				strcpy(weaponData[i].mAltMuzzleEffect, weaponData[j].mAltMuzzleEffect);
 			}
 			if(weaponData[i].mTertiaryMuzzleEffect[0] == 0){
 				strcpy(weaponData[i].mTertiaryMuzzleEffect, weaponData[j].mTertiaryMuzzleEffect);
@@ -965,12 +932,6 @@ void WP_LoadWeaponParms (void)
 			}
 			if(weaponData[i].weaponMdl2[0] == 0){
 				strcpy(weaponData[i].weaponMdl2, weaponData[j].weaponMdl2);
-			}
-			if (weaponData[i].projectileEffect[0] == 0) {
-				strcpy(weaponData[i].projectileEffect, weaponData[j].projectileEffect);
-			}
-			if (weaponData[i].alt_projectileEffect[0] == 0) {
-				strcpy(weaponData[i].alt_projectileEffect, weaponData[j].alt_projectileEffect);
 			}
 
             //Copying the int arrays
@@ -995,29 +956,54 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].ammoIndex = weaponData[i].ammoIndex == 0 ? weaponData[j].ammoIndex : weaponData[i].ammoIndex ;
 			weaponData[i].ammoLow = weaponData[i].ammoLow == 0 ? weaponData[j].ammoLow : weaponData[i].ammoLow ;
 
-			weaponData[i].energyPerShot = weaponData[i].energyPerShot == 0 ? weaponData[j].energyPerShot : weaponData[i].energyPerShot ;
-			weaponData[i].fireTime = weaponData[i].fireTime == 0 ? weaponData[j].fireTime : weaponData[i].fireTime ;
-			weaponData[i].range = weaponData[i].range == 0 ? weaponData[j].range : weaponData[i].range ;
-
-			weaponData[i].altEnergyPerShot = weaponData[i].altEnergyPerShot == 0 ? weaponData[j].altEnergyPerShot : weaponData[i].altEnergyPerShot ;
-			weaponData[i].altFireTime = weaponData[i].altFireTime == 0 ? weaponData[j].altFireTime : weaponData[i].altFireTime ;
-			weaponData[i].altRange = weaponData[i].altRange == 0 ? weaponData[j].altRange : weaponData[i].altRange ;
-
 			weaponData[i].numBarrels = weaponData[i].numBarrels == 0 ? weaponData[j].numBarrels : weaponData[i].numBarrels;
 
-			weaponData[i].alt_missileDlight = weaponData[i].alt_missileDlight == 0 ? weaponData[j].alt_missileDlight : weaponData[i].alt_missileDlight ;
-
-			weaponData[i].mMuzzleEffectID = weaponData[i].mMuzzleEffectID == 0 ? weaponData[j].mMuzzleEffectID : weaponData[i].mMuzzleEffectID;
-			weaponData[i].mAltMuzzleEffectID = weaponData[i].mAltMuzzleEffectID == 0 ? weaponData[j].mAltMuzzleEffectID : weaponData[i].mAltMuzzleEffectID;
 			weaponData[i].mTertiaryMuzzleEffectID = weaponData[i].mTertiaryMuzzleEffectID == 0 ? weaponData[j].mTertiaryMuzzleEffectID : weaponData[i].mTertiaryMuzzleEffectID;
 			weaponData[i].chargeMuzzleShaderID = weaponData[i].chargeMuzzleShaderID == 0 ? weaponData[j].chargeMuzzleShaderID : weaponData[i].chargeMuzzleShaderID;
 
 			weaponData[i].defaultDamage = weaponData[i].defaultDamage == 0 ? weaponData[j].defaultDamage : weaponData[i].defaultDamage;
 			for (int k = 0; k < 2; k++) {
+				weaponData[i].attackData[k].energyPerShot = weaponData[i].attackData[k].energyPerShot == 0 ? weaponData[j].attackData[k].energyPerShot : weaponData[i].attackData[k].energyPerShot ;
+				weaponData[i].attackData[k].fireTime = weaponData[i].attackData[k].fireTime == 0 ? weaponData[j].attackData[k].fireTime : weaponData[i].attackData[k].fireTime ;
+				weaponData[i].attackData[k].range = weaponData[i].attackData[k].range == 0 ? weaponData[j].attackData[k].range : weaponData[i].attackData[k].range ;
 				weaponData[i].attackData[k].damage = weaponData[i].attackData[k].damage == 0 ? weaponData[j].attackData[k].damage : weaponData[i].attackData[k].damage;
 				weaponData[i].attackData[k].splashDamage = weaponData[i].attackData[k].splashDamage == 0 ? weaponData[j].attackData[k].splashDamage : weaponData[i].attackData[k].splashDamage;
 				weaponData[i].attackData[k].splashRadius = weaponData[i].attackData[k].splashRadius == 0 ? weaponData[j].attackData[k].splashRadius : weaponData[i].attackData[k].splashRadius;
 				weaponData[i].attackData[k].mVelocity = weaponData[i].attackData[k].mVelocity == 0 ? weaponData[j].attackData[k].mVelocity : weaponData[i].attackData[k].mVelocity;
+
+				if (weaponData[i].attackData[k].firingSnd[0] == 0) {
+					strcpy(weaponData[i].attackData[k].firingSnd,weaponData[j].attackData[k].firingSnd);
+				}
+				if (weaponData[i].attackData[k].chargeSnd[0] == 0) {
+					strcpy(weaponData[i].attackData[k].chargeSnd,weaponData[j].attackData[k].chargeSnd);
+				}
+
+				if(weaponData[i].attackData[k].missileMdl[0] == 0){
+					strcpy(weaponData[i].attackData[k].missileMdl, weaponData[j].attackData[k].missileMdl);
+				}
+				if(weaponData[i].attackData[k].missileSound[0] == 0){
+					strcpy(weaponData[i].attackData[k].missileSound, weaponData[j].attackData[k].missileSound);
+				}
+				if(weaponData[i].attackData[k].missileHitSound[0] == 0){
+					strcpy(weaponData[i].attackData[k].missileHitSound, weaponData[j].attackData[k].missileHitSound);
+				}
+				
+				if (weaponData[i].attackData[k].projectileEffect[0] == 0) {
+					strcpy(weaponData[i].attackData[k].projectileEffect, weaponData[j].attackData[k].projectileEffect);
+				}
+				if(weaponData[i].attackData[k].mMuzzleEffect[0] == 0){
+					strcpy(weaponData[i].attackData[k].mMuzzleEffect, weaponData[j].attackData[k].mMuzzleEffect);
+				}
+				weaponData[i].attackData[k].mMuzzleEffectID = weaponData[i].attackData[k].mMuzzleEffectID == 0 ? weaponData[j].attackData[k].mMuzzleEffectID : weaponData[i].attackData[k].mMuzzleEffectID;
+
+				//copying weapon missile trail Function pointers
+				weaponData[i].attackData[k].missileFunc = weaponData[i].attackData[k].missileFunc == 0 ? weaponData[j].attackData[k].missileFunc : weaponData[i].attackData[k].missileFunc;
+				
+				weaponData[i].attackData[k].missileDlight = weaponData[i].attackData[k].missileDlight == 0 ? weaponData[j].attackData[k].missileDlight : weaponData[i].attackData[k].missileDlight ;
+				//Copying vectors
+				if (weaponData[i].attackData[k].missileDlightColor[0] == 0 && weaponData[i].attackData[k].missileDlightColor[1] == 0 && weaponData[i].attackData[k].missileDlightColor[2] == 0) {
+					VectorCopy(weaponData[j].attackData[k].missileDlightColor, weaponData[i].attackData[k].missileDlightColor);
+				}
 			}
 
 			weaponData[i].tertiaryEnergyPerShot = weaponData[i].tertiaryEnergyPerShot == 0 ? weaponData[j].tertiaryEnergyPerShot : weaponData[i].tertiaryEnergyPerShot;
@@ -1030,19 +1016,7 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[i].playerUsable;
 			weaponData[i].weaponCategory = weaponData[i].weaponCategory == WC_NONE ? weaponData[j].weaponCategory : weaponData[i].weaponCategory;
 			weaponData[i].baseWeaponNum = j;
-			//copying weapon Function pointers
-			weaponData[i].func = weaponData[i].func == 0 ? weaponData[j].func : weaponData[i].func;
-			weaponData[i].altfunc = weaponData[i].altfunc == 0 ? weaponData[j].altfunc : weaponData[i].altfunc;
 
-
-			//Copying vectors
-			if (weaponData[i].missileDlightColor[0] == 0 && weaponData[i].missileDlightColor[1] == 0 && weaponData[i].missileDlightColor[2] == 0) {
-				VectorCopy(weaponData[j].missileDlightColor, weaponData[i].missileDlightColor);
-			}
-
-			if (weaponData[i].alt_missileDlightColor[0] == 0 && weaponData[i].alt_missileDlightColor[1] == 0 && weaponData[i].alt_missileDlightColor[2] == 0) {
-				VectorCopy(weaponData[j].alt_missileDlightColor, weaponData[i].alt_missileDlightColor);
-			}
 			//The first one is the good one...
 			break;
 		}

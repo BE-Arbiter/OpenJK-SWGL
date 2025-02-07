@@ -12954,7 +12954,7 @@ void PM_WeaponLightsaber(void)
 		PM_AddEvent( EV_FIRE_WEAPON );
 		if ( !addTime )
 		{
-			addTime = weaponData[pm->ps->weapon].fireTime;
+			addTime = weaponData[pm->ps->weapon].attackData[0].fireTime;
 			if ( g_timescale != NULL )
 			{
 				if ( g_timescale->value < 1.0f )
@@ -13128,7 +13128,7 @@ static bool PM_DoChargedWeapons( void )
 
 				if ( cg_weapons[pm->ps->weapon].altChargeSound )
 				{
-					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].altChargeSnd );
+					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].attackData[1].chargeSnd );
 				}
 			}
 		}
@@ -13150,7 +13150,7 @@ static bool PM_DoChargedWeapons( void )
 
 				if ( cg_weapons[pm->ps->weapon].chargeSound && pm->gent && !pm->gent->NPC ) // HACK: !NPC mostly for bowcaster and weequay
 				{
-					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].chargeSnd );
+					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].attackData[0].chargeSnd );
 				}
 			}
 		}
@@ -13493,14 +13493,14 @@ static void PM_Weapon( void )
 		else if (pm->ps->firing_attack & ALT_ATTACK)
 		{
 			firing_type = weaponData[pm->ps->weapon].altFireOpt[FIRING_TYPE];
-			fire_time = weaponData[pm->ps->weapon].altFireTime;
+			fire_time = weaponData[pm->ps->weapon].attackData[1].fireTime;
 			burst_shots = weaponData[pm->ps->weapon].altFireOpt[SHOTS_PER_BURST];
 			burst_fire_delay = weaponData[pm->ps->weapon].altFireOpt[BURST_FIRE_DELAY];
 		}
 		else if (pm->ps->firing_attack & MAIN_ATTACK)
 		{
 			firing_type = weaponData[pm->ps->weapon].mainFireOpt[FIRING_TYPE];
-			fire_time = weaponData[pm->ps->weapon].fireTime;
+			fire_time = weaponData[pm->ps->weapon].attackData[0].fireTime;
 			burst_shots = weaponData[pm->ps->weapon].mainFireOpt[SHOTS_PER_BURST];
 			burst_fire_delay = weaponData[pm->ps->weapon].mainFireOpt[BURST_FIRE_DELAY];
 		}
@@ -14165,12 +14165,12 @@ static void PM_Weapon( void )
 			&& pm->gent->owner->e_UseFunc == useF_eweb_use )
 		{//eweb always shoots alt-fire, for proper effects and sounds
 			PM_AddEvent( EV_ALT_FIRE );
-			addTime = weaponData[pm->ps->weapon].altFireTime;
+			addTime = weaponData[pm->ps->weapon].attackData[1].fireTime;
 		}
 		else
 		{//emplaced gun always shoots normal fire
 			PM_AddEvent( EV_FIRE_WEAPON );
-			addTime = weaponData[pm->ps->weapon].fireTime;
+			addTime = weaponData[pm->ps->weapon].attackData[0].fireTime;
 		}
 	}
 	else if ( (pm->ps->weapon == WP_MELEE && (pm->ps->clientNum>=MAX_CLIENTS||!g_debugMelee->integer) )
@@ -14183,7 +14183,7 @@ static void PM_Weapon( void )
 	else if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
 	{
 		PM_AddEvent( EV_ALT_FIRE );
-		addTime = weaponData[pm->ps->weapon].altFireTime;
+		addTime = weaponData[pm->ps->weapon].attackData[1].fireTime;
 		if ( pm->ps->weapon == WP_THERMAL )
 		{//threw our thermal
 			if ( pm->gent )
@@ -14206,7 +14206,7 @@ static void PM_Weapon( void )
 			return;
 		}
 		PM_AddEvent( EV_FIRE_WEAPON );
-		addTime = weaponData[pm->ps->weapon].fireTime;
+		addTime = weaponData[pm->ps->weapon].attackData[0].fireTime;
 
 		switch( pm->ps->weapon)
 		{
