@@ -1532,10 +1532,12 @@ int CG_WeaponCheck( int weaponIndex )
 		return qtrue;
 	}
 
-
-	value = weaponData[weaponIndex].energyPerShot < weaponData[weaponIndex].altEnergyPerShot
-							? weaponData[weaponIndex].energyPerShot
-							: weaponData[weaponIndex].altEnergyPerShot;
+	value = weaponData[weaponIndex].attackData[0].energyPerShot;
+	for (int k = 1; k < MAX_WEAPON_ATTACKS; k++) {
+		if (weaponData[weaponIndex].attackData[k].energyPerShot < value) {
+			value = weaponData[weaponIndex].attackData[k].energyPerShot;
+		}
+	}
 
 	if( !cg.snap )
 	{
@@ -2291,9 +2293,12 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 
 	if (( weaponData[i].ammoIndex != AMMO_NONE ) && !dpMode )
 	{//weapon uses ammo, see if we have any
-		usage_for_weap = weaponData[i].energyPerShot < weaponData[i].altEnergyPerShot
-									? weaponData[i].energyPerShot
-									: weaponData[i].altEnergyPerShot;
+		usage_for_weap = weaponData[i].attackData[0].energyPerShot;
+		for (int k = 1; k < MAX_WEAPON_ATTACKS; k++) {
+			if (weaponData[i].attackData[k].energyPerShot < usage_for_weap) {
+				usage_for_weap = weaponData[i].attackData[k].energyPerShot;
+			}
+		}
 
 		if ( cg.snap->ps.ammo[weaponData[i].ammoIndex] - usage_for_weap < 0 )
 		{

@@ -1731,7 +1731,7 @@ static void CG_DrawSimpleAmmo( const centity_t *cent )
 	currValue = ps->ammo[weaponData[cent->currentState.weapon].ammoIndex];
 
 	// No ammo
-	if ( currValue < 0 || (weaponData[cent->currentState.weapon].energyPerShot == 0 && weaponData[cent->currentState.weapon].altEnergyPerShot == 0) )
+	if ( currValue < 0 || (weaponData[cent->currentState.weapon].attackData[0].energyPerShot == 0 && weaponData[cent->currentState.weapon].attackData[1].energyPerShot == 0) )
 	{
 		SimpleHud_DrawString(SCREEN_WIDTH - cgs.widthRatioCoef * (16 + 32), (SCREEN_HEIGHT - 80) + 40, "--", colorTable[CT_HUD_ORANGE]);
 		return;

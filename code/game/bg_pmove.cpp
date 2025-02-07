@@ -14101,14 +14101,14 @@ static void PM_Weapon( void )
 	
 	if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
 	{
-		amount = weaponData[pm->ps->weapon].altEnergyPerShot;
+		amount = weaponData[pm->ps->weapon].attackData[1].energyPerShot;
 	}
 	else
 	{
 		
 		if (pm->ps->firing_attack & ALT_ATTACK)
 		{
-			amount = weaponData[pm->ps->weapon].altEnergyPerShot;
+			amount = weaponData[pm->ps->weapon].attackData[1].energyPerShot;
 		}
 		else if (pm->ps->firing_attack & TERTIARY_ATTACK)
 		{
@@ -14117,7 +14117,7 @@ static void PM_Weapon( void )
 		else
 		{
 			// We need to make sure that the base guns also get their energy shot.
-			amount = weaponData[pm->ps->weapon].energyPerShot;
+			amount = weaponData[pm->ps->weapon].attackData[0].energyPerShot;
 		}
 	}
 
@@ -14755,11 +14755,11 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	// get ammo usage
 	if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
 	{
-		amount = pm->ps->ammo[weaponData[ weapon ].ammoIndex] - weaponData[weapon].altEnergyPerShot;
+		amount = pm->ps->ammo[weaponData[ weapon ].ammoIndex] - weaponData[weapon].attackData[1].energyPerShot;
 	}
 	else
 	{
-		amount = pm->ps->ammo[weaponData[ weapon ].ammoIndex] - weaponData[weapon].energyPerShot;
+		amount = pm->ps->ammo[weaponData[ weapon ].ammoIndex] - weaponData[weapon].attackData[0].energyPerShot;
 	}
 	//FIXME : is baseWeapon Necessary here?
 	if ( weapon == WP_SABER && (!cg.zoomMode||pm->ps->clientNum) )
@@ -14831,7 +14831,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			if ( cg.zoomMode == 2 )
 			{
 				amount = pm->ps->ammo[weaponData[weapon].ammoIndex] -
-							weaponData[weapon].altEnergyPerShot;
+							weaponData[weapon].attackData[1].energyPerShot;
 			}
 		}
 		else

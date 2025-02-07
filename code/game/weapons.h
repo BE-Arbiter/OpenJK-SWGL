@@ -159,9 +159,11 @@ typedef struct weaponAttackData_s
 	float	mVelocity;
 } weaponAttackData_t;
 
+#define MAX_WEAPON_ATTACKS 2
+
 typedef struct weaponData_s
 {
-	weaponAttackData_t attackData[2];
+	weaponAttackData_t attackData[MAX_WEAPON_ATTACKS];
 
 	char	classname[32];		// Spawning name
 	char	baseclass[32];		// Base Weapon
@@ -172,10 +174,6 @@ typedef struct weaponData_s
 
 	int		ammoIndex;			// Index to proper ammo slot
 	int		ammoLow;			// Count when ammo is low
-
-	int		energyPerShot;		// Amount of energy used per shot
-
-	int		altEnergyPerShot;	// Amount of energy used for alt-fire
 
 	char	weaponIcon[64];		// Name of weapon icon file
 	int		numBarrels;			// how many barrels should we expect for this weapon?
