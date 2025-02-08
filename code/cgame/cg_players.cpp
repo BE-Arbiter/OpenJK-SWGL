@@ -8964,7 +8964,7 @@ SkipTrueView:
 
 					if ( cent->gent->m_pVehicle->m_Muzzles[i].m_bFired )
 					{
-						const char *effect = &weaponData[ cent->gent->m_pVehicle->m_pVehicleInfo->weapMuzzle[i] ].mMuzzleEffect[0];
+						const char *effect = &weaponData[ cent->gent->m_pVehicle->m_pVehicleInfo->weapMuzzle[i] ].attackData[0].mMuzzleEffect[0];
 						if ( effect )
 						{
 							theFxScheduler.PlayEffect( effect, cent->gent->m_pVehicle->m_Muzzles[i].m_vMuzzlePos, cent->gent->m_pVehicle->m_Muzzles[i].m_vMuzzleDir );
@@ -8984,11 +8984,11 @@ SkipTrueView:
 				char firing_attack = cent->gent->client->ps.prev_firing_attack;
 
 				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->mMuzzleEffect[0] )
+				if ( wData->attackData[0].mMuzzleEffect[0] )
 				{
 					if (firing_attack & ALT_ATTACK)
 					{
-						effect = &wData->mAltMuzzleEffect[0];
+						effect = &wData->attackData[1].mMuzzleEffect[0];
 					}
 					else if (firing_attack & TERTIARY_ATTACK)
 					{
@@ -8997,16 +8997,16 @@ SkipTrueView:
 					else
 					{	
 						// We need to make sure that the base guns also get their sound.
-						effect = &wData->mMuzzleEffect[0];
+						effect = &wData->attackData[0].mMuzzleEffect[0];
 					}
 				}
 
 				if ( cent->altFire )
 				{
 					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->mAltMuzzleEffect[0] )
+					if ( wData->attackData[1].mMuzzleEffect[0] )
 					{
-						effect = &wData->mAltMuzzleEffect[0];
+						effect = &wData->attackData[1].mMuzzleEffect[0];
 					}
 				}
 
@@ -9544,9 +9544,9 @@ Ghoul2 Insert End
 				CG_PositionEntityOnTag( &flash, &gun, gun.hModel, "tag_flash");
 
 				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->mMuzzleEffectID )
+				if ( wData->attackData[0].mMuzzleEffectID )
 				{
-					effect = wData->mMuzzleEffectID;
+					effect = wData->attackData[0].mMuzzleEffectID;
 				}
 
 				if (wData->mTertiaryMuzzleEffectID)
@@ -9557,9 +9557,9 @@ Ghoul2 Insert End
 				if ( cent->currentState.eFlags & EF_ALT_FIRING )
 				{
 					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->mAltMuzzleEffectID )
+					if ( wData->attackData[1].mMuzzleEffectID )
 					{
-						effect = wData->mAltMuzzleEffectID;
+						effect = wData->attackData[1].mMuzzleEffectID;
 					}
 				}
 
