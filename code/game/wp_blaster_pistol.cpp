@@ -31,7 +31,14 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 //---------------
 
 //---------------------------------------------------------
-void WP_FireBryarPistol( gentity_t *ent, qboolean alt_fire )
+void WP_FireBryarPistol_Internal(gentity_t* ent, qboolean alt_fire, qboolean twinnedProjectile);
+
+void WP_FireBryarPistol(gentity_t* ent, qboolean alt_fire)
+{
+	WP_FireBryarPistol_Internal(ent, alt_fire, qfalse);
+}
+
+void WP_FireBryarPistol_Internal( gentity_t *ent, qboolean alt_fire,qboolean twinnedProjectile)
 //---------------------------------------------------------
 {
 	vec3_t	start;
@@ -113,7 +120,22 @@ void WP_FireBryarPistol( gentity_t *ent, qboolean alt_fire )
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
 
-	if ( ent->weaponModel[1] > 0 )
+	if ( ent->weaponModel[1] > 0 && alt_fire && muzzle2 && !twinnedProjectile)
+	{//dual pistols, Fire a second one from muzzle 2
+		vec3_t tmp;
+		VectorCopy(muzzle2, tmp);
+		VectorCopy(muzzle, muzzle2);
+		VectorCopy(tmp, muzzle);
+		WP_FireBryarPistol_Internal(ent, alt_fire, qtrue);
+	}
+	else if (ent->weaponModel[1] > 0 && alt_fire && muzzle2 && !twinnedProjectile) 
+	{//Restore main muzzle and finish
+		vec3_t tmp;
+		VectorCopy(muzzle2, tmp);
+		VectorCopy(muzzle, muzzle2);
+		VectorCopy(tmp, muzzle);
+	}
+	else if ( ent->weaponModel[1] > 0 )
 	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
 		ent->count = (ent->count)?0:1;
 	}

@@ -8769,8 +8769,8 @@ SkipTrueView:
 			//NOTE: these are used for any case where an NPC fires and the next shot needs to come out
 			//		of a new barrel/point.  That way the muzzleflash will draw on the old barrel/point correctly
 			//NOTE: I'm only doing this for the saboteur right now - AT-STs might need this... others?
-			vec3_t oldMP = {0,0,0};
-			vec3_t oldMD = {0,0,0};
+			VectorCopy(vec3_origin, cent->gent->client->renderInfo.muzzlePoint2);
+			VectorCopy(vec3_origin, cent->gent->client->renderInfo.muzzleDir2);
 
 			if( !calcedMp )
 			{
@@ -8891,11 +8891,16 @@ SkipTrueView:
 				{
 
 					qboolean getBoth = qfalse;
+					qboolean charging = qfalse;
 					int	oldOne = 0;
 					if ( cent->muzzleFlashTime > 0 && wData && !(cent->currentState.eFlags & EF_LOCKED_TO_WEAPON ))
 					{//we need to get both muzzles since we're toggling and we fired recently
 						getBoth = qtrue;
 						oldOne = (cent->gent->count)?0:1;
+					}
+					if (cent->gent->client->ps.weaponstate == WEAPON_CHARGING || cent->gent->client->ps.weaponstate == WEAPON_CHARGING_ALT) {
+						charging = qtrue;
+						oldOne = (cent->gent->count) ? 0 : 1;
 					}
 					if ( ( cent->gent->weaponModel[cent->gent->count] != -1)
 						&& ( cent->gent->ghoul2.size() > cent->gent->weaponModel[cent->gent->count] )
@@ -8908,8 +8913,8 @@ SkipTrueView:
 						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, ORIGIN, cent->gent->client->renderInfo.muzzlePoint );
 						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, NEGATIVE_Y, cent->gent->client->renderInfo.muzzleDir );
 					}
-					//get the old one too, if needbe, and store it in muzzle2
-					if ( getBoth
+					//Get the other one too, if need be, and store it in muzzle2
+					if ( ( getBoth || charging)
 						&& ( cent->gent->weaponModel[oldOne] != -1) //have a second weapon
 						&& ( cent->gent->ghoul2.size() > cent->gent->weaponModel[oldOne] ) //have a valid ghoul model index
 						&& ( cent->gent->ghoul2[cent->gent->weaponModel[oldOne]].mModelindex != -1) )//model exists and was loaded
@@ -8918,8 +8923,8 @@ SkipTrueView:
 						// figure out where the actual model muzzle is
 						gi.G2API_GetBoltMatrix( cent->gent->ghoul2, cent->gent->weaponModel[oldOne], 0, &boltMatrix, tempAngles, ent.origin, cg.time, cgs.model_draw, cent->currentState.modelScale );
 						// work the matrix axis stuff into the original axis and origins used.
-						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, ORIGIN, oldMP );
-						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, NEGATIVE_Y, oldMD );
+						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, ORIGIN, cent->gent->client->renderInfo.muzzlePoint2);
+						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, NEGATIVE_Y, cent->gent->client->renderInfo.muzzleDir2);
 					}
 				}
 				else if (( cent->gent->weaponModel[0] != -1) &&
@@ -9009,10 +9014,11 @@ SkipTrueView:
 				{
 					if ( (cent->gent && cent->gent->NPC) || CG_PlayerIsDualWielding(cg.snap->ps.weapon) )
 					{
-						if ( !VectorCompare( oldMP, vec3_origin )
-							&& !VectorCompare( oldMD, vec3_origin ) )
+						if ( !VectorCompare(cent->gent->client->renderInfo.muzzlePoint2, vec3_origin )
+							&& !VectorCompare(cent->gent->client->renderInfo.muzzleDir2, vec3_origin ) )
 						{//we have an old muzzlePoint we want to use
-							theFxScheduler.PlayEffect( effect, oldMP, oldMD );
+							theFxScheduler.PlayEffect( effect, cent->gent->client->renderInfo.muzzlePoint2, 
+								cent->gent->client->renderInfo.muzzleDir2);
 						}
 						else
 						{//use the current one
@@ -9665,6 +9671,9 @@ Ghoul2 Insert End
 			val += Q_flrand(0.0f, 1.0f) * 0.5f;
 
 			FX_AddSprite( cent->gent->client->renderInfo.muzzlePoint, NULL, NULL, 3.0f * val * scale, 0.0f, 0.7f, 0.7f, WHITE, WHITE, Q_flrand(0.0f, 1.0f) * 360, 0.0f, 1.0f, shader, FX_USE_ALPHA );
+			if (weaponData[cent->gent->s.weapon].weaponCategory == WC_PISTOL && cent->gent->weaponModel[1]) {
+				FX_AddSprite(cent->gent->client->renderInfo.muzzlePoint2, NULL, NULL, 3.0f * val * scale, 0.0f, 0.7f, 0.7f, WHITE, WHITE, Q_flrand(0.0f, 1.0f) * 360, 0.0f, 1.0f, shader, FX_USE_ALPHA);
+			}
 		}
 	}
 }

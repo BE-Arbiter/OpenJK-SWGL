@@ -5932,7 +5932,7 @@ void PM_TorsoAnimation(void)
 				{//dual pistols
 					if (weaponBusy)
 					{
-						PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUNSIT1, SETANIM_FLAG_NORMAL);
+						PM_SetAnim(pm, SETANIM_TORSO, TORSO_D_PISTOL, SETANIM_FLAG_NORMAL);
 					}
 					else if (PM_RunningAnim(pm->ps->legsAnim)
 						|| PM_WalkingAnim(pm->ps->legsAnim)
@@ -6098,7 +6098,6 @@ void PM_TorsoAnimation(void)
 			}
 			else
 			{
-				Com_Printf(S_COLOR_CYAN"Here => ELSE => weaponData[%d].weaponCategory = %d\n", weapon, weaponData[weapon].weaponCategory);
 				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
 			}
 		}
@@ -6181,7 +6180,7 @@ void PM_TorsoAnimation(void)
 			{
 				if (weaponBusy)
 				{
-					PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUNSIT1, SETANIM_FLAG_NORMAL);
+					PM_SetAnim(pm, SETANIM_TORSO, TORSO_D_PISTOL, SETANIM_FLAG_NORMAL);
 				}
 				else
 				{
