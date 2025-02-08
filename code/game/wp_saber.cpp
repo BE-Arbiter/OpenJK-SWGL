@@ -8427,7 +8427,7 @@ void WP_DropWeapon_Configurable( gentity_t *dropper, vec3_t velocity, bool fromC
 	{
 		if ( oldWeap == WP_THERMAL && !fromConsoleCommand)
 		{
-			dropper->client->ps.ammo[weaponData[oldWeap].ammoIndex] -= weaponData[oldWeap].energyPerShot;
+			dropper->client->ps.ammo[weaponData[oldWeap].ammoIndex] -= weaponData[oldWeap].attackData[0].energyPerShot;
 		}
 		else
 		{

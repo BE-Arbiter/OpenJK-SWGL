@@ -113,7 +113,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 
 	if ( weaponInfo->weaponModel == 0 )
 	{
-		CG_Error( "Couldn't find weapon model %s for weapon %s(%d)\n", currWeaponMdl, weaponData[weaponNum].classname,weaponNum);
+		CG_Error( "Couldn't find weapon model '%s' for weapon %s(%d)\n", currWeaponMdl, weaponData[weaponNum].classname,weaponNum);
 		return;
 	}
 

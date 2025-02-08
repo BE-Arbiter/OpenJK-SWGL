@@ -200,8 +200,6 @@ typedef struct weaponData_s
 	qboolean secondaryMdl;
 	qboolean playerUsable;
 	weaponCategory_t weaponCategory;
-	char	descriptionKey[128];
-	char	nameKey[128];
 
 } weaponData_t;
 

@@ -107,48 +107,38 @@ void WPN_FuncSkip(const char** holdBuf)
 	SkipRestOfLine(holdBuf);
 }
 
-void WPN_WeaponType( const char **holdBuf)
+//--------------------------------------------
+void WPN_WeaponClass(const char **holdBuf)
 {
 	int i;
+	char weaponClass[32];
 	int weaponNum;
-	const char	*tokenStr;
 
-	if (COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
+	ParseStr(holdBuf, weaponClass, 32, "weaponclass");
 
 	for (i = 0;i < numHcWeaponIndexes;i++)
 	{
-		if (!Q_stricmp(tokenStr, _weaponIndexes[i].weaponClass))
+		if (!Q_stricmp(weaponClass, _weaponIndexes[i].weaponClass))
 		{
 			weaponNum = _weaponIndexes[i].index;
 			break;
 		}
 	}
-
 	if (i == numHcWeaponIndexes)	// !Find parameter
 	{
 		if (weaponCount >= MAX_WEAPONS) {
 			weaponNum = 0;
-			gi.Printf(S_COLOR_YELLOW"WARNING: too many weapons in external weapon data(%d); Parsing '%s'\n", MAX_WEAPONS, tokenStr);
+			gi.Printf(S_COLOR_YELLOW"WARNING: too many weapons in external weapon data(%d); Parsing '%s'\n", MAX_WEAPONS, weaponClass);
 		}
 		weaponNum = weaponCount;
 		weaponCount++;
-		Com_Printf(S_COLOR_CYAN"Dynamic Weapon found : %s\n", tokenStr);
 	}
-	
+
 	wpnParms.weaponNum = weaponNum;
 
-	weaponIndexes[weaponNum].index = weaponNum;
-	strcpy(weaponIndexes[weaponNum].weaponClass, tokenStr);
-	
-}
+	Q_strncpyz(weaponData[weaponNum].classname, weaponClass, 32);
 
-//--------------------------------------------
-void WPN_WeaponClass(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].classname, 32, "weaponclass");
+	weaponIndexes[weaponNum].index = weaponNum;
 }
 
 
@@ -788,12 +778,6 @@ void WPN_WeaponCategory(const char** holdBuf)
 }
 
 //--------------------------------------------
-void WPN_DescriptionKey(const char** holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].descriptionKey, 128, "descriptionKey");
-}
-
-//--------------------------------------------
 static void WP_ParseParms(const char *buffer)
 {
 	const char	*holdBuf;
@@ -854,7 +838,6 @@ void WP_LoadWeaponParms (void)
 		weaponData[i].attackData[1].mVelocity = defaultsWeaponSpeed[i][1];
 		weaponData[i].weaponCategory = defaultWeaponType[i];
 		strcpy(weaponData[i].classname, _weaponIndexes[i].weaponClass);
-		strcpy(weaponData[i].descriptionKey, defaultDescriptionKeys[i]);
 	}
 	//put in the qunset flag for playerUsable since 0 = false;
 	for (int i = numHcWeaponIndexes; i < MAX_WEAPONS ; i++) {
