@@ -503,7 +503,7 @@ const weaponCategory_t defaultWeaponType[] = {
 	WC_NONE,//WP_ATST_SIDE,
 
 	// These can never be gotten directly by the player
-	WC_MELEE_1H,//WP_STUN_BATON,		// stupid weapon, should remove
+	WC_STUN_BATON,//WP_STUN_BATON,		// Putting WC_MELEE_1H make it like the gaffi stick...
 
 	//NPC weapons
 	WC_PISTOL,//WP_BRYAR_PISTOL,	// NPC weapon - player can pick this up, but never starts with them
