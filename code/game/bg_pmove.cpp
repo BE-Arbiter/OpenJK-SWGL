@@ -13193,6 +13193,8 @@ static int PM_DoChargingAmmoUsage( int *amount )
 	int count = 0;
 	int weapon = pm->ps->weapon;
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+	int weaponCount = CG_PlayerIsDualWielding(weapon) ? 2 : 1;
+
 	if (baseWeapon == WP_BOWCASTER && !( pm->cmd.buttons & BUTTON_ALT_ATTACK ))
 	{
 		// this code is duplicated ( I know, I know ) in G_weapon.cpp for the bowcaster alt-fire
@@ -13212,6 +13214,8 @@ static int PM_DoChargingAmmoUsage( int *amount )
 			// if we aren't odd, knock us down a level
 			count--;
 		}
+
+		count *= weaponCount;
 
 		// Only bother with these checks if we don't have infinite ammo
 		if ( pm->ps->ammo[ weaponData[weapon].ammoIndex ] != -1 )
@@ -13252,6 +13256,8 @@ static int PM_DoChargingAmmoUsage( int *amount )
 			count = 5;
 		}
 
+		count *= weaponCount;
+
 		// Only bother with these checks if we don't have infinite ammo
 		if ( pm->ps->ammo[ weaponData[weapon].ammoIndex ] != -1 )
 		{
@@ -13289,6 +13295,8 @@ static int PM_DoChargingAmmoUsage( int *amount )
 		{
 			count = 3;
 		}
+
+		count *= weaponCount;
 
 		// Only bother with these checks if we don't have infinite ammo
 		if ( pm->ps->ammo[ weaponData[weapon].ammoIndex ] != -1 )
@@ -13881,7 +13889,7 @@ static void PM_Weapon( void )
 		{
 			if (pm->gent && pm->gent->weaponModel[1] > 0)
 			{//dual pistols
-				PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUNSIT1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_D_PISTOL, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 			}
 			else
 			{//single pistol

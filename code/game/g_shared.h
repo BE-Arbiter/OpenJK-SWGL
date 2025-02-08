@@ -257,6 +257,8 @@ public:
 	//
 	vec3_t		muzzlePoint;
 	vec3_t		muzzleDir;
+	vec3_t		muzzlePoint2;
+	vec3_t		muzzleDir2;
 	vec3_t		muzzlePointOld;
 	vec3_t		muzzleDirOld;
 	//vec3_t		muzzlePointNext;	// Muzzle point one server frame in the future!

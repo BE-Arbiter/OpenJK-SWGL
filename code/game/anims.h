@@ -1754,6 +1754,7 @@ typedef enum //# animNumber_e
 
 	//New anim as per Jarrod's request
 	LEGS_TURN180,
+	BOTH_D_PISTOL,
 
 	//======================================================
 	//cinematic anims

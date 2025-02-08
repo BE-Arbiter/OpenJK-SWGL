@@ -34,7 +34,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "../cgame/cg_local.h"
 
 vec3_t	forwardVec, vrightVec, up;
-vec3_t	muzzle;
+vec3_t	muzzle,muzzle2;
 gentity_t *ent_list[MAX_GENTITIES];
 extern cvar_t	*g_debugMelee;
 
@@ -445,8 +445,12 @@ qboolean LogAccuracyHit( gentity_t *target, gentity_t *attacker ) {
 	return qtrue;
 }
 
+void CalcMuzzlePoint_Configurable(gentity_t* const ent, vec3_t forwardVec, vec3_t right, vec3_t up, vec3_t muzzlePoint, float lead_in,qboolean secondOne);
+void CalcMuzzlePoint(gentity_t* const ent, vec3_t forwardVec, vec3_t right, vec3_t up, vec3_t muzzlePoint, float lead_in) {
+	return CalcMuzzlePoint_Configurable(ent, forwardVec, right, up, muzzlePoint, lead_in, qfalse);
+}
 //---------------------------------------------------------
-void CalcMuzzlePoint( gentity_t *const ent, vec3_t forwardVec, vec3_t right, vec3_t up, vec3_t muzzlePoint, float lead_in )
+void CalcMuzzlePoint_Configurable( gentity_t *const ent, vec3_t forwardVec, vec3_t right, vec3_t up, vec3_t muzzlePoint, float lead_in, qboolean secondOne)
 //---------------------------------------------------------
 {
 	vec3_t		org;
@@ -458,7 +462,12 @@ void CalcMuzzlePoint( gentity_t *const ent, vec3_t forwardVec, vec3_t right, vec
 		{
 			if ( ent->client->renderInfo.mPCalcTime >= level.time - FRAMETIME*2 )
 			{//Our muzz point was calced no more than 2 frames ago
-				VectorCopy(ent->client->renderInfo.muzzlePoint, muzzlePoint);
+				if (!secondOne) {
+					VectorCopy(ent->client->renderInfo.muzzlePoint, muzzlePoint);
+				}
+				else {
+					VectorCopy(ent->client->renderInfo.muzzlePoint2,muzzlePoint);
+				}
 				return;
 			}
 		}
@@ -1215,6 +1224,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 {
 	float alert = 256;
 	Vehicle_t *pVeh = NULL;
+	int weaponNum = ent->s.weapon;
 
 	// track shots taken for accuracy tracking.
 	ent->client->ps.persistant[PERS_ACCURACY_SHOTS]++;
@@ -1403,18 +1413,16 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 		else
 		{
 			CalcMuzzlePoint ( ent, forwardVec, vrightVec, up, muzzle , 0);
+			if (weaponData[weaponNum].weaponCategory == WC_PISTOL && ent->weaponModel[1] > 0) {
+				CalcMuzzlePoint_Configurable(ent, forwardVec, vrightVec,up, muzzle2, 0, qtrue);
+			}
 		}
 	}
 
 	// fire the specific weapon
 
-	int weaponNum = ent->s.weapon;
-	int weaponDataNum = weaponNum;
-	if (weaponData[weaponNum].baseWeaponNum) {
-		weaponNum = weaponData[weaponNum].baseWeaponNum;
-	}
-
-	switch(weaponNum)
+	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
+	switch(baseWeaponNum)
 	{
 	// Player weapons
 	//-----------------
