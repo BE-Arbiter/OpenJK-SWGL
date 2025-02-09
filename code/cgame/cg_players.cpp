@@ -7955,7 +7955,7 @@ void CG_Player( centity_t *cent ) {
 	clientInfo_t	*ci;
 	qboolean		shadow, staticScale = qfalse;
 	float			shadowPlane;
-	const weaponData_t  *wData = NULL;
+	weaponData_t  *wData = NULL;
 
 	if ( cent->currentState.eFlags & EF_NODRAW )
 	{
@@ -8891,15 +8891,13 @@ SkipTrueView:
 				{
 
 					qboolean getBoth = qfalse;
-					qboolean charging = qfalse;
 					int	oldOne = 0;
-					if ( cent->muzzleFlashTime > 0 && wData && !(cent->currentState.eFlags & EF_LOCKED_TO_WEAPON ))
-					{//we need to get both muzzles since we're toggling and we fired recently
+					if ( (cent->muzzleFlashTime > 0 && wData && !(cent->currentState.eFlags & EF_LOCKED_TO_WEAPON )) //TOGGLING Case
+						|| (cent->gent->client->ps.weaponstate == WEAPON_CHARGING || cent->gent->client->ps.weaponstate == WEAPON_CHARGING_ALT) //Charge Case
+						|| CG_IsChargedAttack(cent)  //Firing both weapon at the same time
+						)
+					{
 						getBoth = qtrue;
-						oldOne = (cent->gent->count)?0:1;
-					}
-					if (cent->gent->client->ps.weaponstate == WEAPON_CHARGING || cent->gent->client->ps.weaponstate == WEAPON_CHARGING_ALT) {
-						charging = qtrue;
 						oldOne = (cent->gent->count) ? 0 : 1;
 					}
 					if ( ( cent->gent->weaponModel[cent->gent->count] != -1)
@@ -8914,7 +8912,7 @@ SkipTrueView:
 						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, NEGATIVE_Y, cent->gent->client->renderInfo.muzzleDir );
 					}
 					//Get the other one too, if need be, and store it in muzzle2
-					if ( ( getBoth || charging)
+					if ( ( getBoth)
 						&& ( cent->gent->weaponModel[oldOne] != -1) //have a second weapon
 						&& ( cent->gent->ghoul2.size() > cent->gent->weaponModel[oldOne] ) //have a valid ghoul model index
 						&& ( cent->gent->ghoul2[cent->gent->weaponModel[oldOne]].mModelindex != -1) )//model exists and was loaded
@@ -8976,44 +8974,26 @@ SkipTrueView:
 			// Pick the right effect for the type of weapon we are, defaults to no effect unless explicitly specified
 			else if ( cent->muzzleFlashTime > 0 && wData && !(cent->currentState.eFlags & EF_LOCKED_TO_WEAPON ))
 			{
-				const char *effect = NULL;
+				const char* effect = CG_GetMuzzleEffect(cent, wData);
 
 				cent->muzzleFlashTime  = 0;
 
-				// I declared this variable just for readability.
-				char firing_attack = cent->gent->client->ps.prev_firing_attack;
-
-				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->attackData[0].mMuzzleEffect[0] )
-				{
-					if (firing_attack & ALT_ATTACK)
-					{
-						effect = &wData->attackData[1].mMuzzleEffect[0];
-					}
-					else if (firing_attack & TERTIARY_ATTACK)
-					{
-						effect = &wData->mTertiaryMuzzleEffect[0];
-					}
-					else
-					{	
-						// We need to make sure that the base guns also get their sound.
-						effect = &wData->attackData[0].mMuzzleEffect[0];
-					}
-				}
-
-				if ( cent->altFire )
-				{
-					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->attackData[1].mMuzzleEffect[0] )
-					{
-						effect = &wData->attackData[1].mMuzzleEffect[0];
-					}
-				}
-
-				if (/*( cent->currentState.eFlags & EF_FIRING || cent->currentState.eFlags & EF_ALT_FIRING ) &&*/ effect )
+				if (effect )
 				{
 					if ( (cent->gent && cent->gent->NPC) || CG_PlayerIsDualWielding(cg.snap->ps.weapon) )
 					{
+
+						if(CG_IsChargedAttack(cent)	) {
+							theFxScheduler.PlayEffect(effect, cent->gent->client->renderInfo.muzzlePoint2,
+								cent->gent->client->renderInfo.muzzleDir2);
+							theFxScheduler.PlayEffect(effect, cent->gent->client->renderInfo.muzzlePoint,
+								cent->gent->client->renderInfo.muzzleDir);
+							//Fixme : The way the game handle stopping the looping effect is to replace the old effect on the new one.
+							//Ideally we should use G_SoundOnEnt(gentity_t* ent, soundChannel_t channel, const char* soundPath);
+							//With a "empty" sound so that it doens't play the sound a third time and place a redudant effect.
+							theFxScheduler.PlayEffect(effect, cent->currentState.clientNum);
+
+						}
 						if ( !VectorCompare(cent->gent->client->renderInfo.muzzlePoint2, vec3_origin )
 							&& !VectorCompare(cent->gent->client->renderInfo.muzzleDir2, vec3_origin ) )
 						{//we have an old muzzlePoint we want to use
@@ -9022,8 +9002,8 @@ SkipTrueView:
 						}
 						else
 						{//use the current one
-							theFxScheduler.PlayEffect( effect, cent->gent->client->renderInfo.muzzlePoint,
-														cent->gent->client->renderInfo.muzzleDir );
+							theFxScheduler.PlayEffect(effect, cent->gent->client->renderInfo.muzzlePoint,
+								cent->gent->client->renderInfo.muzzleDir);
 						}
 					}
 					else

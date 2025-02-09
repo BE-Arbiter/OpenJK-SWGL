@@ -1017,6 +1017,48 @@ void CG_SetGhoul2InfoRef( refEntity_t *ent, refEntity_t	*s1)
 	VectorCopy( s1->angles, ent->angles);
 }
 
+qboolean CG_IsChargedAttack(centity_t* cent) {
+	int weaponNum = cent->gent->s.weapon;
+	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
+	if ((baseWeaponNum == WP_BRYAR_PISTOL && cent->altFire)
+		|| (baseWeaponNum == WP_BLASTER_PISTOL && cent->altFire)
+		|| (baseWeaponNum == WP_DEMP2 && cent->altFire)
+		|| (baseWeaponNum == WP_BOWCASTER)
+		) {
+		return qtrue;
+	}
+	return qfalse;
+}
+
+char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData) {
+	char* effect = NULL;
+
+	// I declared this variable just for readability.
+	char firing_attack = cent->gent->client->ps.prev_firing_attack;
+
+	// Try and get a default muzzle so we have one to fall back on
+	if (firing_attack & ALT_ATTACK && wData->attackData[1].mMuzzleEffect[0])
+	{
+		effect = &wData->attackData[1].mMuzzleEffect[0];
+	}
+	else if (firing_attack & TERTIARY_ATTACK && wData->mTertiaryMuzzleEffect)
+	{
+		effect = &wData->mTertiaryMuzzleEffect[0];
+	}
+	else if (wData->attackData[0].mMuzzleEffect[0])
+	{
+		// We need to make sure that the base guns also get their sound.
+		effect = &wData->attackData[0].mMuzzleEffect[0];
+	}
+
+
+	if (cent->altFire && wData->attackData[1].mMuzzleEffect[0])
+	{
+		effect = &wData->attackData[1].mMuzzleEffect[0];
+	}
+
+	return effect;
+}
 
 //--------------------------------------------------------------------------
 static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponData_t *wData )
@@ -1025,41 +1067,9 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 	if ( cent->muzzleFlashTime > 0 )
 	{
 		cent->muzzleFlashTime  = 0;
-		const char *effect = NULL;
-
-		// I declared this variable just for readability.
-		char firing_attack = cent->gent->client->ps.prev_firing_attack;
-
-//		CG_PositionEntityOnTag( &flash, &gun, gun.hModel, "tag_flash");
-
-		// Try and get a default muzzle so we have one to fall back on
-		if ( wData->attackData[0].mMuzzleEffect[0] )
-		{
-			if (firing_attack & ALT_ATTACK)
-			{
-				effect = &wData->attackData[1].mMuzzleEffect[0];
-			}
-			else if (firing_attack & TERTIARY_ATTACK)
-			{
-				effect = &wData->mTertiaryMuzzleEffect[0];
-			}
-			else
-			{	
-				// We need to make sure that the base guns also get their sound.
-				effect = &wData->attackData[0].mMuzzleEffect[0];
-			}
-		}
-
-		if ( cent->altFire )
-		{
-			// We're alt-firing, so see if we need to override with a custom alt-fire effect
-			if ( wData->attackData[1].mMuzzleEffect[0] )
-			{
-				effect = &wData->attackData[1].mMuzzleEffect[0];
-			}
-		}
-
-		if (/*( cent->currentState.eFlags & EF_FIRING || cent->currentState.eFlags & EF_ALT_FIRING ) &&*/ effect )
+		
+		const char* effect = CG_GetMuzzleEffect(cent, wData);
+		if (effect)
 		{
 			if (( cent->gent && cent->gent->NPC ) || cg.renderingThirdPerson )
 			{
@@ -1071,10 +1081,10 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 				theFxScheduler.PlayEffect( effect, cent->currentState.clientNum );
 			}
 		}
-	}
-	else
-	{
-//		CG_PositionRotatedEntityOnTag( &flash, &gun, weapon->weaponModel, "tag_flash", NULL);
+		else
+		{
+			Com_Printf(S_COLOR_YELLOW"Warning : Muzzle for %s for weapon '%s', didn't found any effect to play\n", cent->altFire ? "main fire" : "alt fire", wData->classname);
+		}
 	}
 }
 
