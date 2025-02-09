@@ -8991,7 +8991,8 @@ SkipTrueView:
 							//Fixme : The way the game handle stopping the looping effect is to replace the old effect on the new one.
 							//Ideally we should use G_SoundOnEnt(gentity_t* ent, soundChannel_t channel, const char* soundPath);
 							//With a "empty" sound so that it doens't play the sound a third time and place a redudant effect.
-							theFxScheduler.PlayEffect(effect, cent->currentState.clientNum);
+							//G_SoundOnEnt(cent->gent, CHAN_WEAPON, "sound/null.wav");
+							theFxScheduler.PlayEffect("misc/blank", cent->currentState.clientNum);
 
 						}
 						if ( !VectorCompare(cent->gent->client->renderInfo.muzzlePoint2, vec3_origin )

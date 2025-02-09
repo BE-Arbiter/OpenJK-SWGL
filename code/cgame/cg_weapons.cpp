@@ -247,6 +247,10 @@ void CG_RegisterWeapon( int weaponNum ) {
 		weaponInfo->alt_missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].attackData[1].missileFunc;
 	}
 
+	if (!cgs.effects.blankEffect) {
+		cgs.effects.blankEffect = theFxScheduler.RegisterEffect("misc/blank");
+	}
+
 	int baseWeaponNum = weaponNum;
 	if (weaponData[weaponNum].baseWeaponNum) {
 		baseWeaponNum = weaponData[weaponNum].baseWeaponNum;
