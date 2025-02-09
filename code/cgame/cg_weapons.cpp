@@ -1027,7 +1027,7 @@ qboolean CG_IsChargedAttack(centity_t* cent) {
 	if ((baseWeaponNum == WP_BRYAR_PISTOL && cent->altFire)
 		|| (baseWeaponNum == WP_BLASTER_PISTOL && cent->altFire)
 		|| (baseWeaponNum == WP_DEMP2 && cent->altFire)
-		|| (baseWeaponNum == WP_BOWCASTER)
+		|| (baseWeaponNum == WP_BOWCASTER && !cent->altFire)
 		) {
 		return qtrue;
 	}
