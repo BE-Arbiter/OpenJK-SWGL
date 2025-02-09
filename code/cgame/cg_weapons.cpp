@@ -1612,7 +1612,7 @@ Allows user to cycle through the various weapons currently owned and view the de
 void CG_DrawDataPadWeaponSelect( void )
 {
 	int				i;
-	int				weaponCount,weaponSelectI;
+	int				ownedWeaponCount,weaponSelectI;
 	float			holdX;
 	int				sideLeftIconCnt,sideRightIconCnt;
 	int				holdCount,iconCnt;
@@ -1623,16 +1623,16 @@ void CG_DrawDataPadWeaponSelect( void )
 	cg.itemPickupTime = 0;
 
 	// count the number of weapons owned
-	weaponCount = 0;
+	ownedWeaponCount = 0;
 	for ( i = 1 ; i < weaponCount ; i++ )
 	{
 		if ( cg.snap->ps.weapons[i] )
 		{
-			weaponCount++;
+			ownedWeaponCount++;
 		}
 	}
 
-	if (weaponCount == 0)	// If no weapons, don't display
+	if (ownedWeaponCount == 0)	// If no weapons, don't display
 	{
 		return;
 	}
@@ -1640,13 +1640,13 @@ void CG_DrawDataPadWeaponSelect( void )
 	const short sideMax = 3;	// Max number of icons on the side
 
 	// Calculate how many icons will appear to either side of the center one
-	holdCount = weaponCount - 1;	// -1 for the center icon
+	holdCount = ownedWeaponCount - 1;	// -1 for the center icon
 	if (holdCount == 0)			// No icons to either side
 	{
 		sideLeftIconCnt = 0;
 		sideRightIconCnt = 0;
 	}
-	else if (weaponCount > (2*sideMax))	// Go to the max on each side
+	else if (ownedWeaponCount > (2*sideMax))	// Go to the max on each side
 	{
 		sideLeftIconCnt = sideMax;
 		sideRightIconCnt = sideMax;
@@ -1695,7 +1695,7 @@ void CG_DrawDataPadWeaponSelect( void )
 	holdX = centerXPos - ((bigIconSize_x / 2) + bigPad + smallIconSize_x);
 
 	cgi_R_SetColor( colorTable[CT_WHITE] );
-	for (iconCnt=1;iconCnt<(sideLeftIconCnt+1);weaponSelectI--)
+	for (iconCnt=1 ; iconCnt <= sideLeftIconCnt ; weaponSelectI-- )
 	{
 		if ( weaponSelectI == WP_CONCUSSION )
 		{
@@ -1738,7 +1738,7 @@ void CG_DrawDataPadWeaponSelect( void )
 				CG_DrawPic(holdX, graphicYPos, smallIconSize_x, smallIconSize_y, weaponInfo->weaponIcon);
 			}
 
-			holdX += (smallIconSize_x + pad);
+			holdX -= (smallIconSize_x + pad);
 		}
 
 		if ( weaponSelectI == WP_CONCUSSION )
@@ -1830,7 +1830,7 @@ void CG_DrawDataPadWeaponSelect( void )
 			}
 
 
-			holdX -= (smallIconSize_x + pad);
+			holdX += (smallIconSize_x + pad);
 		}
 		if ( weaponSelectI == WP_CONCUSSION )
 		{
@@ -1849,9 +1849,9 @@ void CG_DrawDataPadWeaponSelect( void )
 		void;
 	}
 	//Dynamic Weapons
-	else
+	else if(!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.DataPadWeaponSelect].classname), text, sizeof(text)))
 	{
-		cgi_SP_GetStringTextString(va("%s_DESC", bg_itemlist[cg.DataPadWeaponSelect - 1].classname), text, sizeof(text));
+		Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
 	}
 
 	if (text[0])
