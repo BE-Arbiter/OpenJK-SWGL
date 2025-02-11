@@ -870,7 +870,6 @@ void WP_LoadWeaponParms (void)
 		weaponData[i].attackData[1].spread = defaultsWeaponSpread[i][1];
 		weaponData[i].weaponCategory = defaultWeaponType[i];
 		strcpy(weaponData[i].classname, _weaponIndexes[i].weaponClass);
-		strcpy(weaponData[i].descriptionKey, defaultDescriptionKeys[i]);
 	}
 	//put in the qunset flag for playerUsable since 0 = false;
 	for (int i = numHcWeaponIndexes; i < MAX_WEAPONS ; i++) {
