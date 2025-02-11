@@ -794,7 +794,7 @@ void IT_LoadItemParms (void)
 	int		fileNameSize;
 
 	//Read all the externals file
-	fileCount = gi.FS_GetFileList("ext_data/ext_items/", ".dat", weaponFileList, sizeof(weaponFileList));
+	fileCount = gi.FS_GetFileList("ext_data/", ".itm", weaponFileList, sizeof(weaponFileList));
 
 	holdChar = weaponFileList;
 
@@ -807,7 +807,7 @@ void IT_LoadItemParms (void)
 		char* fileBuffer;
 		int fileLen;
 
-		fileLen = gi.FS_ReadFile(va("ext_data/ext_items/%s", holdChar), (void**)&fileBuffer);
+		fileLen = gi.FS_ReadFile(va("ext_data/%s", holdChar), (void**)&fileBuffer);
 
 		if (fileLen == -1)
 		{
