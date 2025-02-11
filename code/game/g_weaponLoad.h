@@ -234,6 +234,8 @@ void WPN_WeaponModel2(const char** holdBuf);
 void WPN_BaseWeapon(const char** holdBuf);
 void WPN_Velocity(const char** holdBuf);
 void WPN_AltVelocity(const char** holdBuf);
+void WPN_Spread(const char** holdBuf);
+void WPN_AltSpread(const char** holdBuf);
 void WPN_PlayerUsable(const char** holdBuf);
 void WPN_WeaponCategory(const char** holdBuf);
 void WPN_DescriptionKey(const char** holdBuf);
@@ -314,6 +316,8 @@ wpnParms_t WpnParms[] =
 	{ "baseweapon",			WPN_BaseWeapon },
 	{ "velocity",			WPN_Velocity },
 	{ "altVelocity",		WPN_AltVelocity },
+	{ "spread",				WPN_Spread },
+	{ "altSpread",			WPN_AltSpread },
 	{ "playerUsable",		WPN_PlayerUsable },
 	{ "weaponCategory",			WPN_WeaponCategory },
 	{ "descriptionKey",		WPN_DescriptionKey},
@@ -372,6 +376,49 @@ float defaultsWeaponSpeed[][2] =
 	{ CLONEPISTOL_VELOCITY, CLONEPISTOL_VELOCITY },// WP_CLONEPISTOL
 };
 
+float defaultsWeaponSpread[][2] =
+{
+	{ 0,0 },//WP_NONE,
+	{ 0,0 },//WP_SABER,				 // NOTE: lots of code assumes this is the first weapon (... which is crap) so be careful -Ste.
+	{ 0,0 },//WP_BLASTER_PISTOL,
+	{ BLASTER_MAIN_SPREAD,BLASTER_ALT_SPREAD },//WP_BLASTER,
+	{ 0,0 },//WP_DISRUPTOR,
+	{ 0,BOWCASTER_ALT_SPREAD },//WP_BOWCASTER,
+	{ REPEATER_SPREAD,0 },//WP_REPEATER,
+	{ 0,0 },//WP_DEMP2,
+	{ FLECHETTE_SPREAD,0 },//WP_FLECHETTE,
+	{ 0,0 },//WP_ROCKET_LAUNCHER,
+	{ 0,0 },//WP_THERMAL,
+	{ 0,0 },//WP_TRIP_MINE,
+	{ 0,0 },//WP_DET_PACK,
+	{ 0,0 },//WP_CONCUSSION,
+	{ 0,0 },//WP_MELEE,			// Any ol' melee attack
+	{ 0,0 },//WP_STUN_BATON,
+	{ 0,0 },//WP_BRYAR_PISTOL,
+	{ 0,0 },//WP_EMPLACED_GUN,
+	{ 0,0 },//WP_BOT_LASER,		// Probe droid	- Laser blast
+	{ 0,0 },//WP_TURRET,			// turret guns
+	{ 0,0 },//WP_ATST_MAIN,
+	{ 0,0 },//WP_ATST_SIDE,
+	{ 0,0 },//WP_TIE_FIGHTER,
+	{ 0,0 },//WP_RAPID_FIRE_CONC,
+	{ 0,0 },//WP_JAWA,
+	{ 0,0 },//WP_TUSKEN_RIFLE,
+	{ 0,0 },//WP_TUSKEN_STAFF,
+	{ 0,0 },//WP_SCEPTER,
+	{ 0,0 },//WP_NOGHRI_STICK,
+	{ E5_MAIN_SPREAD, E5_ALT_SPREAD }, // WP_BATTLEDROID,
+	{ F_11D_MAIN_SPREAD, F_11D_ALT_SPREAD },// WP_THEFIRSTORDER,
+	{ CLONECARBINE_MAIN_SPREAD, CLONECARBINE_ALT_SPREAD },// WP_CLONECARBINE,
+	{ CLONERIFLE_MAIN_SPREAD, CLONERIFLE_ALT_SPREAD },// WP_CLONERIFLE
+	{ REBELBLASTER_MAIN_SPREAD, REBELBLASTER_ALT_SPREAD },// WP_REBELBLASTER
+	{ CLONECOMMANDO_MAIN_SPREAD, CLONECOMMANDO_MAIN_SPREAD },// WP_CLONECOMMANDO
+	{ REBELRIFLE_MAIN_SPREAD, REBELRIFLE_ALT_SPREAD },// WP_REBELRIFLE
+	{ 0,0 },//WP_REY,
+	{ JANGO_MAIN_SPREAD, JANGO_ALT_SPREAD },// WP_JANGO
+	{ BOBA_MAIN_SPREAD, BOBA_ALT_SPREAD },// WP_BOBA
+	{ CLONEPISTOL_MAIN_SPREAD, CLONEPISTOL_ALT_SPREAD },// WP_CLONEPISTOL
+};
 
 const char* defaultDescriptionKeys[WP_HC_NUM_WEAPONS] =
 {

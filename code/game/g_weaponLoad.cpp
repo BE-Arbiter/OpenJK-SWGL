@@ -737,6 +737,20 @@ void WPN_AltVelocity(const char** holdBuf)
 
 //--------------------------------------------
 
+void WPN_Spread(const char** holdBuf)
+{
+	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].spread);
+}
+
+//--------------------------------------------
+
+void WPN_AltSpread(const char** holdBuf)
+{
+	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].spread);
+}
+
+//--------------------------------------------
+
 void WPN_PlayerUsable(const char** holdBuf)
 {
 	int tokenInt;
@@ -852,6 +866,8 @@ void WP_LoadWeaponParms (void)
 		weaponData[i].playerUsable = defaultPlayerUsable[i];
 		weaponData[i].attackData[0].mVelocity = defaultsWeaponSpeed[i][0];
 		weaponData[i].attackData[1].mVelocity = defaultsWeaponSpeed[i][1];
+		weaponData[i].attackData[0].spread = defaultsWeaponSpread[i][0];
+		weaponData[i].attackData[1].spread = defaultsWeaponSpread[i][1];
 		weaponData[i].weaponCategory = defaultWeaponType[i];
 		strcpy(weaponData[i].classname, _weaponIndexes[i].weaponClass);
 		strcpy(weaponData[i].descriptionKey, defaultDescriptionKeys[i]);
@@ -970,6 +986,7 @@ void WP_LoadWeaponParms (void)
 				weaponData[i].attackData[k].splashDamage = weaponData[i].attackData[k].splashDamage == 0 ? weaponData[j].attackData[k].splashDamage : weaponData[i].attackData[k].splashDamage;
 				weaponData[i].attackData[k].splashRadius = weaponData[i].attackData[k].splashRadius == 0 ? weaponData[j].attackData[k].splashRadius : weaponData[i].attackData[k].splashRadius;
 				weaponData[i].attackData[k].mVelocity = weaponData[i].attackData[k].mVelocity == 0 ? weaponData[j].attackData[k].mVelocity : weaponData[i].attackData[k].mVelocity;
+				weaponData[i].attackData[k].spread = weaponData[i].attackData[k].spread == 0 ? weaponData[j].attackData[k].spread : weaponData[i].attackData[k].spread;
 
 				if (weaponData[i].attackData[k].firingSnd[0] == 0) {
 					strcpy(weaponData[i].attackData[k].firingSnd,weaponData[j].attackData[k].firingSnd);

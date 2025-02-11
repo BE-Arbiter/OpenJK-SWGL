@@ -141,6 +141,7 @@ typedef struct weaponAttackData_s
 	int		energyPerShot;		// Amount of energy used per shot
 	int		fireTime;			// Amount of time between firings
 	int		range;				// Range of weapon
+	float 	spread;				// Accuracy of shots
 	
 	char	missileMdl[64];		// Missile Model
 	char	missileSound[64];	// Missile flight sound
@@ -153,10 +154,10 @@ typedef struct weaponAttackData_s
 	int		mMuzzleEffectID;
 	char	projectileEffect[64];
 	
-	int		damage;
-	int		splashDamage;
-	float	splashRadius;
-	float	mVelocity;
+	int		damage;				// Damage per shot
+	int		splashDamage;		// Splash damage when shot explodes
+	float	splashRadius;		// Splash radius when shot explodes
+	float	mVelocity;			// Speed of missile
 } weaponAttackData_t;
 
 #define MAX_WEAPON_ATTACKS 2
