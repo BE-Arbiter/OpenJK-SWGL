@@ -33,7 +33,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define	GIB_HEALTH			-40
 #define	ARMOR_PROTECTION	0.40
 
-#define	MAX_ITEMS			128
+#define	MAX_ITEMS			MAX_WEAPONS+64
 
 #define	RANK_TIED_FLAG		0x4000
 

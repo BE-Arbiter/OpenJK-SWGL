@@ -263,32 +263,34 @@ FindItemForWeapon
 ===============
 */
 extern void InitItemForWeapon(gitem_t* item, int weaponNum);
-gitem_t	*FindItemForWeapon( int weaponNum ) {
+gitem_t* FindItemForWeapon(int weaponNum) {
 	int		i;
 	gitem_t* item = NULL;
 
-	for ( i = 1 ; i < bg_numItems ; i++ ) {
-		if ( (bg_itemlist[i].giType == IT_WEAPON && bg_itemlist[i].giTag == weaponNum)
-				|| (bg_itemlist[i].giType == IT_WEAPON && bg_itemlist[i].giTag == -1 && !Q_stricmp(bg_itemlist[i].giTagName, weaponData[weaponNum].classname))){
-			item = &bg_itemlist[i];
-			break;
+	// find the weapon in the item list
+	for (i = 1; i < bg_numItems; i++) {
+		item = &(bg_itemlist[i]);
+		if ((item->giType == IT_WEAPON && item->giTag == weaponNum)
+			|| (item->giType == IT_WEAPON && item->giTag == -1 && !Q_stricmp(item->giTagName, weaponData[weaponNum].classname))
+			) {
+			//Overwrite correctly the item
+			if (item->giTag == -1) {
+				item->giTag = weaponNum;
+			}
+			//Found it !
+			return item;
 		}
 	}
-	//Overwrite correctly the item
-	if (item && item->giTag == -1) {
-		item->giTag = weaponNum;
-	}
-
+	// if we couldn't find which weapon this is, Create one!
 	if (i == MAX_ITEMS) {
-		Com_Error(ERR_DROP, "Couldn't find item for weapon num %d", weaponNum);
-		return NULL;
+		CG_Error("Too many items in external items data(%d); Cannot create nor found item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
 	}
-
-	//If the player Add a weapon, then load a new level, his loadout could be initialized from last level
-	// Because order was changed...
-	InitItemForWeapon(&bg_itemlist[i], weaponNum);
+	InitItemForWeapon(item, weaponNum);
 	bg_numItems++;
-	return &bg_itemlist[i];
+
+	CG_RegisterItemVisuals(item - bg_itemlist);
+
+	return item;
 }
 
 //----------------------------------------------
