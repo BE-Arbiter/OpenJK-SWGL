@@ -390,7 +390,7 @@ void SV_Init (void) {
 	sv_mapname = Cvar_Get ("mapname", "nomap", CVAR_SERVERINFO | CVAR_ROM);
 
 	// systeminfo
-	Cvar_Get ("helpUsObi", "0", CVAR_SYSTEMINFO );
+	Cvar_Get ("helpUsObi", "1", CVAR_SYSTEMINFO );
 	sv_serverid = Cvar_Get ("sv_serverid", "0", CVAR_SYSTEMINFO | CVAR_ROM );
 
 	// server vars

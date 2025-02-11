@@ -659,7 +659,7 @@ G_InitCvars
 */
 void G_InitCvars( void ) {
 	// don't override the cheat state set by the system
-	g_cheats = gi.cvar ("helpUsObi", "", 0);
+	g_cheats = gi.cvar ("helpUsObi", "1", 0);
 	g_developer = gi.cvar ("developer", "", 0);
 
 	// noset vars
