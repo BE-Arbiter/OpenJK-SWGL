@@ -489,7 +489,7 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other)
 		hadWeapon = qtrue;
 	}
 
-	if (ent->item->giType == IT_DYN_WEAPON)
+	if (!(hadWeapon) && ent->item->giType == IT_DYN_WEAPON)
 	{
 		weaponNum = CG_GetItemGITag(ent->item);
 
