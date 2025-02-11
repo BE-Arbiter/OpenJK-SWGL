@@ -2286,7 +2286,7 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 		return qfalse;
 	}
 
-	if ( cg.weaponSelectTime + 200 > cg.time )
+	if ( cg.weaponSelectTime + 100 > cg.time )
 	{//TEMP standard weapon cycle debounce for E3 because G2 can't keep up with fast weapon changes
 		return qfalse;
 	}
@@ -2733,6 +2733,41 @@ void CG_ChangeWeapon( int num )
 
 /*
 ===============
+CG_CycleWeapon
+
+	Cycle through each weapon of a similar type, loosely based on the original code for cycling through throwables
+===============
+*/
+
+void CG_CycleWeapon(std::vector<int> indexes, int *num) {
+	size_t i, j = 0;
+	int weap = *num;
+	int listSize = indexes.size();
+	for ( i = 0; i < listSize - 1; i++ ) // Ignore last entry, cycles back to the first
+	{
+		if (cg.snap->ps.weapon == indexes[i]) {
+			weap = indexes[i+1]; // We're already on a weapon of the type, cycle to the next one
+			break;
+		}
+	}
+	
+	// prevent an endless loop
+	while ( j <= listSize )
+	{
+		if ( CG_WeaponSelectable( weap, cg.snap->ps.weapon, qfalse ) || weap == WP_DET_PACK ) // Detpack always selectable
+		{
+			*num = weap;
+			break;
+		}
+
+		i = i >= listSize - 1 ? 0 : i+1;
+		weap = indexes[i];
+		j++;
+	}
+}
+
+/*
+===============
 CG_Weapon_f
 ===============
 */
@@ -2740,7 +2775,7 @@ void CG_Weapon_f( void )
 {
 	int		num;
 
-	if ( cg.weaponSelectTime + 200 > cg.time )
+	if ( cg.weaponSelectTime + 100 > cg.time )
 	{
 		return;
 	}
@@ -2835,7 +2870,7 @@ void CG_Weapon_f( void )
 			}
 		}
 	}
-	else if ( num >= WP_THERMAL && num <= WP_DET_PACK ) // these weapons cycle
+	/* else if ( num >= WP_THERMAL && num <= WP_DET_PACK ) // these weapons cycle
 	{
 		int weap, i = 0;
 
@@ -2870,6 +2905,56 @@ void CG_Weapon_f( void )
 			weap++;
 			i++;
 		}
+	} */
+
+	switch (num) {
+		case WP_BLASTER_PISTOL:
+		case WP_BRYAR_PISTOL:
+		case WP_REY:
+		case WP_JANGO:
+		case WP_CLONEPISTOL:
+			CG_CycleWeapon(pistolIndexes, &num);
+			break;
+		case WP_BLASTER:
+		case WP_BATTLEDROID:
+		case WP_THEFIRSTORDER:
+		case WP_CLONECARBINE:
+		case WP_REBELBLASTER:
+		CG_CycleWeapon(blasterIndexes, &num);
+			break;
+		case WP_DISRUPTOR:
+		case WP_TUSKEN_RIFLE:
+		CG_CycleWeapon(sniperIndexes, &num);
+			break;
+		case WP_BOWCASTER:
+		case WP_CLONECOMMANDO:
+		case WP_REBELRIFLE:
+			CG_CycleWeapon(bowcasterIndexes, &num);
+			break;
+		case WP_REPEATER:
+		case WP_CLONERIFLE:
+			CG_CycleWeapon(heavyBlasterIndexes, &num);
+			break;
+		case WP_DEMP2:
+		case WP_NOGHRI_STICK:
+			CG_CycleWeapon(specialistIndexes, &num);
+			break;
+		case WP_FLECHETTE:
+			CG_CycleWeapon(shotgunIndexes, &num);
+			break;
+		case WP_CONCUSSION:
+			CG_CycleWeapon(concRifleIndexes, &num);
+			break;
+		case WP_ROCKET_LAUNCHER:
+			CG_CycleWeapon(rocketLauncherIndexes, &num);
+			break;
+		case WP_THERMAL:
+		case WP_TRIP_MINE:
+		case WP_DET_PACK:
+			CG_CycleWeapon(throwableIndexes, &num);
+			break;
+		default:
+			break;
 	}
 
 	if (!CG_WeaponSelectable(num, cg.snap->ps.weapon, qfalse))

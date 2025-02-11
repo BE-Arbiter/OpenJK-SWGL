@@ -815,6 +815,58 @@ static void WP_ParseParms(const char *buffer)
 
 }
 
+void WP_AddWeaponToTypeIndexes(int weap, int weaponClass) {
+	switch (weaponClass)
+	{
+		case WP_BLASTER_PISTOL:
+		case WP_BRYAR_PISTOL:
+		case WP_REY:
+		case WP_JANGO:
+		case WP_CLONEPISTOL:
+			pistolIndexes.push_back(weap);
+			break;
+		case WP_BLASTER:
+		case WP_BATTLEDROID:
+		case WP_THEFIRSTORDER:
+		case WP_CLONECARBINE:
+		case WP_REBELBLASTER:
+			blasterIndexes.push_back(weap);
+			break;
+		case WP_DISRUPTOR:
+		case WP_TUSKEN_RIFLE:
+			sniperIndexes.push_back(weap);
+			break;
+		case WP_BOWCASTER:
+		case WP_CLONECOMMANDO:
+		case WP_REBELRIFLE:
+			bowcasterIndexes.push_back(weap);
+			break;
+		case WP_REPEATER:
+		case WP_CLONERIFLE:
+			heavyBlasterIndexes.push_back(weap);
+			break;
+		case WP_DEMP2:
+		case WP_NOGHRI_STICK:
+			specialistIndexes.push_back(weap);
+			break;
+		case WP_FLECHETTE:
+			shotgunIndexes.push_back(weap);
+			break;
+		case WP_CONCUSSION:
+			concRifleIndexes.push_back(weap);
+			break;
+		case WP_ROCKET_LAUNCHER:
+			rocketLauncherIndexes.push_back(weap);
+			break;
+		case WP_THERMAL:
+		case WP_TRIP_MINE:
+		case WP_DET_PACK:
+			throwableIndexes.push_back(weap);
+			break;
+		default:
+			break;
+	}
+}
 
 //--------------------------------------------
 void WP_LoadWeaponParms (void)
@@ -902,6 +954,7 @@ void WP_LoadWeaponParms (void)
 	//Get unset data from each weapon which is a copy of another;
 	for (int i = 0; i <  weaponCount; i++) {
 		if (!weaponData[i].baseclass[0]) {
+			WP_AddWeaponToTypeIndexes(i, i);
 			continue;
 		}
 		bool found = false;
@@ -1016,6 +1069,8 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[i].playerUsable;
 			weaponData[i].weaponCategory = weaponData[i].weaponCategory == WC_NONE ? weaponData[j].weaponCategory : weaponData[i].weaponCategory;
 			weaponData[i].baseWeaponNum = j;
+
+			WP_AddWeaponToTypeIndexes(i, j);
 
 			//The first one is the good one...
 			break;
