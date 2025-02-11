@@ -2577,7 +2577,7 @@ CG_SwitchDynWpnMdl_f
 */
 qboolean CG_SwitchDynWpnMdl_f(qboolean nextDynWpn)
 {
-	if (CG_IsWeaponDynamic(cg.weaponSelect) && player->s.weapon == cg.weaponSelect)
+	if (CG_IsWeaponDynamic(cg.weaponSelect))
 	{
 		if (nextDynWpn)
 		{
