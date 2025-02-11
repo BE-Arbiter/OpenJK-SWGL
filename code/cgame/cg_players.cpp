@@ -7953,14 +7953,13 @@ CG_GetMuzzleEffectID
 static int CG_GetMuzzleEffectID(gentity_t *ent)
 {
 	int weaponNum = ent->client->ps.weapon;
-	int dynWpnVal = ent->client->ps.dynWpnVals[weaponNum];
 
-	if (CG_IsDefaultWeaponModel(dynWpnVal))
+	if (CG_IsDefaultWeaponModel(ent, weaponNum))
 	{
 		return weaponData[weaponNum].mMuzzleEffectID;
 	}
 
-	return dynamicWpnData[CG_GetDynWpnNum(weaponNum, dynWpnVal)].mMuzzleEffectID;
+	return dynamicWpnData[CG_GetDynWpnNum(ent)].mMuzzleEffectID;
 }
 
 /*
@@ -7971,14 +7970,13 @@ CG_GetAltMuzzleEffectID
 static int CG_GetAltMuzzleEffectID(gentity_t *ent)
 {
 	int weaponNum = ent->client->ps.weapon;
-	int dynWpnVal = ent->client->ps.dynWpnVals[weaponNum];
 
-	if (CG_IsDefaultWeaponModel(dynWpnVal))
+	if (CG_IsDefaultWeaponModel(ent, weaponNum))
 	{
 		return weaponData[weaponNum].mAltMuzzleEffectID;
 	}
 
-	return dynamicWpnData[CG_GetDynWpnNum(weaponNum, dynWpnVal)].mAltMuzzleEffectID;
+	return dynamicWpnData[CG_GetDynWpnNum(ent)].mAltMuzzleEffectID;
 }
 
 /*

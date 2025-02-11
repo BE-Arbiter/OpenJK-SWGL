@@ -861,7 +861,6 @@ qboolean CG_IsWeaponDynamic(int weaponNum);
 int CG_GetDynWpnNum(int weaponNum, int dynWpnVal);
 int CG_GetDynWpnNum(gentity_t *ent);
 int CG_GetMaxDynWpn(int weaponNum);
-qboolean CG_IsDefaultWeaponModel(int dynWpnVal);
 qboolean CG_IsDefaultWeaponModel(gentity_t *ent, int weaponNum);
 const char *CG_GetCurrentWeaponModel(gentity_t *ent);
 const char *CG_GetCurrentWeaponModel(gentity_t *ent, int weaponNum);

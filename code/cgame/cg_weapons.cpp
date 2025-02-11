@@ -50,13 +50,12 @@ CG_GetWeaponIcon
 */
 static const char *CG_GetWeaponIcon(int weaponNum)
 {
-	int dynWpnVal = player->client->ps.dynWpnVals[weaponNum];
-
-	if (CG_IsDefaultWeaponModel(dynWpnVal))
+	if (CG_IsDefaultWeaponModel(player, weaponNum))
 	{
 		return &weaponData[weaponNum].weaponIcon[0];
 	}
 
+	int dynWpnVal = player->client->ps.dynWpnVals[weaponNum];
 	return &dynamicWpnData[CG_GetDynWpnNum(weaponNum, dynWpnVal)].weaponIcon[0];
 }
 
@@ -70,7 +69,7 @@ static void CG_SetWeaponName(gitem_t *item)
 	int weaponNum = item->giTag;
 	int dynWpnVal = player->client->ps.dynWpnVals[weaponNum];
 
-	if (CG_IsDefaultWeaponModel(dynWpnVal))
+	if (CG_IsDefaultWeaponModel(player, weaponNum))
 	{
 		item->classname = &weaponData[weaponNum].classname[0];
 		return;
@@ -3144,14 +3143,9 @@ int CG_GetMaxDynWpn(int weaponNum)
 CG_IsDefaultWeaponModel
 =======================
 */
-qboolean CG_IsDefaultWeaponModel(int dynWpnVal)
-{
-	return (qboolean)(dynWpnVal == DYN_WP_NONE);
-}
-
 qboolean CG_IsDefaultWeaponModel(gentity_t *ent, int weaponNum)
 {
-	return CG_IsDefaultWeaponModel(ent->client->ps.dynWpnVals[weaponNum]);
+	return (qboolean)(ent->client->ps.dynWpnVals[weaponNum] == DYN_WP_NONE);
 }
 
 /*
@@ -3165,25 +3159,25 @@ Else load whatever dynamic weapon model there is.
 const char *CG_GetCurrentWeaponModel(gentity_t *ent)
 {
 	int weaponNum = ent->client->ps.weapon;
-	int dynWpnVal = ent->client->ps.dynWpnVals[weaponNum];
 
-	if (CG_IsDefaultWeaponModel(dynWpnVal))
+	if (CG_IsDefaultWeaponModel(ent, weaponNum))
 	{
 		return &weaponData[weaponNum].weaponMdl[0];
 	}
 
-	return &dynamicWpnData[CG_GetDynWpnNum(weaponNum, dynWpnVal)].weaponMdl[0];
+	return &dynamicWpnData[CG_GetDynWpnNum(ent)].weaponMdl[0];
 }
 
 // Only used in special cases.
 const char *CG_GetCurrentWeaponModel(gentity_t *ent, int weaponNum)
 {
-	int dynWpnVal = ent->client->ps.dynWpnVals[weaponNum];
-
-	if (CG_IsDefaultWeaponModel(dynWpnVal))
+	if (CG_IsDefaultWeaponModel(ent, weaponNum))
 	{
 		return &weaponData[weaponNum].weaponMdl[0];
 	}
+
+	// Just declared this variable for readability.
+	int dynWpnVal = ent->client->ps.dynWpnVals[weaponNum];
 
 	return &dynamicWpnData[CG_GetDynWpnNum(weaponNum, dynWpnVal)].weaponMdl[0];
 }
@@ -3196,14 +3190,13 @@ CG_GetMuzzleEffect
 const char *CG_GetMuzzleEffect(gentity_t *ent)
 {
 	int weaponNum = ent->client->ps.weapon;
-	int dynWpnVal = ent->client->ps.dynWpnVals[weaponNum];
 
-	if (CG_IsDefaultWeaponModel(dynWpnVal))
+	if (CG_IsDefaultWeaponModel(ent, weaponNum))
 	{
 		return &weaponData[weaponNum].mMuzzleEffect[0];
 	}
 
-	return &dynamicWpnData[CG_GetDynWpnNum(weaponNum, dynWpnVal)].mMuzzleEffect[0];
+	return &dynamicWpnData[CG_GetDynWpnNum(ent)].mMuzzleEffect[0];
 }
 
 /*
@@ -3214,14 +3207,13 @@ CG_GetAltMuzzleEffect
 const char *CG_GetAltMuzzleEffect(gentity_t *ent)
 {
 	int weaponNum = ent->client->ps.weapon;
-	int dynWpnVal = ent->client->ps.dynWpnVals[weaponNum];
 
-	if (CG_IsDefaultWeaponModel(dynWpnVal))
+	if (CG_IsDefaultWeaponModel(ent, weaponNum))
 	{
 		return &weaponData[weaponNum].mAltMuzzleEffect[0];
 	}
 
-	return &dynamicWpnData[CG_GetDynWpnNum(weaponNum, dynWpnVal)].mAltMuzzleEffect[0];
+	return &dynamicWpnData[CG_GetDynWpnNum(ent)].mAltMuzzleEffect[0];
 }
 
 /*
@@ -3318,6 +3310,7 @@ void CG_UpdateSwitchDynWpnMdlCvar(int weaponNum, playerState_t *ps)
 {
 	gi.cvar_set("cg_switchDynWpnMdl", va("%d", ps->dynWpnVals[weaponNum]));
 }
+
 
 
 /*
