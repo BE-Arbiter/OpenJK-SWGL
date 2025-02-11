@@ -782,7 +782,7 @@ void WPN_WeaponCategory(const char** holdBuf)
 	}
 	else {
 		weaponCategory = WC_NONE;
-		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for WeaponType in external WEAPONS.DAT\n", tokenStr);
+		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for WeaponCategory in external WEAPONS.DAT\n", tokenStr);
 	}
 	weaponData[wpnParms.weaponNum].weaponCategory = weaponCategory;
 }
@@ -873,7 +873,7 @@ void WP_LoadWeaponParms (void)
 	int		fileNameSize;
 
 	//Read all the externals file
-	fileCount = gi.FS_GetFileList("ext_data/ext_weapons/", ".dat", weaponFileList, sizeof(weaponFileList));
+	fileCount = gi.FS_GetFileList("ext_data/ext_weapons/", ".wpn", weaponFileList, sizeof(weaponFileList));
 
 	holdChar = weaponFileList;
 
