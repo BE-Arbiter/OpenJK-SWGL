@@ -204,8 +204,9 @@ void WP_FireBattleDroid(gentity_t *ent, qboolean alt_fire)
 void WP_FireFirstOrderMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire)
 //---------------------------------------------------------
 {
-	int velocity = F_11D_VELOCITY;
-	int	damage = altFire ? weaponData[WP_THEFIRSTORDER].attackData[1].damage : weaponData[WP_THEFIRSTORDER].attackData[0].damage;
+	int weapon = ent->s.weapon;
+	int velocity = altFire? weaponData[weapon].attackData[1].mVelocity : weaponData[weapon].attackData[0].mVelocity;
+	int	damage = altFire ? weaponData[weapon].attackData[1].damage : weaponData[weapon].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{
@@ -235,7 +236,7 @@ void WP_FireFirstOrderMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 	gentity_t *missile = CreateMissile(start, dir, velocity, 10000, ent, altFire);
 
 	missile->classname = "blaster_proj";
-	missile->s.weapon = WP_THEFIRSTORDER;
+	missile->s.weapon = weapon;
 
 	// Do the damages
 	if (ent->s.number != 0 && (ent->client->NPC_class != CLASS_BOBAFETT && ent->client->NPC_class != CLASS_MANDALORIAN && ent->client->NPC_class != CLASS_JANGO))
@@ -272,6 +273,11 @@ void WP_FireFirstOrderMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 	missile->bounceCount = 8;
 
 	check_means_of_death(ent, missile, WP_THEFIRSTORDER);
+
+	if (ent->weaponModel[1] > 0)
+	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
+		ent->count = (ent->count) ? 0 : 1;
+	}
 }
 
 //---------------------------------------------------------

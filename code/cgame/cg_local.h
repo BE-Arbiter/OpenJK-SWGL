@@ -838,7 +838,8 @@ void CG_DPPrevInventory_f( void );
 void CG_DPNextForcePower_f( void );
 void CG_DPPrevForcePower_f( void );
 
-
+qboolean CG_IsChargedAttack(centity_t* cent);
+char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData);
 void CG_RegisterWeapon( int weaponNum );
 void CG_RegisterItemVisuals( int itemNum );
 void CG_RegisterItemSounds( int itemNum );

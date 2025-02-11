@@ -345,6 +345,8 @@ typedef struct {
 //--------------------
 typedef struct
 {
+	// Null effect to overwite a charging sound
+	fxHandle_t	blankEffect = 0;
 	// BRYAR PISTOL
 	fxHandle_t	bryarShotEffect;
 	fxHandle_t	bryarPowerupShotEffect;

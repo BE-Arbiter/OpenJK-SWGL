@@ -123,6 +123,7 @@ typedef struct weaponIndexes_s
 typedef enum{
 	WC_NONE, //Only for weapon none else is "unset"
 	WC_MELEE, //Like melee
+	WC_STUN_BATON, //For this specific weapons. Is handled by "other case"
 	WC_MELEE_1H, //Like Saber
 	WC_MELEE_2H, //Like nogri staff
 	WC_PISTOL, // Like bryar
@@ -200,8 +201,6 @@ typedef struct weaponData_s
 	qboolean secondaryMdl;
 	qboolean playerUsable;
 	weaponCategory_t weaponCategory;
-	char	descriptionKey[128];
-	char	nameKey[128];
 
 } weaponData_t;
 

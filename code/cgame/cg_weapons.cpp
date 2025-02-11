@@ -113,7 +113,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 
 	if ( weaponInfo->weaponModel == 0 )
 	{
-		CG_Error( "Couldn't find weapon model %s for weapon %s(%d)\n", currWeaponMdl, weaponData[weaponNum].classname,weaponNum);
+		CG_Error( "Couldn't find weapon model '%s' for weapon %s(%d)\n", currWeaponMdl, weaponData[weaponNum].classname,weaponNum);
 		return;
 	}
 
@@ -245,6 +245,10 @@ void CG_RegisterWeapon( int weaponNum ) {
 	if (weaponData[weaponNum].attackData[1].missileFunc)
 	{
 		weaponInfo->alt_missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].attackData[1].missileFunc;
+	}
+
+	if (!cgs.effects.blankEffect) {
+		cgs.effects.blankEffect = theFxScheduler.RegisterEffect("misc/blank");
 	}
 
 	int baseWeaponNum = weaponNum;
@@ -1017,6 +1021,48 @@ void CG_SetGhoul2InfoRef( refEntity_t *ent, refEntity_t	*s1)
 	VectorCopy( s1->angles, ent->angles);
 }
 
+qboolean CG_IsChargedAttack(centity_t* cent) {
+	int weaponNum = cent->gent->s.weapon;
+	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
+	if ((baseWeaponNum == WP_BRYAR_PISTOL && cent->altFire)
+		|| (baseWeaponNum == WP_BLASTER_PISTOL && cent->altFire)
+		|| (baseWeaponNum == WP_DEMP2 && cent->altFire)
+		|| (baseWeaponNum == WP_BOWCASTER && !cent->altFire)
+		) {
+		return qtrue;
+	}
+	return qfalse;
+}
+
+char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData) {
+	char* effect = NULL;
+
+	// I declared this variable just for readability.
+	char firing_attack = cent->gent->client->ps.prev_firing_attack;
+
+	// Try and get a default muzzle so we have one to fall back on
+	if (firing_attack & ALT_ATTACK && wData->attackData[1].mMuzzleEffect[0])
+	{
+		effect = &wData->attackData[1].mMuzzleEffect[0];
+	}
+	else if (firing_attack & TERTIARY_ATTACK && wData->mTertiaryMuzzleEffect)
+	{
+		effect = &wData->mTertiaryMuzzleEffect[0];
+	}
+	else if (wData->attackData[0].mMuzzleEffect[0])
+	{
+		// We need to make sure that the base guns also get their sound.
+		effect = &wData->attackData[0].mMuzzleEffect[0];
+	}
+
+
+	if (cent->altFire && wData->attackData[1].mMuzzleEffect[0])
+	{
+		effect = &wData->attackData[1].mMuzzleEffect[0];
+	}
+
+	return effect;
+}
 
 //--------------------------------------------------------------------------
 static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponData_t *wData )
@@ -1025,41 +1071,9 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 	if ( cent->muzzleFlashTime > 0 )
 	{
 		cent->muzzleFlashTime  = 0;
-		const char *effect = NULL;
-
-		// I declared this variable just for readability.
-		char firing_attack = cent->gent->client->ps.prev_firing_attack;
-
-//		CG_PositionEntityOnTag( &flash, &gun, gun.hModel, "tag_flash");
-
-		// Try and get a default muzzle so we have one to fall back on
-		if ( wData->attackData[0].mMuzzleEffect[0] )
-		{
-			if (firing_attack & ALT_ATTACK)
-			{
-				effect = &wData->attackData[1].mMuzzleEffect[0];
-			}
-			else if (firing_attack & TERTIARY_ATTACK)
-			{
-				effect = &wData->mTertiaryMuzzleEffect[0];
-			}
-			else
-			{	
-				// We need to make sure that the base guns also get their sound.
-				effect = &wData->attackData[0].mMuzzleEffect[0];
-			}
-		}
-
-		if ( cent->altFire )
-		{
-			// We're alt-firing, so see if we need to override with a custom alt-fire effect
-			if ( wData->attackData[1].mMuzzleEffect[0] )
-			{
-				effect = &wData->attackData[1].mMuzzleEffect[0];
-			}
-		}
-
-		if (/*( cent->currentState.eFlags & EF_FIRING || cent->currentState.eFlags & EF_ALT_FIRING ) &&*/ effect )
+		
+		const char* effect = CG_GetMuzzleEffect(cent, wData);
+		if (effect)
 		{
 			if (( cent->gent && cent->gent->NPC ) || cg.renderingThirdPerson )
 			{
@@ -1071,10 +1085,10 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 				theFxScheduler.PlayEffect( effect, cent->currentState.clientNum );
 			}
 		}
-	}
-	else
-	{
-//		CG_PositionRotatedEntityOnTag( &flash, &gun, weapon->weaponModel, "tag_flash", NULL);
+		else
+		{
+			Com_Printf(S_COLOR_YELLOW"Warning : Muzzle for %s for weapon '%s', didn't found any effect to play\n", cent->altFire ? "main fire" : "alt fire", wData->classname);
+		}
 	}
 }
 
@@ -1612,7 +1626,7 @@ Allows user to cycle through the various weapons currently owned and view the de
 void CG_DrawDataPadWeaponSelect( void )
 {
 	int				i;
-	int				weaponCount,weaponSelectI;
+	int				ownedWeaponCount,weaponSelectI;
 	float			holdX;
 	int				sideLeftIconCnt,sideRightIconCnt;
 	int				holdCount,iconCnt;
@@ -1623,16 +1637,16 @@ void CG_DrawDataPadWeaponSelect( void )
 	cg.itemPickupTime = 0;
 
 	// count the number of weapons owned
-	weaponCount = 0;
+	ownedWeaponCount = 0;
 	for ( i = 1 ; i < weaponCount ; i++ )
 	{
 		if ( cg.snap->ps.weapons[i] )
 		{
-			weaponCount++;
+			ownedWeaponCount++;
 		}
 	}
 
-	if (weaponCount == 0)	// If no weapons, don't display
+	if (ownedWeaponCount == 0)	// If no weapons, don't display
 	{
 		return;
 	}
@@ -1640,13 +1654,13 @@ void CG_DrawDataPadWeaponSelect( void )
 	const short sideMax = 3;	// Max number of icons on the side
 
 	// Calculate how many icons will appear to either side of the center one
-	holdCount = weaponCount - 1;	// -1 for the center icon
+	holdCount = ownedWeaponCount - 1;	// -1 for the center icon
 	if (holdCount == 0)			// No icons to either side
 	{
 		sideLeftIconCnt = 0;
 		sideRightIconCnt = 0;
 	}
-	else if (weaponCount > (2*sideMax))	// Go to the max on each side
+	else if (ownedWeaponCount > (2*sideMax))	// Go to the max on each side
 	{
 		sideLeftIconCnt = sideMax;
 		sideRightIconCnt = sideMax;
@@ -1695,7 +1709,7 @@ void CG_DrawDataPadWeaponSelect( void )
 	holdX = centerXPos - ((bigIconSize_x / 2) + bigPad + smallIconSize_x);
 
 	cgi_R_SetColor( colorTable[CT_WHITE] );
-	for (iconCnt=1;iconCnt<(sideLeftIconCnt+1);weaponSelectI--)
+	for (iconCnt=1 ; iconCnt <= sideLeftIconCnt ; weaponSelectI-- )
 	{
 		if ( weaponSelectI == WP_CONCUSSION )
 		{
@@ -1738,7 +1752,7 @@ void CG_DrawDataPadWeaponSelect( void )
 				CG_DrawPic(holdX, graphicYPos, smallIconSize_x, smallIconSize_y, weaponInfo->weaponIcon);
 			}
 
-			holdX += (smallIconSize_x + pad);
+			holdX -= (smallIconSize_x + pad);
 		}
 
 		if ( weaponSelectI == WP_CONCUSSION )
@@ -1830,7 +1844,7 @@ void CG_DrawDataPadWeaponSelect( void )
 			}
 
 
-			holdX -= (smallIconSize_x + pad);
+			holdX += (smallIconSize_x + pad);
 		}
 		if ( weaponSelectI == WP_CONCUSSION )
 		{
@@ -1849,9 +1863,9 @@ void CG_DrawDataPadWeaponSelect( void )
 		void;
 	}
 	//Dynamic Weapons
-	else
+	else if(!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.DataPadWeaponSelect].classname), text, sizeof(text)))
 	{
-		cgi_SP_GetStringTextString(va("%s_DESC", bg_itemlist[cg.DataPadWeaponSelect - 1].classname), text, sizeof(text));
+		Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
 	}
 
 	if (text[0])

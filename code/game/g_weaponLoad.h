@@ -27,46 +27,46 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 	Default (Harcoded) Indexes
 ===========================================================================*/
 weaponIndexes_t _weaponIndexes[] = {
-	{"WP_NONE",0},
-	{"WP_SABER",1},
-	{"WP_BLASTER_PISTOL",2},
-	{"WP_BLASTER",3 },
-	{"WP_DISRUPTOR",4},
-	{"WP_BOWCASTER",5},
-	{"WP_REPEATER",6},
-	{"WP_DEMP2",7},
-	{"WP_FLECHETTE",8},
-	{"WP_ROCKET_LAUNCHER",9},
-	{"WP_THERMAL",10},
-	{"WP_TRIP_MINE",11},
-	{"WP_DET_PACK",12},
-	{"WP_CONCUSSION",13},
-	{"WP_MELEE",14},
-	{"WP_ATST_MAIN",15},
-	{"WP_ATST_SIDE",16},
-	{"WP_STUN_BATON",17},
-	{"WP_BRYAR_PISTOL",18},
-	{"WP_EMPLACED_GUN",19},
-	{"WP_BOT_LASER",20},
-	{"WP_TURRET",21},
-	{"WP_TIE_FIGHTER",22},
-	{"WP_RAPID_FIRE_CONC",23 },
-	{"WP_JAWA",24},
-	{"WP_TUSKEN_RIFLE",25 },
-	{"WP_TUSKEN_STAFF",26},
-	{"WP_SCEPTER",27},
-	{"WP_NOGHRI_STICK",28},
-	{"WP_BATTLEDROID",29},
-	{"WP_THEFIRSTORDER", 30},
-	{"WP_CLONECARBINE",31},
-	{"WP_REBELBLASTER",32},
-	{"WP_CLONERIFLE",33},
-	{"WP_CLONECOMMANDO",34},
-	{"WP_REBELRIFLE",35},
-	{"WP_REY",36},
-	{"WP_JANGO",37},
-	{"WP_BOBA",38},
-	{"WP_CLONEPISTOL",39},
+	{"weapon_none",0},
+	{"weapon_saber",1},
+	{"weapon_blaster_pistol",2},
+	{"weapon_blaster",3 },
+	{"weapon_disruptor",4},
+	{"weapon_bowcaster",5},
+	{"weapon_repeater",6},
+	{"weapon_demp2",7},
+	{"weapon_flechette",8},
+	{"weapon_rocket_launcher",9},
+	{"weapon_thermal",10},
+	{"weapon_trip_mine",11},
+	{"weapon_det_pack",12},
+	{"weapon_concussion_rifle",13},
+	{"weapon_melee",14},
+	{"weapon_atst_main",15},
+	{"weapon_atst_side",16},
+	{"weapon_stun_baton",17},
+	{"weapon_bryar_pistol",18},
+	{"weapon_emplaced_gun",19},
+	{"weapon_bot_laser",20},
+	{"weapon_turret",21},
+	{"weapon_tie_fighter",22},
+	{"weapon_rapid_concussion",23 },
+	{"weapon_jawa",24},
+	{"weapon_tusken_rifle",25 },
+	{"weapon_tusken_staff",26},
+	{"weapon_scepter",27},
+	{"weapon_noghri_stick",28},
+	{"weapon_battledroid",29},
+	{"weapon_thefirstorder", 30},
+	{"weapon_clonecarbine",31},
+	{"weapon_rebelblaster",32},
+	{"weapon_clonerifle",33},
+	{"weapon_clonecommando",34},
+	{"weapon_rebelrifle",35},
+	{"weapon_rey",36},
+	{"weapon_jango",37},
+	{"weapon_boba",38},
+	{"weapon_clonepistol",39},
 };
 static const size_t numHcWeaponIndexes = ARRAY_LEN(_weaponIndexes);
 
@@ -189,7 +189,6 @@ void WPN_Range(const char** holdBuf);
 void WPN_WeaponClass(const char** holdBuf);
 void WPN_WeaponIcon(const char** holdBuf);
 void WPN_WeaponModel(const char** holdBuf);
-void WPN_WeaponType(const char** holdBuf);
 void WPN_AltEnergyPerShot(const char** holdBuf);
 void WPN_AltFireTime(const char** holdBuf);
 void WPN_AltRange(const char** holdBuf);
@@ -238,7 +237,6 @@ void WPN_Spread(const char** holdBuf);
 void WPN_AltSpread(const char** holdBuf);
 void WPN_PlayerUsable(const char** holdBuf);
 void WPN_WeaponCategory(const char** holdBuf);
-void WPN_DescriptionKey(const char** holdBuf);
 
 void WPN_ProjectileEffect(const char** holdBuf);
 void WPN_AltProjectileEffect(const char** holdBuf);
@@ -272,7 +270,7 @@ wpnParms_t WpnParms[] =
 	{ "weaponclass",		WPN_WeaponClass },
 	{ "weaponicon",		WPN_WeaponIcon },
 	{ "weaponmodel",		WPN_WeaponModel },
-	{ "weapontype",		WPN_WeaponType },
+	{ "weapontype",		WPN_FuncSkip  },
 	{ "altenergypershot",	WPN_AltEnergyPerShot },
 	{ "altfireTime",		WPN_AltFireTime },
 	{ "altrange",			WPN_AltRange },
@@ -319,8 +317,7 @@ wpnParms_t WpnParms[] =
 	{ "spread",				WPN_Spread },
 	{ "altSpread",			WPN_AltSpread },
 	{ "playerUsable",		WPN_PlayerUsable },
-	{ "weaponCategory",			WPN_WeaponCategory },
-	{ "descriptionKey",		WPN_DescriptionKey},
+	{ "weaponCategory",		WPN_WeaponCategory },
 	// Old legacy files contain these, so we skip them to shut up warnings
 	{ "firingforce",		WPN_FuncSkip },
 	{ "chargeforce",		WPN_FuncSkip },
@@ -506,7 +503,7 @@ const weaponCategory_t defaultWeaponType[] = {
 	WC_NONE,//WP_ATST_SIDE,
 
 	// These can never be gotten directly by the player
-	WC_MELEE_1H,//WP_STUN_BATON,		// stupid weapon, should remove
+	WC_STUN_BATON,//WP_STUN_BATON,		// Putting WC_MELEE_1H make it like the gaffi stick...
 
 	//NPC weapons
 	WC_PISTOL,//WP_BRYAR_PISTOL,	// NPC weapon - player can pick this up, but never starts with them
