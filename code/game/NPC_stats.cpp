@@ -3795,7 +3795,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					continue;
 				}
 				int attr = GetIDForString(attrTable, value);
-				if(attr != -1)
+				if(attr != -1 && (!PlayingMission() || (attr == ATTR_AQUATIC || attr == ATTR_CASUAL_WALK || attr == ATTR_NO_TWIRL || attr == ATTR_INQUISITOR)))
 					NPC->attrFlags |= attr;
 
 				// People held by hatred cannot be dismembered until they die.
