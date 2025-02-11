@@ -36,7 +36,7 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 {
 	vec3_t		fwd, angs, start;
 	gentity_t	*missile;
-	float		damage = weaponData[ent->s.weapon].attackData[0].damage, vel = FLECHETTE_VEL;
+	float		damage = weaponData[ent->s.weapon].attackData[0].damage, vel = weaponData[ent->s.weapon].attackData[0].mVelocity;
 
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
@@ -64,8 +64,8 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 		}
 		else
 		{
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * FLECHETTE_SPREAD;
-			angs[YAW]	+= Q_flrand(-1.0f, 1.0f) * FLECHETTE_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
+			angs[YAW]	+= Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
 		}
 
 		AngleVectors( angs, fwd, NULL, NULL );
@@ -217,7 +217,8 @@ void WP_flechette_alt_blow( gentity_t *ent )
 static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *self )
 //------------------------------------------------------------------------------
 {
-	gentity_t	*missile = CreateMissile( start, fwd, 950 + Q_flrand(0.0f, 1.0f) * 700, 1500 + Q_flrand(0.0f, 1.0f) * 2000, self, qtrue );
+	int randVelocity = FLECHETTE_ALT_MAX_VEL - weaponData[self->s.weapon].attackData[1].mVelocity;
+	gentity_t	*missile = CreateMissile( start, fwd, weaponData[self->s.weapon].attackData[1].mVelocity + Q_flrand(0.0f, 1.0f) * FLECHETTE_ALT_MAX_VEL, 1500 + Q_flrand(0.0f, 1.0f) * 2000, self, qtrue );
 
 	missile->e_ThinkFunc = thinkF_WP_flechette_alt_blow;
 
@@ -226,8 +227,8 @@ static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *
 	missile->mass = 4;
 
 	// How 'bout we give this thing a size...
-	VectorSet( missile->mins, -3.0f, -3.0f, -3.0f );
-	VectorSet( missile->maxs, 3.0f, 3.0f, 3.0f );
+	VectorSet( missile->mins, FLECHETTE_ALT_MIN_SIZE, FLECHETTE_ALT_MIN_SIZE, FLECHETTE_ALT_MIN_SIZE );
+	VectorSet( missile->maxs, FLECHETTE_ALT_MAX_SIZE, FLECHETTE_ALT_MAX_SIZE, FLECHETTE_ALT_MAX_SIZE );
 	missile->clipmask = MASK_SHOT;
 	missile->clipmask &= ~CONTENTS_CORPSE;
 

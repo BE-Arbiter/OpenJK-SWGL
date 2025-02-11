@@ -132,8 +132,8 @@ void WP_FireBlaster( gentity_t *ent, qboolean alt_fire )
 		if ( alt_fire )
 		{
 			// add some slop to the alt-fire direction
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * BLASTER_ALT_SPREAD;
-			angs[YAW]	+= Q_flrand(-1.0f, 1.0f) * BLASTER_ALT_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
+			angs[YAW]	+= Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
 		}
 		else
 		{
@@ -149,8 +149,8 @@ void WP_FireBlaster( gentity_t *ent, qboolean alt_fire )
 			else
 			{
 				// add some slop to the main-fire direction
-				angs[PITCH] += Q_flrand(-1.0f, 1.0f) * BLASTER_MAIN_SPREAD;
-				angs[YAW]	+= Q_flrand(-1.0f, 1.0f) * BLASTER_MAIN_SPREAD;
+				angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
+				angs[YAW]	+= Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
 			}
 		}
 	}

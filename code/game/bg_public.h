@@ -739,6 +739,16 @@ typedef struct ginfoitem_s
 
 extern int weaponCount;
 extern weaponIndexes_t weaponIndexes[MAX_WEAPONS];
+extern std::vector<int> pistolIndexes;
+extern std::vector<int> blasterIndexes;
+extern std::vector<int> sniperIndexes;
+extern std::vector<int> bowcasterIndexes;
+extern std::vector<int> specialistIndexes;
+extern std::vector<int> heavyBlasterIndexes;
+extern std::vector<int> shotgunIndexes;
+extern std::vector<int> concRifleIndexes;
+extern std::vector<int> rocketLauncherIndexes;
+extern std::vector<int> throwableIndexes;
 extern weaponData_t weaponData[MAX_WEAPONS];
 
 //==============================================================================

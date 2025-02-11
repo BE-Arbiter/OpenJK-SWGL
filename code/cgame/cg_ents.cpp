@@ -510,17 +510,17 @@ const weaponData_t  *wData = NULL;
 				cc->muzzleFlashTime = 0;
 
 				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->mMuzzleEffect[0] )
+				if ( wData->attackData[0].mMuzzleEffect[0] )
 				{
-					effect = &wData->mMuzzleEffect[0];
+					effect = &wData->attackData[0].mMuzzleEffect[0];
 				}
 
 				if ( cc->currentState.eFlags & EF_ALT_FIRING )
 				{
 					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->mAltMuzzleEffect[0] )
+					if ( wData->attackData[1].mMuzzleEffect[0] )
 					{
-						effect = &wData->mAltMuzzleEffect[0];
+						effect = &wData->attackData[1].mMuzzleEffect[0];
 					}
 				}
 
@@ -1209,9 +1209,9 @@ static void CG_Missile( centity_t *cent ) {
 			weapon->alt_missileTrailFunc( cent, weapon );
 
 		// add dynamic light
-		if ( wData->alt_missileDlight )
-				cgi_R_AddLightToScene(cent->lerpOrigin, wData->alt_missileDlight,
-					wData->alt_missileDlightColor[0], wData->alt_missileDlightColor[1], wData->alt_missileDlightColor[2] );
+		if ( wData->attackData[1].missileDlight )
+				cgi_R_AddLightToScene(cent->lerpOrigin, wData->attackData[1].missileDlight,
+					wData->attackData[1].missileDlightColor[0], wData->attackData[1].missileDlightColor[1], wData->attackData[1].missileDlightColor[2] );
 
 		// add missile sound
 		if ( weapon->alt_missileSound )
@@ -1228,9 +1228,9 @@ static void CG_Missile( centity_t *cent ) {
 			weapon->missileTrailFunc( cent, weapon );
 
 		// add dynamic light
-		if ( wData->missileDlight )
-			cgi_R_AddLightToScene(cent->lerpOrigin, wData->missileDlight,
-				wData->missileDlightColor[0], wData->missileDlightColor[1], wData->missileDlightColor[2] );
+		if ( wData->attackData[0].missileDlight )
+			cgi_R_AddLightToScene(cent->lerpOrigin, wData->attackData[0].missileDlight,
+				wData->attackData[0].missileDlightColor[0], wData->attackData[0].missileDlightColor[1], wData->attackData[0].missileDlightColor[2] );
 
 		// add missile sound
 		if ( weapon->missileSound )

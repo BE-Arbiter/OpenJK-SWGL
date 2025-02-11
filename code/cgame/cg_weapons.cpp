@@ -171,7 +171,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 
 	if ( weaponInfo->weaponModel == 0 )
 	{
-		CG_Error( "Couldn't find weapon model %s for weapon %s(%d)\n", currWeaponMdl, weaponData[weaponNum].classname,weaponNum);
+		CG_Error( "Couldn't find weapon model '%s' for weapon %s(%d)\n", currWeaponMdl, weaponData[weaponNum].classname,weaponNum);
 		return;
 	}
 
@@ -231,51 +231,51 @@ void CG_RegisterWeapon( int weaponNum ) {
 	}
 
 	// register the sounds for the weapon
-	if (weaponData[weaponNum].firingSnd[0]) {
-		weaponInfo->firingSound = cgi_S_RegisterSound( weaponData[weaponNum].firingSnd );
+	if (weaponData[weaponNum].attackData[0].firingSnd[0]) {
+		weaponInfo->firingSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[0].firingSnd );
 	}
-	if (weaponData[weaponNum].altFiringSnd[0]) {
-		weaponInfo->altFiringSound = cgi_S_RegisterSound( weaponData[weaponNum].altFiringSnd );
+	if (weaponData[weaponNum].attackData[1].firingSnd[0]) {
+		weaponInfo->altFiringSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[1].firingSnd );
 	}
 	if (weaponData[weaponNum].stopSnd[0]) {
 		weaponInfo->stopSound = cgi_S_RegisterSound( weaponData[weaponNum].stopSnd );
 	}
-	if (weaponData[weaponNum].chargeSnd[0]) {
-		weaponInfo->chargeSound = cgi_S_RegisterSound( weaponData[weaponNum].chargeSnd );
+	if (weaponData[weaponNum].attackData[0].chargeSnd[0]) {
+		weaponInfo->chargeSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[0].chargeSnd );
 	}
-	if (weaponData[weaponNum].altChargeSnd[0]) {
-		weaponInfo->altChargeSound = cgi_S_RegisterSound( weaponData[weaponNum].altChargeSnd );
+	if (weaponData[weaponNum].attackData[1].chargeSnd[0]) {
+		weaponInfo->altChargeSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[1].chargeSnd );
 	}
 	if (weaponData[weaponNum].selectSnd[0]) {
 		weaponInfo->selectSound = cgi_S_RegisterSound( weaponData[weaponNum].selectSnd );
 	}
 
 	// give us missile models if we should
-	if (weaponData[weaponNum].missileMdl[0]) 	{
-		weaponInfo->missileModel = cgi_R_RegisterModel(weaponData[weaponNum].missileMdl );
+	if (weaponData[weaponNum].attackData[0].missileMdl[0]) 	{
+		weaponInfo->missileModel = cgi_R_RegisterModel(weaponData[weaponNum].attackData[0].missileMdl );
 	}
-	if (weaponData[weaponNum].alt_missileMdl[0]) 	{
-		weaponInfo->alt_missileModel = cgi_R_RegisterModel(weaponData[weaponNum].alt_missileMdl );
+	if (weaponData[weaponNum].attackData[1].missileMdl[0]) 	{
+		weaponInfo->alt_missileModel = cgi_R_RegisterModel(weaponData[weaponNum].attackData[1].missileMdl );
 	}
-	if (weaponData[weaponNum].missileSound[0]) {
-		weaponInfo->missileSound = cgi_S_RegisterSound( weaponData[weaponNum].missileSound );
+	if (weaponData[weaponNum].attackData[0].missileSound[0]) {
+		weaponInfo->missileSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[0].missileSound );
 	}
-	if (weaponData[weaponNum].alt_missileSound[0]) {
-		weaponInfo->alt_missileSound = cgi_S_RegisterSound( weaponData[weaponNum].alt_missileSound );
+	if (weaponData[weaponNum].attackData[1].missileSound[0]) {
+		weaponInfo->alt_missileSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[1].missileSound );
 	}
-	if (weaponData[weaponNum].missileHitSound[0]) {
-		weaponInfo->missileHitSound = cgi_S_RegisterSound( weaponData[weaponNum].missileHitSound );
+	if (weaponData[weaponNum].attackData[0].missileHitSound[0]) {
+		weaponInfo->missileHitSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[0].missileHitSound );
 	}
-	if (weaponData[weaponNum].altmissileHitSound[0]) {
-		weaponInfo->altmissileHitSound = cgi_S_RegisterSound( weaponData[weaponNum].altmissileHitSound );
+	if (weaponData[weaponNum].attackData[1].missileHitSound[0]) {
+		weaponInfo->altmissileHitSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[1].missileHitSound );
 	}
-	if ( weaponData[weaponNum].mMuzzleEffect[0] )
+	if ( weaponData[weaponNum].attackData[0].mMuzzleEffect[0] )
 	{
-		weaponData[weaponNum].mMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].mMuzzleEffect );
+		weaponData[weaponNum].attackData[0].mMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].attackData[0].mMuzzleEffect );
 	}
-	if ( weaponData[weaponNum].mAltMuzzleEffect[0] )
+	if ( weaponData[weaponNum].attackData[1].mMuzzleEffect[0] )
 	{
-		weaponData[weaponNum].mAltMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].mAltMuzzleEffect );
+		weaponData[weaponNum].attackData[1].mMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].attackData[1].mMuzzleEffect );
 	}
 	if ( weaponData[weaponNum].mTertiaryMuzzleEffect[0] )
 	{
@@ -285,24 +285,28 @@ void CG_RegisterWeapon( int weaponNum ) {
 	{
 		weaponData[weaponNum].chargeMuzzleShaderID = cgi_R_RegisterShader( weaponData[weaponNum].chargeMuzzleShader);
 	}
-	if ( weaponData[weaponNum].projectileEffect[0] )
+	if ( weaponData[weaponNum].attackData[0].projectileEffect[0] )
 	{
-		weaponInfo->projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].projectileEffect);
+		weaponInfo->projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[0].projectileEffect);
 	}
-	if ( weaponData[weaponNum].alt_projectileEffect[0] )
+	if ( weaponData[weaponNum].attackData[1].projectileEffect[0] )
 	{
-		weaponInfo->alt_projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].alt_projectileEffect);
+		weaponInfo->alt_projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[1].projectileEffect);
 	}
 
 	//fixme: don't really need to copy these, should just use directly
 	// give ourselves the functions if we can
-	if (weaponData[weaponNum].func)
+	if (weaponData[weaponNum].attackData[0].missileFunc)
 	{
-		weaponInfo->missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].func;
+		weaponInfo->missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].attackData[0].missileFunc;
 	}
-	if (weaponData[weaponNum].altfunc)
+	if (weaponData[weaponNum].attackData[1].missileFunc)
 	{
-		weaponInfo->alt_missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].altfunc;
+		weaponInfo->alt_missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].attackData[1].missileFunc;
+	}
+
+	if (!cgs.effects.blankEffect) {
+		cgs.effects.blankEffect = theFxScheduler.RegisterEffect("misc/blank");
 	}
 
 	int baseWeaponNum = weaponNum;
@@ -1075,6 +1079,48 @@ void CG_SetGhoul2InfoRef( refEntity_t *ent, refEntity_t	*s1)
 	VectorCopy( s1->angles, ent->angles);
 }
 
+qboolean CG_IsChargedAttack(centity_t* cent) {
+	int weaponNum = cent->gent->s.weapon;
+	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
+	if ((baseWeaponNum == WP_BRYAR_PISTOL && cent->altFire)
+		|| (baseWeaponNum == WP_BLASTER_PISTOL && cent->altFire)
+		|| (baseWeaponNum == WP_DEMP2 && cent->altFire)
+		|| (baseWeaponNum == WP_BOWCASTER && !cent->altFire)
+		) {
+		return qtrue;
+	}
+	return qfalse;
+}
+
+char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData) {
+	char* effect = NULL;
+
+	// I declared this variable just for readability.
+	char firing_attack = cent->gent->client->ps.prev_firing_attack;
+
+	// Try and get a default muzzle so we have one to fall back on
+	if (firing_attack & ALT_ATTACK && wData->attackData[1].mMuzzleEffect[0])
+	{
+		effect = &wData->attackData[1].mMuzzleEffect[0];
+	}
+	else if (firing_attack & TERTIARY_ATTACK && wData->mTertiaryMuzzleEffect)
+	{
+		effect = &wData->mTertiaryMuzzleEffect[0];
+	}
+	else if (wData->attackData[0].mMuzzleEffect[0])
+	{
+		// We need to make sure that the base guns also get their sound.
+		effect = &wData->attackData[0].mMuzzleEffect[0];
+	}
+
+
+	if (cent->altFire && wData->attackData[1].mMuzzleEffect[0])
+	{
+		effect = &wData->attackData[1].mMuzzleEffect[0];
+	}
+
+	return effect;
+}
 
 //--------------------------------------------------------------------------
 static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponData_t *wData )
@@ -1083,41 +1129,9 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 	if ( cent->muzzleFlashTime > 0 )
 	{
 		cent->muzzleFlashTime  = 0;
-		const char *effect = NULL;
-
-		// I declared this variable just for readability.
-		char firing_attack = cent->gent->client->ps.prev_firing_attack;
-
-//		CG_PositionEntityOnTag( &flash, &gun, gun.hModel, "tag_flash");
-
-		// Try and get a default muzzle so we have one to fall back on
-		if ( wData->mMuzzleEffect[0] )
-		{
-			if (firing_attack & ALT_ATTACK)
-			{
-				effect = &wData->mAltMuzzleEffect[0];
-			}
-			else if (firing_attack & TERTIARY_ATTACK)
-			{
-				effect = &wData->mTertiaryMuzzleEffect[0];
-			}
-			else
-			{	
-				// We need to make sure that the base guns also get their sound.
-				effect = &wData->mMuzzleEffect[0];
-			}
-		}
-
-		if ( cent->altFire )
-		{
-			// We're alt-firing, so see if we need to override with a custom alt-fire effect
-			if ( wData->mAltMuzzleEffect[0] )
-			{
-				effect = &wData->mAltMuzzleEffect[0];
-			}
-		}
-
-		if (/*( cent->currentState.eFlags & EF_FIRING || cent->currentState.eFlags & EF_ALT_FIRING ) &&*/ effect )
+		
+		const char* effect = CG_GetMuzzleEffect(cent, wData);
+		if (effect)
 		{
 			if (( cent->gent && cent->gent->NPC ) || cg.renderingThirdPerson )
 			{
@@ -1129,10 +1143,10 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 				theFxScheduler.PlayEffect( effect, cent->currentState.clientNum );
 			}
 		}
-	}
-	else
-	{
-//		CG_PositionRotatedEntityOnTag( &flash, &gun, weapon->weaponModel, "tag_flash", NULL);
+		else
+		{
+			Com_Printf(S_COLOR_YELLOW"Warning : Muzzle for %s for weapon '%s', didn't found any effect to play\n", cent->altFire ? "main fire" : "alt fire", wData->classname);
+		}
 	}
 }
 
@@ -1590,10 +1604,12 @@ int CG_WeaponCheck( int weaponIndex )
 		return qtrue;
 	}
 
-
-	value = weaponData[weaponIndex].energyPerShot < weaponData[weaponIndex].altEnergyPerShot
-							? weaponData[weaponIndex].energyPerShot
-							: weaponData[weaponIndex].altEnergyPerShot;
+	value = weaponData[weaponIndex].attackData[0].energyPerShot;
+	for (int k = 1; k < MAX_WEAPON_ATTACKS; k++) {
+		if (weaponData[weaponIndex].attackData[k].energyPerShot < value) {
+			value = weaponData[weaponIndex].attackData[k].energyPerShot;
+		}
+	}
 
 	if( !cg.snap )
 	{
@@ -1668,7 +1684,7 @@ Allows user to cycle through the various weapons currently owned and view the de
 void CG_DrawDataPadWeaponSelect( void )
 {
 	int				i;
-	int				weaponCount,weaponSelectI;
+	int				ownedWeaponCount,weaponSelectI;
 	float			holdX;
 	int				sideLeftIconCnt,sideRightIconCnt;
 	int				holdCount,iconCnt;
@@ -1679,16 +1695,16 @@ void CG_DrawDataPadWeaponSelect( void )
 	cg.itemPickupTime = 0;
 
 	// count the number of weapons owned
-	weaponCount = 0;
+	ownedWeaponCount = 0;
 	for ( i = 1 ; i < weaponCount ; i++ )
 	{
 		if ( cg.snap->ps.weapons[i] )
 		{
-			weaponCount++;
+			ownedWeaponCount++;
 		}
 	}
 
-	if (weaponCount == 0)	// If no weapons, don't display
+	if (ownedWeaponCount == 0)	// If no weapons, don't display
 	{
 		return;
 	}
@@ -1696,13 +1712,13 @@ void CG_DrawDataPadWeaponSelect( void )
 	const short sideMax = 3;	// Max number of icons on the side
 
 	// Calculate how many icons will appear to either side of the center one
-	holdCount = weaponCount - 1;	// -1 for the center icon
+	holdCount = ownedWeaponCount - 1;	// -1 for the center icon
 	if (holdCount == 0)			// No icons to either side
 	{
 		sideLeftIconCnt = 0;
 		sideRightIconCnt = 0;
 	}
-	else if (weaponCount > (2*sideMax))	// Go to the max on each side
+	else if (ownedWeaponCount > (2*sideMax))	// Go to the max on each side
 	{
 		sideLeftIconCnt = sideMax;
 		sideRightIconCnt = sideMax;
@@ -1751,7 +1767,7 @@ void CG_DrawDataPadWeaponSelect( void )
 	holdX = centerXPos - ((bigIconSize_x / 2) + bigPad + smallIconSize_x);
 
 	cgi_R_SetColor( colorTable[CT_WHITE] );
-	for (iconCnt=1;iconCnt<(sideLeftIconCnt+1);weaponSelectI--)
+	for (iconCnt=1 ; iconCnt <= sideLeftIconCnt ; weaponSelectI-- )
 	{
 		if ( weaponSelectI == WP_CONCUSSION )
 		{
@@ -1794,7 +1810,7 @@ void CG_DrawDataPadWeaponSelect( void )
 				CG_DrawPic(holdX, graphicYPos, smallIconSize_x, smallIconSize_y, weaponInfo->weaponIcon);
 			}
 
-			holdX += (smallIconSize_x + pad);
+			holdX -= (smallIconSize_x + pad);
 		}
 
 		if ( weaponSelectI == WP_CONCUSSION )
@@ -1886,7 +1902,7 @@ void CG_DrawDataPadWeaponSelect( void )
 			}
 
 
-			holdX -= (smallIconSize_x + pad);
+			holdX += (smallIconSize_x + pad);
 		}
 		if ( weaponSelectI == WP_CONCUSSION )
 		{
@@ -1905,9 +1921,9 @@ void CG_DrawDataPadWeaponSelect( void )
 		void;
 	}
 	//Dynamic Weapons
-	else
+	else if(!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.DataPadWeaponSelect].classname), text, sizeof(text)))
 	{
-		cgi_SP_GetStringTextString(va("%s_DESC", bg_itemlist[cg.DataPadWeaponSelect - 1].classname), text, sizeof(text));
+		Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
 	}
 
 	if (text[0])
@@ -2328,7 +2344,7 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 		return qfalse;
 	}
 
-	if ( cg.weaponSelectTime + 200 > cg.time )
+	if ( cg.weaponSelectTime + 100 > cg.time )
 	{//TEMP standard weapon cycle debounce for E3 because G2 can't keep up with fast weapon changes
 		return qfalse;
 	}
@@ -2349,9 +2365,12 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 
 	if (( weaponData[i].ammoIndex != AMMO_NONE ) && !dpMode )
 	{//weapon uses ammo, see if we have any
-		usage_for_weap = weaponData[i].energyPerShot < weaponData[i].altEnergyPerShot
-									? weaponData[i].energyPerShot
-									: weaponData[i].altEnergyPerShot;
+		usage_for_weap = weaponData[i].attackData[0].energyPerShot;
+		for (int k = 1; k < MAX_WEAPON_ATTACKS; k++) {
+			if (weaponData[i].attackData[k].energyPerShot < usage_for_weap) {
+				usage_for_weap = weaponData[i].attackData[k].energyPerShot;
+			}
+		}
 
 		if ( cg.snap->ps.ammo[weaponData[i].ammoIndex] - usage_for_weap < 0 )
 		{
@@ -2772,6 +2791,41 @@ void CG_ChangeWeapon( int num )
 
 /*
 ===============
+CG_CycleWeapon
+
+	Cycle through each weapon of a similar type, loosely based on the original code for cycling through throwables
+===============
+*/
+
+void CG_CycleWeapon(std::vector<int> indexes, int *num) {
+	size_t i, j = 0;
+	int weap = *num;
+	int listSize = indexes.size();
+	for ( i = 0; i < listSize - 1; i++ ) // Ignore last entry, cycles back to the first
+	{
+		if (cg.snap->ps.weapon == indexes[i]) {
+			weap = indexes[i+1]; // We're already on a weapon of the type, cycle to the next one
+			break;
+		}
+	}
+	
+	// prevent an endless loop
+	while ( j <= listSize )
+	{
+		if ( CG_WeaponSelectable( weap, cg.snap->ps.weapon, qfalse ) || weap == WP_DET_PACK ) // Detpack always selectable
+		{
+			*num = weap;
+			break;
+		}
+
+		i = i >= listSize - 1 ? 0 : i+1;
+		weap = indexes[i];
+		j++;
+	}
+}
+
+/*
+===============
 CG_Weapon_f
 ===============
 */
@@ -2779,7 +2833,7 @@ void CG_Weapon_f( void )
 {
 	int		num;
 
-	if ( cg.weaponSelectTime + 200 > cg.time )
+	if ( cg.weaponSelectTime + 100 > cg.time )
 	{
 		return;
 	}
@@ -2874,7 +2928,7 @@ void CG_Weapon_f( void )
 			}
 		}
 	}
-	else if ( num >= WP_THERMAL && num <= WP_DET_PACK ) // these weapons cycle
+	/* else if ( num >= WP_THERMAL && num <= WP_DET_PACK ) // these weapons cycle
 	{
 		int weap, i = 0;
 
@@ -2909,6 +2963,56 @@ void CG_Weapon_f( void )
 			weap++;
 			i++;
 		}
+	} */
+
+	switch (num) {
+		case WP_BLASTER_PISTOL:
+		case WP_BRYAR_PISTOL:
+		case WP_REY:
+		case WP_JANGO:
+		case WP_CLONEPISTOL:
+			CG_CycleWeapon(pistolIndexes, &num);
+			break;
+		case WP_BLASTER:
+		case WP_BATTLEDROID:
+		case WP_THEFIRSTORDER:
+		case WP_CLONECARBINE:
+		case WP_REBELBLASTER:
+		CG_CycleWeapon(blasterIndexes, &num);
+			break;
+		case WP_DISRUPTOR:
+		case WP_TUSKEN_RIFLE:
+		CG_CycleWeapon(sniperIndexes, &num);
+			break;
+		case WP_BOWCASTER:
+		case WP_CLONECOMMANDO:
+		case WP_REBELRIFLE:
+			CG_CycleWeapon(bowcasterIndexes, &num);
+			break;
+		case WP_REPEATER:
+		case WP_CLONERIFLE:
+			CG_CycleWeapon(heavyBlasterIndexes, &num);
+			break;
+		case WP_DEMP2:
+		case WP_NOGHRI_STICK:
+			CG_CycleWeapon(specialistIndexes, &num);
+			break;
+		case WP_FLECHETTE:
+			CG_CycleWeapon(shotgunIndexes, &num);
+			break;
+		case WP_CONCUSSION:
+			CG_CycleWeapon(concRifleIndexes, &num);
+			break;
+		case WP_ROCKET_LAUNCHER:
+			CG_CycleWeapon(rocketLauncherIndexes, &num);
+			break;
+		case WP_THERMAL:
+		case WP_TRIP_MINE:
+		case WP_DET_PACK:
+			CG_CycleWeapon(throwableIndexes, &num);
+			break;
+		default:
+			break;
 	}
 
 	if (!CG_WeaponSelectable(num, cg.snap->ps.weapon, qfalse))

@@ -33,6 +33,16 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 extern int weaponCount;
 extern weaponIndexes_t weaponIndexes[MAX_WEAPONS];
+extern std::vector<int> pistolIndexes;
+extern std::vector<int> blasterIndexes;
+extern std::vector<int> sniperIndexes;
+extern std::vector<int> bowcasterIndexes;
+extern std::vector<int> specialistIndexes;
+extern std::vector<int> heavyBlasterIndexes;
+extern std::vector<int> shotgunIndexes;
+extern std::vector<int> concRifleIndexes;
+extern std::vector<int> rocketLauncherIndexes;
+extern std::vector<int> throwableIndexes;
 extern weaponData_t weaponData[MAX_WEAPONS];
 extern ammoData_t ammoData[AMMO_MAX];
 
@@ -255,16 +265,25 @@ FindItemForWeapon
 extern void InitItemForWeapon(gitem_t* item, int weaponNum);
 gitem_t	*FindItemForWeapon( int weaponNum ) {
 	int		i;
+	gitem_t* item = NULL;
 
 	for ( i = 1 ; i < bg_numItems ; i++ ) {
-		if ( bg_itemlist[i].giType == IT_WEAPON && bg_itemlist[i].giTag == weaponNum) {
-			return &bg_itemlist[i];
+		if ( (bg_itemlist[i].giType == IT_WEAPON && bg_itemlist[i].giTag == weaponNum)
+				|| (bg_itemlist[i].giType == IT_WEAPON && bg_itemlist[i].giTag == -1 && !Q_stricmp(bg_itemlist[i].giTagName, weaponData[weaponNum].classname))){
+			item = &bg_itemlist[i];
+			break;
 		}
 	}
+	//Overwrite correctly the item
+	if (item && item->giTag == -1) {
+		item->giTag = weaponNum;
+	}
+
 	if (i == MAX_ITEMS) {
 		Com_Error(ERR_DROP, "Couldn't find item for weapon num %d", weaponNum);
 		return NULL;
 	}
+
 	//If the player Add a weapon, then load a new level, his loadout could be initialized from last level
 	// Because order was changed...
 	InitItemForWeapon(&bg_itemlist[i], weaponNum);

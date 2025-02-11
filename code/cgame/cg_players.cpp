@@ -7955,7 +7955,7 @@ void CG_Player( centity_t *cent ) {
 	clientInfo_t	*ci;
 	qboolean		shadow, staticScale = qfalse;
 	float			shadowPlane;
-	const weaponData_t  *wData = NULL;
+	weaponData_t  *wData = NULL;
 
 	if ( cent->currentState.eFlags & EF_NODRAW )
 	{
@@ -8769,8 +8769,8 @@ SkipTrueView:
 			//NOTE: these are used for any case where an NPC fires and the next shot needs to come out
 			//		of a new barrel/point.  That way the muzzleflash will draw on the old barrel/point correctly
 			//NOTE: I'm only doing this for the saboteur right now - AT-STs might need this... others?
-			vec3_t oldMP = {0,0,0};
-			vec3_t oldMD = {0,0,0};
+			VectorCopy(vec3_origin, cent->gent->client->renderInfo.muzzlePoint2);
+			VectorCopy(vec3_origin, cent->gent->client->renderInfo.muzzleDir2);
 
 			if( !calcedMp )
 			{
@@ -8892,10 +8892,13 @@ SkipTrueView:
 
 					qboolean getBoth = qfalse;
 					int	oldOne = 0;
-					if ( cent->muzzleFlashTime > 0 && wData && !(cent->currentState.eFlags & EF_LOCKED_TO_WEAPON ))
-					{//we need to get both muzzles since we're toggling and we fired recently
+					if ( (cent->muzzleFlashTime > 0 && wData && !(cent->currentState.eFlags & EF_LOCKED_TO_WEAPON )) //TOGGLING Case
+						|| (cent->gent->client->ps.weaponstate == WEAPON_CHARGING || cent->gent->client->ps.weaponstate == WEAPON_CHARGING_ALT) //Charge Case
+						|| CG_IsChargedAttack(cent)  //Firing both weapon at the same time
+						)
+					{
 						getBoth = qtrue;
-						oldOne = (cent->gent->count)?0:1;
+						oldOne = (cent->gent->count) ? 0 : 1;
 					}
 					if ( ( cent->gent->weaponModel[cent->gent->count] != -1)
 						&& ( cent->gent->ghoul2.size() > cent->gent->weaponModel[cent->gent->count] )
@@ -8908,8 +8911,8 @@ SkipTrueView:
 						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, ORIGIN, cent->gent->client->renderInfo.muzzlePoint );
 						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, NEGATIVE_Y, cent->gent->client->renderInfo.muzzleDir );
 					}
-					//get the old one too, if needbe, and store it in muzzle2
-					if ( getBoth
+					//Get the other one too, if need be, and store it in muzzle2
+					if ( ( getBoth)
 						&& ( cent->gent->weaponModel[oldOne] != -1) //have a second weapon
 						&& ( cent->gent->ghoul2.size() > cent->gent->weaponModel[oldOne] ) //have a valid ghoul model index
 						&& ( cent->gent->ghoul2[cent->gent->weaponModel[oldOne]].mModelindex != -1) )//model exists and was loaded
@@ -8918,8 +8921,8 @@ SkipTrueView:
 						// figure out where the actual model muzzle is
 						gi.G2API_GetBoltMatrix( cent->gent->ghoul2, cent->gent->weaponModel[oldOne], 0, &boltMatrix, tempAngles, ent.origin, cg.time, cgs.model_draw, cent->currentState.modelScale );
 						// work the matrix axis stuff into the original axis and origins used.
-						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, ORIGIN, oldMP );
-						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, NEGATIVE_Y, oldMD );
+						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, ORIGIN, cent->gent->client->renderInfo.muzzlePoint2);
+						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, NEGATIVE_Y, cent->gent->client->renderInfo.muzzleDir2);
 					}
 				}
 				else if (( cent->gent->weaponModel[0] != -1) &&
@@ -8959,7 +8962,7 @@ SkipTrueView:
 
 					if ( cent->gent->m_pVehicle->m_Muzzles[i].m_bFired )
 					{
-						const char *effect = &weaponData[ cent->gent->m_pVehicle->m_pVehicleInfo->weapMuzzle[i] ].mMuzzleEffect[0];
+						const char *effect = &weaponData[ cent->gent->m_pVehicle->m_pVehicleInfo->weapMuzzle[i] ].attackData[0].mMuzzleEffect[0];
 						if ( effect )
 						{
 							theFxScheduler.PlayEffect( effect, cent->gent->m_pVehicle->m_Muzzles[i].m_vMuzzlePos, cent->gent->m_pVehicle->m_Muzzles[i].m_vMuzzleDir );
@@ -8971,53 +8974,37 @@ SkipTrueView:
 			// Pick the right effect for the type of weapon we are, defaults to no effect unless explicitly specified
 			else if ( cent->muzzleFlashTime > 0 && wData && !(cent->currentState.eFlags & EF_LOCKED_TO_WEAPON ))
 			{
-				const char *effect = NULL;
+				const char* effect = CG_GetMuzzleEffect(cent, wData);
 
 				cent->muzzleFlashTime  = 0;
 
-				// I declared this variable just for readability.
-				char firing_attack = cent->gent->client->ps.prev_firing_attack;
-
-				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->mMuzzleEffect[0] )
-				{
-					if (firing_attack & ALT_ATTACK)
-					{
-						effect = &wData->mAltMuzzleEffect[0];
-					}
-					else if (firing_attack & TERTIARY_ATTACK)
-					{
-						effect = &wData->mTertiaryMuzzleEffect[0];
-					}
-					else
-					{	
-						// We need to make sure that the base guns also get their sound.
-						effect = &wData->mMuzzleEffect[0];
-					}
-				}
-
-				if ( cent->altFire )
-				{
-					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->mAltMuzzleEffect[0] )
-					{
-						effect = &wData->mAltMuzzleEffect[0];
-					}
-				}
-
-				if (/*( cent->currentState.eFlags & EF_FIRING || cent->currentState.eFlags & EF_ALT_FIRING ) &&*/ effect )
+				if (effect )
 				{
 					if ( (cent->gent && cent->gent->NPC) || CG_PlayerIsDualWielding(cg.snap->ps.weapon) )
 					{
-						if ( !VectorCompare( oldMP, vec3_origin )
-							&& !VectorCompare( oldMD, vec3_origin ) )
+
+						if(CG_IsChargedAttack(cent)	) {
+							theFxScheduler.PlayEffect(effect, cent->gent->client->renderInfo.muzzlePoint2,
+								cent->gent->client->renderInfo.muzzleDir2);
+							theFxScheduler.PlayEffect(effect, cent->gent->client->renderInfo.muzzlePoint,
+								cent->gent->client->renderInfo.muzzleDir);
+							//Fixme : The way the game handle stopping the looping effect is to replace the old effect on the new one.
+							//Ideally we should use G_SoundOnEnt(gentity_t* ent, soundChannel_t channel, const char* soundPath);
+							//With a "empty" sound so that it doens't play the sound a third time and place a redudant effect.
+							//G_SoundOnEnt(cent->gent, CHAN_WEAPON, "sound/null.wav");
+							theFxScheduler.PlayEffect("misc/blank", cent->currentState.clientNum);
+
+						}
+						if ( !VectorCompare(cent->gent->client->renderInfo.muzzlePoint2, vec3_origin )
+							&& !VectorCompare(cent->gent->client->renderInfo.muzzleDir2, vec3_origin ) )
 						{//we have an old muzzlePoint we want to use
-							theFxScheduler.PlayEffect( effect, oldMP, oldMD );
+							theFxScheduler.PlayEffect( effect, cent->gent->client->renderInfo.muzzlePoint2, 
+								cent->gent->client->renderInfo.muzzleDir2);
 						}
 						else
 						{//use the current one
-							theFxScheduler.PlayEffect( effect, cent->gent->client->renderInfo.muzzlePoint,
-														cent->gent->client->renderInfo.muzzleDir );
+							theFxScheduler.PlayEffect(effect, cent->gent->client->renderInfo.muzzlePoint,
+								cent->gent->client->renderInfo.muzzleDir);
 						}
 					}
 					else
@@ -9538,9 +9525,9 @@ Ghoul2 Insert End
 				CG_PositionEntityOnTag( &flash, &gun, gun.hModel, "tag_flash");
 
 				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->mMuzzleEffectID )
+				if ( wData->attackData[0].mMuzzleEffectID )
 				{
-					effect = wData->mMuzzleEffectID;
+					effect = wData->attackData[0].mMuzzleEffectID;
 				}
 
 				if (wData->mTertiaryMuzzleEffectID)
@@ -9551,9 +9538,9 @@ Ghoul2 Insert End
 				if ( cent->currentState.eFlags & EF_ALT_FIRING )
 				{
 					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->mAltMuzzleEffectID )
+					if ( wData->attackData[1].mMuzzleEffectID )
 					{
-						effect = wData->mAltMuzzleEffectID;
+						effect = wData->attackData[1].mMuzzleEffectID;
 					}
 				}
 
@@ -9665,6 +9652,9 @@ Ghoul2 Insert End
 			val += Q_flrand(0.0f, 1.0f) * 0.5f;
 
 			FX_AddSprite( cent->gent->client->renderInfo.muzzlePoint, NULL, NULL, 3.0f * val * scale, 0.0f, 0.7f, 0.7f, WHITE, WHITE, Q_flrand(0.0f, 1.0f) * 360, 0.0f, 1.0f, shader, FX_USE_ALPHA );
+			if (weaponData[cent->gent->s.weapon].weaponCategory == WC_PISTOL && cent->gent->weaponModel[1]) {
+				FX_AddSprite(cent->gent->client->renderInfo.muzzlePoint2, NULL, NULL, 3.0f * val * scale, 0.0f, 0.7f, 0.7f, WHITE, WHITE, Q_flrand(0.0f, 1.0f) * 360, 0.0f, 1.0f, shader, FX_USE_ALPHA);
+			}
 		}
 	}
 }

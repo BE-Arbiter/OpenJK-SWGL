@@ -254,7 +254,7 @@ static void WP_FireConcussion( gentity_t *ent )
 {//a fast rocket-like projectile
 	vec3_t	start;
 	int		damage	= weaponData[ent->s.weapon].attackData[0].damage;
-	float	vel = CONC_VELOCITY;
+	float	vel = weaponData[ent->s.weapon].attackData[0].mVelocity;
 
 	if (ent->s.number >= MAX_CLIENTS)
 	{

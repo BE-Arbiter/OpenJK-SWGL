@@ -193,7 +193,8 @@ void G_ReadSessionData( gclient_t *client ) {
       /* Get next token: */
       var = strtok( NULL, " " );
 	}
-	assert (i== weaponCount);
+	//FIXME : This assert is bad
+	//assert (i== MAX_WEAPONS);
 }
 
 

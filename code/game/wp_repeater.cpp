@@ -42,7 +42,7 @@ static void WP_RepeaterMainFire( gentity_t *ent, vec3_t dir )
 
 	WP_MissileTargetHint(ent, start, dir);
 
-	gentity_t *missile = CreateMissile( start, dir, REPEATER_VELOCITY, 10000, ent );
+	gentity_t *missile = CreateMissile( start, dir, weaponData[ent->s.weapon].attackData[0].mVelocity, 10000, ent );
 
 	missile->classname = "repeater_proj";
 	missile->s.weapon = ent->s.weapon;
@@ -78,6 +78,11 @@ static void WP_RepeaterMainFire( gentity_t *ent, vec3_t dir )
 
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
+
+	if (ent->weaponModel[1] > 0)
+	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
+		ent->count = (ent->count) ? 0 : 1;
+	}
 }
 
 //---------------------------------------------------------
@@ -98,7 +103,7 @@ static void WP_RepeaterAltFire( gentity_t *ent )
 	else
 	{
 		WP_MissileTargetHint(ent, start, forwardVec);
-		missile = CreateMissile( start, forwardVec, REPEATER_ALT_VELOCITY, 10000, ent, qtrue );
+		missile = CreateMissile( start, forwardVec, weaponData[ent->s.weapon].attackData[1].mVelocity, 10000, ent, qtrue);
 	}
 
 	missile->classname = "repeater_alt_proj";
@@ -144,6 +149,11 @@ static void WP_RepeaterAltFire( gentity_t *ent )
 
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
+
+	if (ent->weaponModel[1] > 0)
+	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
+		ent->count = (ent->count) ? 0 : 1;
+	}
 }
 
 //---------------------------------------------------------
