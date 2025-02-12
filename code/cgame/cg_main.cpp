@@ -87,9 +87,11 @@ int	force_icons[NUM_FORCE_POWERS];
 
 
 void CG_DrawDataPadHUD( centity_t *cent );
+void CG_DrawDataPadLoadoutFrame( centity_t *cent );
 void CG_DrawDataPadObjectives(const centity_t *cent );
 void CG_DrawDataPadIconBackground(const int backgroundType);
 void CG_DrawDataPadWeaponSelect( void );
+void CG_LDO_DrawWeapons( void );
 void CG_DrawDataPadForceSelect( void );
 
 /*
@@ -151,6 +153,14 @@ Ghoul2 Insert End
 		}
 		return 0;
 
+	case CG_DRAW_DATAPAD_LOADOUT_FRAME:
+		if (cg.snap)
+		{
+			cent = &cg_entities[cg.snap->ps.clientNum];
+			CG_DrawDataPadLoadoutFrame(cent);
+		}
+		return 0;
+
 	case CG_DRAW_DATAPAD_OBJECTIVES:
 		if (cg.snap)
 		{
@@ -164,6 +174,13 @@ Ghoul2 Insert End
 		{
 			CG_DrawDataPadIconBackground(ICON_WEAPONS);
 			CG_DrawDataPadWeaponSelect();
+		}
+		return 0;
+	case CG_DRAW_DATAPAD_LOADOUT:
+		if (cg.snap)
+		{
+			CG_DrawDataPadIconBackground(ICON_INVENTORY);
+			CG_LDO_DrawWeapons();
 		}
 		return 0;
 	case CG_DRAW_DATAPAD_INVENTORY:
@@ -369,6 +386,8 @@ vmCvar_t		cg_truefov;
 vmCvar_t        cg_truebobbing;
 
 vmCvar_t		cg_hudRatio;
+vmCvar_t		ui_loadout_base_weapon;
+vmCvar_t		ui_loadout_weapon;
 
 
 typedef struct {
@@ -511,6 +530,9 @@ static cvarTable_t cvarTable[] = {
 
 	{ &r_ratioFix, "r_ratioFix", "", 0 },
 	{ &cg_hudRatio, "cg_hudRatio", "1", CVAR_ARCHIVE },
+	//Loadout Menu cvar
+	{ &ui_loadout_base_weapon , "ui_loadout_base_weapon","weapon_none", CVAR_TEMP},
+	{ &ui_loadout_weapon , "ui_loadout_weapon","0", CVAR_TEMP}
 };
 
 static const size_t cvarTableSize = ARRAY_LEN( cvarTable );
@@ -1478,6 +1500,7 @@ static void CG_RegisterGraphics( void ) {
 	cgs.media.forceIconBackground	= cgi_R_RegisterShaderNoMip( "gfx/hud/background_f");
 	cgs.media.inventoryIconBackground= cgi_R_RegisterShaderNoMip( "gfx/hud/background_i");
 	cgs.media.dataPadFrame			= cgi_R_RegisterShaderNoMip( "gfx/menus/datapad");
+	cgs.media.dataPadLoadoutFrame			= cgi_R_RegisterShaderNoMip( "gfx/menus/equipment_bg");
 
 	//gore decal shaders -rww
 	cgs.media.bdecal_burnmark1		= cgi_R_RegisterShader( "gfx/damage/burnmark1" );

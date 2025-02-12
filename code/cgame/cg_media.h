@@ -254,6 +254,7 @@ typedef struct {
 	qhandle_t	emplacedHealthBarShader;
 
 	qhandle_t	dataPadFrame;
+	qhandle_t	dataPadLoadoutFrame;
 	qhandle_t	DPForcePowerOverlay;
 
 	qhandle_t	bdecal_burnmark1;
