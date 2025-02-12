@@ -151,6 +151,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 		if (i == MAX_ITEMS) {
 			CG_Error("Too many items in external items data(%d); Cannot create nor found item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
 		}
+		item = &(bg_itemlist[bg_numItems]);
 		InitItemForWeapon(item, weaponNum);
 		weaponInfo->item = item;
 		bg_numItems++;
@@ -303,9 +304,8 @@ void CG_RegisterWeapon( int weaponNum ) {
 		weaponInfo->alt_missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].attackData[1].missileFunc;
 	}
 
-	if (!cgs.effects.blankEffect) {
-		cgs.effects.blankEffect = theFxScheduler.RegisterEffect("misc/blank");
-	}
+	//Register a blank effect to overwrite the charging sound of dual pistols... Hate this hack...
+	cgs.effects.blankEffect = theFxScheduler.RegisterEffect("misc/blank");
 
 	int baseWeaponNum = weaponNum;
 	if (weaponData[weaponNum].baseWeaponNum) {

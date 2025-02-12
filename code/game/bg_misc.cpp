@@ -285,6 +285,7 @@ gitem_t* FindItemForWeapon(int weaponNum) {
 	if (i == MAX_ITEMS) {
 		CG_Error("Too many items in external items data(%d); Cannot create nor found item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
 	}
+	item = &(bg_itemlist[bg_numItems]);
 	InitItemForWeapon(item, weaponNum);
 	bg_numItems++;
 
@@ -303,13 +304,9 @@ gitem_t	*FindItemForInventory( int inv )
 	for ( i = 1 ; i < bg_numItems ; i++ )
 	{
 		it = &bg_itemlist[i];
-
-		if ( it->giType == IT_HOLDABLE )
+		if ( it->giType == IT_HOLDABLE && it->giTag == inv )
 		{
-			if ( it->giTag == inv )
-			{
-				return it;
-			}
+			return it;
 		}
 	}
 
