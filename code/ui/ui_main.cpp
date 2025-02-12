@@ -1550,6 +1550,18 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "dpweapnext\n");
 		}
+		else if (Q_stricmp(name, "loadoutSelectBaseWeapon") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSelectBaseWeapon\n");
+		}
+		else if (Q_stricmp(name, "loadoutSelectWeapon") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSelectWeapon\n");
+		}
+		else if (Q_stricmp(name, "switchSelectWeapon") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "switchSelectWeapon\n");
+		}
 		else if (Q_stricmp(name, "prevDataPadWeapon") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "dpweapprev\n");
@@ -4763,6 +4775,11 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 			ui.Draw_DataPad(DP_FORCEPOWERS);
 			break;
 
+		case UI_DATAPAD_LOADOUT:
+			ui.Draw_DataPad(DP_LOADOUT_FRAME);
+			ui.Draw_DataPad(DP_LOADOUT);
+			break;
+
 		case UI_ALLMAPS_SELECTION://saved game thumbnail
 
 			int levelshot;
@@ -5068,6 +5085,7 @@ void UI_InGameMenu(const char*menuID)
 
 	if (menuID)
 	{
+		Com_Printf(S_COLOR_CYAN"here\n");
 		Menus_ActivateByName(menuID);
 	}
 	else

@@ -151,6 +151,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 		if (i == MAX_ITEMS) {
 			CG_Error("Too many items in external items data(%d); Cannot create nor found item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
 		}
+		item = &(bg_itemlist[bg_numItems]);
 		InitItemForWeapon(item, weaponNum);
 		weaponInfo->item = item;
 		bg_numItems++;
@@ -303,9 +304,8 @@ void CG_RegisterWeapon( int weaponNum ) {
 		weaponInfo->alt_missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].attackData[1].missileFunc;
 	}
 
-	if (!cgs.effects.blankEffect) {
-		cgs.effects.blankEffect = theFxScheduler.RegisterEffect("misc/blank");
-	}
+	//Register a blank effect to overwrite the charging sound of dual pistols... Hate this hack...
+	cgs.effects.blankEffect = theFxScheduler.RegisterEffect("misc/blank");
 
 	int baseWeaponNum = weaponNum;
 	if (weaponData[weaponNum].baseWeaponNum) {
@@ -2525,6 +2525,172 @@ void CG_NextWeapon_f( void ) {
 	}
 
 	cg.weaponSelect = original;
+}
+
+extern vmCvar_t		ui_loadout_base_weapon;
+void CG_LDO_SelectBaseWeapon_f(void)
+{
+	cgi_Cvar_Update(&ui_loadout_base_weapon);
+	char *baseWeapon = ui_loadout_base_weapon.string;
+	int i;
+
+	for (i = 0; i < WP_HC_NUM_WEAPONS; i++)
+	{
+		if (!Q_stricmp(weaponData[i].classname, baseWeapon))
+		{
+			cg.LoadoutBaseWeaponSelect = i;
+			break;
+		}
+	}
+	if (i == WP_HC_NUM_WEAPONS)
+	{
+		cg.LoadoutBaseWeaponSelect = 0;
+	}
+	cg.LoadoutWeaponSelect = 0;
+}
+extern vmCvar_t		ui_loadout_weapon;
+void CG_LDO_SelectWeapon_f(void)
+{
+	if(cg.LoadoutBaseWeaponSelect == 0)
+	{
+		return;
+	}
+	//Get the weapon menu index value
+	cgi_Cvar_Update(&ui_loadout_weapon);
+	
+	if(ui_loadout_weapon.integer == 0){
+		cg.LoadoutWeaponSelect = 0;
+		return;
+	}
+	
+	int targetMenuIndex = ui_loadout_weapon.integer;
+	int currMenuIndex = 0;
+	int i;
+	//Search until we found the good weapon
+	for ( i = 0; i < weaponCount; i++)
+	{
+		if ( (i == cg.LoadoutBaseWeaponSelect || weaponData[i].baseWeaponNum == cg.LoadoutBaseWeaponSelect) 
+			&& weaponData[i].playerUsable)
+		{
+			//This might be the weapon we are looking for
+			currMenuIndex++;
+			if (targetMenuIndex == currMenuIndex) {
+				//This is ! 
+				cg.LoadoutWeaponSelect = i;
+				break;
+			}
+		}
+	}
+}
+
+void CG_LDO_SwitchWeapon_f(void) {
+	if (cg.LoadoutWeaponSelect == 0)
+	{
+		return;
+	}
+	gentity_t *ent = cg_entities[0].gent;
+
+	cg.snap->ps.weapons[cg.LoadoutWeaponSelect] = cg.snap->ps.weapons[cg.LoadoutWeaponSelect] ? 0 : 1;
+	if (cg.snap->ps.weapons[cg.LoadoutWeaponSelect])
+	{
+		int ammoIndex = weaponData[cg.LoadoutWeaponSelect].ammoIndex;
+		int givenAmmo = ammoData[ammoIndex].max / 2;
+		ent->client->ps.weapons[cg.LoadoutWeaponSelect] = 1;
+		if (ent->client->ps.ammo[ammoIndex] < givenAmmo) {
+			ent->client->ps.ammo[ammoIndex] = givenAmmo;
+		}
+	}
+	else {
+		ent->client->ps.weapons[cg.LoadoutWeaponSelect] = 0;
+		if (cg.snap->ps.weapon == cg.LoadoutWeaponSelect) {
+			ent->client->ps.weapon = WP_NONE;
+		}
+	}
+}
+
+/*
+===============
+CG_UI_DrawListWeaponCategory_f
+Show the different variants of weapons for a given weapon
+===============
+*/
+void CG_LDO_DrawWeapons(void) {
+	int marX = 8, marY = 16;
+	int sizeX = 70, sizeY = 55;
+	int startX = 159, startY = 49;
+	int posX = startX, posY = startY;
+	int ix = 0, iy = 0, iw = 0;
+	qhandle_t background = cgi_R_RegisterShaderNoMip("gfx/menus/w_icon_background");
+
+	if (cg.LoadoutBaseWeaponSelect == 0) {
+		return;
+	}
+
+	for (iw = 0; iw < weaponCount; iw++)
+	{
+		//Either this is the base weapon or a derivated weapon from this weapon.
+		if ((iw == cg.LoadoutBaseWeaponSelect || weaponData[iw].baseWeaponNum == cg.LoadoutBaseWeaponSelect)
+			&& weaponData[iw].playerUsable)
+		{
+			CG_DrawPic(posX, posY, sizeX, sizeY, background);
+			weaponInfo_t* weaponInfo;
+			CG_RegisterWeapon(iw);
+			weaponInfo = &cg_weapons[iw];
+			if (cg.snap->ps.weapons[iw])
+			{
+				CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIcon);
+			}
+			else
+			{
+				CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIconNoAmmo);
+			}
+			//Next icon
+			if (ix == 5)
+			{
+				ix = 0;
+				posX = startX;
+				iy++;
+				posY += marY + sizeY;
+			}
+			else
+			{
+				ix++;
+				posX += marX + sizeX;
+			}
+		}
+	}
+		//Draw the current weapon Description to the screen?
+	char			text[1024] = { 0 };
+	if (cg.LoadoutWeaponSelect > 0) {
+		// Print the weapon description
+		if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect]), text, sizeof(text)))
+		{
+			void;
+		}
+		else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect]), text, sizeof(text)))
+		{
+			void;
+		}
+		//Dynamic Weapons
+		else if (!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+		{
+			Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
+		}
+	}
+	const short textboxXPos = 156;
+	const short textboxYPos = 273;
+	const int	textboxWidth = 466;
+	const int	textboxHeight = 136;
+	const float	textScale = 0.75f;
+
+	CG_DisplayBoxedText(
+		textboxXPos, textboxYPos,
+		textboxWidth, textboxHeight,
+		text,
+		4,
+		textScale,
+		colorTable[CT_WHITE]
+	);
 }
 
 /*

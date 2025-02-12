@@ -2015,6 +2015,50 @@ void CG_DrawDataPadHUD( centity_t *cent )
 
 }
 
+void CG_DrawDataPadLoadoutFrame( centity_t *cent )
+{
+	int x,y;
+
+	x = 34;
+	y = 286;
+
+	CG_DrawHealth(x, y, 80, 80, 1.0f);
+
+	x = 526;
+
+	if ((missionInfo_Updated) && ((cg_updatedDataPadForcePower1.integer) || (cg_updatedDataPadObjective.integer)))
+	{
+		// Stop flashing light
+		cg.missionInfoFlashTime = 0;
+		missionInfo_Updated = qfalse;
+
+		// Set which force power to show.
+		// cg_updatedDataPadForcePower is set from Q3_Interface, because force powers would only be given
+		// from a script.
+		if (cg_updatedDataPadForcePower1.integer)
+		{
+			cg.DataPadforcepowerSelect = cg_updatedDataPadForcePower1.integer - 1; // Not pretty, I know
+			if (cg.DataPadforcepowerSelect >= MAX_DPSHOWPOWERS)
+			{	//duh
+				cg.DataPadforcepowerSelect = MAX_DPSHOWPOWERS-1;
+			}
+			else if (cg.DataPadforcepowerSelect<0)
+			{
+				cg.DataPadforcepowerSelect=0;
+			}
+		}
+//		CG_ClearDataPadCvars();
+	}
+
+	CG_DrawForcePower(cent, x, y, 1.0f);
+	CG_DrawAmmo(cent, x, y, 1.0f);
+	CG_DrawMessageLit(cent,x,y);
+
+	cgi_R_SetColor( colorTable[CT_WHITE]);
+	CG_DrawPic( 0, 0, 640, 480, cgs.media.dataPadLoadoutFrame );
+
+}
+
 //------------------------
 // CG_DrawZoomMask
 //------------------------
