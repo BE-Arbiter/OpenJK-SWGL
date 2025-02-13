@@ -35,6 +35,7 @@ extern void CG_LightningBolt( centity_t *cent, vec3_t origin );
 extern cvar_t *g_char_model;
 
 #define	PHASER_HOLDFRAME	2
+#define LOADOUT_PAGESIZE	18
 extern void G_SoundOnEnt( gentity_t *ent, soundChannel_t channel, const char *soundPath );
 const char *CG_DisplayBoxedText(int iBoxX, int iBoxY, int iBoxWidth, int iBoxHeight,
 								const char *psText, int iFontHandle, float fScale,
@@ -2527,6 +2528,10 @@ void CG_NextWeapon_f( void ) {
 	cg.weaponSelect = original;
 }
 
+/* 1 -> XXX is base weapons*/
+/* -1 -> Ammo */
+/* -2 -> Inventory*/
+/* -3 -> All Weapons*/
 extern vmCvar_t		ui_loadout_base_weapon;
 void CG_LDO_SelectBaseWeapon_f(void)
 {
@@ -2534,6 +2539,22 @@ void CG_LDO_SelectBaseWeapon_f(void)
 	char *baseWeapon = ui_loadout_base_weapon.string;
 	int i;
 
+	//Reset the selected weapon / Ammo / Item & the selected Page
+	cg.LoadoutWeaponSelect = 0;
+	cg.LoadoutPageSelect = 0;
+	if (!Q_stricmp("LD_AMMUNITION", baseWeapon)) {
+		cg.LoadoutBaseWeaponSelect = -1;
+		return;
+	}
+	if (!Q_stricmp("LD_INVENTORY", baseWeapon)) {
+		cg.LoadoutBaseWeaponSelect = -2;
+		return;
+	}
+	if (!Q_stricmp("WEAPON_ALL", baseWeapon)) {
+		cg.LoadoutBaseWeaponSelect = -3;
+		return;
+	}
+	//FIXME : When AWEC Has finished his work, it would be better to use his cycling categories.
 	for (i = 0; i < WP_HC_NUM_WEAPONS; i++)
 	{
 		if (!Q_stricmp(weaponData[i].classname, baseWeapon))
@@ -2546,8 +2567,8 @@ void CG_LDO_SelectBaseWeapon_f(void)
 	{
 		cg.LoadoutBaseWeaponSelect = 0;
 	}
-	cg.LoadoutWeaponSelect = 0;
 }
+
 extern vmCvar_t		ui_loadout_weapon;
 void CG_LDO_SelectWeapon_f(void)
 {
@@ -2563,13 +2584,41 @@ void CG_LDO_SelectWeapon_f(void)
 		return;
 	}
 	
-	int targetMenuIndex = ui_loadout_weapon.integer;
+
+	int targetMenuIndex = (cg.LoadoutPageSelect * LOADOUT_PAGESIZE) + ui_loadout_weapon.integer;
 	int currMenuIndex = 0;
 	int i;
-	//Search until we found the good weapon
-	for ( i = 0; i < weaponCount; i++)
+	//Search Ammo
+	if (cg.LoadoutBaseWeaponSelect == -1
+		|| cg.LoadoutBaseWeaponSelect == -2
+		)
 	{
-		if ( (i == cg.LoadoutBaseWeaponSelect || weaponData[i].baseWeaponNum == cg.LoadoutBaseWeaponSelect) 
+		for (i = 0; i < bg_numItems; i++)
+		{
+			gitem_t* item = &bg_itemlist[i];
+			//Declared like this for readability
+			if ( ( (cg.LoadoutBaseWeaponSelect == -1 && item->giType == IT_AMMO)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HOLDABLE)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HEALTH)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_ARMOR) )
+				&& item->icon && item->icon[0]
+				)
+			{
+				//This might be the weapon we are looking for
+				currMenuIndex++;
+				if (targetMenuIndex == currMenuIndex) {
+					//This is ! 
+					cg.LoadoutWeaponSelect = i;
+					break;
+				}
+			}
+		}
+		return;
+	}
+	//Search until we found the good weapon
+	for ( i = 1; i < weaponCount; i++)
+	{
+		if ( (cg.LoadoutBaseWeaponSelect == -3 || i == cg.LoadoutBaseWeaponSelect || weaponData[i].baseWeaponNum == cg.LoadoutBaseWeaponSelect) 
 			&& weaponData[i].playerUsable)
 		{
 			//This might be the weapon we are looking for
@@ -2588,13 +2637,57 @@ void CG_LDO_SwitchWeapon_f(void) {
 	{
 		return;
 	}
-	gentity_t *ent = cg_entities[0].gent;
+	gentity_t* ent = cg_entities[0].gent;
+	//Add Ammo
+	if (cg.LoadoutBaseWeaponSelect == -1) {
+		gitem_t* item = &bg_itemlist[cg.LoadoutWeaponSelect];
+		cgi_S_StartSound(NULL, ent->s.number, CHAN_AUTO, cgi_S_RegisterSound(item->pickup_sound));
+		ent->client->ps.ammo[item->giTag] += 50;
+		return;
+	}
+	//Add Holdable
+	if (cg.LoadoutBaseWeaponSelect == -2 && bg_itemlist[cg.LoadoutWeaponSelect].giType == IT_HOLDABLE) {
+		gitem_t* item = &bg_itemlist[cg.LoadoutWeaponSelect];
+		cgi_S_StartSound(NULL, ent->s.number, CHAN_AUTO, cgi_S_RegisterSound(item->pickup_sound));
+		if (item->giTag == INV_SECURITY_KEY)
+		{
+			INV_SecurityKeyGive(ent, ent->message);
+		}
+		else if (item->giTag == INV_GOODIE_KEY)
+		{
+			INV_GoodieKeyGive(ent);
+		}
+		else
+		{// Picking up a normal item?
+			ent->client->ps.inventory[item->giTag]++;
+		}
+		return;
+	}
+	//Add Armor or health
+	if (cg.LoadoutBaseWeaponSelect == -2 &&
+		(bg_itemlist[cg.LoadoutWeaponSelect].giType == IT_HEALTH || bg_itemlist[cg.LoadoutWeaponSelect].giType == IT_ARMOR)
+		)
+	{
+		gitem_t* item = &bg_itemlist[cg.LoadoutWeaponSelect];
+
+		cgi_S_StartSound(NULL, ent->s.number, CHAN_AUTO, cgi_S_RegisterSound(item->pickup_sound));
+
+		int stat = item->giType == IT_ARMOR ? STAT_ARMOR : STAT_HEALTH;
+		if (stat == STAT_ARMOR) {
+			ent->client->ps.powerups[PW_BATTLESUIT] = Q3_INFINITE;
+		}
+		ent->client->ps.stats[stat] += item->quantity;
+		if (ent->client->ps.stats[stat] > ent->client->ps.stats[STAT_MAX_HEALTH]) {
+			ent->client->ps.stats[stat] = ent->client->ps.stats[STAT_MAX_HEALTH];
+		}
+		return;
+	}
 
 	cg.snap->ps.weapons[cg.LoadoutWeaponSelect] = cg.snap->ps.weapons[cg.LoadoutWeaponSelect] ? 0 : 1;
 	if (cg.snap->ps.weapons[cg.LoadoutWeaponSelect])
 	{
 		int ammoIndex = weaponData[cg.LoadoutWeaponSelect].ammoIndex;
-		int givenAmmo = ammoData[ammoIndex].max / 2;
+		int givenAmmo = 25;//ammoData[ammoIndex].max / 2;
 		ent->client->ps.weapons[cg.LoadoutWeaponSelect] = 1;
 		if (ent->client->ps.ammo[ammoIndex] < givenAmmo) {
 			ent->client->ps.ammo[ammoIndex] = givenAmmo;
@@ -2608,6 +2701,56 @@ void CG_LDO_SwitchWeapon_f(void) {
 	}
 }
 
+void CG_LDO_PreviousPage_f(void) {
+	if (cg.LoadoutBaseWeaponSelect == 0) {
+		return;
+	}
+	cg.LoadoutPageSelect++;
+	if (cg.LoadoutBaseWeaponSelect < 0) {
+		cg.LoadoutPageSelect = 0;
+	}
+}
+
+void CG_LDO_NextPage_f(void) {
+	if (cg.LoadoutBaseWeaponSelect == 0) {
+		return;
+	}
+	int i;
+	int totalIcons = 0;
+	if (cg.LoadoutBaseWeaponSelect == -1
+		|| cg.LoadoutBaseWeaponSelect == -2)
+	{
+		for (i = 0; i < bg_numItems; i++) {
+			gitem_t* item = &bg_itemlist[i];
+			//Declared like this for readability
+			if (((cg.LoadoutBaseWeaponSelect == -1 && item->giType == IT_AMMO)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HOLDABLE)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HEALTH)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_ARMOR)
+				) && item->icon && item->icon[0])
+			{
+				totalIcons++;
+			}
+		}
+	}
+	else {
+
+		for (i = 1; i < weaponCount; i++)
+		{
+			//Either this is the base weapon or a derivated weapon from this weapon (or we have selected all weapons)
+			if ((cg.LoadoutBaseWeaponSelect == -3 || i == cg.LoadoutBaseWeaponSelect || weaponData[i].baseWeaponNum == cg.LoadoutBaseWeaponSelect)
+				&& weaponData[i].playerUsable)
+			{
+				totalIcons++;
+			}
+		}
+	}
+	int maxPages = totalIcons / LOADOUT_PAGESIZE;
+	cg.LoadoutPageSelect++;
+	if (cg.LoadoutBaseWeaponSelect > maxPages) {
+		cg.LoadoutPageSelect = maxPages;
+	}
+}
 /*
 ===============
 CG_UI_DrawListWeaponCategory_f
@@ -2619,62 +2762,130 @@ void CG_LDO_DrawWeapons(void) {
 	int sizeX = 70, sizeY = 55;
 	int startX = 159, startY = 49;
 	int posX = startX, posY = startY;
-	int ix = 0, iy = 0, iw = 0;
+	//Icon X Pos, Icon Y Pos, Index of Weapon/Item, Ignored Icon Count (for page display)
+	int ix = 0, iy = 0, iw = 0,iic = 0;
+	int firstIcon = (cg.LoadoutPageSelect * LOADOUT_PAGESIZE);
+	char text[1024] = { 0 };
 	qhandle_t background = cgi_R_RegisterShaderNoMip("gfx/menus/w_icon_background");
 
 	if (cg.LoadoutBaseWeaponSelect == 0) {
 		return;
 	}
 
-	for (iw = 0; iw < weaponCount; iw++)
+	//Print Ammo or inventory
+	if (cg.LoadoutBaseWeaponSelect == -1 
+		|| cg.LoadoutBaseWeaponSelect == -2)
 	{
-		//Either this is the base weapon or a derivated weapon from this weapon.
-		if ((iw == cg.LoadoutBaseWeaponSelect || weaponData[iw].baseWeaponNum == cg.LoadoutBaseWeaponSelect)
-			&& weaponData[iw].playerUsable)
-		{
-			CG_DrawPic(posX, posY, sizeX, sizeY, background);
-			weaponInfo_t* weaponInfo;
-			CG_RegisterWeapon(iw);
-			weaponInfo = &cg_weapons[iw];
-			if (cg.snap->ps.weapons[iw])
+		for (iw = 0; iw < bg_numItems && iy < 3; iw++) {
+			gitem_t *item = &bg_itemlist[iw];
+			//Declared like this for readability
+			if ( ((cg.LoadoutBaseWeaponSelect == -1 && item->giType == IT_AMMO)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HOLDABLE)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HEALTH)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_ARMOR)
+				) && item->icon && item->icon[0] )
 			{
-				CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIcon);
+				if (iic < firstIcon) {
+					iic++;
+					continue;
+				}
+				CG_DrawPic(posX, posY, sizeX, sizeY, background);
+				CG_RegisterItemVisuals(iw);
+				itemInfo_t *itemInfo = &cg_items[iw];
+				CG_DrawPic(posX + 7, posY, sizeY, sizeY, itemInfo->icon);
+
+				//Next icon
+				if (ix == 5)
+				{
+					ix = 0;
+					posX = startX;
+					iy++;
+					posY += marY + sizeY;
+				}
+				else
+				{
+					ix++;
+					posX += marX + sizeX;
+				}
 			}
-			else
+		}
+
+		if (cg.LoadoutWeaponSelect > 0) {
+			char count[128];
+			if (cg.LoadoutBaseWeaponSelect == -1) Q_strncpyz(count, "50 Units", sizeof(count)); else Q_strncpyz(count,"1 unit",sizeof(count));
+			// Print the item Description
+			if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
 			{
-				CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIconNoAmmo);
+				void;
 			}
-			//Next icon
-			if (ix == 5)
+			else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
 			{
-				ix = 0;
-				posX = startX;
-				iy++;
-				posY += marY + sizeY;
+				void;
 			}
-			else
+			//Dynamic Weapons
+			else if (cgi_SP_GetStringTextString(va("%s_NAME", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
 			{
-				ix++;
-				posX += marX + sizeX;
+				Com_sprintf(text, sizeof(text), "Unknown Item");
 			}
+			Com_sprintf(text, sizeof(text), va("%s\nPress this item to get %s of it.", text, count));
 		}
 	}
+	else
+	{
+		for (iw = 1; iw < weaponCount && iy < 3; iw++)
+		{
+			//Either this is the base weapon or a derivated weapon from this weapon.
+			if ((cg.LoadoutBaseWeaponSelect == -3 || iw == cg.LoadoutBaseWeaponSelect || weaponData[iw].baseWeaponNum == cg.LoadoutBaseWeaponSelect)
+				&& weaponData[iw].playerUsable)
+			{
+				if (iic < firstIcon) {
+					iic++;
+					continue;
+				}
+				CG_DrawPic(posX, posY, sizeX, sizeY, background);
+				weaponInfo_t* weaponInfo;
+				CG_RegisterWeapon(iw);
+				weaponInfo = &cg_weapons[iw];
+				if (cg.snap->ps.weapons[iw])
+				{
+					CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIcon);
+				}
+				else
+				{
+					CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIconNoAmmo);
+				}
+				//Next icon
+				if (ix == 5)
+				{
+					ix = 0;
+					posX = startX;
+					iy++;
+					posY += marY + sizeY;
+				}
+				else
+				{
+					ix++;
+					posX += marX + sizeX;
+				}
+			}
+		}
 		//Draw the current weapon Description to the screen?
-	char			text[1024] = { 0 };
-	if (cg.LoadoutWeaponSelect > 0) {
-		// Print the weapon description
-		if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect]), text, sizeof(text)))
-		{
-			void;
-		}
-		else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect]), text, sizeof(text)))
-		{
-			void;
-		}
-		//Dynamic Weapons
-		else if (!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
-		{
-			Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
+		
+		if (cg.LoadoutWeaponSelect > 0) {
+			// Print the weapon description
+			if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect-1]), text, sizeof(text)))
+			{
+				void;
+			}
+			else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect-1]), text, sizeof(text)))
+			{
+				void;
+			}
+			//Dynamic Weapons
+			else if (!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			{
+				Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
+			}
 		}
 	}
 	const short textboxXPos = 156;

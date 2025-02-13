@@ -1558,9 +1558,17 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSelectWeapon\n");
 		}
-		else if (Q_stricmp(name, "switchSelectWeapon") == 0)
+		else if (Q_stricmp(name, "loadoutSwitchSelectWeapon") == 0)
 		{
-			ui.Cmd_ExecuteText( EXEC_APPEND, "switchSelectWeapon\n");
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSwitchSelectWeapon\n");
+		}
+		else if (Q_stricmp(name, "loadoutNextPage") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutNextPage\n");
+		}
+		else if (Q_stricmp(name, "loadoutPreviousPage") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutPreviousPage\n");
 		}
 		else if (Q_stricmp(name, "prevDataPadWeapon") == 0)
 		{

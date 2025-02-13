@@ -439,6 +439,7 @@ typedef struct {
 	int			DataPadforcepowerSelect;	// Current force power chosen on Data Pad
 	int			LoadoutBaseWeaponSelect;	// Current Base weapon chosen for Weapon Add/Remove
 	int			LoadoutWeaponSelect;		// Current Weapon chosen for Weapon Add/Remove
+	int			LoadoutPageSelect;			// Current Page
 
 	qboolean	messageLitActive;			// Flag to show of message lite is active
 
@@ -837,6 +838,8 @@ void CG_DPPrevWeapon_f(void);
 void CG_LDO_SelectBaseWeapon_f(void);
 void CG_LDO_SelectWeapon_f(void);
 void CG_LDO_SwitchWeapon_f(void);
+void CG_LDO_PreviousPage_f(void);
+void CG_LDO_NextPage_f(void);
 void CG_Dualwield_f(void);
 void CG_DPNextInventory_f( void );
 void CG_DPPrevInventory_f( void );
