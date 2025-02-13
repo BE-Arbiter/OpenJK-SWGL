@@ -2135,7 +2135,7 @@ void CG_DrawWeaponSelect( void )
 			i = WEAPON_BUCKETS_SIZE-1;
 		}
 		int tmpWeapon = weaponBuckets[i];
-		if ( tmpWeapon < 0 || !(cg.snap->ps.weapons[tmpWeapon] && weaponData[tmpWeapon].playerUsable) )	// Does he have this weapon?
+		if ( tmpWeapon <= 0 || !(cg.snap->ps.weapons[tmpWeapon] && weaponData[tmpWeapon].playerUsable) )	// Does he have this weapon?
 		{
 			continue;
 		}
@@ -2206,7 +2206,7 @@ void CG_DrawWeaponSelect( void )
 			i = 1;
 		}
 		int tmpWeapon = weaponBuckets[i];
-		if ( tmpWeapon < 0 || !(cg.snap->ps.weapons[tmpWeapon] && weaponData[tmpWeapon].playerUsable))	// Does he have this weapon?
+		if ( tmpWeapon <= 0 || !(cg.snap->ps.weapons[tmpWeapon] && weaponData[tmpWeapon].playerUsable))	// Does he have this weapon?
 		{
 			continue;
 		}
@@ -2561,7 +2561,8 @@ void CG_LDO_SelectWeapon_f(void)
 		}
 		return;
 	}
-	if (cg.LoadoutBaseWeaponSelect == -3) {
+	if (cg.LoadoutBaseWeaponSelect == -3)
+	{
 		//Normal search in the bucket array
 		for (i = 1; i < WEAPON_BUCKETS_SIZE; i++)
 		{	
@@ -2590,12 +2591,19 @@ void CG_LDO_SelectWeapon_f(void)
 			break;
 		}
 	}
-
-	//We should not have clicked there
-	if (targetMenuIndex >= bucketSize) {
-		return;
+	//Normal search in the bucket array
+	for (i = bucketIndex; i < (bucketIndex + bucketSize); i++)
+	{
+		int weaponIndex = weaponBuckets[i];
+		if (weaponIndex > 0 && weaponData[weaponIndex].playerUsable)
+		{
+			currMenuIndex++;
+			if (targetMenuIndex == currMenuIndex) {
+				cg.LoadoutWeaponSelect = weaponIndex;
+				break;
+			}
+		}
 	}
-	cg.LoadoutWeaponSelect = weaponBuckets[bucketIndex + targetMenuIndex];
 }
 
 void CG_LDO_SwitchWeapon_f(void) {
@@ -2642,7 +2650,8 @@ void CG_LDO_SwitchWeapon_f(void) {
 		if (stat == STAT_ARMOR) {
 			ent->client->ps.powerups[PW_BATTLESUIT] = Q3_INFINITE;
 		}
-		ent->client->ps.stats[stat] += item->quantity;
+		int quantity = item->quantity ? item->quantity : 30;
+		ent->client->ps.stats[stat] += quantity;
 		if (ent->client->ps.stats[stat] > ent->client->ps.stats[STAT_MAX_HEALTH]) {
 			ent->client->ps.stats[stat] = ent->client->ps.stats[STAT_MAX_HEALTH];
 		}
@@ -2653,16 +2662,31 @@ void CG_LDO_SwitchWeapon_f(void) {
 	if (cg.snap->ps.weapons[cg.LoadoutWeaponSelect])
 	{
 		int ammoIndex = weaponData[cg.LoadoutWeaponSelect].ammoIndex;
-		int givenAmmo = 25;//ammoData[ammoIndex].max / 2;
+		int givenAmmo = ammoData[ammoIndex].max / 3;
 		ent->client->ps.weapons[cg.LoadoutWeaponSelect] = 1;
 		if (ent->client->ps.ammo[ammoIndex] < givenAmmo) {
 			ent->client->ps.ammo[ammoIndex] = givenAmmo;
 		}
+		//FIXME : If weapon == SABER and saber is not defined => CTD
 	}
 	else {
 		ent->client->ps.weapons[cg.LoadoutWeaponSelect] = 0;
 		if (cg.snap->ps.weapon == cg.LoadoutWeaponSelect) {
 			ent->client->ps.weapon = WP_NONE;
+
+			if (ent->ghoul2.IsValid())
+			{
+				if (ent->weaponModel[0] > 0)
+				{
+					gi.G2API_RemoveGhoul2Model(ent->ghoul2, ent->weaponModel[0]);
+					ent->weaponModel[0] = -1;
+				}
+				if (ent->weaponModel[1] > 0)
+				{
+					gi.G2API_RemoveGhoul2Model(ent->ghoul2, ent->weaponModel[1]);
+					ent->weaponModel[1] = -1;
+				}
+			}
 		}
 	}
 }
@@ -2901,7 +2925,7 @@ void CG_LDO_DrawWeapons(void) {
 			if (iw < 0) {
 				break; // Shown all the icons
 			}
-			if (weaponData[iw].playerUsable)
+			if (iw > 0 && weaponData[iw].playerUsable)
 			{
 				if (iic < firstIcon) {
 					iic++;
