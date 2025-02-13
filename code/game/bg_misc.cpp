@@ -33,16 +33,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 extern int weaponCount;
 extern weaponIndexes_t weaponIndexes[MAX_WEAPONS];
-extern std::vector<int> pistolIndexes;
-extern std::vector<int> blasterIndexes;
-extern std::vector<int> sniperIndexes;
-extern std::vector<int> bowcasterIndexes;
-extern std::vector<int> specialistIndexes;
-extern std::vector<int> heavyBlasterIndexes;
-extern std::vector<int> shotgunIndexes;
-extern std::vector<int> concRifleIndexes;
-extern std::vector<int> rocketLauncherIndexes;
-extern std::vector<int> throwableIndexes;
+extern int weaponBuckets[MAX_WEAPONS - WB_OTHERS];
 extern weaponData_t weaponData[MAX_WEAPONS];
 extern ammoData_t ammoData[AMMO_MAX];
 

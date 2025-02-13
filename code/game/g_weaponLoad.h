@@ -237,6 +237,7 @@ void WPN_Spread(const char** holdBuf);
 void WPN_AltSpread(const char** holdBuf);
 void WPN_PlayerUsable(const char** holdBuf);
 void WPN_WeaponCategory(const char** holdBuf);
+void WPN_WeaponBucket(const char** holdBuf);
 
 void WPN_ProjectileEffect(const char** holdBuf);
 void WPN_AltProjectileEffect(const char** holdBuf);
@@ -318,6 +319,7 @@ wpnParms_t WpnParms[] =
 	{ "altSpread",			WPN_AltSpread },
 	{ "playerUsable",		WPN_PlayerUsable },
 	{ "weaponCategory",		WPN_WeaponCategory },
+	{ "weaponBucket",		WPN_WeaponBucket },
 	// Old legacy files contain these, so we skip them to shut up warnings
 	{ "firingforce",		WPN_FuncSkip },
 	{ "chargeforce",		WPN_FuncSkip },
@@ -831,5 +833,49 @@ const float defaultAltSplashRadius[] = {
 	0.0f,							// WP_CLONEPISTOL
 };
 #pragma endregion
+
+const weaponBucket_t defaultWeaponBucket[] = {
+	WB_OTHERS,				// WP_NONE
+	WB_MELEE,			// WP_SABER	
+	WB_PISTOLS,			// WP_BLASTER_PISTOL
+	WB_BLASTERS,		// WP_BLASTER
+	WB_SPECIALISTS,		// WP_DISRUPTOR
+	WB_SPECIALISTS,		// WP_BOWCASTER
+	WB_BLASTERS,		// WP_REPEATER
+	WB_SPECIALISTS,		// WP_DEMP2
+	WB_SPECIALISTS,		// WP_FLECHETTE
+	WB_HEAVY_WEAPONS,	// WP_ROCKET_LAUNCHER
+	WB_THROWABLES,		// WP_THERMAL
+	WB_THROWABLES,		// WP_TRIP_MINE
+	WB_THROWABLES,		// WP_DET_PACK	
+	WB_HEAVY_WEAPONS,	// WP_CONCUSION
+	WB_MELEE,			// WP_MELEE
+	WB_OTHERS,				// WP_ATST_MAIN
+	WB_OTHERS,				// WP_ATST_SIDE
+	WB_MELEE,			// WP_STUN_BATON
+	WB_PISTOLS,			// WP_BRYAR_PISTOL
+	WB_OTHERS,				// WP_EMPLACED_GUN
+	WB_OTHERS,				// WP_BOT_LASER
+	WB_OTHERS,				// WP_TURRET				
+	WB_OTHERS,				// WP_TIE_FIGHTER
+	WB_OTHERS,				// WP_RAPID_FIRE_CONC
+	WB_OTHERS,				// WP_JAWA
+	WB_OTHERS,				// WP_TUSKEN_RIFLE
+	WB_OTHERS,				// WP_TUSKEN_STAFF
+	WB_OTHERS,				// WP_SCEPTER
+	WB_OTHERS,				// WP_NOGHRI_STICK
+
+	WB_BLASTERS,		// WP_BATTLEDROID
+	WB_BLASTERS,		// WP_THEFIRSTORDER
+	WB_BLASTERS,		// WP_CLONECARBINE
+	WB_BLASTERS,		// WP_REBELBLASTER
+	WB_BLASTERS,		// WP_CLONERIFLE
+	WB_SPECIALISTS,		// WP_CLONECOMMANDO
+	WB_BLASTERS,		// WP_REBELRIFLE
+	WB_PISTOLS,			// WP_REY
+	WB_PISTOLS,			// WP_JANGO
+	WB_SPECIALISTS,		// WP_BOBA
+	WB_PISTOLS			// WP_CLONEPISTOL
+};
 
 static const size_t numWpnParms = ARRAY_LEN(WpnParms);

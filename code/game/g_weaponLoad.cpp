@@ -786,9 +786,46 @@ void WPN_WeaponCategory(const char** holdBuf)
 	}
 	else {
 		weaponCategory = WC_NONE;
-		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for WeaponCategory in external WEAPONS.DAT\n", tokenStr);
+		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for WeaponBucket in external WEAPONS.DAT\n", tokenStr);
 	}
 	weaponData[wpnParms.weaponNum].weaponCategory = weaponCategory;
+}
+
+void WPN_WeaponBucket(const char** holdBuf)
+{
+	const char* tokenStr;
+	weaponBucket_t weaponBucket = WB_OTHERS;
+
+	if (COM_ParseString(holdBuf, &tokenStr))
+	{
+		return;
+	}
+
+	if (!Q_stricmp(tokenStr, "WB_PISTOLS")) {
+		weaponBucket = WB_PISTOLS;
+	}
+	else if (!Q_stricmp(tokenStr, "WB_BLASTERS")) {
+		weaponBucket = WB_BLASTERS;
+	}
+	else if (!Q_stricmp(tokenStr, "WB_SPECIALISTS")) {
+		weaponBucket = WB_SPECIALISTS;
+	}
+	else if (!Q_stricmp(tokenStr, "WB_HEAVY_WEAPONS")) {
+		weaponBucket = WB_HEAVY_WEAPONS;
+	}
+	else if (!Q_stricmp(tokenStr, "WB_MELEE")) {
+		weaponBucket = WB_MELEE;
+	}
+	else if (!Q_stricmp(tokenStr, "WB_THROWABLES")) {
+		weaponBucket = WB_THROWABLES;
+	}
+	else if (!Q_stricmp(tokenStr, "WB_OTHERS")) {
+		weaponBucket = WB_OTHERS;
+	}
+	else {
+		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for WeaponCategory in external WEAPONS.DAT\n", tokenStr);
+	}
+	weaponData[wpnParms.weaponNum].weaponBucket = weaponBucket;
 }
 
 //--------------------------------------------
@@ -813,59 +850,6 @@ static void WP_ParseParms(const char *buffer)
 
 	COM_EndParseSession(  );
 
-}
-
-void WP_AddWeaponToTypeIndexes(int weap, int weaponClass) {
-	switch (weaponClass)
-	{
-		case WP_BLASTER_PISTOL:
-		case WP_BRYAR_PISTOL:
-		case WP_REY:
-		case WP_JANGO:
-		case WP_CLONEPISTOL:
-			pistolIndexes.push_back(weap);
-			break;
-		case WP_BLASTER:
-		case WP_BATTLEDROID:
-		case WP_THEFIRSTORDER:
-		case WP_CLONECARBINE:
-		case WP_REBELBLASTER:
-			blasterIndexes.push_back(weap);
-			break;
-		case WP_DISRUPTOR:
-		case WP_TUSKEN_RIFLE:
-			sniperIndexes.push_back(weap);
-			break;
-		case WP_BOWCASTER:
-		case WP_CLONECOMMANDO:
-		case WP_REBELRIFLE:
-			bowcasterIndexes.push_back(weap);
-			break;
-		case WP_REPEATER:
-		case WP_CLONERIFLE:
-			heavyBlasterIndexes.push_back(weap);
-			break;
-		case WP_DEMP2:
-		case WP_NOGHRI_STICK:
-			specialistIndexes.push_back(weap);
-			break;
-		case WP_FLECHETTE:
-			shotgunIndexes.push_back(weap);
-			break;
-		case WP_CONCUSSION:
-			concRifleIndexes.push_back(weap);
-			break;
-		case WP_ROCKET_LAUNCHER:
-			rocketLauncherIndexes.push_back(weap);
-			break;
-		case WP_THERMAL:
-		case WP_TRIP_MINE:
-		case WP_DET_PACK:
-			throwableIndexes.push_back(weap);
-			break;
-		default:
-			break;
-	}
 }
 
 //--------------------------------------------
@@ -905,12 +889,14 @@ void WP_LoadWeaponParms (void)
 		weaponData[i].attackData[0].spread = defaultsWeaponSpread[i][0];
 		weaponData[i].attackData[1].spread = defaultsWeaponSpread[i][1];
 		weaponData[i].weaponCategory = defaultWeaponType[i];
+		weaponData[i].weaponBucket = defaultWeaponBucket[i];
 		strcpy(weaponData[i].classname, _weaponIndexes[i].weaponClass);
 	}
 	//put in the qunset flag for playerUsable since 0 = false;
 	for (int i = numHcWeaponIndexes; i < MAX_WEAPONS ; i++) {
 		weaponData[i].playerUsable = qunset;
 		weaponData[i].weaponCategory = WC_NONE;
+		weaponData[i].weaponBucket = WB_UNSET;
 
 	}
 	WP_ParseParms(buffer);
@@ -954,7 +940,6 @@ void WP_LoadWeaponParms (void)
 	//Get unset data from each weapon which is a copy of another;
 	for (int i = 0; i <  weaponCount; i++) {
 		if (!weaponData[i].baseclass[0]) {
-			WP_AddWeaponToTypeIndexes(i, i);
 			continue;
 		}
 		bool found = false;
@@ -1068,9 +1053,8 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].secondaryMdl = weaponData[i].secondaryMdl == 0 ? weaponData[j].secondaryMdl : weaponData[i].secondaryMdl;
 			weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[i].playerUsable;
 			weaponData[i].weaponCategory = weaponData[i].weaponCategory == WC_NONE ? weaponData[j].weaponCategory : weaponData[i].weaponCategory;
+			weaponData[i].weaponBucket = weaponData[i].weaponBucket == 0 ? weaponData[j].weaponBucket : weaponData[i].weaponBucket;
 			weaponData[i].baseWeaponNum = j;
-
-			WP_AddWeaponToTypeIndexes(i, j);
 
 			//The first one is the good one...
 			break;
@@ -1079,5 +1063,37 @@ void WP_LoadWeaponParms (void)
 		    gi.Printf(S_COLOR_YELLOW"WARNING: Weapon '%s' is marked as alternate of base weapon '%s' but base weapon was not found\n",weaponData[i].classname,weaponData[i].baseclass);
 		}
 	}
-	//globals.weaponCount = weaponCount;
+	//Sort weapons in buckets
+	int buckets[-WB_OTHERS][MAX_WEAPONS];
+	//Init the data to -1
+	memset(&buckets, -1, sizeof(buckets));
+	memset(&weaponBuckets, -1, sizeof(weaponBuckets));
+	//Naive initialisation of the buckets
+	for (int i = 0; i < weaponCount;i++) 
+	{
+		int bucketIndex = (-weaponData[i].weaponBucket) - 1;
+		int weaponIndex = 0;
+		while (buckets[bucketIndex][weaponIndex] != -1) 
+		{
+			weaponIndex++;
+		}
+		buckets[bucketIndex][weaponIndex] = i;
+	}
+	//Now merge the buckets in one array
+	int gi = 0;
+	for (int i = 0; i < (-WB_OTHERS);i++)
+	{
+		weaponBuckets[gi] = (-i - 1);
+		gi++;
+		int j;
+		for (j = 0; buckets[i][j] != -1; j++) {
+			weaponBuckets[gi] = buckets[i][j];
+			gi++;
+		}
+	}
+	Com_Printf(S_COLOR_CYAN"WeaponBuckets[");
+	for (int i = 0; i < (MAX_WEAPONS - WB_OTHERS); i++) {
+		Com_Printf(S_COLOR_CYAN"%d,", weaponBuckets[i]);
+	}
+	Com_Printf(S_COLOR_CYAN"]\n");
 }

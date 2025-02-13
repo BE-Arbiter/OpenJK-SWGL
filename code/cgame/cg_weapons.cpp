@@ -2036,7 +2036,6 @@ void CG_DrawWeaponSelect( void )
 	vec4_t	textColor = { .875f, .718f, .121f, 1.0f };
 	int		yOffset = 0;
 	bool	isOnVeh = false;
-	qboolean drewConc = qfalse;
 
 	if ((cg.weaponSelectTime+WEAPON_SELECT_TIME)<cg.time)	// Time is up for the HUD to display
 	{
@@ -2090,18 +2089,19 @@ void CG_DrawWeaponSelect( void )
 		sideLeftIconCnt = holdCount/2;
 		sideRightIconCnt = holdCount - sideLeftIconCnt;
 	}
+	
 
-	if ( cg.weaponSelect == WP_CONCUSSION )
-	{
-		i = WP_FLECHETTE;
+	//Search where is the current weapon in the array
+	int currentWeaponIndex = -1;
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+		if (weaponBuckets[i] == cg.weaponSelect) {
+			currentWeaponIndex = i;
+			i--;
+			break;
+		}
 	}
-	else
-	{
-		i = cg.weaponSelect - 1;
-	}
-	if (i<1)
-	{
-		i = weaponCount;
+	if (i < 0) {
+		i = WEAPON_BUCKETS_SIZE - 1;
 	}
 
 	smallIconSize_x = 40 * cgs.widthRatioCoef;
@@ -2127,54 +2127,35 @@ void CG_DrawWeaponSelect( void )
 	// Work backwards from current icon
 	holdX = x - ((bigIconSize_x / 2) + pad + smallIconSize_x);
 	//height = smallIconSize * cg.iconHUDPercent;
-	drewConc = qfalse;
 
 	for (iconCnt=1;iconCnt<(sideLeftIconCnt+1);i--)
 	{
-		if ( i == WP_CONCUSSION )
-		{
-			i--;
-		}
-		else if ( i == WP_FLECHETTE && !drewConc && cg.weaponSelect != WP_CONCUSSION )
-		{
-			i = WP_CONCUSSION;
-		}
 		if (i<1)
 		{
-			i = weaponCount;
+			i = WEAPON_BUCKETS_SIZE-1;
 		}
-
-		if ( !(cg.snap->ps.weapons[i] && weaponData[i].playerUsable) )	// Does he have this weapon?
+		int tmpWeapon = weaponBuckets[i];
+		if ( tmpWeapon < 0 || !(cg.snap->ps.weapons[tmpWeapon] && weaponData[tmpWeapon].playerUsable) )	// Does he have this weapon?
 		{
-			if ( i == WP_CONCUSSION )
-			{
-				drewConc = qtrue;
-				i = WP_ROCKET_LAUNCHER;
-			}
 			continue;
 		}
 		if (isOnVeh)
 		{
-			if ( i != WP_NONE && i!=WP_SABER && i!=WP_BLASTER )
+			if (tmpWeapon != WP_NONE && tmpWeapon != WP_SABER && tmpWeapon != WP_BLASTER )
 			{
-				if ( i == WP_CONCUSSION )
-				{
-					drewConc = qtrue;
-					i = WP_ROCKET_LAUNCHER;
-				}
 				continue;	// Don't draw anything else if on a vehicle
 			}
 		}
 
 		++iconCnt;					// Good icon
 
-		if (weaponData[i].weaponIcon[0])
+		if (weaponData[tmpWeapon].weaponIcon[0])
 		{
 			weaponInfo_t	*weaponInfo;
-			CG_RegisterWeapon( i );
-			weaponInfo = &cg_weapons[i];
+			CG_RegisterWeapon(tmpWeapon);
+			weaponInfo = &cg_weapons[tmpWeapon];
 
-			if (!CG_WeaponCheck(i))
+			if (!CG_WeaponCheck(tmpWeapon))
 			{
 				CG_DrawPic(holdX, y + 10 + yOffset, smallIconSize_x, smallIconSize_y, weaponInfo->weaponIconNoAmmo);
 			}
@@ -2184,11 +2165,6 @@ void CG_DrawWeaponSelect( void )
 			}
 
 			holdX -= (smallIconSize_x + pad);
-		}
-		if ( i == WP_CONCUSSION )
-		{
-			drewConc = qtrue;
-			i = WP_ROCKET_LAUNCHER;
 		}
 	}
 
@@ -2211,16 +2187,10 @@ void CG_DrawWeaponSelect( void )
 		}
 	}
 
-	if ( cg.weaponSelect == WP_CONCUSSION )
-	{
-		i = WP_ROCKET_LAUNCHER;
-	}
-	else
-	{
-		i = cg.weaponSelect + 1;
-	}
-	if (i>= weaponCount)
-	{
+
+
+	i = currentWeaponIndex + 1;
+	if (i >= WEAPON_BUCKETS_SIZE ) {
 		i = 1;
 	}
 
@@ -2229,53 +2199,34 @@ void CG_DrawWeaponSelect( void )
 	cgi_R_SetColor( calcColor);
 	holdX = x + (bigIconSize_x / 2) + pad;
 	//height = smallIconSize * cg.iconHUDPercent;
-	drewConc = qfalse;
 	for (iconCnt=1;iconCnt<(sideRightIconCnt+1);i++)
 	{
-		if ( i == WP_CONCUSSION )
-		{
-			i++;
-		}
-		else if ( i == WP_ROCKET_LAUNCHER && !drewConc && cg.weaponSelect != WP_CONCUSSION )
-		{
-			i = WP_CONCUSSION;
-		}
-		if (i>= weaponCount)
+		if (i>= WEAPON_BUCKETS_SIZE)
 		{
 			i = 1;
 		}
-
-		if ( !(cg.snap->ps.weapons[i] && weaponData[i].playerUsable))	// Does he have this weapon?
+		int tmpWeapon = weaponBuckets[i];
+		if ( tmpWeapon < 0 || !(cg.snap->ps.weapons[tmpWeapon] && weaponData[tmpWeapon].playerUsable))	// Does he have this weapon?
 		{
-			if ( i == WP_CONCUSSION )
-			{
-				drewConc = qtrue;
-				i = WP_FLECHETTE;
-			}
 			continue;
 		}
 		if (isOnVeh)
 		{
-			if ( i != WP_NONE && i!=WP_SABER && i!=WP_BLASTER )
+			if (tmpWeapon != WP_NONE && tmpWeapon != WP_SABER && tmpWeapon != WP_BLASTER )
 			{
-				if ( i == WP_CONCUSSION )
-				{
-					drewConc = qtrue;
-					i = WP_FLECHETTE;
-				}
 				continue;	// Don't draw anything else if on a vehicle
 			}
 		}
 
 		++iconCnt;					// Good icon
 
-		if (weaponData[i].weaponIcon[0])
+		if (weaponData[tmpWeapon].weaponIcon[0])
 		{
 			weaponInfo_t	*weaponInfo;
-			CG_RegisterWeapon( i );
-			weaponInfo = &cg_weapons[i];
+			CG_RegisterWeapon(tmpWeapon);
+			weaponInfo = &cg_weapons[tmpWeapon];
 			// No ammo for this weapon?
-			if (!CG_WeaponCheck(i))
+			if (!CG_WeaponCheck(tmpWeapon))
 			{
 				CG_DrawPic(holdX, y + 10 + yOffset, smallIconSize_x, smallIconSize_y, weaponInfo->weaponIconNoAmmo);
 			}
@@ -2286,11 +2237,6 @@ void CG_DrawWeaponSelect( void )
 
 
 			holdX += (smallIconSize_x + pad);
-		}
-		if ( i == WP_CONCUSSION )
-		{
-			drewConc = qtrue;
-			i = WP_FLECHETTE;
 		}
 	}
 
@@ -2449,11 +2395,6 @@ void CG_NextWeapon_f( void ) {
 	if ( !cg.snap ) {
 		return;
 	}
-	/*
-	if ( cg.snap->ps.pm_flags & PMF_FOLLOW ) {
-		return;
-	}
-	*/
 
 	if( g_entities[0].flags & FL_LOCK_PLAYER_WEAPONS )
 	{
@@ -2486,46 +2427,41 @@ void CG_NextWeapon_f( void ) {
 
 	original = cg.weaponSelect;
 
-	int firstWeapon = FIRST_WEAPON;
+	qboolean canSelectNone = qfalse;
 	if (G_IsRidingVehicle(&g_entities[cg.snap->ps.viewEntity]))
 	{
-		firstWeapon = 0;	// include WP_NONE here
+		canSelectNone = qtrue;
 	}
 
-	for ( i = 0 ; i < weaponCount; i++ )
+	//Search where is the current weapon in the array
+	int currentWeaponIndex = - 1;
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+		if (weaponBuckets[i] == original) {
+			currentWeaponIndex = i;
+			break;
+		}
+	}
+	//Cycle forward in the weaponBucketArray, ignoring negatives values
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++)
 	{
-
-		//*SIGH*... Hack to put concussion rifle before rocketlauncher
-		if ( cg.weaponSelect == WP_FLECHETTE )
-		{
-			cg.weaponSelect = WP_CONCUSSION;
+		currentWeaponIndex++;
+		//Go back at the beggining of the array
+		if (currentWeaponIndex == WEAPON_BUCKETS_SIZE) {
+			currentWeaponIndex = 0;
 		}
-		else if ( cg.weaponSelect == WP_CONCUSSION )
-		{
-			cg.weaponSelect = WP_ROCKET_LAUNCHER;
-		}
-		else if ( cg.weaponSelect == WP_DET_PACK )
-		{
-			cg.weaponSelect = WP_MELEE;
-		}
-		else
-		{
-			cg.weaponSelect++;
+		//Never try to switch to Bucket or WP_NONE
+		if (weaponBuckets[currentWeaponIndex] < 0 || (!canSelectNone && weaponBuckets[currentWeaponIndex] == 0)) {
+			continue;
 		}
 
-		if ( cg.weaponSelect < firstWeapon || cg.weaponSelect >= weaponCount) {
-			cg.weaponSelect = firstWeapon;
-		}
-
-		if ( CG_WeaponSelectable( cg.weaponSelect, original, qfalse ) )
+		if (CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], original, qfalse))
 		{
-//			cg.weaponSelectTime = cg.time;
+			//Found you!
 			SetWeaponSelectTime();
+			cg.weaponSelect = weaponBuckets[currentWeaponIndex];
 			return;
 		}
 	}
-
-	cg.weaponSelect = original;
 }
 
 /* 1 -> XXX is base weapons*/
@@ -2537,7 +2473,6 @@ void CG_LDO_SelectBaseWeapon_f(void)
 {
 	cgi_Cvar_Update(&ui_loadout_base_weapon);
 	char *baseWeapon = ui_loadout_base_weapon.string;
-	int i;
 
 	//Reset the selected weapon / Ammo / Item & the selected Page
 	cg.LoadoutWeaponSelect = 0;
@@ -2546,27 +2481,39 @@ void CG_LDO_SelectBaseWeapon_f(void)
 		cg.LoadoutBaseWeaponSelect = -1;
 		return;
 	}
-	if (!Q_stricmp("LD_INVENTORY", baseWeapon)) {
+	else if (!Q_stricmp("LD_INVENTORY", baseWeapon)) {
 		cg.LoadoutBaseWeaponSelect = -2;
 		return;
 	}
-	if (!Q_stricmp("WEAPON_ALL", baseWeapon)) {
+	else if (!Q_stricmp("WEAPON_ALL", baseWeapon)) {
 		cg.LoadoutBaseWeaponSelect = -3;
 		return;
 	}
-	//FIXME : When AWEC Has finished his work, it would be better to use his cycling categories.
-	for (i = 0; i < WP_HC_NUM_WEAPONS; i++)
-	{
-		if (!Q_stricmp(weaponData[i].classname, baseWeapon))
-		{
-			cg.LoadoutBaseWeaponSelect = i;
-			break;
-		}
+	else if(!Q_stricmp("WB_MELEE", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_MELEE;
 	}
-	if (i == WP_HC_NUM_WEAPONS)
-	{
+	else if(!Q_stricmp("WB_PISTOLS", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_PISTOLS;
+	}
+	else if(!Q_stricmp("WB_BLASTERS", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_BLASTERS;
+	}
+	else if(!Q_stricmp("WB_SPECIALISTS", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_SPECIALISTS;
+	}
+	else if(!Q_stricmp("WB_HEAVY_WEAPONS", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_HEAVY_WEAPONS;
+	}
+	else if(!Q_stricmp("WB_THROWABLES", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_THROWABLES;
+	}
+	else if(!Q_stricmp("WB_OTHERS", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_OTHERS;
+	}
+	else{
 		cg.LoadoutBaseWeaponSelect = 0;
 	}
+
 }
 
 extern vmCvar_t		ui_loadout_weapon;
@@ -2583,12 +2530,11 @@ void CG_LDO_SelectWeapon_f(void)
 		cg.LoadoutWeaponSelect = 0;
 		return;
 	}
-	
 
 	int targetMenuIndex = (cg.LoadoutPageSelect * LOADOUT_PAGESIZE) + ui_loadout_weapon.integer;
 	int currMenuIndex = 0;
 	int i;
-	//Search Ammo
+	//Search Ammo || Items
 	if (cg.LoadoutBaseWeaponSelect == -1
 		|| cg.LoadoutBaseWeaponSelect == -2
 		)
@@ -2615,21 +2561,41 @@ void CG_LDO_SelectWeapon_f(void)
 		}
 		return;
 	}
-	//Search until we found the good weapon
-	for ( i = 1; i < weaponCount; i++)
-	{
-		if ( (cg.LoadoutBaseWeaponSelect == -3 || i == cg.LoadoutBaseWeaponSelect || weaponData[i].baseWeaponNum == cg.LoadoutBaseWeaponSelect) 
-			&& weaponData[i].playerUsable)
-		{
-			//This might be the weapon we are looking for
-			currMenuIndex++;
-			if (targetMenuIndex == currMenuIndex) {
-				//This is ! 
-				cg.LoadoutWeaponSelect = i;
-				break;
+	if (cg.LoadoutBaseWeaponSelect == -3) {
+		//Normal search in the bucket array
+		for (i = 1; i < WEAPON_BUCKETS_SIZE; i++)
+		{	
+			int weaponIndex = weaponBuckets[i];
+			if (weaponIndex > 0 && weaponData[weaponIndex].playerUsable)
+			{
+				currMenuIndex++;
+				if (targetMenuIndex == currMenuIndex) {
+					//This is ! 
+					cg.LoadoutWeaponSelect = weaponIndex;
+					break;
+				}
 			}
 		}
+		return;
 	}
+	int bucketIndex = -1;
+	int bucketSize = -1;
+	//Search for base index and size
+	for (int i = 0; i < WEAPON_BUCKETS_SIZE;i++) {
+		if (weaponBuckets[i] == -cg.LoadoutBaseWeaponSelect) {
+			bucketIndex = i;
+		}
+		else if(bucketIndex >= 0 && weaponBuckets[i] < 0){
+			bucketSize = i - bucketIndex;
+			break;
+		}
+	}
+
+	//We should not have clicked there
+	if (targetMenuIndex >= bucketSize) {
+		return;
+	}
+	cg.LoadoutWeaponSelect = weaponBuckets[bucketIndex + targetMenuIndex];
 }
 
 void CG_LDO_SwitchWeapon_f(void) {
@@ -2701,22 +2667,10 @@ void CG_LDO_SwitchWeapon_f(void) {
 	}
 }
 
-void CG_LDO_PreviousPage_f(void) {
-	if (cg.LoadoutBaseWeaponSelect == 0) {
-		return;
-	}
-	cg.LoadoutPageSelect++;
-	if (cg.LoadoutBaseWeaponSelect < 0) {
-		cg.LoadoutPageSelect = 0;
-	}
-}
-
-void CG_LDO_NextPage_f(void) {
-	if (cg.LoadoutBaseWeaponSelect == 0) {
-		return;
-	}
+int CG_LDO_GetMaxPages(void) {
 	int i;
 	int totalIcons = 0;
+
 	if (cg.LoadoutBaseWeaponSelect == -1
 		|| cg.LoadoutBaseWeaponSelect == -2)
 	{
@@ -2733,22 +2687,63 @@ void CG_LDO_NextPage_f(void) {
 			}
 		}
 	}
-	else {
-
-		for (i = 1; i < weaponCount; i++)
+	else if (cg.LoadoutBaseWeaponSelect == -3)
+	{
+		for (i = 1; i < WEAPON_BUCKETS_SIZE; i++)
 		{
-			//Either this is the base weapon or a derivated weapon from this weapon (or we have selected all weapons)
-			if ((cg.LoadoutBaseWeaponSelect == -3 || i == cg.LoadoutBaseWeaponSelect || weaponData[i].baseWeaponNum == cg.LoadoutBaseWeaponSelect)
-				&& weaponData[i].playerUsable)
+			int iw = weaponBuckets[i];
+			if (iw < 0) {
+				continue;
+			}
+			if (weaponData[i].playerUsable)
 			{
 				totalIcons++;
 			}
 		}
 	}
-	int maxPages = totalIcons / LOADOUT_PAGESIZE;
+	else {
+		int bucketIndexStart = -1;
+		for (i = 0; i < WEAPON_BUCKETS_SIZE; i++)
+		{
+			//Searching for the first index bucket
+			if (weaponBuckets[i] == -cg.LoadoutBaseWeaponSelect) {
+				bucketIndexStart = i;
+			}
+			//Then counting Icon
+			else if (bucketIndexStart >= 0) {
+				int iw = weaponBuckets[i];
+				if (iw < 0) {
+					break;;
+				}
+				if (weaponData[i].playerUsable)
+				{
+					totalIcons++;
+				}
+			}
+		}
+	}
+	return (totalIcons + LOADOUT_PAGESIZE - 1) / LOADOUT_PAGESIZE;
+}
+
+void CG_LDO_PreviousPage_f(void) {
+	if (cg.LoadoutBaseWeaponSelect == 0) {
+		return;
+	}
+	cg.LoadoutPageSelect--;
+	int maxPages = CG_LDO_GetMaxPages();
+	if (cg.LoadoutPageSelect < 0) {
+		cg.LoadoutPageSelect = maxPages - 1 ;
+	}
+}
+
+void CG_LDO_NextPage_f(void) {
+	if (cg.LoadoutBaseWeaponSelect == 0) {
+		return;
+	}
+	int maxPages = CG_LDO_GetMaxPages();
 	cg.LoadoutPageSelect++;
-	if (cg.LoadoutBaseWeaponSelect > maxPages) {
-		cg.LoadoutPageSelect = maxPages;
+	if (cg.LoadoutPageSelect >= maxPages) {
+		cg.LoadoutPageSelect = 0;
 	}
 }
 /*
@@ -2830,13 +2825,15 @@ void CG_LDO_DrawWeapons(void) {
 			Com_sprintf(text, sizeof(text), va("%s\nPress this item to get %s of it.", text, count));
 		}
 	}
-	else
+	else if(cg.LoadoutBaseWeaponSelect == -3)
 	{
-		for (iw = 1; iw < weaponCount && iy < 3; iw++)
+		for (int i = 1; i < WEAPON_BUCKETS_SIZE && iy < 3; i++)
 		{
-			//Either this is the base weapon or a derivated weapon from this weapon.
-			if ((cg.LoadoutBaseWeaponSelect == -3 || iw == cg.LoadoutBaseWeaponSelect || weaponData[iw].baseWeaponNum == cg.LoadoutBaseWeaponSelect)
-				&& weaponData[iw].playerUsable)
+			iw = weaponBuckets[i];
+			if (iw <= 0) {
+				continue;
+			}
+			if (weaponData[iw].playerUsable)
 			{
 				if (iic < firstIcon) {
 					iic++;
@@ -2888,6 +2885,74 @@ void CG_LDO_DrawWeapons(void) {
 			}
 		}
 	}
+	else {
+		//Search in the current Bucket
+		int bucketIndex = -1;
+		for (int i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+			if (weaponBuckets[i] == -cg.LoadoutBaseWeaponSelect) {
+				bucketIndex = i;
+				break;
+			}
+		}
+		//Show all the icon of the bucket
+		for (int i = bucketIndex+1; i < WEAPON_BUCKETS_SIZE && iy < 3; i++)
+		{
+			iw = weaponBuckets[i];
+			if (iw < 0) {
+				break; // Shown all the icons
+			}
+			if (weaponData[iw].playerUsable)
+			{
+				if (iic < firstIcon) {
+					iic++;
+					continue;
+				}
+				CG_DrawPic(posX, posY, sizeX, sizeY, background);
+				weaponInfo_t* weaponInfo;
+				CG_RegisterWeapon(iw);
+				weaponInfo = &cg_weapons[iw];
+				if (cg.snap->ps.weapons[iw])
+				{
+					CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIcon);
+				}
+				else
+				{
+					CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIconNoAmmo);
+				}
+				//Next icon
+				if (ix == 5)
+				{
+					ix = 0;
+					posX = startX;
+					iy++;
+					posY += marY + sizeY;
+				}
+				else
+				{
+					ix++;
+					posX += marX + sizeX;
+				}
+			}
+		}
+		//Draw the current weapon Description to the screen?
+
+		if (cg.LoadoutWeaponSelect > 0) {
+			// Print the weapon description
+			if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
+			{
+				void;
+			}
+			else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
+			{
+				void;
+			}
+			//Dynamic Weapons
+			else if (!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			{
+				Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
+			}
+		}
+	}
 	const short textboxXPos = 156;
 	const short textboxYPos = 273;
 	const int	textboxWidth = 466;
@@ -2916,46 +2981,39 @@ void CG_DPNextWeapon_f( void ) {
 	if ( !cg.snap ) {
 		return;
 	}
-	/*
-	if ( cg.snap->ps.pm_flags & PMF_FOLLOW ) {
-		return;
-	}
-	*/
 
 	original = cg.DataPadWeaponSelect;
 
-	for ( i = 0 ; i < weaponCount; i++ )
+	//Search where is the current weapon in the array
+	int currentWeaponIndex = - 1;
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+		if (weaponBuckets[i] == original) {
+			currentWeaponIndex = i;
+			break;
+		}
+	}
+	//Cycle forward in the weaponBucketArray, ignoring negatives values
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++)
 	{
-
-		//*SIGH*... Hack to put concussion rifle before rocketlauncher
-		if ( cg.DataPadWeaponSelect == WP_FLECHETTE )
-		{
-			cg.DataPadWeaponSelect = WP_CONCUSSION;
+		currentWeaponIndex++;
+		//Go back at the beggining of the array
+		if (currentWeaponIndex == WEAPON_BUCKETS_SIZE) {
+			currentWeaponIndex = 0;
 		}
-		else if ( cg.DataPadWeaponSelect == WP_CONCUSSION )
-		{
-			cg.DataPadWeaponSelect = WP_ROCKET_LAUNCHER;
-		}
-		else if ( cg.DataPadWeaponSelect == WP_DET_PACK )
-		{
-			cg.DataPadWeaponSelect = WP_MELEE;
-		}
-		else
-		{
-			cg.DataPadWeaponSelect++;
+		//Never try to switch to Bucket or WP_NONE
+		if (weaponBuckets[currentWeaponIndex] <= 0) {
+			continue;
 		}
 
-		if ( cg.DataPadWeaponSelect < FIRST_WEAPON || cg.DataPadWeaponSelect >= weaponCount) {
-			cg.DataPadWeaponSelect = FIRST_WEAPON;
-		}
 
-		if ( CG_WeaponSelectable( cg.DataPadWeaponSelect, original, qtrue ) )
+		if (CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], original, qfalse))
 		{
+			//Found you!
+			SetWeaponSelectTime();
+			cg.DataPadWeaponSelect = weaponBuckets[currentWeaponIndex];
 			return;
 		}
 	}
-
-	cg.DataPadWeaponSelect = original;
 }
 
 void CG_Dualwield_f()
@@ -2981,48 +3039,38 @@ void CG_DPPrevWeapon_f( void )
 		return;
 	}
 
-	/*
-	if ( cg.snap->ps.pm_flags & PMF_FOLLOW )
-	{
-		return;
-	}
-	*/
-
 	original = cg.DataPadWeaponSelect;
 
-	for ( i = 0 ; i < weaponCount; i++ )
+	//Search where is the current weapon in the array
+	int currentWeaponIndex = - 1;
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+		if (weaponBuckets[i] == original) {
+			currentWeaponIndex = i;
+			break;
+		}
+	}
+	//Cycle backward in the weaponBucketArray, ignoring negatives values
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++)
 	{
-
-		//*SIGH*... Hack to put concussion rifle before rocketlauncher
-		if ( cg.DataPadWeaponSelect == WP_ROCKET_LAUNCHER )
-		{
-			cg.DataPadWeaponSelect = WP_CONCUSSION;
+		currentWeaponIndex--;
+		//Go back at the end of the array
+		if (currentWeaponIndex < 0) {
+			currentWeaponIndex = WEAPON_BUCKETS_SIZE - 1;
 		}
-		else if ( cg.DataPadWeaponSelect == WP_CONCUSSION )
-		{
-			cg.DataPadWeaponSelect = WP_FLECHETTE;
-		}
-		else if ( cg.DataPadWeaponSelect == WP_MELEE )
-		{
-			cg.DataPadWeaponSelect = WP_DET_PACK;
-		}
-		else
-		{
-			cg.DataPadWeaponSelect--;
+		//Never try to switch to Bucket or WP_NONE
+		if (weaponBuckets[currentWeaponIndex] <= 0) {
+			continue;
 		}
 
-		if ( cg.DataPadWeaponSelect < FIRST_WEAPON || cg.DataPadWeaponSelect >= weaponCount)
-		{
-			cg.DataPadWeaponSelect = weaponCount;
-		}
 
-		if ( CG_WeaponSelectable( cg.DataPadWeaponSelect, original, qtrue ) )
+		if (CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], original, qfalse))
 		{
+			//Found you!
+			SetWeaponSelectTime();
+			cg.DataPadWeaponSelect = weaponBuckets[currentWeaponIndex];
 			return;
 		}
 	}
-
-	cg.DataPadWeaponSelect = original;
 }
 
 /*
@@ -3037,11 +3085,6 @@ void CG_PrevWeapon_f( void ) {
 	if ( !cg.snap ) {
 		return;
 	}
-	/*
-	if ( cg.snap->ps.pm_flags & PMF_FOLLOW ) {
-		return;
-	}
-	*/
 
 	if( g_entities[0].flags & FL_LOCK_PLAYER_WEAPONS )
 	{
@@ -3074,46 +3117,42 @@ void CG_PrevWeapon_f( void ) {
 
 	original = cg.weaponSelect;
 
-	int firstWeapon = FIRST_WEAPON;
+	qboolean canSelectNone = qfalse;
 	if (G_IsRidingVehicle(&g_entities[cg.snap->ps.viewEntity]))
 	{
-		firstWeapon = 0;	// include WP_NONE here
+		canSelectNone = qtrue;
 	}
 
-	for ( i = 0 ; i < weaponCount; i++ ) {
-
-		//*SIGH*... Hack to put concussion rifle before rocketlauncher
-		if ( cg.weaponSelect == WP_ROCKET_LAUNCHER )
-		{
-			cg.weaponSelect = WP_CONCUSSION;
+	//Search where is the current weapon in the array
+	int currentWeaponIndex = -1;
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+		if (weaponBuckets[i] == original) {
+			currentWeaponIndex = i;
+			break;
 		}
-		else if ( cg.weaponSelect == WP_CONCUSSION )
-		{
-			cg.weaponSelect = WP_FLECHETTE;
+	}
+	//Cycle backward in the weaponBucketArray, ignoring negatives values
+	for (i = 0 ; i < WEAPON_BUCKETS_SIZE; i++ )
+	{
+		currentWeaponIndex--;
+		//Go back at the end of the array
+		if (currentWeaponIndex < 0) {
+			currentWeaponIndex = WEAPON_BUCKETS_SIZE - 1;
 		}
-		else if ( cg.weaponSelect == WP_MELEE )
-		{
-			cg.weaponSelect = WP_DET_PACK;
-		}
-		else
-		{
-			cg.weaponSelect--;
-		}
-
-
-		if ( cg.weaponSelect < firstWeapon || cg.weaponSelect >= weaponCount) {
-			cg.weaponSelect = weaponCount;
+		//Never try to switch to Bucket or WP_NONE
+		if (weaponBuckets[currentWeaponIndex] < 0 || (!canSelectNone && weaponBuckets[currentWeaponIndex] == 0)) {
+			continue;
 		}
 
-		if ( CG_WeaponSelectable( cg.weaponSelect, original, qfalse ) )
+
+		if ( CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], original, qfalse ) )
 		{
+			//Found you!
 			SetWeaponSelectTime();
-//			cg.weaponSelectTime = cg.time;
+			cg.weaponSelect = weaponBuckets[currentWeaponIndex];
 			return;
 		}
 	}
-
-	cg.weaponSelect = original;
 }
 
 /*
@@ -3166,47 +3205,12 @@ void CG_ChangeWeapon( int num )
 
 /*
 ===============
-CG_CycleWeapon
-
-	Cycle through each weapon of a similar type, loosely based on the original code for cycling through throwables
-===============
-*/
-
-void CG_CycleWeapon(std::vector<int> indexes, int *num) {
-	size_t i, j = 0;
-	int weap = *num;
-	int listSize = indexes.size();
-	for ( i = 0; i < listSize - 1; i++ ) // Ignore last entry, cycles back to the first
-	{
-		if (cg.snap->ps.weapon == indexes[i]) {
-			weap = indexes[i+1]; // We're already on a weapon of the type, cycle to the next one
-			break;
-		}
-	}
-	
-	// prevent an endless loop
-	while ( j <= listSize )
-	{
-		if ( CG_WeaponSelectable( weap, cg.snap->ps.weapon, qfalse ) || weap == WP_DET_PACK ) // Detpack always selectable
-		{
-			*num = weap;
-			break;
-		}
-
-		i = i >= listSize - 1 ? 0 : i+1;
-		weap = indexes[i];
-		j++;
-	}
-}
-
-/*
-===============
 CG_Weapon_f
 ===============
 */
 void CG_Weapon_f( void )
 {
-	int		num;
+	int	num;
 
 	if ( cg.weaponSelectTime + 100 > cg.time )
 	{
@@ -3253,7 +3257,7 @@ void CG_Weapon_f( void )
 
 	num = atoi( CG_Argv( 1 ) );
 
-	if ( num < WP_NONE || num >= weaponCount) {
+	if ( num < WB_OTHERS || num >= weaponCount) {
 		return;
 	}
 
@@ -3303,100 +3307,58 @@ void CG_Weapon_f( void )
 			}
 		}
 	}
-	/* else if ( num >= WP_THERMAL && num <= WP_DET_PACK ) // these weapons cycle
-	{
-		int weap, i = 0;
 
-		if ( cg.snap->ps.weapon >= WP_THERMAL && cg.snap->ps.weapon <= WP_DET_PACK )
+	if (num < 0) {
+		int currentWeaponSelected = cg.weaponSelect;
+		int bucketIndex = -1;
+		int baseWeaponIndex = -1;
+		int currentWeaponIndex = -1;
+		int bucketSize = 0;
+		//Initialize the bucket indexes
+		for (int i = 0; i < WEAPON_BUCKETS_SIZE; i++)
 		{
-			// already in cycle range so start with next cycle item
-			weap = cg.snap->ps.weapon + 1;
-		}
-		else
-		{
-			// not in cycle range, so start with thermal detonator
-			weap = WP_THERMAL;
-		}
-
-		// prevent an endless loop
-		while ( i <= 4 )
-		{
-			if ( weap > WP_DET_PACK )
+			//Let's search for the selectedBucketIndex
+			if (weaponBuckets[i] == num) 
 			{
-				weap = WP_THERMAL;
+				bucketIndex = i;
 			}
-
-			if ( cg.snap->ps.ammo[weaponData[weap].ammoIndex] > 0 || weap == WP_DET_PACK )
-			{
-				if ( CG_WeaponSelectable( weap, cg.snap->ps.weapon, qfalse ) )
-				{
-					num = weap;
-					break;
-				}
+			//Now search the current weapon if it's in the current Bucket
+			else if (bucketIndex >= 0 && weaponBuckets[i] == currentWeaponSelected) {
+				baseWeaponIndex = i;
 			}
-
-			weap++;
-			i++;
+			//If we enter a new bucket, we stop searching
+			else if (bucketIndex >= 0 && weaponBuckets[i] < 0) {
+				bucketSize = i - bucketIndex;
+				break;
+			}
 		}
-	} */
-
-	switch (num) {
-		case WP_BLASTER_PISTOL:
-		case WP_BRYAR_PISTOL:
-		case WP_REY:
-		case WP_JANGO:
-		case WP_CLONEPISTOL:
-			CG_CycleWeapon(pistolIndexes, &num);
-			break;
-		case WP_BLASTER:
-		case WP_BATTLEDROID:
-		case WP_THEFIRSTORDER:
-		case WP_CLONECARBINE:
-		case WP_REBELBLASTER:
-		CG_CycleWeapon(blasterIndexes, &num);
-			break;
-		case WP_DISRUPTOR:
-		case WP_TUSKEN_RIFLE:
-		CG_CycleWeapon(sniperIndexes, &num);
-			break;
-		case WP_BOWCASTER:
-		case WP_CLONECOMMANDO:
-		case WP_REBELRIFLE:
-			CG_CycleWeapon(bowcasterIndexes, &num);
-			break;
-		case WP_REPEATER:
-		case WP_CLONERIFLE:
-			CG_CycleWeapon(heavyBlasterIndexes, &num);
-			break;
-		case WP_DEMP2:
-		case WP_NOGHRI_STICK:
-			CG_CycleWeapon(specialistIndexes, &num);
-			break;
-		case WP_FLECHETTE:
-			CG_CycleWeapon(shotgunIndexes, &num);
-			break;
-		case WP_CONCUSSION:
-			CG_CycleWeapon(concRifleIndexes, &num);
-			break;
-		case WP_ROCKET_LAUNCHER:
-			CG_CycleWeapon(rocketLauncherIndexes, &num);
-			break;
-		case WP_THERMAL:
-		case WP_TRIP_MINE:
-		case WP_DET_PACK:
-			CG_CycleWeapon(throwableIndexes, &num);
-			break;
-		default:
-			break;
+		if (baseWeaponIndex == -1) {
+			baseWeaponIndex = bucketIndex;
+		}
+		currentWeaponIndex = baseWeaponIndex;
+		//Search in the current bucket the next weapon
+		for (int i = 0; i < bucketSize; i++)
+		{
+			//Test next weapon
+			currentWeaponIndex++;
+			//If the next weapon is the last one, back to the first
+			if (currentWeaponIndex >= (bucketIndex + bucketSize)) {
+				currentWeaponIndex = bucketIndex + 1;
+			}
+			//Can we switch to this weapon?
+			if (CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], cg.snap->ps.weapon, qfalse)) {
+				SetWeaponSelectTime();
+				cg.weaponSelect = weaponBuckets[currentWeaponIndex];
+				return;
+			}
+		}
 	}
-
 	if (!CG_WeaponSelectable(num, cg.snap->ps.weapon, qfalse))
 	{
 		return;
 	}
 
 	SetWeaponSelectTime();
-//	cg.weaponSelectTime = cg.time;
 	cg.weaponSelect = num;
 }
 

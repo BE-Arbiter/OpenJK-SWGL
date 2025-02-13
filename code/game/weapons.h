@@ -97,6 +97,17 @@ typedef enum //# weapon_e
 
 #define FIRST_WEAPON		WP_SABER		// this is the first weapon for next and prev weapon switching
 
+typedef enum {
+	WB_MELEE = -1, //1 Saber, Melee, Stun_Baton
+	WB_PISTOLS = -2, //2 All One handed weapons
+	WB_BLASTERS = -3, //3 All Light Blasters
+	WB_SPECIALISTS = -4, //4 ALL Specialist Weapons (Flechette,Bowcaster,Disruptors)
+	WB_HEAVY_WEAPONS = -5, //5 Rocket Launcher, Concussion Rifle,...
+	WB_THROWABLES = -6, //6 Explosives & Grenades
+	WB_OTHERS = -7, //8 Weapon For Vehicle and npc which should not appears in others buckets
+	WB_UNSET = 0 // This No weapon should have this bucket...
+} weaponBucket_t;
+
 // AMMO_NONE must be first and AMMO_MAX must be last, cause weapon load validates based off of these vals
 typedef enum //# ammo_e
 {
@@ -201,6 +212,7 @@ typedef struct weaponData_s
 	qboolean secondaryMdl;
 	qboolean playerUsable;
 	weaponCategory_t weaponCategory;
+	weaponBucket_t weaponBucket;
 
 } weaponData_t;
 
