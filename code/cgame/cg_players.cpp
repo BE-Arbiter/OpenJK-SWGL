@@ -7993,7 +7993,6 @@ CG_Player
 extern qboolean G_GetRootSurfNameWithVariant( gentity_t *ent, const char *rootSurfName, char *returnSurfName, int returnSize );
 extern qboolean G_ControlledByPlayer( gentity_t *self );
 extern qboolean G_RagDoll(gentity_t *ent, vec3_t forcedAngles);
-extern qboolean CG_IsWeaponPistol(gentity_t* ent);
 int	cg_saberOnSoundTime[MAX_GENTITIES] = {0};
 
 void CG_Player( centity_t *cent ) {

@@ -13318,6 +13318,8 @@ static bool PM_DoChargedWeapons( void )
 #define DEMP2_CHARGE_UNIT		500.0f	// ditto
 #define DISRUPTOR_CHARGE_UNIT	150.0f	// ditto
 
+
+extern qboolean CG_PlayerIsDualWielding(int weapon);
 // Specific weapons can opt to modify the ammo usage based on charges, otherwise if no special case code
 //	is handled below, regular ammo usage will happen
 //---------------------------------------
@@ -13614,8 +13616,6 @@ void PM_WpnMdlChange(const char *currWeaponMdl, int weaponNum, playerState_t *ps
 		}
 	}
 }
-
-extern qboolean CG_IsWeaponPistol(gentity_t* ent);
 /*
 ==============
 PM_Weapon
@@ -13798,7 +13798,7 @@ static void PM_Weapon( void )
 	{
 		// If you are riding on a vehicle and you are dual wielding
 		// some version of the WP_BLASTER.
-		if (PM_RidingVehicle() && CG_IsWeaponPistol(pm->gent)
+		if (PM_RidingVehicle() && weaponData[pm->gent->client->ps.weapon].weaponCategory == WC_PISTOL
 			&& pm->gent->weaponModel[1] > 0)
 		{
 			// Remove the weapon from your left hand.

@@ -644,7 +644,6 @@ void		Boba_DoSniper( gentity_t *self)
 ////////////////////////////////////////////////////////////////////////////////////////
 // Call This function to make Boba actually shoot his current weapon
 ////////////////////////////////////////////////////////////////////////////////////////
-extern qboolean CG_IsWeaponPistol(gentity_t *ent);
 void	Boba_Fire()
 {
 	WeaponThink(qtrue);
@@ -653,7 +652,7 @@ void	Boba_Fire()
 	//------------------------------------------------------------------------
 	if (ucmd.buttons&BUTTON_ATTACK)
 	{
-		if (CG_IsWeaponPistol(NPC))
+		if (weaponData[NPC->s.weapon].weaponCategory == WC_PISTOL)
 		{
 			if (TIMER_Done(NPC, "nextBlasterAltFireDecide"))
 			{

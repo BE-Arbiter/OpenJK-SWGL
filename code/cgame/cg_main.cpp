@@ -388,7 +388,6 @@ vmCvar_t		cg_truefov;
 vmCvar_t        cg_truebobbing;
 vmCvar_t		cg_hudRatio;
 
-vmCvar_t		cg_hudRatio;
 vmCvar_t		ui_loadout_base_weapon;
 vmCvar_t		ui_loadout_weapon;
 

@@ -3837,7 +3837,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 						weap = WP_CLONERIFLE;
 
 				}
-				if ( weap >= WP_NONE && weap < WP_NUM_WEAPONS )
+				if ( weap >= WP_NONE && weap < weaponCount )
 				{
 					NPC->client->ps.weapon = weap;
 					NPC->client->ps.weapons[weap] = 1;

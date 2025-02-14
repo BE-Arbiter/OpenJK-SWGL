@@ -461,7 +461,6 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other)
 	int		quantity;
 	int weaponNum = ent->item->giTag;
 	qboolean	hadWeapon = qfalse;
-	int weaponNum = 0;
 
 	if (weaponNum == -1) {
 		for (int i = 0; i < weaponCount; i++) {

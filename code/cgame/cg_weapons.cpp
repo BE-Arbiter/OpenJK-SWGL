@@ -3477,30 +3477,15 @@ void CG_OutOfAmmoChange( void ) {
 	}
 }
 
-/*
-Quick note about dynamic weapons.
-
-A dynamic weapon number (dynWpnNum) refers to the dynamicWeapon_t enum
-value like DYN_WP_CLONEPISTOL.
-
-A dynamic weapon value (dynWpnVal) referes to how many dynamic weapons there
-are for that base weapon ranging from 1 to n where n represents how many weapon
-subtypes there are for each weapon.
-*/
 
 /*
 =================
-CG_IsWeaponPistol
+CG_PlayerIsDualWielding
 =================
 */
-qboolean CG_IsWeaponPistol(gentity_t *ent)
+qboolean CG_PlayerIsDualWielding(int weapon)
 {
-	int weaponNum = ent->client->ps.weapon;
-
-	return (qboolean)(weaponNum == WP_BLASTER_PISTOL
-		|| weaponNum == WP_JANGO
-		|| weaponNum == WP_REY
-		|| weaponNum == WP_CLONEPISTOL);
+	return (qboolean)(cg_dualWielding.integer && weaponData[weapon].weaponCategory == WC_PISTOL);
 }
 
 /*
@@ -3510,9 +3495,9 @@ CG_ChangeFirstPersonView
 */
 qboolean CG_ChangeFirstPersonView(void)
 {
-	return (qboolean)(cg_dualWielding.integer && weaponData[weapon].weaponCategory == WC_PISTOL);
+	int weapon = weaponData[player->client->ps.weapon].baseWeaponNum ? weaponData[player->client->ps.weapon].baseWeaponNum : player->client->ps.weapon;
+	return (qboolean)(CG_PlayerIsDualWielding(weapon) || weapon  == WP_SBD || weapon == WP_DROIDEKA);
 }
-
 
 
 /*

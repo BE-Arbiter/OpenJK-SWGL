@@ -67,6 +67,9 @@ weaponIndexes_t _weaponIndexes[] = {
 	{"weapon_jango",37},
 	{"weapon_boba",38},
 	{"weapon_clonepistol",39},
+	{"weapon_cis_sniper",40},
+	{"weapon_sbd",41},
+	{"weapon_droideka",42},
 };
 static const size_t numHcWeaponIndexes = ARRAY_LEN(_weaponIndexes);
 
@@ -379,6 +382,9 @@ float defaultsWeaponSpeed[][2] =
 	{ JANGO_VELOCITY, JANGO_VELOCITY },// WP_JANGO
 	{ BOBA_VELOCITY, BOBA_VELOCITY },// WP_BOBA
 	{ CLONEPISTOL_VELOCITY, CLONEPISTOL_VELOCITY },// WP_CLONEPISTOL
+	{ CIS_SNIPER_VELOCITY,CIS_SNIPER_VELOCITY}, //WP_CIS_SNIPER
+	{ SBD_VELOCITY, SBD_VELOCITY },// WP_SBD
+	{ SBD_VELOCITY, SBD_VELOCITY },// WP_DROIDEKA
 };
 
 float defaultsWeaponSpread[][2] =
@@ -423,6 +429,9 @@ float defaultsWeaponSpread[][2] =
 	{ JANGO_MAIN_SPREAD, JANGO_ALT_SPREAD },// WP_JANGO
 	{ BOBA_MAIN_SPREAD, BOBA_ALT_SPREAD },// WP_BOBA
 	{ CLONEPISTOL_MAIN_SPREAD, CLONEPISTOL_ALT_SPREAD },// WP_CLONEPISTOL
+	{ CIS_SNIPER_MAIN_SPREAD, CIS_SNIPER_ALT_SPREAD},// WP_CIS_SNIPER
+	{ 0 , 0},// WP_SBD
+	{ 0 , 0},// WP_DROIDEKA
 };
 
 const qboolean defaultPlayerUsable[] = {
@@ -483,6 +492,9 @@ const qboolean defaultPlayerUsable[] = {
 	qtrue,//WP_JANGO,
 	qtrue,//WP_BOBA,
 	qtrue,//WP_CLONEPISTOL
+	qtrue,//WP_CIS_SNIPER
+	qtrue,//WP_SBD
+	qtrue//WP_DROIDEKA
 };
 
 const weaponCategory_t defaultWeaponType[] = {
@@ -543,6 +555,9 @@ const weaponCategory_t defaultWeaponType[] = {
 	WC_PISTOL,//WP_JANGO,
 	WC_HEAVY,//WP_BOBA,
 	WC_PISTOL,//WP_CLONEPISTOL
+	WC_LIGHT,//WP_CIS_SNIPER
+	WC_LIGHT,//WP_SBD
+	WC_LIGHT//WP_DROIDEKA
 };
 
 const int defaultDamage[] = {
@@ -592,6 +607,9 @@ const int defaultDamage[] = {
 	JANGO_DAMAGE,				// WP_JANGO
 	BOBA_DAMAGE,				// WP_BOBA
 	CLONEPISTOL_DAMAGE,			// WP_CLONEPISTOL
+	CIS_SNIPER_DAMAGE,			// WP_CIS_SNIPER
+	SBD_DAMAGE,					// WP_SBD
+	SBD_DAMAGE					// WP_DROIDEKA
 };
 
 const int defaultAltDamage[] = {
@@ -641,6 +659,9 @@ const int defaultAltDamage[] = {
 	JANGO_ALT_DAMAGE,		// WP_JANGO
 	BOBA_SCOPE_DAMAGE,		// WP_BOBA
 	CLONEPISTOL_ALT_DAMAGE,		// WP_CLONEPISTOL
+	CIS_SNIPER_SCOPE_DAMAGE, // WP_CIS_SNIPER
+	0,						// WP_SBD
+	0						// WP_DROIDEKA
 };
 
 const int defaultSplashDamage[] = {
@@ -690,6 +711,9 @@ const int defaultSplashDamage[] = {
 	0,				   				// WP_JANGO
 	0,				   				// WP_BOBA
 	0,				   				// WP_CLONEPISTOL
+	0,				   				// WP_CIS_SNIPER
+	0,				   				// WP_SBD
+	0								// WP_DROIDEKA
 };
 
 const float defaultSplashRadius[] = {
@@ -739,6 +763,9 @@ const float defaultSplashRadius[] = {
 	0.0f,							// WP_JANGO
 	0.0f,							// WP_BOBA
 	0.0f,							// WP_CLONEPISTOL
+	0.0f,				   			// WP_CIS_SNIPER
+	0.0f,				   			// WP_SBD
+	0.0f							// WP_DROIDEKA
 };
 
 const int defaultAltSplashDamage[] = {
@@ -788,6 +815,9 @@ const int defaultAltSplashDamage[] = {
 	0,				   				// WP_JANGO
 	0,				   				// WP_BOBA
 	0,				   				// WP_CLONEPISTOL
+	0,				   				// WP_CIS_SNIPER
+	0,				   				// WP_SBD
+	0								// WP_DROIDEKA
 };
 
 const float defaultAltSplashRadius[] = {
@@ -837,6 +867,9 @@ const float defaultAltSplashRadius[] = {
 	0.0f,							// WP_JANGO
 	0.0f,							// WP_BOBA
 	0.0f,							// WP_CLONEPISTOL
+	0.0f,				   				// WP_CIS_SNIPER
+	0.0f,				   				// WP_SBD
+	0.0f								// WP_DROIDEKA
 };
 #pragma endregion
 
@@ -881,7 +914,10 @@ const weaponBucket_t defaultWeaponBucket[] = {
 	WB_PISTOLS,			// WP_REY
 	WB_PISTOLS,			// WP_JANGO
 	WB_SPECIALISTS,		// WP_BOBA
-	WB_PISTOLS			// WP_CLONEPISTOL
+	WB_PISTOLS,			// WP_CLONEPISTOL
+	WB_SPECIALISTS,				   				// WP_CIS_SNIPER
+	WB_OTHERS,				   				// WP_SBD
+	WB_OTHERS								// WP_DROIDEKA
 };
 
 static const size_t numWpnParms = ARRAY_LEN(WpnParms);
