@@ -9130,8 +9130,6 @@ static void PM_BeginWeaponChange( int weapon ) {
 
 	pm->ps->tertiaryMode = qfalse;
 
-	CG_UpdateSwitchDynWpnMdlCvar(weapon, pm->ps);
-
 	if ( pm->gent
 		&& pm->gent->client
 		&& (pm->gent->client->NPC_class == CLASS_ATST||pm->gent->client->NPC_class == CLASS_RANCOR || pm->gent->client->NPC_class == CLASS_DROIDEKA) )
@@ -9281,13 +9279,13 @@ static void PM_FinishWeaponChange( void ) {
 			// remove the sabre if we had it.
 			G_RemoveWeaponModels( pm->gent );
 			if (weaponData[weapon].weaponMdl[0]) {	//might be NONE, so check if it has a model
-				G_CreateG2AttachedWeaponModel( pm->gent, CG_GetCurrentWeaponModel(pm->gent), pm->gent->handRBolt, 0 );
+				G_CreateG2AttachedWeaponModel( pm->gent, weaponData[weapon].weaponMdl, pm->gent->handRBolt, 0 );
 			}
 		}
 
-		if (weapon == WP_SBD && pm->gent->client->NPC_class == CLASS_DROIDEKA)
+		if (weapon == WP_DROIDEKA && pm->gent->client->NPC_class == CLASS_DROIDEKA)
 		{
-			G_CreateG2AttachedWeaponModel(pm->gent, weaponData[WP_SBD].weaponMdl, pm->gent->handLBolt, 1);
+			G_CreateG2AttachedWeaponModel(pm->gent, weaponData[WP_DROIDEKA].weaponMdl, pm->gent->handLBolt, 1);
 		}
 
 		if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_GALAKMECH)
@@ -13153,6 +13151,7 @@ static bool PM_DoChargedWeapons( void )
 	//------------------
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
+	case WP_REY:
 		// alt-fire charges the weapon
 		if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
 		{
@@ -13568,26 +13567,6 @@ void PM_WeaponWampa( void )
 }
 
 /*
-======================
-PM_GetSwitchWpnMdlCvar
-
-If they go below zero or above the max number for that weapon
-set cg_switchDynWpnMdl to zero and return 0. Else just return that current
-value for that dynamic weapon.
-======================
-*/
-static int PM_GetSwitchWpnMdlCvar(int weaponNum)
-{
-	if (cg_switchDynWpnMdl.integer < 0 || cg_switchDynWpnMdl.integer > CG_GetMaxDynWpn(weaponNum))
-	{
-		gi.cvar_set("cg_switchDynWpnMdl", "0");
-		return DYN_WP_NONE;
-	}
-
-	return cg_switchDynWpnMdl.integer;
-}
-
-/*
 ==============
 PM_DWMdlChange
 ==============
@@ -13628,6 +13607,7 @@ void PM_WpnMdlChange(const char *currWeaponMdl, int weaponNum, playerState_t *ps
 	}
 }
 
+extern qboolean CG_IsWeaponPistol(gentity_t* ent);
 /*
 ==============
 PM_Weapon
@@ -13644,6 +13624,7 @@ static void PM_Weapon( void )
 	int fire_time = 0;
 	int burst_fire_delay = 0;
 	int burst_shots = 0;
+
 
 	if (pm->cmd.buttons & BUTTON_ATTACK)
 	{	
@@ -13776,37 +13757,9 @@ static void PM_Weapon( void )
 
 	// check for weapon change
 	// can't change if weapon is firing, but can change again if lowering or raising
-	if ( (pm->ps->weaponTime <= 0 || pm->ps->weaponstate != WEAPON_FIRING)  && pm->ps->weaponstate != WEAPON_CHARGING_ALT && pm->ps->weaponstate != WEAPON_CHARGING) {
-		if ( pm->ps->weapon != pm->cmd.weapon && (!pm->ps->viewEntity || pm->ps->viewEntity >= ENTITYNUM_WORLD) && !PM_DoChargedWeapons()) {
-			PM_BeginWeaponChange( pm->cmd.weapon );
-		}
-	}
-
-	if ((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer())
-		&& pm->ps->weaponstate != WEAPON_DROPPING)
-	{
-		if (CG_IsWeaponDynamic(pm->ps->weapon) && pm->ps->weaponTime <= 0
-			&& pm->ps->dynWpnVals[pm->ps->weapon] != cg_switchDynWpnMdl.integer)
-		{
-			G_Sound(pm->gent, G_SoundIndex("sound/weapons/change.wav"));
-
-			pm->ps->dynWpnVals[pm->ps->weapon] = PM_GetSwitchWpnMdlCvar(pm->ps->weapon);
-
-			PM_WpnMdlChange(CG_GetCurrentWeaponModel(pm->gent), pm->ps->weapon, pm->ps);
-		}
-		// If the weapon has two model paths.
-		else if (weaponData[pm->ps->weapon].weaponMdl[0] && weaponData[pm->ps->weapon].weaponMdl2[0])
-		{
-			if (pm->ps->tertiaryMode && weaponData[pm->ps->weapon].secondaryMdl == qfalse)
-			{
-				weaponData[pm->ps->weapon].secondaryMdl = qtrue;
-				PM_WpnMdlChange(&weaponData[pm->ps->weapon].weaponMdl2[0], pm->ps->weapon, pm->ps);
-			}
-			else if (pm->ps->tertiaryMode == 0 && weaponData[pm->ps->weapon].secondaryMdl)
-			{
-				weaponData[pm->ps->weapon].secondaryMdl = qfalse;
-				PM_WpnMdlChange(&weaponData[pm->ps->weapon].weaponMdl[0], pm->ps->weapon, pm->ps);
-			}
+	if ((pm->ps->weaponTime <= 0 || pm->ps->weaponstate != WEAPON_FIRING) && pm->ps->weaponstate != WEAPON_CHARGING_ALT && pm->ps->weaponstate != WEAPON_CHARGING) {
+		if (pm->ps->weapon != pm->cmd.weapon && (!pm->ps->viewEntity || pm->ps->viewEntity >= ENTITYNUM_WORLD) && !PM_DoChargedWeapons()) {
+			PM_BeginWeaponChange(pm->cmd.weapon);
 		}
 	}
 
@@ -13818,7 +13771,7 @@ static void PM_Weapon( void )
 			if (pm->gent->weaponModel[1] <= 0 && cg_dualWielding.integer)
 			{
 				// Add the model you have in your right hand to your left hand.
-				G_CreateG2AttachedWeaponModel(pm->gent, CG_GetCurrentWeaponModel(pm->gent), pm->gent->handLBolt, 1);
+				G_CreateG2AttachedWeaponModel(pm->gent, weaponData[pm->ps->weapon].weaponMdl, pm->gent->handLBolt, 1);
 			}
 			// If you do have a weapon in your left hand and you just turned dual wielding off.
 			else if (pm->gent->weaponModel[1] > 0 && cg_dualWielding.integer == 0)
@@ -14249,6 +14202,7 @@ static void PM_Weapon( void )
 
 			case WP_BLASTER:
 			case WP_SBD:
+			case WP_DROIDEKA:
 				PM_SetAnim( pm, SETANIM_TORSO, BOTH_ATTACK3, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD|SETANIM_FLAG_RESTART);
 				break;
 
@@ -15111,7 +15065,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 				}
 
 				// I probably shouldn't hard code this, but oh well.
-				if (pm->ps->weapon == WP_THEFIRSTORDER && CG_GetDynWpnNum(pm->gent) == DYN_WP_REBELBLASTER)
+				if (pm->ps->weapon == WP_REBELBLASTER)
 				{
 					cg.zoomMode = ST_A280;
 					cg_zoomFov = 25.0f;
@@ -15224,7 +15178,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
 	}
 
-	if ((pm->ps->weapon == WP_CLONECOMMANDO && pm->ps->tertiaryMode) || pm->ps->weapon == WP_SBD)
+	if ((pm->ps->weapon == WP_CLONECOMMANDO && pm->ps->tertiaryMode) || pm->ps->weapon == WP_SBD || pm->ps->weapon == WP_DROIDEKA)
 	{
 		// Don't let the alt-fire get through.
 		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;

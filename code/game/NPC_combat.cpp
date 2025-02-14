@@ -294,11 +294,16 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 		case WP_BRYAR_PISTOL:
 			break;
 		case WP_BLASTER:
+		case WP_BATTLEDROID:
 		case WP_THEFIRSTORDER:
 		case WP_CLONECARBINE:
+		case WP_REBELBLASTER:
+		case WP_CLONERIFLE:
 		case WP_CLONECOMMANDO:
 		case WP_REBELRIFLE:
+		case WP_JANGO:
 		case WP_BOBA:
+		case WP_CLONEPISTOL:
 			if ( self->NPC->scriptFlags & SCF_ALT_FIRE )
 			{//rapid-fire blasters
 				attDelay += Q_irand( 0, 500 );
@@ -327,6 +332,7 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 			attDelay += Q_irand( 500, 1500 );
 			break;
 		case WP_BLASTER_PISTOL:	// apparently some enemy only version of the blaster
+		case WP_REY:
 			attDelay -= Q_irand( 500, 1500 );
 			break;
 		case WP_DISRUPTOR://sniper's don't delay?
@@ -352,6 +358,7 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 			attDelay += Q_irand( 0, 500 );
 			break;
 		case WP_SBD:
+		case WP_DROIDEKA:
 			attDelay += Q_irand( 0, 500 );
 			break;
 
@@ -570,7 +577,7 @@ void G_SetEnemy( gentity_t *self, gentity_t *enemy )
 
 		if ( self->s.weapon == WP_BLASTER || self->s.weapon == WP_REPEATER ||
 			self->s.weapon == WP_THERMAL || self->s.weapon == WP_BLASTER_PISTOL
-			|| self->s.weapon == WP_BOWCASTER || self->s.weapon == WP_SBD)
+			|| self->s.weapon == WP_BOWCASTER || self->s.weapon == WP_SBD || self->s.weapon == WP_DROIDEKA)
 		{//Hmm, how about sniper and bowcaster?
 			//When first get mad, aim is bad
 			//Hmm, base on game difficulty, too?  Rank?
@@ -712,6 +719,7 @@ void ChangeWeapon(gentity_t *ent, int newWeapon)
 		break;
 
 	case WP_BLASTER_PISTOL:
+	case WP_REY:
 		ent->NPC->aiFlags &= ~NPCAI_BURST_WEAPON;
 		if (ent->weaponModel[1] > 0)
 		{//commando
@@ -915,11 +923,16 @@ void ChangeWeapon(gentity_t *ent, int newWeapon)
 		*/
 
 	case WP_BLASTER:
+	case WP_BATTLEDROID:
 	case WP_THEFIRSTORDER:
 	case WP_CLONECARBINE:
+	case WP_REBELBLASTER:
+	case WP_CLONERIFLE:
 	case WP_CLONECOMMANDO:
 	case WP_REBELRIFLE:
+	case WP_JANGO:
 	case WP_BOBA:
+	case WP_CLONEPISTOL:
 		if (ent->NPC->scriptFlags & SCF_ALT_FIRE)
 		{
 			ent->NPC->aiFlags |= NPCAI_BURST_WEAPON;
@@ -1034,6 +1047,7 @@ void ChangeWeapon(gentity_t *ent, int newWeapon)
 		break;
 
 	case WP_SBD:
+	case WP_DROIDEKA:
 		ent->NPC->aiFlags |= NPCAI_BURST_WEAPON;
 		ent->NPC->burstMin = 3;
 #ifdef BASE_SAVE_COMPAT
@@ -1071,18 +1085,17 @@ void NPC_ChangeWeapon( int newWeapon )
 	ChangeWeapon( NPC, newWeapon );
 
 	int weaponNum = NPC->client->ps.weapon;
-	int dynWpnNum = CG_GetDynWpnNum(weaponNum, NPC->client->ps.dynWpnVals[weaponNum]);
 
 	if ( changing && weaponNum != WP_NONE )
 	{
-		if ( weaponNum == WP_SABER )
+		if (NPC->client->ps.weapon == WP_SABER )
 		{
 			WP_SaberAddG2SaberModels( NPC );
 		}
-		else if (weaponNum == WP_BLASTER && dynWpnNum == DYN_WP_JANGO)
+		else if (NPC->client->ps.weapon == WP_JANGO || NPC->client->ps.weapon == WP_DROIDEKA)
 		{
-			G_CreateG2AttachedWeaponModel(NPC, dynamicWpnData[dynWpnNum].weaponMdl, NPC->handRBolt, 0);
-			G_CreateG2AttachedWeaponModel(NPC, dynamicWpnData[dynWpnNum].weaponMdl, NPC->handLBolt, 1);
+			G_CreateG2AttachedWeaponModel(NPC, weaponData[NPC->client->ps.weapon].weaponMdl, NPC->handRBolt, 0);
+			G_CreateG2AttachedWeaponModel(NPC, weaponData[NPC->client->ps.weapon].weaponMdl, NPC->handLBolt, 1);
 		}
 		else
 		{
@@ -1528,12 +1541,18 @@ float NPC_MaxDistSquaredForWeapon (void)
 	switch ( NPC->s.weapon )
 	{
 	case WP_BLASTER://scav rifle
+	case WP_BATTLEDROID:
 	case WP_THEFIRSTORDER:
 	case WP_CLONECARBINE:
+	case WP_REBELBLASTER:
+	case WP_CLONERIFLE:
 	case WP_CLONECOMMANDO:
 	case WP_REBELRIFLE:
+	case WP_JANGO:
 	case WP_BOBA:
+	case WP_CLONEPISTOL:
 	case WP_SBD:
+	case WP_DROIDEKA:
 		return 1024 * 1024;//should be shorter?
 		break;
 
@@ -1542,6 +1561,7 @@ float NPC_MaxDistSquaredForWeapon (void)
 		break;
 
 	case WP_BLASTER_PISTOL://prifle
+	case WP_REY:
 		return 1024 * 1024;
 		break;
 
@@ -2629,6 +2649,9 @@ float IdealDistance ( gentity_t *self )
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
 	case WP_BLASTER:
+	case WP_REY:
+	case WP_JANGO:
+	case WP_CLONEPISTOL:
 	default:
 		break;
 	}
@@ -3201,10 +3224,6 @@ gentity_t *NPC_SearchForWeapons( void )
 			continue;
 		}
 		if ( found->item->giType != IT_WEAPON )
-		{
-			continue;
-		}
-		if ( found->item->giType != IT_DYN_WEAPON )
 		{
 			continue;
 		}

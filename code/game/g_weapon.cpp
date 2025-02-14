@@ -75,13 +75,19 @@ float weaponSpeed[WP_NUM_WEAPONS][2] =
 	{ 0,0 },//WP_TUSKEN_STAFF,
 	{ 0,0 },//WP_SCEPTER,
 	{ 0,0 },//WP_NOGHRI_STICK,
+	{ E5_VELOCITY, E5_VELOCITY }, // WP_BATTLEDROID,
 	{ F_11D_VELOCITY, F_11D_VELOCITY },// WP_THEFIRSTORDER,
 	{ CLONECARBINE_VELOCITY, CLONECARBINE_VELOCITY },// WP_CLONECARBINE,
+	{ CLONERIFLE_VELOCITY, CLONERIFLE_VELOCITY },// WP_CLONERIFLE
+	{ REBELBLASTER_VELOCITY, REBELBLASTER_VELOCITY },// WP_REBELBLASTER
 	{ CLONECOMMANDO_VELOCITY, CLONECOMMANDO_VELOCITY },// WP_CLONECOMMANDO
 	{ REBELRIFLE_VELOCITY, REBELRIFLE_VELOCITY },// WP_REBELRIFLE
+	{ REY_VEL,REY_VEL },//WP_REY,
+	{ JANGO_VELOCITY, JANGO_VELOCITY },// WP_JANGO
 	{ BOBA_VELOCITY, BOBA_VELOCITY },// WP_BOBA
+	{ CLONEPISTOL_VELOCITY, CLONEPISTOL_VELOCITY },// WP_CLONEPISTOL
 	{ SBD_VELOCITY, SBD_VELOCITY },// WP_SBD
-	{ CIS_SNIPER_VELOCITY, CIS_SNIPER_VELOCITY }// WP_CIS_SNIPER
+	{ SBD_VELOCITY, SBD_VELOCITY },// WP_DROIDEKA
 };
 
 float WP_SpeedOfMissileForWeapon( int wp, qboolean alt_fire )
@@ -352,15 +358,22 @@ qboolean W_AccuracyLoggableWeapon( int weapon, qboolean alt_fire, int mod )
 		case MOD_BRYAR_ALT:
 		case MOD_BLASTER:
 		case MOD_BLASTER_ALT:
+		case MOD_REBELBLASTER:
+		case MOD_REBELBLASTER_ALT:
+		case MOD_CLONERIFLE:
+		case MOD_CLONERIFLE_ALT:
 		case MOD_CLONECOMMANDO:
 		case MOD_CLONECOMMANDO_ALT:
 		case MOD_REBELRIFLE:
 		case MOD_REBELRIFLE_ALT:
+		case MOD_REY:
+		case MOD_REY_ALT:
+		case MOD_JANGO:
+		case MOD_JANGO_ALT:
 		case MOD_BOBA:
 		case MOD_BOBA_ALT:
-		case MOD_SBD:
-		case MOD_CIS_SNIPER:
-		case MOD_CIS_SNIPER_ALT:
+		case MOD_CLONEPISTOL:
+		case MOD_CLONEPISTOL_ALT:
 		case MOD_DISRUPTOR:
 		case MOD_SNIPER:
 		case MOD_BOWCASTER:
@@ -403,12 +416,19 @@ qboolean W_AccuracyLoggableWeapon( int weapon, qboolean alt_fire, int mod )
 		case WP_BOWCASTER:
 		case WP_ROCKET_LAUNCHER:
 		case WP_CONCUSSION:
+		case WP_BATTLEDROID:
 		case WP_THEFIRSTORDER:
 		case WP_CLONECARBINE:
+		case WP_REBELBLASTER:
+		case WP_CLONERIFLE:
 		case WP_CLONECOMMANDO:
 		case WP_REBELRIFLE:
+		case WP_REY:
+		case WP_JANGO:
 		case WP_BOBA:
+		case WP_CLONEPISTOL:
 		case WP_SBD:
+		case WP_DROIDEKA:
 		case WP_CIS_SNIPER:
 			return qtrue;
 			break;
@@ -509,12 +529,18 @@ void CalcMuzzlePoint( gentity_t *const ent, vec3_t forwardVec, vec3_t right, vec
 		break;
 
 	case WP_BLASTER:
+	case WP_BATTLEDROID:
 	case WP_THEFIRSTORDER:
+	case WP_REBELBLASTER:
 	case WP_CLONECARBINE:
+	case WP_CLONERIFLE:
 	case WP_CLONECOMMANDO:
 	case WP_REBELRIFLE:
+	case WP_JANGO:
 	case WP_BOBA:
+	case WP_CLONEPISTOL:
 	case WP_SBD:
+	case WP_DROIDEKA:
 	case WP_CIS_SNIPER:
 		ViewHeightFix(ent);
 		muzzlePoint[2] += ent->client->ps.viewheight;//By eyes
@@ -597,13 +623,21 @@ vec3_t WP_MuzzlePoint[WP_NUM_WEAPONS] =
 	{0,		0,		0	},	// WP_ATST_SIDE,
 	{0	,	8,		0	},	// WP_STUN_BATON,
 	{12,	6,		-6	},	// WP_BRYAR_PISTOL,
+	{12,	6,		-6  },  // WP_BATTLEDROID,
 	{12,	6,		-6  },  // WP_THEFIRSTORDER,
 	{12,	6,		-6  },  // WP_CLONECARBINE,
+	{12,	6,		-6  },  // WP_REBELBLASTER,
+	{12,	6,		-6  },  // WP_CLONERIFLE,
 	{12,	6,		-6  },  // WP_CLONECOMMANDO,
 	{12,	6,		-6  },  // WP_REBELRIFLE,
+	{12,	6,		-6	},	// WP_REY,
+	{12,	6,		-6	},	// WP_JANGO,
 	{12,	6,		-6	},	// WP_BOBA,
+	{12,	6,		-6	},	// WP_CLONEPISTOL,
+	{12,	6,		-6	},	// WP_BOBA,
+	{12,	6,		-6	},	// WP_CIS_SNIPER,
 	{12,	6,		-6	},	// WP_SBD,
-	{12,	6,		-6	}	// WP_CIS_SNIPER,
+	{12,	6,		-6	}	// WP_DROIDEKA,
 };
 
 void WP_RocketLock( gentity_t *ent, float lockDist )
@@ -1601,9 +1635,44 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 			WP_FireSBD(ent);
 		}
 		break;
+
+	case WP_DROIDEKA:
+		if (!(alt_fire))
+		{
+			WP_FireDroideka(ent);
+		}
+		break;
 	case WP_CIS_SNIPER:
 		WP_FireCISSniper(ent, alt_fire);
 		break;
+
+	case WP_BATTLEDROID:
+		WP_FireBattleDroid(ent, alt_fire);
+		break;
+	
+	case WP_CLONERIFLE:
+		WP_FireCloneRifle(ent, alt_fire);
+		break;
+
+	case WP_CLONEPISTOL:
+		WP_FireClonePistol(ent, alt_fire);
+		break;
+
+	case WP_REBELBLASTER:
+		WP_FireRebelBlaster(ent, alt_fire);
+		break;
+
+
+	case WP_REY:
+		WP_FireReyPistol(ent, alt_fire);
+		break;
+
+
+	case WP_JANGO:
+		WP_FireJangoPistol(ent, alt_fire);
+		break;
+
+	
 
 	case WP_TUSKEN_STAFF:
 	default:

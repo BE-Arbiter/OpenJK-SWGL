@@ -1647,7 +1647,6 @@ public:
 
 	int			clientNum;		// ranges from 0 to MAX_CLIENTS-1
 	int			weapon;			// copied to entityState_t->weapon
-	int			dynWpnVals[MAX_NUM_WEAPONS];
 	int			weaponstate;
 
 	int			batteryCharge;
@@ -1986,7 +1985,6 @@ public:
 		saved_game.write<int32_t>(externalEventTime);
 		saved_game.write<int32_t>(clientNum);
 		saved_game.write<int32_t>(weapon);
-		saved_game.write<int32_t>(dynWpnVals);
 		saved_game.write<int32_t>(weaponstate);
 		saved_game.write<int32_t>(batteryCharge);
 		saved_game.write<float>(viewangles);
@@ -2170,7 +2168,6 @@ public:
 		saved_game.read<int32_t>(externalEventTime);
 		saved_game.read<int32_t>(clientNum);
 		saved_game.read<int32_t>(weapon);
-		saved_game.read<int32_t>(dynWpnVals);
 		saved_game.read<int32_t>(weaponstate);
 		saved_game.read<int32_t>(batteryCharge);
 		saved_game.read<float>(viewangles);

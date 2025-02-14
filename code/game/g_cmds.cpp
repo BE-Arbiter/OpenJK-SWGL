@@ -237,9 +237,9 @@ void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 			ent->client->ps.weapons[i] = 1;
 		}
 		// Skip the unusable weapons, add in extra weapons.
-		for (int i = WP_THEFIRSTORDER; i < WP_NUM_WEAPONS; i++)
+		for (int i = WP_BATTLEDROID; i < WP_NUM_WEAPONS; i++)
 		{
-			if (i == WP_SBD)
+			if (i == WP_SBD || i == WP_DROIDEKA)
 			{
 				continue;
 			}

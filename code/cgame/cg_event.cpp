@@ -115,10 +115,10 @@ void CG_ItemPickup( int itemNum, qboolean bHadItem ) {
 	}
 
 	// see if it should be the grabbed weapon
-	if ( bg_itemlist[itemNum].giType == IT_WEAPON || bg_itemlist[itemNum].giType == IT_DYN_WEAPON )
+	if ( bg_itemlist[itemNum].giType == IT_WEAPON )
 	{
 		const int nCurWpn = cg.predicted_player_state.weapon;
-		const int nNewWpn = CG_GetItemGITag(&bg_itemlist[itemNum]);
+		const int nNewWpn = bg_itemlist[itemNum].giTag;
 
 		if ( nCurWpn == WP_SABER || bHadItem)
 		{//never switch away from the saber!

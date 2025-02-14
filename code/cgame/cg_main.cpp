@@ -371,7 +371,6 @@ vmCvar_t		cg_trueinvertsaber;
 vmCvar_t		cg_truefov;
 vmCvar_t        cg_truebobbing;
 vmCvar_t		cg_hudRatio;
-vmCvar_t        cg_switchDynWpnMdl;
 
 typedef struct {
 	vmCvar_t	*vmCvar;
@@ -515,8 +514,6 @@ static cvarTable_t cvarTable[] = {
     { &cg_truebobbing,	"cg_truebobbing",	"1", CVAR_ARCHIVE},
 	{ &r_ratioFix, "r_ratioFix", "", 0 },
 	{ &cg_hudRatio, "cg_hudRatio", "1", CVAR_ARCHIVE },
-	// Must use CVAR_TEMP to avoid bugs.
-	{ &cg_switchDynWpnMdl, "cg_switchDynWpnMdl", "0", CVAR_TEMP },
 };
 
 static const size_t cvarTableSize = ARRAY_LEN( cvarTable );
@@ -1818,20 +1815,6 @@ Ghoul2 Insert End
 				// Since it was registered, turn if off.
 				weaponData[i].secondaryMdl = qfalse;
 				cg_weapons[i].registered = qfalse;
-			}
-
-			// We are going to register all of the
-			// dynamic weapons too.
-			if (CG_IsWeaponDynamic(i))
-			{
-				for (int j = 1; j <= CG_GetMaxDynWpn(i); j++)
-				{
-					player->client->ps.dynWpnVals[i] = j;
-					CG_RegisterWeapon(i);
-					cg_weapons[i].registered = qfalse;
-				}
-
-				player->client->ps.dynWpnVals[i] = DYN_WP_NONE;
 			}
 
 			CG_RegisterWeapon(i);

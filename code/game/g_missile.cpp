@@ -61,6 +61,8 @@ void G_MissileBounceEffect( gentity_t *ent, vec3_t org, vec3_t dir, qboolean hit
 	case WP_BLASTER:
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
+	case WP_REY:
+	case WP_JANGO:
 		G_PlayEffect( "blaster/deflect", ent->currentOrigin, dir );
 		break;
 	default:
@@ -84,6 +86,8 @@ void G_MissileReflectEffect( gentity_t *ent, vec3_t org, vec3_t dir )
 	case WP_BLASTER:
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
+	case WP_REY:
+	case WP_JANGO:
 	default:
 		G_PlayEffect( "blaster/deflect", ent->currentOrigin, dir );
 		break;
@@ -745,7 +749,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 
 		G_BounceMissile( ent, trace );
 
-		if (other == player && player->client->NPC_class == CLASS_DROIDEKA && other->flags & ~FL_GODMODE)
+		if (other == player && player->client->NPC_class == CLASS_DROIDEKA && !(other->flags & FL_GODMODE))
 		{
 			// Still take damage from blasters bouncing off the shield
 			if (player->client->ps.stats[STAT_ARMOR] > 0)

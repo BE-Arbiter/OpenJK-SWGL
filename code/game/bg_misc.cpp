@@ -310,27 +310,6 @@ gitem_t	*FindItemForAmmo( ammo_t ammo )
 }
 
 /*
-=====================
-FindItemForDynWeapon
-=====================
-*/
-gitem_t *FindItemForDynWeapon(dynamicWeapon_t dynWeapon)
-{
-	int	i;
-	for (i = 1 ; i < bg_numItems; i++)
-	{
-		if (bg_itemlist[i].giType == IT_DYN_WEAPON && bg_itemlist[i].giTag == dynWeapon)
-		{
-			return &bg_itemlist[i];
-		}
-	}
-
-	Com_Error( ERR_DROP, "Couldn't find item for dynamic weapon %i", dynWeapon);
-	return NULL;
-}
-
-
-/*
 ===============
 FindItem
 
@@ -368,9 +347,8 @@ qboolean	BG_CanItemBeGrabbed( const entityState_t *ent, const playerState_t *ps 
 	switch( item->giType ) {
 
 	case IT_WEAPON:
-	case IT_DYN_WEAPON:
 		// See if we already have this weapon.
-		if ( !(ps->weapons[CG_GetItemGITag(item)]) )
+		if ( !(ps->weapons[item->giTag]) )
 		{
 			// Don't have this weapon yet, so pick it up.
 			return qtrue;
@@ -381,7 +359,7 @@ qboolean	BG_CanItemBeGrabbed( const entityState_t *ent, const playerState_t *ps 
 		}
 
 		// Make sure that we aren't already full on ammo for this weapon
-		if ( ps->ammo[weaponData[CG_GetItemGITag(item)].ammoIndex] >= ammoData[weaponData[CG_GetItemGITag(item)].ammoIndex].max )
+		if ( ps->ammo[weaponData[item->giTag].ammoIndex] >= ammoData[weaponData[item->giTag].ammoIndex].max )
 		{
 			// full, so don't grab the item
 			return qfalse;

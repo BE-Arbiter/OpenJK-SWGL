@@ -44,41 +44,6 @@ extern void Inquisitor_Stop(gentity_t* ent, qboolean running = qfalse);
 extern void Inquisitor_Spin(gentity_t* ent, qboolean increment = qtrue);
 
 /*
-================
-CG_GetWeaponIcon
-================
-*/
-static const char *CG_GetWeaponIcon(int weaponNum)
-{
-	if (CG_IsDefaultWeaponModel(player, weaponNum))
-	{
-		return &weaponData[weaponNum].weaponIcon[0];
-	}
-
-	int dynWpnVal = player->client->ps.dynWpnVals[weaponNum];
-	return &dynamicWpnData[CG_GetDynWpnNum(weaponNum, dynWpnVal)].weaponIcon[0];
-}
-
-/*
-===================
-CG_ChangeWeaponDesc
-===================
-*/
-static void CG_SetWeaponName(gitem_t *item)
-{
-	int weaponNum = item->giTag;
-	int dynWpnVal = player->client->ps.dynWpnVals[weaponNum];
-
-	if (CG_IsDefaultWeaponModel(player, weaponNum))
-	{
-		item->classname = &weaponData[weaponNum].classname[0];
-		return;
-	}
-
-	item->classname = &dynamicWpnData[CG_GetDynWpnNum(weaponNum, dynWpnVal)].classname[0];
-}
-
-/*
 =================
 CG_RegisterWeapon
 
@@ -91,7 +56,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 	char			path[MAX_QPATH];
 	vec3_t			mins, maxs;
 	int				i;
-	const char		*currWeaponMdl;
+	char			*currWeaponMdl;
 
 	weaponInfo = &cg_weapons[weaponNum];
 
@@ -119,20 +84,10 @@ void CG_RegisterWeapon( int weaponNum ) {
 	if ( !item->classname ) {
 		CG_Error( "Couldn't find item for weapon %s\nNeed to update Items.dat!", weaponData[weaponNum].classname);
 	}
-
-	CG_SetWeaponName(weaponInfo->item);
-
+	
 	CG_RegisterItemVisuals( item - bg_itemlist );
 
-	// If we are on the default model, and we have a second model.
-	if (CG_IsDefaultWeaponModel(player, weaponNum) && weaponData[weaponNum].secondaryMdl == qtrue)
-	{
-		currWeaponMdl = &weaponData[weaponNum].weaponMdl2[0];
-	}
-	else
-	{
-		currWeaponMdl = CG_GetCurrentWeaponModel(player, weaponNum);
-	}
+	currWeaponMdl = (weaponData[weaponNum].secondaryMdl) ? weaponData[weaponNum].weaponMdl2 : weaponData[weaponNum].weaponMdl;
 
 	// set up in view weapon model
 	weaponInfo->weaponModel = cgi_R_RegisterModel( currWeaponMdl );
@@ -168,8 +123,8 @@ void CG_RegisterWeapon( int weaponNum ) {
 	// setup the shader we will use for the icon
 	if (weaponData[weaponNum].weaponIcon[0])
 	{
-		weaponInfo->weaponIcon = cgi_R_RegisterShaderNoMip(CG_GetWeaponIcon(weaponNum));
-		weaponInfo->weaponIconNoAmmo = cgi_R_RegisterShaderNoMip(va("%s_na", CG_GetWeaponIcon(weaponNum)));
+		weaponInfo->weaponIcon = cgi_R_RegisterShaderNoMip(weaponData[weaponNum].weaponIcon);
+		weaponInfo->weaponIconNoAmmo = cgi_R_RegisterShaderNoMip(va("%s_na", weaponData[weaponNum].weaponIcon));
 	}
 
 	for ( ammo = bg_itemlist + 1 ; ammo->classname ; ammo++ ) {
@@ -264,19 +219,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 	if ( weaponData[weaponNum].mTertiaryMuzzleEffect[0] )
 	{
 		weaponData[weaponNum].mTertiaryMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].mTertiaryMuzzleEffect );
-	}
-
-	for (i = 0; i < DYN_WP_NUM_WEAPONS; i++)
-	{
-		if (dynamicWpnData[i].mMuzzleEffect[0] && dynamicWpnData[i].mMuzzleEffectID != 0)
-		{
-			dynamicWpnData[i].mMuzzleEffectID = theFxScheduler.RegisterEffect(dynamicWpnData[i].mMuzzleEffect);
-		}
-
-		if (dynamicWpnData[i].mAltMuzzleEffect[0] && dynamicWpnData[i].mAltMuzzleEffectID != 0)
-		{
-			dynamicWpnData[i].mAltMuzzleEffectID = theFxScheduler.RegisterEffect(dynamicWpnData[i].mAltMuzzleEffect);
-		}
 	}
 
 	//fixme: don't really need to copy these, should just use directly
@@ -496,6 +438,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL: // enemy version
 	case WP_JAWA:
+	case WP_REY:
 		cgs.effects.bryarShotEffect			= theFxScheduler.RegisterEffect( "bryar/shot" );
 											theFxScheduler.RegisterEffect( "bryar/NPCshot" );
 		cgs.effects.bryarPowerupShotEffect	= theFxScheduler.RegisterEffect( "bryar/crackleShot" );
@@ -510,10 +453,13 @@ void CG_RegisterWeapon( int weaponNum ) {
 		break;
 
 	case WP_BLASTER:
+	case WP_BATTLEDROID:
 	case WP_THEFIRSTORDER:
+	case WP_REBELBLASTER:
 	case WP_REBELRIFLE:
-	case WP_BOBA:
+	case WP_JANGO:
 	case WP_SBD:
+	case WP_DROIDEKA:
 	case WP_CIS_SNIPER:
 		cgs.effects.blasterShotEffect			= theFxScheduler.RegisterEffect( "blaster/shot" );
 													theFxScheduler.RegisterEffect( "blaster/NPCshot" );
@@ -746,6 +692,8 @@ void CG_RegisterWeapon( int weaponNum ) {
 		break;
 
 	case WP_CLONECARBINE:
+	case WP_CLONERIFLE:
+	case WP_CLONEPISTOL:
 	case WP_CLONECOMMANDO:
 		if (weaponNum == WP_CLONECOMMANDO)
 		{
@@ -1068,7 +1016,7 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 		{
 			if (firing_attack & ALT_ATTACK)
 			{
-				effect = CG_GetAltMuzzleEffect(cent->gent);
+				effect = &wData->mAltMuzzleEffect[0];
 			}
 			else if (firing_attack & TERTIARY_ATTACK)
 			{
@@ -1077,7 +1025,7 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 			else
 			{	
 				// We need to make sure that the base guns also get their sound.
-				effect = CG_GetMuzzleEffect(cent->gent);
+				effect = &wData->mMuzzleEffect[0];
 			}
 		}
 
@@ -1086,7 +1034,7 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 			// We're alt-firing, so see if we need to override with a custom alt-fire effect
 			if ( wData->mAltMuzzleEffect[0] )
 			{
-				effect = CG_GetAltMuzzleEffect(cent->gent);
+				effect = &wData->mAltMuzzleEffect[0];
 			}
 		}
 
@@ -1449,7 +1397,8 @@ void CG_AddViewWeapon( playerState_t *ps )
 	// Do special charge bits
 	//-----------------------
 	if (( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BRYAR_PISTOL )
-			|| ( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BLASTER_PISTOL )
+		|| (ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BLASTER_PISTOL)
+		|| (ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_REY)
 			|| ( ps->weapon == WP_BOWCASTER && ps->weaponstate == WEAPON_CHARGING )
 			|| ( ps->weapon == WP_DEMP2 && ps->weaponstate == WEAPON_CHARGING_ALT ))
 	{
@@ -1458,7 +1407,8 @@ void CG_AddViewWeapon( playerState_t *ps )
 		vec3_t	WHITE	= {1.0f,1.0f,1.0f};
 
 		if ( ps->weapon == WP_BRYAR_PISTOL
-			|| ps->weapon == WP_BLASTER_PISTOL )
+			|| ps->weapon == WP_BLASTER_PISTOL 
+			|| ps->weapon == WP_REY)
 		{
 			// Hardcoded max charge time of 1 second
 			val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
@@ -1603,41 +1553,18 @@ const char *weaponDesc[WP_NUM_WEAPONS - 1] =
 "TUSKEN_STAFF_DESC",
 "SCEPTER_DESC",
 "NOGHRI_STICK_DESC",
+"BATTLEDROID_DESC",
 "THEFIRSTORDER_DESC",
 "CLONECARBINE_DESC",
-"CLONECOMMANDO_DESC",
-"REBELRIFLE_DESC",
-"BOBA_DESC",
-"SBD_DESC",
-"CIS_SNIPER_DESC",
-};
-
-const char *dynWpnDesc[DYN_WP_NUM_WEAPONS-1] =
-{
-"REY_DESC",
-"BATTLEDROID_DESC",
-"JANGO_DESC",
 "REBELBLASTER_DESC",
 "CLONERIFLE_DESC",
-"CLONEPISTOL_DESC"
+"CLONECOMMANDO_DESC",
+"REBELRIFLE_DESC"
+"BOBA_DESC",
+"CIS_SNIPER_DESC",
+"SBD_DESC",
+"DROIDEKA_DESC"
 };
-
-/*
-==========================
-CG_DrawDataPadWeaponSelect
-==========================
-*/
-static const char *CG_GetWeaponDesc(int weaponNum)
-{
-	int dynWpnVal = player->client->ps.dynWpnVals[weaponNum];
-
-	if (dynWpnVal)
-	{
-		return dynWpnDesc[CG_GetDynWpnNum(weaponNum, dynWpnVal) - 1];
-	}
-
-	return weaponDesc[weaponNum - 1];
-}
 
 /*
 ===================
@@ -1877,11 +1804,10 @@ void CG_DrawDataPadWeaponSelect( void )
 	}
 
 	// Print the weapon description
-	const char *wpnDesc = CG_GetWeaponDesc(cg.DataPadWeaponSelect);
 
-	if (!cgi_SP_GetStringTextString( va("SP_INGAME_%s",wpnDesc), text, sizeof(text) ))
+	if (!cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.DataPadWeaponSelect - 1]), text, sizeof(text)))
 	{
-		cgi_SP_GetStringTextString( va("SPMOD_INGAME_%s",wpnDesc), text, sizeof(text) );
+		cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.DataPadWeaponSelect - 1]), text, sizeof(text));
 	}
 
 	if (text[0])
@@ -2460,8 +2386,7 @@ void CG_NextWeapon_f( void ) {
 		}
 		else
 		{
-			if(!CG_SwitchDynWpnMdl_f(qtrue))
-				cg.weaponSelect++;
+			cg.weaponSelect++;
 		}
 
 		if ( cg.weaponSelect < firstWeapon || cg.weaponSelect >= WP_NUM_WEAPONS) {
@@ -2550,63 +2475,6 @@ void CG_Dualwield_f(void)
 	}
 }
 
-/*
-====================
-CG_SwitchDynWpnMdl_f
-====================
-*/
-void CG_SwitchDynWpnMdl_f(void)
-{
-	if (CG_IsWeaponDynamic(cg.weaponSelect))
-	{
-		if (cg_switchDynWpnMdl.integer == CG_GetMaxDynWpn(cg.weaponSelect))
-		{
-			gi.cvar_set("cg_switchDynWpnMdl", "0");
-		}
-		else
-		{
-			gi.cvar_set("cg_switchDynWpnMdl", va("%d", cg_switchDynWpnMdl.integer + 1));
-		}
-	}
-}
-
-/*
-====================
-CG_SwitchDynWpnMdl_f
-====================
-*/
-qboolean CG_SwitchDynWpnMdl_f(qboolean nextDynWpn)
-{
-	if (CG_IsWeaponDynamic(cg.weaponSelect))
-	{
-		if (nextDynWpn)
-		{
-			if (cg_switchDynWpnMdl.integer == CG_GetMaxDynWpn(cg.weaponSelect))
-			{
-				return qfalse;
-			}
-			else
-			{
-				gi.cvar_set("cg_switchDynWpnMdl", va("%d", cg_switchDynWpnMdl.integer + 1));
-				return qtrue;
-			}
-		}
-		else
-		{
-			if (cg_switchDynWpnMdl.integer != 0)
-			{
-				gi.cvar_set("cg_switchDynWpnMdl", va("%d", cg_switchDynWpnMdl.integer - 1));
-				return qtrue;
-
-			}
-			else
-			{
-				return qfalse;
-			}
-		}
-	}
-	return qfalse;
-}
 
 /*
 ===============
@@ -2739,8 +2607,7 @@ void CG_PrevWeapon_f( void ) {
 		}
 		else
 		{
-			if (!CG_SwitchDynWpnMdl_f(qfalse))
-				cg.weaponSelect--;
+			cg.weaponSelect--;
 		}
 
 
@@ -3042,11 +2909,11 @@ CG_IsWeaponPistol
 qboolean CG_IsWeaponPistol(gentity_t *ent)
 {
 	int weaponNum = ent->client->ps.weapon;
-	int dynWpnNum = CG_GetDynWpnNum(ent);
 
 	return (qboolean)(weaponNum == WP_BLASTER_PISTOL
-			|| (weaponNum == WP_BLASTER && dynWpnNum == DYN_WP_JANGO)
-			|| (weaponNum == WP_CLONECARBINE && dynWpnNum == DYN_WP_CLONEPISTOL));
+		|| weaponNum == WP_JANGO
+		|| weaponNum == WP_REY
+		|| weaponNum == WP_CLONEPISTOL);
 }
 
 /*
@@ -3056,259 +2923,7 @@ CG_ChangeFirstPersonView
 */
 qboolean CG_ChangeFirstPersonView(void)
 {
-	return (qboolean)((cg_dualWielding.integer && CG_IsWeaponPistol(player)) || player->client->ps.weapon == WP_SBD);
-}
-
-/*
-==================
-CG_IsWeaponDynamic
-==================
-*/
-qboolean CG_IsWeaponDynamic(int weaponNum)
-{
-	switch (weaponNum)
-	{
-		case WP_BLASTER_PISTOL:
-		case WP_BLASTER:
-		case WP_THEFIRSTORDER:
-		case WP_CLONECARBINE:
-		case WP_SBD:
-			return qtrue;
-		default:
-			return qfalse;
-	}
-}
-
-/*
-=================
-CG_GetDynWpnNum
-=================
-*/
-int CG_GetDynWpnNum(int weaponNum, int dynWpnVal)
-{
-	switch (weaponNum)
-	{
-		case WP_BLASTER_PISTOL:
-			return dynWpnVal;
-		case WP_BLASTER:
-			return dynWpnVal + DYN_WP_LAST_POWERSHOT;
-		case WP_THEFIRSTORDER:
-			return dynWpnVal + DYN_WP_LAST_SEMIORAUTO;
-		case WP_CLONECARBINE:
-			return dynWpnVal + DYN_WP_LAST_SCOPE;
-		case WP_SBD:
-			return dynWpnVal + DYN_WP_LAST_CLONE;
-		default:
-			return 0;
-	}
-}
-
-int CG_GetDynWpnNum(gentity_t *ent)
-{
-	// Just declared these variables for readability.
-	int weaponNum = ent->client->ps.weapon;
-	int dynWpnVal = ent->client->ps.dynWpnVals[weaponNum];
-
-	return CG_GetDynWpnNum(weaponNum, dynWpnVal);
-}
-
-/*
-===============
-CG_GetMaxDynWpn
-
-Get how many weapon subtypes there are for each weapon.
-===============
-*/
-int CG_GetMaxDynWpn(int weaponNum)
-{
-	switch (weaponNum)
-	{
-		case WP_BLASTER_PISTOL:
-			return DYN_WP_NUM_POWERSHOTS;
-		case WP_BLASTER:
-			return DYN_WP_NUM_SEMIORAUTOS;
-		case WP_THEFIRSTORDER:
-			return DYN_WP_NUM_SCOPES;
-		case WP_CLONECARBINE:
-			return DYN_WP_NUM_CLONES;
-		case WP_SBD:
-			return DYN_WP_NUM_SBD;
-		default:
-			return 0;
-	}
-}
-
-/*
-=======================
-CG_IsDefaultWeaponModel
-=======================
-*/
-qboolean CG_IsDefaultWeaponModel(gentity_t *ent, int weaponNum)
-{
-	return (qboolean)(ent->client->ps.dynWpnVals[weaponNum] == DYN_WP_NONE);
-}
-
-/*
-========================
-CG_GetCurrentWeaponModel
-
-If we are currently on the base model weapon, load it.
-Else load whatever dynamic weapon model there is.
-========================
-*/
-const char *CG_GetCurrentWeaponModel(gentity_t *ent)
-{
-	int weaponNum = ent->client->ps.weapon;
-
-	if (CG_IsDefaultWeaponModel(ent, weaponNum))
-	{
-		return &weaponData[weaponNum].weaponMdl[0];
-	}
-
-	return &dynamicWpnData[CG_GetDynWpnNum(ent)].weaponMdl[0];
-}
-
-// Only used in special cases.
-const char *CG_GetCurrentWeaponModel(gentity_t *ent, int weaponNum)
-{
-	if (CG_IsDefaultWeaponModel(ent, weaponNum))
-	{
-		return &weaponData[weaponNum].weaponMdl[0];
-	}
-
-	// Just declared this variable for readability.
-	int dynWpnVal = ent->client->ps.dynWpnVals[weaponNum];
-
-	return &dynamicWpnData[CG_GetDynWpnNum(weaponNum, dynWpnVal)].weaponMdl[0];
-}
-
-/*
-==================
-CG_GetMuzzleEffect
-==================
-*/
-const char *CG_GetMuzzleEffect(gentity_t *ent)
-{
-	int weaponNum = ent->client->ps.weapon;
-
-	if (CG_IsDefaultWeaponModel(ent, weaponNum))
-	{
-		return &weaponData[weaponNum].mMuzzleEffect[0];
-	}
-
-	return &dynamicWpnData[CG_GetDynWpnNum(ent)].mMuzzleEffect[0];
-}
-
-/*
-=====================
-CG_GetAltMuzzleEffect
-=====================
-*/
-const char *CG_GetAltMuzzleEffect(gentity_t *ent)
-{
-	int weaponNum = ent->client->ps.weapon;
-
-	if (CG_IsDefaultWeaponModel(ent, weaponNum))
-	{
-		return &weaponData[weaponNum].mAltMuzzleEffect[0];
-	}
-
-	return &dynamicWpnData[CG_GetDynWpnNum(ent)].mAltMuzzleEffect[0];
-}
-
-/*
-=======================
-CG_GetBaseWpnFromDynWpn
-=======================
-*/
-int CG_GetBaseWpnFromDynWpn(int dynWpnNum)
-{
-	if (dynWpnNum >= DYN_WP_FIRST_POWERSHOT
-		&& dynWpnNum <= DYN_WP_LAST_POWERSHOT)
-	{
-		return WP_BLASTER_PISTOL;
-	}
-	if (dynWpnNum >= DYN_WP_FIRST_SEMIORAUTO
-		&& dynWpnNum <= DYN_WP_LAST_SEMIORAUTO)
-	{
-		return WP_BLASTER;
-	}
-	if (dynWpnNum >= DYN_WP_FIRST_SCOPE
-		&& dynWpnNum <= DYN_WP_LAST_SCOPE)
-	{
-		return WP_THEFIRSTORDER;
-	}
-	if (dynWpnNum >= DYN_WP_FIRST_CLONE
-		&& dynWpnNum <= DYN_WP_LAST_CLONE)
-	{
-		return WP_CLONECARBINE;
-	}
-	if (dynWpnNum >= DYN_WP_FIRST_SBD
-		&& dynWpnNum <= DYN_WP_LAST_SBD)
-	{
-		return WP_SBD;
-	}
-
-	return WP_NONE;
-}
-
-/*
-===============
-CG_GetItemGITag
-===============
-*/
-int CG_GetItemGITag(gitem_t *item)
-{
-	// Just in case I call this function on an item that
-	// is not a dynamic weapon.
-	if (item->giType != IT_DYN_WEAPON)
-	{
-		return item->giTag;
-	}
-
-	return CG_GetBaseWpnFromDynWpn(item->giTag);
-}
-
-/*
-=================
-CG_GetDynWpnValue
-
-The function is the opposite of CG_GetDynWpnNum.
-Since CG_GetDynWpnNum will convert dynWpnVal
-to the actually index later on, we have to bring it back
-to the range between 1 and n.
-=================
-*/
-int CG_GetDynWpnValue(int weaponNum, int dynWpnNum)
-{
-	switch (weaponNum)
-	{
-		case WP_BLASTER_PISTOL:
-			return dynWpnNum;
-		case WP_BLASTER:
-			return dynWpnNum - DYN_WP_LAST_POWERSHOT;
-		case WP_THEFIRSTORDER:
-			return dynWpnNum - DYN_WP_LAST_SEMIORAUTO;
-		case WP_CLONECARBINE:
-			return dynWpnNum - DYN_WP_LAST_SCOPE;
-		case WP_SBD:
-			return dynWpnNum - DYN_WP_LAST_CLONE;
-		default:
-			return 0;
-	}
-}
-
-/*
-============================
-CG_UpdateSwitchDynWpnMdlCvar
-
-Based on the incoming weapon's dynamic value
-update cg_switchDynWpnMdl.
-============================
-*/
-void CG_UpdateSwitchDynWpnMdlCvar(int weaponNum, playerState_t *ps)
-{
-	gi.cvar_set("cg_switchDynWpnMdl", va("%d", ps->dynWpnVals[weaponNum]));
+	return (qboolean)((cg_dualWielding.integer && CG_IsWeaponPistol(player)) || player->client->ps.weapon == WP_SBD || player->client->ps.weapon == WP_DROIDEKA);
 }
 
 
@@ -3510,6 +3125,7 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 	{
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
+	case WP_REY:
 	case WP_JAWA:
 		if ( altFire )
 		{
@@ -3529,10 +3145,14 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 		break;
 
 	case WP_BLASTER:
+	case WP_BATTLEDROID:
 	case WP_THEFIRSTORDER:
+	case WP_REBELBLASTER:
 	case WP_REBELRIFLE:
+	case WP_JANGO:
 	case WP_BOBA:
 	case WP_SBD:
+	case WP_DROIDEKA:
 	case WP_CIS_SNIPER:
 		FX_BlasterWeaponHitWall( origin, dir );
 		break;
@@ -3648,6 +3268,8 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 		break;
 
 	case WP_CLONECARBINE:
+	case WP_CLONERIFLE:
+	case WP_CLONEPISTOL:
 		FX_CloneWeaponHitWall(origin, dir);
 		break;
 
@@ -3699,6 +3321,7 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 	{
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
+	case WP_REY:
 	case WP_JAWA:
 		if (altFire)
 		{
@@ -3711,10 +3334,14 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		break;
 
 	case WP_BLASTER:
+	case WP_BATTLEDROID:
 	case WP_THEFIRSTORDER:
+	case WP_REBELBLASTER:
 	case WP_REBELRIFLE:
+	case WP_JANGO:
 	case WP_BOBA:
 	case WP_SBD:
+	case WP_DROIDEKA:
 	case WP_CIS_SNIPER:
 		FX_BlasterWeaponHitPlayer(other, origin, dir, humanoid);
 		break;
@@ -3833,6 +3460,8 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		break;
 
 	case WP_CLONECARBINE:
+	case WP_CLONERIFLE:
+	case WP_CLONEPISTOL:
 		FX_CloneWeaponHitPlayer(other, origin, dir, humanoid);
 		break;
 

@@ -125,6 +125,7 @@ static qboolean IsWeaponDroppable(int weapon)
 	switch (weapon)
 	{
 		case WP_SBD:
+		case WP_DROIDEKA:
 			return qfalse;
 		default:
 			return qtrue;
@@ -147,6 +148,7 @@ gentity_t *TossClientItems( gentity_t *self )
 	gentity_t	*dropped2 = NULL;
 	gitem_t		*item = NULL;
 	int			weapon;
+	qboolean 	is_pistol = qfalse;
 
 	if ( self->client->NPC_class == CLASS_SEEKER
 		|| self->client->NPC_class == CLASS_REMOTE
@@ -161,6 +163,10 @@ gentity_t *TossClientItems( gentity_t *self )
 
 	// drop the weapon if not a saber or enemy-only weapon
 	weapon = self->s.weapon;
+	is_pistol = (qboolean)(self->weaponModel[1] > 0 && (weapon == WP_BLASTER_PISTOL
+		|| weapon == WP_REY
+		|| weapon == WP_JANGO
+		|| weapon == WP_CLONEPISTOL));
 
 	if ( weapon == WP_SABER )
 	{
@@ -215,16 +221,8 @@ gentity_t *TossClientItems( gentity_t *self )
 			dropped = WP_DropThermal( self );
 		}
 		else
-		{// find the item type for this weapon
-			if (self->client->ps.dynWpnVals[weapon])
-			{
-				int dynWpnNum = CG_GetDynWpnNum(weapon, self->client->ps.dynWpnVals[weapon]);
-				item = FindItemForDynWeapon((dynamicWeapon_t)dynWpnNum);
-			}
-			else
-			{
-				item = FindItemForWeapon( (weapon_t) weapon );
-			}
+		{// find the item type for this weapon			
+			item = FindItemForWeapon( (weapon_t) weapon );			
 		}
 		if ( item && !dropped && IsWeaponDroppable(weapon) )
 		{
@@ -291,11 +289,17 @@ gentity_t *TossClientItems( gentity_t *self )
 				case WP_NOGHRI_STICK:
 					dropped->count = 15;
 					break;
+				case WP_BATTLEDROID:
 				case WP_THEFIRSTORDER:
 				case WP_CLONECARBINE:
+				case WP_REBELBLASTER:
+				case WP_CLONERIFLE:
 				case WP_CLONECOMMANDO:
 				case WP_REBELRIFLE:
+				case WP_REY:
+				case WP_JANGO:
 				case WP_BOBA:
+				case WP_CLONEPISTOL:
 					dropped->count = 50;
 					break;
 				default:
@@ -313,7 +317,7 @@ gentity_t *TossClientItems( gentity_t *self )
 			}
 		}
 
-		if (item && !dropped2 && self->weaponModel[1] > 0 && CG_IsWeaponPistol(self))
+		if (item && !dropped2 && self->weaponModel[1] > 0 && is_pistol)
 		{
 			dropped2 = Drop_Item(self, item, 45, qtrue);
 			dropped2->e_ThinkFunc = thinkF_NULL;
@@ -328,6 +332,11 @@ gentity_t *TossClientItems( gentity_t *self )
 				switch (weapon)
 				{
 					case WP_BLASTER_PISTOL:
+						dropped2->count = 20;
+						break;
+					case WP_REY:
+					case WP_JANGO:
+					case WP_CLONEPISTOL:
 						dropped2->count = 20;
 						break;
 					default:
@@ -664,10 +673,12 @@ Not to be confused with NPC_RemoveBodyEffects (NPC.cpp), which only applies effe
 ----------------------------------------
 */
 
-void DeathFX( gentity_t *ent )
+void DeathFX( gentity_t *ent)
 {
 	if ( !ent || !ent->client )
 		return;
+
+	
 /*
 	switch( ent->client->playerTeam )
 	{
@@ -3725,6 +3736,16 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		return;
 	}
 
+	if (self->attrFlags & ATTR_DROID && (meansOfDeath == MOD_FORCE_GRIP || meansOfDeath == MOD_CRUSH))
+	{
+		vec3_t		effectPos;
+		VectorCopy(self->currentOrigin, effectPos);
+		effectPos[2] += 20;
+		G_SoundOnEnt(self, CHAN_AUTO, "sound/chars/sentry/misc/sentry_explo");
+		G_PlayEffect("env/small_explode", effectPos);
+		G_PlayEffect("small_chunks", effectPos);
+	}
+
 	// If the entity is in a vehicle.
 	if ( self->client && self->client->NPC_class != CLASS_VEHICLE && self->s.m_iVehicleNum != 0 )
 	{
@@ -3842,7 +3863,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 			gi.G2API_SetSurfaceOnOff( &self->ghoul2[self->playerModel], "force_shield", TURN_OFF );
 		}
 		// Remove The Shield From The Droideka
-		if (self->client && self->client->NPC_class == CLASS_DROIDEKA && (self->flags & FL_SHIELDED))
+		if (self->client && self->client->NPC_class == CLASS_DROIDEKA && (self->flags & FL_SHIELDED) && !(self->flags & FL_GODMODE))
 		{
 			self->flags &= ~FL_SHIELDED;
 			self->client->ps.stats[STAT_ARMOR] = 0;
@@ -4793,7 +4814,9 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 	}
 
 	// Start any necessary death fx for this entity
-	DeathFX( self );
+	DeathFX( self);
+
+	
 }
 
 qboolean G_CheckForStrongAttackMomentum( gentity_t *self )
@@ -5523,8 +5546,13 @@ void G_TrackWeaponUsage( gentity_t *self, gentity_t *inflictor, int add, int mod
 		case MOD_BLASTER_ALT:
 			weapon = WP_BLASTER;
 			break;
-		case MOD_SBD:
-			weapon = WP_SBD;
+		case MOD_CLONERIFLE:
+		case MOD_CLONERIFLE_ALT:
+				weapon = WP_CLONERIFLE;
+				break;
+		case MOD_REBELBLASTER:
+		case MOD_REBELBLASTER_ALT:
+			weapon = WP_REBELBLASTER;
 			break;
 		case MOD_CLONECOMMANDO:
 		case MOD_CLONECOMMANDO_ALT:
@@ -5541,6 +5569,12 @@ void G_TrackWeaponUsage( gentity_t *self, gentity_t *inflictor, int add, int mod
 		case MOD_CIS_SNIPER:
 		case MOD_CIS_SNIPER_ALT:
 			weapon = WP_CIS_SNIPER;
+			break;
+		case MOD_SBD:
+			weapon = WP_SBD;
+			break;
+		case MOD_DROIDEKA:
+			weapon = WP_DROIDEKA;
 			break;
 		}
 	}
@@ -5854,7 +5888,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 	if ( dflags&DAMAGE_NO_DAMAGE )
 	{
 		// Droideka shields don't last forever and can take a beating from most weapons. But should offer a good bit of protection.
-		if (targ && targ->client && targ->client->NPC_class == CLASS_DROIDEKA)
+		if (targ && targ->client && targ->client->NPC_class == CLASS_DROIDEKA && !(targ->flags & FL_GODMODE))
 		{
 			targ->client->ps.stats[STAT_ARMOR] -= 6 - g_spskill->integer;
 		}

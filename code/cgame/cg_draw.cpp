@@ -2085,7 +2085,6 @@ static void CG_DrawZoomMask( void )
 	static qboolean	flip = qtrue;
 	float			charge = cg.snap->ps.batteryCharge / (float)MAX_BATTERIES; // convert charge to a percentage
 	qboolean		power = qfalse;
-	int				weaponNum = 0;
 
 	cent = &cg_entities[0];
 
@@ -2364,9 +2363,7 @@ static void CG_DrawZoomMask( void )
 	{
 		level = (float)(80.0f - cg_zoomFov) / 80.0f;
 
-		weaponNum = cent->currentState.weapon;
-
-		switch (weaponData[weaponNum].scopeType)
+		switch (weaponData[cent->currentState.weapon].scopeType)
 		{
 			case ST_A280:
 				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/a280mask");
@@ -2388,13 +2385,6 @@ static void CG_DrawZoomMask( void )
 				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/cis_cropcircle2");
 				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/f11dInsert");
 				break;
-		}
-
-		// I probably shouldn't hard code this, but oh well.
-		if (weaponNum == WP_THEFIRSTORDER && CG_GetDynWpnNum(player) == DYN_WP_REBELBLASTER)
-		{
-			cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/a280mask");
-			cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/a280insert");
 		}
 
 		CG_DrawPic( 0, 0, 640, 480, cgs.media.scopeTypeMask ); 

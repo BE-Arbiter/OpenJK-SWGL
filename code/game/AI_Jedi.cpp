@@ -5131,6 +5131,8 @@ static void Jedi_CombatTimersUpdate( int enemy_dist )
 			case WP_BLASTER:
 			case WP_BRYAR_PISTOL:
 			case WP_BLASTER_PISTOL:
+			case WP_REY:
+			case WP_JANGO:
 			case WP_DISRUPTOR:
 			case WP_BOWCASTER:
 			case WP_REPEATER:

@@ -2412,7 +2412,7 @@ void G_ChangePlayerModel( gentity_t *ent, const char *newModel )
 		return;
 	}
 
-	if (ent->client->ps.weapon == WP_SBD && ent->client->NPC_class == CLASS_DROIDEKA)
+	if (ent->client->ps.weapon == WP_DROIDEKA && ent->client->NPC_class == CLASS_DROIDEKA)
 	{
 		G_CreateG2AttachedWeaponModel(ent, weaponData[ent->client->ps.weapon].weaponMdl, ent->handLBolt, 1);
 	}

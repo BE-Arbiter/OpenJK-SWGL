@@ -437,7 +437,7 @@ void G_CreateG2AttachedWeaponModel( gentity_t *ent, const char *psWeaponModel, i
 		return;
 	}
 
-	if ( ent && ent->client && (ent->client->NPC_class == CLASS_GALAKMECH || ent->client->ps.weapon == WP_SBD) )
+	if ( ent && ent->client && (ent->client->NPC_class == CLASS_GALAKMECH || ent->client->ps.weapon == WP_SBD || ent->client->ps.weapon == WP_DROIDEKA) )
 	{//hack for galakmech, no weaponmodel
 		ent->weaponModel[0] = ent->weaponModel[1] = -1;
 		return;
@@ -9662,6 +9662,7 @@ void ForceThrow( gentity_t *self, qboolean pull, qboolean fake )
 							&& push_list[x]->s.weapon != WP_MELEE
 							&& push_list[x]->s.weapon != WP_THERMAL
 							&& push_list[x]->s.weapon != WP_SBD// Super Battle Droids can't lose their weapons
+							&& push_list[x]->s.weapon != WP_DROIDEKA// Droidekas can't lose their weapons
 							&& push_list[x]->s.weapon != WP_CONCUSSION// so rax can't drop his
 							&&!FalseEmperorMission() // Player shouldn't be disarmed in the False Emperor mission (because that would be very bad)
 							&& !(push_list[x]->attrFlags & ATTR_HERO) // Heroes can't be disarmed
@@ -11006,6 +11007,7 @@ void ForceGrip( gentity_t *self )
 				&& traceEnt->client->NPC_class != CLASS_JANGO
 				&& traceEnt->client->NPC_class != CLASS_ASSASSIN_DROID
 				&& traceEnt->s.weapon != WP_SBD	
+				&& traceEnt->s.weapon != WP_DROIDEKA
 				&& traceEnt->s.weapon != WP_CONCUSSION	// so rax can't drop his
 				&& !FalseEmperorMission() // Player shouldn't be disarmed in the False Emperor mission (because that would be very bad)
 				&& !(traceEnt->attrFlags & ATTR_HERO) // Heroes can't be disarmed
@@ -11705,6 +11707,7 @@ void ForceGrasp(gentity_t *self)
 				&& traceEnt->client->NPC_class != CLASS_ASSASSIN_DROID
 				&& traceEnt->client->NPC_class != CLASS_DROIDEKA
 				&& traceEnt->s.weapon != WP_SBD
+				&& traceEnt->s.weapon != WP_DROIDEKA
 				&& traceEnt->s.weapon != WP_CONCUSSION	// so rax can't drop his
 				&& traceEnt->client->playerTeam != self->client->playerTeam
 				&& !(traceEnt->attrFlags & ATTR_HERO) // Heroes can't be disarmed
@@ -15903,6 +15906,10 @@ else
 				WP_ForcePowerStop( self, FP_GRIP );
 				return;
 			}
+			else if (gripEnt->attrFlags & ATTR_DROID && self->client->ps.forcePowerLevel[FP_GRIP] == FORCE_LEVEL_1)
+			{// Since Droids can't be strangled and Force Grip 1 doesn't do any damage anyway, just don't do anything.
+				return;
+			}
 			else if ( gripEnt->NPC
 				&& gripEnt->client
 				&& gripEnt->client->ps.forcePowersKnown
@@ -16229,7 +16236,10 @@ else
 					}
 					else
 					{//in air, set on whole body
-						NPC_SetAnim( gripEnt, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+						if(gripEnt->attrFlags & ATTR_DROID)
+							NPC_SetAnim(gripEnt, SETANIM_BOTH, BOTH_PULLED_INAIR_F, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+						else
+							NPC_SetAnim( gripEnt, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 					}
 					gripEnt->painDebounceTime = level.time + 2000;
 				}

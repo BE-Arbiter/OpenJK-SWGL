@@ -40,7 +40,6 @@ extern qboolean NPCsPrecached;
 extern vec3_t playerMins;
 extern vec3_t playerMaxs;
 extern stringID_table_t WPTable[];
-extern stringID_table_t DynWPTable[];
 extern stringID_table_t FPTable[];
 
 extern qboolean IsPlayingOperationKnightfall(void);
@@ -3828,15 +3827,15 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				//FIXME: need to precache the weapon, too?  (in above func)
 				int weap = GetIDForString( WPTable, value );
-				int dynWpnNum = GetIDForString(DynWPTable, value);
 
-				// The weapon read is a dynamic weapon.
-				if (weap == -1 && dynWpnNum >= 0)
+				if (!Q_stricmp(value, "WP_CLONERANDOM"))
 				{
-					weap = CG_GetBaseWpnFromDynWpn(dynWpnNum);
-					NPC->client->ps.dynWpnVals[weap] = CG_GetDynWpnValue(weap, dynWpnNum);
-				}
+					if (!Q_irand(0, 1))
+						weap = WP_CLONECARBINE;
+					else
+						weap = WP_CLONERIFLE;
 
+				}
 				if ( weap >= WP_NONE && weap < WP_NUM_WEAPONS )
 				{
 					NPC->client->ps.weapon = weap;
@@ -3847,6 +3846,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 						NPC->client->ps.ammo[weaponData[weap].ammoIndex] = ammoData[weaponData[weap].ammoIndex].max;
 					}
 				}
+				
 				if (NPC->NPC_SaberOne)
 				{
 					value = NPC->NPC_SaberOne;

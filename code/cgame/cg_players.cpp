@@ -7946,40 +7946,6 @@ void SmoothTrueView(vec3_t eyeAngles)
 }
 
 /*
-====================
-CG_GetMuzzleEffectID
-====================
-*/
-static int CG_GetMuzzleEffectID(gentity_t *ent)
-{
-	int weaponNum = ent->client->ps.weapon;
-
-	if (CG_IsDefaultWeaponModel(ent, weaponNum))
-	{
-		return weaponData[weaponNum].mMuzzleEffectID;
-	}
-
-	return dynamicWpnData[CG_GetDynWpnNum(ent)].mMuzzleEffectID;
-}
-
-/*
-=======================
-CG_GetAltMuzzleEffectID
-=======================
-*/
-static int CG_GetAltMuzzleEffectID(gentity_t *ent)
-{
-	int weaponNum = ent->client->ps.weapon;
-
-	if (CG_IsDefaultWeaponModel(ent, weaponNum))
-	{
-		return weaponData[weaponNum].mAltMuzzleEffectID;
-	}
-
-	return dynamicWpnData[CG_GetDynWpnNum(ent)].mAltMuzzleEffectID;
-}
-
-/*
 ===============
 CG_Player
 
@@ -8027,6 +7993,7 @@ CG_Player
 extern qboolean G_GetRootSurfNameWithVariant( gentity_t *ent, const char *rootSurfName, char *returnSurfName, int returnSize );
 extern qboolean G_ControlledByPlayer( gentity_t *self );
 extern qboolean G_RagDoll(gentity_t *ent, vec3_t forcedAngles);
+extern qboolean CG_IsWeaponPistol(gentity_t* ent);
 int	cg_saberOnSoundTime[MAX_GENTITIES] = {0};
 
 void CG_Player( centity_t *cent ) {
@@ -8903,7 +8870,7 @@ SkipTrueView:
 					gi.G2API_GiveMeVectorFromMatrix(boltMatrix, ORIGIN, cent->gent->client->renderInfo.muzzlePoint);
 					gi.G2API_GiveMeVectorFromMatrix(boltMatrix, NEGATIVE_Y, cent->gent->client->renderInfo.muzzleDir);
 				}
-				else if (cent->gent && cent->gent->client && (cent->gent->client->NPC_class == CLASS_GALAKMECH || (cent->gent->client->ps.weapon == WP_SBD && cent->gent->client->NPC_class != CLASS_DROIDEKA)))
+				else if (cent->gent && cent->gent->client && (cent->gent->client->NPC_class == CLASS_GALAKMECH || ((cent->gent->client->ps.weapon == WP_SBD || cent->gent->client->ps.weapon == WP_DROIDEKA) && cent->gent->client->NPC_class != CLASS_DROIDEKA)))
 				{
 					int bolt = -1;
 					if (cent->gent->lockCount)
@@ -8975,13 +8942,13 @@ SkipTrueView:
 						getBoth = qtrue;
 						oldOne = (cent->gent->count)?0:1;
 					}
-					if ((cent->gent->client->ps.weapon == WP_SBD) || ( ( cent->gent->weaponModel[cent->gent->count] != -1)
+					if ((cent->gent->client->ps.weapon == WP_SBD || cent->gent->client->ps.weapon == WP_DROIDEKA) || ( ( cent->gent->weaponModel[cent->gent->count] != -1)
 						&& ( cent->gent->ghoul2.size() > cent->gent->weaponModel[cent->gent->count] )
 						&& ( cent->gent->ghoul2[cent->gent->weaponModel[cent->gent->count]].mModelindex != -1)) )
 					{//get whichever one we're using now
 						mdxaBone_t	boltMatrix;
 						// figure out where the actual model muzzle is
-						if (cent->gent->client->ps.weapon == WP_SBD)
+						if (cent->gent->client->ps.weapon == WP_SBD || cent->gent->client->ps.weapon == WP_DROIDEKA)
 						{
 							if(!cent->gent->count)
 								gi.G2API_GetBoltMatrix(cent->gent->ghoul2, cent->gent->playerModel, cent->gent->handRBolt, &boltMatrix, tempAngles, ent.origin, cg.time, cgs.model_draw, cent->currentState.modelScale);
@@ -8998,14 +8965,14 @@ SkipTrueView:
 					}
 					//get the old one too, if needbe, and store it in muzzle2
 					if ( getBoth
-						&& (cent->gent->client->ps.weapon == WP_SBD
+						&& ((cent->gent->client->ps.weapon == WP_SBD || cent->gent->client->ps.weapon == WP_DROIDEKA)
 						|| (( cent->gent->weaponModel[oldOne] != -1) //have a second weapon
 						&& ( cent->gent->ghoul2.size() > cent->gent->weaponModel[oldOne] ) //have a valid ghoul model index
 						&& ( cent->gent->ghoul2[cent->gent->weaponModel[oldOne]].mModelindex != -1))) )//model exists and was loaded
 					{//saboteur commando, toggle the muzzle point back and forth between the two pistols each time he fires
 						mdxaBone_t	boltMatrix;
 						// figure out where the actual model muzzle is
-						if (cent->gent->client->ps.weapon == WP_SBD)
+						if (cent->gent->client->ps.weapon == WP_SBD || cent->gent->client->ps.weapon == WP_DROIDEKA)
 						{
 							if(!oldOne)
 								gi.G2API_GetBoltMatrix(cent->gent->ghoul2, cent->gent->playerModel, cent->gent->handRBolt, &boltMatrix, tempAngles, ent.origin, cg.time, cgs.model_draw, cent->currentState.modelScale);
@@ -9021,13 +8988,13 @@ SkipTrueView:
 						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, NEGATIVE_Y, oldMD );
 					}
 				}
-				else if (cent->gent->client->ps.weapon == WP_SBD || (( cent->gent->weaponModel[0] != -1) &&
+				else if ((cent->gent->client->ps.weapon == WP_SBD || cent->gent->client->ps.weapon == WP_DROIDEKA) || (( cent->gent->weaponModel[0] != -1) &&
 					( cent->gent->ghoul2.size() > cent->gent->weaponModel[0] ) &&
 					( cent->gent->ghoul2[cent->gent->weaponModel[0]].mModelindex != -1)))
 				{
 					
 					mdxaBone_t	boltMatrix;
-					if (cent->gent->client->ps.weapon == WP_SBD)
+					if (cent->gent->client->ps.weapon == WP_SBD || cent->gent->client->ps.weapon == WP_DROIDEKA)
 					{
 						gi.G2API_GetBoltMatrix(cent->gent->ghoul2, cent->gent->playerModel, cent->gent->handRBolt, &boltMatrix, tempAngles, ent.origin, cg.time, cgs.model_draw, cent->currentState.modelScale);
 					}
@@ -9090,7 +9057,7 @@ SkipTrueView:
 				{
 					if (firing_attack & ALT_ATTACK)
 					{
-						effect = CG_GetAltMuzzleEffect(cent->gent);
+						effect = &wData->mAltMuzzleEffect[0];
 					}
 					else if (firing_attack & TERTIARY_ATTACK)
 					{
@@ -9099,7 +9066,7 @@ SkipTrueView:
 					else
 					{	
 						// We need to make sure that the base guns also get their sound.
-						effect = CG_GetMuzzleEffect(cent->gent);
+						effect = &wData->mMuzzleEffect[0];
 					}
 				}
 
@@ -9108,7 +9075,7 @@ SkipTrueView:
 					// We're alt-firing, so see if we need to override with a custom alt-fire effect
 					if ( wData->mAltMuzzleEffect[0] )
 					{
-						effect = CG_GetAltMuzzleEffect(cent->gent);
+						effect = &wData->mAltMuzzleEffect[0];
 					}
 				}
 
@@ -9654,7 +9621,7 @@ Ghoul2 Insert End
 				// Try and get a default muzzle so we have one to fall back on
 				if ( wData->mMuzzleEffectID )
 				{
-					effect = CG_GetMuzzleEffectID(cent->gent);
+					effect = wData->mMuzzleEffectID;
 				}
 
 				if (wData->mTertiaryMuzzleEffectID)
@@ -9667,7 +9634,7 @@ Ghoul2 Insert End
 					// We're alt-firing, so see if we need to override with a custom alt-fire effect
 					if ( wData->mAltMuzzleEffectID )
 					{
-						effect = CG_GetAltMuzzleEffectID(cent->gent);
+						effect = wData->mAltMuzzleEffectID;
 					}
 				}
 
@@ -9731,7 +9698,8 @@ Ghoul2 Insert End
 		playerState_t *ps = &cg.predicted_player_state;
 
 		if (( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BRYAR_PISTOL )
-			|| ( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BLASTER_PISTOL )
+			|| (ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BLASTER_PISTOL)
+			|| (ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_REY)
 			|| ( ps->weapon == WP_BOWCASTER && ps->weaponstate == WEAPON_CHARGING )
 			|| ( ps->weapon == WP_DEMP2 && ps->weaponstate == WEAPON_CHARGING_ALT ))
 		{
@@ -9740,7 +9708,8 @@ Ghoul2 Insert End
 			vec3_t	WHITE	= {1.0f,1.0f,1.0f};
 
 			if ( ps->weapon == WP_BRYAR_PISTOL
-				|| ps->weapon == WP_BLASTER_PISTOL )
+				|| ps->weapon == WP_BLASTER_PISTOL
+				|| ps->weapon == WP_REY)
 			{
 				// Hardcoded max charge time of 1 second
 				val = ( cg.time - ps->weaponChargeTime ) * 0.001f;

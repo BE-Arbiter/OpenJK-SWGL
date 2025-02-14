@@ -306,11 +306,11 @@ void GunRackAddItem( gitem_t *gun, vec3_t org, vec3_t angs, float ffwd, float fr
 	{
 		// FIXME: scaling the ammo will probably need to be tweaked to a reasonable amount...adjust as needed
 		// Set base ammo per type
-		if ( gun->giType == IT_WEAPON || gun->giType == IT_DYN_WEAPON )
+		if ( gun->giType == IT_WEAPON)
 		{
 			it_ent->spawnflags |= 16;// VERTICAL
 
-			switch( CG_GetItemGITag(gun) )
+			switch(gun->giTag)
 			{
 			case WP_BLASTER:
 				it_ent->count = 15;
