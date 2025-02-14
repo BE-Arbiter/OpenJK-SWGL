@@ -145,6 +145,8 @@ void WP_FireBattleDroidMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolea
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
 
+	WP_SwitchPistolMuzzle(ent);
+
 	check_means_of_death(ent, missile, WP_BATTLEDROID);
 }
 
@@ -274,10 +276,7 @@ void WP_FireFirstOrderMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 
 	check_means_of_death(ent, missile, WP_THEFIRSTORDER);
 
-	if (ent->weaponModel[1] > 0)
-	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
-		ent->count = (ent->count) ? 0 : 1;
-	}
+	WP_SwitchPistolMuzzle(ent);
 }
 
 //---------------------------------------------------------
@@ -420,6 +419,8 @@ void WP_FireCloneCarbineMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboole
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
 
+	WP_SwitchPistolMuzzle(ent);
+
 	check_means_of_death(ent, missile, WP_CLONECARBINE);
 }
 
@@ -545,6 +546,8 @@ void WP_FireRebelBlasterMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboole
 
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
+
+	WP_SwitchPistolMuzzle(ent);
 
 	check_means_of_death(ent, missile, WP_REBELBLASTER);
 }
@@ -685,6 +688,8 @@ void WP_FireCloneRifleMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
+
+	WP_SwitchPistolMuzzle(ent);
 
 	check_means_of_death(ent, missile, WP_CLONERIFLE);
 }
@@ -1232,10 +1237,7 @@ void WP_FireReyPistol( gentity_t *ent, qboolean alt_fire )
 
 	check_means_of_death(ent, missile, WP_REY);
 
-	if ( ent->weaponModel[1] > 0 )
-	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
-		ent->count = (ent->count)?0:1;
-	}
+	WP_SwitchPistolMuzzle(ent);
 }
 
 //---------------
@@ -1315,10 +1317,7 @@ void WP_FireJangoPistolMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolea
 	
 	check_means_of_death(ent, missile, WP_JANGO);
 
-	if (ent->weaponModel[1] > 0)
-	{
-		ent->count = (ent->count) ? 0 : 1;
-	}
+	WP_SwitchPistolMuzzle(ent);
 }
 
 //---------------------------------------------------------
@@ -1435,6 +1434,8 @@ void WP_FireBobaRifleMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
 
+	WP_SwitchPistolMuzzle(ent);
+	
 	check_means_of_death(ent, missile, WP_BOBA);
 }
 
@@ -1588,10 +1589,7 @@ void WP_FireClonePistolMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolea
 
 	check_means_of_death(ent, missile, WP_CLONEPISTOL);
 
-	if (ent->weaponModel[1] > 0)
-	{
-		ent->count = (ent->count) ? 0 : 1;
-	}
+	WP_SwitchPistolMuzzle(ent);
 }
 
 //---------------------------------------------------------

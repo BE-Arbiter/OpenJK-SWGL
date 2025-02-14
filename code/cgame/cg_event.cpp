@@ -152,13 +152,14 @@ void CG_ItemPickup( int itemNum, qboolean bHadItem ) {
 		}
 		else if (1 == cg_autoswitch.integer)
 		{
+			int baseWeapon = weaponData[nNewWpn].baseWeaponNum ? weaponData[nNewWpn].baseWeaponNum : nNewWpn;
 			// safe switching
 			if (	(nNewWpn > nCurWpn) &&
-					!(nNewWpn == WP_DET_PACK) &&
-					!(nNewWpn == WP_TRIP_MINE) &&
-					!(nNewWpn == WP_THERMAL) &&
-					!(nNewWpn == WP_ROCKET_LAUNCHER) &&
-					!(nNewWpn == WP_CONCUSSION) )
+					!(baseWeapon == WP_DET_PACK) &&
+					!(baseWeapon == WP_TRIP_MINE) &&
+					!(baseWeapon == WP_THERMAL) &&
+					!(baseWeapon == WP_ROCKET_LAUNCHER) &&
+					!(baseWeapon == WP_CONCUSSION) )
 			{
 				// switch to new wpn
 //				cg.weaponSelectTime = cg.time;

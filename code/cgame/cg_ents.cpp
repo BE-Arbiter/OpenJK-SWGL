@@ -855,9 +855,10 @@ Ghoul2 Insert End
 		&& cg.snap->ps.clientNum != cent->currentState.number
 		&& CG_PlayerCanSeeCent( cent ) )
 	{//so player can see dark missiles/explosives
-		if ( s1->weapon == WP_THERMAL
-			|| s1->weapon == WP_DET_PACK
-			|| s1->weapon == WP_TRIP_MINE
+		int baseWeapon = weaponData[s1->weapon].baseWeaponNum ? weaponData[s1->weapon].baseWeaponNum : s1->weapon;
+		if (baseWeapon == WP_THERMAL
+			|| baseWeapon == WP_DET_PACK
+			|| baseWeapon == WP_TRIP_MINE
 			|| (cent->gent&&cent->gent->e_UseFunc==useF_ammo_power_converter_use)
 			|| (cent->gent&&cent->gent->e_UseFunc==useF_shield_power_converter_use)
 			|| (s1->eFlags&EF_FORCE_VISIBLE) )
@@ -1299,9 +1300,10 @@ Ghoul2 Insert End
 		&& cg.snap->ps.clientNum != cent->currentState.number
 		&& CG_PlayerCanSeeCent( cent ) )
 	{//so player can see dark missiles/explosives
-		if ( s1->weapon == WP_THERMAL
-			|| s1->weapon == WP_DET_PACK
-			|| s1->weapon == WP_TRIP_MINE
+		int baseWeapon = weaponData[s1->weapon].baseWeaponNum ? weaponData[s1->weapon].baseWeaponNum : s1->weapon;
+		if (baseWeapon == WP_THERMAL
+			|| baseWeapon == WP_DET_PACK
+			|| baseWeapon == WP_TRIP_MINE
 			|| (s1->eFlags&EF_FORCE_VISIBLE) )
 		{//really, we only need to do this for things like thermals, detpacks and tripmines, no?
 			CG_AddForceSightShell( &ent, cent );

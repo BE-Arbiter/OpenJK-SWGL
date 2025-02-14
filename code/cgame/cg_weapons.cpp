@@ -3584,7 +3584,8 @@ Caused by an EV_BOUNCE | EV_BOUNCE_HALF event
 */
 void CG_BounceEffect( centity_t *cent, int weapon, vec3_t origin, vec3_t normal )
 {
-	switch( weapon )
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+	switch(baseWeapon)
 	{
 	case WP_THERMAL:
 		if ( rand() & 1 ) {
@@ -3618,7 +3619,8 @@ void CG_MissileStick( centity_t *cent, int weapon, vec3_t position )
 {
 	sfxHandle_t snd = 0;
 
-	switch( weapon )
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+	switch(baseWeapon)
 	{
 	case WP_FLECHETTE:
 		snd = cgs.media.flechetteStickSound;
@@ -3754,8 +3756,22 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 		break;
 
 	case WP_THERMAL:
-		theFxScheduler.PlayEffect( "thermal/explosion", origin, dir );
-		theFxScheduler.PlayEffect( "thermal/shockwave", origin );
+		if (weaponData[weapon].explosionEffect[0]) 
+		{
+			theFxScheduler.PlayEffect(weaponData[weapon].explosionEffect, origin, dir);
+		}
+		else
+		{
+			theFxScheduler.PlayEffect("thermal/explosion", origin, dir);
+		}
+		if (weaponData[weapon].shockwaveEffect[0])
+		{
+			theFxScheduler.PlayEffect(weaponData[weapon].shockwaveEffect, origin);
+		}
+		else
+		{
+			theFxScheduler.PlayEffect("thermal/shockwave", origin);
+		}
 		break;
 
 	case WP_EMPLACED_GUN:
@@ -3966,8 +3982,22 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		break;
 
 	case WP_THERMAL:
-		theFxScheduler.PlayEffect("thermal/explosion", origin, dir);
-		theFxScheduler.PlayEffect("thermal/shockwave", origin);
+		if (weaponData[weapon].explosionEffect[0])
+		{
+			theFxScheduler.PlayEffect(weaponData[weapon].explosionEffect, origin, dir);
+		}
+		else
+		{
+			theFxScheduler.PlayEffect("thermal/explosion", origin, dir);
+		}
+		if (weaponData[weapon].shockwaveEffect[0])
+		{
+			theFxScheduler.PlayEffect(weaponData[weapon].shockwaveEffect, origin);
+		}
+		else
+		{
+			theFxScheduler.PlayEffect("thermal/shockwave", origin);
+		}
 		break;
 
 	case WP_EMPLACED_GUN:

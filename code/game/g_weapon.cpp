@@ -148,6 +148,12 @@ void WP_Stick( gentity_t *missile, trace_t *trace, float fudge_distance )
 }
 
 extern stringID_table_t WPTable[];
+/*
+	int WP_GetWeaponID(const char* weaponName)
+	Return the weapon from the ID.
+	If old WP_XXXX is used, return from WPTable
+	If weapon_XXXX is used, return from weaponData;
+*/
 int WP_GetWeaponID(const char* weaponName) {
 	int id = GetIDForString(WPTable, weaponName);
 	if (id != -1) {
@@ -159,6 +165,19 @@ int WP_GetWeaponID(const char* weaponName) {
 		}
 	}
 	return -1;
+}
+
+/*
+	void WP_SwitchPistolMuzzle(gentity_t* ent)
+	Switch the pistolMuzzle if dual wielding
+	If not dual wielding, this method does nothing.
+*/
+void WP_SwitchPistolMuzzle(gentity_t* ent)
+{
+	if (ent->weaponModel[1] > 0)
+	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
+		ent->count = (ent->count) ? 0 : 1;
+	}
 }
 // This version shares is in the thinkFunc format
 //-----------------------------------------------------------------------------

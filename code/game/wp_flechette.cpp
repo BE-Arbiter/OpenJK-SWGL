@@ -97,6 +97,12 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 
 		missile->s.eFlags |= EF_BOUNCE_SHRAPNEL;
 		ent->client->sess.missionStats.shotsFired++;
+
+	}
+
+	if (ent->weaponModel[1] > 0)
+	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
+		ent->count = (ent->count) ? 0 : 1;
 	}
 }
 
@@ -271,6 +277,11 @@ static void WP_FlechetteAltFire( gentity_t *self )
 
 		WP_CreateFlechetteBouncyThing( start, fwd, self );
 		self->client->sess.missionStats.shotsFired++;
+	}
+
+	if (self->weaponModel[1] > 0)
+	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
+		self->count = (self->count) ? 0 : 1;
 	}
 }
 

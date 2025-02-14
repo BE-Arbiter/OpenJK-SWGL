@@ -250,10 +250,7 @@ static void WP_FireConcussionAlt( gentity_t *ent )
 	G_PlayEffect( G_EffectIndex( "concussion/altmuzzle_flash" ), muzzle, forwardVec );
 
 
-	if (ent->weaponModel[1] > 0)
-	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
-		ent->count = (ent->count) ? 0 : 1;
-	}
+	WP_SwitchPistolMuzzle(ent);
 }
 
 static void WP_FireConcussion( gentity_t *ent )
@@ -325,10 +322,7 @@ static void WP_FireConcussion( gentity_t *ent )
 	// we don't want it to ever bounce
 	missile->bounceCount = 0;
 
-	if (ent->weaponModel[1] > 0)
-	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
-		ent->count = (ent->count) ? 0 : 1;
-	}
+	WP_SwitchPistolMuzzle(ent);
 }
 
 void WP_Concussion( gentity_t *ent, qboolean alt_fire )
