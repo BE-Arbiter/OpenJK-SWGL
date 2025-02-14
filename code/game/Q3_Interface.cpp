@@ -55,7 +55,6 @@ extern void InitMoverTrData( gentity_t *ent );
 extern qboolean SpotWouldTelefrag2( gentity_t *mover, vec3_t dest );
 extern cvar_t *g_sex;
 extern cvar_t *g_timescale;
-extern cvar_t *g_setSaberLocking;
 extern void G_SetEnemy( gentity_t *self, gentity_t *enemy );
 static void Q3_SetWeapon (int entID, const char *wp_name);
 static void Q3_SetItem (int entID, const char *item_name);
@@ -82,8 +81,10 @@ extern void Rail_LockCenterOfTrack(const char* trackName);
 extern void Rail_UnLockCenterOfTrack(const char* trackName);
 extern void G_GetBoltPosition( gentity_t *self, int boltIndex, vec3_t pos, int modelIndex = 0 );
 extern qboolean G_DoDismemberment( gentity_t *self, vec3_t point, int mod, int damage, int hitLoc, qboolean force = qfalse );
+extern void G_ChangePlayerModel(gentity_t* ent, const char* newModel);
 
 const char* GetSaberColor(int color);
+saber_styles_t GetSaberStyle(char* style);
 
 extern int	BMS_START;
 extern int	BMS_MID;
@@ -185,6 +186,9 @@ stringID_table_t WPTable[] =
 	ENUM2STRING(WP_JANGO),
 	ENUM2STRING(WP_BOBA),
 	ENUM2STRING(WP_CLONEPISTOL),
+	ENUM2STRING(WP_CIS_SNIPER),
+	ENUM2STRING(WP_SBD),
+	ENUM2STRING(WP_DROIDEKA),
 	{ "", 0 }
 };
 
@@ -501,6 +505,7 @@ stringID_table_t setTable[] =
 	ENUM2STRING(SET_CLEAN_DAMAGING_ENTS),
 	ENUM2STRING(SET_HUD),
 	ENUM2STRING(SET_FORCE_CHOKING),
+	ENUM2STRING(SET_PRECISE_LIGHTNING),
 	//JKA
 	ENUM2STRING(SET_NO_PVS_CULL),
 	ENUM2STRING(SET_CLOAK),
@@ -529,11 +534,19 @@ stringID_table_t setTable[] =
 	ENUM2STRING(SET_NO_ANGLES),
 	ENUM2STRING(SET_SABER_ORIGIN),
 	ENUM2STRING(SET_SKIN),
-	ENUM2STRING(SET_MODEL),
-	ENUM2STRING(SET_PLAYERSKIN),
 	ENUM2STRING(SET_PLAYERSCALE),
 	ENUM2STRING(SET_SOUNDSET),
-	ENUM2STRING(SET_GENDER),
+	ENUM2STRING(SET_SABER_STYLE),
+
+	ENUM2STRING(SET_ANIM_LOWER_FORCED),
+	ENUM2STRING(SET_ANIM_UPPER_FORCED),
+	ENUM2STRING(SET_ANIM_BOTH_FORCED),
+	ENUM2STRING(SET_ANIM_HOLDTIME_LOWER_FORCED),
+	ENUM2STRING(SET_ANIM_HOLDTIME_UPPER_FORCED),
+	ENUM2STRING(SET_ANIM_HOLDTIME_BOTH_FORCED),
+	ENUM2STRING(SET_ANIM_SPEED_LOWER_FORCED),
+	ENUM2STRING(SET_ANIM_SPEED_UPPER_FORCED),
+	ENUM2STRING(SET_ANIM_SPEED_BOTH_FORCED),
 
 	{ "",	SET_ }
 };
@@ -6752,6 +6765,27 @@ static void Q3_ForceChoke(int entID, qboolean choking)
 	return;
 }
 
+static void Q3_PreciseLightning(int entID, qboolean preciseLightning)
+{
+	gentity_t* ent = &g_entities[entID];
+
+	if (!ent)
+	{
+		Quake3Game()->DebugPrint(IGameInterface::WL_WARNING, "Q3_PreciseLightning: invalid entID %d\n", entID);
+		return;
+	}
+
+	if (preciseLightning)
+	{
+		ent->NPC->attrFlags |= ATTR_PRECISE_LIGHTNING;
+	}
+	else
+	{
+		ent->NPC->attrFlags &= ~ATTR_PRECISE_LIGHTNING;
+	}
+	return;
+}
+
 /*
 ============
 Q3_SetCleanDamagingEnts
@@ -9538,6 +9572,17 @@ extern void LockDoors(gentity_t *const ent);
 		}
 		break;
 
+	case SET_PRECISE_LIGHTNING:
+		if (!Q_stricmp("true", ((char*)data)))
+		{
+			Q3_PreciseLightning(entID, qtrue);
+		}
+		else
+		{
+			Q3_PreciseLightning(entID, qfalse);
+		}
+		break;
+
 	case SET_VIDEO_PLAY:
 		// don't do this check now, James doesn't want a scripted cinematic to also skip any Video cinematics as well,
 		//	the "timescale" and "skippingCinematic" cvars will be set back to normal in the Video code, so doing a
@@ -9656,6 +9701,10 @@ extern void LockDoors(gentity_t *const ent);
 		Q3_SetMusicState( (char *) data );
 		break;
 
+	case SET_SABER_STYLE:
+		ent->client->ps.saberAnimLevel = GetSaberStyle((char*)data);
+		break;
+
 	case SET_CLEAN_DAMAGING_ENTS:
 		Q3_SetCleanDamagingEnts();
 		break;
@@ -9720,6 +9769,7 @@ extern void LockDoors(gentity_t *const ent);
 			{
 				gi.cvar_set("g_saber2", (char*)data);
 			}
+			Q3_SetSaberActive(entID, qfalse);
 		}
 		break;
 
@@ -9967,8 +10017,64 @@ extern cvar_t	*g_char_skin_legs;
 			}
 		}
 	}
-	break;
+	case SET_ANIM_LOWER_FORCED:
+		ent->client->ps.forceLowerAnim = GetIDForString(animTable, data);
+		return; //Don't call it back
 
+	case SET_ANIM_UPPER_FORCED:
+		ent->client->ps.forceUpperAnim = GetIDForString(animTable, data);
+		return; //Don't call it back
+
+	case SET_ANIM_BOTH_FORCED:
+		ent->client->ps.forceUpperAnim = GetIDForString(animTable, data);
+		ent->client->ps.forceLowerAnim = GetIDForString(animTable, data);
+		return; //Don't call it back
+
+	case SET_ANIM_HOLDTIME_LOWER_FORCED:
+		int_data = atoi(data);
+		if (int_data == -1)
+			int_data = Q3_INFINITE;
+
+		ent->client->ps.forceLowerAnimTimer = level.time + int_data;
+		return; //Don't call it back
+
+	case SET_ANIM_HOLDTIME_UPPER_FORCED:
+		int_data = atoi(data);
+		if (int_data == -1)
+			int_data = Q3_INFINITE;
+
+		ent->client->ps.forceUpperAnimTimer = level.time + int_data;
+		return; //Don't call it back
+
+	case SET_ANIM_HOLDTIME_BOTH_FORCED:
+		int_data = atoi(data);
+		if (int_data == -1)
+			int_data = Q3_INFINITE;
+
+		ent->client->ps.forceUpperAnimTimer = level.time + int_data;
+		ent->client->ps.forceLowerAnimTimer = level.time + int_data;
+		return; //Don't call it back
+
+	case SET_ANIM_SPEED_LOWER_FORCED:
+		float_data = atof(data);
+		ent->client->ps.forceLowerAnimSpeed = float_data;
+		return; //Don't call it back
+
+	case SET_ANIM_SPEED_UPPER_FORCED:
+		float_data = atof(data);
+		ent->client->ps.forceUpperAnimSpeed = float_data;
+		return; //Don't call it back
+
+	case SET_ANIM_SPEED_BOTH_FORCED:
+		float_data = atof(data);
+		if (float_data == -1)
+			float_data = Q3_INFINITE;
+
+		ent->client->ps.forceUpperAnimSpeed = float_data;
+		ent->client->ps.forceLowerAnimSpeed = float_data;
+		return; //Don't call it back
+		//////////////////////////////
+	break;
 	default:
 		//DebugPrint( WL_ERROR, "Set: '%s' is not a valid set field\n", type_name );
 		SetVar( taskID, entID, type_name, data );
@@ -10004,6 +10110,26 @@ const char* GetSaberColor(int color)
 	}
 
 	return "blue";
+}
+
+saber_styles_t GetSaberStyle(char* style)
+{
+	if (!Q_stricmp("fast", style))
+		return SS_FAST;
+	if (!Q_stricmp("medium", style))
+		return SS_MEDIUM;
+	if (!Q_stricmp("strong", style))
+		return SS_STRONG;
+	if (!Q_stricmp("desann", style))
+		return SS_DESANN;
+	if (!Q_stricmp("tavion", style))
+		return SS_TAVION;
+	if (!Q_stricmp("dual", style))
+		return SS_DUAL;
+	if (!Q_stricmp("staff", style))
+		return SS_STAFF;
+
+	return SS_FAST;
 }
 
 void CQuake3GameInterface::PrisonerObjCheck(const char *name,const char *data)
@@ -10424,10 +10550,6 @@ int		CQuake3GameInterface::GetFloat( int entID, const char *name, float *value )
 		{
 			*value = g_gravity->value;
 		}
-		break;
-
-	case SET_SABERLOCKING:
-		*value = g_setSaberLocking->value;
 		break;
 
 	case SET_FACEEYESCLOSED:

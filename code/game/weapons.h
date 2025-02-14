@@ -90,6 +90,9 @@ typedef enum //# weapon_e
 	WP_JANGO,
 	WP_BOBA,
 	WP_CLONEPISTOL,
+	WP_CIS_SNIPER,
+	WP_SBD,
+	WP_DROIDEKA,
 
 	//# #eol
 	WP_HC_NUM_WEAPONS
@@ -125,6 +128,32 @@ typedef enum //# ammo_e
 } ammo_t;
 
 
+enum firingType
+{
+	FT_AUTOMATIC = 1,
+	FT_SEMI,
+	FT_BURST,
+	FT_HIGH_POWERED
+};
+
+
+enum scopeType
+{
+	ST_A280 = 4,
+	ST_DC17M,
+	ST_EE3,
+	ST_F11D,
+	ST_E5
+};
+
+
+enum firingOptions
+{
+	FIRING_TYPE,
+	SHOTS_PER_BURST,
+	BURST_FIRE_DELAY
+};
+
 typedef struct weaponIndexes_s
 {
 	char weaponClass[32];
@@ -154,14 +183,14 @@ typedef struct weaponAttackData_s
 	int		fireTime;			// Amount of time between firings
 	int		range;				// Range of weapon
 	float 	spread;				// Accuracy of shots
-	
+
 	char	missileMdl[64];		// Missile Model
 	char	missileSound[64];	// Missile flight sound
 	float  	missileDlight;		// what is says
 	vec3_t 	missileDlightColor;	// ditto
 
 	void	*missileFunc;
-	
+
 	char	mMuzzleEffect[64];
 	int		mMuzzleEffectID;
 	char	projectileEffect[64];
@@ -225,32 +254,6 @@ typedef struct ammoData_s
 	char	icon[64];	// Name of ammo icon file
 	int		max;		// Max amount player can hold of ammo
 } ammoData_t;
-
-
-enum firingType
-{
-	FT_AUTOMATIC = 1,
-	FT_SEMI,
-	FT_BURST,
-	FT_HIGH_POWERED
-};
-
-
-enum scopeType
-{
-	ST_A280 = 4,
-	ST_DC17M,
-	ST_EE3,
-	ST_F11D
-};
-
-
-enum firingOptions
-{
-	FIRING_TYPE,
-	SHOTS_PER_BURST,
-	BURST_FIRE_DELAY
-};
 
 
 // High Powered
@@ -483,20 +486,6 @@ enum firingOptions
 #define TUSKEN_RIFLE_DAMAGE_MEDIUM	30		// very damaging
 #define TUSKEN_RIFLE_DAMAGE_HARD	50		// extremely damaging
 
-// E5
-//---------
-#define E5_MAIN_SPREAD			1.2f
-#define E5_ALT_SPREAD			1.5f
-#define E5_NPC_SPREAD			1.0f
-#define E5_VELOCITY 			3000
-#define E5_NPC_VEL_CUT			0.5f
-#define E5_NPC_HARD_VEL_CUT 	0.7f
-#define E5_DAMAGE				25
-#define E5_ALT_DAMAGE			30
-#define	E5_NPC_DAMAGE_EASY		6
-#define	E5_NPC_DAMAGE_NORMAL	12
-#define	E5_NPC_DAMAGE_HARD		16
-
 // F-11D Blaster
 //---------
 #define F_11D_MAIN_SPREAD			1.2f
@@ -524,34 +513,6 @@ enum firingOptions
 #define CLONECARBINE_NPC_DAMAGE_EASY	6
 #define CLONECARBINE_NPC_DAMAGE_NORMAL	12
 #define CLONECARBINE_NPC_DAMAGE_HARD	16
-
-// DH-17
-//---------
-#define REBELBLASTER_MAIN_SPREAD			1.2f
-#define REBELBLASTER_ALT_SPREAD 			0.2f
-#define REBELBLASTER_NPC_SPREAD 			0.4f
-#define REBELBLASTER_VELOCITY				3000
-#define REBELBLASTER_NPC_VEL_CUT			0.5f
-#define REBELBLASTER_NPC_HARD_VEL_CUT		0.7f
-#define REBELBLASTER_DAMAGE 				25
-#define REBELBLASTER_SCOPE_DAMAGE			20
-#define REBELBLASTER_NPC_DAMAGE_EASY		6
-#define REBELBLASTER_NPC_DAMAGE_NORMAL		12
-#define REBELBLASTER_NPC_DAMAGE_HARD		16
-
-// DC-15A
-//---------
-#define CLONERIFLE_MAIN_SPREAD			1.2f
-#define CLONERIFLE_ALT_SPREAD			0.4f
-#define CLONERIFLE_NPC_SPREAD			1.0f
-#define CLONERIFLE_VELOCITY 			3000
-#define CLONERIFLE_NPC_VEL_CUT			0.5f
-#define CLONERIFLE_NPC_HARD_VEL_CUT 	0.7f
-#define CLONERIFLE_DAMAGE				30
-#define CLONERIFLE_ALT_DAMAGE			25
-#define CLONERIFLE_NPC_DAMAGE_EASY		6
-#define CLONERIFLE_NPC_DAMAGE_NORMAL	12
-#define CLONERIFLE_NPC_DAMAGE_HARD		16
 
 // DC-17
 //---------
@@ -586,6 +547,89 @@ enum firingOptions
 #define REBELRIFLE_NPC_DAMAGE_NORMAL	12
 #define REBELRIFLE_NPC_DAMAGE_HARD		16
 
+// EE-3 Carbine Rifle
+//---------
+#define BOBA_MAIN_SPREAD		0.8f
+#define BOBA_ALT_SPREAD 		0.2f
+#define BOBA_TERTIARY_SPREAD 	0.1f
+#define BOBA_NPC_SPREAD 		0.5f
+#define BOBA_VELOCITY			3000
+#define BOBA_NPC_VEL_CUT		0.5f
+#define BOBA_NPC_HARD_VEL_CUT	0.7f
+#define BOBA_DAMAGE 			25
+#define BOBA_SCOPE_DAMAGE 		20
+#define BOBA_NPC_DAMAGE_EASY	6
+#define BOBA_NPC_DAMAGE_NORMAL	12
+#define BOBA_NPC_DAMAGE_HARD	16
+
+// Super Battle Droid
+//---------
+#define SBD_VELOCITY			2300
+#define SBD_NPC_VEL_CUT			0.5f
+#define SBD_NPC_HARD_VEL_CUT	0.7f
+#define SBD_DAMAGE				12
+#define SBD_NPC_DAMAGE_EASY		3
+#define SBD_NPC_DAMAGE_NORMAL	6
+#define SBD_NPC_DAMAGE_HARD		8
+#define SBD_LEFT_SHOT			-3.0f
+#define SBD_RIGHT_SHOT			5.0f
+
+// E-5s Sniper Rifle
+//---------
+#define CIS_SNIPER_MAIN_SPREAD			0.8f
+#define CIS_SNIPER_ALT_SPREAD			0.2f
+#define CIS_SNIPER_NPC_SPREAD			0.5f
+#define CIS_SNIPER_VELOCITY 			4000
+#define CIS_SNIPER_NPC_VEL_CUT			0.5f
+#define CIS_SNIPER_NPC_HARD_VEL_CUT 	0.7f
+#define CIS_SNIPER_DAMAGE				15
+#define CIS_SNIPER_SCOPE_DAMAGE 		25
+#define CIS_SNIPER_NPC_DAMAGE_EASY		6
+#define CIS_SNIPER_NPC_DAMAGE_NORMAL	12
+#define CIS_SNIPER_NPC_DAMAGE_HARD		16
+
+// E5
+//---------
+#define E5_MAIN_SPREAD			1.2f
+#define E5_ALT_SPREAD			1.5f
+#define E5_NPC_SPREAD			1.0f
+#define E5_VELOCITY 			3000
+#define E5_NPC_VEL_CUT			0.5f
+#define E5_NPC_HARD_VEL_CUT 	0.7f
+#define E5_DAMAGE				25
+#define E5_ALT_DAMAGE			30
+#define	E5_NPC_DAMAGE_EASY		6
+#define	E5_NPC_DAMAGE_NORMAL	12
+#define	E5_NPC_DAMAGE_HARD		16
+
+// DH-17
+//---------
+#define REBELBLASTER_MAIN_SPREAD			1.2f
+#define REBELBLASTER_ALT_SPREAD 			0.2f
+#define REBELBLASTER_NPC_SPREAD 			0.4f
+#define REBELBLASTER_VELOCITY				3000
+#define REBELBLASTER_NPC_VEL_CUT			0.5f
+#define REBELBLASTER_NPC_HARD_VEL_CUT		0.7f
+#define REBELBLASTER_DAMAGE 				25
+#define REBELBLASTER_SCOPE_DAMAGE			20
+#define REBELBLASTER_NPC_DAMAGE_EASY		6
+#define REBELBLASTER_NPC_DAMAGE_NORMAL		12
+#define REBELBLASTER_NPC_DAMAGE_HARD		16
+
+// DC-15A
+//---------
+#define CLONERIFLE_MAIN_SPREAD			1.2f
+#define CLONERIFLE_ALT_SPREAD			0.4f
+#define CLONERIFLE_NPC_SPREAD			1.0f
+#define CLONERIFLE_VELOCITY 			3000
+#define CLONERIFLE_NPC_VEL_CUT			0.5f
+#define CLONERIFLE_NPC_HARD_VEL_CUT 	0.7f
+#define CLONERIFLE_DAMAGE				30
+#define CLONERIFLE_ALT_DAMAGE			25
+#define CLONERIFLE_NPC_DAMAGE_EASY		6
+#define CLONERIFLE_NPC_DAMAGE_NORMAL	12
+#define CLONERIFLE_NPC_DAMAGE_HARD		16
+
 // LPA NN-14
 //--------
 #define REY_VEL 			3000
@@ -606,21 +650,6 @@ enum firingOptions
 #define JANGO_NPC_DAMAGE_NORMAL 	8
 #define JANGO_NPC_DAMAGE_HARD		10
 
-// EE-3 Carbine Rifle
-//---------
-#define BOBA_MAIN_SPREAD		0.8f
-#define BOBA_ALT_SPREAD 		0.2f
-#define BOBA_TERTIARY_SPREAD 	0.1f
-#define BOBA_NPC_SPREAD 		0.5f
-#define BOBA_VELOCITY			3000
-#define BOBA_NPC_VEL_CUT		0.5f
-#define BOBA_NPC_HARD_VEL_CUT	0.7f
-#define BOBA_DAMAGE 			25
-#define BOBA_SCOPE_DAMAGE 		20
-#define BOBA_NPC_DAMAGE_EASY	6
-#define BOBA_NPC_DAMAGE_NORMAL	12
-#define BOBA_NPC_DAMAGE_HARD	16
-
 // DC-17 Hand Pistol
 //---------
 #define CLONEPISTOL_MAIN_SPREAD 		0.5f
@@ -634,6 +663,7 @@ enum firingOptions
 #define CLONEPISTOL_NPC_DAMAGE_EASY 	6
 #define CLONEPISTOL_NPC_DAMAGE_NORMAL	12
 #define CLONEPISTOL_NPC_DAMAGE_HARD 	16
+
 
 
 #endif//#ifndef __WEAPONS_H__

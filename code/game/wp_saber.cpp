@@ -59,7 +59,6 @@ extern cvar_t	*g_dismemberment;
 extern cvar_t	*g_debugSaberLock;
 extern cvar_t	*g_saberLockRandomNess;
 extern cvar_t	*g_allowSaberLocking;
-extern cvar_t	*g_setSaberLocking;
 extern cvar_t	*d_slowmodeath;
 extern cvar_t	*g_cheats;
 extern cvar_t	*g_debugMelee;
@@ -67,7 +66,6 @@ extern cvar_t	*g_saberRestrictForce;
 extern cvar_t	*g_saberPickuppableDroppedSabers;
 extern cvar_t	*debug_subdivision;
 extern cvar_t	*g_newforcepowers;
-extern cvar_t	*g_knightfall;
 
 extern void WP_SetSaber(gentity_t* ent, int saberNum, const char* saberName);
 
@@ -168,6 +166,8 @@ qboolean WP_ForcePowerAvailable( gentity_t *self, forcePowers_t forcePower, int 
 void WP_ForcePowerDrain( gentity_t *self, forcePowers_t forcePower, int overrideAmt );
 void WP_DeactivateSaber( gentity_t *self, qboolean clearLength = qfalse );
 qboolean FP_ForceDrainGrippableEnt( gentity_t *victim );
+void Inquisitor_Spin(gentity_t* ent, qboolean increment = qtrue);
+void Inquisitor_Stop(gentity_t* ent, qboolean running = qfalse);
 
 qboolean IsPlayingOperationKnightfall(void);
 qboolean IsKnightfallBoss(gentity_t *ent);
@@ -187,6 +187,8 @@ int		g_saberFlashTime = 0;
 vec3_t	g_saberFlashPos = {0,0,0};
 
 const char* CG_GetForceLightning(gentity_t* ent);
+
+extern gentity_t* WP_FireThermalDetonator(gentity_t* ent, qboolean alt_fire);
 
 int forcePowerDarkLight[NUM_FORCE_POWERS] = //0 == neutral
 { //nothing should be usable at rank 0..
@@ -435,7 +437,7 @@ void G_CreateG2AttachedWeaponModel( gentity_t *ent, const char *psWeaponModel, i
 		return;
 	}
 
-	if ( ent && ent->client && ent->client->NPC_class == CLASS_GALAKMECH )
+	if ( ent && ent->client && (ent->client->NPC_class == CLASS_GALAKMECH || ent->client->ps.weapon == WP_SBD || ent->client->ps.weapon == WP_DROIDEKA) )
 	{//hack for galakmech, no weaponmodel
 		ent->weaponModel[0] = ent->weaponModel[1] = -1;
 		return;
@@ -2271,7 +2273,7 @@ qboolean WP_SaberDamageEffects( trace_t *tr, const vec3_t start, float length, f
 					if ( npc_class == CLASS_SEEKER || npc_class == CLASS_PROBE || npc_class == CLASS_MOUSE || npc_class == CLASS_REMOTE ||
 					     npc_class == CLASS_GONK || npc_class == CLASS_R2D2 || npc_class == CLASS_R5D2 ||
 					     npc_class == CLASS_PROTOCOL || npc_class == CLASS_MARK1 || npc_class == CLASS_MARK2 ||
-					     npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST || npc_class == CLASS_SENTRY )
+					     npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST || npc_class == CLASS_SENTRY || hitEnt->attrFlags & ATTR_DROID)
 					{
 						if ( !WP_SaberBladeUseSecondBladeStyle( saber, bladeNum )
 							&& saber->hitOtherEffect )
@@ -2935,7 +2937,7 @@ qboolean WP_SaberDamageForTrace( int ignore, vec3_t start, vec3_t end, float dmg
 							if ( npc_class == CLASS_SEEKER || npc_class == CLASS_PROBE || npc_class == CLASS_MOUSE ||
 								 npc_class == CLASS_GONK || npc_class == CLASS_R2D2 || npc_class == CLASS_R5D2 || npc_class == CLASS_REMOTE ||
 								 npc_class == CLASS_PROTOCOL || npc_class == CLASS_MARK1 || npc_class == CLASS_MARK2 ||
-							     npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST || npc_class == CLASS_SENTRY )
+							     npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST || npc_class == CLASS_SENTRY || hitEnt->attrFlags & ATTR_DROID)
 							{
 								if ( !WP_SaberBladeUseSecondBladeStyle( &attacker->client->ps.saber[saberNum], bladeNum )
 									&& attacker->client->ps.saber[saberNum].hitOtherEffect )
@@ -5323,7 +5325,7 @@ void WP_SaberDamageTrace( gentity_t *ent, int saberNum, int bladeNum )
 				}
 				else if ( entAttacking
 					&& hitOwnerAttacking
-					&& (!Q_irand( 0, g_saberLockRandomNess->integer ) && (g_allowSaberLocking->integer && g_setSaberLocking->integer))
+					&& (!Q_irand( 0, g_saberLockRandomNess->integer ) && (g_allowSaberLocking->integer) && (ent->NPC && ent->NPC->defaultBehavior != BS_CINEMATIC))
 					&& ( g_debugSaberLock->integer || forceLock
 						|| entPowerLevel == hitOwnerPowerLevel
 						|| (entPowerLevel > FORCE_LEVEL_2 && hitOwnerPowerLevel > FORCE_LEVEL_2 )
@@ -5337,7 +5339,7 @@ void WP_SaberDamageTrace( gentity_t *ent, int saberNum, int bladeNum )
 				}
 				else if ( hitOwnerAttacking
 					&& entDefending
-					&& (!Q_irand( 0, g_saberLockRandomNess->integer*3 ) && (g_allowSaberLocking->integer && g_setSaberLocking->integer))
+					&& (!Q_irand( 0, g_saberLockRandomNess->integer*3 ) && (g_allowSaberLocking->integer) && (ent->NPC && ent->NPC->defaultBehavior != BS_CINEMATIC))
 					&& (g_debugSaberLock->integer || forceLock ||
 						((ent->client->ps.saberMove != LS_READY || (hitOwnerPowerLevel-ent->client->ps.forcePowerLevel[FP_SABER_DEFENSE]) < Q_irand( -6, 0 ) )
 							&& ((hitOwnerPowerLevel < FORCE_LEVEL_3 && ent->client->ps.forcePowerLevel[FP_SABER_DEFENSE] > FORCE_LEVEL_2 )||
@@ -5350,7 +5352,7 @@ void WP_SaberDamageTrace( gentity_t *ent, int saberNum, int bladeNum )
 				else if ( entAttacking && hitOwnerDefending )
 				{//I'm attacking hit, they're parrying
 					qboolean activeDefense = (qboolean)(hitOwner->s.number||g_saberAutoBlocking->integer||hitOwner->client->ps.saberBlockingTime > level.time);
-					if ( (!Q_irand( 0, g_saberLockRandomNess->integer*3 ) && (g_allowSaberLocking->integer && g_setSaberLocking->integer))
+					if ( (!Q_irand( 0, g_saberLockRandomNess->integer*3 ) && (g_allowSaberLocking->integer) && (ent->NPC && ent->NPC->defaultBehavior != BS_CINEMATIC))
 						&& activeDefense
 						&& (g_debugSaberLock->integer || forceLock ||
 							((hitOwner->client->ps.saberMove != LS_READY || (entPowerLevel-hitOwner->client->ps.forcePowerLevel[FP_SABER_DEFENSE]) < Q_irand( -6, 0 ) )
@@ -6706,14 +6708,7 @@ qboolean WP_SaberLaunch( gentity_t *self, gentity_t *saber, qboolean thrown, qbo
 		if ( thrown )
 		{
 			// Only inquisitors should do this, not the player or anyone else
-			if (self != player && (!Q_stricmp(GRAND_INQ, self->NPC_type)
-				|| !Q_stricmp(SECOND_SIS, self->NPC_type)
-				|| !Q_stricmp(THIRD_SIS, self->NPC_type)
-				|| !Q_stricmp(FIFTH_BRO, self->NPC_type)
-				|| !Q_stricmp(SEVENTH_SIS, self->NPC_type)
-				|| !Q_stricmp(EIGHTH_BRO, self->NPC_type)
-				|| !Q_stricmp(NINTH_SIS, self->NPC_type)
-				|| !Q_stricmp(INQ_STK, self->NPC_type)))
+			if (self != player && self->attrFlags & ATTR_INQUISITOR)
 			{
 				saber_colors_t currentColor = NPC->client->ps.saber[0].blade[0].color;
 
@@ -6794,6 +6789,9 @@ qboolean WP_SaberLaunch( gentity_t *self, gentity_t *saber, qboolean thrown, qbo
 	VectorClear( saber->s.pos.trDelta );
 	gi.linkentity( saber );
 
+	// Make sure saber model is the same as the player's current one.
+	WP_SetSaberEntModelSkin(self, saber);
+
 	//spin it
 	VectorClear( saber->s.apos.trBase );
 	saber->s.apos.trTime = level.time;
@@ -6844,7 +6842,7 @@ qboolean WP_SaberLaunch( gentity_t *self, gentity_t *saber, qboolean thrown, qbo
 			}
 			for ( int i = 1; i < self->client->ps.saber[0].numBlades; i++ )
 			{//turn off all others
-				if ( self->client->ps.saber[0].blade[i].active )
+				if ( self->client->ps.saber[0].blade[i].active)
 				{
 					self->client->ps.SaberBladeActivate( 0, i, qfalse );
 				}
@@ -7031,6 +7029,7 @@ void WP_SaberCatch( gentity_t *self, gentity_t *saber, qboolean switchToSaber )
 				else
 				{//turn all blades on
 					self->client->ps.saber[0].Activate();
+					Inquisitor_Spin(self, qfalse);
 				}
 			}
 		}
@@ -9499,6 +9498,7 @@ void ForceThrow( gentity_t *self, qboolean pull, qboolean fake )
 				}
 				int modPowerLevel = WP_AbsorbConversion( push_list[x], push_list[x]->client->ps.forcePowerLevel[FP_ABSORB], self, powerUse, powerLevel, forcePowerNeeded[self->client->ps.forcePowerLevel[powerUse]] );
 				if (push_list[x]->client->NPC_class==CLASS_ASSASSIN_DROID ||
+					push_list[x]->client->NPC_class==CLASS_DROIDEKA ||
 					push_list[x]->client->NPC_class==CLASS_HAZARD_TROOPER)
 				{
 					modPowerLevel = 0;	// devides throw by 10
@@ -9637,7 +9637,7 @@ void ForceThrow( gentity_t *self, qboolean pull, qboolean fake )
 							&& push_list[x]->client->ps.weapon == WP_SABER
 							&& !push_list[x]->client->ps.saberInFlight
 							&& push_list[x]->client->ps.saberEntityNum < ENTITYNUM_WORLD
-							&& !PM_InOnGroundAnim( &push_list[x]->client->ps ) 
+							&& !PM_InOnGroundAnim( &push_list[x]->client->ps )
 							&& Q_stricmp(CIN_DRALLIG, self->NPC_type))
 						{
 							vec3_t throwVec;
@@ -9674,11 +9674,15 @@ void ForceThrow( gentity_t *self, qboolean pull, qboolean fake )
 							&& push_list[x]->client->NPC_class != CLASS_TUSKEN
 							&& push_list[x]->client->NPC_class != CLASS_HAZARD_TROOPER
 							&& push_list[x]->client->NPC_class != CLASS_ASSASSIN_DROID
+							&& push_list[x]->client->NPC_class != CLASS_DROIDEKA
 							&& push_list[x]->s.weapon != WP_SABER
 							&& push_list[x]->s.weapon != WP_MELEE
 							&& push_list[x]->s.weapon != WP_THERMAL
+							&& push_list[x]->s.weapon != WP_SBD// Super Battle Droids can't lose their weapons
+							&& push_list[x]->s.weapon != WP_DROIDEKA// Droidekas can't lose their weapons
 							&& push_list[x]->s.weapon != WP_CONCUSSION// so rax can't drop his
 							&&!FalseEmperorMission() // Player shouldn't be disarmed in the False Emperor mission (because that would be very bad)
+							&& !(push_list[x]->attrFlags & ATTR_HERO) // Heroes can't be disarmed
 							)
 						{//yank the weapon - NOTE: level 1 just knocks them down, not take weapon
 							//FIXME: weapon yank anim if not a knockdown?
@@ -10576,6 +10580,7 @@ void ForceTelepathy( gentity_t *self )
 		case CLASS_REMOTE:
 		case CLASS_PROTOCOL:
 		case CLASS_ASSASSIN_DROID:
+		case CLASS_DROIDEKA:
 		case CLASS_SABER_DROID:
 		case CLASS_BOBAFETT:
 		case CLASS_MANDALORIAN:
@@ -10617,7 +10622,10 @@ void ForceTelepathy( gentity_t *self )
 				traceEnt->NPC->controlledTime = level.time + 30000;
 			}
 			else if ( traceEnt->s.weapon != WP_SABER
-				&& traceEnt->client->NPC_class != CLASS_REBORN )
+				&& traceEnt->client->NPC_class != CLASS_REBORN
+				&& !(traceEnt->attrFlags & ATTR_HERO)
+				&& !(traceEnt->attrFlags & ATTR_DROID)
+				&& !(traceEnt->attrFlags & ATTR_COMMANDO))
 			{//haha!  Jedi aren't easily confused!
 				if ( self->client->ps.forcePowerLevel[FP_TELEPATHY] > FORCE_LEVEL_2
 					&& traceEnt->s.weapon != WP_NONE		//don't charm people who aren't capable of fighting... like ugnaughts and droids, just confuse them
@@ -10670,7 +10678,8 @@ void ForceTelepathy( gentity_t *self )
 			}
 			else
 			{
-				NPC_Jedi_PlayConfusionSound( traceEnt );
+				if(!(traceEnt->attrFlags & ATTR_DROID))
+					NPC_Jedi_PlayConfusionSound( traceEnt );
 			}
 			WP_ForcePowerStart( self, FP_TELEPATHY, override );
 		}
@@ -10909,6 +10918,7 @@ void ForceGrip( gentity_t *self )
 			//not even combat droids?  (No animation for being gripped...)
 		case CLASS_SABER_DROID:
 		case CLASS_ASSASSIN_DROID:
+		case CLASS_DROIDEKA:
 			//*sigh*... in JK3, you'll be able to grab and move *anything*...
 			return;
 			break;
@@ -10934,7 +10944,7 @@ void ForceGrip( gentity_t *self )
 		case CLASS_JEDI:
 			if ( traceEnt->NPC && traceEnt->NPC->rank > RANK_CIVILIAN && self->client->ps.forcePowerLevel[FP_GRIP] < FORCE_LEVEL_2)
 			{
-				if (IsPlayingOperationKnightfall() && !IsKnightfallBoss(traceEnt))
+				if (IsPlayingOperationKnightfall() && IsKnightfallBoss(traceEnt))
 				{
 					WP_ForcePowerStop(traceEnt, FP_ABSORB);
 					WP_ForcePowerStop(traceEnt, FP_PROTECT);
@@ -11007,13 +11017,18 @@ void ForceGrip( gentity_t *self )
 				&& traceEnt->client->NPC_class != CLASS_ROCKETTROOPER
 				&& traceEnt->client->NPC_class != CLASS_VEHICLE
 				&& traceEnt->client->NPC_class != CLASS_HAZARD_TROOPER
+				&& traceEnt->client->NPC_class != CLASS_DROIDEKA
 				&& traceEnt->client->NPC_class != CLASS_TUSKEN
 				&& traceEnt->client->NPC_class != CLASS_BOBAFETT
 				&& traceEnt->client->NPC_class != CLASS_MANDALORIAN
 				&& traceEnt->client->NPC_class != CLASS_JANGO
 				&& traceEnt->client->NPC_class != CLASS_ASSASSIN_DROID
+				&& traceEnt->s.weapon != WP_SBD
+				&& traceEnt->s.weapon != WP_DROIDEKA
 				&& traceEnt->s.weapon != WP_CONCUSSION	// so rax can't drop his
 				&& !FalseEmperorMission() // Player shouldn't be disarmed in the False Emperor mission (because that would be very bad)
+				&& !(traceEnt->attrFlags & ATTR_HERO) // Heroes can't be disarmed
+				&& !(traceEnt->attrFlags & ATTR_COMMANDO) // Commandos can't be disarmed either
 				)
 			{
 				if (traceEnt->client->NPC_class == CLASS_BOBAFETT || traceEnt->client->NPC_class == CLASS_MANDALORIAN || traceEnt->client->NPC_class == CLASS_JANGO)
@@ -11103,9 +11118,6 @@ qboolean IsPlayingOperationKnightfall()
 	const char* info = CG_ConfigString(CS_SERVERINFO);
 	const char* s = Info_ValueForKey(info, "mapname");
 
-	if (g_knightfall->integer)
-		return qtrue;
-
 	if (!Q_stricmp(s, "ep3_ok_anakin_r1")
 		|| !Q_stricmp(s, "ep3_ok_anakin_r2")
 		|| !Q_stricmp(s, "ep3_ok_anakin_r3")
@@ -11127,6 +11139,10 @@ qboolean IsPlayingOperationKnightfall()
 
 qboolean IsKnightfallBoss(gentity_t *ent)
 {
+	// Players don't get these bonuses,
+	if (ent == player)
+		return qfalse;
+
 	if (IsPlayingOperationKnightfall())
 	{
 		// These NPCs are knightfall bosses
@@ -11390,10 +11406,11 @@ qboolean ToBeAffectedByStasis(gentity_t *self, gentity_t *traceEnt)
 
 	// Like it or not, some npcs should be immune
 	else if (traceEnt->client->NPC_class == CLASS_GALAKMECH
-			|| traceEnt->client->ps.weapon == WP_CONCUSSION
-			|| traceEnt->client->NPC_class == CLASS_SAND_CREATURE
+		|| traceEnt->client->ps.weapon == WP_CONCUSSION
+		|| traceEnt->client->NPC_class == CLASS_SAND_CREATURE
+		|| traceEnt->client->NPC_class == CLASS_DROIDEKA
 			|| traceEnt->client->NPC_class == CLASS_VEHICLE
-			|| traceEnt->client->NPC_class == CLASS_ASSASSIN_DROID
+		|| traceEnt->client->NPC_class == CLASS_ASSASSIN_DROID
 		|| traceEnt->client->NPC_class == CLASS_HAZARD_TROOPER
 		|| traceEnt->client->NPC_class == CLASS_INTERROGATOR
 		|| traceEnt->client->NPC_class == CLASS_ATST
@@ -11405,7 +11422,8 @@ qboolean ToBeAffectedByStasis(gentity_t *self, gentity_t *traceEnt)
 		|| traceEnt->client->NPC_class == CLASS_R5D2
 		|| traceEnt->client->NPC_class == CLASS_REMOTE
 		|| traceEnt->client->NPC_class == CLASS_SABER_DROID
-		|| traceEnt->client->NPC_class == CLASS_SEEKER)
+		|| traceEnt->client->NPC_class == CLASS_SEEKER
+		|| traceEnt->attrFlags & ATTR_DROID)
 	{
 		return qfalse;
 	}
@@ -11626,6 +11644,7 @@ void ForceGrasp(gentity_t *self)
 			//not even combat droids?  (No animation for being gripped...)
 		case CLASS_SABER_DROID:
 		case CLASS_ASSASSIN_DROID:
+		case CLASS_DROIDEKA:
 			//*sigh*... in JK3, you'll be able to grab and move *anything*...
 			return;
 			break;
@@ -11703,8 +11722,13 @@ void ForceGrasp(gentity_t *self)
 				&& traceEnt->client->NPC_class != CLASS_MANDALORIAN
 				&& traceEnt->client->NPC_class != CLASS_JANGO
 				&& traceEnt->client->NPC_class != CLASS_ASSASSIN_DROID
+				&& traceEnt->client->NPC_class != CLASS_DROIDEKA
+				&& traceEnt->s.weapon != WP_SBD
+				&& traceEnt->s.weapon != WP_DROIDEKA
 				&& traceEnt->s.weapon != WP_CONCUSSION	// so rax can't drop his
 				&& traceEnt->client->playerTeam != self->client->playerTeam
+				&& !(traceEnt->attrFlags & ATTR_HERO) // Heroes can't be disarmed
+				&& !(traceEnt->attrFlags & ATTR_COMMANDO) // Commandos can't be disarmed either
 				)
 			{
 				if (traceEnt->client->NPC_class == CLASS_BOBAFETT || traceEnt->client->NPC_class == CLASS_MANDALORIAN || traceEnt->client->NPC_class == CLASS_JANGO)
@@ -12135,6 +12159,7 @@ void ForceFear(gentity_t *self)
 		case CLASS_REMOTE:
 		case CLASS_PROTOCOL:
 		case CLASS_ASSASSIN_DROID:
+		case CLASS_DROIDEKA:
 		case CLASS_SABER_DROID:
 		case CLASS_BOBAFETT:
 		case CLASS_MANDALORIAN:
@@ -12209,7 +12234,8 @@ void ForceFear(gentity_t *self)
 			}
 			else
 			{
-				NPC_Jedi_PlayConfusionSound(traceEnt);
+				if(!(traceEnt->attrFlags & ATTR_DROID))
+					NPC_Jedi_PlayConfusionSound(traceEnt);
 			}
 			WP_ForcePowerStart(self, FP_FEAR, override);
 		}
@@ -12269,6 +12295,7 @@ qboolean CanBeFeared(gentity_t *self, gentity_t *traceEnt)
 		|| traceEnt->client->NPC_class == CLASS_SAND_CREATURE
 		|| traceEnt->client->NPC_class == CLASS_VEHICLE
 		|| traceEnt->client->NPC_class == CLASS_ASSASSIN_DROID
+		|| traceEnt->client->NPC_class == CLASS_DROIDEKA
 		|| traceEnt->client->NPC_class == CLASS_HAZARD_TROOPER
 		|| traceEnt->client->NPC_class == CLASS_INTERROGATOR
 		|| traceEnt->client->NPC_class == CLASS_ATST
@@ -12292,7 +12319,10 @@ qboolean CanBeFeared(gentity_t *self, gentity_t *traceEnt)
 		|| traceEnt->client->NPC_class == CLASS_LUKE
 		|| traceEnt->client->NPC_class == CLASS_TAVION
 		|| traceEnt->client->NPC_class == CLASS_DESANN
-		|| traceEnt->client->NPC_class == CLASS_ALORA)
+		|| traceEnt->client->NPC_class == CLASS_ALORA
+		|| traceEnt->attrFlags & ATTR_HERO
+		|| traceEnt->attrFlags & ATTR_COMMANDO
+		|| traceEnt->attrFlags & ATTR_DROID)
 	{
 		return qfalse;
 	}
@@ -12848,7 +12878,7 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, flo
 					dmg = 1;
 				}
 			}
-			if ( traceEnt && traceEnt->client && traceEnt->client->ps.powerups[PW_GALAK_SHIELD] )
+			if ( traceEnt && traceEnt->client && traceEnt->client->ps.powerups[PW_GALAK_SHIELD] && traceEnt->client->NPC_class != CLASS_DROIDEKA)
 			{
 				//has shield up
 				dmg = 0;
@@ -12894,7 +12924,7 @@ void ForceLightningDamage( gentity_t *self, gentity_t *traceEnt, vec3_t dir, flo
 					 npc_class == CLASS_MOUSE || npc_class == CLASS_GONK || npc_class == CLASS_R2D2 || npc_class == CLASS_REMOTE ||
 					 npc_class == CLASS_R5D2 || npc_class == CLASS_PROTOCOL || npc_class == CLASS_MARK1 ||
 					 npc_class == CLASS_MARK2 || npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST ) ||
-					 npc_class == CLASS_SENTRY )
+					 npc_class == CLASS_SENTRY || traceEnt->attrFlags & ATTR_DROID)
 				{
 					traceEnt->client->ps.powerups[PW_FORCE_SHOCKED] = level.time + 4000;
 				}
@@ -12926,7 +12956,7 @@ void ForceShootLightning( gentity_t *self )
 	VectorNormalize( forward );
 
 	//FIXME: if lightning hits water, do water-only-flagged radius damage from that point
-	if ( self->client->ps.forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_2 )
+	if ( self->client->ps.forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_2 && !(self->attrFlags & ATTR_PRECISE_LIGHTNING))
 	{//arc
 		vec3_t	center, mins, maxs, dir, ent_org, size, v;
 		float	radius = 512, dot, dist;
@@ -13178,6 +13208,9 @@ qboolean ForceDrain2( gentity_t *self )
 	if (traceEnt == player && player->flags & FL_NOFORCE)
 		return qfalse;
 
+	if (traceEnt->attrFlags & ATTR_DROID)
+		return qfalse;
+
 	if ( traceEnt->client )
 	{
 		if ( traceEnt->client->ps.forceJumpZStart )
@@ -13217,6 +13250,7 @@ qboolean ForceDrain2( gentity_t *self )
 		case CLASS_PROTOCOL:
 		case CLASS_SABER_DROID:
 		case CLASS_ASSASSIN_DROID:
+		case CLASS_DROIDEKA:
 			return qfalse;
 			break;
 		case CLASS_PROBE:
@@ -13362,6 +13396,8 @@ qboolean FP_ForceDrainableEnt( gentity_t *victim )
 	{
 		return qfalse;
 	}
+	if (victim->attrFlags & ATTR_DROID)
+		return qfalse;
 	switch ( victim->client->NPC_class )
 	{
 	case CLASS_SAND_CREATURE://??
@@ -13382,6 +13418,7 @@ qboolean FP_ForceDrainableEnt( gentity_t *victim )
 	case CLASS_SENTRY:
 	case CLASS_SABER_DROID:
 	case CLASS_ASSASSIN_DROID:
+	case CLASS_DROIDEKA:
 	case CLASS_VEHICLE:
 		return qfalse;
 	default:
@@ -15248,7 +15285,14 @@ qboolean PlayerAffectedByStasis(void)
 	gentity_t *ent = &g_entities[0];
 	if (ent && ent->client && ent->client->ps.stasisTime > (cg.time ? cg.time : level.time))
 	{
+		ent->inStasis = qtrue;
 		return qtrue;
+	}
+
+	if (ent&& ent->client&& ent->client->ps.stasisTime < level.time && ent->inStasis)
+	{
+		ent->inStasis = qfalse;
+		ent->s.loopSound = 0;
 	}
 
 	return qfalse;
@@ -15522,6 +15566,15 @@ else if (gripEnt->NPC
 		WP_ForcePowerStop(self, FP_GRASP);
 		return;
 	}
+}
+else if (gripEnt->NPC
+	&& gripEnt->client
+	&& (gripEnt->attrFlags & ATTR_COMMANDO)
+	&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20)))
+{
+	WP_FireThermalDetonator(gripEnt, qtrue);
+	NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+	WP_ForcePowerStop(self, FP_GRASP);
 }
 else if (PM_SaberInAttack(self->client->ps.saberMove)
 	|| PM_SaberInStart(self->client->ps.saberMove))
@@ -15870,6 +15923,10 @@ else
 				WP_ForcePowerStop( self, FP_GRIP );
 				return;
 			}
+			else if (gripEnt->attrFlags & ATTR_DROID && self->client->ps.forcePowerLevel[FP_GRIP] == FORCE_LEVEL_1)
+			{// Since Droids can't be strangled and Force Grip 1 doesn't do any damage anyway, just don't do anything.
+				return;
+			}
 			else if ( gripEnt->NPC
 				&& gripEnt->client
 				&& gripEnt->client->ps.forcePowersKnown
@@ -15894,6 +15951,15 @@ else
 					}
 					return;
 				}
+			}
+			else if (gripEnt->NPC
+				&& gripEnt->client
+				&& (gripEnt->attrFlags & ATTR_COMMANDO)
+				&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20)))
+			{
+				WP_FireThermalDetonator(gripEnt, qtrue);
+				NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+				WP_ForcePowerStop(self, FP_GRIP);
 			}
 			else if (IsKnightfallBoss(gripEnt))
 			{
@@ -16187,7 +16253,10 @@ else
 					}
 					else
 					{//in air, set on whole body
-						NPC_SetAnim( gripEnt, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+						if(gripEnt->attrFlags & ATTR_DROID)
+							NPC_SetAnim(gripEnt, SETANIM_BOTH, BOTH_PULLED_INAIR_F, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+						else
+							NPC_SetAnim( gripEnt, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 					}
 					gripEnt->painDebounceTime = level.time + 2000;
 				}
@@ -16845,4 +16914,146 @@ bool WP_DoingMoronicForcedAnimationForForcePowers(gentity_t *ent)
 		ent->client->ps.legsAnim == BOTH_FORCE_PROTECT )
 		return true;
 	return false;
+}
+
+void Inquisitor_Spin(gentity_t *ent, qboolean increment)
+{
+	// Make sure this is an inquisitor saber we're using!
+	if (ent->client->ps.saber->type != SABER_INQUISITOR)
+		return;
+
+	// If the saber isn't on, no spinning either!
+	if (!ent->client->ps.SaberActive())
+		return;
+
+	// Is this NPC an inquisitor? If not, no spinning.
+	if (!(ent->attrFlags & ATTR_INQUISITOR) && ent != player)
+	{
+		return;
+	}
+
+	// No saber? No spinning!
+	if (!ent->weaponModel[0] || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW))
+		return;
+
+	// Player has their own logic
+	if (ent == player)
+	{
+		if (ent->client->ps.saber->inquisitor_spin <= 3)
+		{
+			if (!increment)
+			{// Just in case
+				if (ent->weaponModel[0] < 0 || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW) || ent->client->ps.torsoAnim == BOTH_SABERPULL)
+					return;
+
+				ent->client->ps.saber->inquisitor_spin = ent->client->ps.saber->inquisitor_speed / 20.0f;
+				gi.G2API_SetBoneAnim(&ent->ghoul2[ent->weaponModel[0]], "model_root", 0, 360, BONE_ANIM_OVERRIDE_LOOP, ent->client->ps.saber->inquisitor_speed, level.time, -1, -1);
+
+			}
+			else
+			{// Just in case
+				if (ent->weaponModel[0] < 0 || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW) || ent->client->ps.torsoAnim == BOTH_SABERPULL)
+					return;
+
+				ent->client->ps.saber->inquisitor_speed = 20.f * (++ent->client->ps.saber->inquisitor_spin);
+				gi.G2API_SetBoneAnim(&ent->ghoul2[ent->weaponModel[0]], "model_root", 0, 360, BONE_ANIM_OVERRIDE_LOOP, ent->client->ps.saber->inquisitor_speed, level.time, -1, -1);
+			}
+		}
+		else
+		{
+			Inquisitor_Stop(ent);
+		}
+	}
+	else if (ent->NPC)
+	{
+		if (ent->client->ps.SaberActive() && TIMER_Done(ent, "saber_spin"))
+		{// Just in case
+			if (ent->weaponModel[0] < 0 || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW) || ent->client->ps.torsoAnim == BOTH_SABERPULL)
+				return;
+
+			// Setting the style to staff, just in case
+			ent->client->ps.saberAnimLevel = SS_STAFF;
+			gi.G2API_SetBoneAnim(&ent->ghoul2[ent->weaponModel[0]], "model_root", 0, 360, BONE_ANIM_OVERRIDE_LOOP, (20.f * Q_irand(1, 3)), level.time, -1, -1);
+			ent->client->ps.saber->inquisitor_spin = 1;
+
+			// Timer just to keep the saber from spinning very quickly.
+			TIMER_Set(ent, "saber_spin", Q_irand(5000, 20000));
+		}
+	}
+
+}
+
+void Inquisitor_Stop(gentity_t* ent, qboolean running)
+{
+	// Make sure this is an inquisitor saber we're using!
+	if (ent->client->ps.saber->type != SABER_INQUISITOR)
+		return;
+
+	// No saber? No spinning!
+	if (!ent->weaponModel[0] || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW))
+		return;
+
+	// Is this NPC an inquisitor? If not, no spinning.
+	if (!(ent->attrFlags & ATTR_INQUISITOR) && ent != player)
+	{
+		return;
+	}
+
+	// Player has their own logic, but they'll have a few things
+	if (ent == player)
+	{
+		if (ent->client->ps.saber->inquisitor_spin <= 0)
+		{// Just in case
+			if (ent->weaponModel[0] < 0 || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW) || ent->client->ps.torsoAnim == BOTH_SABERPULL)
+				return;
+			gi.G2API_SetBoneAnim(&ent->ghoul2[ent->weaponModel[0]], "model_root", 0, 0, BONE_ANIM_OVERRIDE, 1.0f, level.time, -1, -1);
+		}
+		else if (ent->client->ps.saber->inquisitor_spin > 0)
+		{// Just in case
+			if (ent->weaponModel[0] < 0 || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW) || ent->client->ps.torsoAnim == BOTH_SABERPULL)
+				return;
+			gi.G2API_SetBoneAnim(&ent->ghoul2[ent->weaponModel[0]], "model_root", 0, 360, BONE_ANIM_OVERRIDE, ent->client->ps.saber->inquisitor_speed, level.time, -1, -1);
+		}
+
+		if (!running)
+		{
+			ent->client->ps.saber->inquisitor_spin = 0;
+			ent->client->ps.saber->inquisitor_speed = 0;
+		}
+		else
+		{
+			ent->client->ps.saber->inquisitor_spin = -1;
+		}
+	}
+	else if (ent->NPC)
+	{
+		// Setting the style to staff, just in case
+		ent->client->ps.saberAnimLevel = SS_STAFF;
+
+		if (ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW) || ent->client->ps.torsoAnim == BOTH_SABERPULL)
+		{
+			return;
+		}
+
+		// If the Inquisitor has no enemy or their saber is off, stop the spinning anyway and reset the timer, otherwise, do the check.
+		if (!ent->enemy || !ent->client->ps.SaberActive())
+		{// Just in case
+			if (ent->weaponModel[0] < 0 || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW) || ent->client->ps.torsoAnim == BOTH_SABERPULL)
+				return;
+			gi.G2API_SetBoneAnim(&ent->ghoul2[ent->weaponModel[0]], "model_root", 0, 0, BONE_ANIM_OVERRIDE, 1.0f, level.time, -1, -1);
+			ent->client->ps.saber->inquisitor_spin = 0;
+			TIMER_Set(NPC, "saber_spin", -level.time);
+		}
+		else if (TIMER_Done(ent, "saber_spin"))
+		{// Just in case
+			if (ent->weaponModel[0] < 0 || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW) || ent->client->ps.torsoAnim == BOTH_SABERPULL)
+				return;
+			gi.G2API_SetBoneAnim(&ent->ghoul2[ent->weaponModel[0]], "model_root", 0, 0, BONE_ANIM_OVERRIDE, 1.0f, level.time, -1, -1);
+			ent->client->ps.saber->inquisitor_spin = 0;
+
+			// We'll set the Spin timer again so the Inquisitor can't just start their saber back up immediately. This one is a lot shorter though.
+			TIMER_Set(NPC, "saber_spin", Q_irand(2000,10000));
+		}
+
+	}
 }

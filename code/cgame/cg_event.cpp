@@ -97,7 +97,6 @@ void CG_ItemPickup( int itemNum, qboolean bHadItem ) {
 
 	if (bg_itemlist[itemNum].classname && bg_itemlist[itemNum].classname[0])
 	{
-
 		char text[1024], data[1024];
 		if (cgi_SP_GetStringTextString("SP_INGAME_PICKUPLINE",text, sizeof(text)) )
 		{
@@ -718,6 +717,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 							npc_class != CLASS_MARK2 && npc_class != CLASS_MOUSE &&
 							npc_class != CLASS_PROBE && npc_class != CLASS_PROTOCOL &&
 							npc_class != CLASS_R2D2 && npc_class != CLASS_R5D2 &&
+							npc_class != CLASS_DROIDEKA &&
 							npc_class != CLASS_SEEKER && npc_class != CLASS_SENTRY)
 						{//Only the humanoids scream
 							cgi_S_StartSound ( NULL, cent->gent->owner->s.number, CHAN_VOICE, disintSound1 );

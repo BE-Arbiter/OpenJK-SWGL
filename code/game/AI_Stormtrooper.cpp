@@ -234,6 +234,7 @@ qboolean NPC_IsGunner(gentity_t* self)
 	case CLASS_MANDALORIAN:
 	case CLASS_JANGO:
 	case CLASS_TUSKEN:
+	case CLASS_DROIDEKA:
 		return qtrue;
 		break;
 	default:
@@ -1343,7 +1344,7 @@ void NPC_BSST_Patrol( void )
 	}
 	else// if ( !(NPCInfo->scriptFlags&SCF_IGNORE_ALERTS) )
 	{
-		if ( NPC->client->NPC_class != CLASS_IMPERIAL && NPC->client->NPC_class != CLASS_IMPWORKER )
+		if ( NPC->client->NPC_class != CLASS_IMPERIAL && NPC->client->NPC_class != CLASS_IMPWORKER && NPC->client->NPC_class != CLASS_DROIDEKA)
 		{//imperials do not look around
 			if ( TIMER_Done( NPC, "enemyLastVisible" ) )
 			{//nothing suspicious, look around
@@ -2123,7 +2124,7 @@ void ST_Commander( void )
 
 		// Check To See If The Enemy Is Too Close For Comfort
 		//----------------------------------------------------
-		if (NPC->client->NPC_class!=CLASS_ASSASSIN_DROID)
+		if (NPC->client->NPC_class!=CLASS_ASSASSIN_DROID && NPC->client->NPC_class != CLASS_DROIDEKA)
 		{
 			if (TIMER_Done(NPC, "checkEnemyTooCloseDebouncer"))
 			{
@@ -2406,7 +2407,7 @@ void NPC_BSST_Attack( void )
 	}
 	else if ( enemyDist > 65536 )//256 squared
 	{
-		if ( NPC->client->ps.weapon == WP_DISRUPTOR )
+		if ( NPC->client->ps.weapon == WP_DISRUPTOR || NPC->client->ps.weapon == WP_CIS_SNIPER)
 		{//sniping...
 			if ( !(NPCInfo->scriptFlags&SCF_ALT_FIRE) )
 			{//use primary fire
@@ -2607,7 +2608,7 @@ void NPC_BSST_Attack( void )
 
 	if ( !doMove )
 	{
-		if (NPC->client->NPC_class != CLASS_ASSASSIN_DROID)
+		if (NPC->client->NPC_class != CLASS_ASSASSIN_DROID && NPC->client->NPC_class != CLASS_DROIDEKA)
 		{
 			if ( !TIMER_Done( NPC, "duck" ) )
 			{
@@ -2733,6 +2734,24 @@ void NPC_BSST_Attack( void )
 extern qboolean G_TuskenAttackAnimDamage( gentity_t *self );
 void NPC_BSST_Default( void )
 {
+	if (NPC->attrFlags & ATTR_COMMANDO && NPC->s.weapon != WP_SABER && TIMER_Done(NPC, "fire_type_decide"))
+	{
+		if (!Q_irand(0, 1))
+		{
+			NPC->NPC->scriptFlags |= SCF_ALT_FIRE;
+			ChangeWeapon(NPC, NPC->client->ps.weapon);
+		}
+		else
+		{
+			NPC->NPC->scriptFlags &= ~SCF_ALT_FIRE;
+			ChangeWeapon(NPC, NPC->client->ps.weapon);
+		}
+
+		// More aggressive individuals should probably decide to change up their fighting style more often.
+		TIMER_Set(NPC, "fire_type_decide", (Q_irand(5000, 15000) / NPCInfo->stats.aggression));
+
+	}
+
 	if( NPCInfo->scriptFlags & SCF_FIRE_WEAPON )
 	{
 		WeaponThink( qtrue );

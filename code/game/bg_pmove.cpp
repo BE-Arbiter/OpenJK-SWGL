@@ -119,6 +119,7 @@ extern qboolean G_TryingJumpForwardAttack( gentity_t *self, usercmd_t *cmd );
 extern void WP_SaberSwingSound( gentity_t *ent, int saberNum, swingType_t swingType );
 extern qboolean WP_UseFirstValidSaberStyle( gentity_t *ent, int *saberAnimLevel );
 extern qboolean WP_SaberStyleValidForSaber( gentity_t *ent, int saberAnimLevel );
+extern void DekaShield_TurnOff(void);
 
 extern qboolean PlayerAffectedByStasis(void);
 
@@ -150,6 +151,9 @@ extern cvar_t	*g_saberNewControlScheme;
 extern cvar_t	*g_stepSlideFix;
 extern cvar_t	*g_saberAutoBlocking;
 extern cvar_t	*g_char_model;
+
+extern void Inquisitor_Spin(gentity_t* ent, qboolean increment = qtrue);
+extern void Inquisitor_Stop(gentity_t* ent, qboolean running = qfalse);
 
 qboolean CasualWalker(pmove_t* pm);
 
@@ -229,7 +233,7 @@ qboolean BG_UnrestrainedPitchRoll( playerState_t *ps, Vehicle_t *pVeh )
 
 qboolean BG_AllowThirdPersonSpecialMove( playerState_t *ps )
 {
-	return (qboolean)((cg.renderingThirdPerson || (cg_trueguns.integer || CG_PlayerIsDualWielding(ps->weapon)) || ps->weapon == WP_SABER || ps->weapon == WP_MELEE) && !cg.zoomMode);
+	return (qboolean)((cg.renderingThirdPerson || (cg_trueguns.integer || CG_ChangeFirstPersonView()) || ps->weapon == WP_SABER || ps->weapon == WP_MELEE) && !cg.zoomMode);
 }
 /*
 ===============
@@ -1060,7 +1064,8 @@ qboolean PM_GentCantJump( gentity_t *gent )
 		gent->client->NPC_class == CLASS_R5D2 ||
 		gent->client->NPC_class == CLASS_SEEKER ||
 		gent->client->NPC_class == CLASS_REMOTE ||
-		gent->client->NPC_class == CLASS_SENTRY ) )
+		gent->client->NPC_class == CLASS_SENTRY ||
+		gent->client->NPC_class == CLASS_DROIDEKA))
 	{
 		return qtrue;
 	}
@@ -5708,7 +5713,7 @@ static void PM_CheckDuck (void)
 		}
 
 		if ( pm->ps->clientNum < MAX_CLIENTS
-			&& (pm->gent->client->NPC_class == CLASS_ATST ||pm->gent->client->NPC_class == CLASS_RANCOR)
+			&& (pm->gent->client->NPC_class == CLASS_ATST ||pm->gent->client->NPC_class == CLASS_RANCOR || pm->gent->client->NPC_class == CLASS_DROIDEKA)
 			&& !BG_AllowThirdPersonSpecialMove( pm->ps ) )
 		{
 			standheight = crouchheight = 128;
@@ -7952,6 +7957,11 @@ static void PM_Footsteps( void )
 	if( pm->gent == NULL || pm->gent->client == NULL )
 		return;
 
+	if (pm->gent == player && pm->ps->saber[0].inquisitor_spin == -1)
+	{
+		Inquisitor_Spin(pm->gent, qfalse);
+	}
+
 	if ( (pm->ps->eFlags&EF_HELD_BY_WAMPA) )
 	{
 		PM_SetAnim( pm, SETANIM_BOTH, BOTH_HANG_IDLE, SETANIM_FLAG_NORMAL );
@@ -8179,11 +8189,17 @@ static void PM_Footsteps( void )
 	// if not trying to move
 	if ( !pm->cmd.forwardmove && !pm->cmd.rightmove )
 	{
-		if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_ATST )
+		if ( pm->gent && pm->gent->client && (pm->gent->client->NPC_class == CLASS_ATST || pm->gent->client->NPC_class == CLASS_DROIDEKA))
 		{
 			if ( !PM_AdjustStandAnimForSlope() )
 			{
 				PM_SetAnim(pm,SETANIM_LEGS,BOTH_STAND1,SETANIM_FLAG_NORMAL);
+				if (pm->gent->client->ps.stats[STAT_ARMOR] > 100 && !PM_RunningAnim(pm->gent->client->ps.legsAnim))
+				{
+					pm->gent->flags |= FL_SHIELDED;
+					pm->gent->client->ps.powerups[PW_GALAK_SHIELD] = Q3_INFINITE;
+					gi.G2API_SetSurfaceOnOff(&pm->gent->ghoul2[pm->gent->playerModel], "force_shield", 0x00000001);
+				}
 			}
 		}
 		else if ( pm->ps->pm_flags & PMF_DUCKED )
@@ -8451,6 +8467,51 @@ static void PM_Footsteps( void )
 			{//no run anim
 				PM_SetAnim(pm,SETANIM_LEGS,BOTH_WALKBACK1,setAnimFlags);
 			}
+			else if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_ATST)
+			{
+				if (pm->ps->legsAnim != BOTH_RUNBACK1)
+				{
+					if (pm->ps->legsAnim != BOTH_RUN1START)
+					{
+						//Hmm, he should really start slow and have to accelerate... also need to do this for stopping
+						PM_SetAnim(pm, SETANIM_LEGS, BOTH_RUN1START, setAnimFlags | SETANIM_FLAG_HOLD);
+					}
+					else if (!pm->ps->legsAnimTimer)
+					{
+						PM_SetAnim(pm, SETANIM_LEGS, BOTH_RUNBACK1, setAnimFlags);
+					}
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_LEGS, BOTH_RUNBACK1, setAnimFlags);
+				}
+			}
+			else if (!in_camera && pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_DROIDEKA)
+			{
+				if (pm->ps->legsAnim != BOTH_RUNBACK1)
+				{
+					if (pm->ps->legsAnim != BOTH_RUN1START)
+					{
+						//Hmm, he should really start slow and have to accelerate... also need to do this for stopping
+						PM_SetAnim(pm, SETANIM_LEGS, BOTH_RUN1START, setAnimFlags | SETANIM_FLAG_HOLD);
+						if (pm->ps->powerups[PW_GALAK_SHIELD] || pm->gent->flags & FL_SHIELDED)
+						{
+							pm->gent->flags &= ~FL_SHIELDED;
+							pm->gent->client->ps.powerups[PW_GALAK_SHIELD] = 0;
+							gi.G2API_SetSurfaceOnOff(&pm->gent->ghoul2[pm->gent->playerModel], "force_shield", 0x00000002);
+						}
+
+					}
+					else if (!pm->ps->legsAnimTimer)
+					{
+						PM_SetAnim(pm, SETANIM_LEGS, BOTH_RUNBACK1, setAnimFlags);
+					}
+				}
+				else
+				{
+					PM_SetAnim(pm, SETANIM_LEGS, BOTH_RUNBACK1, setAnimFlags);
+				}
+			}
 			else
 			{
 				PM_SetAnim(pm,SETANIM_LEGS,BOTH_RUNBACK1,setAnimFlags);
@@ -8514,6 +8575,11 @@ static void PM_Footsteps( void )
 					else if ( pm->ps->saberAnimLevel == SS_STAFF )
 					{
 						PM_SetAnim(pm,SETANIM_LEGS,BOTH_RUN_STAFF,setAnimFlags);
+						if (pm->gent == player && pm->ps->saber[0].inquisitor_spin)
+						{
+							Inquisitor_Stop(pm->gent, qtrue);
+
+						}
 					}
 					else
 					{
@@ -8553,6 +8619,31 @@ static void PM_Footsteps( void )
 							PM_SetAnim( pm, SETANIM_LEGS, BOTH_RUN1, setAnimFlags );
 						}
 					}
+					else if (!in_camera && pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_DROIDEKA)
+					{
+						if (pm->ps->legsAnim != BOTH_RUN1)
+						{
+							if (pm->ps->legsAnim != BOTH_RUN1START)
+							{
+								//Hmm, he should really start slow and have to accelerate... also need to do this for stopping
+								PM_SetAnim(pm, SETANIM_LEGS, BOTH_RUN1START, setAnimFlags | SETANIM_FLAG_HOLD);
+								if (pm->ps->powerups[PW_GALAK_SHIELD] || pm->gent->flags & FL_SHIELDED)
+								{
+									pm->gent->flags &= ~FL_SHIELDED;
+									pm->gent->client->ps.powerups[PW_GALAK_SHIELD] = 0;
+									gi.G2API_SetSurfaceOnOff(&pm->gent->ghoul2[pm->gent->playerModel], "force_shield", 0x00000002);
+								}
+							}
+							else if (!pm->ps->legsAnimTimer)
+							{
+								PM_SetAnim(pm, SETANIM_LEGS, BOTH_RUN1, setAnimFlags);
+							}
+						}
+						else
+						{
+							PM_SetAnim(pm, SETANIM_LEGS, BOTH_RUN1, setAnimFlags);
+						}
+					}
 					else if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_WAMPA )
 					{
 						if ( pm->gent->NPC && pm->gent->NPC->stats.runSpeed == 300 )
@@ -8568,6 +8659,10 @@ static void PM_Footsteps( void )
 					{//no run anim
 						PM_SetAnim( pm, SETANIM_LEGS, BOTH_WALK1, setAnimFlags );
 					}
+					else if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_DROIDEKA)
+					{
+						PM_SetAnim(pm, SETANIM_LEGS, BOTH_RUN1, setAnimFlags);
+					}
 					else
 					{
 						PM_SetAnim( pm, SETANIM_LEGS, BOTH_RUN1, setAnimFlags );
@@ -8582,11 +8677,25 @@ static void PM_Footsteps( void )
 				{
 					if ( pm->ps->saberAnimLevel == SS_DUAL )
 					{
-						PM_SetAnim(pm,SETANIM_LEGS,BOTH_WALK_DUAL,setAnimFlags);
+						if (CasualWalker(pm))
+						{
+							PM_SetAnim(pm, SETANIM_LEGS, BOTH_WALK1, setAnimFlags);
+						}
+						else
+						{
+							PM_SetAnim(pm, SETANIM_LEGS, BOTH_WALK_DUAL, setAnimFlags);
+						}
 					}
 					else if ( pm->ps->saberAnimLevel == SS_STAFF )
 					{
-						PM_SetAnim(pm,SETANIM_LEGS,BOTH_WALK_STAFF,setAnimFlags);
+						if (CasualWalker(pm))
+						{
+							PM_SetAnim(pm, SETANIM_LEGS, BOTH_WALK1, setAnimFlags);
+						}
+						else
+						{
+							PM_SetAnim(pm, SETANIM_LEGS, BOTH_WALK_STAFF, setAnimFlags);
+						}
 					}
 					else
 					{
@@ -8594,6 +8703,31 @@ static void PM_Footsteps( void )
 							PM_SetAnim(pm, SETANIM_LEGS, BOTH_WALK1, setAnimFlags);
 						else
 							PM_SetAnim(pm,SETANIM_LEGS,BOTH_WALK2,setAnimFlags);
+					}
+				}
+				else if (!in_camera && pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_DROIDEKA)
+				{
+					if (pm->ps->legsAnim != BOTH_WALK1 && pm->cmd.forwardmove > 0)
+					{
+						if (pm->ps->legsAnim != BOTH_RUN1STOP && pm->ps->legsAnim == BOTH_RUN1)
+						{
+							//Hmm, he should really start slow and have to accelerate... also need to do this for stopping
+							PM_SetAnim(pm, SETANIM_LEGS, BOTH_RUN1STOP, setAnimFlags | SETANIM_FLAG_HOLD);
+						}
+						else if (!pm->ps->legsAnimTimer)
+						{
+							PM_SetAnim(pm, SETANIM_LEGS, BOTH_WALK1, setAnimFlags);
+						}
+					}
+					else
+					{
+						PM_SetAnim(pm, SETANIM_LEGS, BOTH_WALK1, setAnimFlags);
+						if (pm->gent->client->ps.stats[STAT_ARMOR] > 100 && !PM_RunningAnim(pm->gent->client->ps.legsAnim))
+						{
+							pm->gent->flags |= FL_SHIELDED;
+							pm->gent->client->ps.powerups[PW_GALAK_SHIELD] = Q3_INFINITE;
+							gi.G2API_SetSurfaceOnOff(&pm->gent->ghoul2[pm->gent->playerModel], "force_shield", 0x00000001);
+						}
 					}
 				}
 				else if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_WAMPA )
@@ -8745,6 +8879,11 @@ qboolean CasualWalker(pmove_t *pm)
 {
 	gentity_t *ent = pm->gent;
 
+	// If they have the flag, this should always return true.
+	if (ent->attrFlags & ATTR_CASUAL_WALK)
+		return qtrue;
+
+	// Only write conditions below this line IF there's a character that should only walk casually under specific circumstances (Which could be anything).
 	if (ent == player)
 	{
 		// Lord Vader only does a casual walk with specific styles
@@ -8752,10 +8891,6 @@ qboolean CasualWalker(pmove_t *pm)
 			&& (pm->ps->saberAnimLevel == SS_DESANN
 				|| pm->ps->saberAnimLevel == SS_TAVION
 				|| pm->ps->saberAnimLevel == SS_FAST)))
-			return qtrue;
-
-		// Kyle should always do it
-		else if(!Q_stricmp("kyle", g_char_model->string) || !Q_stricmp("kylejk2", g_char_model->string))
 			return qtrue;
 	}
 	else
@@ -8766,14 +8901,6 @@ qboolean CasualWalker(pmove_t *pm)
 				|| pm->ps->saberAnimLevel == SS_TAVION
 				|| pm->ps->saberAnimLevel == SS_FAST)))
 			return qtrue;
-
-		// Kyle should always do it
-		else if (!Q_stricmp("kyle", ent->NPC_type)
-			|| !Q_stricmp("kyle_boss", ent->NPC_type)
-			|| !Q_stricmp("KyleJK2", ent->NPC_type)
-			|| !Q_stricmp("KyleJK2noforce", ent->NPC_type))
-			return qtrue;
-
 	}
 	
 	return qfalse;
@@ -8928,7 +9055,6 @@ static void PM_WaterEvents( void ) {		// FIXME?
 	}
 }
 
-
 /*
 ===============
 PM_BeginWeaponChange
@@ -8997,14 +9123,14 @@ static void PM_BeginWeaponChange( int weapon ) {
 		else if ( cg.zoomMode >= ST_A280 )
 		{
 			cg.zoomMode = 0;
-		} 
-
-		pm->ps->tertiaryMode = qfalse;
+		}
 	}
+
+	pm->ps->tertiaryMode = qfalse;
 
 	if ( pm->gent
 		&& pm->gent->client
-		&& (pm->gent->client->NPC_class == CLASS_ATST||pm->gent->client->NPC_class == CLASS_RANCOR) )
+		&& (pm->gent->client->NPC_class == CLASS_ATST||pm->gent->client->NPC_class == CLASS_RANCOR || pm->gent->client->NPC_class == CLASS_DROIDEKA) )
 	{
 		if ( pm->ps->clientNum < MAX_CLIENTS )
 		{
@@ -9033,7 +9159,7 @@ static void PM_BeginWeaponChange( int weapon ) {
 	}
 }
 
-
+extern qboolean NoSaberTwirlCharacter(gentity_t* ent);
 /*
 ===============
 PM_FinishWeaponChange
@@ -9083,7 +9209,7 @@ static void PM_FinishWeaponChange( void ) {
 	pm->ps->weaponstate = WEAPON_RAISING;
 	pm->ps->weaponTime += 250;
 
-	if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_ATST )
+	if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_ATST || pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_DROIDEKA)
 	{//do nothing
 	}
 	else if ( weapon == WP_SABER )
@@ -9137,7 +9263,10 @@ static void PM_FinishWeaponChange( void ) {
 		{//actually did switch weapons, play anim
 			if (!G_IsRidingVehicle(pm->gent))
 			{
-				PM_SetSaberMove(LS_DRAW);
+				if (!NoSaberTwirlCharacter(pm->gent))
+					PM_SetSaberMove(LS_DRAW);
+				else
+					PM_SetSaberMove(LS_READY);
 			}
 		}
 	}
@@ -9150,6 +9279,11 @@ static void PM_FinishWeaponChange( void ) {
 			if (weaponData[weapon].weaponMdl[0]) {	//might be NONE, so check if it has a model
 				G_CreateG2AttachedWeaponModel( pm->gent, weaponData[weapon].weaponMdl, pm->gent->handRBolt, 0 );
 			}
+		}
+
+		if (weapon == WP_DROIDEKA && pm->gent->client->NPC_class == CLASS_DROIDEKA)
+		{
+			G_CreateG2AttachedWeaponModel(pm->gent, weaponData[WP_DROIDEKA].weaponMdl, pm->gent->handLBolt, 1);
 		}
 
 		if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_GALAKMECH)
@@ -13442,34 +13576,46 @@ void PM_WeaponWampa( void )
 
 /*
 ==============
-PM_SecondaryMdlChange
+PM_DWMdlChange
 ==============
 */
-static void PM_SecondaryMdlChange(qboolean secondaryMdl)
+void PM_WpnMdlChange(const char *currWeaponMdl, int weaponNum, playerState_t *ps)
 {
-	char *currWeaponMdl = (secondaryMdl) ? weaponData[pm->ps->weapon].weaponMdl2 : weaponData[pm->ps->weapon].weaponMdl;
-
-	// Set secondaryMdl.
-	weaponData[pm->ps->weapon].secondaryMdl = secondaryMdl;
+	// If we tried to switch model, while we had
+	// some scope/zoomMode on.
+	if (cg.zoomMode > 0 && cg.zoomMode < 3)
+	{
+		cg.zoomMode = 0;
+		cg.zoomTime = cg.time;
+	}
+	else if (cg.zoomMode >= ST_A280)
+	{
+		cg.zoomMode = 0;
+	}
 
 	// Reregister the same weapon with a different model.
-	cg_weapons[pm->ps->weapon].registered = qfalse;
-	CG_RegisterWeapon(pm->ps->weapon);
-	
-	// Remove the weapon you have currently with a different model.
-	G_RemoveWeaponModels(pm->gent);
-	G_CreateG2AttachedWeaponModel(pm->gent, currWeaponMdl, pm->gent->handRBolt, 0);
+	cg_weapons[weaponNum].registered = qfalse;
+	CG_RegisterWeapon(weaponNum);
 
-	// Set weaponstate and play the animation.
-	pm->ps->weaponstate = WEAPON_RAISING;
-	pm->ps->weaponTime += 500;
-
-	if (!(pm->ps->eFlags & EF_HELD_BY_WAMPA) && !G_IsRidingVehicle(pm->gent))
+	// If the weapon you are currently holding needs to change.
+	if (pm && pm->gent && weaponNum == ps->weapon)
 	{
-		PM_SetAnim(pm, SETANIM_TORSO, TORSO_DROPWEAP1, SETANIM_FLAG_HOLD);
+		// Remove the weapon(s) you have currently with a different model.
+		G_RemoveWeaponModels(pm->gent);
+		G_CreateG2AttachedWeaponModel(pm->gent, currWeaponMdl, pm->gent->handRBolt, 0);
+
+		// Set weaponstate and play the animation.
+		ps->weaponstate = WEAPON_RAISING;
+		ps->weaponTime += 500;
+
+		if (!(ps->eFlags & EF_HELD_BY_WAMPA) && !G_IsRidingVehicle(pm->gent))
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, TORSO_DROPWEAP1, SETANIM_FLAG_HOLD);
+		}
 	}
 }
 
+extern qboolean CG_IsWeaponPistol(gentity_t* ent);
 /*
 ==============
 PM_Weapon
@@ -13618,6 +13764,14 @@ static void PM_Weapon( void )
 		}
 	}
 
+	// check for weapon change
+	// can't change if weapon is firing, but can change again if lowering or raising
+	if ((pm->ps->weaponTime <= 0 || pm->ps->weaponstate != WEAPON_FIRING) && pm->ps->weaponstate != WEAPON_CHARGING_ALT && pm->ps->weaponstate != WEAPON_CHARGING) {
+		if (pm->ps->weapon != pm->cmd.weapon && (!pm->ps->viewEntity || pm->ps->viewEntity >= ENTITYNUM_WORLD) && !PM_DoChargedWeapons()) {
+			PM_BeginWeaponChange(pm->cmd.weapon);
+		}
+	}
+
 	if (pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer())
 	{
 		if (weaponData[pm->ps->weapon].weaponCategory == WC_PISTOL)
@@ -13639,28 +13793,18 @@ static void PM_Weapon( void )
 		}
 	}
 
-	// check for weapon change
-	// can't change if weapon is firing, but can change again if lowering or raising
-	if ( (pm->ps->weaponTime <= 0 || pm->ps->weaponstate != WEAPON_FIRING)  && pm->ps->weaponstate != WEAPON_CHARGING_ALT && pm->ps->weaponstate != WEAPON_CHARGING) {
-		if ( pm->ps->weapon != pm->cmd.weapon && (!pm->ps->viewEntity || pm->ps->viewEntity >= ENTITYNUM_WORLD) && !PM_DoChargedWeapons()) {
-			PM_BeginWeaponChange( pm->cmd.weapon );
-		}
-	}
-
+	// This has to be here.
 	if (pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer())
 	{
-		// If the weapon has two model paths.
-		if (weaponData[pm->ps->weapon].weaponMdl[0] && weaponData[pm->ps->weapon].weaponMdl2[0]
-			&& pm->ps->weaponstate != WEAPON_DROPPING)
+		// If you are riding on a vehicle and you are dual wielding
+		// some version of the WP_BLASTER.
+		if (PM_RidingVehicle() && CG_IsWeaponPistol(pm->gent)
+			&& pm->gent->weaponModel[1] > 0)
 		{
-			if (pm->ps->tertiaryMode && weaponData[pm->ps->weapon].secondaryMdl == qfalse)
-			{
-				PM_SecondaryMdlChange(qtrue);
-			}
-			else if (pm->ps->tertiaryMode == 0 && weaponData[pm->ps->weapon].secondaryMdl)
-			{
-				PM_SecondaryMdlChange(qfalse);
-			}
+			// Remove the weapon from your left hand.
+			gi.G2API_RemoveGhoul2Model(pm->gent->ghoul2, pm->gent->weaponModel[1]);
+			pm->gent->weaponModel[1] = -1;
+			pm->gent->count = 0;
 		}
 	}
 
@@ -13670,7 +13814,7 @@ static void PM_Weapon( void )
 	}
 
 	// change weapon if time
- 	if ( pm->ps->weaponstate == WEAPON_DROPPING ) {
+	if ( pm->ps->weaponstate == WEAPON_DROPPING ) {
 		PM_FinishWeaponChange();
 		return;
 	}
@@ -13834,6 +13978,11 @@ static void PM_Weapon( void )
 			}
 		}
 
+		else if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_DROIDEKA)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+		}
+
 		else if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_ROCKETTROOPER)
 		{
 			if (pm->gent->client->moveType == MT_FLYSWIM)
@@ -13963,7 +14112,8 @@ static void PM_Weapon( void )
 		{
 			PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 		}
-		else if (baseWeapon == WP_DISRUPTOR)
+		else if (baseWeapon == WP_DISRUPTOR
+		|| baseWeapon == WP_CIS_SNIPER)
 		{
 			if (((pm->ps->clientNum >= MAX_CLIENTS && !PM_ControlledByPlayer()) && pm->gent && pm->gent->NPC && (pm->gent->NPC->scriptFlags & SCF_ALT_FIRE)) ||
 				((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()) && cg.zoomMode == 2))
@@ -14879,6 +15029,17 @@ void PM_AdjustAttackStates( pmove_t *pm )
 						cg.zoomMode = ST_F11D;
 						cg_zoomFov = 25.0f;
 						break;
+					case ST_E5:
+						cg.zoomMode = ST_E5;
+						cg_zoomFov = 25.0f;
+						break;
+				}
+
+				// I probably shouldn't hard code this, but oh well.
+				if (pm->ps->weapon == WP_REBELBLASTER)
+				{
+					cg.zoomMode = ST_A280;
+					cg_zoomFov = 25.0f;
 				}
 			}
 			else if (cg.zoomMode >= ST_A280)
@@ -14981,14 +15142,14 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			pm->ps->firing_attack |= MAIN_ATTACK;
 		}
 	}
-	else if (weaponData[weapon].scopeType < ST_A280 
+	else if (weaponData[weapon].scopeType < ST_A280
 		&& (tertiary_firing_type >= FT_AUTOMATIC || alt_firing_type >= FT_AUTOMATIC || main_firing_type >= FT_AUTOMATIC))
 	{
 		// Don't let the alt-fire get through.
 		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
 	}
 
-	if (weapon == WP_CLONECOMMANDO && pm->ps->tertiaryMode)
+	if (weapon == WP_CLONECOMMANDO && pm->ps->tertiaryMode || weapon == WP_SBD || weapon == WP_DROIDEKA)
 	{
 		// Don't let the alt-fire get through.
 		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
@@ -15643,14 +15804,23 @@ void Pmove( pmove_t *pmove )
 	else // TEMPTEMPTEMPTEMPTEMPTEMPTEMPTEMPTEMPTEMPTEMPTEMPTEMP
 	{
 		// footstep events / legs animations
-		if (pm->ps->stasisTime < level.time) {
+		if (pm->ps->forceLowerAnimTimer > level.time)
+		{
+			PM_SetAnim(pm, SETANIM_LEGS, pm->ps->forceLowerAnim, SETANIM_FLAG_OVERRIDE);
+		}
+		else if (pm->ps->stasisTime < level.time) {
 			PM_Footsteps();
 		}
 	}
 	// torso animation
 	if ( !pVeh )
 	{//not riding a vehicle
-		if (pm->ps->stasisTime < level.time) {
+		//not riding a vehicle
+		if (pm->ps->forceUpperAnimTimer > level.time)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, pm->ps->forceUpperAnim, SETANIM_FLAG_OVERRIDE);
+		}
+		else if (pm->ps->stasisTime < level.time) {
 			PM_TorsoAnimation();
 		}
 	}

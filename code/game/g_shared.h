@@ -1028,6 +1028,7 @@ Ghoul2 Insert End
 	int			spawnflags;			// set in QuakeEd
 
 	int			flags;				// FL_* variables
+	int			attrFlags;			//ATTR_* variables
 
 	char		*model;				// Normal model, or legs model on tri-models
 	char		*model2;			// Torso model
@@ -1258,6 +1259,11 @@ Ghoul2 Insert End
 	char		*NPC_Weapon;
 	char		*NPC_LightningColor;
 	char		*NPC_LightningVictim;
+	char		*NPC_model;
+	int			NPC_FPLevel[NUM_FORCE_POWERS];
+	int			NPC_color_red;
+	int			NPC_color_green;
+	int			NPC_color_blue;
 
 //Variables used by movers (most likely exclusively by them)
 	moverState_t moverState;
@@ -1333,6 +1339,7 @@ Ghoul2 Insert End
 		saved_game.write<int32_t>(classname);
 		saved_game.write<int32_t>(spawnflags);
 		saved_game.write<int32_t>(flags);
+		saved_game.write<int32_t>(attrFlags);
 		saved_game.write<int32_t>(model);
 		saved_game.write<int32_t>(model2);
 		saved_game.write<int32_t>(freetime);
@@ -1481,6 +1488,7 @@ Ghoul2 Insert End
 		saved_game.write<int32_t>(NPC_SaberTwo);
 		saved_game.write<int32_t>(NPC_SaberOneColor);
 		saved_game.write<int32_t>(NPC_SaberTwoColor);
+		saved_game.write<int32_t>(NPC_model);
 		saved_game.write<int32_t>(moverState);
 		saved_game.write<int32_t>(soundPos1);
 		saved_game.write<int32_t>(sound1to2);
@@ -1531,6 +1539,7 @@ Ghoul2 Insert End
 		saved_game.read<int32_t>(classname);
 		saved_game.read<int32_t>(spawnflags);
 		saved_game.read<int32_t>(flags);
+		saved_game.read<int32_t>(attrFlags);
 		saved_game.read<int32_t>(model);
 		saved_game.read<int32_t>(model2);
 		saved_game.read<int32_t>(freetime);
@@ -1679,6 +1688,7 @@ Ghoul2 Insert End
 		saved_game.read<int32_t>(NPC_SaberTwo);
 		saved_game.read<int32_t>(NPC_SaberOneColor);
 		saved_game.read<int32_t>(NPC_SaberTwoColor);
+		saved_game.read<int32_t>(NPC_model);
 		saved_game.read<int32_t>(moverState);
 		saved_game.read<int32_t>(soundPos1);
 		saved_game.read<int32_t>(sound1to2);

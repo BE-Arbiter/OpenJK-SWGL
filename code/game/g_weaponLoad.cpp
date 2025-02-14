@@ -81,7 +81,7 @@ static void ParseFlt(const char** holdBuf, float* dest)
 //--------------------------------------------
 void ParseStr(const char **holdBuf, char* dest, int maxLen, char* identifier)
 {
-	int len;	
+	int len;
 	const char*tokenStr;
 
 	if ( COM_ParseString(holdBuf,&tokenStr))
@@ -630,7 +630,7 @@ void WPN_ScopeType(const char **holdBuf)
 	// This is for cg.zoommode.
 	tokenInt += 3;
 
-    if ((tokenInt < ST_A280) || (tokenInt > ST_F11D ))
+    if ((tokenInt < ST_A280) || (tokenInt > ST_E5 ))
     {
         gi.Printf(S_COLOR_YELLOW"WARNING: bad scopeType in external weapon data '%d'\n", tokenInt);
         return;
@@ -709,7 +709,6 @@ void WPN_TertiaryFireOptions(const char **holdBuf)
 		weaponData[wpnParms.weaponNum].tertiaryFireOpt[i] = tokenInt;
 	}
 }
-
 
 //--------------------------------------------
 void WPN_WeaponModel2(const char **holdBuf)
@@ -1037,7 +1036,7 @@ void WP_LoadWeaponParms (void)
 				if(weaponData[i].attackData[k].missileHitSound[0] == 0){
 					strcpy(weaponData[i].attackData[k].missileHitSound, weaponData[j].attackData[k].missileHitSound);
 				}
-				
+
 				if (weaponData[i].attackData[k].projectileEffect[0] == 0) {
 					strcpy(weaponData[i].attackData[k].projectileEffect, weaponData[j].attackData[k].projectileEffect);
 				}
@@ -1048,7 +1047,7 @@ void WP_LoadWeaponParms (void)
 
 				//copying weapon missile trail Function pointers
 				weaponData[i].attackData[k].missileFunc = weaponData[i].attackData[k].missileFunc == 0 ? weaponData[j].attackData[k].missileFunc : weaponData[i].attackData[k].missileFunc;
-				
+
 				weaponData[i].attackData[k].missileDlight = weaponData[i].attackData[k].missileDlight == 0 ? weaponData[j].attackData[k].missileDlight : weaponData[i].attackData[k].missileDlight ;
 				//Copying vectors
 				if (weaponData[i].attackData[k].missileDlightColor[0] == 0 && weaponData[i].attackData[k].missileDlightColor[1] == 0 && weaponData[i].attackData[k].missileDlightColor[2] == 0) {
@@ -1081,11 +1080,11 @@ void WP_LoadWeaponParms (void)
 	memset(&buckets, -1, sizeof(buckets));
 	memset(&weaponBuckets, -1, sizeof(weaponBuckets));
 	//Naive initialisation of the buckets
-	for (int i = 0; i < weaponCount;i++) 
+	for (int i = 0; i < weaponCount;i++)
 	{
 		int bucketIndex = (-weaponData[i].weaponBucket) - 1;
 		int weaponIndex = 0;
-		while (buckets[bucketIndex][weaponIndex] != -1) 
+		while (buckets[bucketIndex][weaponIndex] != -1)
 		{
 			weaponIndex++;
 		}

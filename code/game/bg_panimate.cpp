@@ -4472,6 +4472,13 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 			{
 				*animSpeed *= gent->client->ps.saber[1].animSpeedScale;
 			}
+			if (gent->attrFlags & ATTR_BERSERKER)
+			{
+				if (gent->health <= (gent->max_health * 0.5f))
+					*animSpeed *= 2.0f;
+				else if (gent->health <= (gent->max_health * 0.75f))
+					*animSpeed *= 1.5f;
+			}
 		}
 	}
 	if ( gent
@@ -4483,14 +4490,32 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 	{//using a scepter and dual style, slow down anims
 		if ( anim >= BOTH_A1_T__B_ && anim <= BOTH_H7_S7_BR )
 		{
-			*animSpeed *= 0.75;
+			if (gent
+				&& gent->client
+				&& gent->client->ps.forceUpperAnimSpeed)
+			{
+				*animSpeed *= gent->client->ps.forceUpperAnimSpeed;
+			}
+			else
+			{
+				*animSpeed *= 0.75;
+			}
 		}
 	}
 	if ( gent && gent->client && gent->client->ps.forceRageRecoveryTime > level.time )
 	{//rage recovery
 		if ( anim >= BOTH_A1_T__B_ && anim <= BOTH_H1_S1_BR )
 		{//animate slower
-			*animSpeed *= 0.75;
+			if (gent
+				&& gent->client
+				&& gent->client->ps.forceUpperAnimSpeed)
+			{
+				*animSpeed *= gent->client->ps.forceUpperAnimSpeed;
+			}
+			else
+			{
+				*animSpeed *= 0.75;
+			}
 		}
 	}
 	else if ( gent && gent->NPC && gent->NPC->rank == RANK_CIVILIAN )
@@ -4499,7 +4524,16 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 		{//his fast attacks are slower
 			if ( !PM_SpinningSaberAnim( anim ) )
 			{
-				*animSpeed *= 0.75;
+				if (gent
+					&& gent->client
+					&& gent->client->ps.forceUpperAnimSpeed)
+				{
+					*animSpeed *= gent->client->ps.forceUpperAnimSpeed;
+				}
+				else
+				{
+					*animSpeed *= 0.75;
+				}
 			}
 			return;
 		}
@@ -4512,7 +4546,16 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 			{//his fast attacks are slower
 				if ( !PM_SpinningSaberAnim( anim ) )
 				{
-					*animSpeed *= 0.75;
+					if (gent
+						&& gent->client
+						&& gent->client->ps.forceUpperAnimSpeed)
+					{
+						*animSpeed *= gent->client->ps.forceUpperAnimSpeed;
+					}
+					else
+					{
+						*animSpeed *= 0.75;
+					}
 				}
 				return;
 			}
@@ -4528,11 +4571,29 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 	{
 		if ( saberAnimLevel == FORCE_LEVEL_1 || saberAnimLevel == FORCE_LEVEL_5 )
 		{//FIXME: should not be necc for FORCE_LEVEL_1's
-			*animSpeed *= 1.5;
+			if (gent
+				&& gent->client
+				&& gent->client->ps.forceUpperAnimSpeed)
+			{
+				*animSpeed *= gent->client->ps.forceUpperAnimSpeed;
+			}
+			else
+			{
+				*animSpeed *= 1.5;
+			}
 		}
 		else if ( saberAnimLevel == FORCE_LEVEL_3 )
 		{
-			*animSpeed *= 0.75;
+			if (gent
+				&& gent->client
+				&& gent->client->ps.forceUpperAnimSpeed)
+			{
+				*animSpeed *= gent->client->ps.forceUpperAnimSpeed;
+			}
+			else
+			{
+				*animSpeed *= 0.75;
+			}
 		}
 	}
 }
@@ -4954,6 +5015,11 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 			animCurrent = torsCurrent;
 		}
 
+		if (gent->client->ps.forceUpperAnimSpeed)
+		{
+			animSpeed *= gent->client->ps.forceUpperAnimSpeed;
+		}
+
 		gi.G2API_SetAnimIndex(&gent->ghoul2[gent->playerModel], curAnim.glaIndex);
 		gi.G2API_SetBoneAnimIndex(&gent->ghoul2[gent->playerModel], torsBone,
 			animStart,
@@ -4995,6 +5061,11 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 		if (bodyOnAnimNow && !animRestart && !bodyMatchTorsFrame)
 		{
 			animCurrent = bodyCurrent;
+		}
+
+		if (gent->client->ps.forceLowerAnimSpeed)
+		{
+			animSpeed *= gent->client->ps.forceLowerAnimSpeed;
 		}
 
 		gi.G2API_SetAnimIndex(&gent->ghoul2[gent->playerModel], curAnim.glaIndex);
@@ -5515,24 +5586,12 @@ void PM_TorsoAnimLightsaber()
 
 qboolean NoSaberTwirlCharacter(gentity_t* ent)
 {
-	if (ent == player)
-	{
-		if (!Q_stricmp("anakin_dark", g_char_model->string)
-			|| !Q_stricmp("oldben", g_char_model->string)
-			|| !Q_stricmp("am_vader", g_char_model->string)
-			|| !Q_stricmp("anakin_apprentice", g_char_model->string))
-			return qtrue;
-	}
-	else
-	{
-		if (!Q_stricmp(EP3_VADER, ent->NPC_type)
-			|| !Q_stricmp(BEN_KENOBI, ent->NPC_type)
-			|| !Q_stricmp(VADER, ent->NPC_type)
-			|| !Q_stricmp(ANAKIN_INFINITIES, ent->NPC_type))
-			return qtrue;
-	}
-
+	// This should override everything, even if the character is allowed to twirl their saber
 	if (!g_allowSaberTwirling->integer)
+		return qtrue;
+
+	// Main deciding point now
+	if (ent->attrFlags & ATTR_NO_TWIRL)
 		return qtrue;
 
 	return qfalse;
@@ -5802,7 +5861,7 @@ void PM_TorsoAnimation(void)
 		weaponBusy = qtrue;
 	}
 
-	if (weapon == WP_NONE || pm->ps->weaponstate == WEAPON_READY 
+	if (weapon == WP_NONE || pm->ps->weaponstate == WEAPON_READY
 		|| pm->ps->weaponstate == WEAPON_CHARGING || pm->ps->weaponstate == WEAPON_CHARGING_ALT)
 	{
 		if (weapon == WP_SABER && pm->ps->SaberLength())
@@ -5926,7 +5985,7 @@ void PM_TorsoAnimation(void)
 					PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY1, SETANIM_FLAG_NORMAL);
 				}
 			}
-			else if (weaponData[weapon].weaponCategory == WC_PISTOL) 
+			else if (weaponData[weapon].weaponCategory == WC_PISTOL)
 			{
 				if (pm->gent && pm->gent->weaponModel[1] > 0)
 				{//dual pistols
@@ -5968,7 +6027,7 @@ void PM_TorsoAnimation(void)
 					}
 				}
 			}
-			else if (weaponData[weapon].weaponCategory == WC_MELEE) 
+			else if (weaponData[weapon].weaponCategory == WC_MELEE)
 			{
 				if (PM_RunningAnim(pm->ps->legsAnim)
 					|| PM_WalkingAnim(pm->ps->legsAnim)
@@ -6010,7 +6069,9 @@ void PM_TorsoAnimation(void)
 			{
 				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
 			}
-			else if (baseWeapon == WP_DISRUPTOR || baseWeapon == WP_TUSKEN_RIFLE) {
+			else if (baseWeapon == WP_DISRUPTOR
+			|| baseWeapon == WP_TUSKEN_RIFLE
+			|| baseWeapon == WP_CIS_SNIPER) {
 				if ((pm->ps->weaponstate != WEAPON_FIRING
 					&& pm->ps->weaponstate != WEAPON_CHARGING
 					&& pm->ps->weaponstate != WEAPON_CHARGING_ALT)
@@ -6247,7 +6308,10 @@ void PM_TorsoAnimation(void)
 			}
 		}
 		/* Special Sniper Case */
-		else if (baseWeapon == WP_DISRUPTOR || baseWeapon == WP_TUSKEN_RIFLE) {
+		else if (baseWeapon == WP_DISRUPTOR
+		|| baseWeapon == WP_TUSKEN_RIFLE
+		|| baseWeapon == WP_CIS_SNIPER)
+		{
 			if ((pm->ps->weaponstate != WEAPON_FIRING && pm->ps->weaponstate != WEAPON_CHARGING && pm->ps->weaponstate != WEAPON_CHARGING_ALT)
 				|| PM_RunningAnim(pm->ps->legsAnim) || PM_WalkingAnim(pm->ps->legsAnim)
 				|| PM_JumpingAnim(pm->ps->legsAnim) || PM_SwimmingAnim(pm->ps->legsAnim))

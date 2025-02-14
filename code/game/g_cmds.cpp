@@ -238,6 +238,11 @@ void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 		// Skip the unusable weapons, add in extra weapons.
 		for (int i = WP_BATTLEDROID; i < weaponCount; i++)
 		{
+			if (i == WP_SBD || i == WP_DROIDEKA)
+			{
+				continue;
+			}
+
 			ent->client->ps.weapons[i] = 1;
 		}
 		if ( !give_all )

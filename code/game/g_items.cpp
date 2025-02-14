@@ -455,11 +455,13 @@ qboolean Pickup_Saber( gentity_t *self, qboolean hadSaber, gentity_t *pickUpSabe
 }
 
 extern void CG_ChangeWeapon( int num );
+extern void PM_WpnMdlChange(const char *currWeaponMdl, int weaponNum, playerState_t *ps);
 int Pickup_Weapon (gentity_t *ent, gentity_t *other)
 {
 	int		quantity;
 	int weaponNum = ent->item->giTag;
 	qboolean	hadWeapon = qfalse;
+	int weaponNum = 0;
 
 	if (weaponNum == -1) {
 		for (int i = 0; i < weaponCount; i++) {
@@ -741,6 +743,13 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	if (other->health < 1)
 		return;		// dead people can't pickup
 
+	// Droidekas have no hands, or do they? Idk
+	if (other->client->NPC_class == CLASS_DROIDEKA && (ent->item->giType == IT_WEAPON || ent->item->giType == IT_HOLDABLE))
+	{
+		return;
+	}
+
+
 	if ( other->client->ps.pm_time > 0 )
 	{//cant pick up when out of control
 		return;
@@ -997,7 +1006,7 @@ gentity_t *LaunchItem( gitem_t *item, const vec3_t origin, const vec3_t velocity
 
 	dropped->e_TouchFunc = touchF_Touch_Item;
 
-	if ( item->giType == IT_WEAPON )
+	if ( item->giType == IT_WEAPON)
 	{
 		// give weapon items zero pitch, a random yaw, and rolled onto their sides...but would be bad to do this for a bowcaster
 		if ( item->giTag != WP_BOWCASTER

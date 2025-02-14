@@ -1364,7 +1364,7 @@ void Cvar_Init (void) {
 	memset( cvar_indexes, 0, sizeof( cvar_indexes ) );
 	memset( hashTable, 0, sizeof( hashTable ) );
 
-	cvar_cheats = Cvar_Get("helpUsObi", "0", CVAR_SYSTEMINFO );
+	cvar_cheats = Cvar_Get("helpUsObi", "1", CVAR_SYSTEMINFO );
 
 	Cmd_AddCommand( "print", Cvar_Print_f );
 	Cmd_SetCommandCompletionFunc( "print", Cvar_CompleteCvarName );

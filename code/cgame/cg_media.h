@@ -29,6 +29,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "../cgame/cg_local.h"
 #include "g_shared.h"
 
+#define	TARGET_FPS	60
+
 #define	NUM_CROSSHAIRS		9
 
 typedef enum {
@@ -95,6 +97,8 @@ typedef enum
 	OHB_SABERSTYLE_STRONG,
 	OHB_SABERSTYLE_MEDIUM,
 	OHB_SABERSTYLE_FAST,
+	OHB_SABERSTYLE_DESANN,
+	OHB_SABERSTYLE_TAVION,
 	OHB_SCANLINE_LEFT,
 	OHB_SCANLINE_RIGHT,
 	OHB_FRAME_LEFT,

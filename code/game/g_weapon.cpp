@@ -419,6 +419,9 @@ qboolean W_AccuracyLoggableWeapon( int weapon, qboolean alt_fire, int mod )
 		case WP_JANGO:
 		case WP_BOBA:
 		case WP_CLONEPISTOL:
+		case WP_SBD:
+		case WP_DROIDEKA:
+		case WP_CIS_SNIPER:
 			return qtrue;
 			break;
 		//non-alt standard
@@ -515,7 +518,6 @@ void CalcMuzzlePoint_Configurable( gentity_t *const ent, vec3_t forwardVec, vec3
 	{
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
-	case WP_REY:
 		ViewHeightFix(ent);
 		muzzlePoint[2] += ent->client->ps.viewheight;//By eyes
 		muzzlePoint[2] -= 16;
@@ -542,6 +544,9 @@ void CalcMuzzlePoint_Configurable( gentity_t *const ent, vec3_t forwardVec, vec3
 	case WP_JANGO:
 	case WP_BOBA:
 	case WP_CLONEPISTOL:
+	case WP_SBD:
+	case WP_DROIDEKA:
+	case WP_CIS_SNIPER:
 		ViewHeightFix(ent);
 		muzzlePoint[2] += ent->client->ps.viewheight;//By eyes
 		muzzlePoint[2] -= 1;
@@ -634,6 +639,10 @@ vec3_t WP_MuzzlePoint[] =
 	{12,	6,		-6	},	// WP_JANGO,
 	{12,	6,		-6	},	// WP_BOBA,
 	{12,	6,		-6	},	// WP_CLONEPISTOL,
+	{12,	6,		-6	},	// WP_BOBA,
+	{12,	6,		-6	},	// WP_CIS_SNIPER,
+	{12,	6,		-6	},	// WP_SBD,
+	{12,	6,		-6	}	// WP_DROIDEKA,
 };
 
 void WP_RocketLock( gentity_t *ent, float lockDist )
@@ -1269,7 +1278,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 	}
 
 	// set aiming directions
-	if ( ent->s.weapon == WP_DISRUPTOR && alt_fire )
+	if ( (ent->s.weapon == WP_DISRUPTOR || ent->s.weapon == WP_CIS_SNIPER) && alt_fire )
 	{
 		if ( ent->NPC )
 		{
@@ -1611,24 +1620,12 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 		}
 		break;
 
-	case WP_BATTLEDROID:
-		WP_FireBattleDroid(ent, alt_fire);
-		break;
-
 	case WP_THEFIRSTORDER:
 		WP_FireFirstOrder(ent, alt_fire);
 		break;
 
 	case WP_CLONECARBINE:
 		WP_FireCloneCarbine(ent, alt_fire);
-		break;
-
-	case WP_REBELBLASTER:
-		WP_FireRebelBlaster(ent, alt_fire);
-		break;
-
-	case WP_CLONERIFLE:
-		WP_FireCloneRifle(ent, alt_fire);
 		break;
 
 	case WP_CLONECOMMANDO:
@@ -1639,21 +1636,54 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 		WP_FireRebelRifle(ent, alt_fire);
 		break;
 
-	case WP_REY:
-		WP_FireReyPistol(ent, alt_fire);
-		break;
-
-	case WP_JANGO:
-		WP_FireJangoPistol(ent, alt_fire);
-		break;
-
 	case WP_BOBA:
 		WP_FireBobaRifle(ent, alt_fire);
+		break;
+
+	case WP_SBD:
+		if (!(alt_fire))
+		{
+			WP_FireSBD(ent);
+		}
+		break;
+
+	case WP_DROIDEKA:
+		if (!(alt_fire))
+		{
+			WP_FireDroideka(ent);
+		}
+		break;
+	case WP_CIS_SNIPER:
+		WP_FireCISSniper(ent, alt_fire);
+		break;
+
+	case WP_BATTLEDROID:
+		WP_FireBattleDroid(ent, alt_fire);
+		break;
+
+	case WP_CLONERIFLE:
+		WP_FireCloneRifle(ent, alt_fire);
 		break;
 
 	case WP_CLONEPISTOL:
 		WP_FireClonePistol(ent, alt_fire);
 		break;
+
+	case WP_REBELBLASTER:
+		WP_FireRebelBlaster(ent, alt_fire);
+		break;
+
+
+	case WP_REY:
+		WP_FireReyPistol(ent, alt_fire);
+		break;
+
+
+	case WP_JANGO:
+		WP_FireJangoPistol(ent, alt_fire);
+		break;
+
+
 
 	case WP_TUSKEN_STAFF:
 	default:
