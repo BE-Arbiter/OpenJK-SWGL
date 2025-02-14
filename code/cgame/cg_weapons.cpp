@@ -293,6 +293,14 @@ void CG_RegisterWeapon( int weaponNum ) {
 	{
 		weaponInfo->alt_projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[1].projectileEffect);
 	}
+	if ( weaponData[weaponNum].explosionEffect[0] )
+	{
+		weaponInfo->explosionEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].explosionEffect);
+	}
+	if ( weaponData[weaponNum].shockwaveEffect)
+	{
+		weaponInfo->shockwaveEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].shockwaveEffect);
+	}
 
 	//fixme: don't really need to copy these, should just use directly
 	// give ourselves the functions if we can

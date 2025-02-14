@@ -165,7 +165,7 @@ typedef struct weaponAttackData_s
 	char	mMuzzleEffect[64];
 	int		mMuzzleEffectID;
 	char	projectileEffect[64];
-	
+
 	int		damage;				// Damage per shot
 	int		splashDamage;		// Splash damage when shot explodes
 	float	splashRadius;		// Splash radius when shot explodes
@@ -197,6 +197,9 @@ typedef struct weaponData_s
 	int		chargeMuzzleShaderID;
 
 	int		defaultDamage;
+
+	char	explosionEffect[64]; // For explosives
+	char    shockwaveEffect[64]; // For explosives
 
 	int 	tertiaryEnergyPerShot;
 	int 	tertiaryFireTime;

@@ -242,6 +242,9 @@ void WPN_WeaponBucket(const char** holdBuf);
 void WPN_ProjectileEffect(const char** holdBuf);
 void WPN_AltProjectileEffect(const char** holdBuf);
 
+void WPN_ExplosionEffect(const char** holdBuf);
+void WPN_ShockwaveEffect(const char** holdBuf);
+
 // Legacy weapons.dat force fields
 void WPN_FuncSkip(const char** holdBuf);
 
@@ -294,6 +297,9 @@ wpnParms_t WpnParms[] =
 	{ "chargeMuzzleShader",	WPN_ChargeMuzzleEffect },
 	{ "projectileEffect",			WPN_ProjectileEffect },
 	{ "altProjectileEffect",		WPN_AltProjectileEffect},
+
+	{ "explosionEffect",			WPN_ExplosionEffect },
+	{ "shockwaveEffect",		WPN_ShockwaveEffect},
 	// OPENJK NEW FIELDS
 	{ "damage",				WPN_Damage },
 	{ "altdamage",			WPN_AltDamage },

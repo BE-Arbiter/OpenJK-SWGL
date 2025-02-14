@@ -528,6 +528,18 @@ void WPN_AltProjectileEffect(const char** holdBuf)
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].projectileEffect, 64, "alt_projectileEffect");
 	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[1].projectileEffect );
 }
+//--------------------------------------------
+void WPN_ExplosionEffect(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].explosionEffect, 64, "alt_projectileEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].explosionEffect );
+}
+//--------------------------------------------
+void WPN_ShockwaveEffect(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].shockwaveEffect, 64, "alt_projectileEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].shockwaveEffect );
+}
 
 //--------------------------------------------
 void WPN_TertiaryMuzzleEffect(const char **holdBuf)

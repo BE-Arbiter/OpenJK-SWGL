@@ -1743,6 +1743,9 @@ typedef struct weaponInfo_s {
 	fxHandle_t		projectileEffect;
 	fxHandle_t		alt_projectileEffect;
 
+	fxHandle_t		explosionEffect;
+	fxHandle_t		shockwaveEffect;
+
 //	sfxHandle_t		flashSound;
 //	sfxHandle_t		altFlashSound;
 

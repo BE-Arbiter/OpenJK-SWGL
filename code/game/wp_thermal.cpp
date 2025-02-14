@@ -29,7 +29,22 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 //---------------------
 //	Thermal Detonator
 //---------------------
-
+void thermalDetonatorPlayExplosionEffect(gentity_t* ent) {
+	if (weaponData[ent->s.weapon].explosionEffect && weaponData[ent->s.weapon].explosionEffect[0]) {
+		G_PlayEffect(weaponData[ent->s.weapon].explosionEffect, ent->currentOrigin);
+	}
+	else
+	{
+		G_PlayEffect("thermal/explosion", ent->currentOrigin);
+	}
+	if (weaponData[ent->s.weapon].shockwaveEffect && weaponData[ent->s.weapon].shockwaveEffect[0]) {
+		G_PlayEffect(weaponData[ent->s.weapon].shockwaveEffect, ent->currentOrigin);
+	}
+	else
+	{
+		G_PlayEffect("thermal/shockwave", ent->currentOrigin);
+	}
+}
 //---------------------------------------------------------
 void thermalDetonatorExplode( gentity_t *ent )
 //---------------------------------------------------------
@@ -38,9 +53,9 @@ void thermalDetonatorExplode( gentity_t *ent )
 	{
 		ent->takedamage = qfalse; // don't allow double deaths!
 
-		G_Damage( ent->activator, ent, ent->owner, vec3_origin, ent->currentOrigin, weaponData[WP_THERMAL].attackData[1].damage, 0, MOD_EXPLOSIVE );
-		G_PlayEffect( "thermal/explosion", ent->currentOrigin );
-		G_PlayEffect( "thermal/shockwave", ent->currentOrigin );
+		G_Damage( ent->activator, ent, ent->owner, vec3_origin, ent->currentOrigin, weaponData[ent->s.weapon].attackData[1].damage, 0, MOD_EXPLOSIVE );
+		
+		thermalDetonatorPlayExplosionEffect(ent);
 
 		G_FreeEntity( ent );
 	}
@@ -59,10 +74,9 @@ void thermalDetonatorExplode( gentity_t *ent )
 
 		ent->takedamage = qfalse; // don't allow double deaths!
 
-		G_RadiusDamage( ent->currentOrigin, ent->owner, weaponData[WP_THERMAL].attackData[0].splashDamage, weaponData[WP_THERMAL].attackData[0].splashRadius, NULL, MOD_EXPLOSIVE_SPLASH );
-
-		G_PlayEffect( "thermal/explosion", ent->currentOrigin );
-		G_PlayEffect( "thermal/shockwave", ent->currentOrigin );
+		G_RadiusDamage( ent->currentOrigin, ent->owner, weaponData[ent->s.weapon].attackData[0].splashDamage, weaponData[ent->s.weapon].attackData[0].splashRadius, NULL, MOD_EXPLOSIVE_SPLASH );
+		
+		thermalDetonatorPlayExplosionEffect(ent);
 
 		G_FreeEntity( ent );
 	}
@@ -420,14 +434,14 @@ gentity_t *WP_FireThermalDetonator( gentity_t *ent, qboolean alt_fire )
 
 	bolt->s.loopSound = G_SoundIndex( "sound/weapons/thermal/thermloop.wav" );
 
-	bolt->damage = weaponData[WP_THERMAL].attackData[0].damage * damageScale;
+	bolt->damage = weaponData[ent->s.weapon].attackData[0].damage * damageScale;
 	bolt->dflags = 0;
-	bolt->splashDamage = weaponData[WP_THERMAL].attackData[0].splashDamage * damageScale;
-	bolt->splashRadius = weaponData[WP_THERMAL].attackData[0].splashRadius;
+	bolt->splashDamage = weaponData[ent->s.weapon].attackData[0].splashDamage * damageScale;
+	bolt->splashRadius = weaponData[ent->s.weapon].attackData[0].splashRadius;
 
 	bolt->s.eType = ET_MISSILE;
 	bolt->svFlags = SVF_USE_CURRENT_ORIGIN;
-	bolt->s.weapon = WP_THERMAL;
+	bolt->s.weapon = ent->s.weapon;
 
 	if ( alt_fire )
 	{
