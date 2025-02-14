@@ -1364,37 +1364,6 @@ HUDMenuItem_t otherHUDBits[] =
 };
 */
 
-/*
-=================
-CG_IsWeaponUsablePlayer
-
-These weapons are not really used by the player, so let's not preregister them.
-Some weapons like the noghri stick can be used by the player
-but those are in special circumstances.
-=================
-*/
-static qboolean CG_IsWeaponUsablePlayer(int weaponNum)
-{
-	switch (weaponNum)
-	{
-		case WP_ATST_MAIN:
-		case WP_ATST_SIDE:
-		case WP_EMPLACED_GUN:
-		case WP_BOT_LASER:
-		case WP_TURRET:
-		case WP_TIE_FIGHTER:
-		case WP_RAPID_FIRE_CONC:
-		case WP_JAWA:
-		case WP_TUSKEN_RIFLE:
-		case WP_TUSKEN_STAFF:
-		case WP_SCEPTER:
-		case WP_NOGHRI_STICK:
-			return qfalse;
-		default:
-			return qtrue;
-	}
-}
-
 extern void CG_NPC_Precache ( gentity_t *spawner );
 qboolean NPCsPrecached = qfalse;
 /*
@@ -1826,7 +1795,7 @@ Ghoul2 Insert End
 	// registered to avoid lag when using cheats like "give all".
 	for (i = 0; i < weaponCount; i++)
 	{
-		if (CG_IsWeaponUsablePlayer(i))
+		if (weaponData[i].playerUsable)
 		{
 			// We are going to register the current weapon twice
 			// as we need to register the secondary model.
