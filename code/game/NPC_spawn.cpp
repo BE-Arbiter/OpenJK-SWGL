@@ -54,6 +54,7 @@ extern void NPC_GalakMech_Init(gentity_t* ent);
 
 extern saber_colors_t TranslateSaberColor(const char* name);
 
+extern int WP_GetWeaponID(const char* weaponName);
 extern stringID_table_t WPTable[];
 
 #define	NSF_DROP_TO_FLOOR	16
@@ -6098,14 +6099,17 @@ void NPC_Weapon_f(void)
 		return;
 	}
 
-	weapon = (weapon_t)GetIDForString(WPTable, wp);
+	weapon = (weapon_t) WP_GetWeaponID(wp);
 	if (weapon == (weapon_t)-1)
 	{
 		gi.Printf(S_COLOR_RED "'NPC Weapon' unrecognized weapon code %s!\n", wp);
 		gi.Printf(S_COLOR_RED "Valid weapon names are:\n");
-		for (int n = WP_NONE; n < weaponCount; n++)
+		for (int n = WP_NONE; n < WP_HC_NUM_WEAPONS; n++)
 		{
 			gi.Printf(S_COLOR_RED "%s\n", GetStringForID(WPTable, n));
+		}
+		for (int i = 1; i < weaponCount; i++) {
+			gi.Printf(S_COLOR_RED "%s\n", weaponData[i].classname);
 		}
 		return;
 	}

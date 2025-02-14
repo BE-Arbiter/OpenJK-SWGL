@@ -66,6 +66,7 @@ extern void G_PlayDoorLoopSound( gentity_t *ent );
 extern void G_PlayDoorSound( gentity_t *ent, int type );
 extern void NPC_SetLookTarget( gentity_t *self, int entNum, int clearTime );
 extern void NPC_ClearLookTarget( gentity_t *self );
+extern int WP_GetWeaponID(const char* weaponName);
 extern void WP_SaberSetColor( gentity_t *ent, int saberNum, int bladeNum, char *colorName );
 extern void WP_SetSaber( gentity_t *ent, int saberNum, const char *saberName );
 extern qboolean PM_HasAnimation( gentity_t *ent, int animation );
@@ -3428,7 +3429,7 @@ static void Q3_SetWeapon (int entID, const char *wp_name)
 		wp = GetIDForString(WPTable, "WP_BRYAR_PISTOL");
 	}
 	else
-		wp = GetIDForString( WPTable, wp_name );
+		wp = WP_GetWeaponID( wp_name );
 
 	if ( !self )
 	{

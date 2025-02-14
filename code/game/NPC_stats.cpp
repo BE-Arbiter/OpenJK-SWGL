@@ -35,11 +35,11 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 	#include "../Rufl/hstring.h"
 	#include "../Ratl/vector_vs.h"
 
+extern int WP_GetWeaponID(const char* weaponName);
 extern void WP_RemoveSaber( gentity_t *ent, int saberNum );
 extern qboolean NPCsPrecached;
 extern vec3_t playerMins;
 extern vec3_t playerMaxs;
-extern stringID_table_t WPTable[];
 
 extern qboolean IsPlayingOperationKnightfall(void);
 
@@ -1896,7 +1896,7 @@ void CG_NPC_Precache ( gentity_t *spawner )
 			{
 				continue;
 			}
-			int weap = GetIDForString( WPTable, value );
+			int weap = WP_GetWeaponID( value );
 			if ( weap >= WP_NONE && weap < weaponCount)
 			{
 				if ( weap > WP_NONE )
@@ -3755,7 +3755,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					value = NPC->NPC_Weapon;
 				}
 				//FIXME: need to precache the weapon, too?  (in above func)
-				int weap = GetIDForString( WPTable, value );
+				int weap = WP_GetWeaponID( value );
 				if ( weap >= WP_NONE && weap < weaponCount)
 				{
 					NPC->client->ps.weapon = weap;

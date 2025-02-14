@@ -147,6 +147,19 @@ void WP_Stick( gentity_t *missile, trace_t *trace, float fudge_distance )
 	gi.linkentity( missile );
 }
 
+extern stringID_table_t WPTable[];
+int WP_GetWeaponID(const char* weaponName) {
+	int id = GetIDForString(WPTable, weaponName);
+	if (id != -1) {
+		return id;
+	}
+	for (int i = 0;i < weaponCount; i++) {
+		if (!Q_stricmp(weaponData[i].classname, weaponName) ){
+			return i ;
+		}
+	}
+	return -1;
+}
 // This version shares is in the thinkFunc format
 //-----------------------------------------------------------------------------
 void WP_Explode( gentity_t *self )
@@ -1747,7 +1760,6 @@ void misc_weapon_shooter_aim( gentity_t *self )
 	}
 }
 
-extern stringID_table_t WPTable[];
 void SP_misc_weapon_shooter( gentity_t *self )
 {
 	//alloc a client just for the weapon code to use
@@ -1757,7 +1769,7 @@ void SP_misc_weapon_shooter( gentity_t *self )
 	self->s.weapon = self->client->ps.weapon = WP_BLASTER;
 	if ( self->paintarget )
 	{//use a different weapon
-		self->s.weapon = self->client->ps.weapon = GetIDForString( WPTable, self->paintarget );
+		self->s.weapon = self->client->ps.weapon = WP_GetWeaponID(  self->paintarget );
 	}
 
 	//set where our muzzle is
