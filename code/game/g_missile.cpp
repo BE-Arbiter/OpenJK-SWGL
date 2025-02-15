@@ -31,6 +31,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #ifdef _DEBUG
 	#include <float.h>
 #endif //_DEBUG
+#include <NPC_SWGL.h>
 
 extern qboolean InFront( vec3_t spot, vec3_t from, vec3_t fromAngles, float threshHold = 0.0f );
 qboolean LogAccuracyHit( gentity_t *target, gentity_t *attacker );
@@ -60,6 +61,8 @@ void G_MissileBounceEffect( gentity_t *ent, vec3_t org, vec3_t dir, qboolean hit
 	case WP_BLASTER:
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
+	case WP_REY:
+	case WP_JANGO:
 		G_PlayEffect( "blaster/deflect", ent->currentOrigin, dir );
 		break;
 	default:
@@ -83,6 +86,8 @@ void G_MissileReflectEffect( gentity_t *ent, vec3_t org, vec3_t dir )
 	case WP_BLASTER:
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
+	case WP_REY:
+	case WP_JANGO:
 	default:
 		G_PlayEffect( "blaster/deflect", ent->currentOrigin, dir );
 		break;
@@ -524,7 +529,7 @@ void G_MissileImpacted( gentity_t *ent, gentity_t *other, vec3_t impactPos, vec3
 				if ( npc_class == CLASS_SEEKER || npc_class == CLASS_PROBE || npc_class == CLASS_MOUSE ||
 					   npc_class == CLASS_GONK || npc_class == CLASS_R2D2 || npc_class == CLASS_R5D2 || npc_class == CLASS_REMOTE ||
 					   npc_class == CLASS_MARK1 || npc_class == CLASS_MARK2 || //npc_class == CLASS_PROTOCOL ||//no protocol, looks odd
-					   npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST || npc_class == CLASS_SENTRY )
+					   npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST || npc_class == CLASS_SENTRY || other->attrFlags & ATTR_DROID)
 				{
 					// special droid only behaviors
 					if ( other->client->ps.powerups[PW_SHOCKED] < level.time + 100 )
@@ -744,6 +749,15 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 
 		G_BounceMissile( ent, trace );
 
+		if (other == player && player->client->NPC_class == CLASS_DROIDEKA && !(other->flags & FL_GODMODE))
+		{
+			// Still take damage from blasters bouncing off the shield
+			if (player->client->ps.stats[STAT_ARMOR] > 0)
+			{
+				player->client->ps.stats[STAT_ARMOR] -= 1 + g_spskill->integer;
+			}
+		}
+
 		if ( ent->owner )//&& ent->owner->s.number == 0 )
 		{
 			G_MissileAddAlerts( ent );
@@ -759,8 +773,8 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 	{
 		if ( !(other->contents&CONTENTS_LIGHTSABER)
 			|| g_spskill->integer <= 0//on easy, it reflects all shots
-			|| (g_spskill->integer == 1 && ent->s.weapon != WP_FLECHETTE && ent->s.weapon != WP_DEMP2 )//on medium it won't reflect flechette or demp shots
-			|| (g_spskill->integer >= 2 && ent->s.weapon != WP_FLECHETTE && ent->s.weapon != WP_DEMP2 && ent->s.weapon != WP_BOWCASTER && ent->s.weapon != WP_REPEATER )//on hard it won't reflect flechette, demp, repeater or bowcaster shots
+			|| (g_spskill->integer == 1 && ent->s.weapon != WP_FLECHETTE && ent->s.weapon != WP_DEMP2 && ent->s.weapon != WP_CIS_SNIPER )//on medium it won't reflect flechette, E-5 sniper or demp shots
+			|| (g_spskill->integer >= 2 && ent->s.weapon != WP_FLECHETTE && ent->s.weapon != WP_DEMP2 && ent->s.weapon != WP_CIS_SNIPER && ent->s.weapon != WP_BOWCASTER && ent->s.weapon != WP_REPEATER )//on hard it won't reflect flechette, demp, repeater or bowcaster shots
 			)
 		{
 			G_BounceMissile( ent, trace );

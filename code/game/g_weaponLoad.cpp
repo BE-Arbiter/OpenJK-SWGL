@@ -45,7 +45,6 @@ void FX_CloneAltFireThink(centity_t *cent, const struct weaponInfo_s *weapon);
 void FX_CloneAltProjectileThink(centity_t *cent, const struct weaponInfo_s *weapon);
 void FX_CloneCommandoProjectileThink(centity_t *cent, const struct weaponInfo_s *weapon);
 
-
 // Bowcaster
 void FX_BowcasterProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
 
@@ -176,6 +175,9 @@ qboolean playerUsableWeapons[WP_NUM_WEAPONS] =
 	qtrue,//WP_JANGO,
 	qtrue,//WP_BOBA,
 	qtrue,//WP_CLONEPISTOL
+	qtrue,//WP_CIS_SNIPER
+	qtrue,//WP_SBD
+	qtrue//WP_DROIDEKA
 
 	//# #eol
 	//WP_NUM_WEAPONS
@@ -308,6 +310,10 @@ const int defaultDamage[] = {
 	JANGO_DAMAGE,				// WP_JANGO
 	BOBA_DAMAGE,				// WP_BOBA
 	CLONEPISTOL_DAMAGE,			// WP_CLONEPISTOL
+	BOBA_DAMAGE,				// WP_BOBA
+	CIS_SNIPER_DAMAGE,			// WP_CIS_SNIPER
+	SBD_DAMAGE,					// WP_SBD
+	SBD_DAMAGE					// WP_DROIDEKA
 };
 
 const int defaultAltDamage[] = {
@@ -357,6 +363,10 @@ const int defaultAltDamage[] = {
 	JANGO_ALT_DAMAGE,		// WP_JANGO
 	BOBA_SCOPE_DAMAGE,		// WP_BOBA
 	CLONEPISTOL_ALT_DAMAGE,		// WP_CLONEPISTOL
+
+	CIS_SNIPER_SCOPE_DAMAGE, // WP_CIS_SNIPER
+	0,						// WP_SBD
+	0						// WP_DROIDEKA
 };
 
 const int defaultSplashDamage[] = {
@@ -395,7 +405,7 @@ const int defaultSplashDamage[] = {
 	0,								// WP_SCEPTER
 	0,								// WP_NOGHRI_STICK
 
-	0,								// WP_BATTLEDROID
+0,								// WP_BATTLEDROID
 	0,				   				// WP_THEFIRSTORDER
 	0,				   				// WP_CLONECARBINE
 	0,				   				// WP_REBELBLASTER
@@ -406,6 +416,9 @@ const int defaultSplashDamage[] = {
 	0,				   				// WP_JANGO
 	0,				   				// WP_BOBA
 	0,				   				// WP_CLONEPISTOL
+	0,				   				// WP_CIS_SNIPER
+	0,				   				// WP_SBD
+	0								// WP_DROIDEKA
 };
 
 const float defaultSplashRadius[] = {
@@ -455,6 +468,9 @@ const float defaultSplashRadius[] = {
 	0.0f,							// WP_JANGO
 	0.0f,							// WP_BOBA
 	0.0f,							// WP_CLONEPISTOL
+	0.0f,							// WP_CIS_SNIPER
+	0.0f,							// WP_SBD
+	0.0f							// WP_DROIDEKA
 };
 
 const int defaultAltSplashDamage[] = {
@@ -499,11 +515,14 @@ const int defaultAltSplashDamage[] = {
 	0,								// WP_REBELBLASTER
 	0,				   				// WP_CLONERIFLE
 	CLONECOMMANDO_ALT_SPLASH_DAMAGE,// WP_CLONECOMMANDO
-	0,				   				// WP_REBELRIFLE
+	0,				   				// WP_REBELRIFLE	
 	0,				   				// WP_REY
 	0,				   				// WP_JANGO
 	0,				   				// WP_BOBA
 	0,				   				// WP_CLONEPISTOL
+	0,				   				// WP_CIS_SNIPER
+	0,				   				// WP_SBD
+	0								// WP_DROIDEKA
 };
 
 const float defaultAltSplashRadius[] = {
@@ -553,6 +572,9 @@ const float defaultAltSplashRadius[] = {
 	0.0f,							// WP_JANGO
 	0.0f,							// WP_BOBA
 	0.0f,							// WP_CLONEPISTOL
+	0.0f,							// WP_CIS_SNIPER
+	0.0f,							// WP_SBD
+	0.0f							// WP_DROIDEKA
 };
 
 wpnParms_t WpnParms[] =
@@ -721,6 +743,12 @@ void WPN_WeaponType( const char **holdBuf)
 		weaponNum = WP_BOBA;
 	else if (!Q_stricmp(tokenStr, "WP_CLONEPISTOL"))
 		weaponNum = WP_CLONEPISTOL;
+	else if (!Q_stricmp(tokenStr, "WP_SBD"))
+		weaponNum = WP_SBD;
+	else if (!Q_stricmp(tokenStr, "WP_CIS_SNIPER"))
+		weaponNum = WP_CIS_SNIPER;
+	else if (!Q_stricmp(tokenStr, "WP_DROIDEKA"))
+		weaponNum = WP_DROIDEKA;
 	else
 	{
 		weaponNum = 0;
@@ -1726,7 +1754,7 @@ void WPN_ScopeType(const char **holdBuf)
 	// This is for cg.zoommode.
 	tokenInt += 3;
 
-    if ((tokenInt < ST_A280) || (tokenInt > ST_F11D ))
+    if ((tokenInt < ST_A280) || (tokenInt > ST_E5 ))
     {
         gi.Printf(S_COLOR_YELLOW"WARNING: bad scopeType in external weapon data '%d'\n", tokenInt);
         return;
@@ -1805,7 +1833,6 @@ void WPN_TertiaryFireOptions(const char **holdBuf)
 		weaponData[wpnParms.weaponNum].tertiaryFireOpt[i] = tokenInt;
 	}
 }
-
 
 //--------------------------------------------
 void WPN_WeaponModel2(const char **holdBuf)

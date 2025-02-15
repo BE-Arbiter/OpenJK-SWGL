@@ -654,6 +654,10 @@ typedef enum {
 	MOD_BOBA_ALT,
 	MOD_CLONEPISTOL,
 	MOD_CLONEPISTOL_ALT,
+	MOD_CIS_SNIPER,
+	MOD_CIS_SNIPER_ALT,
+	MOD_SBD,
+	MOD_DROIDEKA,
 
 // world / generic
 	MOD_ELECTROCUTE,
@@ -742,6 +746,8 @@ extern weaponData_t weaponData[WP_NUM_WEAPONS];
 extern ammoData_t ammoData[AMMO_MAX];
 
 //==============================================================================
+
+
 
 gitem_t	*FindItem( const char *className );
 gitem_t	*FindItemForWeapon( weapon_t weapon );

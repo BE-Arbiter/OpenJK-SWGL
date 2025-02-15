@@ -36,6 +36,7 @@ extern void NPC_Jedi_RateNewEnemy( gentity_t *self, gentity_t *enemy );
 extern qboolean PM_DroidMelee( int npc_class );
 extern int delayedShutDown;
 extern qboolean G_ValidEnemy( gentity_t *self, gentity_t *enemy );
+extern qboolean PM_RunningAnim(int anim);
 
 void ChangeWeapon( gentity_t *ent, int newWeapon );
 
@@ -335,6 +336,7 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 			attDelay -= Q_irand( 500, 1500 );
 			break;
 		case WP_DISRUPTOR://sniper's don't delay?
+		case WP_CIS_SNIPER:
 			return;
 			break;
 		case WP_THERMAL://grenade-throwing has a built-in delay
@@ -353,6 +355,10 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 			return;
 			break;
 		case WP_NOGHRI_STICK:
+			attDelay += Q_irand( 0, 500 );
+			break;
+		case WP_SBD:
+		case WP_DROIDEKA:
 			attDelay += Q_irand( 0, 500 );
 			break;
 
@@ -571,7 +577,7 @@ void G_SetEnemy( gentity_t *self, gentity_t *enemy )
 
 		if ( self->s.weapon == WP_BLASTER || self->s.weapon == WP_REPEATER ||
 			self->s.weapon == WP_THERMAL || self->s.weapon == WP_BLASTER_PISTOL
-			|| self->s.weapon == WP_BOWCASTER )
+			|| self->s.weapon == WP_BOWCASTER || self->s.weapon == WP_SBD || self->s.weapon == WP_DROIDEKA)
 		{//Hmm, how about sniper and bowcaster?
 			//When first get mad, aim is bad
 			//Hmm, base on game difficulty, too?  Rank?
@@ -768,6 +774,7 @@ void ChangeWeapon(gentity_t *ent, int newWeapon)
 		break;
 
 	case WP_DISRUPTOR:
+	case WP_CIS_SNIPER:
 		ent->NPC->aiFlags &= ~NPCAI_BURST_WEAPON;
 		if (ent->NPC->scriptFlags & SCF_ALT_FIRE)
 		{
@@ -1039,6 +1046,22 @@ void ChangeWeapon(gentity_t *ent, int newWeapon)
 			ent->NPC->burstSpacing = 750;//attack debounce
 		break;
 
+	case WP_SBD:
+	case WP_DROIDEKA:
+		ent->NPC->aiFlags |= NPCAI_BURST_WEAPON;
+		ent->NPC->burstMin = 3;
+#ifdef BASE_SAVE_COMPAT
+		ent->NPC->burstMean = 3;
+#endif
+		ent->NPC->burstMax = 3;
+		if (g_spskill->integer == 0)
+			ent->NPC->burstSpacing = 1500;//attack debounce
+		else if (g_spskill->integer == 1)
+			ent->NPC->burstSpacing = 1000;//attack debounce
+		else
+			ent->NPC->burstSpacing = 500;//attack debounce
+		break;
+
 	default:
 		ent->NPC->aiFlags &= ~NPCAI_BURST_WEAPON;
 		break;
@@ -1046,7 +1069,7 @@ void ChangeWeapon(gentity_t *ent, int newWeapon)
 	}
 }
 
-
+extern int CG_GetDynWpnNum(int weaponNum, int dynWpnVal);
 void NPC_ChangeWeapon( int newWeapon )
 {
 	qboolean	changing = qfalse;
@@ -1058,21 +1081,25 @@ void NPC_ChangeWeapon( int newWeapon )
 	{
 		G_RemoveWeaponModels( NPC );
 	}
+
 	ChangeWeapon( NPC, newWeapon );
-	if ( changing && NPC->client->ps.weapon != WP_NONE )
+
+	int weaponNum = NPC->client->ps.weapon;
+
+	if ( changing && weaponNum != WP_NONE )
 	{
-		if ( NPC->client->ps.weapon == WP_SABER )
+		if (NPC->client->ps.weapon == WP_SABER )
 		{
 			WP_SaberAddG2SaberModels( NPC );
 		}
-		else if (NPC->client->ps.weapon == WP_JANGO)
+		else if (NPC->client->ps.weapon == WP_JANGO || NPC->client->ps.weapon == WP_DROIDEKA)
 		{
 			G_CreateG2AttachedWeaponModel(NPC, weaponData[NPC->client->ps.weapon].weaponMdl, NPC->handRBolt, 0);
 			G_CreateG2AttachedWeaponModel(NPC, weaponData[NPC->client->ps.weapon].weaponMdl, NPC->handLBolt, 1);
 		}
 		else
 		{
-			G_CreateG2AttachedWeaponModel( NPC, weaponData[NPC->client->ps.weapon].weaponMdl, NPC->handRBolt, 0 );
+			G_CreateG2AttachedWeaponModel( NPC, weaponData[weaponNum].weaponMdl, NPC->handRBolt, 0 );
 		}
 	}
 }
@@ -1226,6 +1253,12 @@ void WeaponThink( qboolean inCombat )
 
 	// can't shoot while shield is up
 	if (NPC->flags&FL_SHIELDED && NPC->client->NPC_class==CLASS_ASSASSIN_DROID)
+	{
+		return;
+	}
+
+	// Droidekas can't shoot while rolling (yes, clone wars showed them obviously doing that, but this model can't)
+	if (NPC->client->NPC_class == CLASS_DROIDEKA && PM_RunningAnim(NPC->client->ps.torsoAnim))
 	{
 		return;
 	}
@@ -1515,10 +1548,11 @@ float NPC_MaxDistSquaredForWeapon (void)
 	case WP_CLONERIFLE:
 	case WP_CLONECOMMANDO:
 	case WP_REBELRIFLE:
-	case WP_REY:
 	case WP_JANGO:
 	case WP_BOBA:
 	case WP_CLONEPISTOL:
+	case WP_SBD:
+	case WP_DROIDEKA:
 		return 1024 * 1024;//should be shorter?
 		break;
 
@@ -1527,10 +1561,12 @@ float NPC_MaxDistSquaredForWeapon (void)
 		break;
 
 	case WP_BLASTER_PISTOL://prifle
+	case WP_REY:
 		return 1024 * 1024;
 		break;
 
 	case WP_DISRUPTOR://disruptor
+	case WP_CIS_SNIPER:
 	case WP_TUSKEN_RIFLE:
 		if ( NPCInfo->scriptFlags & SCF_ALT_FIRE )
 		{

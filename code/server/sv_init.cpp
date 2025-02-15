@@ -311,7 +311,7 @@ void SV_SpawnServer( const char *server, ForceReload_e eForceReload, qboolean bA
 	SV_InitGameProgs();
 
 	// run a few frames to allow everything to settle
-	for ( i = 0 ;i < 3 ; i++ ) {
+	for ( i = 0 ;i < 4 ; i++ ) {
 		ge->RunFrame( sv.time );
 		sv.time += 100;
 		re.G2API_SetTime(sv.time,G2T_SV_TIME);
@@ -390,7 +390,7 @@ void SV_Init (void) {
 	sv_mapname = Cvar_Get ("mapname", "nomap", CVAR_SERVERINFO | CVAR_ROM);
 
 	// systeminfo
-	Cvar_Get ("helpUsObi", "0", CVAR_SYSTEMINFO );
+	Cvar_Get ("helpUsObi", "1", CVAR_SYSTEMINFO );
 	sv_serverid = Cvar_Get ("sv_serverid", "0", CVAR_SYSTEMINFO | CVAR_ROM );
 
 	// server vars

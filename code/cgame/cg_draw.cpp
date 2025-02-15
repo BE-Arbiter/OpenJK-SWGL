@@ -280,8 +280,8 @@ static void CG_DrawSaberStyle(const centity_t	*cent,const int xPos,const int yPo
 	}
 
 	// don't need to draw ammo, but we will draw the current saber style in this window
-	if (cg.saberAnimLevelPending == SS_FAST
-		|| cg.saberAnimLevelPending == SS_TAVION )
+	if (cg.saberAnimLevelPending == SS_FAST)
+		//|| cg.saberAnimLevelPending == SS_TAVION )
 	{
 		index = OHB_SABERSTYLE_FAST;
 	}
@@ -290,6 +290,14 @@ static void CG_DrawSaberStyle(const centity_t	*cent,const int xPos,const int yPo
 		|| cg.saberAnimLevelPending == SS_STAFF )
 	{
 		index = OHB_SABERSTYLE_MEDIUM;
+	}
+	else if (cg.saberAnimLevelPending == SS_DESANN)
+	{
+		index = OHB_SABERSTYLE_DESANN;
+	}
+	else if (cg.saberAnimLevelPending == SS_TAVION)
+	{
+		index = OHB_SABERSTYLE_TAVION;
 	}
 	else
 	{
@@ -2373,6 +2381,10 @@ static void CG_DrawZoomMask( void )
 				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/f11dMask");
 				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/f11dInsert");
 				break;
+			case ST_E5:
+				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/cis_cropcircle2");
+				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/f11dInsert");
+				break;
 		}
 
 		CG_DrawPic( 0, 0, 640, 480, cgs.media.scopeTypeMask ); 
@@ -3318,7 +3330,7 @@ static void CG_DrawRocketLocking( int lockEntNum, int lockTime )
 			{
 				sz -= ( cg.overrides.fov - cg_zoomFov ) / 80.0f;
 			}
-			else if ( !cg.renderingThirdPerson && ((cg_trueguns.integer || CG_PlayerIsDualWielding(cg.snap->ps.weapon)) || cg.snap->ps.weapon == WP_SABER
+			else if ( !cg.renderingThirdPerson && ((cg_trueguns.integer || CG_ChangeFirstPersonView()) || cg.snap->ps.weapon == WP_SABER
 												   || cg.snap->ps.weapon == WP_MELEE) && cg_truefov.value )
 			{
 				sz -= ( cg_truefov.value - cg_zoomFov ) / 80.0f;

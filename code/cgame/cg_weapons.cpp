@@ -40,6 +40,9 @@ const char *CG_DisplayBoxedText(int iBoxX, int iBoxY, int iBoxWidth, int iBoxHei
 								const char *psText, int iFontHandle, float fScale,
 								const vec4_t v4Color);
 
+extern void Inquisitor_Stop(gentity_t* ent, qboolean running = qfalse);
+extern void Inquisitor_Spin(gentity_t* ent, qboolean increment = qtrue);
+
 /*
 =================
 CG_RegisterWeapon
@@ -81,6 +84,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 	if ( !item->classname ) {
 		CG_Error( "Couldn't find item for weapon %s\nNeed to update Items.dat!", weaponData[weaponNum].classname);
 	}
+	
 	CG_RegisterItemVisuals( item - bg_itemlist );
 
 	currWeaponMdl = (weaponData[weaponNum].secondaryMdl) ? weaponData[weaponNum].weaponMdl2 : weaponData[weaponNum].weaponMdl;
@@ -119,8 +123,8 @@ void CG_RegisterWeapon( int weaponNum ) {
 	// setup the shader we will use for the icon
 	if (weaponData[weaponNum].weaponIcon[0])
 	{
-		weaponInfo->weaponIcon = cgi_R_RegisterShaderNoMip( weaponData[weaponNum].weaponIcon);
-		weaponInfo->weaponIconNoAmmo = cgi_R_RegisterShaderNoMip( va("%s_na",weaponData[weaponNum].weaponIcon));
+		weaponInfo->weaponIcon = cgi_R_RegisterShaderNoMip(weaponData[weaponNum].weaponIcon);
+		weaponInfo->weaponIconNoAmmo = cgi_R_RegisterShaderNoMip(va("%s_na", weaponData[weaponNum].weaponIcon));
 	}
 
 	for ( ammo = bg_itemlist + 1 ; ammo->classname ; ammo++ ) {
@@ -454,7 +458,9 @@ void CG_RegisterWeapon( int weaponNum ) {
 	case WP_REBELBLASTER:
 	case WP_REBELRIFLE:
 	case WP_JANGO:
-	case WP_BOBA:
+	case WP_SBD:
+	case WP_DROIDEKA:
+	case WP_CIS_SNIPER:
 		cgs.effects.blasterShotEffect			= theFxScheduler.RegisterEffect( "blaster/shot" );
 													theFxScheduler.RegisterEffect( "blaster/NPCshot" );
 //		cgs.effects.blasterOverchargeEffect		= theFxScheduler.RegisterEffect( "blaster/overcharge" );
@@ -522,6 +528,9 @@ void CG_RegisterWeapon( int weaponNum ) {
 		theFxScheduler.RegisterEffect( "atst/wall_impact" );
 		theFxScheduler.RegisterEffect( "atst/flesh_impact" );
 		theFxScheduler.RegisterEffect( "atst/droid_impact" );
+		cgs.media.emplacedHealthBarShader = cgi_R_RegisterShaderNoMip("gfx/hud/health_frame");
+		cgs.media.turretComputerOverlayShader = cgi_R_RegisterShaderNoMip("gfx/hud/generic_target");
+		cgs.media.turretCrossHairShader = cgi_R_RegisterShaderNoMip("gfx/2d/panel_crosshair");
 		break;
 
 	case WP_ATST_SIDE:
@@ -643,6 +652,9 @@ void CG_RegisterWeapon( int weaponNum ) {
 		theFxScheduler.RegisterEffect( "turret/shot" );
 		theFxScheduler.RegisterEffect( "turret/wall_impact" );
 		theFxScheduler.RegisterEffect( "turret/flesh_impact" );
+		cgs.media.emplacedHealthBarShader = cgi_R_RegisterShaderNoMip("gfx/hud/health_frame");
+		cgs.media.turretComputerOverlayShader = cgi_R_RegisterShaderNoMip("gfx/hud/generic_target");
+		cgs.media.turretCrossHairShader = cgi_R_RegisterShaderNoMip("gfx/2d/panel_crosshair");
 		break;
 
 	case WP_TUSKEN_RIFLE:
@@ -674,12 +686,15 @@ void CG_RegisterWeapon( int weaponNum ) {
 
 	case WP_TIE_FIGHTER:
 		theFxScheduler.RegisterEffect( "ships/imp_blastershot" );
+		cgs.media.emplacedHealthBarShader = cgi_R_RegisterShaderNoMip("gfx/hud/health_frame");
+		cgs.media.turretComputerOverlayShader = cgi_R_RegisterShaderNoMip("gfx/hud/generic_target");
+		cgs.media.turretCrossHairShader = cgi_R_RegisterShaderNoMip("gfx/2d/panel_crosshair");
 		break;
 
 	case WP_CLONECARBINE:
 	case WP_CLONERIFLE:
-	case WP_CLONECOMMANDO:
 	case WP_CLONEPISTOL:
+	case WP_CLONECOMMANDO:
 		if (weaponNum == WP_CLONECOMMANDO)
 		{
 			theFxScheduler.RegisterEffect("dc17/shot");
@@ -1071,7 +1086,7 @@ void CG_AddViewWeapon( playerState_t *ps )
 	if ( cg.renderingThirdPerson )
 		return;
 	
-	if ( (cg_trueguns.integer || CG_PlayerIsDualWielding(ps->weapon)) && !cg.zoomMode )
+	if ( (cg_trueguns.integer || CG_ChangeFirstPersonView()) && !cg.zoomMode )
 		return;
 
 	if ( ps->pm_type == PM_INTERMISSION )
@@ -1382,8 +1397,8 @@ void CG_AddViewWeapon( playerState_t *ps )
 	// Do special charge bits
 	//-----------------------
 	if (( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BRYAR_PISTOL )
-			|| ( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BLASTER_PISTOL )
-			|| ( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_REY )
+		|| (ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BLASTER_PISTOL)
+		|| (ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_REY)
 			|| ( ps->weapon == WP_BOWCASTER && ps->weaponstate == WEAPON_CHARGING )
 			|| ( ps->weapon == WP_DEMP2 && ps->weaponstate == WEAPON_CHARGING_ALT ))
 	{
@@ -1392,20 +1407,13 @@ void CG_AddViewWeapon( playerState_t *ps )
 		vec3_t	WHITE	= {1.0f,1.0f,1.0f};
 
 		if ( ps->weapon == WP_BRYAR_PISTOL
-			|| ps->weapon == WP_BLASTER_PISTOL )
+			|| ps->weapon == WP_BLASTER_PISTOL 
+			|| ps->weapon == WP_REY)
 		{
 			// Hardcoded max charge time of 1 second
 			val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 			shader = cgi_R_RegisterShader( "gfx/effects/bryarFrontFlash" );
 		}
-
-		if (ps->weapon == WP_REY)
-		{
-			// Hardcoded max charge time of 0.5 second
-			val = ( cg.time - ps->weaponChargeTime ) * 0.0005f;
-			shader = cgi_R_RegisterShader( "gfx/effects/bryarFrontFlash" );
-		}
-
 		else if ( ps->weapon == WP_BOWCASTER )
 		{
 			// Hardcoded max charge time of 1 second
@@ -1551,11 +1559,11 @@ const char *weaponDesc[WP_NUM_WEAPONS - 1] =
 "REBELBLASTER_DESC",
 "CLONERIFLE_DESC",
 "CLONECOMMANDO_DESC",
-"REBELRIFLE_DESC",
-"REY_DESC",
-"JANGO_DESC",
+"REBELRIFLE_DESC"
 "BOBA_DESC",
-"CLONEPISTOL_DESC",
+"CIS_SNIPER_DESC",
+"SBD_DESC",
+"DROIDEKA_DESC"
 };
 
 /*
@@ -1796,9 +1804,10 @@ void CG_DrawDataPadWeaponSelect( void )
 	}
 
 	// Print the weapon description
-	if (!cgi_SP_GetStringTextString( va("SP_INGAME_%s",weaponDesc[cg.DataPadWeaponSelect-1]), text, sizeof(text) ))
+
+	if (!cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.DataPadWeaponSelect - 1]), text, sizeof(text)))
 	{
-		cgi_SP_GetStringTextString( va("SPMOD_INGAME_%s",weaponDesc[cg.DataPadWeaponSelect-1]), text, sizeof(text) );
+		cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.DataPadWeaponSelect - 1]), text, sizeof(text));
 	}
 
 	if (text[0])
@@ -2449,13 +2458,23 @@ void CG_DPNextWeapon_f( void ) {
 	cg.DataPadWeaponSelect = original;
 }
 
-void CG_Dualwield_f()
+/*
+==============
+CG_Dualwield_f
+==============
+*/
+void CG_Dualwield_f(void)
 {
-	if (!cg_dualWielding.integer)
-		cg_dualWielding.integer = 1;
-	else
+	if (cg_dualWielding.integer)
+	{
 		cg_dualWielding.integer = 0;
+	}
+	else
+	{
+		cg_dualWielding.integer = 1;
+	}
 }
+
 
 /*
 ===============
@@ -2741,6 +2760,7 @@ void CG_Weapon_f( void )
 							cg_entities[0].gent->client->ps.saber[1].Deactivate();
 						}
 						cg_entities[0].gent->client->ps.saber[0].Deactivate();
+						Inquisitor_Stop(cg_entities[0].gent, qtrue);
 						if ( cg_entities[0].gent->client->ps.saberInFlight )
 						{//play it on the saber
 							cgi_S_UpdateEntityPosition( cg_entities[0].gent->client->ps.saberEntityNum, g_entities[cg_entities[0].gent->client->ps.saberEntityNum].currentOrigin );
@@ -2754,6 +2774,7 @@ void CG_Weapon_f( void )
 					else
 					{//turn them both on
 						cg_entities[0].gent->client->ps.SaberActivate();
+						Inquisitor_Spin(cg_entities[0].gent, qfalse);
 					}
 				}
 			}
@@ -2870,15 +2891,41 @@ void CG_OutOfAmmoChange( void ) {
 }
 
 /*
+Quick note about dynamic weapons.
+
+A dynamic weapon number (dynWpnNum) refers to the dynamicWeapon_t enum
+value like DYN_WP_CLONEPISTOL.
+
+A dynamic weapon value (dynWpnVal) referes to how many dynamic weapons there
+are for that base weapon ranging from 1 to n where n represents how many weapon
+subtypes there are for each weapon.
+*/
+
+/*
 =================
-CG_PlayerIsDualWielding
+CG_IsWeaponPistol
 =================
 */
-qboolean CG_PlayerIsDualWielding(int weapon)
+qboolean CG_IsWeaponPistol(gentity_t *ent)
 {
-	return (qboolean)(cg_dualWielding.integer && (weapon == WP_BLASTER_PISTOL
-					|| weapon == WP_REY || weapon == WP_JANGO || weapon == WP_CLONEPISTOL));
+	int weaponNum = ent->client->ps.weapon;
+
+	return (qboolean)(weaponNum == WP_BLASTER_PISTOL
+		|| weaponNum == WP_JANGO
+		|| weaponNum == WP_REY
+		|| weaponNum == WP_CLONEPISTOL);
 }
+
+/*
+========================
+CG_ChangeFirstPersonView
+========================
+*/
+qboolean CG_ChangeFirstPersonView(void)
+{
+	return (qboolean)((cg_dualWielding.integer && CG_IsWeaponPistol(player)) || player->client->ps.weapon == WP_SBD || player->client->ps.weapon == WP_DROIDEKA);
+}
+
 
 
 /*
@@ -3078,6 +3125,7 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 	{
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
+	case WP_REY:
 	case WP_JAWA:
 		if ( altFire )
 		{
@@ -3097,6 +3145,15 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 		break;
 
 	case WP_BLASTER:
+	case WP_BATTLEDROID:
+	case WP_THEFIRSTORDER:
+	case WP_REBELBLASTER:
+	case WP_REBELRIFLE:
+	case WP_JANGO:
+	case WP_BOBA:
+	case WP_SBD:
+	case WP_DROIDEKA:
+	case WP_CIS_SNIPER:
 		FX_BlasterWeaponHitWall( origin, dir );
 		break;
 
@@ -3210,15 +3267,6 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 		FX_NoghriShotWeaponHitWall( origin, dir );
 		break;
 
-	case WP_BATTLEDROID:
-	case WP_THEFIRSTORDER:
-	case WP_REBELBLASTER:
-	case WP_REBELRIFLE:
-	case WP_JANGO:
-	case WP_BOBA:
-		FX_BlasterWeaponHitWall(origin, dir);
-		break;
-
 	case WP_CLONECARBINE:
 	case WP_CLONERIFLE:
 	case WP_CLONEPISTOL:
@@ -3233,24 +3281,6 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 		else
 		{
 			FX_CloneWeaponHitWall(origin, dir);
-		}
-		break;
-
-	case WP_REY:
-		if ( altFire )
-		{
-			parm = 0;
-
-			if ( cent->gent )
-			{
-				parm += cent->gent->count;
-			}
-
-			FX_BryarAltHitWall( origin, dir, parm );
-		}
-		else
-		{
-			FX_BryarHitWall( origin, dir );
 		}
 		break;
 	}
@@ -3291,6 +3321,7 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 	{
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
+	case WP_REY:
 	case WP_JAWA:
 		if (altFire)
 		{
@@ -3303,6 +3334,15 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		break;
 
 	case WP_BLASTER:
+	case WP_BATTLEDROID:
+	case WP_THEFIRSTORDER:
+	case WP_REBELBLASTER:
+	case WP_REBELRIFLE:
+	case WP_JANGO:
+	case WP_BOBA:
+	case WP_SBD:
+	case WP_DROIDEKA:
+	case WP_CIS_SNIPER:
 		FX_BlasterWeaponHitPlayer(other, origin, dir, humanoid);
 		break;
 
@@ -3419,15 +3459,6 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		FX_NoghriShotWeaponHitPlayer(other, origin, dir, humanoid);
 		break;
 
-	case WP_BATTLEDROID:
-	case WP_THEFIRSTORDER:
-	case WP_REBELBLASTER:
-	case WP_REBELRIFLE:
-	case WP_JANGO:
-	case WP_BOBA:
-		FX_BlasterWeaponHitPlayer(other, origin, dir, humanoid);
-		break;
-
 	case WP_CLONECARBINE:
 	case WP_CLONERIFLE:
 	case WP_CLONEPISTOL:
@@ -3444,17 +3475,5 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 			FX_CloneWeaponHitPlayer(other, origin, dir, humanoid);
 		}
 		break;
-
-	case WP_REY:
-		if (altFire)
-		{
-			FX_BryarAltHitPlayer(origin, dir, humanoid);
-		}
-		else
-		{
-			FX_BryarHitPlayer(origin, dir, humanoid);
-		}
-		break;
 	}
-
 }

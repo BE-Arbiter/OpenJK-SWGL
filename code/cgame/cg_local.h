@@ -833,6 +833,7 @@ void CG_Weapon_f( void );
 void CG_DPNextWeapon_f( void );
 void CG_DPPrevWeapon_f(void);
 void CG_Dualwield_f(void);
+
 void CG_DPNextInventory_f( void );
 void CG_DPPrevInventory_f( void );
 void CG_DPNextForcePower_f( void );
@@ -850,7 +851,7 @@ void CG_DrawWeaponSelect( void );
 
 void CG_OutOfAmmoChange( void );	// should this be in pmove?
 
-qboolean CG_PlayerIsDualWielding(int weapon);
+qboolean CG_ChangeFirstPersonView(void);
 
 //
 // cg_marks.c
