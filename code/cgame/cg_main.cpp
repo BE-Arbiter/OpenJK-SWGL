@@ -372,8 +372,6 @@ vmCvar_t		cg_truefov;
 vmCvar_t        cg_truebobbing;
 vmCvar_t		cg_hudRatio;
 
-vmCvar_t		cg_hudRatio;
-
 
 typedef struct {
 	vmCvar_t	*vmCvar;

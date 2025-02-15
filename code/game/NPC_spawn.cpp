@@ -6297,50 +6297,6 @@ void NPC_Saber_f(void)
 	}
 }
 
-void NPC_Sound_f(void)
-{
-	int			n;
-	gentity_t* ent;
-	char* targetname;
-	char* sound;
-	char* channelInput;
-
-	targetname = gi.argv(2);
-	sound = gi.argv(3);
-	channelInput = gi.argv(4);
-
-	if (!*targetname || !sound[0])
-	{
-		gi.Printf(S_COLOR_RED"Error, Expected:\n");
-		gi.Printf(S_COLOR_RED"NPC team '[NPC targetname]' '[sound]' '[channel]'  - plays a sound off the selected NPC\n");
-		gi.Printf(S_COLOR_RED"Valid channels are: Global, Body, Weapon, and Voice (Default)\n");
-		return;
-	}
-
-	for (n = 1; n < ENTITYNUM_MAX_NORMAL; n++)
-	{
-		ent = &g_entities[n];
-		if (!ent->inuse)
-		{
-			continue;
-		}
-		// Not only does the targetname need to match but the entity needs to be an NPC or the player
-		if ((ent->targetname && Q_stricmp(targetname, ent->targetname) == 0) && (ent->NPC || ent == player))
-		{
-			// Offering a few channel options, but the voice will play local to the character by default. May or may not change depending on feedback.
-			if(!Q_stricmp("global", channelInput))
-				G_SoundOnEnt( ent, CHAN_VOICE_GLOBAL, sound );
-			else if (!Q_stricmp("body", channelInput))
-				G_SoundOnEnt(ent, CHAN_BODY, sound);
-			else if (!Q_stricmp("weapon", channelInput))
-				G_SoundOnEnt(ent, CHAN_WEAPON, sound);
-			else
-				G_SoundOnEnt(ent, CHAN_VOICE, sound);
-
-		}
-	}
-}
-
 void NPC_Remove_f(void)
 {
 	int			n;
@@ -6567,47 +6523,6 @@ void NPC_Sound_f(void)
 			else
 				G_SoundOnEnt(ent, CHAN_VOICE, sound);
 
-		}
-	}
-}
-
-void NPC_Remove_f(void)
-{
-	int			n;
-	gentity_t* ent;
-	char* targetname;
-
-	targetname = gi.argv(2);
-
-	if (!*targetname)
-	{
-		gi.Printf(S_COLOR_RED"Error, Expected:\n");
-		gi.Printf(S_COLOR_RED"NPC remove '[NPC targetname]' - removes the NPC from the game\n");
-		return;
-	}
-
-	for (n = 1; n < ENTITYNUM_MAX_NORMAL; n++)
-	{
-		ent = &g_entities[n];
-		if (!ent->inuse)
-		{
-			continue;
-		}
-		// Entity needs to be an NPC, NOT THE PLAYER!
-		if ((ent->targetname && Q_stricmp(targetname, ent->targetname) == 0) && (ent->NPC && ent != player))
-		{
-			G_UseTargets2(ent, ent, ent->target3);
-			ent->s.eFlags |= EF_NODRAW;
-			ent->svFlags &= ~SVF_NPC;
-			ent->s.eType = ET_INVISIBLE;
-			ent->contents = 0;
-			ent->health = 0;
-			ent->targetname = NULL;
-
-			//Disappear in half a second
-			ent->e_ThinkFunc = thinkF_G_FreeEntity;
-			ent->nextthink = level.time + FRAMETIME;
-			
 		}
 	}
 }
