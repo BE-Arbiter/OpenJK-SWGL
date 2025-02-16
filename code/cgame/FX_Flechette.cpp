@@ -44,7 +44,14 @@ void FX_FlechetteProjectileThink( centity_t *cent, const struct weaponInfo_s *we
 		forward[2] = 1.0f;
 	}
 
-	theFxScheduler.PlayEffect( cgs.effects.flechetteShotEffect, cent->lerpOrigin, forward );
+	if (weapon->projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect(cgs.effects.flechetteShotEffect, cent->lerpOrigin, forward);
+	}
 }
 
 /*

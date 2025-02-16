@@ -168,6 +168,7 @@ typedef enum{
 	WC_MELEE_2H, //Like nogri staff
 	WC_PISTOL, // Like bryar
 	WC_LIGHT, // Like blaster
+	WC_SNIPER, // Like Disruptor
 	WC_HEAVY, //Like Bowcaster or rocket launcher
 	WC_GRENADE, //Like thermal
 	WC_EXPLOSIVE, //Like detpack

@@ -504,7 +504,7 @@ const weaponCategory_t defaultWeaponType[] = {
 	WC_MELEE_1H,//WP_SABER,
 	WC_PISTOL,//WP_BLASTER_PISTOL,	// player and NPC weapon
 	WC_LIGHT,//WP_BLASTER,			// player and NPC weapon
-	WC_LIGHT,//WP_DISRUPTOR,		// player and NPC weapon
+	WC_SNIPER,//WP_DISRUPTOR,		// player and NPC weapon
 	WC_HEAVY,//WP_BOWCASTER,		// NPC weapon - player can pick this up, but never starts with them
 	WC_HEAVY,//WP_REPEATER,		// NPC weapon - player can pick this up, but never starts with them
 	WC_LIGHT,//WP_DEMP2,			// NPC weapon - player can pick this up, but never starts with them
@@ -555,7 +555,7 @@ const weaponCategory_t defaultWeaponType[] = {
 	WC_PISTOL,//WP_JANGO,
 	WC_HEAVY,//WP_BOBA,
 	WC_PISTOL,//WP_CLONEPISTOL
-	WC_LIGHT,//WP_CIS_SNIPER
+	WC_SNIPER,//WP_CIS_SNIPER
 	WC_LIGHT,//WP_SBD
 	WC_LIGHT//WP_DROIDEKA
 };

@@ -61,7 +61,14 @@ void FX_NoghriShotProjectileThink( centity_t *cent, const struct weaponInfo_s *w
 		VectorScale( forward, scale, forward );
 	}
 
-	theFxScheduler.PlayEffect( "noghri_stick/shot", cent->lerpOrigin, forward );
+	if (weapon->projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect("noghri_stick/shot", cent->lerpOrigin, forward);
+	}
 }
 
 /*

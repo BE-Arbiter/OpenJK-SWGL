@@ -61,7 +61,14 @@ void FX_TuskenShotProjectileThink( centity_t *cent, const struct weaponInfo_s *w
 		VectorScale( forward, scale, forward );
 	}
 
-	theFxScheduler.PlayEffect( "tusken/shot", cent->lerpOrigin, forward );
+	if (weapon->projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect("tusken/shot", cent->lerpOrigin, forward);
+	}
 }
 
 /*

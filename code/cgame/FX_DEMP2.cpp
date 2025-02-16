@@ -43,9 +43,15 @@ void FX_DEMP2_ProjectileThink( centity_t *cent, const struct weaponInfo_s *weapo
 		forward[2] = 1.0f;
 	}
 
-//	theFxScheduler.PlayEffect( "demp2/shot", cent->lerpOrigin, forward );
-//	theFxScheduler.PlayEffect( "demp2/shot2", cent->lerpOrigin, forward );
-	theFxScheduler.PlayEffect( "demp2/projectile", cent->lerpOrigin, forward );
+
+	if (weapon->projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect("demp2/projectile", cent->lerpOrigin, forward);
+	}
 }
 
 /*

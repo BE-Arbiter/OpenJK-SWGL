@@ -59,8 +59,15 @@ void FX_BowcasterProjectileThink( centity_t *cent, const struct weaponInfo_s *we
 
 		VectorScale( forward, scale, forward );
 	}
-
-	theFxScheduler.PlayEffect( cgs.effects.bowcasterShotEffect, cent->lerpOrigin, forward );
+	
+	if (weapon->projectileEffect) 
+	{
+		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+	}
+	else 
+	{
+		theFxScheduler.PlayEffect(cgs.effects.bowcasterShotEffect, cent->lerpOrigin, forward);
+	}
 }
 
 /*

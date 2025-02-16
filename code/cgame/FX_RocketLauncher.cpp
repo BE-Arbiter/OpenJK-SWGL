@@ -41,7 +41,15 @@ void FX_RocketProjectileThink( centity_t *cent, const struct weaponInfo_s *weapo
 		forward[2] = 1.0f;
 	}
 
-	theFxScheduler.PlayEffect( "rocket/shot", cent->lerpOrigin, forward );
+
+	if (weapon->projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect("rocket/shot", cent->lerpOrigin, forward);
+	}
 }
 
 /*
@@ -81,5 +89,13 @@ void FX_RocketAltProjectileThink( centity_t *cent, const struct weaponInfo_s *we
 		forward[2] = 1.0f;
 	}
 
-	theFxScheduler.PlayEffect( "rocket/shot", cent->lerpOrigin, forward );
+
+	if (weapon->projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect("rocket/shot", cent->lerpOrigin, forward);
+	}
 }

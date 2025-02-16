@@ -70,8 +70,15 @@ void FX_CloneProjectileThink(centity_t *cent, const struct weaponInfo_s *weapon)
 		VectorScale(forward, scale, forward);
 	}
 
-	theFxScheduler.PlayEffect(cgs.effects.cloneShotEffect, cent->lerpOrigin, forward);
 
+	if (weapon->projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect(cgs.effects.cloneShotEffect, cent->lerpOrigin, forward);
+	}
 }
 
 /*

@@ -14115,8 +14115,7 @@ static void PM_Weapon( void )
 		{
 			PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK1, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 		}
-		else if (baseWeapon == WP_DISRUPTOR
-		|| baseWeapon == WP_CIS_SNIPER)
+		else if (weaponData[weapon].weaponCategory == WC_SNIPER)
 		{
 			if (((pm->ps->clientNum >= MAX_CLIENTS && !PM_ControlledByPlayer()) && pm->gent && pm->gent->NPC && (pm->gent->NPC->scriptFlags & SCF_ALT_FIRE)) ||
 				((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()) && cg.zoomMode == 2))
