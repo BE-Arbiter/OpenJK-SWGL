@@ -67,13 +67,67 @@ void CG_GetWorldModelName(char* initalModelName,char* weaponModel,int size) {
 	}
 }
 /*
+
+=================
+CG_GetAmmoName
+
+Get Ammo className from weaponClass Name
+=================
+*/
+void CG_GetAmmoName(const char* weaponClassName, char* ammoClassName, int size) {
+	if (Q_stricmpn(weaponClassName, "weapon_", 7)) {
+		Com_Printf(S_COLOR_YELLOW"Warning : %s not starting with 'weapon_' ammo name will be inconsistent");
+	}
+	const char* ammoName = weaponClassName + 7;
+	Com_sprintf(ammoClassName, size, "ammo_%s", ammoName);
+}
+/*
+=================
+CG_InitItemForAmmo
+
+We need a new item initialized.
+=================
+*/
+void CG_InitItemForAmmo(gitem_t* item, int weaponNum) {
+	//Init the item
+	item->mins[0] = -16;
+	item->mins[1] = -16;
+	item->mins[2] = -8;
+
+	item->maxs[0] = 16;
+	item->maxs[1] = 16;
+	item->maxs[2] = 16;
+
+
+	item->pickup_sound = "sound/weapons/w_pkup.wav";	//give it a default sound
+	item->precaches = NULL;
+	item->sounds = NULL;
+
+	//Set specific data from weapon
+	char ammoClassName[64];
+	CG_GetAmmoName(weaponData[weaponNum].classname, ammoClassName, 64);
+	item->classname = G_NewString(ammoClassName);
+	item->giTag = weaponData[weaponNum].ammoIndex;
+	item->giType = (itemType_t) IT_AMMO;
+	item->giTagName = G_NewString(ammoClassName);
+	item->quantity = 5; //TODO : What value to put here
+	item->icon = G_NewString(weaponData[weaponNum].weaponIcon);
+
+	char world_model[64];
+	CG_GetWorldModelName(&weaponData[weaponNum].weaponMdl[0], &world_model[0], 64);
+	item->world_model = G_NewString(world_model);
+	gi.G2API_PrecacheGhoul2Model(world_model);
+
+	RegisterItem(item);
+}
+/*
 =================
 CG_InitItemForWeapon
 
 We need a new item initialized.
 =================
 */
-void InitItemForWeapon(gitem_t* item, int weaponNum) {
+void CG_InitItemForWeapon(gitem_t* item, int weaponNum) {
 	//Init the item
 	item->mins[0] = -16;
 	item->mins[1] = -16;
@@ -156,9 +210,20 @@ void CG_RegisterWeapon( int weaponNum ) {
 			CG_Error("Too many items in external items data(%d); Cannot create nor found item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
 		}
 		item = &(bg_itemlist[bg_numItems]);
-		InitItemForWeapon(item, weaponNum);
+		CG_InitItemForWeapon(item, weaponNum);
 		weaponInfo->item = item;
 		bg_numItems++;
+
+		if (weaponData[weaponNum].baseWeaponNum == WP_THERMAL
+			|| weaponData[weaponNum].baseWeaponNum == WP_DET_PACK
+			|| weaponData[weaponNum].baseWeaponNum == WP_TRIP_MINE) {
+			if (i == MAX_ITEMS) {
+				CG_Error("Too many items in external items data(%d); Cannot create nor found ammo item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
+			}
+			item = &(bg_itemlist[bg_numItems]);
+			CG_InitItemForAmmo(item, weaponNum);
+			bg_numItems++;
+		}
 	}
 
 	CG_RegisterItemVisuals( item - bg_itemlist );
@@ -864,6 +929,10 @@ void CG_RegisterItemVisuals( int itemNum ) {
 		case AMMO_DETPACK:
 			CG_RegisterWeapon( WP_DET_PACK );
 			break;
+		}
+
+		if (item->giTag && ammoData[item->giTag].giveWeaponIndex) {
+			CG_RegisterWeapon(ammoData[item->giTag].giveWeaponIndex);
 		}
 	}
 
@@ -2662,7 +2731,7 @@ void CG_LDO_SwitchWeapon_f(void) {
 
 		cgi_S_StartSound(NULL, ent->s.number, CHAN_AUTO, cgi_S_RegisterSound(item->pickup_sound));
 
-		int stat = item->giType == IT_ARMOR ? STAT_ARMOR : STAT_HEALTH;
+		int stat = (item->giType == IT_ARMOR) ? STAT_ARMOR : STAT_HEALTH;
 		if (stat == STAT_ARMOR) {
 			ent->client->ps.powerups[PW_BATTLESUIT] = Q3_INFINITE;
 		}
@@ -3233,19 +3302,19 @@ void CG_ChangeWeapon( int num )
 	}
 
 	// because we don't have an empty hand model for the thermal, don't allow selecting that weapon if it has no ammo
-	if ( num == WP_THERMAL )
+	if ( (num == WP_THERMAL &&  cg.snap && cg.snap->ps.ammo[AMMO_THERMAL] <= 0 )
+		|| (num == WP_TRIP_MINE && cg.snap && cg.snap->ps.ammo[AMMO_TRIPMINE] <= 0)
+		|| (num == WP_DET_PACK && cg.snap && cg.snap->ps.ammo[AMMO_DETPACK] <= 0)
+	)
 	{
-		if ( cg.snap && cg.snap->ps.ammo[AMMO_THERMAL] <= 0 )
-		{
-			return;
-		}
+		return;
 	}
-
-	// because we don't have an empty hand model for the thermal, don't allow selecting that weapon if it has no ammo
-	if ( num == WP_TRIP_MINE )
-	{
-		if ( cg.snap && cg.snap->ps.ammo[AMMO_TRIPMINE] <= 0 )
-		{
+	
+	int baseWeaponNum = weaponData[num].baseWeaponNum;
+	if (baseWeaponNum == WP_THERMAL
+		|| baseWeaponNum == WP_DET_PACK
+		|| baseWeaponNum == WP_TRIP_MINE) {
+		if (cg.snap && cg.snap->ps.ammo[weaponData[num].ammoIndex] <= 0) {
 			return;
 		}
 	}

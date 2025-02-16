@@ -269,7 +269,7 @@ void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 		int num = 999;
 		if ( argc == 3 )
 			num = Com_Clampi( -1, 999, atoi( args ) );
-		for ( i=AMMO_BLASTER; i<AMMO_MAX; i++ )
+		for ( i=AMMO_BLASTER; i<ammoCount; i++ )
 			ent->client->ps.ammo[i] = num != -1 ? num : ammoData[i].max;
 		if ( !give_all )
 			return;

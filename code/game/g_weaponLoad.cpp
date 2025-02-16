@@ -157,7 +157,7 @@ void WPN_WeaponIcon(const char **holdBuf)
 //--------------------------------------------
 void WPN_AmmoType(const char **holdBuf)
 {
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].ammoIndex, AMMO_NONE, AMMO_MAX - 1, "Ammotype");
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].ammoIndex, AMMO_NONE, MAX_AMMO - 1, "Ammotype");
 }
 
 //--------------------------------------------
@@ -956,12 +956,12 @@ void WP_LoadWeaponParms (void)
 		if (!weaponData[i].baseclass[0]) {
 			continue;
 		}
-		bool found = false;
+		int baseWeapon = -1;
 		for (int j = 0; j < weaponCount; j++) {
 			if (i == j || Q_stricmp(weaponData[i].baseclass,weaponData[j].classname)) {
 				continue;
 			}
-			found = true;
+			baseWeapon = j;
 			//Copying the weapon Strings from one to another
 			if (weaponData[i].weaponMdl[0] == 0) {
 				strcpy(weaponData[i].weaponMdl,weaponData[j].weaponMdl);
@@ -1070,11 +1070,25 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].weaponBucket = weaponData[i].weaponBucket == 0 ? weaponData[j].weaponBucket : weaponData[i].weaponBucket;
 			weaponData[i].baseWeaponNum = j;
 
+
 			//The first one is the good one...
 			break;
 		}
-		if(!found){
+		if(baseWeapon == -1){
 		    gi.Printf(S_COLOR_YELLOW"WARNING: Weapon '%s' is marked as alternate of base weapon '%s' but base weapon was not found\n",weaponData[i].classname,weaponData[i].baseclass);
+			break;
+		}
+		/* Generate Ammo for explosive and Grenade*/
+		if (baseWeapon == WP_THERMAL || baseWeapon == WP_DET_PACK || baseWeapon == WP_TRIP_MINE) {
+			if (ammoCount == MAX_AMMO) {
+				Com_Error(ERR_DROP, "Error, Too many ammo in AmmoData\n");
+			}
+			ammoData_t *baseAmmo = &ammoData[weaponData[baseWeapon].ammoIndex];
+			ammoData[ammoCount].max = baseAmmo->max;
+			Q_strncpyz(ammoData[ammoCount].icon, weaponData[i].weaponIcon, 64);
+			ammoData[ammoCount].giveWeaponIndex = i;
+			weaponData[i].ammoIndex = ammoCount;
+			ammoCount++;
 		}
 	}
 	//Sort weapons in buckets
@@ -1105,9 +1119,4 @@ void WP_LoadWeaponParms (void)
 			gi++;
 		}
 	}
-	Com_Printf(S_COLOR_CYAN"WeaponBuckets[");
-	for (int i = 0; i < (MAX_WEAPONS - WB_OTHERS); i++) {
-		Com_Printf(S_COLOR_CYAN"%d,", weaponBuckets[i]);
-	}
-	Com_Printf(S_COLOR_CYAN"]\n");
 }

@@ -124,9 +124,8 @@ typedef enum //# ammo_e
 	AMMO_THERMAL,
 	AMMO_TRIPMINE,
 	AMMO_DETPACK,
-	AMMO_MAX
+	AMMO_HC_MAX
 } ammo_t;
-
 
 enum firingType
 {
@@ -254,6 +253,7 @@ typedef struct weaponData_s
 typedef struct ammoData_s
 {
 	char	icon[64];	// Name of ammo icon file
+	int		giveWeaponIndex;
 	int		max;		// Max amount player can hold of ammo
 } ammoData_t;
 

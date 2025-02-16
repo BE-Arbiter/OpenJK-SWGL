@@ -742,12 +742,13 @@ typedef struct ginfoitem_s
 //==============================================================================
 
 extern int weaponCount;
+extern int ammoCount;
 extern weaponIndexes_t weaponIndexes[MAX_WEAPONS];
 extern int weaponBuckets[MAX_WEAPONS - WB_OTHERS];
 extern weaponData_t weaponData[MAX_WEAPONS];
 
 //==============================================================================
-extern ammoData_t ammoData[AMMO_MAX];
+extern ammoData_t ammoData[MAX_AMMO];
 
 //==============================================================================
 

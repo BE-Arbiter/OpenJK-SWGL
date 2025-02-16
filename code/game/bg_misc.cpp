@@ -32,10 +32,11 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 
 extern int weaponCount;
+extern int ammoCount;
 extern weaponIndexes_t weaponIndexes[MAX_WEAPONS];
 extern int weaponBuckets[MAX_WEAPONS - WB_OTHERS];
 extern weaponData_t weaponData[MAX_WEAPONS];
-extern ammoData_t ammoData[AMMO_MAX];
+extern ammoData_t ammoData[MAX_AMMO];
 
 
 #define PICKUPSOUND "sound/weapons/w_pkup.wav"
@@ -253,7 +254,8 @@ FindItemForWeapon
 
 ===============
 */
-extern void InitItemForWeapon(gitem_t* item, int weaponNum);
+extern void CG_InitItemForWeapon(gitem_t* item, int weaponNum);
+extern void CG_InitItemForAmmo(gitem_t* item, int weaponNum);
 gitem_t* FindItemForWeapon(int weaponNum) {
 	int		i;
 	gitem_t* item = NULL;
@@ -277,11 +279,22 @@ gitem_t* FindItemForWeapon(int weaponNum) {
 		CG_Error("Too many items in external items data(%d); Cannot create nor found item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
 	}
 	item = &(bg_itemlist[bg_numItems]);
-	InitItemForWeapon(item, weaponNum);
+	CG_InitItemForWeapon(item, weaponNum);
 	bg_numItems++;
 
 	CG_RegisterItemVisuals(item - bg_itemlist);
 
+
+	if (weaponData[weaponNum].baseWeaponNum == WP_THERMAL
+		|| weaponData[weaponNum].baseWeaponNum == WP_DET_PACK
+		|| weaponData[weaponNum].baseWeaponNum == WP_TRIP_MINE) {
+		if (i == MAX_ITEMS) {
+			CG_Error("Too many items in external items data(%d); Cannot create nor found ammo item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
+		}
+		gitem_t *ammoItem = &(bg_itemlist[bg_numItems]);
+		CG_InitItemForAmmo(ammoItem, weaponNum);
+		bg_numItems++;
+	}
 	return item;
 }
 
@@ -410,6 +423,11 @@ qboolean	BG_CanItemBeGrabbed( const entityState_t *ent, const playerState_t *ps 
 					return qtrue;
 				}
 				break;
+			}
+
+			int wpIndex = ammoData[item->giTag].giveWeaponIndex;
+			if (wpIndex && !(ps->weapons[wpIndex])){
+				return qtrue;
 			}
 
 			if ( ps->ammo[ item->giTag ] >= ammoData[item->giTag].max )	// checkme

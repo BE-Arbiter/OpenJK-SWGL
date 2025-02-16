@@ -316,7 +316,7 @@ void SV_Player_EndOfLevelSave(void)
 #endif
 		//ammo
 		s2 = "";
-		for (i=0;i< AMMO_MAX; i++)
+		for (i=0;i< MAX_AMMO; i++)
 		{
 			s2 = va("%s %i",s2, pState->ammo[i]);
 		}
