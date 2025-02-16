@@ -14034,6 +14034,9 @@ static void PM_Weapon( void )
 				}
 			}
 		}
+		else if (weaponData[weapon].weaponCategory == WC_MINIGUN) {
+			PM_SetAnim(pm, SETANIM_TORSO, TORSO_Z6_AIM, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+		}
 		else if (weaponData[weapon].weaponCategory == WC_PISTOL)
 		{
 			if (pm->gent && pm->gent->weaponModel[1] > 0)

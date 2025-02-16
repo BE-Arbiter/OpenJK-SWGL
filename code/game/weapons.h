@@ -170,7 +170,8 @@ typedef enum{
 	WC_LIGHT, // Like blaster
 	WC_HEAVY, //Like Bowcaster or rocket launcher
 	WC_GRENADE, //Like thermal
-	WC_EXPLOSIVE //Like detpack
+	WC_EXPLOSIVE, //Like detpack
+	WC_MINIGUN //Like a Z6
 } weaponCategory_t;
 
 typedef struct weaponAttackData_s

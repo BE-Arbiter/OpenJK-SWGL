@@ -42,7 +42,15 @@ void FX_RepeaterProjectileThink( centity_t *cent, const struct weaponInfo_s *wea
 		forward[2] = 1.0f;
 	}
 
-	theFxScheduler.PlayEffect( "repeater/projectile", cent->lerpOrigin, forward );
+	if (weapon->projectileEffect) 
+	{
+		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect("repeater/projectile", cent->lerpOrigin, forward);
+	}
+	
 }
 
 /*

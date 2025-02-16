@@ -35,7 +35,7 @@ static qboolean is_player_scoped(gentity_t *ent)
 // The reason why we set alt_fire here is because
 // of how "damage" and/or "velocity" will be evaluated
 // in WP_FireWeaponMissile.
-static void is_player_alt_firing(gentity_t *ent, weapon_t weapon_num, qboolean *alt_fire)
+static void is_player_alt_firing(gentity_t *ent, int weapon_num, qboolean *alt_fire)
 {
 	if (ent->client->ps.clientNum == 0)
 	{
@@ -78,7 +78,7 @@ static void check_means_of_death(gentity_t *ent, gentity_t *missile, weapon_t we
 void WP_FireFirstOrderMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire)
 //---------------------------------------------------------
 {
-	int velocity = F_11D_VELOCITY;
+	int	velocity = altFire ? weaponData[ent->s.weapon].attackData[1].mVelocity : weaponData[ent->s.weapon].attackData[0].mVelocity;
 	int	damage = altFire ? weaponData[ent->s.weapon].attackData[1].damage : weaponData[ent->s.weapon].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
@@ -109,7 +109,7 @@ void WP_FireFirstOrderMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 	gentity_t *missile = CreateMissile(start, dir, velocity, 10000, ent, altFire);
 
 	missile->classname = "blaster_proj";
-	missile->s.weapon = WP_THEFIRSTORDER;
+	missile->s.weapon = ent->s.weapon;
 
 	// Do the damages
 	if (ent->s.number != 0 && (ent->client->NPC_class != CLASS_BOBAFETT && ent->client->NPC_class != CLASS_MANDALORIAN && ent->client->NPC_class != CLASS_JANGO))
@@ -145,6 +145,8 @@ void WP_FireFirstOrderMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
 
+	WP_SwitchPistolMuzzle(ent);
+
 	check_means_of_death(ent, missile, WP_THEFIRSTORDER);
 }
 
@@ -156,7 +158,7 @@ void WP_FireFirstOrder(gentity_t *ent, qboolean alt_fire)
 	qboolean scoped = is_player_scoped(ent);
 
 	vectoangles(forwardVec, angs);
-	is_player_alt_firing(ent, WP_THEFIRSTORDER, &alt_fire);
+	is_player_alt_firing(ent, ent->s.weapon, &alt_fire);
 
 	if (ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{//no inherent aim screw up
@@ -169,8 +171,8 @@ void WP_FireFirstOrder(gentity_t *ent, qboolean alt_fire)
 		AngleVectors(ent->client->renderInfo.eyeAngles, forwardVec, NULL, NULL);
 		vectoangles(forwardVec, angs);
 
-		angs[PITCH] += Q_flrand(-1.0f, 1.0f) * F_11D_ALT_SPREAD;
-		angs[YAW] += Q_flrand(-1.0f, 1.0f) * F_11D_ALT_SPREAD;
+		angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
+		angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
 	} 
 	else if (!(ent->client->ps.forcePowersActive&(1 << FP_SEE))
 		|| ent->client->ps.forcePowerLevel[FP_SEE] < FORCE_LEVEL_2)
@@ -179,8 +181,8 @@ void WP_FireFirstOrder(gentity_t *ent, qboolean alt_fire)
 		if (alt_fire)
 		{
 			// add some slop to the alt-fire direction
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * F_11D_ALT_SPREAD;
-			angs[YAW] += Q_flrand(-1.0f, 1.0f) * F_11D_ALT_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
+			angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
 		}
 		// Troopers use their aim values as well as the gun's inherent inaccuracy
 		// so check for all classes of stormtroopers and anyone else that has aim error
@@ -194,8 +196,8 @@ void WP_FireFirstOrder(gentity_t *ent, qboolean alt_fire)
 		else
 		{
 			// add some slop to the main-fire direction
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * F_11D_MAIN_SPREAD;
-			angs[YAW] += Q_flrand(-1.0f, 1.0f) * F_11D_MAIN_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
+			angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
 		}
 	}
 
@@ -221,7 +223,7 @@ void WP_FireFirstOrder(gentity_t *ent, qboolean alt_fire)
 void WP_FireCloneCarbineMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire)
 //---------------------------------------------------------
 {
-	int velocity = CLONECARBINE_VELOCITY;
+	int	velocity = altFire ? weaponData[ent->s.weapon].attackData[1].mVelocity: weaponData[ent->s.weapon].attackData[0].mVelocity;
 	int	damage = altFire ? weaponData[ent->s.weapon].attackData[1].damage : weaponData[ent->s.weapon].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
@@ -252,7 +254,7 @@ void WP_FireCloneCarbineMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboole
 	gentity_t *missile = CreateMissile(start, dir, velocity, 10000, ent, altFire);
 
 	missile->classname = "clone_proj";
-	missile->s.weapon = WP_CLONECARBINE;
+	missile->s.weapon = ent->s.weapon;
 
 	// Do the damages
 	if (ent->s.number != 0 && (ent->client->NPC_class != CLASS_BOBAFETT && ent->client->NPC_class != CLASS_JANGO))
@@ -288,6 +290,8 @@ void WP_FireCloneCarbineMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboole
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
 
+	WP_SwitchPistolMuzzle(ent);
+
 	check_means_of_death(ent, missile, WP_CLONECARBINE);
 }
 
@@ -298,7 +302,7 @@ void WP_FireCloneCarbine(gentity_t *ent, qboolean alt_fire)
 	vec3_t	dir, angs;
 
 	vectoangles(forwardVec, angs);
-	is_player_alt_firing(ent, WP_CLONECARBINE, &alt_fire);
+	is_player_alt_firing(ent, ent->s.weapon, &alt_fire);
 
 	if (ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{//no inherent aim screw up
@@ -310,8 +314,8 @@ void WP_FireCloneCarbine(gentity_t *ent, qboolean alt_fire)
 		if (alt_fire)
 		{
 			// add some slop to the alt-fire direction
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * CLONECARBINE_ALT_SPREAD;
-			angs[YAW] += Q_flrand(-1.0f, 1.0f) * CLONECARBINE_ALT_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
+			angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
 		}
 		else
 		{
@@ -327,8 +331,8 @@ void WP_FireCloneCarbine(gentity_t *ent, qboolean alt_fire)
 			else
 			{
 				// add some slop to the main-fire direction
-				angs[PITCH] += Q_flrand(-1.0f, 1.0f) * CLONECARBINE_MAIN_SPREAD;
-				angs[YAW] += Q_flrand(-1.0f, 1.0f) * CLONECARBINE_MAIN_SPREAD;
+				angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
+				angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
 			}
 		}
 	}
@@ -410,7 +414,7 @@ static void WP_FireCloneCommandoBeam(gentity_t *ent)
 			{
 				ent->client->ps.persistant[PERS_ACCURACY_HITS]++;
 			}
-
+			//TODO Search were this value is stored in weaponData
 			G_Damage(trace_ent, ent, ent, forwardVec, tr.endpos, CLONECOMMANDO_SCOPE_DAMAGE,
 					DAMAGE_DEATH_KNOCKBACK, MOD_CLONECOMMANDO, G_GetHitLocFromTrace(&tr, MOD_CLONECOMMANDO));
 		}
@@ -449,7 +453,7 @@ void WP_FireCloneCommandoMissile(gentity_t *ent, vec3_t start, vec3_t dir, qbool
 //---------------------------------------------------------
 {
 	int	damage = 0;
-	int velocity = altFire ? CLONECOMMANDO_ALT_VELOCITY : CLONECOMMANDO_VELOCITY;
+	int velocity = altFire ? weaponData[ent->s.weapon].attackData[1].mVelocity : weaponData[ent->s.weapon].attackData[0].mVelocity;
 	float kick = (ent->client->usercmd.upmove < 0.0f) ? -100.0f : -300.0f;
 
 	if (cg.zoomMode >= ST_A280)
@@ -493,7 +497,7 @@ void WP_FireCloneCommandoMissile(gentity_t *ent, vec3_t start, vec3_t dir, qbool
 	gentity_t *missile = CreateMissile(start, dir, velocity, 10000, ent, altFire);
 
 	missile->classname = "clone_proj";
-	missile->s.weapon = WP_CLONECOMMANDO;
+	missile->s.weapon = ent->s.weapon;
 
 	// Do the damages
 	if (ent->s.number != 0 && (ent->client->NPC_class != CLASS_BOBAFETT && ent->client->NPC_class != CLASS_JANGO))
@@ -538,6 +542,8 @@ void WP_FireCloneCommandoMissile(gentity_t *ent, vec3_t start, vec3_t dir, qbool
 
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
+
+	WP_SwitchPistolMuzzle(ent);
 }
 
 //---------------------------------------------------------
@@ -579,8 +585,8 @@ void WP_FireCloneCommando(gentity_t *ent, qboolean alt_fire)
 		else
 		{
 			// add some slop to the main-fire direction
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * CLONECOMMANDO_MAIN_SPREAD;
-			angs[YAW] += Q_flrand(-1.0f, 1.0f) * CLONECOMMANDO_MAIN_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
+			angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
 		}
 	}
 
@@ -601,7 +607,7 @@ void WP_FireCloneCommando(gentity_t *ent, qboolean alt_fire)
 void WP_FireRebelRifleMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire)
 //---------------------------------------------------------
 {
-	int velocity = REBELRIFLE_VELOCITY;
+	int	velocity = altFire ? weaponData[ent->s.weapon].attackData[1].mVelocity: weaponData[ent->s.weapon].attackData[0].mVelocity;
 	int	damage = altFire ? weaponData[ent->s.weapon].attackData[1].damage : weaponData[ent->s.weapon].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
@@ -632,7 +638,7 @@ void WP_FireRebelRifleMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 	gentity_t *missile = CreateMissile(start, dir, velocity, 10000, ent, altFire);
 
 	missile->classname = "blaster_proj";
-	missile->s.weapon = WP_REBELRIFLE;
+	missile->s.weapon = ent->s.weapon;
 
 	// Do the damages
 	if (ent->s.number != 0 && (ent->client->NPC_class != CLASS_BOBAFETT && ent->client->NPC_class != CLASS_MANDALORIAN && ent->client->NPC_class != CLASS_JANGO))
@@ -668,6 +674,8 @@ void WP_FireRebelRifleMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
 
+	WP_SwitchPistolMuzzle(ent);
+
 	check_means_of_death(ent, missile, WP_REBELRIFLE);
 }
 
@@ -679,7 +687,7 @@ void WP_FireRebelRifle(gentity_t *ent, qboolean alt_fire)
 	qboolean scoped = is_player_scoped(ent);
 
 	vectoangles(forwardVec, angs);
-	is_player_alt_firing(ent, WP_REBELRIFLE, &alt_fire);
+	is_player_alt_firing(ent, ent->s.weapon, &alt_fire);
 
 	if (ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{//no inherent aim screw up
@@ -689,6 +697,7 @@ void WP_FireRebelRifle(gentity_t *ent, qboolean alt_fire)
 		AngleVectors(ent->client->renderInfo.eyeAngles, forwardVec, NULL, NULL);
 		vectoangles(forwardVec, angs);
 
+		//TODO: Search were those value are stored in weaponData
 		if (ent->client->ps.firing_attack & TERTIARY_ATTACK)
 		{
 			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * REBELRIFLE_TERTIARY_SPREAD;
@@ -696,8 +705,8 @@ void WP_FireRebelRifle(gentity_t *ent, qboolean alt_fire)
 		}
 		else
 		{
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * REBELRIFLE_ALT_SPREAD;
-			angs[YAW] += Q_flrand(-1.0f, 1.0f) * REBELRIFLE_ALT_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
+			angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
 		}
 	}
 	else if (!(ent->client->ps.forcePowersActive&(1 << FP_SEE))
@@ -707,8 +716,8 @@ void WP_FireRebelRifle(gentity_t *ent, qboolean alt_fire)
 		if (alt_fire)
 		{
 			// add some slop to the alt-fire direction
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * REBELRIFLE_ALT_SPREAD;
-			angs[YAW] += Q_flrand(-1.0f, 1.0f) * REBELRIFLE_ALT_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
+			angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
 		}
 		else
 		{
@@ -724,8 +733,8 @@ void WP_FireRebelRifle(gentity_t *ent, qboolean alt_fire)
 			else
 			{
 				// add some slop to the main-fire direction
-				angs[PITCH] += Q_flrand(-1.0f, 1.0f) * REBELRIFLE_MAIN_SPREAD;
-				angs[YAW] += Q_flrand(-1.0f, 1.0f) * REBELRIFLE_MAIN_SPREAD;
+				angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
+				angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
 			}
 		}
 	}
@@ -752,7 +761,7 @@ void WP_FireRebelRifle(gentity_t *ent, qboolean alt_fire)
 void WP_FireBobaRifleMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire )
 //---------------------------------------------------------
 {
-	int velocity = BOBA_VELOCITY;
+	int	velocity = altFire ? weaponData[ent->s.weapon].attackData[1].mVelocity: weaponData[ent->s.weapon].attackData[0].mVelocity;
 	int	damage = altFire ? weaponData[ent->s.weapon].attackData[1].damage : weaponData[ent->s.weapon].attackData[0].damage;
 
 	if ( ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE )
@@ -783,7 +792,7 @@ void WP_FireBobaRifleMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 	gentity_t *missile = CreateMissile( start, dir, velocity, 10000, ent, altFire );
 
 	missile->classname = "blaster_proj";
-	missile->s.weapon = WP_BOBA;
+	missile->s.weapon = ent->s.weapon;
 
 	// Do the damages
 	if ( ent->s.number != 0 && (ent->client->NPC_class != CLASS_BOBAFETT && ent->client->NPC_class != CLASS_MANDALORIAN && ent->client->NPC_class != CLASS_JANGO) )
@@ -809,6 +818,8 @@ void WP_FireBobaRifleMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean
 
 	// we don't want it to bounce forever
 	missile->bounceCount = 8;
+
+	WP_SwitchPistolMuzzle(ent);
 
 	check_means_of_death(ent, missile, WP_BOBA);
 }
@@ -838,8 +849,8 @@ void WP_FireBobaRifle( gentity_t *ent, qboolean alt_fire )
 		}
 		else
 		{
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * BOBA_ALT_SPREAD;
-			angs[YAW] += Q_flrand(-1.0f, 1.0f) * BOBA_ALT_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
+			angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
 		}
 	}
 	else if ( !(ent->client->ps.forcePowersActive&(1<<FP_SEE))
@@ -849,8 +860,8 @@ void WP_FireBobaRifle( gentity_t *ent, qboolean alt_fire )
 		if ( alt_fire )
 		{
 			// add some slop to the alt-fire direction
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * BOBA_ALT_SPREAD;
-			angs[YAW]	+= Q_flrand(-1.0f, 1.0f) * BOBA_ALT_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
+			angs[YAW]	+= Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
 		}
 		else
 		{
@@ -866,8 +877,8 @@ void WP_FireBobaRifle( gentity_t *ent, qboolean alt_fire )
 			else
 			{
 				// add some slop to the main-fire direction
-				angs[PITCH] += Q_flrand(-1.0f, 1.0f) * BOBA_MAIN_SPREAD;
-				angs[YAW]	+= Q_flrand(-1.0f, 1.0f) * BOBA_MAIN_SPREAD;
+				angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
+				angs[YAW]	+= Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
 			}
 		}
 	}
@@ -892,8 +903,8 @@ void WP_FireBobaRifle( gentity_t *ent, qboolean alt_fire )
 void WP_FireSBD(gentity_t *ent)
 {
 	vec3_t	angs;
-	int velocity = SBD_VELOCITY;
-	int damage = SBD_DAMAGE;
+	int velocity = weaponData[ent->s.weapon].attackData[0].mVelocity;
+	int damage = weaponData[ent->s.weapon].attackData[0].damage;
 	float scalers[2] = {SBD_LEFT_SHOT, SBD_RIGHT_SHOT};
 
 	// If an enemy is shooting at us, lower the velocity so you have a chance to evade
@@ -918,7 +929,7 @@ void WP_FireSBD(gentity_t *ent)
 		gentity_t *missile = CreateMissile(muzzle, forwardVec, velocity, 10000, ent, qfalse);
 
 		missile->classname = "blaster_proj";
-		missile->s.weapon = WP_SBD;
+		missile->s.weapon = ent->s.weapon;
 
 		// Do the damages
 		if (ent->s.number != 0)
@@ -951,8 +962,8 @@ void WP_FireSBD(gentity_t *ent)
 void WP_FireDroideka(gentity_t* ent)
 {
 	vec3_t	angs;
-	int velocity = SBD_VELOCITY;
-	int damage = SBD_DAMAGE;
+	int velocity = weaponData[ent->s.weapon].attackData[0].mVelocity;
+	int damage = weaponData[ent->s.weapon].attackData[0].damage;
 	float scalers[2] = { SBD_LEFT_SHOT, SBD_RIGHT_SHOT };
 
 	// If an enemy is shooting at us, lower the velocity so you have a chance to evade
@@ -1011,7 +1022,7 @@ void WP_FireDroideka(gentity_t* ent)
 		gentity_t* missile = CreateMissile(muzzle, forwardVec, velocity, 10000, ent, qfalse);
 
 		missile->classname = "blaster_proj";
-		missile->s.weapon = WP_DROIDEKA;
+		missile->s.weapon = ent->s.weapon;
 
 		// Do the damages
 		if (ent->s.number != 0)
@@ -1036,8 +1047,9 @@ void WP_FireDroideka(gentity_t* ent)
 		missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
 		missile->bounceCount = 8;
 	}
-	if (ent->client->NPC_class == CLASS_DROIDEKA)
-	{//dual pistols, toggle the muzzle point back and forth between the two cannons each time
+
+	if (ent->client->NPC_class == CLASS_DROIDEKA || ent->weaponModel[1] > 0)
+	{
 		ent->count = (ent->count) ? 0 : 1;
 	}
 
@@ -1668,7 +1680,7 @@ void WP_FireReyPistol(gentity_t* ent, qboolean alt_fire)
 void WP_FireJangoPistolMissile(gentity_t* ent, vec3_t start, vec3_t dir, qboolean altFire)
 //---------------------------------------------------------
 {
-	int velocity = JANGO_VELOCITY;
+	int	velocity = altFire ? weaponData[ent->s.weapon].attackData[1].mVelocity : weaponData[ent->s.weapon].attackData[0].mVelocity;
 	int	damage = altFire ? weaponData[ent->s.weapon].attackData[1].damage : weaponData[ent->s.weapon].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
@@ -1699,7 +1711,7 @@ void WP_FireJangoPistolMissile(gentity_t* ent, vec3_t start, vec3_t dir, qboolea
 	gentity_t* missile = CreateMissile(start, dir, velocity, 10000, ent, altFire);
 
 	missile->classname = "blaster_proj";
-	missile->s.weapon = WP_JANGO;
+	missile->s.weapon = ent->s.weapon;
 
 	// Do the damages
 	if (ent->s.number != 0 && (ent->client->NPC_class != CLASS_BOBAFETT && ent->client->NPC_class != CLASS_MANDALORIAN && ent->client->NPC_class != CLASS_JANGO))
@@ -1737,10 +1749,7 @@ void WP_FireJangoPistolMissile(gentity_t* ent, vec3_t start, vec3_t dir, qboolea
 
 	check_means_of_death(ent, missile, WP_JANGO);
 
-	if (ent->weaponModel[1] > 0)
-	{
-		ent->count = (ent->count) ? 0 : 1;
-	}
+	WP_SwitchPistolMuzzle(ent);
 }
 
 //---------------------------------------------------------
@@ -1762,8 +1771,8 @@ void WP_FireJangoPistol(gentity_t* ent, qboolean alt_fire)
 		if (alt_fire)
 		{
 			// add some slop to the alt-fire direction
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * JANGO_ALT_SPREAD;
-			angs[YAW] += Q_flrand(-1.0f, 1.0f) * JANGO_ALT_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
+			angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
 		}
 		else
 		{
@@ -1779,8 +1788,8 @@ void WP_FireJangoPistol(gentity_t* ent, qboolean alt_fire)
 			else
 			{
 				// add some slop to the main-fire direction
-				angs[PITCH] += Q_flrand(-1.0f, 1.0f) * JANGO_MAIN_SPREAD;
-				angs[YAW] += Q_flrand(-1.0f, 1.0f) * JANGO_MAIN_SPREAD;
+				angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
+				angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
 			}
 		}
 	}
@@ -1799,7 +1808,7 @@ void WP_FireJangoPistol(gentity_t* ent, qboolean alt_fire)
 void WP_FireClonePistolMissile(gentity_t* ent, vec3_t start, vec3_t dir, qboolean altFire)
 //---------------------------------------------------------
 {
-	int velocity = CLONEPISTOL_VELOCITY;
+	int	velocity = altFire ? weaponData[ent->s.weapon].attackData[1].mVelocity: weaponData[ent->s.weapon].attackData[0].mVelocity;
 	int	damage = altFire ? weaponData[ent->s.weapon].attackData[1].damage : weaponData[ent->s.weapon].attackData[0].damage;
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
@@ -1830,7 +1839,7 @@ void WP_FireClonePistolMissile(gentity_t* ent, vec3_t start, vec3_t dir, qboolea
 	gentity_t* missile = CreateMissile(start, dir, velocity, 10000, ent, altFire);
 
 	missile->classname = "blaster_proj";
-	missile->s.weapon = WP_CLONEPISTOL;
+	missile->s.weapon = ent->s.weapon;
 
 	// Do the damages
 	if (ent->s.number != 0 && (ent->client->NPC_class != CLASS_BOBAFETT && ent->client->NPC_class != CLASS_MANDALORIAN && ent->client->NPC_class != CLASS_JANGO))
@@ -1868,10 +1877,7 @@ void WP_FireClonePistolMissile(gentity_t* ent, vec3_t start, vec3_t dir, qboolea
 
 	check_means_of_death(ent, missile, WP_CLONEPISTOL);
 
-	if (ent->weaponModel[1] > 0)
-	{
-		ent->count = (ent->count) ? 0 : 1;
-	}
+	WP_SwitchPistolMuzzle(ent);
 }
 
 //---------------------------------------------------------
@@ -1881,7 +1887,7 @@ void WP_FireClonePistol(gentity_t* ent, qboolean alt_fire)
 	vec3_t	dir, angs;
 
 	vectoangles(forwardVec, angs);
-	is_player_alt_firing(ent, WP_CLONEPISTOL, &alt_fire);
+	is_player_alt_firing(ent, ent->s.weapon, &alt_fire);
 
 	if (ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{//no inherent aim screw up
@@ -1893,8 +1899,8 @@ void WP_FireClonePistol(gentity_t* ent, qboolean alt_fire)
 		if (alt_fire)
 		{
 			// add some slop to the alt-fire direction
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * CLONEPISTOL_ALT_SPREAD;
-			angs[YAW] += Q_flrand(-1.0f, 1.0f) * CLONEPISTOL_ALT_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
+			angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[1].spread;
 		}
 		else
 		{
@@ -1910,8 +1916,8 @@ void WP_FireClonePistol(gentity_t* ent, qboolean alt_fire)
 			else
 			{
 				// add some slop to the main-fire direction
-				angs[PITCH] += Q_flrand(-1.0f, 1.0f) * CLONEPISTOL_MAIN_SPREAD;
-				angs[YAW] += Q_flrand(-1.0f, 1.0f) * CLONEPISTOL_MAIN_SPREAD;
+				angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
+				angs[YAW] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
 			}
 		}
 	}

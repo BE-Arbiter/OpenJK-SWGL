@@ -3023,6 +3023,9 @@ void CG_DPNextWeapon_f( void ) {
 	}
 
 	original = cg.DataPadWeaponSelect;
+	if (original < 0 || original >= weaponCount) {
+		original = 1;
+	}
 
 	//Search where is the current weapon in the array
 	int currentWeaponIndex = - 1;
@@ -3033,7 +3036,7 @@ void CG_DPNextWeapon_f( void ) {
 		}
 	}
 	//Cycle forward in the weaponBucketArray, ignoring negatives values
-	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++)
+	for (i = 0; i <= WEAPON_BUCKETS_SIZE; i++)
 	{
 		currentWeaponIndex++;
 		//Go back at the beggining of the array
@@ -3046,10 +3049,8 @@ void CG_DPNextWeapon_f( void ) {
 		}
 
 
-		if (CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], original, qfalse))
+		if (CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], original, qtrue))
 		{
-			//Found you!
-			SetWeaponSelectTime();
 			cg.DataPadWeaponSelect = weaponBuckets[currentWeaponIndex];
 			return;
 		}
@@ -3090,6 +3091,9 @@ void CG_DPPrevWeapon_f( void )
 	}
 
 	original = cg.DataPadWeaponSelect;
+	if (original < 0 || original >= weaponCount) {
+		original = 1;
+	}
 
 	//Search where is the current weapon in the array
 	int currentWeaponIndex = - 1;
@@ -3100,7 +3104,7 @@ void CG_DPPrevWeapon_f( void )
 		}
 	}
 	//Cycle backward in the weaponBucketArray, ignoring negatives values
-	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++)
+	for (i = 0; i <= WEAPON_BUCKETS_SIZE; i++)
 	{
 		currentWeaponIndex--;
 		//Go back at the end of the array
@@ -3113,10 +3117,8 @@ void CG_DPPrevWeapon_f( void )
 		}
 
 
-		if (CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], original, qfalse))
+		if (CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], original, qtrue))
 		{
-			//Found you!
-			SetWeaponSelectTime();
 			cg.DataPadWeaponSelect = weaponBuckets[currentWeaponIndex];
 			return;
 		}

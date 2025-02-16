@@ -795,6 +795,9 @@ void WPN_WeaponCategory(const char** holdBuf)
 	else if (!Q_stricmp(tokenStr, "WC_EXPLOSIVE")) {
 		weaponCategory = WC_EXPLOSIVE;
 	}
+	else if (!Q_stricmp(tokenStr, "WC_MINIGUN")) {
+		weaponCategory = WC_MINIGUN;
+	}
 	else {
 		weaponCategory = WC_NONE;
 		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for WeaponBucket in external WEAPONS.DAT\n", tokenStr);
