@@ -6483,6 +6483,62 @@ void NPC_Follow_f(void)
 	}
 }
 
+void NPC_Attribute_f(void)
+{
+	int			n;
+	gentity_t* ent;
+	char* targetname;
+	char* attribute;
+	int attr;
+
+	targetname = gi.argv(2);
+	attribute = gi.argv(3);
+
+	if (!*targetname || !*attribute)
+	{
+		gi.Printf(S_COLOR_RED"Error, Expected:\n");
+		gi.Printf(S_COLOR_RED"NPC attribute '[NPC targetname]' '[attribute code]' - Apply attribute to NPC.\n");
+		return;
+	}
+
+	for (n = 1; n < ENTITYNUM_MAX_NORMAL; n++)
+	{
+		ent = &g_entities[n];
+		if (!ent->inuse)
+		{
+			continue;
+		}
+		// Entity needs to be an NPC, NOT THE PLAYER!
+		if ((!Q_stricmp("all", targetname) || ent->targetname && Q_stricmp(targetname, ent->targetname) == 0) && (ent->NPC && ent != player))
+		{
+			attr = GetIDForString(attrTable, attribute);
+			
+			if (attr >= 0)
+			{
+				if (!(ent->attrFlags & attr))
+				{
+					gi.Printf(S_COLOR_GREEN"Applying attribute %s to NPC: %s.\n",attribute, ent->targetname);
+					ent->attrFlags |= attr;
+				}
+				else
+				{
+					gi.Printf(S_COLOR_GREEN"Removing attribute %s from NPC: %s.\n", attribute, ent->targetname);
+					ent->attrFlags &= ~attr;
+				}
+			}
+			else if (!Q_stricmp("remove", attribute) || !Q_stricmp("clear", attribute))
+			{
+				ent->attrFlags = 0;
+				gi.Printf(S_COLOR_YELLOW"Removing all attributes from NPC: %s.\n", ent->targetname);
+			}
+			else
+			{
+				gi.Printf(S_COLOR_YELLOW"Unknown attribute: %s.\n", attribute);
+			}
+		}
+	}
+}
+
 void NPC_Sound_f(void)
 {
 	int			n;
@@ -6659,6 +6715,10 @@ void Svcmd_NPC_f(void)
 	else if (Q_stricmp(cmd, "follow") == 0)
 	{
 		NPC_Follow_f();
+	}
+	else if (Q_stricmp(cmd, "attribute") == 0)
+	{
+		NPC_Attribute_f();
 	}
 	else if (Q_stricmp(cmd, "showbounds") == 0)
 	{//Toggle on and off
