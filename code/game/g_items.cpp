@@ -156,6 +156,11 @@ int Add_Ammo2 (gentity_t *ent, int ammoType, int count)
 			break;
 		}
 
+		int wpIndex = ammoData[ammoType].giveWeaponIndex;
+		if (wpIndex && !(ent->client->ps.weapons[wpIndex])) {
+			ent->client->ps.weapons[wpIndex] = 1;
+		}
+
 		if ( ent->client->ps.ammo[ammoType] > ammoData[ammoType].max )
 		{
 			ent->client->ps.ammo[ammoType] = ammoData[ammoType].max;
