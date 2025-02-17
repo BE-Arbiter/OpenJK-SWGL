@@ -1755,6 +1755,7 @@ typedef enum //# animNumber_e
 	//New anim as per Jarrod's request
 	LEGS_TURN180,
 	TORSO_D_PISTOL,
+	TORSO_D_IDLE,
 	TORSO_Z6_AIM,
 
 	//======================================================
