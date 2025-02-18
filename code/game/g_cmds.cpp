@@ -306,6 +306,11 @@ void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 					ent->attrFlags &= ~attr;
 				}
 			}
+			else if (!Q_stricmp("clear", args) || !Q_stricmp("remove", args))
+			{
+				gi.SendServerCommand(ent - g_entities, "print \"^2Removing all attributes\n\"");
+				ent->attrFlags = 0;
+			}
 			else
 			{
 				gi.SendServerCommand(ent - g_entities, va("print \"^1Unknown attribute: %s\n\"", args));
