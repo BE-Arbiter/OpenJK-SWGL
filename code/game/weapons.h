@@ -100,6 +100,21 @@ typedef enum //# weapon_e
 
 #define FIRST_WEAPON		WP_SABER		// this is the first weapon for next and prev weapon switching
 
+
+typedef enum
+{
+	FL_BLASTER,
+	FL_BLASTER_CHARGED,
+	FL_BOWCASTER,
+	FL_BEAM,
+	FL_GRENADE_LAUNCHER,
+	FL_DEMP2,
+	FL_MISSILE,
+	FL_EXPLOSIVES,
+	FL_GRENADES
+}firingLogic_t;
+
+/*Weapon Bucket for Cycling*/
 typedef enum {
 	WB_MELEE = -1, //1 Saber, Melee, Stun_Baton
 	WB_PISTOLS = -2, //2 All One handed weapons
@@ -176,30 +191,43 @@ typedef enum{
 
 typedef struct weaponAttackData_s
 {
-	char	firingSnd[64];		// Sound made when fired
-	char	chargeSnd[64];		// sound to start when the weapon initiates the charging sequence
-	char	missileHitSound[64];	// Missile impact sound
+	firingLogic_t firingLogic; //The method of fire for this attack
 
+	/* Base Data */
 	int		energyPerShot;		// Amount of energy used per shot
 	int		fireTime;			// Amount of time between firings
 	int		range;				// Range of weapon
 	float 	spread;				// Accuracy of shots
+	char	mMuzzleEffect[64];  // Effect to Override the base muzzle
+	int		mMuzzleEffectID;	// Handle to the muzzle effect
+	char	projectileEffect[64]; // Effecto to Override the base Projectile
+	void*	missileFunc;			// "FX for the missile"
+	int		damage;				// Damage per shot
+	float	mVelocity;			// Speed of missile
 
+	/* Blaster Bounce Data */
+	// TODO : g_weaponLoad.cpp
+	qboolean bounceWall;		//BounceOnWalls;
+	int		bounceCount;		//BounceCounts
+
+	/* Charged Shot Data */
+	// TODO : g_weaponLoad.cpp
+	float	chargeUnitTime;		// Time to Charge one unit of power
+	int		maxChargeUnits;		// Max amount of charge you can have.
+	char	chargeSnd[64];		// sound to start when the weapon initiates the charging sequence
+
+	char	firingSnd[64];		// Sound made when fired
+	char	missileHitSound[64];	// Missile impact sound
+
+	/* Physical Missile Data */
 	char	missileMdl[64];		// Missile Model
 	char	missileSound[64];	// Missile flight sound
 	float  	missileDlight;		// what is says
 	vec3_t 	missileDlightColor;	// ditto
 
-	void	*missileFunc;
-
-	char	mMuzzleEffect[64];
-	int		mMuzzleEffectID;
-	char	projectileEffect[64];
-
-	int		damage;				// Damage per shot
+	/* Splash Damage */
 	int		splashDamage;		// Splash damage when shot explodes
 	float	splashRadius;		// Splash radius when shot explodes
-	float	mVelocity;			// Speed of missile
 } weaponAttackData_t;
 
 #define MAX_WEAPON_ATTACKS 2
