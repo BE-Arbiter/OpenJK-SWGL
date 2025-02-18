@@ -13635,28 +13635,22 @@ static void PM_Weapon( void )
 	int burst_fire_delay = 0;
 	int burst_shots = 0;
 
+	//DWS-TODO : Integrate Attack 3 & 4
 	if (pm->cmd.buttons & BUTTON_ATTACK)
 	{	
-		if (pm->ps->firing_attack & TERTIARY_ATTACK)
+		if (pm->ps->firing_attack & ALT_ATTACK)
 		{
-			firing_type = weaponData[pm->ps->weapon].tertiaryFireOpt[FIRING_TYPE];
-			fire_time = weaponData[pm->ps->weapon].tertiaryFireTime;
-			burst_shots = weaponData[pm->ps->weapon].tertiaryFireOpt[SHOTS_PER_BURST];
-			burst_fire_delay = weaponData[pm->ps->weapon].tertiaryFireOpt[BURST_FIRE_DELAY];
-		}
-		else if (pm->ps->firing_attack & ALT_ATTACK)
-		{
-			firing_type = weaponData[pm->ps->weapon].altFireOpt[FIRING_TYPE];
+			firing_type = weaponData[pm->ps->weapon].attackData[1].fireOption[FIRING_TYPE];
 			fire_time = weaponData[pm->ps->weapon].attackData[1].fireTime;
-			burst_shots = weaponData[pm->ps->weapon].altFireOpt[SHOTS_PER_BURST];
-			burst_fire_delay = weaponData[pm->ps->weapon].altFireOpt[BURST_FIRE_DELAY];
+			burst_shots = weaponData[pm->ps->weapon].attackData[1].fireOption[SHOTS_PER_BURST];
+			burst_fire_delay = weaponData[pm->ps->weapon].attackData[1].fireOption[BURST_FIRE_DELAY];
 		}
 		else if (pm->ps->firing_attack & MAIN_ATTACK)
 		{
-			firing_type = weaponData[pm->ps->weapon].mainFireOpt[FIRING_TYPE];
+			firing_type = weaponData[pm->ps->weapon].attackData[0].fireOption[FIRING_TYPE];
 			fire_time = weaponData[pm->ps->weapon].attackData[0].fireTime;
-			burst_shots = weaponData[pm->ps->weapon].mainFireOpt[SHOTS_PER_BURST];
-			burst_fire_delay = weaponData[pm->ps->weapon].mainFireOpt[BURST_FIRE_DELAY];
+			burst_shots = weaponData[pm->ps->weapon].attackData[0].fireOption[SHOTS_PER_BURST];
+			burst_fire_delay = weaponData[pm->ps->weapon].attackData[0].fireOption[BURST_FIRE_DELAY];
 		}
 	}
 
@@ -14265,14 +14259,10 @@ static void PM_Weapon( void )
 	}
 	else
 	{
-		
+		//DWS-TODO : Integrate Scoped variants
 		if (pm->ps->firing_attack & ALT_ATTACK)
 		{
 			amount = weaponData[pm->ps->weapon].attackData[1].energyPerShot;
-		}
-		else if (pm->ps->firing_attack & TERTIARY_ATTACK)
-		{
-			amount = weaponData[pm->ps->weapon].tertiaryEnergyPerShot;
 		}
 		else
 		{
@@ -14444,13 +14434,13 @@ static void PM_Weapon( void )
 		weaponData[pm->ps->weapon].attackData[0].damage = HIGH_POWERED_DAMAGE;
 	}
 	// If the damages are different.
-	else if (weaponData[pm->ps->weapon].attackData[0].damage != weaponData[pm->ps->weapon].defaultDamage)
+	else if (weaponData[pm->ps->weapon].attackData[0].damage != weaponData[pm->ps->weapon].attackData[0].defaultDamage)
 	{
 		// Load back the default damage of that weapon.
-		weaponData[pm->ps->weapon].attackData[0].damage = weaponData[pm->ps->weapon].defaultDamage;
+		weaponData[pm->ps->weapon].attackData[0].damage = weaponData[pm->ps->weapon].attackData[0].defaultDamage;
 	}
 
-	//TODO: TO KEEP or NOT?
+	//DWS-TODO: TO KEEP or NOT?
 	//Shoot faster in dual fire
 	if (pm->gent->weaponModel[1] > 0) {
 		addTime /= 2;
@@ -14748,33 +14738,6 @@ void PM_CheckForceUseButton( gentity_t *ent, usercmd_t *ucmd  )
 
 /*
 ================
-PM_ForcePower
-================
-sends event to client for client side fx, not used
-*/
-
-/*
-static void PM_ForcePower(void)
-{
-	// check for item using
-	if ( pm->cmd.buttons & BUTTON_USE_FORCE )
-	{
-		if ( ! ( pm->ps->pm_flags & PMF_USE_FORCE ) )
-		{
-			pm->ps->pm_flags |= PMF_USE_FORCE;
-			PM_AddEvent( EV_USE_FORCE);
-			return;
-		}
-	}
-	else
-	{
-		pm->ps->pm_flags &= ~PMF_USE_FORCE;
-	}
-}
-*/
-
-/*
-================
 PM_DropTimers
 ================
 */
@@ -14874,9 +14837,10 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	int weapon = pm->ps->weapon;
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
-	int main_firing_type = weaponData[weapon].mainFireOpt[FIRING_TYPE];
-	int alt_firing_type = weaponData[weapon].altFireOpt[FIRING_TYPE];
-	int tertiary_firing_type = weaponData[weapon].tertiaryFireOpt[FIRING_TYPE];
+	//TODO-DWS
+	int main_firing_type = weaponData[weapon].attackData[0].fireOption[FIRING_TYPE];
+	int alt_firing_type = weaponData[weapon].attackData[1].fireOption[FIRING_TYPE];
+	int tertiary_firing_type = weaponData[weapon].attackData[2].fireOption[FIRING_TYPE];
 	int burst_shots = 0;
 
 	qboolean primFireDown = qfalse;
@@ -15101,7 +15065,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		pm->ps->firing_attack &= ~MAIN_ATTACK;
 
 		// Setting burst_shots.
-		burst_shots = weaponData[weapon].altFireOpt[SHOTS_PER_BURST];
+		burst_shots = weaponData[weapon].attackData[1].fireOption[SHOTS_PER_BURST];
 		pm->ps->firing_attack |= ALT_ATTACK;
 	}
 	// If a you press the main key, alt click is not pressed(this is to avoid one overriding the other),
@@ -15120,7 +15084,8 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			}
 			else
 			{
-				burst_shots = weaponData[weapon].tertiaryFireOpt[SHOTS_PER_BURST];
+				//DWS-TODO
+				burst_shots = weaponData[weapon].attackData[2].fireOption[SHOTS_PER_BURST];
 				pm->ps->firing_attack |= TERTIARY_ATTACK;
 
 				// I don't want an extra shot to get through right after
@@ -15134,13 +15099,13 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		// If you are scoped.
 		else if (cg.zoomMode >= ST_A280)
 		{
-			burst_shots = weaponData[weapon].altFireOpt[SHOTS_PER_BURST];
+			burst_shots = weaponData[weapon].attackData[1].fireOption[SHOTS_PER_BURST];
 			pm->ps->firing_attack |= ALT_ATTACK;
 		}
 		// Default main.
 		else
 		{
-			burst_shots = weaponData[weapon].mainFireOpt[SHOTS_PER_BURST];
+			burst_shots = weaponData[weapon].attackData[1].fireOption[SHOTS_PER_BURST];
 			pm->ps->firing_attack |= MAIN_ATTACK;
 		}
 	}

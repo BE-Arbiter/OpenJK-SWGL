@@ -103,6 +103,7 @@ typedef enum //# weapon_e
 
 typedef enum
 {
+	FL_NONE = 0,
 	FL_MELEE,
 	FL_BLASTER,
 	FL_BLASTER_CHARGED,
@@ -116,11 +117,14 @@ typedef enum
 	FL_FLECHETTE_ALT,
 	FL_NOGHRI,
 	FL_MISSILE,
+	FL_MISSILE_AIMED,
 	FL_LASER_TRAP,
 	FL_PROXIMITY_TRAP,
 	FL_EXPLOSIVES,
 	FL_GRENADE,
-	FL_IMPACT_GRENADE
+	FL_IMPACT_GRENADE,
+	FL_STUNBATON,
+	FL_OTHER, // For not yet done weapon
 }firingLogic_t;
 
 /*Weapon Bucket for Cycling*/
@@ -207,12 +211,22 @@ typedef struct weaponAttackData_s
 	int		fireTime;			// Amount of time between firings
 	int		range;				// Range of weapon
 	float 	spread;				// Accuracy of shots
+	int		damage;				// Damage per shot
+	int		defaultDamage;		// Default damage per shot
+	float	mVelocity;			// Speed of missile
+	int 	fireOption[3];		// Option for the fire (Type, Projectile count,...)
+
+	/* Splash Damage */
+	int		splashDamage;		// Splash damage when shot explodes
+	float	splashRadius;		// Splash radius when shot explodes
+
+	/* Effects */
+	void* missileFunc;		// "FX for the missile"
+	char	projectileEffect[64]; // Effecto to Override the base Projectile
 	char	mMuzzleEffect[64];  // Effect to Override the base muzzle
 	int		mMuzzleEffectID;	// Handle to the muzzle effect
-	char	projectileEffect[64]; // Effecto to Override the base Projectile
-	void*	missileFunc;			// "FX for the missile"
-	int		damage;				// Damage per shot
-	float	mVelocity;			// Speed of missile
+	char	explosionEffect[64]; // For explosives
+	char    shockwaveEffect[64]; // For explosives
 
 	/* Blaster Bounce Data */
 	// TODO : g_weaponLoad.cpp
@@ -224,19 +238,20 @@ typedef struct weaponAttackData_s
 	float	chargeUnitTime;		// Time to Charge one unit of power
 	int		maxChargeUnits;		// Max amount of charge you can have.
 	char	chargeSnd[64];		// sound to start when the weapon initiates the charging sequence
+	char	chargeMuzzleShader[64];
+	int		chargeMuzzleShaderID;
 
-	char	firingSnd[64];		// Sound made when fired
-	char	missileHitSound[64];	// Missile impact sound
 
 	/* Physical Missile Data */
 	char	missileMdl[64];		// Missile Model
 	char	missileSound[64];	// Missile flight sound
 	float  	missileDlight;		// what is says
 	vec3_t 	missileDlightColor;	// ditto
+	char	firingSnd[64];		// Sound made when fired
+	char	missileHitSound[64];	// Missile impact sound
 
-	/* Splash Damage */
-	int		splashDamage;		// Splash damage when shot explodes
-	float	splashRadius;		// Splash radius when shot explodes
+
+
 } weaponAttackData_t;
 
 #define MAX_WEAPON_ATTACKS 2
@@ -258,25 +273,7 @@ typedef struct weaponData_s
 	char	weaponIcon[64];		// Name of weapon icon file
 	int		numBarrels;			// how many barrels should we expect for this weapon?
 
-	char	mTertiaryMuzzleEffect[64];
-	int		mTertiaryMuzzleEffectID;
-	char	chargeMuzzleShader[64];
-	int		chargeMuzzleShaderID;
-
-	int		defaultDamage;
-
-	char	explosionEffect[64]; // For explosives
-	char    shockwaveEffect[64]; // For explosives
-
-	int 	tertiaryEnergyPerShot;
-	int 	tertiaryFireTime;
-	int		tertiaryRange;
-
 	int 	scopeType;
-	
-	int 	mainFireOpt[3];
-	int		altFireOpt[3];
-	int 	tertiaryFireOpt[3];
 
 	char	weaponMdl2[64];
 	qboolean secondaryMdl;

@@ -603,16 +603,16 @@ void WP_FireDroidsTwinBlasters(gentity_t* ent, weaponAttackData_t* attackData)
 //------------------------------------------------------------------------------------
 //	Grenades Functions
 //------------------------------------------------------------------------------------
-void WP_GrenadePlayExplosionEffect(gentity_t* ent) {
-	if (weaponData[ent->s.weapon].explosionEffect && weaponData[ent->s.weapon].explosionEffect[0]) {
-		G_PlayEffect(weaponData[ent->s.weapon].explosionEffect, ent->currentOrigin);
+void WP_GrenadePlayExplosionEffect(gentity_t* ent, weaponAttackData_t *attackData) {
+	if (attackData->explosionEffect && attackData->explosionEffect[0]) {
+		G_PlayEffect(attackData->explosionEffect, ent->currentOrigin);
 	}
 	else
 	{
 		G_PlayEffect("thermal/explosion", ent->currentOrigin);
 	}
-	if (weaponData[ent->s.weapon].shockwaveEffect && weaponData[ent->s.weapon].shockwaveEffect[0]) {
-		G_PlayEffect(weaponData[ent->s.weapon].shockwaveEffect, ent->currentOrigin);
+	if (attackData->shockwaveEffect && attackData->shockwaveEffect[0]) {
+		G_PlayEffect(attackData->shockwaveEffect, ent->currentOrigin);
 	}
 	else
 	{

@@ -1525,9 +1525,6 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 		default:
 			//Legacy for NPC Weapons even if most of them will be blaster fire
 			switch (baseWeaponNum) {
-				case WP_FLECHETTE:
-					WP_FireFlechette(ent, alt_fire);
-					break;
 				case WP_ROCKET_LAUNCHER:
 					WP_FireRocket(ent, alt_fire);
 					break;
