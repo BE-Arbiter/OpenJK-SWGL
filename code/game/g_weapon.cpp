@@ -1461,234 +1461,104 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 	}
 
 	// fire the specific weapon
-
+	//TODO : Find the correct logic based on attackData and scope status
 	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
-	switch(baseWeaponNum)
-	{
-	// Player weapons
-	//-----------------
-	case WP_SABER:
-		return;
-		break;
+	weaponAttackData_t *attackData;
 
-	case WP_BRYAR_PISTOL:
-	case WP_BLASTER_PISTOL:
-		WP_FireBryarPistol( ent, alt_fire );
-		break;
+	if (alt_fire) {
+		attackData = &weaponData[weaponNum].attackData[1];
+	}
+	else {
+		attackData = &weaponData[weaponNum].attackData[0];
+	}
 
-	case WP_BLASTER:
-		WP_FireBlaster( ent, alt_fire );
-		break;
-
-	case WP_TUSKEN_RIFLE:
-		if ( alt_fire )
-		{
-			WP_FireTuskenRifle( ent );
-		}
-		else
-		{
-			WP_Melee( ent );
-		}
-		break;
-
-	case WP_DISRUPTOR:
-		alert = 50; // if you want it to alert enemies, remove this
-		WP_FireDisruptor( ent, alt_fire );
-		break;
-
-	case WP_BOWCASTER:
-		WP_FireBowcaster( ent, alt_fire );
-		break;
-
-	case WP_REPEATER:
-		WP_FireRepeater( ent, alt_fire );
-		break;
-
-	case WP_DEMP2:
-		WP_FireDEMP2( ent, alt_fire );
-		break;
-
-	case WP_FLECHETTE:
-		WP_FireFlechette( ent, alt_fire );
-		break;
-
-	case WP_ROCKET_LAUNCHER:
-		WP_FireRocket( ent, alt_fire );
-		break;
-
-	case WP_CONCUSSION:
-		WP_Concussion( ent, alt_fire );
-		break;
-
-	case WP_THERMAL:
-		WP_FireThermalDetonator( ent, alt_fire );
-		break;
-
-	case WP_TRIP_MINE:
-		alert = 0; // if you want it to alert enemies, remove this
-		WP_PlaceLaserTrap( ent, alt_fire );
-		break;
-
-	case WP_DET_PACK:
-		alert = 0; // if you want it to alert enemies, remove this
-		WP_FireDetPack( ent, alt_fire );
-		break;
-
-	case WP_BOT_LASER:
-		WP_BotLaser( ent );
-		break;
-
-	case WP_EMPLACED_GUN:
-		// doesn't care about whether it's alt-fire or not.  We can do an alt-fire if needed
-		WP_EmplacedFire( ent );
-		break;
-
-	case WP_MELEE:
-		alert = 0; // if you want it to alert enemies, remove this
-		if ( !alt_fire || !g_debugMelee->integer )
-		{
-			WP_Melee( ent );
-		}
-		break;
-
-	case WP_ATST_MAIN:
-		WP_ATSTMainFire( ent );
-		break;
-
-	case WP_ATST_SIDE:
-
-		// TEMP
-		if ( alt_fire )
-		{
-//			WP_FireRocket( ent, qfalse );
-			WP_ATSTSideAltFire(ent);
-		}
-		else
-		{
-			// FIXME!
-		/*	if ( ent->s.number == 0
-				&& ent->client->NPC_class == CLASS_VEHICLE
-				&& vehicleData[((CVehicleNPC *)ent->NPC)->m_iVehicleTypeID].type == VH_FIGHTER )
-			{
-				WP_ATSTMainFire( ent );
+	switch (attackData->firingLogic) {
+		case FL_MELEE:
+			alert = 0;
+			if (baseWeaponNum != WP_MELEE || !alt_fire || !g_debugMelee->integer) {
+				WP_Melee(ent);
 			}
-			else*/
-			{
-				WP_ATSTSideFire(ent);
-			}
-		}
-		break;
-
-	case WP_TIE_FIGHTER:
-		// TEMP
-		WP_EmplacedFire( ent );
-		break;
-
-	case WP_RAPID_FIRE_CONC:
-		// TEMP
-		if ( alt_fire )
-		{
-			WP_FireRepeater( ent, alt_fire );
-		}
-		else
-		{
-			WP_EmplacedFire( ent );
-		}
-		break;
-
-	case WP_STUN_BATON:
-		WP_FireStunBaton( ent, alt_fire );
-		break;
-
-//	case WP_BLASTER_PISTOL:
-	case WP_JAWA:
-		WP_FireBryarPistol( ent, qfalse ); // never an alt-fire?
-		break;
-
-	case WP_SCEPTER:
-		WP_FireScepter( ent, alt_fire );
-		break;
-
-	case WP_NOGHRI_STICK:
-		if ( !alt_fire )
-		{
-			WP_FireNoghriStick( ent );
-		}
-		else
-		{
-			WP_Melee( ent );
-		}
-		break;
-
-	case WP_THEFIRSTORDER:
-		WP_FireFirstOrder(ent, alt_fire);
-		break;
-
-	case WP_CLONECARBINE:
-		WP_FireCloneCarbine(ent, alt_fire);
-		break;
-
-	case WP_CLONECOMMANDO:
-		WP_FireCloneCommando(ent, alt_fire);
-		break;
-
-	case WP_REBELRIFLE:
-		WP_FireRebelRifle(ent, alt_fire);
-		break;
-
-	case WP_BOBA:
-		WP_FireBobaRifle(ent, alt_fire);
-		break;
-
-	case WP_SBD:
-		if (!(alt_fire))
-		{
-			WP_FireSBD(ent);
-		}
-		break;
-
-	case WP_DROIDEKA:
-		if (!(alt_fire))
-		{
-			WP_FireDroideka(ent);
-		}
-		break;
-	case WP_CIS_SNIPER:
-		WP_FireCISSniper(ent, alt_fire);
-		break;
-
-	case WP_BATTLEDROID:
-		WP_FireBattleDroid(ent, alt_fire);
-		break;
-
-	case WP_CLONERIFLE:
-		WP_FireCloneRifle(ent, alt_fire);
-		break;
-
-	case WP_CLONEPISTOL:
-		WP_FireClonePistol(ent, alt_fire);
-		break;
-
-	case WP_REBELBLASTER:
-		WP_FireRebelBlaster(ent, alt_fire);
-		break;
-
-
-	case WP_REY:
-		WP_FireReyPistol(ent, alt_fire);
-		break;
-
-
-	case WP_JANGO:
-		WP_FireJangoPistol(ent, alt_fire);
-		break;
-
-
-
-	case WP_TUSKEN_STAFF:
-	default:
-		return;
-		break;
+			break;
+		case FL_BLASTER:
+		case FL_BLASTER_CHARGED:
+			WP_FireGenericBlaster(ent, attackData, alt_fire);
+			break;
+		case FL_BOWCASTER:
+			WP_FireGenericBowcaster(ent, attackData, alt_fire);
+			break;
+		case FL_BEAM:
+		case FL_BEAM_CHARGED:
+			alert = 50;
+			WP_FireGenericBeam(ent, attackData, alt_fire);
+			break;
+		case FL_GRENADE:
+		case FL_IMPACT_GRENADE:
+			WP_FireGrenade(ent, attackData, alt_fire);
+			break;
+		case FL_LASER_TRAP:
+			alert = 0;
+			WP_PlaceLaserTrap(ent,qfalse);
+			break;
+		case FL_PROXIMITY_TRAP:
+			alert = 0;
+			WP_PlaceLaserTrap(ent, qtrue);
+			break;
+		case FL_EXPLOSIVES:
+			alert = 0;
+			WP_FireDetPack(ent, attackData, alt_fire);
+			break;
+		case FL_DEMP2:
+			WP_FireDEMP2(ent, qfalse);
+			break;
+		case FL_DEMP2_ALT:
+			WP_FireDEMP2(ent, qtrue);
+			break;
+		case FL_FLECHETTE:
+			WP_FireFlechette(ent, qfalse);
+			break;
+		case FL_FLECHETTE_ALT:
+			WP_FireFlechette(ent, qfalse);
+			break;
+		case FL_NOGHRI:
+			WP_FireNoghriStick(ent);
+			break;
+		default:
+			//Legacy for NPC Weapons even if most of them will be blaster fire
+			switch (baseWeaponNum) {
+				case WP_FLECHETTE:
+					WP_FireFlechette(ent, alt_fire);
+					break;
+				case WP_ROCKET_LAUNCHER:
+					WP_FireRocket(ent, alt_fire);
+					break;
+				case WP_TIE_FIGHTER:
+				case WP_EMPLACED_GUN:
+					// doesn't care about whether it's alt-fire or not.  We can do an alt-fire if needed
+					WP_EmplacedFire(ent);
+					break;
+				case WP_ATST_MAIN:
+					WP_ATSTMainFire(ent);
+					break;
+				case WP_STUN_BATON:
+					WP_FireStunBaton(ent);
+					break;
+				case WP_SCEPTER:
+					WP_FireScepter(ent, alt_fire);
+					break;
+				case WP_ATST_SIDE:
+					if (alt_fire)
+					{
+						WP_ATSTSideAltFire(ent);
+					}
+					else
+					{
+						WP_ATSTSideFire(ent);
+					}
+					break;
+				default:
+					return;
+				}
+			break;
 	}
 
 	if ( !ent->s.number )

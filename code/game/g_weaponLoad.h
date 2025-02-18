@@ -175,78 +175,48 @@ struct wpnParms_s
 	int	ammoNum;
 } wpnParms;
 
+// Weapon Function Definition
+void WPN_BaseWeapon(const char** holdBuf);
 void WPN_Ammo(const char** holdBuf);
 void WPN_AmmoIcon(const char** holdBuf);
 void WPN_AmmoMax(const char** holdBuf);
 void WPN_AmmoLowCnt(const char** holdBuf);
 void WPN_AmmoType(const char** holdBuf);
-void WPN_EnergyPerShot(const char** holdBuf);
-void WPN_FireTime(const char** holdBuf);
-void WPN_FiringSnd(const char** holdBuf);
-void WPN_AltFiringSnd(const char** holdBuf);
 void WPN_StopSnd(const char** holdBuf);
-void WPN_ChargeSnd(const char** holdBuf);
-void WPN_AltChargeSnd(const char** holdBuf);
 void WPN_SelectSnd(const char** holdBuf);
-void WPN_Range(const char** holdBuf);
 void WPN_WeaponClass(const char** holdBuf);
 void WPN_WeaponIcon(const char** holdBuf);
 void WPN_WeaponModel(const char** holdBuf);
-void WPN_AltEnergyPerShot(const char** holdBuf);
-void WPN_AltFireTime(const char** holdBuf);
-void WPN_AltRange(const char** holdBuf);
 void WPN_BarrelCount(const char** holdBuf);
-void WPN_MissileName(const char** holdBuf);
-void WPN_AltMissileName(const char** holdBuf);
-void WPN_MissileSound(const char** holdBuf);
-void WPN_AltMissileSound(const char** holdBuf);
-void WPN_MissileLight(const char** holdBuf);
-void WPN_AltMissileLight(const char** holdBuf);
-void WPN_MissileLightColor(const char** holdBuf);
-void WPN_AltMissileLightColor(const char** holdBuf);
-void WPN_FuncName(const char** holdBuf);
-void WPN_AltFuncName(const char** holdBuf);
-void WPN_MissileHitSound(const char** holdBuf);
-void WPN_AltMissileHitSound(const char** holdBuf);
-void WPN_MuzzleEffect(const char** holdBuf);
-void WPN_AltMuzzleEffect(const char** holdBuf);
-void WPN_TertiaryMuzzleEffect(const char** holdBuf);
-void WPN_ChargeMuzzleEffect(const char** holdBuf);
-// OPENJK ADD
-
-void WPN_Damage(const char** holdBuf);
-void WPN_AltDamage(const char** holdBuf);
-void WPN_SplashDamage(const char** holdBuf);
-void WPN_SplashRadius(const char** holdBuf);
-void WPN_AltSplashDamage(const char** holdBuf);
-void WPN_AltSplashRadius(const char** holdBuf);
-
-void WPN_TertiaryEnergyPerShot(const char** holdBuf);
-void WPN_TertiaryFireTime(const char** holdBuf);
-void WPN_TertiaryRange(const char** holdBuf);
-
 void WPN_ScopeType(const char** holdBuf);
-
-void WPN_MainFireOptions(const char** holdBuf);
-void WPN_AltFireOptions(const char** holdBuf);
-void WPN_TertiaryFireOptions(const char** holdBuf);
-
 void WPN_WeaponModel2(const char** holdBuf);
-
-void WPN_BaseWeapon(const char** holdBuf);
-void WPN_Velocity(const char** holdBuf);
-void WPN_AltVelocity(const char** holdBuf);
-void WPN_Spread(const char** holdBuf);
-void WPN_AltSpread(const char** holdBuf);
 void WPN_PlayerUsable(const char** holdBuf);
 void WPN_WeaponCategory(const char** holdBuf);
 void WPN_WeaponBucket(const char** holdBuf);
 
-void WPN_ProjectileEffect(const char** holdBuf);
-void WPN_AltProjectileEffect(const char** holdBuf);
-
-void WPN_ExplosionEffect(const char** holdBuf);
-void WPN_ShockwaveEffect(const char** holdBuf);
+// Attack Definition
+void ATK_EnergyPerShot(const char** holdBuf);
+void ATK_FireTime(const char** holdBuf);
+void ATK_FiringSound(const char** holdBuf);
+void ATK_MuzzleEffect(const char** holdBuf);
+void ATK_ChargeMuzzleEffect(const char** holdBuf);
+void ATK_Range(const char** holdBuf);
+void ATK_MissileName(const char** holdBuf);
+void ATK_MissileSound(const char** holdBuf);
+void ATK_MissileLight(const char** holdBuf);
+void ATK_MissileLightColor(const char** holdBuf);
+void ATK_FuncName(const char** holdBuf);
+void ATK_Damage(const char** holdBuf);
+void ATK_SplashDamage(const char** holdBuf);
+void ATK_SplashRadius(const char** holdBuf);
+void ATK_MissileHitSound(const char** holdBuf);
+void ATK_Velocity(const char** holdBuf);
+void ATK_Spread(const char** holdBuf);
+void ATK_ProjectileEffect(const char** holdBuf);
+void ATK_ExplosionEffect(const char** holdBuf);
+void ATK_ChargeSnd(const char** holdBuf);
+void ATK_ShockwaveEffect(const char** holdBuf);
+void ATK_FireOptions(const char** holdBuf);
 
 // Legacy weapons.dat force fields
 void WPN_FuncSkip(const char** holdBuf);
@@ -258,78 +228,60 @@ typedef struct
 	void	(*func)(const char** holdBuf);
 } wpnParms_t;
 
+wpnParms_t AttackDataParms[] =
+{
+	{ "energypershot",		ATK_EnergyPerShot },
+	{ "fireTime",			ATK_FireTime },
+	{ "firingsound",		ATK_FiringSound },
+	{ "chargesound",		ATK_ChargeSnd },
+	{ "range",				ATK_Range },
+	{ "missileModel",		ATK_MissileName },
+	{ "missileSound",		ATK_MissileSound },
+	{ "missileLight",		ATK_MissileLight },
+	{ "missileLightColor",	ATK_MissileLightColor },
+	{ "missileFuncName",	ATK_FuncName },
+	{ "missileHitSound",	ATK_MissileHitSound },
+	{ "muzzleEffect",		ATK_MuzzleEffect },
+	{ "chargeMuzzleShader",	ATK_ChargeMuzzleEffect },
+	{ "projectileEffect",	ATK_ProjectileEffect },
+	{ "explosionEffect",	ATK_ExplosionEffect },
+	{ "shockwaveEffect",	ATK_ShockwaveEffect},
+	{ "damage",				ATK_Damage },
+	{ "splashDamage",		ATK_SplashDamage },
+	{ "splashRadius",		ATK_SplashRadius },
+	{ "velocity",			ATK_Velocity },
+	{ "spread",				ATK_Spread },
+	{ "fireopt",			ATK_FireOptions},
+};
+
 wpnParms_t WpnParms[] =
 {
-	{ "ammo",				WPN_Ammo },	//ammo
-	{ "ammoicon",			WPN_AmmoIcon },
-	{ "ammomax",			WPN_AmmoMax },
-	{ "ammolowcount",		WPN_AmmoLowCnt }, //weapons
-	{ "ammotype",			WPN_AmmoType },
-	{ "energypershot",	WPN_EnergyPerShot },
-	{ "fireTime",			WPN_FireTime },
-	{ "firingsound",		WPN_FiringSnd },
-	{ "altfiringsound",	WPN_AltFiringSnd },
-	{ "stopsound",		WPN_StopSnd },
-	{ "chargesound",		WPN_ChargeSnd },
-	{ "altchargesound",	WPN_AltChargeSnd },
-	{ "selectsound",		WPN_SelectSnd },
-	{ "range",			WPN_Range },
-	{ "weaponclass",		WPN_WeaponClass },
+	//Base Information about the weapon
+	{ "weaponclass",	WPN_WeaponClass },
+	{ "baseweapon",		WPN_BaseWeapon },
 	{ "weaponicon",		WPN_WeaponIcon },
-	{ "weaponmodel",		WPN_WeaponModel },
+	{ "weaponmodel",	WPN_WeaponModel },
+	{ "weaponmodel2",	WPN_WeaponModel2 },
+	{ "barrelcount",	WPN_BarrelCount }, //Is this really usefull?
+	{ "playerUsable",	WPN_PlayerUsable },
+	{ "weaponCategory",	WPN_WeaponCategory },
+	{ "weaponBucket",	WPN_WeaponBucket },
+	{ "scopeType",		WPN_ScopeType },
+
+	//Ammo Information
+	{ "ammo",			WPN_Ammo },	//ammo
+	{ "ammoicon",		WPN_AmmoIcon },
+	{ "ammomax",		WPN_AmmoMax },
+	{ "ammolowcount",	WPN_AmmoLowCnt }, //weapons
+	{ "ammotype",		WPN_AmmoType },
+
+	// Sound Info
+	{ "stopsound",		WPN_StopSnd },
+	{ "selectsound",	WPN_SelectSnd },
+
+
+	// Legacy Data that can still be found
 	{ "weapontype",		WPN_FuncSkip  },
-	{ "altenergypershot",	WPN_AltEnergyPerShot },
-	{ "altfireTime",		WPN_AltFireTime },
-	{ "altrange",			WPN_AltRange },
-	{ "barrelcount",		WPN_BarrelCount },
-	{ "missileModel",		WPN_MissileName },
-	{ "altmissileModel", 	WPN_AltMissileName },
-	{ "missileSound",		WPN_MissileSound },
-	{ "altmissileSound", 	WPN_AltMissileSound },
-	{ "missileLight",		WPN_MissileLight },
-	{ "altmissileLight", 	WPN_AltMissileLight },
-	{ "missileLightColor",WPN_MissileLightColor },
-	{ "altmissileLightColor",	WPN_AltMissileLightColor },
-	{ "missileFuncName",		WPN_FuncName },
-	{ "altmissileFuncName",	WPN_AltFuncName },
-	{ "missileHitSound",		WPN_MissileHitSound },
-	{ "altmissileHitSound",	WPN_AltMissileHitSound },
-	{ "muzzleEffect",			WPN_MuzzleEffect },
-	{ "altmuzzleEffect",		WPN_AltMuzzleEffect },
-	{ "tertiarymuzzleEffect",	WPN_TertiaryMuzzleEffect },
-	{ "chargeMuzzleShader",	WPN_ChargeMuzzleEffect },
-	{ "projectileEffect",			WPN_ProjectileEffect },
-	{ "altProjectileEffect",		WPN_AltProjectileEffect},
-
-	{ "explosionEffect",			WPN_ExplosionEffect },
-	{ "shockwaveEffect",		WPN_ShockwaveEffect},
-	// OPENJK NEW FIELDS
-	{ "damage",				WPN_Damage },
-	{ "altdamage",			WPN_AltDamage },
-	{ "splashDamage",		WPN_SplashDamage },
-	{ "splashRadius",		WPN_SplashRadius },
-	{ "altSplashDamage",	WPN_AltSplashDamage },
-	{ "altSplashRadius",	WPN_AltSplashRadius },
-	{ "tertiaryenergypershot",	WPN_TertiaryEnergyPerShot },
-	{ "tertiaryfiretime",		WPN_TertiaryFireTime },
-	{ "tertiaryrange",			WPN_TertiaryRange },
-
-	{ "scopeType",			WPN_ScopeType },
-
-	{ "mainfireopt",		WPN_MainFireOptions},
-	{ "altfireopt",			WPN_AltFireOptions},
-	{ "tertiaryfireopt",	WPN_TertiaryFireOptions},
-
-	{ "weaponmodel2",		WPN_WeaponModel2 },
-	{ "baseweapon",			WPN_BaseWeapon },
-	{ "velocity",			WPN_Velocity },
-	{ "altVelocity",		WPN_AltVelocity },
-	{ "spread",				WPN_Spread },
-	{ "altSpread",			WPN_AltSpread },
-	{ "playerUsable",		WPN_PlayerUsable },
-	{ "weaponCategory",		WPN_WeaponCategory },
-	{ "weaponBucket",		WPN_WeaponBucket },
-	// Old legacy files contain these, so we skip them to shut up warnings
 	{ "firingforce",		WPN_FuncSkip },
 	{ "chargeforce",		WPN_FuncSkip },
 	{ "altchargeforce",	WPN_FuncSkip },

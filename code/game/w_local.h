@@ -50,65 +50,48 @@ extern int	g_rocketSlackTime;
 int G_GetHitLocFromTrace( trace_t *trace, int mod );
 
 // Specific weapon functions
+void WP_FireGenericBeam(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire);
+void WP_FireGenericBowcaster(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire);
+void WP_FireGenericBlaster(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire);
+void WP_FireDetPack(gentity_t* ent, weaponAttackData_t* attackData, qboolean alt_fire);
 
+// Grenades
+qboolean WP_LobFire(gentity_t* self, vec3_t start, vec3_t target, vec3_t mins, vec3_t maxs, int clipmask,
+	vec3_t velocity, qboolean tracePath, int ignoreEntNum, int enemyNum,
+	float minSpeed = 0, float maxSpeed = 0, float idealSpeed = 0, qboolean mustHit = qfalse);
+void WP_GrenadeExplode(gentity_t* ent);
+void WP_GrenadeThink(gentity_t* ent);
+void WP_GrenadeDie(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int damage, int mod, int dFlags, int hitLoc);
+gentity_t* WP_FireGrenade(gentity_t* ent, weaponAttackData_t* attackData, qboolean alt_fire);
+gentity_t* WP_DropGrenade(gentity_t* ent, weaponAttackData_t* attackData);
+
+// Laser Traps
+void touchLaserTrap(gentity_t* ent, gentity_t* other, trace_t* trace);
+void CreateLaserTrap(gentity_t* laserTrap, vec3_t start, gentity_t* owner);
+void WP_PlaceLaserTrap(gentity_t* ent, qboolean alt_fire);
+void prox_mine_think(gentity_t* ent);
+void prox_mine_stick(gentity_t* self, gentity_t* other, trace_t* trace);
+
+// Det_packs
 void WP_ATSTMainFire( gentity_t *ent );
 void WP_ATSTSideAltFire( gentity_t *ent );
 void WP_ATSTSideFire( gentity_t *ent );
-void WP_FireBryarPistol( gentity_t *ent, qboolean alt_fire );
-void WP_FireBlasterMissile( gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire );
-void WP_FireBlaster( gentity_t *ent, qboolean alt_fire );
-void WP_BotLaser( gentity_t *ent );
-void WP_FireBowcaster( gentity_t *ent, qboolean alt_fire );
-void WP_Concussion( gentity_t *ent, qboolean alt_fire );
+void charge_stick(gentity_t* self, gentity_t* other, trace_t* trace);
+
+// DEMP2
 void WP_FireDEMP2( gentity_t *ent, qboolean alt_fire );
-void charge_stick( gentity_t *self, gentity_t *other, trace_t *trace );
-void WP_FireDetPack( gentity_t *ent, qboolean alt_fire );
-void WP_FireDisruptor( gentity_t *ent, qboolean alt_fire );
+
+// Fire Stun Baton
+void WP_FireStunBaton(gentity_t* ent);
+
+// Npc Weapon
 void WP_FireTurboLaserMissile( gentity_t *ent, vec3_t start, vec3_t dir );
 void WP_EmplacedFire( gentity_t *ent );
-void prox_mine_think( gentity_t *ent );
-void prox_mine_stick( gentity_t *self, gentity_t *other, trace_t *trace );
-void WP_FireFlechette( gentity_t *ent, qboolean alt_fire );
 void WP_Melee( gentity_t *ent );
+
+//Weapon still to do
+void WP_FireFlechette(gentity_t* ent, qboolean alt_fire);
 void WP_FireNoghriStick( gentity_t *ent );
-void WP_FireRepeater( gentity_t *ent, qboolean alt_fire );
 void rocketThink( gentity_t *ent );
 void WP_FireRocket( gentity_t *ent, qboolean alt_fire );
-void WP_FireStunBaton( gentity_t *ent, qboolean alt_fire );
-void thermalDetonatorExplode( gentity_t *ent );
-void thermal_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod, int dFlags, int hitLoc );
-qboolean WP_LobFire( gentity_t *self, vec3_t start, vec3_t target, vec3_t mins, vec3_t maxs, int clipmask,
-				vec3_t velocity, qboolean tracePath, int ignoreEntNum, int enemyNum,
-				float minSpeed = 0, float maxSpeed = 0, float idealSpeed = 0, qboolean mustHit = qfalse );
-void WP_ThermalThink( gentity_t *ent );
-gentity_t *WP_FireThermalDetonator( gentity_t *ent, qboolean alt_fire );
-gentity_t *WP_DropThermal( gentity_t *ent );
-void touchLaserTrap( gentity_t *ent, gentity_t *other, trace_t *trace );
-void CreateLaserTrap( gentity_t *laserTrap, vec3_t start, gentity_t *owner );
-void WP_PlaceLaserTrap( gentity_t *ent, qboolean alt_fire );
-void WP_FireTuskenRifle( gentity_t *ent );
-void WP_FireFirstOrderMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire);
-void WP_FireFirstOrder(gentity_t *ent, qboolean alt_fire);
-void WP_FireCloneCarbineMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire);
-void WP_FireCloneCarbine(gentity_t *ent, qboolean alt_fire);
-void WP_FireCloneCommandoMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire);
-void WP_FireCloneCommando(gentity_t *ent, qboolean alt_fire);
-void WP_FireRebelRifleMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire);
-void WP_FireRebelRifle(gentity_t *ent, qboolean alt_fire);
-void WP_FireBobaRifleMissile(gentity_t *ent, vec3_t start, vec3_t dir, qboolean altFire);
-void WP_FireBobaRifle(gentity_t *ent, qboolean alt_fire);
-void WP_FireSBD(gentity_t *ent);
-void WP_FireCISSniper(gentity_t* ent, qboolean alt_fire);
-void WP_FireCISSniperMissile(gentity_t* ent, vec3_t start, vec3_t dir, qboolean altFire);
-void WP_FireBattleDroidMissile(gentity_t* ent, vec3_t start, vec3_t dir, qboolean altFire);
-void WP_FireBattleDroid(gentity_t* ent, qboolean alt_fire);
-void WP_FireRebelBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir, qboolean altFire);
-void WP_FireRebelBlaster(gentity_t* ent, qboolean alt_fire);
-void WP_FireCloneRifleMissile(gentity_t* ent, vec3_t start, vec3_t dir, qboolean altFire);
-void WP_FireCloneRifle(gentity_t* ent, qboolean alt_fire);
-void WP_FireReyPistol(gentity_t* ent, qboolean alt_fire);
-void WP_FireJangoPistolMissile(gentity_t* ent, vec3_t start, vec3_t dir, qboolean altFire);
-void WP_FireJangoPistol(gentity_t* ent, qboolean alt_fire);
-void WP_FireClonePistolMissile(gentity_t* ent, vec3_t start, vec3_t dir, qboolean altFire);
-void WP_FireClonePistol(gentity_t* ent, qboolean alt_fire);
-void WP_FireDroideka(gentity_t* ent);
+

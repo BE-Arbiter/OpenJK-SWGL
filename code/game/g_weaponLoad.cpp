@@ -33,6 +33,13 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define MAX_AMMO_STORAGE 1000
 #define MAX_BARREL_COUNT 4
 
+weaponAttackData_t* currentAttackData = NULL;
+
+/*
+----------------------------------------------------------
+	Utility Functions
+----------------------------------------------------------
+*/
 static void ParseInt(const char** holdBuf, int* dest)
 {
 	int		tokenInt;
@@ -107,7 +114,11 @@ void WPN_FuncSkip(const char** holdBuf)
 	SkipRestOfLine(holdBuf);
 }
 
-//--------------------------------------------
+/*
+----------------------------------------------------------
+	Weapon Functions
+----------------------------------------------------------
+*/
 void WPN_WeaponClass(const char **holdBuf)
 {
 	int i;
@@ -141,7 +152,6 @@ void WPN_WeaponClass(const char **holdBuf)
 	weaponIndexes[weaponNum].index = weaponNum;
 }
 
-
 //--------------------------------------------
 void WPN_WeaponModel(const char **holdBuf)
 {
@@ -168,106 +178,46 @@ void WPN_AmmoLowCnt(const char **holdBuf)
 }
 
 //--------------------------------------------
-void WPN_FiringSnd(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].firingSnd, 64, "firingSnd");
-}
-
-//--------------------------------------------
-void WPN_AltFiringSnd( const char **holdBuf )
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].firingSnd, 64, "altFiringSnd");
-}
-
-//--------------------------------------------
-void WPN_StopSnd( const char **holdBuf )
+void WPN_StopSnd(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].stopSnd, 64, "stopSnd");
 }
 
 //--------------------------------------------
-void WPN_ChargeSnd(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].chargeSnd, 64, "chargeSnd");
-}
-
-//--------------------------------------------
-void WPN_AltChargeSnd(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].chargeSnd, 64, "altChargeSnd");
-}
-
-//--------------------------------------------
-void WPN_SelectSnd( const char **holdBuf )
+void WPN_SelectSnd(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].selectSnd, 64, "selectSnd");
 }
 
 //--------------------------------------------
-void WPN_FireTime(const char **holdBuf)
+void WPN_Ammo(const char** holdBuf)
 {
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].fireTime, 0, MAX_FIRETIME, "Firetime");
-}
+	const char* tokenStr;
 
-//--------------------------------------------
-void WPN_Range(const char **holdBuf)
-{
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].range, 0, MAX_RANGE, "Range");
-}
-
-//--------------------------------------------
-void WPN_EnergyPerShot(const char **holdBuf)
-{
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].energyPerShot, 0, MAX_AMMO_STORAGE, "EnergyPerShot");
-}
-
-//--------------------------------------------
-void WPN_AltFireTime(const char **holdBuf)
-{
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].fireTime, 0, MAX_FIRETIME, "altFireTime");
-}
-
-//--------------------------------------------
-void WPN_AltRange(const char **holdBuf)
-{
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].range, 0, MAX_RANGE, "altRange");
-}
-
-//--------------------------------------------
-void WPN_AltEnergyPerShot(const char **holdBuf)
-{
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].energyPerShot, 0, MAX_AMMO_STORAGE, "altEnergyPerShot");
-}
-
-//--------------------------------------------
-void WPN_Ammo(const char **holdBuf)
-{
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
+	if (COM_ParseString(holdBuf, &tokenStr))
 	{
 		return;
 	}
 
-	if (!Q_stricmp(tokenStr,"AMMO_NONE"))
+	if (!Q_stricmp(tokenStr, "AMMO_NONE"))
 		wpnParms.ammoNum = AMMO_NONE;
-	else if (!Q_stricmp(tokenStr,"AMMO_FORCE"))
+	else if (!Q_stricmp(tokenStr, "AMMO_FORCE"))
 		wpnParms.ammoNum = AMMO_FORCE;
-	else if (!Q_stricmp(tokenStr,"AMMO_BLASTER"))
+	else if (!Q_stricmp(tokenStr, "AMMO_BLASTER"))
 		wpnParms.ammoNum = AMMO_BLASTER;
-	else if (!Q_stricmp(tokenStr,"AMMO_POWERCELL"))
+	else if (!Q_stricmp(tokenStr, "AMMO_POWERCELL"))
 		wpnParms.ammoNum = AMMO_POWERCELL;
-	else if (!Q_stricmp(tokenStr,"AMMO_METAL_BOLTS"))
+	else if (!Q_stricmp(tokenStr, "AMMO_METAL_BOLTS"))
 		wpnParms.ammoNum = AMMO_METAL_BOLTS;
-	else if (!Q_stricmp(tokenStr,"AMMO_ROCKETS"))
+	else if (!Q_stricmp(tokenStr, "AMMO_ROCKETS"))
 		wpnParms.ammoNum = AMMO_ROCKETS;
-	else if (!Q_stricmp(tokenStr,"AMMO_EMPLACED"))
+	else if (!Q_stricmp(tokenStr, "AMMO_EMPLACED"))
 		wpnParms.ammoNum = AMMO_EMPLACED;
-	else if (!Q_stricmp(tokenStr,"AMMO_THERMAL"))
+	else if (!Q_stricmp(tokenStr, "AMMO_THERMAL"))
 		wpnParms.ammoNum = AMMO_THERMAL;
-	else if (!Q_stricmp(tokenStr,"AMMO_TRIPMINE"))
+	else if (!Q_stricmp(tokenStr, "AMMO_TRIPMINE"))
 		wpnParms.ammoNum = AMMO_TRIPMINE;
-	else if (!Q_stricmp(tokenStr,"AMMO_DETPACK"))
+	else if (!Q_stricmp(tokenStr, "AMMO_DETPACK"))
 		wpnParms.ammoNum = AMMO_DETPACK;
 	else
 	{
@@ -277,481 +227,36 @@ void WPN_Ammo(const char **holdBuf)
 }
 
 //--------------------------------------------
-void WPN_AmmoIcon(const char **holdBuf)
+void WPN_AmmoIcon(const char** holdBuf)
 {
 	ParseStr(holdBuf, ammoData[wpnParms.ammoNum].icon, 64, "ammoicon");
 }
 
 //--------------------------------------------
-void WPN_AmmoMax(const char **holdBuf)
+void WPN_AmmoMax(const char** holdBuf)
 {
 	ParseIntWithLims(holdBuf, &ammoData[wpnParms.ammoNum].max, 0, MAX_AMMO_STORAGE, "Ammo Max");
 }
 
 //--------------------------------------------
-void WPN_BarrelCount(const char **holdBuf)
+void WPN_BarrelCount(const char** holdBuf)
 {
 	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].numBarrels, 0, MAX_BARREL_COUNT, "Barrel Count");
 }
 
 //--------------------------------------------
-static void WP_ParseWeaponParms(const char **holdBuf)
-{
-	const char	*token;
-	size_t	i;
-
-	while (holdBuf)
-	{
-		token = COM_ParseExt( holdBuf, qtrue );
-
-		if (!Q_stricmp( token, "}" ))	// End of data for this weapon
-			break;
-		// Loop through possible parameters
-		for (i=0;i<numWpnParms;++i)
-		{
-			if (!Q_stricmp(token,WpnParms[i].parmName))
-			{
-				WpnParms[i].func(holdBuf);
-				break;
-			}
-		}
-
-		if (i < numWpnParms)	// Find parameter???
-		{
-			continue;
-		}
-		Com_Printf("^3WARNING: bad parameter in external weapon data '%s'\n", token);
-	}
-}
-
-//--------------------------------------------
-void WPN_MissileName(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].missileMdl, 64, "MissileName");
-}
-
-//--------------------------------------------
-void WPN_AltMissileName(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].missileMdl, 64, "AltMissileName");
-}
-
-//--------------------------------------------
-void WPN_MissileHitSound(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].missileHitSound, 64, "MissileHitSound");
-}
-
-//--------------------------------------------
-void WPN_AltMissileHitSound(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].missileHitSound, 64, "AltMissileHitSound");
-}
-
-//--------------------------------------------
-void WPN_MissileSound(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].missileSound, 64, "MissileSound");
-}
-
-//--------------------------------------------
-void WPN_AltMissileSound(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].missileSound, 64, "AltMissileSound");
-}
-
-//--------------------------------------------
-void WPN_MissileLightColor(const char **holdBuf)
-{
-	int i;
-	float	tokenFlt;
-
-	for (i=0;i<3;++i)
-	{
-		if ( COM_ParseFloat(holdBuf,&tokenFlt))
-		{
-			SkipRestOfLine(holdBuf);
-			continue;
-		}
-
-		if ((tokenFlt < 0) || (tokenFlt > 1 ))
-		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelightcolor in external weapon data '%f'\n", tokenFlt);
-			continue;
-		}
-		weaponData[wpnParms.weaponNum].attackData[0].missileDlightColor[i] = tokenFlt;
-	}
-
-}
-
-//--------------------------------------------
-void WPN_AltMissileLightColor(const char **holdBuf)
-{
-	int i;
-	float	tokenFlt;
-
-	for (i=0;i<3;++i)
-	{
-		if ( COM_ParseFloat(holdBuf,&tokenFlt))
-		{
-			SkipRestOfLine(holdBuf);
-			continue;
-		}
-
-		if ((tokenFlt < 0) || (tokenFlt > 1 ))
-		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad altmissilelightcolor in external weapon data '%f'\n", tokenFlt);
-			continue;
-		}
-		weaponData[wpnParms.weaponNum].attackData[1].missileDlightColor[i] = tokenFlt;
-	}
-
-}
-
-
-//--------------------------------------------
-void WPN_MissileLight(const char **holdBuf)
-{
-	float	tokenFlt;
-
-	if ( COM_ParseFloat(holdBuf,&tokenFlt))
-	{
-		SkipRestOfLine(holdBuf);
-	}
-
-	if ((tokenFlt < 0) || (tokenFlt > 255 )) // FIXME :What are the right values?
-	{
-		gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelight in external weapon data '%f'\n", tokenFlt);
-	}
-	weaponData[wpnParms.weaponNum].attackData[0].missileDlight = tokenFlt;
-}
-
-//--------------------------------------------
-void WPN_AltMissileLight(const char **holdBuf)
-{
-	float	tokenFlt;
-
-	if ( COM_ParseFloat(holdBuf,&tokenFlt))
-	{
-		SkipRestOfLine(holdBuf);
-	}
-
-	if ((tokenFlt < 0) || (tokenFlt > 255 )) // FIXME :What are the right values?
-	{
-		gi.Printf(S_COLOR_YELLOW"WARNING: bad altmissilelight in external weapon data '%f'\n", tokenFlt);
-	}
-	weaponData[wpnParms.weaponNum].attackData[1].missileDlight = tokenFlt;
-}
-
-
-//--------------------------------------------
-void WPN_FuncName(const char **holdBuf)
-{
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-	size_t len = strlen(tokenStr);
-
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: FuncName '%s' too long in external WEAPONS.DAT\n", tokenStr);
-	}
-
-	for ( func_t* s=funcs ; s->name ; s++ ) {
-		if ( !Q_stricmp(s->name, tokenStr) ) {
-			// found it
-			weaponData[wpnParms.weaponNum].attackData[0].missileFunc = (void*)s->func;
-			return;
-		}
-	}
-	gi.Printf(S_COLOR_YELLOW"WARNING: FuncName '%s' in external WEAPONS.DAT does not exist\n", tokenStr);
-}
-
-
-//--------------------------------------------
-void WPN_AltFuncName(const char **holdBuf)
-{
-	const char	*tokenStr;
-
-	if ( COM_ParseString(holdBuf,&tokenStr))
-	{
-		return;
-	}
-
-	size_t len = strlen(tokenStr);
-	len++;
-	if (len > 64)
-	{
-		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: AltFuncName '%s' too long in external WEAPONS.DAT\n", tokenStr);
-	}
-
-	for ( func_t* s=funcs ; s->name ; s++ ) {
-		if ( !Q_stricmp(s->name, tokenStr) ) {
-			// found it
-			weaponData[wpnParms.weaponNum].attackData[1].missileFunc = (void*)s->func;
-			return;
-		}
-	}
-	gi.Printf(S_COLOR_YELLOW"WARNING: AltFuncName %s in external WEAPONS.DAT does not exist\n", tokenStr);
-}
-
-//--------------------------------------------
-void WPN_MuzzleEffect(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].mMuzzleEffect, 64, "MuzzleEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[0].mMuzzleEffect );
-}
-
-//--------------------------------------------
-void WPN_AltMuzzleEffect(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].mMuzzleEffect, 64, "AltMuzzleEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[1].mMuzzleEffect );
-}
-
-//--------------------------------------------
-void WPN_ProjectileEffect(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].projectileEffect, 64, "projectileEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[0].projectileEffect );
-}
-
-//--------------------------------------------
-void WPN_AltProjectileEffect(const char** holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[1].projectileEffect, 64, "alt_projectileEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[1].projectileEffect );
-}
-//--------------------------------------------
-void WPN_ExplosionEffect(const char** holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].explosionEffect, 64, "alt_projectileEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].explosionEffect );
-}
-//--------------------------------------------
-void WPN_ShockwaveEffect(const char** holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].shockwaveEffect, 64, "alt_projectileEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].shockwaveEffect );
-}
-
-//--------------------------------------------
-void WPN_TertiaryMuzzleEffect(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].mTertiaryMuzzleEffect, 64, "TertiaryMuzzleEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].mTertiaryMuzzleEffect );
-}
-
-//--------------------------------------------
-void WPN_ChargeMuzzleEffect(const char **holdBuf)
-{
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].chargeMuzzleShader, 64, "chargeMuzzleEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].chargeMuzzleShader );
-}
-
-//--------------------------------------------
-
-void WPN_Damage(const char **holdBuf)
-{
-	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].damage);
-	weaponData[wpnParms.weaponNum].defaultDamage = weaponData[wpnParms.weaponNum].attackData[0].damage;
-}
-
-//--------------------------------------------
-
-void WPN_AltDamage(const char **holdBuf)
-{
-	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].damage);
-}
-
-//--------------------------------------------
-
-void WPN_SplashDamage(const char **holdBuf)
-{
-	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].splashDamage);
-}
-
-//--------------------------------------------
-
-void WPN_SplashRadius(const char **holdBuf)
-{
-	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].splashRadius);
-}
-
-//--------------------------------------------
-
-void WPN_AltSplashDamage(const char **holdBuf)
-{
-	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].splashDamage);
-}
-
-//--------------------------------------------
-
-void WPN_AltSplashRadius(const char **holdBuf)
-{
-	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].splashRadius);
-}
-
-//--------------------------------------------
-void WPN_TertiaryEnergyPerShot(const char **holdBuf)
-{
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].tertiaryEnergyPerShot, 0, MAX_AMMO_STORAGE, "tertiaryEnergyPerShot");
-}
-
-//--------------------------------------------
-void WPN_TertiaryFireTime(const char **holdBuf)
-{
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].tertiaryFireTime, 0, MAX_FIRETIME, "tertiaryFireTime");
-}
-
-//--------------------------------------------
-void WPN_TertiaryRange(const char **holdBuf)
-{
-	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].tertiaryRange, 0, MAX_RANGE, "tertiaryRange");
-}
-
-//--------------------------------------------
-void WPN_ScopeType(const char **holdBuf)
-{
-    int        tokenInt;
-
-    if ( COM_ParseInt(holdBuf,&tokenInt))
-    {
-        SkipRestOfLine(holdBuf);
-        return;
-    }
-
-	// This is for cg.zoommode.
-	tokenInt += 3;
-
-    if ((tokenInt < ST_A280) || (tokenInt > ST_E5 ))
-    {
-        gi.Printf(S_COLOR_YELLOW"WARNING: bad scopeType in external weapon data '%d'\n", tokenInt);
-        return;
-    }
-    weaponData[wpnParms.weaponNum].scopeType = tokenInt;
-}
-
-//--------------------------------------------
-void WPN_MainFireOptions(const char **holdBuf)
-{
-	int i;
-	int tokenInt;
-
-	for (i = 0; i < 3; i++)
-	{
-		if (COM_ParseInt(holdBuf, &tokenInt))
-		{
-			SkipRestOfLine(holdBuf);
-			continue;
-		}
-
-		if ((tokenInt < 0) || (tokenInt > 10000 ))
-		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad mainfireopt in external weapon data '%d'\n", tokenInt);
-			continue;
-		}
-
-		weaponData[wpnParms.weaponNum].mainFireOpt[i] = tokenInt;
-	}
-}
-
-//--------------------------------------------
-void WPN_AltFireOptions(const char **holdBuf)
-{
-	int i;
-	int tokenInt;
-
-	for (i = 0; i < 3; i++)
-	{
-		if (COM_ParseInt(holdBuf, &tokenInt))
-		{
-			SkipRestOfLine(holdBuf);
-			continue;
-		}
-
-		if ((tokenInt < 0) || (tokenInt > 10000 ))
-		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad altfireopt in external weapon data '%d'\n", tokenInt);
-			continue;
-		}
-
-		weaponData[wpnParms.weaponNum].altFireOpt[i] = tokenInt;
-	}
-}
-
-//--------------------------------------------
-void WPN_TertiaryFireOptions(const char **holdBuf)
-{
-	int i;
-	int tokenInt;
-
-	for (i = 0; i < 3; i++)
-	{
-		if (COM_ParseInt(holdBuf, &tokenInt))
-		{
-			SkipRestOfLine(holdBuf);
-			continue;
-		}
-
-		if ((tokenInt < 0) || (tokenInt > 10000 ))
-		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad tertiaryFireOpt in external weapon data '%d'\n", tokenInt);
-			continue;
-		}
-
-		weaponData[wpnParms.weaponNum].tertiaryFireOpt[i] = tokenInt;
-	}
-}
-
-//--------------------------------------------
-void WPN_WeaponModel2(const char **holdBuf)
+void WPN_WeaponModel2(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].weaponMdl2, 64, "weaponMdl2");
 }
 
 //--------------------------------------------
-void WPN_BaseWeapon(const char **holdBuf)
+void WPN_BaseWeapon(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].baseclass, 32, "Base weapon");
 }
 
 //--------------------------------------------
-
-void WPN_Velocity(const char** holdBuf)
-{
-	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].mVelocity);
-}
-
-//--------------------------------------------
-
-void WPN_AltVelocity(const char** holdBuf)
-{
-	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].mVelocity);
-}
-
-//--------------------------------------------
-
-void WPN_Spread(const char** holdBuf)
-{
-	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].spread);
-}
-
-//--------------------------------------------
-
-void WPN_AltSpread(const char** holdBuf)
-{
-	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[1].spread);
-}
-
-//--------------------------------------------
-
 void WPN_PlayerUsable(const char** holdBuf)
 {
 	int tokenInt;
@@ -762,11 +267,10 @@ void WPN_PlayerUsable(const char** holdBuf)
 		return;
 	}
 
-	weaponData[wpnParms.weaponNum].playerUsable = (qboolean) tokenInt;
+	weaponData[wpnParms.weaponNum].playerUsable = (qboolean)tokenInt;
 }
 
 //--------------------------------------------
-
 void WPN_WeaponCategory(const char** holdBuf)
 {
 	const char* tokenStr;
@@ -840,6 +344,275 @@ void WPN_WeaponBucket(const char** holdBuf)
 		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for WeaponCategory in external WEAPONS.DAT\n", tokenStr);
 	}
 	weaponData[wpnParms.weaponNum].weaponBucket = weaponBucket;
+}
+
+//--------------------------------------------
+void WPN_ScopeType(const char** holdBuf)
+{
+	int        tokenInt;
+
+	if (COM_ParseInt(holdBuf, &tokenInt))
+	{
+		SkipRestOfLine(holdBuf);
+		return;
+	}
+
+	// This is for cg.zoommode.
+	tokenInt += 3;
+
+	if ((tokenInt < ST_A280) || (tokenInt > ST_E5))
+	{
+		gi.Printf(S_COLOR_YELLOW"WARNING: bad scopeType in external weapon data '%d'\n", tokenInt);
+		return;
+	}
+	weaponData[wpnParms.weaponNum].scopeType = tokenInt;
+}
+
+/*
+----------------------------------------------------------
+	Attack Functions
+----------------------------------------------------------
+*/
+void ATK_FiringSound(const char **holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].firingSnd, 64, "firingSnd");
+}
+
+//--------------------------------------------
+void ATK_ChargeSnd(const char **holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].chargeSnd, 64, "chargeSnd");
+}
+
+
+//--------------------------------------------
+void ATK_FireTime(const char **holdBuf)
+{
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].fireTime, 0, MAX_FIRETIME, "Firetime");
+}
+
+//--------------------------------------------
+void ATK_Range(const char **holdBuf)
+{
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].range, 0, MAX_RANGE, "Range");
+}
+
+//--------------------------------------------
+void ATK_EnergyPerShot(const char **holdBuf)
+{
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].energyPerShot, 0, MAX_AMMO_STORAGE, "EnergyPerShot");
+}
+
+//--------------------------------------------
+void ATK_MissileName(const char **holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].missileMdl, 64, "MissileName");
+}
+
+//--------------------------------------------
+void ATK_MissileHitSound(const char **holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].missileHitSound, 64, "MissileHitSound");
+}
+
+//--------------------------------------------
+void ATK_MissileSound(const char **holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].missileSound, 64, "MissileSound");
+}
+
+//--------------------------------------------
+void ATK_MissileLightColor(const char **holdBuf)
+{
+	int i;
+	float	tokenFlt;
+
+	for (i=0;i<3;++i)
+	{
+		if ( COM_ParseFloat(holdBuf,&tokenFlt))
+		{
+			SkipRestOfLine(holdBuf);
+			continue;
+		}
+
+		if ((tokenFlt < 0) || (tokenFlt > 1 ))
+		{
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelightcolor in external weapon data '%f'\n", tokenFlt);
+			continue;
+		}
+		weaponData[wpnParms.weaponNum].attackData[0].missileDlightColor[i] = tokenFlt;
+	}
+
+}
+
+//--------------------------------------------
+void ATK_MissileLight(const char **holdBuf)
+{
+	float	tokenFlt;
+
+	if ( COM_ParseFloat(holdBuf,&tokenFlt))
+	{
+		SkipRestOfLine(holdBuf);
+	}
+
+	if ((tokenFlt < 0) || (tokenFlt > 255 )) // FIXME :What are the right values?
+	{
+		gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelight in external weapon data '%f'\n", tokenFlt);
+	}
+	weaponData[wpnParms.weaponNum].attackData[0].missileDlight = tokenFlt;
+}
+
+
+//--------------------------------------------
+void ATK_FuncName(const char **holdBuf)
+{
+	const char	*tokenStr;
+
+	if ( COM_ParseString(holdBuf,&tokenStr))
+	{
+		return;
+	}
+	size_t len = strlen(tokenStr);
+
+	len++;
+	if (len > 64)
+	{
+		len = 64;
+		gi.Printf(S_COLOR_YELLOW"WARNING: FuncName '%s' too long in external WEAPONS.DAT\n", tokenStr);
+	}
+
+	for ( func_t* s=funcs ; s->name ; s++ ) {
+		if ( !Q_stricmp(s->name, tokenStr) ) {
+			// found it
+			weaponData[wpnParms.weaponNum].attackData[0].missileFunc = (void*)s->func;
+			return;
+		}
+	}
+	gi.Printf(S_COLOR_YELLOW"WARNING: FuncName '%s' in external WEAPONS.DAT does not exist\n", tokenStr);
+}
+
+//--------------------------------------------
+void ATK_MuzzleEffect(const char **holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].mMuzzleEffect, 64, "MuzzleEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[0].mMuzzleEffect );
+}
+
+//--------------------------------------------
+void ATK_ProjectileEffect(const char **holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[0].projectileEffect, 64, "projectileEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[0].projectileEffect );
+}
+
+//--------------------------------------------
+void ATK_ExplosionEffect(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].explosionEffect, 64, "alt_projectileEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].explosionEffect );
+}
+//--------------------------------------------
+void ATK_ShockwaveEffect(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].shockwaveEffect, 64, "alt_projectileEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].shockwaveEffect );
+}
+
+//--------------------------------------------
+void ATK_ChargeMuzzleEffect(const char **holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].chargeMuzzleShader, 64, "chargeMuzzleEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].chargeMuzzleShader );
+}
+
+//--------------------------------------------
+void ATK_Damage(const char **holdBuf)
+{
+	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].damage);
+	weaponData[wpnParms.weaponNum].defaultDamage = weaponData[wpnParms.weaponNum].attackData[0].damage;
+}
+
+//--------------------------------------------
+void ATK_SplashDamage(const char **holdBuf)
+{
+	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].splashDamage);
+}
+
+//--------------------------------------------
+void ATK_SplashRadius(const char **holdBuf)
+{
+	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].splashRadius);
+}
+
+//--------------------------------------------
+void ATK_FireOptions(const char **holdBuf)
+{
+	int i;
+	int tokenInt;
+
+	for (i = 0; i < 3; i++)
+	{
+		if (COM_ParseInt(holdBuf, &tokenInt))
+		{
+			SkipRestOfLine(holdBuf);
+			continue;
+		}
+
+		if ((tokenInt < 0) || (tokenInt > 10000 ))
+		{
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad mainfireopt in external weapon data '%d'\n", tokenInt);
+			continue;
+		}
+
+		weaponData[wpnParms.weaponNum].mainFireOpt[i] = tokenInt;
+	}
+}
+
+
+//--------------------------------------------
+void ATK_Velocity(const char** holdBuf)
+{
+	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].mVelocity);
+}
+
+//--------------------------------------------
+void ATK_Spread(const char** holdBuf)
+{
+	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].spread);
+}
+
+/*
+----------------------------------------------------------
+	Main Parsing Functions
+----------------------------------------------------------
+*/
+static void WP_ParseWeaponParms(const char** holdBuf)
+{
+	const char* token;
+	size_t	i;
+
+	while (holdBuf)
+	{
+		token = COM_ParseExt(holdBuf, qtrue);
+
+		if (!Q_stricmp(token, "}"))	// End of data for this weapon
+			break;
+		// Loop through possible parameters
+		for (i = 0;i < numWpnParms;++i)
+		{
+			if (!Q_stricmp(token, WpnParms[i].parmName))
+			{
+				WpnParms[i].func(holdBuf);
+				break;
+			}
+		}
+
+		if (i < numWpnParms)	// Find parameter???
+		{
+			continue;
+		}
+		Com_Printf("^3WARNING: bad parameter in external weapon data '%s'\n", token);
+	}
 }
 
 //--------------------------------------------

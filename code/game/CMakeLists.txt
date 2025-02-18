@@ -120,6 +120,7 @@ set(SPGameGameFiles
 	"${SPDir}/game/Q3_Interface.h"
 	"${SPDir}/game/wp_atst.cpp"
 	"${SPDir}/game/wp_blaster_pistol.cpp"
+	"${SPDir}/game/wp_fire_logic.cpp"
 	"${SPDir}/game/wp_blaster_rifle.cpp"
 	"${SPDir}/game/wp_bot_laser.cpp"
 	"${SPDir}/game/wp_bowcaster.cpp"

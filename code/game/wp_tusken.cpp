@@ -67,18 +67,7 @@ void WP_FireTuskenRifle( gentity_t *ent )
 	missile->classname = "trifle_proj";
 	missile->s.weapon = ent->s.weapon;
 
-	if ( ent->s.number < MAX_CLIENTS || g_spskill->integer >= 2 )
-	{
-		missile->damage = TUSKEN_RIFLE_DAMAGE_HARD;
-	}
-	else if ( g_spskill->integer > 0 )
-	{
-		missile->damage = TUSKEN_RIFLE_DAMAGE_MEDIUM;
-	}
-	else
-	{
-		missile->damage = TUSKEN_RIFLE_DAMAGE_EASY;
-	}
+
 	missile->dflags = DAMAGE_DEATH_KNOCKBACK;
 
 	missile->methodOfDeath = MOD_BRYAR;//???

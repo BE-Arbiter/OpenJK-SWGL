@@ -67,13 +67,6 @@ static void WP_DEMP2_MainFire( gentity_t *ent )
 	VectorSet( missile->maxs, DEMP2_SIZE, DEMP2_SIZE, DEMP2_SIZE );
 	VectorScale( missile->maxs, -1, missile->mins );
 
-//	if ( ent->client && ent->client->ps.powerups[PW_WEAPON_OVERCHARGE] > 0 && ent->client->ps.powerups[PW_WEAPON_OVERCHARGE] > cg.time )
-//	{
-//		// in overcharge mode, so doing double damage
-//		missile->flags |= FL_OVERCHARGED;
-//		damage *= 2;
-//	}
-
 	missile->damage = damage;
 	missile->dflags = DAMAGE_DEATH_KNOCKBACK;
 	missile->methodOfDeath = MOD_DEMP2;

@@ -188,7 +188,7 @@ vec3_t	g_saberFlashPos = {0,0,0};
 
 const char* CG_GetForceLightning(gentity_t* ent);
 
-extern gentity_t* WP_FireThermalDetonator(gentity_t* ent, qboolean alt_fire);
+extern gentity_t* WP_FireGrenade(gentity_t* ent, weaponAttackData_t* attackData, qboolean alt_fire);
 
 int forcePowerDarkLight[NUM_FORCE_POWERS] = //0 == neutral
 { //nothing should be usable at rank 0..
@@ -15572,7 +15572,8 @@ else if (gripEnt->NPC
 	&& (gripEnt->attrFlags & ATTR_COMMANDO)
 	&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20)))
 {
-	WP_FireThermalDetonator(gripEnt, qtrue);
+	weaponAttackData_t* attackData = &weaponData[WP_THERMAL].attackData[0];
+	WP_FireGrenade(gripEnt, attackData, qtrue);
 	NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
 	WP_ForcePowerStop(self, FP_GRASP);
 }
@@ -15957,7 +15958,8 @@ else
 				&& (gripEnt->attrFlags & ATTR_COMMANDO)
 				&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20)))
 			{
-				WP_FireThermalDetonator(gripEnt, qtrue);
+				weaponAttackData_t* attackData = &weaponData[WP_THERMAL].attackData[0];
+				WP_FireGrenade(gripEnt, attackData, qtrue);
 				NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
 				WP_ForcePowerStop(self, FP_GRIP);
 			}
