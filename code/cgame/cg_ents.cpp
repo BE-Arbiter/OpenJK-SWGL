@@ -673,10 +673,10 @@ const weaponData_t  *wData = NULL;
 				if ( cent->gent->owner->client->ps.saberEntityState == SES_RETURNING
 					&& cent->gent->owner->client->ps.saber[0].type != SABER_STAR )
 				{
-					if ( cg_weapons[WP_SABER].firingSound )
+					if ( cg_weapons[WP_SABER].weaponAttacksInfo[0].firingSound )
 					{
 						cgi_S_AddLoopingSound( cent->currentState.number,
-							cent->lerpOrigin, vec3_origin, cg_weapons[WP_SABER].firingSound );
+							cent->lerpOrigin, vec3_origin, cg_weapons[WP_SABER].weaponAttacksInfo[0].firingSound );
 					}
 				}
 				else
@@ -1203,42 +1203,23 @@ static void CG_Missile( centity_t *cent ) {
 
 		}
 	}
-	else if ( cent->gent->alt_fire )
-	{
-		// add trails
-		if ( weapon->alt_missileTrailFunc )
-			weapon->alt_missileTrailFunc( cent, weapon );
-
-		// add dynamic light
-		if ( wData->attackData[1].missileDlight )
-				cgi_R_AddLightToScene(cent->lerpOrigin, wData->attackData[1].missileDlight,
-					wData->attackData[1].missileDlightColor[0], wData->attackData[1].missileDlightColor[1], wData->attackData[1].missileDlightColor[2] );
-
-		// add missile sound
-		if ( weapon->alt_missileSound )
-			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->alt_missileSound );
-
-		//Don't draw something without a model
-		if ( weapon->alt_missileModel == NULL_HANDLE )
-			return;
-	}
 	else
 	{
 		// add trails
-		if ( weapon->missileTrailFunc )
-			weapon->missileTrailFunc( cent, weapon );
+		if ( weapon->weaponAttacksInfo[cent->gent->alt_fire].missileTrailFunc )
+			weapon->weaponAttacksInfo[cent->gent->alt_fire].missileTrailFunc( cent, weapon );
 
 		// add dynamic light
-		if ( wData->attackData[0].missileDlight )
-			cgi_R_AddLightToScene(cent->lerpOrigin, wData->attackData[0].missileDlight,
-				wData->attackData[0].missileDlightColor[0], wData->attackData[0].missileDlightColor[1], wData->attackData[0].missileDlightColor[2] );
+		if ( wData->attackData[cent->gent->alt_fire].missileDlight )
+			cgi_R_AddLightToScene(cent->lerpOrigin, wData->attackData[cent->gent->alt_fire].missileDlight,
+				wData->attackData[cent->gent->alt_fire].missileDlightColor[0], wData->attackData[cent->gent->alt_fire].missileDlightColor[1], wData->attackData[cent->gent->alt_fire].missileDlightColor[2] );
 
 		// add missile sound
-		if ( weapon->missileSound )
-			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->missileSound );
+		if ( weapon->weaponAttacksInfo[cent->gent->alt_fire].missileSound )
+			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[cent->gent->alt_fire].missileSound );
 
 		//Don't draw something without a model
-		if ( weapon->missileModel == NULL_HANDLE )
+		if ( weapon->weaponAttacksInfo[cent->gent->alt_fire].missileModel == NULL_HANDLE )
 			return;
 	}
 
@@ -1261,10 +1242,8 @@ Ghoul2 Insert End
 
 	if ( s1->otherEntityNum2 && g_vehWeaponInfo[s1->otherEntityNum2].iModel && cgs.model_draw[g_vehWeaponInfo[s1->otherEntityNum2].iModel] != NULL_HANDLE)
 		ent.hModel = cgs.model_draw[g_vehWeaponInfo[s1->otherEntityNum2].iModel];
-	else if ( cent->gent->alt_fire )
-		ent.hModel = weapon->alt_missileModel;
 	else
-		ent.hModel = weapon->missileModel;
+		ent.hModel = weapon->weaponAttacksInfo[cent->gent->alt_fire].missileModel;
 
 	// spin as it moves
 	if ( s1->apos.trType != TR_INTERPOLATE )

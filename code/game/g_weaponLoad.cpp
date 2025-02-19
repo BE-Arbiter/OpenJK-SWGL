@@ -471,7 +471,7 @@ void ATK_FiringLogic(const char** holdBuf)
 	else {
 		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for FiringLogic in external WEAPONS.DAT\n", tokenStr);
 	}
-	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum] = firingLogic;
+	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].firingLogic = firingLogic;
 }
 
 void ATK_FiringSound(const char **holdBuf)
@@ -520,6 +520,38 @@ void ATK_MissileHitSound(const char **holdBuf)
 void ATK_MissileSound(const char **holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileSound, 64, "MissileSound");
+}
+
+//--------------------------------------------
+void ATK_ChargeUnitTime(const char** holdBuf)
+{
+	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].chargeUnitTime);
+}
+
+//--------------------------------------------
+void ATK_MaxChargeUnits(const char** holdBuf)
+{
+	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].maxChargeUnits);
+}
+
+//--------------------------------------------
+void ATK_BounceWall(const char** holdBuf)
+{
+	int tokenInt;
+
+	if (COM_ParseInt(holdBuf, &tokenInt))
+	{
+		SkipRestOfLine(holdBuf);
+		return;
+	}
+
+	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].maxChargeUnits = (qboolean)tokenInt;
+}
+
+//--------------------------------------------
+void ATK_BounceCount(const char** holdBuf)
+{
+	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].bounceCount);
 }
 
 //--------------------------------------------
@@ -707,7 +739,7 @@ static void WP_ParseAtkParms(const char** holdBuf)
 		{
 			if (!Q_stricmp(token, AttackDataParms[i].parmName))
 			{
-				WpnParms[i].func(holdBuf);
+				AttackDataParms[i].func(holdBuf);
 				break;
 			}
 		}
@@ -836,6 +868,11 @@ void WP_LoadWeaponParms (void)
 	//put in the qunset flag for playerUsable since 0 = false;
 	for (int i = 0; i < MAX_WEAPONS ; i++) {
 		weaponData[i].playerUsable = qunset;
+		for (int k = 0; k < MAX_WEAPON_ATTACKS; k++)
+		{
+			weaponData[i].attackData[k].bounceCount = -1;
+			weaponData[i].attackData[k].bounceWall = qunset;
+		}
 	}
 
 	WP_ParseParms(buffer);
@@ -878,6 +915,9 @@ void WP_LoadWeaponParms (void)
 
 	//Get unset data from each weapon which is a copy of another;
 	for (int i = 0; i <  weaponCount; i++) {
+	    //DWS-TODO :    Copy AttackData from Main to Alt
+	    //              Copy AttackData from Main to scoped_main if both arent FL_NONE
+	    //              Copy AttackData from alt to scoped_alt if both arent FL_NONE
 		if (!weaponData[i].baseclass[0]) {
 			continue;
 		}
@@ -911,9 +951,7 @@ void WP_LoadWeaponParms (void)
 
 			weaponData[i].numBarrels = weaponData[i].numBarrels == 0 ? weaponData[j].numBarrels : weaponData[i].numBarrels;
 
-			for (int k = 0; k < 4; k++) {
-
-				weaponData[i].attackData[k].chargeMuzzleShaderID = weaponData[i].attackData[k].chargeMuzzleShaderID == 0 ? weaponData[j].attackData[k].chargeMuzzleShaderID : weaponData[i].attackData[k].chargeMuzzleShaderID;
+			for (int k = 0; k < MAX_WEAPON_ATTACKS; k++) {
 
 				weaponData[i].attackData[k].defaultDamage = weaponData[i].attackData[k].defaultDamage == 0 ? weaponData[j].attackData[k].defaultDamage : weaponData[i].attackData[k].defaultDamage;
 				weaponData[i].attackData[k].energyPerShot = weaponData[i].attackData[k].energyPerShot == 0 ? weaponData[j].attackData[k].energyPerShot : weaponData[i].attackData[k].energyPerShot ;
@@ -924,6 +962,11 @@ void WP_LoadWeaponParms (void)
 				weaponData[i].attackData[k].splashRadius = weaponData[i].attackData[k].splashRadius == 0 ? weaponData[j].attackData[k].splashRadius : weaponData[i].attackData[k].splashRadius;
 				weaponData[i].attackData[k].mVelocity = weaponData[i].attackData[k].mVelocity == 0 ? weaponData[j].attackData[k].mVelocity : weaponData[i].attackData[k].mVelocity;
 				weaponData[i].attackData[k].spread = weaponData[i].attackData[k].spread == 0 ? weaponData[j].attackData[k].spread : weaponData[i].attackData[k].spread;
+
+				weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount == -1 ? weaponData[j].attackData[k].bounceCount : weaponData[i].attackData[k].bounceCount;
+				weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall == qunset ? weaponData[j].attackData[k].bounceWall : weaponData[i].attackData[k].bounceWall;
+				weaponData[i].attackData[k].chargeUnitTime = weaponData[i].attackData[k].chargeUnitTime == 0 ? weaponData[j].attackData[k].chargeUnitTime : weaponData[i].attackData[k].chargeUnitTime;
+				weaponData[i].attackData[k].maxChargeUnits = weaponData[i].attackData[k].maxChargeUnits == 0 ? weaponData[j].attackData[k].maxChargeUnits : weaponData[i].attackData[k].maxChargeUnits;
 
 				if (weaponData[i].attackData[k].chargeMuzzleShader[0] == 0) {
 					strcpy(weaponData[i].attackData[k].chargeMuzzleShader, weaponData[j].attackData[k].chargeMuzzleShader);
@@ -951,7 +994,6 @@ void WP_LoadWeaponParms (void)
 				if(weaponData[i].attackData[k].mMuzzleEffect[0] == 0){
 					strcpy(weaponData[i].attackData[k].mMuzzleEffect, weaponData[j].attackData[k].mMuzzleEffect);
 				}
-				weaponData[i].attackData[k].mMuzzleEffectID = weaponData[i].attackData[k].mMuzzleEffectID == 0 ? weaponData[j].attackData[k].mMuzzleEffectID : weaponData[i].attackData[k].mMuzzleEffectID;
 
 				//copying weapon missile trail Function pointers
 				weaponData[i].attackData[k].missileFunc = weaponData[i].attackData[k].missileFunc == 0 ? weaponData[j].attackData[k].missileFunc : weaponData[i].attackData[k].missileFunc;
@@ -978,13 +1020,20 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].weaponBucket = weaponData[i].weaponBucket == 0 ? weaponData[j].weaponBucket : weaponData[i].weaponBucket;
 			weaponData[i].baseWeaponNum = j;
 
-
 			//The first one is the good one...
 			break;
 		}
+		//Show an error if unconsistent values are founds. It might still work tough.
 		if(baseWeapon == -1){
 		    gi.Printf(S_COLOR_YELLOW"WARNING: Weapon '%s' is marked as alternate of base weapon '%s' but base weapon was not found\n",weaponData[i].classname,weaponData[i].baseclass);
 			break;
+		}
+		/* Replace unset Value with false or 0 */
+		weaponData[i].playerUsable = weaponData[i].playerUsable != qunset ? weaponData[i].playerUsable : qfalse;
+		for (int k = 0; k < MAX_WEAPON_ATTACKS; k++)
+		{
+			weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount  != -1 ? weaponData[i].attackData[k].bounceCount : 0;
+			weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall  != qunset ? weaponData[i].attackData[k].bounceWall : qfalse;
 		}
 		/* Generate Ammo for explosive and Grenade*/
 		if (baseWeapon == WP_THERMAL || baseWeapon == WP_DET_PACK || baseWeapon == WP_TRIP_MINE) {

@@ -433,7 +433,8 @@ void Svcmd_SaberAttackCycle_f( void )
 	*/
 
 	// If you have a tertiary option and you are not firing.
-	if (weaponData[self->s.weapon].tertiaryFireOpt[FIRING_TYPE] >= FT_AUTOMATIC && self->client->ps.weaponTime == 0)
+	// DWS-TODO : Set zoom here?
+	/*if (weaponData[self->s.weapon].tertiaryFireOpt[FIRING_TYPE] >= FT_AUTOMATIC && self->client->ps.weaponTime == 0)
 	{
 		if (self->client->ps.tertiaryMode)
 		{
@@ -445,7 +446,7 @@ void Svcmd_SaberAttackCycle_f( void )
 		}
 
 		G_Sound(self, G_SoundIndex("sound/vehicles/common/linkweaps.wav"));
-	}
+	}*/
 
 	if (self->client->ps.saber->type == SABER_INQUISITOR )
 	{

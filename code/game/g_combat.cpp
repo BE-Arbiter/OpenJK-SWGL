@@ -139,7 +139,7 @@ TossClientItems
 Toss the weapon and powerups for the killed player
 =================
 */
-extern gentity_t *WP_DropGrenade( gentity_t *ent, weaponAttackData_t *attackData);
+extern gentity_t *WP_DropGrenade( gentity_t *ent, int attackIndex);
 extern qboolean WP_SaberLose( gentity_t *self, vec3_t throwDir );
 gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 {
@@ -223,8 +223,8 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 		if ( weapon == WP_THERMAL || weaponData[weapon].baseWeaponNum == WP_THERMAL && self->client->ps.torsoAnim == BOTH_ATTACK10)
 		{//we were getting ready to throw the thermal, drop it!
 			self->client->ps.weaponChargeTime = level.time - FRAMETIME;//so it just kind of drops it
-			weaponAttackData_t* attackData = &weaponData[weapon].attackData[0];
-			dropped = WP_DropGrenade( self , attackData );
+			//DWS-TODO Here?
+			dropped = WP_DropGrenade( self , 0 );
 		}
 		else
 		{// find the item type for this weapon

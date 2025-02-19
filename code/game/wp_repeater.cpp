@@ -95,12 +95,12 @@ static void WP_RepeaterAltFire( gentity_t *ent )
 
 	if ( ent->client && ent->client->NPC_class == CLASS_GALAKMECH )
 	{
-		missile = CreateMissile(start, ent->client->hiddenDir, ent->client->hiddenDist, 10000, ent, qtrue);
+		missile = CreateMissile(start, ent->client->hiddenDir, ent->client->hiddenDist, 10000, ent, 1);
 	}
 	else
 	{
 		WP_MissileTargetHint(ent, start, forwardVec);
-		missile = CreateMissile( start, forwardVec, weaponData[ent->s.weapon].attackData[1].mVelocity, 10000, ent, qtrue);
+		missile = CreateMissile( start, forwardVec, weaponData[ent->s.weapon].attackData[1].mVelocity, 10000, ent, 1);
 	}
 
 	missile->classname = "repeater_alt_proj";

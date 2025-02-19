@@ -72,8 +72,8 @@ void FX_BlasterProjectileThink( centity_t *cent, const struct weaponInfo_s *weap
 	{
 		theFxScheduler.PlayEffect( "blaster/NPCshot", cent->lerpOrigin, forward );
 	}
-	else if (weapon->projectileEffect) {
-		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+	else if (weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect) {
+		theFxScheduler.PlayEffect(weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect, cent->lerpOrigin, forward);
 	}
 	else
 	{

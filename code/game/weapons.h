@@ -224,22 +224,18 @@ typedef struct weaponAttackData_s
 	void* missileFunc;		// "FX for the missile"
 	char	projectileEffect[64]; // Effecto to Override the base Projectile
 	char	mMuzzleEffect[64];  // Effect to Override the base muzzle
-	int		mMuzzleEffectID;	// Handle to the muzzle effect
 	char	explosionEffect[64]; // For explosives
 	char    shockwaveEffect[64]; // For explosives
 
 	/* Blaster Bounce Data */
-	// TODO : g_weaponLoad.cpp
 	qboolean bounceWall;		//BounceOnWalls;
 	int		bounceCount;		//BounceCounts
 
 	/* Charged Shot Data */
-	// TODO : g_weaponLoad.cpp
 	float	chargeUnitTime;		// Time to Charge one unit of power
 	int		maxChargeUnits;		// Max amount of charge you can have.
 	char	chargeSnd[64];		// sound to start when the weapon initiates the charging sequence
 	char	chargeMuzzleShader[64];
-	int		chargeMuzzleShaderID;
 
 
 	/* Physical Missile Data */
@@ -254,7 +250,7 @@ typedef struct weaponAttackData_s
 
 } weaponAttackData_t;
 
-#define MAX_WEAPON_ATTACKS 2
+#define MAX_WEAPON_ATTACKS 4
 
 typedef struct weaponData_s
 {

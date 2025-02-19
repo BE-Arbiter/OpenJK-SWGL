@@ -352,7 +352,7 @@ qboolean Pickup_Saber( gentity_t *self, qboolean hadSaber, gentity_t *pickUpSabe
 		{//successfully found a saber .sab entry to use
 			int	saberNum = 0;
 			qboolean removeLeftSaber = qfalse;
-			if ( pickUpSaber->alt_fire )
+			if ( pickUpSaber->alt_fire)
 			{//always go in the left hand
 				if ( !hadSaber )
 				{//can't have a saber only in your left hand!

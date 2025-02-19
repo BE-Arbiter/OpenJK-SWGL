@@ -70,7 +70,7 @@ static void WP_DropDetPack( gentity_t *self, vec3_t start, vec3_t dir )
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( self, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
 
-	gentity_t	*missile = CreateMissile( start, forwardVec, 300, 10000, self, qfalse );
+	gentity_t	*missile = CreateMissile( start, forwardVec, 300, 10000, self, 0 );
 
 	missile->fxID = G_EffectIndex( "detpack/explosion" ); // if we set an explosion effect, explode death can use that instead
 
@@ -104,15 +104,18 @@ static void WP_DropDetPack( gentity_t *self, vec3_t start, vec3_t dir )
 }
 
 //---------------------------------------------------------
-void WP_FireDetPack( gentity_t *ent, weaponAttackData_t *attackData,qboolean alt_fire )
+void WP_FireDetPack( gentity_t *ent, int attackIndex )
 //---------------------------------------------------------
 {
+
+	weaponData_t* wpnData = &weaponData[ent->s.weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	if ( !ent || !ent->client )
 	{
 		return;
 	}
 
-	if ( alt_fire  )
+	if ( attackIndex == 1  )
 	{
 		if ( ent->client->ps.eFlags & EF_PLANTED_CHARGE )
 		{

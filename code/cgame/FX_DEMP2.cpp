@@ -44,9 +44,9 @@ void FX_DEMP2_ProjectileThink( centity_t *cent, const struct weaponInfo_s *weapo
 	}
 
 
-	if (weapon->projectileEffect)
+	if (weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect)
 	{
-		theFxScheduler.PlayEffect(weapon->projectileEffect, cent->lerpOrigin, forward);
+		theFxScheduler.PlayEffect(weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect, cent->lerpOrigin, forward);
 	}
 	else
 	{

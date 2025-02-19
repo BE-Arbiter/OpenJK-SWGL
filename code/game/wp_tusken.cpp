@@ -62,7 +62,7 @@ void WP_FireTuskenRifle( gentity_t *ent )
 
 	WP_MissileTargetHint(ent, start, forwardVec);
 
-	gentity_t	*missile = CreateMissile( start, forwardVec, TUSKEN_RIFLE_VEL, 10000, ent, qfalse );
+	gentity_t	*missile = CreateMissile( start, forwardVec, TUSKEN_RIFLE_VEL, 10000, ent, 0 );
 
 	missile->classname = "trifle_proj";
 	missile->s.weapon = ent->s.weapon;

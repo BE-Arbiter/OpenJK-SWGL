@@ -854,7 +854,7 @@ static void Player_RestoreFromPrevLevel(gentity_t *ent, SavedGameJustLoaded_e eS
 			  /* Get next token: */
 			  var = strtok( NULL, " " );
 			}
-			assert (i==AMMO_MAX);
+			assert (i==MAX_AMMO);
 
 			//inventory
 			gi.Cvar_VariableStringBuffer( "playerinv", s, sizeof(s) );

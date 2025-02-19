@@ -26,7 +26,7 @@ extern vec3_t	muzzle,muzzle2;
 void WP_SwitchPistolMuzzle(gentity_t* ent);
 int WP_GetWeaponID(const char* weaponName);
 void WP_TraceSetStart( const gentity_t *ent, vec3_t start, const vec3_t mins, const vec3_t maxs );
-gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, qboolean altFire = qfalse );
+gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, int attackIndex = 0);
 void WP_Stick( gentity_t *missile, trace_t *trace, float fudge_distance = 0.0f );
 void WP_Explode( gentity_t *self );
 void WP_ExplosiveDie( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int meansOfDeath,int dFlags,int hitLoc );
@@ -50,10 +50,10 @@ extern int	g_rocketSlackTime;
 int G_GetHitLocFromTrace( trace_t *trace, int mod );
 
 // Specific weapon functions
-void WP_FireGenericBeam(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire);
-void WP_FireGenericBowcaster(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire);
-void WP_FireGenericBlaster(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire);
-void WP_FireDetPack(gentity_t* ent, weaponAttackData_t* attackData, qboolean alt_fire);
+void WP_FireGenericBeam(gentity_t* ent, int attackIndex);
+void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex);
+void WP_FireGenericBlaster(gentity_t* ent, int attackIndex);
+void WP_FireDetPack(gentity_t* ent,int attackIndex);
 
 // Grenades
 qboolean WP_LobFire(gentity_t* self, vec3_t start, vec3_t target, vec3_t mins, vec3_t maxs, int clipmask,
@@ -62,8 +62,8 @@ qboolean WP_LobFire(gentity_t* self, vec3_t start, vec3_t target, vec3_t mins, v
 void WP_GrenadeExplode(gentity_t* ent);
 void WP_GrenadeThink(gentity_t* ent);
 void WP_GrenadeDie(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int damage, int mod, int dFlags, int hitLoc);
-gentity_t* WP_FireGrenade(gentity_t* ent, weaponAttackData_t* attackData, qboolean alt_fire);
-gentity_t* WP_DropGrenade(gentity_t* ent, weaponAttackData_t* attackData);
+gentity_t* WP_FireGrenade(gentity_t* ent, int attackIndex);
+gentity_t* WP_DropGrenade(gentity_t* ent, int attackIndex);
 
 // Laser Traps
 void touchLaserTrap(gentity_t* ent, gentity_t* other, trace_t* trace);

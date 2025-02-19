@@ -75,7 +75,7 @@ void WP_ATSTSideAltFire( gentity_t *ent )
 		vel = ATST_SIDE_ALT_VELOCITY;
 	}
 
-	gentity_t *missile = CreateMissile( muzzle, forwardVec, vel, 10000, ent, qtrue );
+	gentity_t *missile = CreateMissile( muzzle, forwardVec, vel, 10000, ent, 1 );
 
 	missile->classname = "atst_rocket";
 	missile->s.weapon = WP_ATST_SIDE;
@@ -126,7 +126,7 @@ void WP_ATSTSideFire( gentity_t *ent )
 {
 	int	damage	= weaponData[WP_ATST_SIDE].attackData[0].damage;
 
-	gentity_t *missile = CreateMissile( muzzle, forwardVec, ATST_SIDE_MAIN_VELOCITY, 10000, ent, qfalse );
+	gentity_t *missile = CreateMissile( muzzle, forwardVec, ATST_SIDE_MAIN_VELOCITY, 10000, ent, 0 );
 
 	missile->classname = "atst_side_proj";
 	missile->s.weapon = WP_ATST_SIDE;

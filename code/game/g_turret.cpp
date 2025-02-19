@@ -192,7 +192,7 @@ static void turret_fire ( gentity_t *ent, vec3_t start, vec3_t dir )
 		G_SoundOnEnt( ent, CHAN_LESS_ATTEN, "sound/vehicles/weapons/turbolaser/fire1" );
 
 		WP_FireTurboLaserMissile( ent, start, dir );
-		if ( ent->alt_fire )
+		if ( ent->alt_fire)
 		{
 			TurboLaser_SetBoneAnim( ent, 2, 3 );
 		}
@@ -1137,8 +1137,6 @@ void laser_arm_fire (gentity_t *ent)
 	{
 		// If I'm firing the laser and it's time to quit....then quit!
 		ent->alt_fire = qfalse;
-//		ent->e_ThinkFunc = thinkF_NULL;
-//		return;
 	}
 
 	ent->nextthink = level.time + FRAMETIME;
@@ -1167,7 +1165,7 @@ void laser_arm_fire (gentity_t *ent)
 		}
 	}
 
-	if ( ent->alt_fire )
+	if ( ent->alt_fire)
 	{
 //		CG_FireLaser( start, trace.endpos, trace.plane.normal, ent->nextTrain->startRGBA, qfalse );
 	}
@@ -2298,7 +2296,7 @@ Creates a turret that, when the player uses a panel, takes control of this turre
 extern gentity_t	*player;
 extern qboolean		G_ClearViewEntity( gentity_t *ent );
 extern void			G_SetViewEntity( gentity_t *self, gentity_t *viewEntity );
-extern gentity_t	*CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, qboolean altFire = qfalse );
+extern gentity_t* CreateMissile(vec3_t org, vec3_t dir, float vel, int life, gentity_t* owner, int attackIndex = 0);
 
 void panel_turret_shoot( gentity_t *self, vec3_t org, vec3_t dir)
 {

@@ -138,7 +138,7 @@ float WP_GetNpcSpread(gentity_t* ent, qboolean altFire = qfalse) {
 	return 0.0f;
 }
 //---------------------------------------------------------
-void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,weaponAttackData_t* attackData, qboolean altFire,int forcedVelocity = -1)
+void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,int attackIndex,int forcedVelocity = -1)
 // This method fire a missile typical of a blaster, default weapons includes : 
 //  - Blaster Pistol + Charged Blaster Pistol (and all variant)
 //  - Blaster (Incl. Rapid fire)
@@ -149,6 +149,8 @@ void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,weapo
 // Use attack Data bounceWall to determine if it should bounce on wall
 //---------------------------------------------------------
 {
+	weaponData_t* wpnData = &weaponData[ent->s.weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	int velocity = attackData->mVelocity;
 	int	damage = WP_GetWeaponDamage(ent, attackData);;
 
@@ -166,7 +168,7 @@ void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,weapo
 
 	WP_MissileTargetHint(ent, start, dir);
 
-	gentity_t* missile = CreateMissile(start, dir, velocity, 10000, ent, altFire);
+	gentity_t* missile = CreateMissile(start, dir, velocity, 10000, ent, attackIndex);
 
 	//ClassName Seems to be unimportant, so left as "blaster_proj" for performance reason
 	missile->classname = "blaster_proj";
@@ -209,11 +211,12 @@ void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,weapo
 }
 
 //---------------------------------------------------------
-void WP_FireGenericBlaster(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire)
+void WP_FireGenericBlaster(gentity_t* ent, int attackIndex)
 // This method handle the firing of generic blasters, see Previous WP_FireGenericBlasterMissile for more information
 //---------------------------------------------------------
 {
 	weaponData_t* wpnData = &weaponData[ent->s.weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	vec3_t	dir, angs;
 
 	
@@ -241,15 +244,15 @@ void WP_FireGenericBlaster(gentity_t* ent, weaponAttackData_t* attackData, qbool
 
 	if (is_player_scoped(ent)) {
 		AngleVectors(angs, forwardVec, NULL, NULL);
-		WP_FireGenericBlasterMissile(ent, ent->client->renderInfo.eyePoint, forwardVec, attackData, altFire);
+		WP_FireGenericBlasterMissile(ent, ent->client->renderInfo.eyePoint, forwardVec, attackIndex);
 	}
 	else {
 		AngleVectors(angs, dir, NULL, NULL);
-		WP_FireGenericBlasterMissile(ent, muzzle, dir, attackData, altFire);
+		WP_FireGenericBlasterMissile(ent, muzzle, dir, attackIndex);
 		//If it's a charged attack with dual pistol, fire a second projectile at muzzle 2
 		if (attackData->firingLogic == FL_BLASTER_CHARGED && wpnData->weaponCategory == WC_PISTOL && ent->weaponModel[1] > 0)
 		{
-			WP_FireGenericBlasterMissile(ent, muzzle2, dir, attackData, altFire);
+			WP_FireGenericBlasterMissile(ent, muzzle2, dir, attackIndex);
 		}
 	}
 
@@ -258,10 +261,11 @@ void WP_FireGenericBlaster(gentity_t* ent, weaponAttackData_t* attackData, qbool
 
 
 //---------------------------------------------------------
-void WP_FireGenericBowcaster(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire)
+void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 //---------------------------------------------------------
 {
 	weaponData_t* wpnData = &weaponData[ent->s.weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	vec3_t	dir, angs, start;
 	gentity_t* missile;
 	int vel,wpnCount = 1,count;
@@ -326,7 +330,7 @@ void WP_FireGenericBowcaster(gentity_t* ent, weaponAttackData_t* attackData, qbo
 			VectorSet(missile->maxs, BOWCASTER_SIZE, BOWCASTER_SIZE, BOWCASTER_SIZE);
 			VectorScale(missile->maxs, -1, missile->mins);
 
-			WP_SetMethodOfDeath(missile, ent->s.weapon, altFire);
+			WP_SetMethodOfDeath(missile, ent->s.weapon,(qboolean)attackIndex);
 
 			missile->damage = attackData->damage;
 			missile->dflags = DAMAGE_DEATH_KNOCKBACK;
@@ -350,9 +354,11 @@ void WP_FireGenericBowcaster(gentity_t* ent, weaponAttackData_t* attackData, qbo
 
 
 //---------------------------------------------------------
-void WP_FireGenericBeam(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire)
+void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 //---------------------------------------------------------
 {
+	weaponData_t* wpnData = &weaponData[ent->s.weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	int			damage = attackData->damage, skip,traces = 10;
 	qboolean	render_impact = qtrue;
 	vec3_t		start, end;
@@ -508,7 +514,7 @@ void WP_FireGenericBeam(gentity_t* ent, weaponAttackData_t* attackData, qboolean
 	//just draw one solid beam all the way to the end...
 	tent = G_TempEntity(tr.endpos, charged ? EV_DISRUPTOR_SNIPER_SHOT : EV_DISRUPTOR_MAIN_SHOT);
 	tent->svFlags |= SVF_BROADCAST;
-	tent->alt_fire = fullCharge; // mark us so we can alter the effect
+	tent->alt_fire = fullCharge; // mark us so we can alter the effect DWS-TODO : Find another way to mark it... use count?
 	VectorCopy(muzzle, tent->s.origin2);
 
 	// now go along the trail and make sight events
@@ -584,7 +590,7 @@ void WP_FireDroidsTwinBlasters(gentity_t* ent, weaponAttackData_t* attackData)
 	{
 		VectorMA(muzzle, scalers[i], vrightVec, muzzle);
 
-		gentity_t* missile = CreateMissile(muzzle, forwardVec, velocity, 10000, ent, qfalse);
+		gentity_t* missile = CreateMissile(muzzle, forwardVec, velocity, 10000, ent, 0);
 
 		missile->classname = "blaster_proj";
 		missile->s.weapon = ent->s.weapon;
@@ -627,9 +633,9 @@ void WP_GrenadeExplode(gentity_t* ent)
 	{
 		ent->takedamage = qfalse; // don't allow double deaths!
 
-		G_Damage(ent->activator, ent, ent->owner, vec3_origin, ent->currentOrigin, weaponData[ent->s.weapon].attackData[1].damage, 0, MOD_EXPLOSIVE);
+		G_Damage(ent->activator, ent, ent->owner, vec3_origin, ent->currentOrigin, weaponData[ent->s.weapon].attackData[0].damage, 0, MOD_EXPLOSIVE);
 
-		WP_GrenadePlayExplosionEffect(ent);
+		WP_GrenadePlayExplosionEffect(ent, &weaponData[ent->s.weapon].attackData[0]);
 
 		G_FreeEntity(ent);
 	}
@@ -650,7 +656,7 @@ void WP_GrenadeExplode(gentity_t* ent)
 
 		G_RadiusDamage(ent->currentOrigin, ent->owner, weaponData[ent->s.weapon].attackData[0].splashDamage, weaponData[ent->s.weapon].attackData[0].splashRadius, NULL, MOD_EXPLOSIVE_SPLASH);
 
-		WP_GrenadePlayExplosionEffect(ent);
+		WP_GrenadePlayExplosionEffect(ent, &weaponData[ent->s.weapon].attackData[0]);
 
 		G_FreeEntity(ent);
 	}
@@ -877,9 +883,11 @@ void WP_GrenadeThink(gentity_t* ent)
 }
 
 //---------------------------------------------------------
-gentity_t* WP_FireGrenade(gentity_t* ent, weaponAttackData_t *attackdata, qboolean alt_fire)
+gentity_t* WP_FireGrenade(gentity_t* ent, int attackIndex)
 //---------------------------------------------------------
 {
+	weaponData_t* wpnData = &weaponData[ent->s.weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	gentity_t* bolt;
 	vec3_t		dir, start;
 	float		damageScale = 1.0f;
@@ -897,7 +905,7 @@ gentity_t* WP_FireGrenade(gentity_t* ent, weaponAttackData_t *attackdata, qboole
 		damageScale = TD_NPC_DAMAGE_CUT;
 	}
 
-	if (!alt_fire && ent->s.number == 0)
+	if (!attackIndex && ent->s.number == 0)
 	{
 		// Main fires for the players do a little bit of extra thinking
 		bolt->e_ThinkFunc = thinkF_WP_GrenadeThink;
@@ -932,7 +940,7 @@ gentity_t* WP_FireGrenade(gentity_t* ent, weaponAttackData_t *attackdata, qboole
 	}
 
 	// get charge amount
-	chargeAmount = chargeAmount / (float)attackdata->mVelocity;
+	chargeAmount = chargeAmount / (float)attackData->mVelocity;
 
 	if (chargeAmount > 1.0f)
 	{
@@ -943,7 +951,7 @@ gentity_t* WP_FireGrenade(gentity_t* ent, weaponAttackData_t *attackdata, qboole
 		chargeAmount = TD_MIN_CHARGE;
 	}
 
-	float	thrownSpeed = attackdata->mVelocity;
+	float	thrownSpeed = attackData->mVelocity;
 	const qboolean thisIsAShooter = (qboolean)!Q_stricmp("misc_weapon_shooter", ent->classname);
 
 	if (thisIsAShooter)
@@ -990,7 +998,7 @@ gentity_t* WP_FireGrenade(gentity_t* ent, weaponAttackData_t *attackdata, qboole
 		}
 	}
 
-	if (alt_fire)
+	if (attackIndex)
 	{
 		bolt->alt_fire = qtrue;
 	}
@@ -1010,7 +1018,7 @@ gentity_t* WP_FireGrenade(gentity_t* ent, weaponAttackData_t *attackdata, qboole
 	bolt->svFlags = SVF_USE_CURRENT_ORIGIN;
 	bolt->s.weapon = ent->s.weapon;
 
-	if (alt_fire)
+	if (attackIndex)
 	{
 		bolt->methodOfDeath = MOD_THERMAL_ALT;
 		bolt->splashMethodOfDeath = MOD_THERMAL_ALT;//? SPLASH;
@@ -1033,12 +1041,12 @@ gentity_t* WP_FireGrenade(gentity_t* ent, weaponAttackData_t *attackdata, qboole
 }
 
 //---------------------------------------------------------
-gentity_t* WP_DropGrenade(gentity_t* ent, weaponAttackData_t* attackData)
+gentity_t* WP_DropGrenade(gentity_t* ent, int attackIndex)
 //---------------------------------------------------------
 {
 	AngleVectors(ent->client->ps.viewangles, forwardVec, vrightVec, up);
 	CalcEntitySpot(ent, SPOT_WEAPON, muzzle);
-	return (WP_FireGrenade(ent, attackData,qfalse));
+	return (WP_FireGrenade(ent, attackIndex));
 }
 extern void WP_GrenadeDie(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int damage, int mod, int dFlags, int hitLoc) {
 	WP_GrenadeExplode(self);

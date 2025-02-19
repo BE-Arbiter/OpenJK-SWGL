@@ -299,87 +299,57 @@ void CG_RegisterWeapon( int weaponNum ) {
 		weaponInfo->handsModel = cgi_R_RegisterModel( "models/weapons2/briar_pistol/briar_pistol_hand.md3" );
 	}
 
-	// register the sounds for the weapon
-	if (weaponData[weaponNum].attackData[0].firingSnd[0]) {
-		weaponInfo->firingSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[0].firingSnd );
-	}
-	if (weaponData[weaponNum].attackData[1].firingSnd[0]) {
-		weaponInfo->altFiringSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[1].firingSnd );
+
+	// register weaponAttackInfo
+	for (int i = 0; i < MAX_WEAPON_ATTACKS; i++) {
+		// register the sounds for the weapon
+		if (weaponData[weaponNum].attackData[i].firingSnd[0]) {
+			weaponInfo->weaponAttacksInfo[i].firingSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].firingSnd);
+		}
+		if (weaponData[weaponNum].attackData[i].chargeSnd[0]) {
+			weaponInfo->weaponAttacksInfo[i].chargeSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].chargeSnd);
+		}
+		if (weaponData[weaponNum].attackData[i].missileMdl[0]) {
+			weaponInfo->weaponAttacksInfo[i].missileModel = cgi_R_RegisterModel(weaponData[weaponNum].attackData[i].missileMdl);
+		}
+		if (weaponData[weaponNum].attackData[i].missileSound[0]) {
+			weaponInfo->weaponAttacksInfo[i].missileSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].missileSound);
+		}
+		if (weaponData[weaponNum].attackData[i].missileHitSound[0]) {
+			weaponInfo->weaponAttacksInfo[i].missileHitSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].missileHitSound);
+		}
+		if (weaponData[weaponNum].attackData[i].mMuzzleEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].muzzleEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].mMuzzleEffect);
+		}
+		if (weaponData[weaponNum].attackData[i].chargeMuzzleShader[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].chargeMuzzleShader = cgi_R_RegisterShader(weaponData[weaponNum].attackData[i].chargeMuzzleShader);
+		}
+
+		if (weaponData[weaponNum].attackData[i].projectileEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].projectileEffect);
+		}
+		if (weaponData[weaponNum].attackData[i].explosionEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].explosionEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].explosionEffect);
+		}
+		if (weaponData[weaponNum].attackData[i].shockwaveEffect)
+		{
+			weaponInfo->weaponAttacksInfo[i].shockwaveEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].shockwaveEffect);
+		}
+		if (weaponData[weaponNum].attackData[i].missileFunc)
+		{
+			weaponInfo->weaponAttacksInfo[i].missileTrailFunc = (void (*)(struct centity_s*, const struct weaponInfo_s*))weaponData[weaponNum].attackData[0].missileFunc;
+		}
+
 	}
 	if (weaponData[weaponNum].stopSnd[0]) {
-		weaponInfo->stopSound = cgi_S_RegisterSound( weaponData[weaponNum].stopSnd );
-	}
-	if (weaponData[weaponNum].attackData[0].chargeSnd[0]) {
-		weaponInfo->chargeSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[0].chargeSnd );
-	}
-	if (weaponData[weaponNum].attackData[1].chargeSnd[0]) {
-		weaponInfo->altChargeSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[1].chargeSnd );
+		weaponInfo->stopSound = cgi_S_RegisterSound(weaponData[weaponNum].stopSnd);
 	}
 	if (weaponData[weaponNum].selectSnd[0]) {
 		weaponInfo->selectSound = cgi_S_RegisterSound( weaponData[weaponNum].selectSnd );
-	}
-
-	// give us missile models if we should
-	if (weaponData[weaponNum].attackData[0].missileMdl[0]) 	{
-		weaponInfo->missileModel = cgi_R_RegisterModel(weaponData[weaponNum].attackData[0].missileMdl );
-	}
-	if (weaponData[weaponNum].attackData[1].missileMdl[0]) 	{
-		weaponInfo->alt_missileModel = cgi_R_RegisterModel(weaponData[weaponNum].attackData[1].missileMdl );
-	}
-	if (weaponData[weaponNum].attackData[0].missileSound[0]) {
-		weaponInfo->missileSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[0].missileSound );
-	}
-	if (weaponData[weaponNum].attackData[1].missileSound[0]) {
-		weaponInfo->alt_missileSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[1].missileSound );
-	}
-	if (weaponData[weaponNum].attackData[0].missileHitSound[0]) {
-		weaponInfo->missileHitSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[0].missileHitSound );
-	}
-	if (weaponData[weaponNum].attackData[1].missileHitSound[0]) {
-		weaponInfo->altmissileHitSound = cgi_S_RegisterSound( weaponData[weaponNum].attackData[1].missileHitSound );
-	}
-	if ( weaponData[weaponNum].attackData[0].mMuzzleEffect[0] )
-	{
-		weaponData[weaponNum].attackData[0].mMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].attackData[0].mMuzzleEffect );
-	}
-	if ( weaponData[weaponNum].attackData[1].mMuzzleEffect[0] )
-	{
-		weaponData[weaponNum].attackData[1].mMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].attackData[1].mMuzzleEffect );
-	}
-	if ( weaponData[weaponNum].mTertiaryMuzzleEffect[0] )
-	{
-		weaponData[weaponNum].mTertiaryMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].mTertiaryMuzzleEffect );
-	}
-	if ( weaponData[weaponNum].chargeMuzzleShader[0] )
-	{
-		weaponData[weaponNum].chargeMuzzleShaderID = cgi_R_RegisterShader( weaponData[weaponNum].chargeMuzzleShader);
-	}
-	if ( weaponData[weaponNum].attackData[0].projectileEffect[0] )
-	{
-		weaponInfo->projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[0].projectileEffect);
-	}
-	if ( weaponData[weaponNum].attackData[1].projectileEffect[0] )
-	{
-		weaponInfo->alt_projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[1].projectileEffect);
-	}
-	if ( weaponData[weaponNum].explosionEffect[0] )
-	{
-		weaponInfo->explosionEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].explosionEffect);
-	}
-	if ( weaponData[weaponNum].shockwaveEffect)
-	{
-		weaponInfo->shockwaveEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].shockwaveEffect);
-	}
-
-	//fixme: don't really need to copy these, should just use directly
-	// give ourselves the functions if we can
-	if (weaponData[weaponNum].attackData[0].missileFunc)
-	{
-		weaponInfo->missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].attackData[0].missileFunc;
-	}
-	if (weaponData[weaponNum].attackData[1].missileFunc)
-	{
-		weaponInfo->alt_missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].attackData[1].missileFunc;
 	}
 
 	//Register a blank effect to overwrite the charging sound of dual pistols... Hate this hack...
@@ -444,11 +414,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 		cgs.media.strikeSound = cgi_S_RegisterSound("sound/weapons/explosions/explode5.wav");
 
 		//saber sounds
-		//cgi_S_RegisterSound( "sound/weapons/saber/saberon.wav" );
-		//cgi_S_RegisterSound( "sound/weapons/saber/enemy_saber_on.wav" );
 		cgi_S_RegisterSound("sound/weapons/saber/saberonquick.wav");
-		//cgi_S_RegisterSound( "sound/weapons/saber/saberoff.wav" );
-		//cgi_S_RegisterSound( "sound/weapons/saber/enemy_saber_off.wav" );
 		cgi_S_RegisterSound("sound/weapons/saber/saberspinoff.wav");
 		cgi_S_RegisterSound("sound/weapons/saber/saberoffquick.wav");
 		for (i = 1; i < 4; i++)
@@ -467,12 +433,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 		{
 			cgi_S_RegisterSound(va("sound/weapons/saber/saberblock%d.wav", i));
 		}
-		/*
-		for ( i = 1; i < 6; i++ )
-		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberhum%d.wav", i ) );
-		}
-		*/
 		for (i = 1; i < 10; i++)
 		{
 			cgi_S_RegisterSound(va("sound/weapons/saber/saberhup%d.wav", i));
@@ -667,8 +627,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 		theFxScheduler.RegisterEffect( "repeater/projectile" );
 		theFxScheduler.RegisterEffect( "repeater/alt_projectile" );
 		theFxScheduler.RegisterEffect( "repeater/wall_impact" );
-//		theFxScheduler.RegisterEffect( "repeater/alt_wall_impact2" );
-//		theFxScheduler.RegisterEffect( "repeater/flesh_impact" );
 		theFxScheduler.RegisterEffect( "repeater/concussion" );
 		break;
 
@@ -1194,10 +1152,12 @@ char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData) {
 	{
 		effect = &wData->attackData[1].mMuzzleEffect[0];
 	}
+	//DWS-TODO
+	/*
 	else if (firing_attack & TERTIARY_ATTACK && wData->mTertiaryMuzzleEffect)
 	{
 		effect = &wData->mTertiaryMuzzleEffect[0];
-	}
+	}*/
 	else if (wData->attackData[0].mMuzzleEffect[0])
 	{
 		// We need to make sure that the base guns also get their sound.
@@ -1391,7 +1351,7 @@ void CG_AddViewWeapon( playerState_t *ps )
 		cgi_S_AddLoopingSound( cent->currentState.number,
 			cent->lerpOrigin,
 			vec3_origin,
-			weapon->firingSound );
+			weapon->weaponAttacksInfo[0].firingSound);
 	}
 
 	// set up gun position
@@ -1614,8 +1574,9 @@ void CG_AddViewWeapon( playerState_t *ps )
 		}
 
 		//Overwrite the muzzle effect if needed
-		if (weaponData[weapon].chargeMuzzleShaderID) {
-			shader = weaponData[weapon].chargeMuzzleShaderID;
+		//DWS-TODO : Integrate Scoped and charge
+		if (weaponData[weapon].attackData[0].chargeMuzzleShader[0]) {
+			shader = cg_weapons[weapon].weaponAttacksInfo[0].chargeMuzzleShader;
 		}
 
 		if ( val < 0.0f )
@@ -3869,17 +3830,17 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 		break;
 
 	case WP_THERMAL:
-		if (weaponData[weapon].explosionEffect[0])
+		if (weaponData[weapon].attackData[0].explosionEffect[0])
 		{
-			theFxScheduler.PlayEffect(weaponData[weapon].explosionEffect, origin, dir);
+			theFxScheduler.PlayEffect(weaponData[weapon].attackData[0].explosionEffect, origin, dir);
 		}
 		else
 		{
 			theFxScheduler.PlayEffect("thermal/explosion", origin, dir);
 		}
-		if (weaponData[weapon].shockwaveEffect[0])
+		if (weaponData[weapon].attackData[0].shockwaveEffect[0])
 		{
-			theFxScheduler.PlayEffect(weaponData[weapon].shockwaveEffect, origin);
+			theFxScheduler.PlayEffect(weaponData[weapon].attackData[0].shockwaveEffect, origin);
 		}
 		else
 		{
@@ -3954,7 +3915,7 @@ CG_MissileHitPlayer
 -------------------------
 */
 
-void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, qboolean altFire )
+void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, int attackIndex)
 {
 	gentity_t *other = NULL;
 	qboolean	humanoid = qtrue;
@@ -3985,7 +3946,7 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 	case WP_BLASTER_PISTOL:
 	case WP_REY:
 	case WP_JAWA:
-		if (altFire)
+		if (attackIndex)
 		{
 			FX_BryarAltHitPlayer(origin, dir, humanoid);
 		}
@@ -4020,7 +3981,7 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		break;
 
 	case WP_REPEATER:
-		if (altFire)
+		if (attackIndex)
 		{
 			FX_RepeaterAltHitPlayer(origin, dir, humanoid);
 		}
@@ -4031,7 +3992,7 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		break;
 
 	case WP_DEMP2:
-		if (!altFire)
+		if (!attackIndex)
 		{
 			FX_DEMP2_HitPlayer(origin, dir, humanoid);
 		}
@@ -4045,7 +4006,7 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		break;
 
 	case WP_FLECHETTE:
-		if (altFire)
+		if (attackIndex)
 		{
 			theFxScheduler.PlayEffect("flechette/alt_blow", origin, dir);
 		}
@@ -4078,17 +4039,17 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		break;
 
 	case WP_THERMAL:
-		if (weaponData[weapon].explosionEffect[0])
+		if (weaponData[weapon].attackData[0].explosionEffect[0])
 		{
-			theFxScheduler.PlayEffect(weaponData[weapon].explosionEffect, origin, dir);
+			theFxScheduler.PlayEffect(weaponData[weapon].attackData[0].explosionEffect, origin, dir);
 		}
 		else
 		{
 			theFxScheduler.PlayEffect("thermal/explosion", origin, dir);
 		}
-		if (weaponData[weapon].shockwaveEffect[0])
+		if (weaponData[weapon].attackData[0].shockwaveEffect[0])
 		{
-			theFxScheduler.PlayEffect(weaponData[weapon].shockwaveEffect, origin);
+			theFxScheduler.PlayEffect(weaponData[weapon].attackData[0].shockwaveEffect, origin);
 		}
 		else
 		{
@@ -4117,7 +4078,7 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		break;
 
 	case WP_ATST_SIDE:
-		if (altFire)
+		if (attackIndex)
 		{
 			theFxScheduler.PlayEffect("atst/side_alt_explosion", origin, dir);
 		}
@@ -4142,7 +4103,7 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		break;
 
 	case WP_CLONECOMMANDO:
-		if (altFire)
+		if (attackIndex)
 		{
 			FX_CloneCommandoHitPlayer(origin, dir, humanoid);
 		}

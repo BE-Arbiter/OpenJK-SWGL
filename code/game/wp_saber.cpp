@@ -188,7 +188,7 @@ vec3_t	g_saberFlashPos = {0,0,0};
 
 const char* CG_GetForceLightning(gentity_t* ent);
 
-extern gentity_t* WP_FireGrenade(gentity_t* ent, weaponAttackData_t* attackData, qboolean alt_fire);
+extern gentity_t* WP_FireGrenade(gentity_t* ent, int attackIndex);
 
 int forcePowerDarkLight[NUM_FORCE_POWERS] = //0 == neutral
 { //nothing should be usable at rank 0..
@@ -11806,7 +11806,7 @@ void ForceGrasp(gentity_t *self)
 #define DESTRUCTION_NPC_DAMAGE_HARD		30
 #define DESTRUCTION_SIZE				20
 
-gentity_t *CreateMissile(vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, qboolean altFire = qfalse);
+extern gentity_t* CreateMissile(vec3_t org, vec3_t dir, float vel, int life, gentity_t* owner, int attackIndex = 0);
 //---------------------------------------------------------
 void WP_FireDestruction(gentity_t *ent, int forceLevel)
 //---------------------------------------------------------
@@ -11840,7 +11840,7 @@ void WP_FireDestruction(gentity_t *ent, int forceLevel)
 
 	VectorCopy(ent->client->renderInfo.eyePoint, start);
 
-	gentity_t *missile = CreateMissile(start, forward, vel, 10000, ent, qfalse);
+	gentity_t *missile = CreateMissile(start, forward, vel, 10000, ent, 0);
 
 	missile->classname = "rocket_proj";
 	missile->s.weapon = WP_CONCUSSION;
@@ -11955,7 +11955,6 @@ void ForceBlast(gentity_t *self)
 #define BLAST_NPC_DAMAGE_HARD		30
 #define BLAST_SIZE				1
 
-//gentity_t *CreateMissile(vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, qboolean altFire = qfalse);
 //---------------------------------------------------------
 void WP_FireBlast(gentity_t *ent, int forceLevel)
 //---------------------------------------------------------
@@ -11976,7 +11975,7 @@ void WP_FireBlast(gentity_t *ent, int forceLevel)
 
 	VectorCopy(ent->client->renderInfo.eyePoint, start);
 
-	gentity_t *missile = CreateMissile(start, forward, vel, 10000, ent, qfalse);
+	gentity_t *missile = CreateMissile(start, forward, vel, 10000, ent, 0);
 
 	missile->classname = "rocket_proj";
 	missile->s.weapon = WP_ROCKET_LAUNCHER;
@@ -15572,8 +15571,7 @@ else if (gripEnt->NPC
 	&& (gripEnt->attrFlags & ATTR_COMMANDO)
 	&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20)))
 {
-	weaponAttackData_t* attackData = &weaponData[WP_THERMAL].attackData[0];
-	WP_FireGrenade(gripEnt, attackData, qtrue);
+	WP_FireGrenade(gripEnt, 1);
 	NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
 	WP_ForcePowerStop(self, FP_GRASP);
 }
@@ -15958,8 +15956,7 @@ else
 				&& (gripEnt->attrFlags & ATTR_COMMANDO)
 				&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20)))
 			{
-				weaponAttackData_t* attackData = &weaponData[WP_THERMAL].attackData[0];
-				WP_FireGrenade(gripEnt, attackData, qtrue);
+				WP_FireGrenade(gripEnt, 1);
 				NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
 				WP_ForcePowerStop(self, FP_GRIP);
 			}

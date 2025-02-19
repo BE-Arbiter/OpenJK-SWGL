@@ -722,7 +722,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 		bounce = qfalse;
 
 		// in fact, alt-charge shots will not call the regular impact functions
-		if ( ent->alt_fire )
+		if ( ent->alt_fire)
 		{
 			// detonate at the trace end
 			VectorCopy( trace->endpos, ent->currentOrigin );
@@ -792,7 +792,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 
 	if ( (!other->takedamage || (other->client && other->health <= 0))
 		&& ent->s.weapon == WP_THERMAL
-		&& !ent->alt_fire )
+		&& !ent->alt_fire)
 	{//rolling thermal det - FIXME: make this an eFlag like bounce & stick!!!
 		//G_BounceRollMissile( ent, trace );
 		if ( ent->owner )//&& ent->owner->s.number == 0 )

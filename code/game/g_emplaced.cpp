@@ -1054,7 +1054,7 @@ extern void CG_ChangeWeapon( int num );
 
 		if ( ent->client->ps.weapon == WP_SABER )
 		{
-			if ( ent->owner->alt_fire )
+			if ( ent->owner->alt_fire)
 			{
 				ent->client->ps.SaberActivate();
 			}

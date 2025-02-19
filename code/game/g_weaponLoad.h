@@ -219,6 +219,10 @@ void ATK_ExplosionEffect(const char** holdBuf);
 void ATK_ChargeSnd(const char** holdBuf);
 void ATK_ShockwaveEffect(const char** holdBuf);
 void ATK_FireOptions(const char** holdBuf);
+void ATK_ChargeUnitTime(const char** holdBuf);
+void ATK_MaxChargeUnits(const char** holdBuf);
+void ATK_BounceWall(const char** holdBuf);
+void ATK_BounceCount(const char** holdBuf);
 void ATK_FiringLogic(const char** holdBuf);
 
 // Legacy weapons.dat force fields
@@ -234,7 +238,11 @@ typedef struct
 wpnParms_t AttackDataParms[] =
 {
 	{ "attackType",			ATK_FiringLogic },
-	{ "energypershot",		ATK_EnergyPerShot },
+	{ "chargeUnitTime",		ATK_ChargeUnitTime},
+	{ "maxChargeUnits",		ATK_MaxChargeUnits},
+	{ "bounceWall",			ATK_BounceWall},
+	{ "bounceCount",		ATK_BounceCount},
+	{ "energypershot",		ATK_EnergyPerShot},
 	{ "fireTime",			ATK_FireTime },
 	{ "firingsound",		ATK_FiringSound },
 	{ "chargesound",		ATK_ChargeSnd },

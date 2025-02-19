@@ -185,7 +185,7 @@ void WP_FireRocket( gentity_t *ent, qboolean alt_fire )
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
 
-	gentity_t *missile = CreateMissile( start, forwardVec, vel, 10000, ent, alt_fire );
+	gentity_t *missile = CreateMissile( start, forwardVec, vel, 10000, ent, 0 );
 
 	missile->classname = "rocket_proj";
 	missile->s.weapon = ent->s.weapon;

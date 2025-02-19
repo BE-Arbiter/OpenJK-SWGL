@@ -177,36 +177,7 @@ void prox_mine_stick( gentity_t *self, gentity_t *other, trace_t *trace )
 
 	gi.linkentity( self );
 }
-/* Old Flechette alt-fire code....
-//---------------------------------------------------------
-static void WP_FlechetteProxMine( gentity_t *ent )
-//---------------------------------------------------------
-{
-	gentity_t	*missile = CreateMissile( muzzle, forwardVec, FLECHETTE_MINE_VEL, 10000, ent, qtrue );
 
-	missile->fxID = G_EffectIndex( "flechette/explosion" );
-
-	missile->classname = "proxMine";
-	missile->s.weapon = WP_FLECHETTE;
-
-	missile->s.pos.trType = TR_GRAVITY;
-
-	missile->s.eFlags |= EF_MISSILE_STICK;
-	missile->e_TouchFunc = touchF_prox_mine_stick;
-
-	missile->damage = FLECHETTE_MINE_DAMAGE;
-	missile->methodOfDeath = MOD_EXPLOSIVE;
-
-	missile->splashDamage = FLECHETTE_MINE_SPLASH_DAMAGE;
-	missile->splashRadius = FLECHETTE_MINE_SPLASH_RADIUS;
-	missile->splashMethodOfDeath = MOD_EXPLOSIVE_SPLASH;
-
-	missile->clipmask = MASK_SHOT;
-
-	// we don't want it to bounce forever
-	missile->bounceCount = 0;
-}
-*/
 //----------------------------------------------
 void WP_flechette_alt_blow( gentity_t *ent )
 //----------------------------------------------

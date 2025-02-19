@@ -41,8 +41,10 @@ void WP_FireBryarPistol(gentity_t* ent, qboolean alt_fire)
 void WP_FireBryarPistol_Internal( gentity_t *ent, qboolean alt_fire,qboolean twinnedProjectile)
 //---------------------------------------------------------
 {
+	weaponData_t *wpnData = &weaponData[ent->s.weapon];
+	weaponAttackData_t* attackData = alt_fire ? &wpnData->attackData[1] : &wpnData->attackData[0];
 	vec3_t	start;
-	int		damage = !alt_fire ? weaponData[ent->s.weapon].attackData[0].damage : weaponData[ent->s.weapon].attackData[1].damage;
+	int		damage = attackData->damage;
 
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
@@ -74,7 +76,7 @@ void WP_FireBryarPistol_Internal( gentity_t *ent, qboolean alt_fire,qboolean twi
 
 	WP_MissileTargetHint(ent, start, forwardVec);
 
-	gentity_t* missile = CreateMissile(start, forwardVec, alt_fire? weaponData[ent->s.weapon].attackData[1].mVelocity : weaponData[ent->s.weapon].attackData[0].mVelocity, 10000, ent, alt_fire);
+	gentity_t* missile = CreateMissile(start, forwardVec, attackData->mVelocity, 10000, ent, alt_fire);
 
 	missile->classname = "bryar_proj";
 	missile->s.weapon = ent->s.weapon;

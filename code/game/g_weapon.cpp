@@ -90,8 +90,7 @@ void WP_TraceSetStart( const gentity_t *ent, vec3_t start, const vec3_t mins, co
 
 extern Vehicle_t *G_IsRidingVehicle( gentity_t *ent );
 //-----------------------------------------------------------------------------
-gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, qboolean altFire )
-//-----------------------------------------------------------------------------
+gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, int attackIndex)
 {
 	gentity_t	*missile;
 
@@ -104,7 +103,7 @@ gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t
 
 	Vehicle_t*	pVeh = G_IsRidingVehicle(owner);
 
-	missile->alt_fire = altFire;
+	missile->alt_fire = (qboolean)attackIndex;
 
 	missile->s.pos.trType = TR_LINEAR;
 	missile->s.pos.trTime = level.time;// - 10;	// move a bit on the very first frame
@@ -739,7 +738,7 @@ void WP_FireVehicleWeapon( gentity_t *ent, vec3_t start, vec3_t dir, vehWeaponIn
 		WP_TraceSetStart( ent, start, mins, maxs );
 
 		//QUERY: alt_fire true or not?  Does it matter?
-		missile = CreateMissile( start, dir, vehWeapon->fSpeed, 10000, ent, qfalse );
+		missile = CreateMissile( start, dir, vehWeapon->fSpeed, 10000, ent, 0 );
 		if ( vehWeapon->bHasGravity )
 		{//TESTME: is this all we need to do?
 			missile->s.pos.trType = TR_GRAVITY;
@@ -1301,7 +1300,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 
 			if ( ent->client->ps.weapon == WP_ATST_MAIN )
 			{//FIXME: alt_fire should fire both barrels, but slower?
-				if ( ent->alt_fire )
+				if ( ent->alt_fire)
 				{
 					bolt = ent->handRBolt;
 				}
@@ -1312,7 +1311,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 			}
 			else
 			{// ATST SIDE weapons
-				if ( ent->alt_fire )
+				if ( ent->alt_fire)
 				{
 					if ( gi.G2API_GetSurfaceRenderStatus( &ent->ghoul2[ent->playerModel], "head_light_blaster_cann" ) )
 					{//don't have it!
@@ -1465,6 +1464,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
 	weaponAttackData_t *attackData;
 
+	int attackIndex = alt_fire ? 1 : 0;
 	if (alt_fire) {
 		attackData = &weaponData[weaponNum].attackData[1];
 	}
@@ -1481,19 +1481,20 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 			break;
 		case FL_BLASTER:
 		case FL_BLASTER_CHARGED:
-			WP_FireGenericBlaster(ent, attackData, alt_fire);
+		case FL_GRENADE_LAUNCHER:
+			WP_FireGenericBlaster(ent, attackIndex);
 			break;
 		case FL_BOWCASTER:
-			WP_FireGenericBowcaster(ent, attackData, alt_fire);
+			WP_FireGenericBowcaster(ent, attackIndex);
 			break;
 		case FL_BEAM:
 		case FL_BEAM_CHARGED:
 			alert = 50;
-			WP_FireGenericBeam(ent, attackData, alt_fire);
+			WP_FireGenericBeam(ent, attackIndex);
 			break;
 		case FL_GRENADE:
 		case FL_IMPACT_GRENADE:
-			WP_FireGrenade(ent, attackData, alt_fire);
+			WP_FireGrenade(ent, attackIndex);
 			break;
 		case FL_LASER_TRAP:
 			alert = 0;
@@ -1505,7 +1506,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 			break;
 		case FL_EXPLOSIVES:
 			alert = 0;
-			WP_FireDetPack(ent, attackData, alt_fire);
+			WP_FireDetPack(ent, attackIndex);
 			break;
 		case FL_DEMP2:
 			WP_FireDEMP2(ent, qfalse);

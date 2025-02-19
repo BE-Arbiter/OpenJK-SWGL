@@ -43,7 +43,9 @@ static void is_player_alt_firing(gentity_t *ent, int weapon_num, qboolean *alt_f
 		// set in bg_pmove so use main damage i.e. set
 		// alt_fire to false.
 		if (ent->client->ps.firing_attack & TERTIARY_ATTACK
-			&& weaponData[weapon_num].tertiaryFireOpt[FIRING_TYPE] == FT_HIGH_POWERED)
+			// DWS-TODO : Here
+			//&& weaponData[weapon_num].tertiaryFireOpt[FIRING_TYPE] == FT_HIGH_POWERED
+		)
 		{
 			*alt_fire = qfalse;
 		}
@@ -62,8 +64,9 @@ static void is_player_alt_firing(gentity_t *ent, int weapon_num, qboolean *alt_f
 // fully play out.
 static void check_means_of_death(gentity_t *ent, gentity_t *missile, weapon_t weapon_num)
 {
-	if (weaponData[weapon_num].tertiaryFireOpt[FIRING_TYPE] == FT_HIGH_POWERED
-		&& ent->client->ps.tertiaryMode)
+	//DWS-TODO : Here
+	if (//weaponData[weapon_num].tertiaryFireOpt[FIRING_TYPE] == FT_HIGH_POWERED &&
+		 ent->client->ps.tertiaryMode)
 	{
 		missile->dflags = DAMAGE_NO_KNOCKBACK;
 		missile->methodOfDeath = MOD_HIGH_POWERED_SHOT;

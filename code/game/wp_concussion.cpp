@@ -282,7 +282,7 @@ static void WP_FireConcussion( gentity_t *ent )
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
 
-	gentity_t *missile = CreateMissile( start, forwardVec, vel, 10000, ent, qfalse );
+	gentity_t *missile = CreateMissile( start, forwardVec, vel, 10000, ent, 0 );
 
 	missile->classname = "conc_proj";
 	missile->s.weapon = ent->s.weapon;

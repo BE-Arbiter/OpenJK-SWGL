@@ -5616,7 +5616,7 @@ static void CG_StopWeaponSounds( centity_t *cent )
 		cgi_S_AddLoopingSound( cent->currentState.number,
 			cent->lerpOrigin,
 			vec3_origin,
-			weapon->firingSound );
+			weapon->weaponAttacksInfo[cent->gent->alt_fire].firingSound );
 		return;
 	}
 
@@ -5634,11 +5634,12 @@ static void CG_StopWeaponSounds( centity_t *cent )
 		return;
 	}
 
+	//
 	if ( cent->currentState.eFlags & EF_ALT_FIRING )
 	{
-		if ( weapon->altFiringSound )
+		if ( weapon->weaponAttacksInfo[1].firingSound)
 		{
-			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->altFiringSound );
+			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[1].firingSound );
 		}
 		cent->pe.lightningFiring = qtrue;
 	}
@@ -8000,6 +8001,7 @@ void CG_Player( centity_t *cent ) {
 	qboolean		shadow, staticScale = qfalse;
 	float			shadowPlane;
 	weaponData_t  *wData = NULL;
+	weaponInfo_t  *wInfo = NULL;
 
 	if ( cent->currentState.eFlags & EF_NODRAW )
 	{
@@ -8050,6 +8052,7 @@ void CG_Player( centity_t *cent ) {
 	if ( cent->currentState.weapon )
 	{
 		wData = &weaponData[cent->currentState.weapon];
+		wInfo = &cg_weapons[cent->currentState.weapon];
 	}
 /*
 Ghoul2 Insert Start
@@ -9607,22 +9610,22 @@ Ghoul2 Insert End
 				CG_PositionEntityOnTag( &flash, &gun, gun.hModel, "tag_flash");
 
 				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->attackData[0].mMuzzleEffectID )
+				if ( wData->attackData[0].mMuzzleEffect[0])
 				{
-					effect = wData->attackData[0].mMuzzleEffectID;
+					effect = wInfo->weaponAttacksInfo[0].muzzleEffect;
 				}
-
-				if (wData->mTertiaryMuzzleEffectID)
+				//DWS-TODO : HERE
+				/*if (wData->mTertiaryMuzzleEffectID)
 				{
 					effect = wData->mTertiaryMuzzleEffectID;
-				}
+				}*/
 
 				if ( cent->currentState.eFlags & EF_ALT_FIRING )
 				{
 					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->attackData[1].mMuzzleEffectID )
+					if ( wData->attackData[1].mMuzzleEffect[0])
 					{
-						effect = wData->attackData[1].mMuzzleEffectID;
+						effect = wInfo->weaponAttacksInfo[1].muzzleEffect;
 					}
 				}
 
@@ -9709,8 +9712,9 @@ Ghoul2 Insert End
 				scale = 1.75f;
 			}
 			//Overwrite the muzzle effect if needed
-			if (weaponData[weapon].chargeMuzzleShaderID) {
-				shader = weaponData[weapon].chargeMuzzleShaderID;
+			//DWS-TODO : Same about scope and attack type....
+			if (weaponData[weapon].attackData[0].chargeMuzzleShader[0]) {
+				shader = cg_weapons[weapon].weaponAttacksInfo[0].chargeMuzzleShader;
 			}
 			if ( val < 0.0f )
 			{

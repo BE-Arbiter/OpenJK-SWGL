@@ -13244,7 +13244,7 @@ static bool PM_DoChargedWeapons( void )
 	if ( charging )
 	{
 
-
+		//DWS-TODO : Integrate scoped variant here
 		if ( altFire )
 		{
 			if ( pm->ps->weaponstate != WEAPON_CHARGING_ALT && pm->ps->weaponstate != WEAPON_DROPPING )
@@ -13260,7 +13260,7 @@ static bool PM_DoChargedWeapons( void )
 				pm->ps->weaponstate = WEAPON_CHARGING_ALT;
 				pm->ps->weaponChargeTime = level.time;
 
-				if ( cg_weapons[pm->ps->weapon].altChargeSound )
+				if (weaponData[pm->ps->weapon].attackData[1].chargeSnd )
 				{
 					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].attackData[1].chargeSnd );
 				}
@@ -13282,7 +13282,7 @@ static bool PM_DoChargedWeapons( void )
 				pm->ps->weaponstate = WEAPON_CHARGING;
 				pm->ps->weaponChargeTime = level.time;
 
-				if ( cg_weapons[pm->ps->weapon].chargeSound && pm->gent && !pm->gent->NPC ) // HACK: !NPC mostly for bowcaster and weequay
+				if (weaponData[pm->ps->weapon].attackData[0].chargeSnd && pm->gent && !pm->gent->NPC ) // HACK: !NPC mostly for bowcaster and weequay
 				{
 					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].attackData[0].chargeSnd );
 				}
