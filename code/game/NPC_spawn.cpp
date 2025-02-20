@@ -521,7 +521,10 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 	if (!Q_stricmp("emperor", ent->NPC_type)
 		|| !Q_stricmp("cultist_grip", ent->NPC_type)
 		|| !Q_stricmp("cultist_drain", ent->NPC_type)
-		|| !Q_stricmp("cultist_lightning", ent->NPC_type))
+		|| !Q_stricmp("cultist_lightning", ent->NPC_type)
+		||!Q_stricmp(NS_GHOST, ent->NPC_type)
+		||!Q_stricmp(SIM_ALOO, ent->NPC_type) 
+		||!Q_stricmp(GREEJATUS, ent->NPC_type))
 	{//FIXME: extern this into NPC.cfg?
 		ent->NPC->scriptFlags |= SCF_DONT_FIRE;//so he uses only force powers
 	}
@@ -532,7 +535,8 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 		!Q_stricmp(SEE_PALPATINE, ent->NPC_type) ||
 		!Q_stricmp(TENEBRAE, ent->NPC_type) ||
 		!Q_stricmp(BRONTES, ent->NPC_type) ||
-		!Q_stricmp(ABELOTH, ent->NPC_type))
+		!Q_stricmp(ABELOTH, ent->NPC_type) ||
+		!Q_stricmp(MERRIN, ent->NPC_type))
 	{
 		ent->NPC->scriptFlags |= (SCF_DONT_FIRE | SCF_NO_FORCE);
 		ent->flags |= FL_SHIELDED;

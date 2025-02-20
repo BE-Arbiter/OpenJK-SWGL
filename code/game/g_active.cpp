@@ -22,6 +22,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "g_local.h"
+#include "NPC_SWGL.h"
 #include "g_functions.h"
 #include "../cgame/cg_local.h"
 #include "Q3_Interface.h"
@@ -4365,6 +4366,8 @@ void G_CheckClientIdle( gentity_t *ent, usercmd_t *ucmd )
 	}
 	if((!Q_stricmp("am_vader", g_char_model->string)
 		|| !Q_stricmp("vader_infinities", g_char_model->string)
+		|| !Q_stricmp("vader", g_char_model->string)
+		|| !Q_stricmp("vader2", g_char_model->string)
 		|| !Q_stricmp("cyber_recon", g_char_model->string)
 		|| !Q_stricmp("lord_stk", g_char_model->string)
 		|| !Q_stricmp("lord_stk_tat", g_char_model->string)
@@ -4377,9 +4380,17 @@ void G_CheckClientIdle( gentity_t *ent, usercmd_t *ucmd )
 		else if (TIMER_Done(player, "breathing"))
 		{
 			if (!Q_stricmp("am_vader", g_char_model->string)
-				|| !Q_stricmp("vader_infinities", g_char_model->string))
+				|| !Q_stricmp("vader_infinities", g_char_model->string)
+				|| !Q_stricmp("vader", g_char_model->string)
+				|| !Q_stricmp("vader2", g_char_model->string))
 			{
-				if (player->health > (player->max_health * .33))
+				if ((player->attrFlags & ATTR_HELD_BY_HATRED && player->max_health < 100) || (!(player->attrFlags & ATTR_HELD_BY_HATRED) && player->health <= (player->max_health * .20f)))
+				{
+					G_SoundOnEnt(player, CHAN_VOICE, va("sound/chars/am_darth_vader/vader_breathe_wheeze.wav"));
+					TIMER_Set(player, "breathing", Q_irand(3000, 5000));
+
+				}
+				else if (player->health >= (player->max_health * .50))
 				{
 					G_SoundOnEnt(player, CHAN_VOICE, va("sound/chars/am_darth_vader/vader_breathe.wav"));
 					TIMER_Set(player, "breathing", Q_irand(7300, 10000));
@@ -4392,10 +4403,15 @@ void G_CheckClientIdle( gentity_t *ent, usercmd_t *ucmd )
 			}
 			else
 			{
-				if (player->health > (player->max_health * .33))
+				if ((player->attrFlags & ATTR_HELD_BY_HATRED && player->max_health < 100))
+				{
+					G_SoundOnEnt(player, CHAN_VOICE, va("sound/chars/lord_starkiller/starkiller_breathe_strained.wav"));
+					TIMER_Set(player, "breathing", Q_irand(2120, 4000));
+				}
+				else if (player->health > (player->max_health * .33))
 				{
 					G_SoundOnEnt(player, CHAN_VOICE, va("sound/chars/lord_starkiller/starkiller_breathe.wav"));
-					TIMER_Set(player, "breathing", Q_irand(3500, 5000));
+					TIMER_Set(player, "breathing", Q_irand(3131, 5000));
 				}
 				else
 				{

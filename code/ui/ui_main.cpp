@@ -5347,32 +5347,47 @@ static void UI_UpdateSaberCvars ( void )
 	if (TranslateSaberColor(Cvar_VariableString("ui_saber_color")) >= SABER_RGB)
 	{
 		char rgbColor[8];
+
+		if(Cvar_VariableIntegerValue("ui_rgb_saber_red") < 0)
+			Cvar_Set("ui_rgb_saber_red", 0);
+		if (Cvar_VariableIntegerValue("ui_rgb_saber_green") < 0)
+			Cvar_Set("ui_rgb_saber_green", 0);
+		if (Cvar_VariableIntegerValue("ui_rgb_saber_blue") < 0)
+			Cvar_Set("ui_rgb_saber_blue", 0);
+
 		Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber_red"),
 					(Cvar_VariableIntegerValue("ui_rgb_saber_green")),
 					(Cvar_VariableIntegerValue("ui_rgb_saber_blue")));
-		if (!Cvar_VariableIntegerValue("ui_npc_saber"))
+		if (!Cvar_VariableIntegerValue("ui_npc_menu"))
 		{
 			Cvar_Set("g_saber_color", rgbColor);
 		}
 		else
 		{
-			Cvar_Set("ui_npc_saberonecolor", rgbColor);
+			Cvar_Set("g_NPCsabercolor", rgbColor);
 		}
 	}
 
 	if (TranslateSaberColor(Cvar_VariableString("ui_saber2_color")) >= SABER_RGB)
 	{
+		if (Cvar_VariableIntegerValue("ui_rgb_saber2_red") < 0)
+			Cvar_Set("ui_rgb_saber2_red", 0);
+		if (Cvar_VariableIntegerValue("ui_rgb_saber2_green") < 0)
+			Cvar_Set("ui_rgb_saber2_green", 0);
+		if (Cvar_VariableIntegerValue("ui_rgb_saber2_blue") < 0)
+			Cvar_Set("ui_rgb_saber2_blue", 0);
+
 		char rgbColor[8];
 		Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber2_red"),
 					(Cvar_VariableIntegerValue("ui_rgb_saber2_green")),
 					(Cvar_VariableIntegerValue("ui_rgb_saber2_blue")));
-		if (!Cvar_VariableIntegerValue("ui_npc_saber"))
+		if (!Cvar_VariableIntegerValue("ui_npc_menu"))
 		{
 			Cvar_Set( "g_saber2_color", rgbColor );
 		}
 		else
 		{
-			Cvar_Set("ui_npc_sabertwocolor", rgbColor);
+			Cvar_Set("g_NPCsabertwocolor", rgbColor);
 		}
 	}
 
