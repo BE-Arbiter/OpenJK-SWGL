@@ -216,6 +216,11 @@ void ATK_Velocity(const char** holdBuf);
 void ATK_Spread(const char** holdBuf);
 void ATK_ProjectileEffect(const char** holdBuf);
 void ATK_ExplosionEffect(const char** holdBuf);
+void ATK_HitWallEffect(const char** holdBuf);
+void ATK_HitWallEffect2(const char** holdBuf);
+void ATK_HitWallEffect3(const char** holdBuf);
+void ATK_HitFleshEffect(const char** holdBuf);
+void ATK_HitDroidEffect(const char** holdBuf);
 void ATK_ChargeSnd(const char** holdBuf);
 void ATK_ShockwaveEffect(const char** holdBuf);
 void ATK_FireOptions(const char** holdBuf);
@@ -258,6 +263,11 @@ wpnParms_t AttackDataParms[] =
 	{ "projectileEffect",	ATK_ProjectileEffect },
 	{ "explosionEffect",	ATK_ExplosionEffect },
 	{ "shockwaveEffect",	ATK_ShockwaveEffect},
+	{ "hitWallEffect" ,		ATK_HitWallEffect},
+	{ "hitWallEffect2" ,	ATK_HitWallEffect2},
+	{ "hitWallEffect3" ,	ATK_HitWallEffect3},
+	{ "hitFleshEffect" ,	ATK_HitFleshEffect},
+	{ "hitDroidEffect" ,	ATK_HitDroidEffect},
 	{ "damage",				ATK_Damage },
 	{ "splashDamage",		ATK_SplashDamage },
 	{ "splashRadius",		ATK_SplashRadius },

@@ -56,33 +56,6 @@ void FX_FlechetteProjectileThink( centity_t *cent, const struct weaponInfo_s *we
 
 /*
 -------------------------
-FX_FlechetteWeaponHitWall
--------------------------
-*/
-void FX_FlechetteWeaponHitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( cgs.effects.flechetteShotDeathEffect, origin, normal );
-}
-
-/*
--------------------------
-FX_BlasterWeaponHitPlayer
--------------------------
-*/
-void FX_FlechetteWeaponHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-//	if ( humanoid )
-//	{
-		theFxScheduler.PlayEffect( cgs.effects.flechetteFleshImpactEffect, origin, normal );
-//	}
-//	else
-//	{
-//		theFxScheduler.PlayEffect( "blaster/droid_impact", origin, normal );
-//	}
-}
-
-/*
--------------------------
 FX_FlechetteProjectileThink
 -------------------------
 */

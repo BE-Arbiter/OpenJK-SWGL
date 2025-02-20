@@ -29,7 +29,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 // FIXME :What are the right values?
 #define MAX_FIRETIME 10000
-#define MAX_RANGE 10000
+#define MAX_RANGE Q3_INFINITE
 #define MAX_AMMO_STORAGE 1000
 #define MAX_BARREL_COUNT 4
 
@@ -284,6 +284,12 @@ void WPN_WeaponCategory(const char** holdBuf)
 	if (!Q_stricmp(tokenStr, "WC_NONE")) {
 		weaponCategory = WC_NONE;
 	}
+	else if (!Q_stricmp(tokenStr, "WC_MELEE_1H")) {
+		weaponCategory = WC_MELEE_1H;
+	}
+	else if (!Q_stricmp(tokenStr, "WC_MELEE_2H")) {
+		weaponCategory = WC_MELEE_2H;
+	}
 	else if (!Q_stricmp(tokenStr, "WC_PISTOL")) {
 		weaponCategory = WC_PISTOL;
 	}
@@ -302,9 +308,15 @@ void WPN_WeaponCategory(const char** holdBuf)
 	else if (!Q_stricmp(tokenStr, "WC_MINIGUN")) {
 		weaponCategory = WC_MINIGUN;
 	}
+	else if (!Q_stricmp(tokenStr, "WC_SNIPER")) {
+		weaponCategory = WC_SNIPER;
+	}
+	else if (!Q_stricmp(tokenStr, "WC_STUN_BATON")) {
+		weaponCategory = WC_STUN_BATON;
+	}
 	else {
 		weaponCategory = WC_NONE;
-		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for WeaponBucket in external WEAPONS.DAT\n", tokenStr);
+		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for WeaponCategory in external WEAPONS.DAT\n", tokenStr);
 	}
 	weaponData[wpnParms.weaponNum].weaponCategory = weaponCategory;
 }
@@ -627,8 +639,8 @@ void ATK_FuncName(const char **holdBuf)
 //--------------------------------------------
 void ATK_MuzzleEffect(const char **holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].mMuzzleEffect, 64, "MuzzleEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].mMuzzleEffect );
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].muzzleEffect, 64, "MuzzleEffect");
+	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].muzzleEffect );
 }
 
 //--------------------------------------------
@@ -641,13 +653,49 @@ void ATK_ProjectileEffect(const char **holdBuf)
 //--------------------------------------------
 void ATK_ExplosionEffect(const char** holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].explosionEffect, 64, "alt_projectileEffect");
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].explosionEffect, 64, "explosionEffect");
 	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].explosionEffect );
 }
+
+//--------------------------------------------
+void ATK_HitWallEffect(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].hitWallEffect, 64, "hitWallEffect");
+	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].hitWallEffect);
+}
+
+//--------------------------------------------
+void ATK_HitWallEffect2(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].hitWallEffect2, 64, "hitWallEffect2");
+	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].hitWallEffect2);
+}
+
+//--------------------------------------------
+void ATK_HitWallEffect3(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].hitWallEffect3, 64, "hitWallEffect3");
+	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].hitWallEffect3);
+}
+
+//--------------------------------------------
+void ATK_HitFleshEffect(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].hitFleshEffect, 64, "hitFleshEffect");
+	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].hitFleshEffect);
+}
+
+//--------------------------------------------
+void ATK_HitDroidEffect(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].hitDroidEffect, 64, "hitDroidEffect");
+	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].hitDroidEffect);
+}
+
 //--------------------------------------------
 void ATK_ShockwaveEffect(const char** holdBuf)
 {
-	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].shockwaveEffect, 64, "alt_projectileEffect");
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].shockwaveEffect, 64, "shockWaveEffect");
 	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].shockwaveEffect );
 }
 
@@ -705,13 +753,13 @@ void ATK_FireOptions(const char **holdBuf)
 //--------------------------------------------
 void ATK_Velocity(const char** holdBuf)
 {
-	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].mVelocity);
+	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].mVelocity);
 }
 
 //--------------------------------------------
 void ATK_Spread(const char** holdBuf)
 {
-	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[0].spread);
+	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].spread);
 }
 
 /*
@@ -767,7 +815,6 @@ static void WPN_ParseAttack(const char** holdBuf)
 	}
 	else if (!Q_stricmp(token, "alt")) {
 		wpnParms.atkNum = 1;
-
 	}
 	else if (!Q_stricmp(token, "scoped_alt")) {
 		wpnParms.atkNum = 3;
@@ -914,138 +961,153 @@ void WP_LoadWeaponParms (void)
 	}
 
 	//Get unset data from each weapon which is a copy of another;
-	for (int i = 0; i <  weaponCount; i++) {
-	    //DWS-TODO :    Copy AttackData from Main to Alt
-	    //              Copy AttackData from Main to scoped_main if both arent FL_NONE
-	    //              Copy AttackData from alt to scoped_alt if both arent FL_NONE
-		if (!weaponData[i].baseclass[0]) {
-			continue;
-		}
-		int baseWeapon = -1;
-		for (int j = 0; j < weaponCount; j++) {
-			if (i == j || Q_stricmp(weaponData[i].baseclass,weaponData[j].classname)) {
-				continue;
+	for (int i = 0; i < weaponCount; i++) {
+		//DWS-TODO :    Copy AttackData from Main to Alt
+		//              Copy AttackData from Main to scoped_main if both arent FL_NONE
+		//              Copy AttackData from alt to scoped_alt if both arent FL_NONE
+		if (weaponData[i].baseclass[0])
+		{
+			int baseWeapon = -1;
+			for (int j = 0; j < weaponCount; j++) {
+				if (i == j || Q_stricmp(weaponData[i].baseclass, weaponData[j].classname)) {
+					continue;
+				}
+				baseWeapon = j;
+				//Copying the weapon Strings from one to another
+				if (weaponData[i].weaponMdl[0] == 0) {
+					strcpy(weaponData[i].weaponMdl, weaponData[j].weaponMdl);
+				}
+				if (weaponData[i].stopSnd[0] == 0) {
+					strcpy(weaponData[i].stopSnd, weaponData[j].stopSnd);
+				}
+				if (weaponData[i].selectSnd[0] == 0) {
+					strcpy(weaponData[i].selectSnd, weaponData[j].selectSnd);
+				}
+				if (weaponData[i].weaponIcon[0] == 0) {
+					strcpy(weaponData[i].weaponIcon, weaponData[j].weaponIcon);
+				}
+				if (weaponData[i].weaponMdl2[0] == 0) {
+					strcpy(weaponData[i].weaponMdl2, weaponData[j].weaponMdl2);
+				}
+
+
+				//Copiyng raw values.
+				weaponData[i].ammoIndex = weaponData[i].ammoIndex == 0 ? weaponData[j].ammoIndex : weaponData[i].ammoIndex;
+				weaponData[i].ammoLow = weaponData[i].ammoLow == 0 ? weaponData[j].ammoLow : weaponData[i].ammoLow;
+
+				weaponData[i].numBarrels = weaponData[i].numBarrels == 0 ? weaponData[j].numBarrels : weaponData[i].numBarrels;
+
+				for (int k = 0; k < MAX_WEAPON_ATTACKS; k++) {
+
+					weaponData[i].attackData[k].firingLogic = weaponData[i].attackData[k].firingLogic == 0 ? weaponData[j].attackData[k].firingLogic : weaponData[i].attackData[k].firingLogic;
+					weaponData[i].attackData[k].defaultDamage = weaponData[i].attackData[k].defaultDamage == 0 ? weaponData[j].attackData[k].defaultDamage : weaponData[i].attackData[k].defaultDamage;
+					weaponData[i].attackData[k].energyPerShot = weaponData[i].attackData[k].energyPerShot == 0 ? weaponData[j].attackData[k].energyPerShot : weaponData[i].attackData[k].energyPerShot;
+					weaponData[i].attackData[k].fireTime = weaponData[i].attackData[k].fireTime == 0 ? weaponData[j].attackData[k].fireTime : weaponData[i].attackData[k].fireTime;
+					weaponData[i].attackData[k].range = weaponData[i].attackData[k].range == 0 ? weaponData[j].attackData[k].range : weaponData[i].attackData[k].range;
+					weaponData[i].attackData[k].damage = weaponData[i].attackData[k].damage == 0 ? weaponData[j].attackData[k].damage : weaponData[i].attackData[k].damage;
+					weaponData[i].attackData[k].splashDamage = weaponData[i].attackData[k].splashDamage == 0 ? weaponData[j].attackData[k].splashDamage : weaponData[i].attackData[k].splashDamage;
+					weaponData[i].attackData[k].splashRadius = weaponData[i].attackData[k].splashRadius == 0 ? weaponData[j].attackData[k].splashRadius : weaponData[i].attackData[k].splashRadius;
+					weaponData[i].attackData[k].mVelocity = weaponData[i].attackData[k].mVelocity == 0 ? weaponData[j].attackData[k].mVelocity : weaponData[i].attackData[k].mVelocity;
+					weaponData[i].attackData[k].spread = weaponData[i].attackData[k].spread == 0 ? weaponData[j].attackData[k].spread : weaponData[i].attackData[k].spread;
+
+					weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount == -1 ? weaponData[j].attackData[k].bounceCount : weaponData[i].attackData[k].bounceCount;
+					weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall == qunset ? weaponData[j].attackData[k].bounceWall : weaponData[i].attackData[k].bounceWall;
+					weaponData[i].attackData[k].chargeUnitTime = weaponData[i].attackData[k].chargeUnitTime == 0 ? weaponData[j].attackData[k].chargeUnitTime : weaponData[i].attackData[k].chargeUnitTime;
+					weaponData[i].attackData[k].maxChargeUnits = weaponData[i].attackData[k].maxChargeUnits == 0 ? weaponData[j].attackData[k].maxChargeUnits : weaponData[i].attackData[k].maxChargeUnits;
+
+					if (weaponData[i].attackData[k].chargeMuzzleShader[0] == 0) {
+						strcpy(weaponData[i].attackData[k].chargeMuzzleShader, weaponData[j].attackData[k].chargeMuzzleShader);
+					}
+					if (weaponData[i].attackData[k].firingSnd[0] == 0) {
+						strcpy(weaponData[i].attackData[k].firingSnd, weaponData[j].attackData[k].firingSnd);
+					}
+					if (weaponData[i].attackData[k].chargeSnd[0] == 0) {
+						strcpy(weaponData[i].attackData[k].chargeSnd, weaponData[j].attackData[k].chargeSnd);
+					}
+
+					if (weaponData[i].attackData[k].missileMdl[0] == 0) {
+						strcpy(weaponData[i].attackData[k].missileMdl, weaponData[j].attackData[k].missileMdl);
+					}
+					if (weaponData[i].attackData[k].missileSound[0] == 0) {
+						strcpy(weaponData[i].attackData[k].missileSound, weaponData[j].attackData[k].missileSound);
+					}
+					if (weaponData[i].attackData[k].missileHitSound[0] == 0) {
+						strcpy(weaponData[i].attackData[k].missileHitSound, weaponData[j].attackData[k].missileHitSound);
+					}
+					if (weaponData[i].attackData[k].hitDroidEffect[0] == 0) {
+						strcpy(weaponData[i].attackData[k].hitDroidEffect, weaponData[j].attackData[k].hitDroidEffect);
+					}
+					if (weaponData[i].attackData[k].hitFleshEffect[0] == 0) {
+						strcpy(weaponData[i].attackData[k].hitFleshEffect, weaponData[j].attackData[k].hitFleshEffect);
+					}
+					if (weaponData[i].attackData[k].hitWallEffect[0] == 0) {
+						strcpy(weaponData[i].attackData[k].hitWallEffect, weaponData[j].attackData[k].hitWallEffect);
+					}
+					if (weaponData[i].attackData[k].hitWallEffect2[0] == 0) {
+						strcpy(weaponData[i].attackData[k].hitWallEffect2, weaponData[j].attackData[k].hitWallEffect2);
+					}
+					if (weaponData[i].attackData[k].hitWallEffect3[0] == 0) {
+						strcpy(weaponData[i].attackData[k].hitWallEffect3, weaponData[j].attackData[k].hitWallEffect3);
+					}
+					if (weaponData[i].attackData[k].projectileEffect[0] == 0) {
+						strcpy(weaponData[i].attackData[k].projectileEffect, weaponData[j].attackData[k].projectileEffect);
+					}
+					if (weaponData[i].attackData[k].muzzleEffect[0] == 0) {
+						strcpy(weaponData[i].attackData[k].muzzleEffect, weaponData[j].attackData[k].muzzleEffect);
+					}
+
+					//copying weapon missile trail Function pointers
+					weaponData[i].attackData[k].missileFunc = weaponData[i].attackData[k].missileFunc == 0 ? weaponData[j].attackData[k].missileFunc : weaponData[i].attackData[k].missileFunc;
+
+					weaponData[i].attackData[k].missileDlight = weaponData[i].attackData[k].missileDlight == 0 ? weaponData[j].attackData[k].missileDlight : weaponData[i].attackData[k].missileDlight;
+					//Copying vectors
+					if (weaponData[i].attackData[k].missileDlightColor[0] == 0 && weaponData[i].attackData[k].missileDlightColor[1] == 0 && weaponData[i].attackData[k].missileDlightColor[2] == 0) {
+						VectorCopy(weaponData[j].attackData[k].missileDlightColor, weaponData[i].attackData[k].missileDlightColor);
+					}
+
+					//Copying the int arrays
+					if (weaponData[i].attackData[k].fireOption[0] == 0 && weaponData[i].attackData[k].fireOption[1] == 0 && weaponData[i].attackData[k].fireOption[2] == 0) {
+						weaponData[i].attackData[k].fireOption[0] = weaponData[j].attackData[k].fireOption[0];
+						weaponData[i].attackData[k].fireOption[1] = weaponData[j].attackData[k].fireOption[1];
+						weaponData[i].attackData[k].fireOption[2] = weaponData[j].attackData[k].fireOption[2];
+					}
+				}
+
+				weaponData[i].scopeType = weaponData[i].scopeType == 0 ? weaponData[j].scopeType : weaponData[i].scopeType;
+
+				weaponData[i].secondaryMdl = weaponData[i].secondaryMdl == 0 ? weaponData[j].secondaryMdl : weaponData[i].secondaryMdl;
+				weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[i].playerUsable;
+				weaponData[i].weaponCategory = weaponData[i].weaponCategory == WC_NONE ? weaponData[j].weaponCategory : weaponData[i].weaponCategory;
+				weaponData[i].weaponBucket = weaponData[i].weaponBucket == 0 ? weaponData[j].weaponBucket : weaponData[i].weaponBucket;
+				weaponData[i].baseWeaponNum = j;
+
+				//The first one is the good one...
+				break;
 			}
-			baseWeapon = j;
-			//Copying the weapon Strings from one to another
-			if (weaponData[i].weaponMdl[0] == 0) {
-				strcpy(weaponData[i].weaponMdl,weaponData[j].weaponMdl);
+			//Show an error if unconsistent values are founds. It might still work tough.
+			if (weaponData[i].baseclass[0] && baseWeapon == -1) {
+				gi.Printf(S_COLOR_YELLOW"WARNING: Weapon '%s' is marked as alternate of base weapon '%s' but base weapon was not found\n", weaponData[i].classname, weaponData[i].baseclass);
 			}
-			if (weaponData[i].stopSnd[0] == 0) {
-				strcpy(weaponData[i].stopSnd,weaponData[j].stopSnd);
+			/* Generate Ammo for explosive and Grenade*/
+			if (baseWeapon == WP_THERMAL || baseWeapon == WP_DET_PACK || baseWeapon == WP_TRIP_MINE) {
+				if (ammoCount == MAX_AMMO) {
+					Com_Error(ERR_DROP, "Error, Too many ammo in AmmoData\n");
+				}
+				ammoData_t* baseAmmo = &ammoData[weaponData[baseWeapon].ammoIndex];
+				ammoData[ammoCount].max = baseAmmo->max;
+				Q_strncpyz(ammoData[ammoCount].icon, weaponData[i].weaponIcon, 64);
+				ammoData[ammoCount].giveWeaponIndex = i;
+				weaponData[i].ammoIndex = ammoCount;
+				ammoCount++;
 			}
-			if (weaponData[i].selectSnd[0] == 0) {
-				strcpy(weaponData[i].selectSnd,weaponData[j].selectSnd);
-			}
-			if(weaponData[i].weaponIcon[0] == 0){
-				strcpy(weaponData[i].weaponIcon, weaponData[j].weaponIcon);
-			}
-			if(weaponData[i].weaponMdl2[0] == 0){
-				strcpy(weaponData[i].weaponMdl2, weaponData[j].weaponMdl2);
-			}
-
-
-			//Copiyng raw values.
-			weaponData[i].ammoIndex = weaponData[i].ammoIndex == 0 ? weaponData[j].ammoIndex : weaponData[i].ammoIndex ;
-			weaponData[i].ammoLow = weaponData[i].ammoLow == 0 ? weaponData[j].ammoLow : weaponData[i].ammoLow ;
-
-			weaponData[i].numBarrels = weaponData[i].numBarrels == 0 ? weaponData[j].numBarrels : weaponData[i].numBarrels;
-
-			for (int k = 0; k < MAX_WEAPON_ATTACKS; k++) {
-
-				weaponData[i].attackData[k].defaultDamage = weaponData[i].attackData[k].defaultDamage == 0 ? weaponData[j].attackData[k].defaultDamage : weaponData[i].attackData[k].defaultDamage;
-				weaponData[i].attackData[k].energyPerShot = weaponData[i].attackData[k].energyPerShot == 0 ? weaponData[j].attackData[k].energyPerShot : weaponData[i].attackData[k].energyPerShot ;
-				weaponData[i].attackData[k].fireTime = weaponData[i].attackData[k].fireTime == 0 ? weaponData[j].attackData[k].fireTime : weaponData[i].attackData[k].fireTime ;
-				weaponData[i].attackData[k].range = weaponData[i].attackData[k].range == 0 ? weaponData[j].attackData[k].range : weaponData[i].attackData[k].range ;
-				weaponData[i].attackData[k].damage = weaponData[i].attackData[k].damage == 0 ? weaponData[j].attackData[k].damage : weaponData[i].attackData[k].damage;
-				weaponData[i].attackData[k].splashDamage = weaponData[i].attackData[k].splashDamage == 0 ? weaponData[j].attackData[k].splashDamage : weaponData[i].attackData[k].splashDamage;
-				weaponData[i].attackData[k].splashRadius = weaponData[i].attackData[k].splashRadius == 0 ? weaponData[j].attackData[k].splashRadius : weaponData[i].attackData[k].splashRadius;
-				weaponData[i].attackData[k].mVelocity = weaponData[i].attackData[k].mVelocity == 0 ? weaponData[j].attackData[k].mVelocity : weaponData[i].attackData[k].mVelocity;
-				weaponData[i].attackData[k].spread = weaponData[i].attackData[k].spread == 0 ? weaponData[j].attackData[k].spread : weaponData[i].attackData[k].spread;
-
-				weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount == -1 ? weaponData[j].attackData[k].bounceCount : weaponData[i].attackData[k].bounceCount;
-				weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall == qunset ? weaponData[j].attackData[k].bounceWall : weaponData[i].attackData[k].bounceWall;
-				weaponData[i].attackData[k].chargeUnitTime = weaponData[i].attackData[k].chargeUnitTime == 0 ? weaponData[j].attackData[k].chargeUnitTime : weaponData[i].attackData[k].chargeUnitTime;
-				weaponData[i].attackData[k].maxChargeUnits = weaponData[i].attackData[k].maxChargeUnits == 0 ? weaponData[j].attackData[k].maxChargeUnits : weaponData[i].attackData[k].maxChargeUnits;
-
-				if (weaponData[i].attackData[k].chargeMuzzleShader[0] == 0) {
-					strcpy(weaponData[i].attackData[k].chargeMuzzleShader, weaponData[j].attackData[k].chargeMuzzleShader);
-				}
-				if (weaponData[i].attackData[k].firingSnd[0] == 0) {
-					strcpy(weaponData[i].attackData[k].firingSnd,weaponData[j].attackData[k].firingSnd);
-				}
-				if (weaponData[i].attackData[k].chargeSnd[0] == 0) {
-					strcpy(weaponData[i].attackData[k].chargeSnd,weaponData[j].attackData[k].chargeSnd);
-				}
-
-				if(weaponData[i].attackData[k].missileMdl[0] == 0){
-					strcpy(weaponData[i].attackData[k].missileMdl, weaponData[j].attackData[k].missileMdl);
-				}
-				if(weaponData[i].attackData[k].missileSound[0] == 0){
-					strcpy(weaponData[i].attackData[k].missileSound, weaponData[j].attackData[k].missileSound);
-				}
-				if(weaponData[i].attackData[k].missileHitSound[0] == 0){
-					strcpy(weaponData[i].attackData[k].missileHitSound, weaponData[j].attackData[k].missileHitSound);
-				}
-
-				if (weaponData[i].attackData[k].projectileEffect[0] == 0) {
-					strcpy(weaponData[i].attackData[k].projectileEffect, weaponData[j].attackData[k].projectileEffect);
-				}
-				if(weaponData[i].attackData[k].mMuzzleEffect[0] == 0){
-					strcpy(weaponData[i].attackData[k].mMuzzleEffect, weaponData[j].attackData[k].mMuzzleEffect);
-				}
-
-				//copying weapon missile trail Function pointers
-				weaponData[i].attackData[k].missileFunc = weaponData[i].attackData[k].missileFunc == 0 ? weaponData[j].attackData[k].missileFunc : weaponData[i].attackData[k].missileFunc;
-
-				weaponData[i].attackData[k].missileDlight = weaponData[i].attackData[k].missileDlight == 0 ? weaponData[j].attackData[k].missileDlight : weaponData[i].attackData[k].missileDlight ;
-				//Copying vectors
-				if (weaponData[i].attackData[k].missileDlightColor[0] == 0 && weaponData[i].attackData[k].missileDlightColor[1] == 0 && weaponData[i].attackData[k].missileDlightColor[2] == 0) {
-					VectorCopy(weaponData[j].attackData[k].missileDlightColor, weaponData[i].attackData[k].missileDlightColor);
-				}
-
-				//Copying the int arrays
-				if (weaponData[i].attackData[k].fireOption[0] == 0 && weaponData[i].attackData[k].fireOption[1] == 0 && weaponData[i].attackData[k].fireOption[2] == 0) {
-					weaponData[i].attackData[k].fireOption[0] = weaponData[j].attackData[k].fireOption[0];
-					weaponData[i].attackData[k].fireOption[1] = weaponData[j].attackData[k].fireOption[1];
-					weaponData[i].attackData[k].fireOption[2] = weaponData[j].attackData[k].fireOption[2];
-				}
-			}
-
-			weaponData[i].scopeType = weaponData[i].scopeType == 0 ? weaponData[j].scopeType : weaponData[i].scopeType;
-
-			weaponData[i].secondaryMdl = weaponData[i].secondaryMdl == 0 ? weaponData[j].secondaryMdl : weaponData[i].secondaryMdl;
-			weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[i].playerUsable;
-			weaponData[i].weaponCategory = weaponData[i].weaponCategory == WC_NONE ? weaponData[j].weaponCategory : weaponData[i].weaponCategory;
-			weaponData[i].weaponBucket = weaponData[i].weaponBucket == 0 ? weaponData[j].weaponBucket : weaponData[i].weaponBucket;
-			weaponData[i].baseWeaponNum = j;
-
-			//The first one is the good one...
-			break;
-		}
-		//Show an error if unconsistent values are founds. It might still work tough.
-		if(baseWeapon == -1){
-		    gi.Printf(S_COLOR_YELLOW"WARNING: Weapon '%s' is marked as alternate of base weapon '%s' but base weapon was not found\n",weaponData[i].classname,weaponData[i].baseclass);
-			break;
 		}
 		/* Replace unset Value with false or 0 */
 		weaponData[i].playerUsable = weaponData[i].playerUsable != qunset ? weaponData[i].playerUsable : qfalse;
 		for (int k = 0; k < MAX_WEAPON_ATTACKS; k++)
 		{
-			weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount  != -1 ? weaponData[i].attackData[k].bounceCount : 0;
-			weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall  != qunset ? weaponData[i].attackData[k].bounceWall : qfalse;
-		}
-		/* Generate Ammo for explosive and Grenade*/
-		if (baseWeapon == WP_THERMAL || baseWeapon == WP_DET_PACK || baseWeapon == WP_TRIP_MINE) {
-			if (ammoCount == MAX_AMMO) {
-				Com_Error(ERR_DROP, "Error, Too many ammo in AmmoData\n");
-			}
-			ammoData_t *baseAmmo = &ammoData[weaponData[baseWeapon].ammoIndex];
-			ammoData[ammoCount].max = baseAmmo->max;
-			Q_strncpyz(ammoData[ammoCount].icon, weaponData[i].weaponIcon, 64);
-			ammoData[ammoCount].giveWeaponIndex = i;
-			weaponData[i].ammoIndex = ammoCount;
-			ammoCount++;
+			weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount != -1 ? weaponData[i].attackData[k].bounceCount : 0;
+			weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall != qunset ? weaponData[i].attackData[k].bounceWall : qfalse;
+			weaponData[i].attackData[k].maxChargeUnits = weaponData[i].attackData[k].maxChargeUnits == 0 ? 1 : weaponData[i].attackData[k].maxChargeUnits;
 		}
 	}
 	//Sort weapons in buckets
@@ -1076,4 +1138,7 @@ void WP_LoadWeaponParms (void)
 			gi++;
 		}
 	}
+
+	int z = gi + 3;
+
 }

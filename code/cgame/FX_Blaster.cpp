@@ -91,30 +91,4 @@ void FX_BlasterAltFireThink( centity_t *cent, const struct weaponInfo_s *weapon 
 	FX_BlasterProjectileThink( cent, weapon );
 }
 
-/*
--------------------------
-FX_BlasterWeaponHitWall
--------------------------
-*/
-void FX_BlasterWeaponHitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( cgs.effects.blasterWallImpactEffect, origin, normal );
-}
-
-/*
--------------------------
-FX_BlasterWeaponHitPlayer
--------------------------
-*/
-void FX_BlasterWeaponHitPlayer( gentity_t *hit, vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	//temporary? just testing out the damage skin stuff -rww
-	if ( hit && hit->client && hit->ghoul2.size() )
-	{
-		CG_AddGhoul2Mark(cgs.media.bdecal_burnmark1, flrand(3.5, 4.0), origin, normal, hit->s.number,
-			hit->client->ps.origin, hit->client->renderInfo.legsYaw, hit->ghoul2, hit->s.modelScale, Q_irand(10000, 13000));
-	}
-
-	theFxScheduler.PlayEffect( cgs.effects.blasterFleshImpactEffect, origin, normal );
-}
 

@@ -55,28 +55,6 @@ void FX_ConcProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon 
 
 /*
 ---------------------------
-FX_ConcHitWall
----------------------------
-*/
-
-void FX_ConcHitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( "concussion/explosion", origin, normal );
-}
-
-/*
----------------------------
-FX_ConcHitPlayer
----------------------------
-*/
-
-void FX_ConcHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	theFxScheduler.PlayEffect( "concussion/explosion", origin, normal );
-}
-
-/*
----------------------------
 FX_ConcAltShot
 ---------------------------
 */

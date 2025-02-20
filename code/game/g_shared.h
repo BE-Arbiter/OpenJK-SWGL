@@ -1734,6 +1734,11 @@ typedef struct weaponAttackInfo_s {
 	void			(*missileTrailFunc)(centity_t*, const struct weaponInfo_s* wi);
 
 	fxHandle_t		projectileEffect;
+	fxHandle_t		hitWallEffect;
+	fxHandle_t		hitWallEffect2;
+	fxHandle_t		hitWallEffect3;
+	fxHandle_t		hitFleshEffect;
+	fxHandle_t		hitDroidEffect;
 	fxHandle_t		explosionEffect;
 	fxHandle_t		shockwaveEffect;
 	fxHandle_t		muzzleEffect;

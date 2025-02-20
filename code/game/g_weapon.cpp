@@ -104,6 +104,7 @@ gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t
 	Vehicle_t*	pVeh = G_IsRidingVehicle(owner);
 
 	missile->alt_fire = (qboolean)attackIndex;
+	missile->attack_index = (qboolean)attackIndex;
 
 	missile->s.pos.trType = TR_LINEAR;
 	missile->s.pos.trTime = level.time;// - 10;	// move a bit on the very first frame
@@ -1480,7 +1481,9 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 			}
 			break;
 		case FL_BLASTER:
+		case FL_DEMP2:
 		case FL_BLASTER_CHARGED:
+		case FL_DEMP2_ALT:
 		case FL_GRENADE_LAUNCHER:
 			WP_FireGenericBlaster(ent, attackIndex);
 			break;
@@ -1508,17 +1511,11 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 			alert = 0;
 			WP_FireDetPack(ent, attackIndex);
 			break;
-		case FL_DEMP2:
-			WP_FireDEMP2(ent, qfalse);
-			break;
-		case FL_DEMP2_ALT:
-			WP_FireDEMP2(ent, qtrue);
-			break;
 		case FL_FLECHETTE:
 			WP_FireFlechette(ent, qfalse);
 			break;
 		case FL_FLECHETTE_ALT:
-			WP_FireFlechette(ent, qfalse);
+			WP_FireFlechette(ent, qtrue);
 			break;
 		case FL_NOGHRI:
 			WP_FireNoghriStick(ent);

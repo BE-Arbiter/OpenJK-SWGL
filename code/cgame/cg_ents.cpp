@@ -510,17 +510,17 @@ const weaponData_t  *wData = NULL;
 				cc->muzzleFlashTime = 0;
 
 				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->attackData[0].mMuzzleEffect[0] )
+				if ( wData->attackData[0].muzzleEffect[0] )
 				{
-					effect = &wData->attackData[0].mMuzzleEffect[0];
+					effect = &wData->attackData[0].muzzleEffect[0];
 				}
 
 				if ( cc->currentState.eFlags & EF_ALT_FIRING )
 				{
 					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->attackData[1].mMuzzleEffect[0] )
+					if ( wData->attackData[1].muzzleEffect[0] )
 					{
-						effect = &wData->attackData[1].mMuzzleEffect[0];
+						effect = &wData->attackData[1].muzzleEffect[0];
 					}
 				}
 

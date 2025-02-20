@@ -54,28 +54,6 @@ void FX_RocketProjectileThink( centity_t *cent, const struct weaponInfo_s *weapo
 
 /*
 ---------------------------
-FX_RocketHitWall
----------------------------
-*/
-
-void FX_RocketHitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( "rocket/explosion", origin, normal );
-}
-
-/*
----------------------------
-FX_RocketHitPlayer
----------------------------
-*/
-
-void FX_RocketHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	theFxScheduler.PlayEffect( "rocket/explosion", origin, normal );
-}
-
-/*
----------------------------
 FX_RocketAltProjectileThink
 ---------------------------
 */

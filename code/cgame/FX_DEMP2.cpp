@@ -56,28 +56,6 @@ void FX_DEMP2_ProjectileThink( centity_t *cent, const struct weaponInfo_s *weapo
 
 /*
 ---------------------------
-FX_DEMP2_HitWall
----------------------------
-*/
-
-void FX_DEMP2_HitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( "demp2/wall_impact", origin, normal );
-}
-
-/*
----------------------------
-FX_DEMP2_HitPlayer
----------------------------
-*/
-
-void FX_DEMP2_HitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	theFxScheduler.PlayEffect( "demp2/flesh_impact", origin, normal );
-}
-
-/*
----------------------------
 FX_DEMP2_AltProjectileThink
 ---------------------------
 */

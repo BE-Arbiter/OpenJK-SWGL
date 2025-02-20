@@ -34,6 +34,10 @@ extern void CG_LightningBolt( centity_t *cent, vec3_t origin );
 
 extern cvar_t *g_char_model;
 
+//Values at bottom of file
+char baseHitFleshEffects[][64];
+char baseHitWallEffects[][64];
+
 #define	PHASER_HOLDFRAME	2
 #define LOADOUT_PAGESIZE	18
 extern void G_SoundOnEnt( gentity_t *ent, soundChannel_t channel, const char *soundPath );
@@ -174,6 +178,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 	char			*currWeaponMdl;
 
 	weaponInfo = &cg_weapons[weaponNum];
+	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
 
 	// error checking
 	if ( weaponNum <= 0 ) {
@@ -318,9 +323,9 @@ void CG_RegisterWeapon( int weaponNum ) {
 		if (weaponData[weaponNum].attackData[i].missileHitSound[0]) {
 			weaponInfo->weaponAttacksInfo[i].missileHitSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].missileHitSound);
 		}
-		if (weaponData[weaponNum].attackData[i].mMuzzleEffect[0])
+		if (weaponData[weaponNum].attackData[i].muzzleEffect[0])
 		{
-			weaponInfo->weaponAttacksInfo[i].muzzleEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].mMuzzleEffect);
+			weaponInfo->weaponAttacksInfo[i].muzzleEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].muzzleEffect);
 		}
 		if (weaponData[weaponNum].attackData[i].chargeMuzzleShader[0])
 		{
@@ -335,13 +340,39 @@ void CG_RegisterWeapon( int weaponNum ) {
 		{
 			weaponInfo->weaponAttacksInfo[i].explosionEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].explosionEffect);
 		}
-		if (weaponData[weaponNum].attackData[i].shockwaveEffect)
+		if (weaponData[weaponNum].attackData[i].shockwaveEffect[0])
 		{
 			weaponInfo->weaponAttacksInfo[i].shockwaveEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].shockwaveEffect);
 		}
+		if (weaponData[weaponNum].attackData[i].hitWallEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].hitWallEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].hitWallEffect);
+		}
+		else if (baseHitWallEffects[baseWeaponNum][0]) {
+			weaponInfo->weaponAttacksInfo[i].hitWallEffect = theFxScheduler.RegisterEffect(baseHitWallEffects[baseWeaponNum]);
+		}
+		if (weaponData[weaponNum].attackData[i].hitWallEffect2[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].hitWallEffect2 = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].hitWallEffect2);
+		}
+		if (weaponData[weaponNum].attackData[i].hitWallEffect3[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].hitWallEffect3 = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].hitWallEffect3);
+		}
+		if (weaponData[weaponNum].attackData[i].hitDroidEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].hitDroidEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].hitDroidEffect);
+		}
+		if (weaponData[weaponNum].attackData[i].hitFleshEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].hitFleshEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].hitFleshEffect);
+		}
+		else if (baseHitFleshEffects[baseWeaponNum][0]) {
+			weaponInfo->weaponAttacksInfo[i].hitFleshEffect = theFxScheduler.RegisterEffect(baseHitFleshEffects[baseWeaponNum]);
+		}
 		if (weaponData[weaponNum].attackData[i].missileFunc)
 		{
-			weaponInfo->weaponAttacksInfo[i].missileTrailFunc = (void (*)(struct centity_s*, const struct weaponInfo_s*))weaponData[weaponNum].attackData[0].missileFunc;
+			weaponInfo->weaponAttacksInfo[i].missileTrailFunc = (void (*)(struct centity_s*, const struct weaponInfo_s*))weaponData[weaponNum].attackData[i].missileFunc;
 		}
 
 	}
@@ -355,10 +386,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 	//Register a blank effect to overwrite the charging sound of dual pistols... Hate this hack...
 	cgs.effects.blankEffect = theFxScheduler.RegisterEffect("misc/blank");
 
-	int baseWeaponNum = weaponNum;
-	if (weaponData[weaponNum].baseWeaponNum) {
-		baseWeaponNum = weaponData[weaponNum].baseWeaponNum;
-	}
 	switch (baseWeaponNum)	//extra client only stuff
 	{
 	case WP_SABER:
@@ -554,22 +581,19 @@ void CG_RegisterWeapon( int weaponNum ) {
 		break;
 	}
 	case WP_BRYAR_PISTOL:
-	case WP_BLASTER_PISTOL: // enemy version
+	case WP_BLASTER_PISTOL:
 	case WP_JAWA:
 	case WP_REY:
 		cgs.effects.bryarShotEffect			= theFxScheduler.RegisterEffect( "bryar/shot" );
 											theFxScheduler.RegisterEffect( "bryar/NPCshot" );
 		cgs.effects.bryarPowerupShotEffect	= theFxScheduler.RegisterEffect( "bryar/crackleShot" );
-		cgs.effects.bryarWallImpactEffect	= theFxScheduler.RegisterEffect( "bryar/wall_impact" );
 		cgs.effects.bryarWallImpactEffect2	= theFxScheduler.RegisterEffect( "bryar/wall_impact2" );
 		cgs.effects.bryarWallImpactEffect3	= theFxScheduler.RegisterEffect( "bryar/wall_impact3" );
-		cgs.effects.bryarFleshImpactEffect	= theFxScheduler.RegisterEffect( "bryar/flesh_impact" );
 
 		// Note....these are temp shared effects
 		theFxScheduler.RegisterEffect( "blaster/deflect" );
-		theFxScheduler.RegisterEffect( "blaster/smoke_bolton" ); // note: this will be called game side
+		theFxScheduler.RegisterEffect( "blaster/smoke_bolton" );
 		break;
-
 	case WP_BLASTER:
 	case WP_BATTLEDROID:
 	case WP_THEFIRSTORDER:
@@ -579,18 +603,12 @@ void CG_RegisterWeapon( int weaponNum ) {
 	case WP_SBD:
 	case WP_DROIDEKA:
 	case WP_CIS_SNIPER:
-		cgs.effects.blasterShotEffect			= theFxScheduler.RegisterEffect( "blaster/shot" );
-													theFxScheduler.RegisterEffect( "blaster/NPCshot" );
-//		cgs.effects.blasterOverchargeEffect		= theFxScheduler.RegisterEffect( "blaster/overcharge" );
-		cgs.effects.blasterWallImpactEffect		= theFxScheduler.RegisterEffect( "blaster/wall_impact" );
-		cgs.effects.blasterFleshImpactEffect	= theFxScheduler.RegisterEffect( "blaster/flesh_impact" );
+		cgs.effects.blasterShotEffect = theFxScheduler.RegisterEffect( "blaster/shot" );
+		theFxScheduler.RegisterEffect( "blaster/NPCshot" );
 		theFxScheduler.RegisterEffect( "blaster/deflect" );
-		theFxScheduler.RegisterEffect( "blaster/smoke_bolton" ); // note: this will be called game side
+		theFxScheduler.RegisterEffect( "blaster/smoke_bolton" );
 		break;
-
 	case WP_DISRUPTOR:
-		theFxScheduler.RegisterEffect( "disruptor/wall_impact" );
-		theFxScheduler.RegisterEffect( "disruptor/flesh_impact" );
 		theFxScheduler.RegisterEffect( "disruptor/alt_miss" );
 		theFxScheduler.RegisterEffect( "disruptor/alt_hit" );
 		theFxScheduler.RegisterEffect( "disruptor/line_cap" );
@@ -618,7 +636,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 	case WP_BOWCASTER:
 		cgs.effects.bowcasterShotEffect		= theFxScheduler.RegisterEffect( "bowcaster/shot" );
 		cgs.effects.bowcasterBounceEffect	= theFxScheduler.RegisterEffect( "bowcaster/bounce_wall" );
-		cgs.effects.bowcasterImpactEffect	= theFxScheduler.RegisterEffect( "bowcaster/explosion" );
 		theFxScheduler.RegisterEffect( "bowcaster/deflect" );
 		break;
 
@@ -626,14 +643,10 @@ void CG_RegisterWeapon( int weaponNum ) {
 		theFxScheduler.RegisterEffect( "repeater/muzzle_smoke" );
 		theFxScheduler.RegisterEffect( "repeater/projectile" );
 		theFxScheduler.RegisterEffect( "repeater/alt_projectile" );
-		theFxScheduler.RegisterEffect( "repeater/wall_impact" );
-		theFxScheduler.RegisterEffect( "repeater/concussion" );
 		break;
 
 	case WP_DEMP2:
 		theFxScheduler.RegisterEffect( "demp2/projectile" );
-		theFxScheduler.RegisterEffect( "demp2/wall_impact" );
-		theFxScheduler.RegisterEffect( "demp2/flesh_impact" );
 		theFxScheduler.RegisterEffect( "demp2/altDetonate" );
 		cgi_R_RegisterModel( "models/items/sphere.md3" );
 		cgi_R_RegisterShader( "gfx/effects/demp2shell" );
@@ -662,11 +675,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 	case WP_FLECHETTE:
 		cgs.effects.flechetteShotEffect				= theFxScheduler.RegisterEffect( "flechette/shot" );
 		cgs.effects.flechetteAltShotEffect			= theFxScheduler.RegisterEffect( "flechette/alt_shot" );
-		cgs.effects.flechetteShotDeathEffect		= theFxScheduler.RegisterEffect( "flechette/wall_impact" ); // shot death
-		cgs.effects.flechetteFleshImpactEffect		= theFxScheduler.RegisterEffect( "flechette/flesh_impact" );
 		cgs.effects.flechetteRicochetEffect			= theFxScheduler.RegisterEffect( "flechette/ricochet" );
-
-//		theFxScheduler.RegisterEffect( "flechette/explosion" );
 		theFxScheduler.RegisterEffect( "flechette/alt_blow" );
 		break;
 
@@ -731,8 +740,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 		//E-Web, too, can't tell here which one you wanted, so...
 		theFxScheduler.RegisterEffect( "eweb/shot" );
 		theFxScheduler.RegisterEffect( "eweb/shotNPC" );
-		theFxScheduler.RegisterEffect( "eweb/wall_impact" );
-		theFxScheduler.RegisterEffect( "eweb/flesh_impact" );
 
 		cgi_R_RegisterShader( "models/map_objects/imp_mine/turret_chair_dmg" );
 		cgi_R_RegisterShader( "models/map_objects/imp_mine/turret_chair_on" );
@@ -782,8 +789,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 		cgi_S_RegisterSound( "sound/weapons/melee/punch4.mp3" );
 		//fire
 		theFxScheduler.RegisterEffect( "tusken/shot" );
-		theFxScheduler.RegisterEffect( "tusken/hit" );
-		theFxScheduler.RegisterEffect( "tusken/hitwall" );
 
 		break;
 
@@ -794,7 +799,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 	case WP_NOGHRI_STICK:
 		//fire
 		theFxScheduler.RegisterEffect( "noghri_stick/shot" );
-		theFxScheduler.RegisterEffect( "noghri_stick/flesh_impact" );
 		//explosion
 		theFxScheduler.RegisterEffect( "noghri_stick/gas_cloud" );
 		//cgi_S_RegisterSound("sound/weapons/noghri/smoke.wav");
@@ -1128,7 +1132,8 @@ void CG_SetGhoul2InfoRef( refEntity_t *ent, refEntity_t	*s1)
 	VectorCopy( s1->angles, ent->angles);
 }
 
-qboolean CG_IsChargedAttack(centity_t* cent) {
+qboolean CG_IsChargedAttack(centity_t* cent) 
+{
 	int weaponNum = cent->gent->s.weapon;
 	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
 	if ((baseWeaponNum == WP_BRYAR_PISTOL && cent->altFire)
@@ -1148,9 +1153,9 @@ char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData) {
 	char firing_attack = cent->gent->client->ps.prev_firing_attack;
 
 	// Try and get a default muzzle so we have one to fall back on
-	if (firing_attack & ALT_ATTACK && wData->attackData[1].mMuzzleEffect[0])
+	if (firing_attack & ALT_ATTACK && wData->attackData[1].muzzleEffect[0])
 	{
-		effect = &wData->attackData[1].mMuzzleEffect[0];
+		effect = &wData->attackData[1].muzzleEffect[0];
 	}
 	//DWS-TODO
 	/*
@@ -1158,16 +1163,16 @@ char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData) {
 	{
 		effect = &wData->mTertiaryMuzzleEffect[0];
 	}*/
-	else if (wData->attackData[0].mMuzzleEffect[0])
+	else if (wData->attackData[0].muzzleEffect[0])
 	{
 		// We need to make sure that the base guns also get their sound.
-		effect = &wData->attackData[0].mMuzzleEffect[0];
+		effect = &wData->attackData[0].muzzleEffect[0];
 	}
 
 
-	if (cent->altFire && wData->attackData[1].mMuzzleEffect[0])
+	if (cent->altFire && wData->attackData[1].muzzleEffect[0])
 	{
-		effect = &wData->attackData[1].mMuzzleEffect[0];
+		effect = &wData->attackData[1].muzzleEffect[0];
 	}
 
 	return effect;
@@ -1545,6 +1550,7 @@ void CG_AddViewWeapon( playerState_t *ps )
 	{
 		int		shader = 0;
 
+		int attackIndex = (ps->weaponstate == WEAPON_CHARGING_ALT) ? 1 : 0;
 		int weapon = ps->weapon;
 		int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
@@ -1575,8 +1581,8 @@ void CG_AddViewWeapon( playerState_t *ps )
 
 		//Overwrite the muzzle effect if needed
 		//DWS-TODO : Integrate Scoped and charge
-		if (weaponData[weapon].attackData[0].chargeMuzzleShader[0]) {
-			shader = cg_weapons[weapon].weaponAttacksInfo[0].chargeMuzzleShader;
+		if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) {
+			shader = cg_weapons[weapon].weaponAttacksInfo[attackIndex].chargeMuzzleShader;
 		}
 
 		if ( val < 0.0f )
@@ -3723,186 +3729,70 @@ CG_MissileHitWall
 Caused by an EV_MISSILE_MISS event, or directly by local bullet tracing
 =================
 */
+//DWS-TODO Don't like it right now
 void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, qboolean altFire )
 {
-	int parm;
+	weaponData_t* wpnData = &weaponData[weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[cent->gent->attack_index];
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
-	switch(baseWeapon)
-	{
-	case WP_BRYAR_PISTOL:
-	case WP_BLASTER_PISTOL:
-	case WP_REY:
-	case WP_JAWA:
-		if ( altFire )
-		{
-			parm = 0;
 
-			if ( cent->gent )
+	switch (attackData->firingLogic)
+	{
+		case FL_STUNBATON:
+		case FL_MELEE:
+		    return;
+		case FL_MISSILE:
+		case FL_MISSILE_AIMED:
+		case FL_DEMP2:
+		case FL_BLASTER:
+		case FL_BOWCASTER:
+		case FL_GRENADE_LAUNCHER:
+		case FL_FLECHETTE_ALT:
+		case FL_NOGHRI:
+		case FL_LASER_TRAP:
+		case FL_PROXIMITY_TRAP:
+		case FL_EXPLOSIVES:
+		case FL_FLECHETTE:
+			FX_GenericBlasterHitWall(cent->gent, weapon, origin, dir);
+		    return;
+		case FL_BLASTER_CHARGED:
+			FX_GenericChargedBlasterHitWall(cent->gent, weapon, origin, dir);
+		    return;
+		case FL_DEMP2_ALT:
+			//DWS-TODO : Check where it is handled
+			return;
+		case FL_BEAM:
+		case FL_BEAM_CHARGED:
+		    break;
+		case FL_GRENADE:
+		case FL_IMPACT_GRENADE:
+			if (weaponData[weapon].attackData[cent->gent->attack_index].explosionEffect[0])
 			{
-				parm += cent->gent->count;
+				theFxScheduler.PlayEffect(weaponData[weapon].attackData[cent->gent->attack_index].explosionEffect, origin, dir);
+			}
+			else
+			{
+				theFxScheduler.PlayEffect("thermal/explosion", origin, dir);
 			}
 
-			FX_BryarAltHitWall( origin, dir, parm );
-		}
-		else
-		{
-			FX_BryarHitWall( origin, dir );
-		}
-		break;
-
-	case WP_BLASTER:
-	case WP_BATTLEDROID:
-	case WP_THEFIRSTORDER:
-	case WP_REBELBLASTER:
-	case WP_REBELRIFLE:
-	case WP_JANGO:
-	case WP_BOBA:
-	case WP_SBD:
-	case WP_DROIDEKA:
-	case WP_CIS_SNIPER:
-		FX_BlasterWeaponHitWall( origin, dir );
-		break;
-
-	case WP_BOWCASTER:
-		FX_BowcasterHitWall( origin, dir );
-		break;
-
-	case WP_DISRUPTOR:
-		if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))
-		{
-			FX_StrikeHitWall(origin, dir);
-		}
-		break;
-
-	case WP_REPEATER:
-		if ( altFire )
-		{
-			FX_RepeaterAltHitWall( origin, dir );
-		}
-		else
-		{
-			FX_RepeaterHitWall( origin, dir );
-		}
-		break;
-
-	case WP_DEMP2:
-		if ( altFire )
-		{
-		}
-		else
-		{
-			FX_DEMP2_HitWall( origin, dir );
-		}
-		break;
-
-	case WP_FLECHETTE:
-		if ( altFire )
-		{
-			theFxScheduler.PlayEffect( "flechette/alt_blow", origin, dir );
-		}
-		else
-		{
-			FX_FlechetteWeaponHitWall( origin, dir );
-		}
-		break;
-
-	case WP_ROCKET_LAUNCHER:
-		if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))
-		{
-			FX_BlastHitWall(origin, dir);
-		}
-		else
-		{
-			FX_RocketHitWall(origin, dir);
-		}
-
-		break;
-
-	case WP_CONCUSSION:
-		if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))
-		{
-			FX_DestructionHitWall(origin, dir);
-		}
-		else
-		{
-			FX_ConcHitWall(origin, dir);
-		}
-		break;
-
-	case WP_THERMAL:
-		if (weaponData[weapon].attackData[0].explosionEffect[0])
-		{
-			theFxScheduler.PlayEffect(weaponData[weapon].attackData[0].explosionEffect, origin, dir);
-		}
-		else
-		{
-			theFxScheduler.PlayEffect("thermal/explosion", origin, dir);
-		}
-		if (weaponData[weapon].attackData[0].shockwaveEffect[0])
-		{
-			theFxScheduler.PlayEffect(weaponData[weapon].attackData[0].shockwaveEffect, origin);
-		}
-		else
-		{
-			theFxScheduler.PlayEffect("thermal/shockwave", origin);
-		}
-		break;
-
-	case WP_EMPLACED_GUN:
-		FX_EmplacedHitWall( origin, dir, (qboolean)(cent->gent&&cent->gent->alt_fire) );
-		break;
-
-	case WP_ATST_MAIN:
-		FX_ATSTMainHitWall( origin, dir );
-		break;
-
-	case WP_ATST_SIDE:
-		if ( altFire )
-		{
-			theFxScheduler.PlayEffect( "atst/side_alt_explosion", origin, dir );
-		}
-		else
-		{
-			theFxScheduler.PlayEffect( "atst/side_main_impact", origin, dir );
-		}
-		break;
-
-	case WP_TRIP_MINE:
-		theFxScheduler.PlayEffect( "tripmine/explosion", origin, dir );
-		break;
-
-	case WP_DET_PACK:
-		theFxScheduler.PlayEffect( "detpack/explosion", origin, dir );
-		break;
-
-	case WP_TURRET:
-		theFxScheduler.PlayEffect( "turret/wall_impact", origin, dir );
-		break;
-
-	case WP_TUSKEN_RIFLE:
-		FX_TuskenShotWeaponHitWall( origin, dir );
-		break;
-
-	case WP_NOGHRI_STICK:
-		FX_NoghriShotWeaponHitWall( origin, dir );
-		break;
-
-	case WP_CLONECARBINE:
-	case WP_CLONERIFLE:
-	case WP_CLONEPISTOL:
-		FX_CloneWeaponHitWall(origin, dir);
-		break;
-
-	case WP_CLONECOMMANDO:
-		if (altFire)
-		{
-			FX_CloneCommandoHitWall(origin, dir);
-		}
-		else
-		{
-			FX_CloneWeaponHitWall(origin, dir);
-		}
-		break;
+			if (weaponData[weapon].attackData[cent->gent->attack_index].shockwaveEffect[0])
+			{
+				theFxScheduler.PlayEffect(weaponData[weapon].attackData[cent->gent->attack_index].shockwaveEffect, origin);
+			}
+			else
+			{
+				theFxScheduler.PlayEffect("thermal/shockwave", origin);
+			}
+		    break;
+		case FL_OTHER:
+		case FL_NONE:
+			if (baseWeapon == WP_ROCKET_LAUNCHER && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
+				FX_BlastHitWall(origin, dir);
+			}
+			else if (baseWeapon == WP_CONCUSSION && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
+				FX_DestructionHitWall(origin, dir);
+			}
+		    break;
 	}
 }
 
@@ -3914,7 +3804,6 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 CG_MissileHitPlayer
 -------------------------
 */
-
 void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, int attackIndex)
 {
 	gentity_t *other = NULL;
@@ -3936,181 +3825,164 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 			}
 		}
 	}
-	int baseWeapon = weapon;
-	if (weaponData[weapon].baseWeaponNum) {
-		baseWeapon = weaponData[weapon].baseWeaponNum;
-	}
-	switch (baseWeapon)
+	weaponData_t* wpnData = &weaponData[weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[cent->gent->attack_index];
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+
+	switch (attackData->firingLogic)
 	{
-	case WP_BRYAR_PISTOL:
-	case WP_BLASTER_PISTOL:
-	case WP_REY:
-	case WP_JAWA:
-		if (attackIndex)
-		{
-			FX_BryarAltHitPlayer(origin, dir, humanoid);
-		}
-		else
-		{
-			FX_BryarHitPlayer(origin, dir, humanoid);
-		}
-		break;
-
-	case WP_BLASTER:
-	case WP_BATTLEDROID:
-	case WP_THEFIRSTORDER:
-	case WP_REBELBLASTER:
-	case WP_REBELRIFLE:
-	case WP_JANGO:
-	case WP_BOBA:
-	case WP_SBD:
-	case WP_DROIDEKA:
-	case WP_CIS_SNIPER:
-		FX_BlasterWeaponHitPlayer(other, origin, dir, humanoid);
-		break;
-
-	case WP_BOWCASTER:
-		FX_BowcasterHitPlayer(origin, dir, humanoid);
-		break;
-
-	case WP_DISRUPTOR:
-		if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))
-		{
-			FX_StrikeHitWall(origin, dir);
-		}
-		break;
-
-	case WP_REPEATER:
-		if (attackIndex)
-		{
-			FX_RepeaterAltHitPlayer(origin, dir, humanoid);
-		}
-		else
-		{
-			FX_RepeaterHitPlayer(origin, dir, humanoid);
-		}
-		break;
-
-	case WP_DEMP2:
-		if (!attackIndex)
-		{
-			FX_DEMP2_HitPlayer(origin, dir, humanoid);
-		}
-
+	case FL_STUNBATON:
+	case FL_MELEE:
+		return;
+	case FL_DEMP2:		
 		// Do a full body effect here for some more feedback
 		if (other && other->client)
 		{
 			other->s.powerups |= (1 << PW_SHOCKED);
 			other->client->ps.powerups[PW_SHOCKED] = cg.time + 1000;
 		}
+	case FL_MISSILE:
+	case FL_MISSILE_AIMED:
+	case FL_BLASTER:
+	case FL_BOWCASTER:
+	case FL_GRENADE_LAUNCHER:
+	case FL_FLECHETTE_ALT:
+	case FL_NOGHRI:
+	case FL_LASER_TRAP:
+	case FL_PROXIMITY_TRAP:
+	case FL_EXPLOSIVES:
+	case FL_BLASTER_CHARGED:
+	case FL_FLECHETTE:
+		FX_GenericBlasterHitPlayer(cent->gent, weapon, origin, dir, other, humanoid);
+		return;
+	case FL_DEMP2_ALT:
+		//DWS-TODO : Check where it is handled
+		return;
+	case FL_BEAM:
+	case FL_BEAM_CHARGED:
 		break;
-
-	case WP_FLECHETTE:
-		if (attackIndex)
+	case FL_GRENADE:
+	case FL_IMPACT_GRENADE:
+		if (weaponData[weapon].attackData[cent->gent->attack_index].explosionEffect[0])
 		{
-			theFxScheduler.PlayEffect("flechette/alt_blow", origin, dir);
-		}
-		else
-		{
-			FX_FlechetteWeaponHitPlayer(origin, dir, humanoid);
-		}
-		break;
-
-	case WP_ROCKET_LAUNCHER:
-		if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))
-		{
-			FX_BlastHitWall(origin, dir);
-		}
-		else
-		{
-			FX_RocketHitPlayer(origin, dir, humanoid);
-		}
-		break;
-
-	case WP_CONCUSSION:
-		if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))
-		{
-			FX_DestructionHitPlayer(origin, dir, humanoid);
-		}
-		else
-		{
-			FX_ConcHitPlayer(origin, dir, humanoid);
-		}
-		break;
-
-	case WP_THERMAL:
-		if (weaponData[weapon].attackData[0].explosionEffect[0])
-		{
-			theFxScheduler.PlayEffect(weaponData[weapon].attackData[0].explosionEffect, origin, dir);
+			theFxScheduler.PlayEffect(weaponData[weapon].attackData[cent->gent->attack_index].explosionEffect, origin, dir);
 		}
 		else
 		{
 			theFxScheduler.PlayEffect("thermal/explosion", origin, dir);
 		}
-		if (weaponData[weapon].attackData[0].shockwaveEffect[0])
+
+		if (weaponData[weapon].attackData[cent->gent->attack_index].shockwaveEffect[0])
 		{
-			theFxScheduler.PlayEffect(weaponData[weapon].attackData[0].shockwaveEffect, origin);
+			theFxScheduler.PlayEffect(weaponData[weapon].attackData[cent->gent->attack_index].shockwaveEffect, origin);
 		}
 		else
 		{
 			theFxScheduler.PlayEffect("thermal/shockwave", origin);
 		}
 		break;
-
-	case WP_EMPLACED_GUN:
-		FX_EmplacedHitPlayer(origin, dir, (qboolean)(cent->gent && cent->gent->alt_fire));
-		break;
-
-	case WP_TRIP_MINE:
-		theFxScheduler.PlayEffect("tripmine/explosion", origin, dir);
-		break;
-
-	case WP_DET_PACK:
-		theFxScheduler.PlayEffect("detpack/explosion", origin, dir);
-		break;
-
-	case WP_TURRET:
-		theFxScheduler.PlayEffect("turret/flesh_impact", origin, dir);
-		break;
-
-	case WP_ATST_MAIN:
-		FX_EmplacedHitWall(origin, dir, qfalse);
-		break;
-
-	case WP_ATST_SIDE:
-		if (attackIndex)
-		{
-			theFxScheduler.PlayEffect("atst/side_alt_explosion", origin, dir);
+	case FL_OTHER:
+	case FL_NONE:
+		if (baseWeapon == WP_ROCKET_LAUNCHER && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
+			FX_BlastHitWall(origin, dir);
 		}
-		else
-		{
-			theFxScheduler.PlayEffect("atst/side_main_impact", origin, dir);
+		else if (baseWeapon == WP_CONCUSSION && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
+			FX_DestructionHitPlayer(origin, dir, humanoid);
 		}
-		break;
-
-	case WP_TUSKEN_RIFLE:
-		FX_TuskenShotWeaponHitPlayer(other, origin, dir, humanoid);
-		break;
-
-	case WP_NOGHRI_STICK:
-		FX_NoghriShotWeaponHitPlayer(other, origin, dir, humanoid);
-		break;
-
-	case WP_CLONECARBINE:
-	case WP_CLONERIFLE:
-	case WP_CLONEPISTOL:
-		FX_CloneWeaponHitPlayer(other, origin, dir, humanoid);
-		break;
-
-	case WP_CLONECOMMANDO:
-		if (attackIndex)
-		{
-			FX_CloneCommandoHitPlayer(origin, dir, humanoid);
-		}
-		else
-		{
-			FX_CloneWeaponHitPlayer(other, origin, dir, humanoid);
+		else if (baseWeapon == WP_DISRUPTOR && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
+			FX_StrikeHitWall(origin, dir);
 		}
 		break;
 	}
 }
+
+char baseHitWallEffects[][64] = {
+	"",//WP_NONE
+	"",//WP_SABER
+	"bryar/wall_impact",//WP_BLASTER_PISTOL
+	"blaster/wall_impact",//WP_BLASTER
+	"disruptor/wall_impact",//WP_DISRUPTOR
+	"bowcaster/explosion",//WP_BOWCASTER
+	"repeater/wall_impact",//WP_REPEATER
+	"demp2/wall_impact",//WP_DEMP2
+	"flechette/wall_impact",//WP_FLECHETTE
+	"rocket/explosion",//WP_ROCKET_LAUNCHER
+	"",//WP_THERMAL
+	"tripmine/explosion",//WP_TRIP_MINE
+	"detpack/explosion",//WP_DET_PACK
+	"concussion/explosion",//WP_CONCUSSION
+	"",//WP_MELEE
+	"atst/wall_impact",//WP_ATST_MAIN
+	"atst/side_main_impact",//WP_ATST_SIDE
+	"",//WP_STUN_BATON
+	"bryar/wall_impact",//WP_BRYAR_PISTOL
+	"eweb/wall_impact",//WP_EMPLACED_GUN
+	"",//WP_BOT_LASER
+	"turret/flesh_impact",//WP_TURRET
+	"",//WP_TIE_FIGHTER
+	"",//WP_RAPID_FIRE_CONC
+	"bryar/wall_impact",//WP_JAWA
+	"tusken/hitwall" ,//WP_TUSKEN_RIFLE
+	"",//WP_TUSKEN_STAFF
+	"",//WP_SCEPTER
+	"noghri_stick/flesh_impact",//WP_NOGHRI_STICK
+	"blaster/wall_impact",//WP_BATTLEDROID
+	"blaster/wall_impact",//WP_THEFIRSTORDER
+	"clone/wall_impact",//WP_CLONECARBINE
+	"blaster/wall_impact",//WP_REBELBLASTER
+	"clone/wall_impact",//WP_CLONERIFLE
+	"clone/wall_impact",//WP_CLONECOMMANDO
+	"blaster/wall_impact",//WP_REBELRIFLE
+	"bryar/wall_impact",//WP_REY
+	"blaster/wall_impact",//WP_JANGO
+	"blaster/wall_impact",//WP_BOBA
+	"clone/wall_impact",//WP_CLONEPISTOL
+	"blaster/wall_impact",//WP_CIS_SNIPER
+	"blaster/wall_impact",//WP_SBD
+	"blaster/wall_impact",//WP_DROIDEKA
+};
+char baseHitFleshEffects[][64] = {
+	"",//WP_NONE
+	"",//WP_SABER
+	"bryar/flesh_impact",//WP_BLASTER_PISTOL
+	"blaster/flesh_impact",//WP_BLASTER
+	"disruptor/flesh_impact",//WP_DISRUPTOR
+	"bowcaster/explosion",//WP_BOWCASTER
+	"repeater/concussion",//WP_REPEATER
+	"demp2/flesh_impact",//WP_DEMP2
+	"flechette/flesh_impact",//WP_FLECHETTE
+	"rocket/explosion",//WP_ROCKET_LAUNCHER
+	"",//WP_THERMAL
+	"tripmine/explosion",//WP_TRIP_MINE
+	"detpack/explosion",//WP_DET_PACK
+	"concussion/explosion",//WP_CONCUSSION
+	"",//WP_MELEE
+	"atst/flesh_impact",//WP_ATST_MAIN
+	"atst/side_main_impact",//WP_ATST_SIDE
+	"",//WP_STUN_BATON
+	"bryar/flesh_impact",//WP_BRYAR_PISTOL
+	"eweb/flesh_impact",//WP_EMPLACED_GUN
+	"",//WP_BOT_LASER
+	"turret/wall_impact",//WP_TURRET
+	"",//WP_TIE_FIGHTER
+	"",//WP_RAPID_FIRE_CONC
+	"bryar/flesh_impact",//WP_JAWA
+	"tusken/hit" ,//WP_TUSKEN_RIFLE
+	"",//WP_TUSKEN_STAFF
+	"",//WP_SCEPTER
+	"noghri_stick/flesh_impact",//WP_NOGHRI_STICK
+	"blaster/flesh_impact",//WP_BATTLEDROID
+	"blaster/flesh_impact",//WP_THEFIRSTORDER
+	"clone/flesh_impact",//WP_CLONECARBINE
+	"blaster/flesh_impact",//WP_REBELBLASTER
+	"clone/flesh_impact",//WP_CLONERIFLE
+	"clone/flesh_impact",//WP_CLONECOMMANDO
+	"blaster/flesh_impact",//WP_REBELRIFLE
+	"bryar/flesh_impact",//WP_REY
+	"blaster/flesh_impact",//WP_JANGO
+	"blaster/flesh_impact",//WP_BOBA
+	"clone/flesh_impact",//WP_CLONEPISTOL
+	"blaster/flesh_impact",//WP_CIS_SNIPER
+	"blaster/flesh_impact",//WP_SBD
+	"blaster/flesh_impact",//WP_DROIDEKA
+};

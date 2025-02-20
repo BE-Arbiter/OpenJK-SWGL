@@ -152,7 +152,7 @@ void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,int a
 	weaponData_t* wpnData = &weaponData[ent->s.weapon];
 	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	int velocity = attackData->mVelocity;
-	int	damage = WP_GetWeaponDamage(ent, attackData);;
+	int	damage = WP_GetWeaponDamage(ent, attackData);
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{
@@ -176,7 +176,7 @@ void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,int a
 
 
 	//If charged attack
-	if (attackData->firingLogic == FL_BLASTER_CHARGED)
+	if (attackData->firingLogic == FL_BLASTER_CHARGED || attackData->firingLogic == FL_DEMP2_ALT)
 	{
 		int count = (level.time - ent->client->ps.weaponChargeTime) / attackData->chargeUnitTime;
 
@@ -189,13 +189,21 @@ void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,int a
 			count = attackData->maxChargeUnits;
 		}
 
-		damage *= count;
+		if (attackData->firingLogic == FL_DEMP2_ALT)
+		{
+			damage *= (1 + (count * (count - 1)));
+		}
+		else
+		{
+			damage *= count;
+		}
 		missile->count = count; // this will get used in the projectile rendering code to make a beefier effect
 	}
 	//If Grenade Launcher
 	else if (attackData->firingLogic == FL_GRENADE_LAUNCHER) {
 		missile->s.pos.trType = TR_GRAVITY;
 		missile->s.pos.trDelta[2] += 40.0f;
+		missile->mass = 10;
 	}
 
 	missile->dflags = DAMAGE_DEATH_KNOCKBACK;
@@ -298,7 +306,7 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 	{
 		//make sure our start point isn't on the other side of a wall
 		WP_TraceSetStart(ent, start, vec3_origin, vec3_origin);
-		WP_MissileTargetHint(ent, muzzle, forwardVec);
+		WP_MissileTargetHint(ent, start, forwardVec);
 		for (int i = 0; i < count; i++)
 		{
 			// create a range of different velocities
@@ -322,7 +330,7 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 			AngleVectors(angs, dir, NULL, NULL);
 
 
-			missile = CreateMissile(muzzle, dir, vel, 10000, ent);
+			missile = CreateMissile(start, dir, vel, 10000, ent);
 
 			missile->classname = "bowcaster_proj";
 			missile->s.weapon = ent->s.weapon;

@@ -9040,7 +9040,7 @@ SkipTrueView:
 
 					if ( cent->gent->m_pVehicle->m_Muzzles[i].m_bFired )
 					{
-						const char *effect = &weaponData[ cent->gent->m_pVehicle->m_pVehicleInfo->weapMuzzle[i] ].attackData[0].mMuzzleEffect[0];
+						const char *effect = &weaponData[ cent->gent->m_pVehicle->m_pVehicleInfo->weapMuzzle[i] ].attackData[0].muzzleEffect[0];
 						if ( effect )
 						{
 							theFxScheduler.PlayEffect( effect, cent->gent->m_pVehicle->m_Muzzles[i].m_vMuzzlePos, cent->gent->m_pVehicle->m_Muzzles[i].m_vMuzzleDir );
@@ -9610,7 +9610,7 @@ Ghoul2 Insert End
 				CG_PositionEntityOnTag( &flash, &gun, gun.hModel, "tag_flash");
 
 				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->attackData[0].mMuzzleEffect[0])
+				if ( wData->attackData[0].muzzleEffect[0])
 				{
 					effect = wInfo->weaponAttacksInfo[0].muzzleEffect;
 				}
@@ -9623,7 +9623,7 @@ Ghoul2 Insert End
 				if ( cent->currentState.eFlags & EF_ALT_FIRING )
 				{
 					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->attackData[1].mMuzzleEffect[0])
+					if ( wData->attackData[1].muzzleEffect[0])
 					{
 						effect = wInfo->weaponAttacksInfo[1].muzzleEffect;
 					}
@@ -9688,6 +9688,7 @@ Ghoul2 Insert End
 			float	val = 0.0f, scale = 1.0f;
 			vec3_t	WHITE	= {1.0f,1.0f,1.0f};
 
+			int attackIndex = (ps->weaponstate == WEAPON_CHARGING_ALT) ? 1 : 0;
 			int weapon = ps->weapon;
 			int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 			if (baseWeapon == WP_BRYAR_PISTOL
@@ -9713,8 +9714,8 @@ Ghoul2 Insert End
 			}
 			//Overwrite the muzzle effect if needed
 			//DWS-TODO : Same about scope and attack type....
-			if (weaponData[weapon].attackData[0].chargeMuzzleShader[0]) {
-				shader = cg_weapons[weapon].weaponAttacksInfo[0].chargeMuzzleShader;
+			if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) {
+				shader = cg_weapons[weapon].weaponAttacksInfo[attackIndex].chargeMuzzleShader;
 			}
 			if ( val < 0.0f )
 			{

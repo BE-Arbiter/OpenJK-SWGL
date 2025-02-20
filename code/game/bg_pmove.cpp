@@ -13139,105 +13139,25 @@ void PM_WeaponLightsaber(void)
 static bool PM_DoChargedWeapons( void )
 //---------------------------------------
 {
-	qboolean	charging = qfalse,
-				altFire = qfalse;
+	qboolean	charging = qfalse;
 
-	//FIXME: make jedi aware they're being aimed at with a charged-up weapon (strafe and be evasive?)
-	// If you want your weapon to be a charging weapon, just set this bit up
-	int baseWeapon = weaponData[pm->ps->weapon].baseWeaponNum ? weaponData[pm->ps->weapon].baseWeaponNum : pm->ps->weapon;
-	switch(baseWeapon)
+	int weapon = pm->ps->weapon;
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+	int attackIndex = (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? 1 : 0;
+	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
+	qboolean altFire = (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
+	qboolean mainFire = (pm->cmd.buttons & BUTTON_ATTACK) ? qtrue : qfalse;
+	if ( (mainFire || altFire) && 
+		(attackData->firingLogic == FL_BEAM_CHARGED
+		|| attackData->firingLogic == FL_BLASTER_CHARGED
+		|| attackData->firingLogic == FL_BOWCASTER
+		|| attackData->firingLogic == FL_DEMP2_ALT
+		|| attackData->firingLogic == FL_GRENADE
+		|| attackData->firingLogic == FL_IMPACT_GRENADE
+		|| attackData->firingLogic == FL_MISSILE_AIMED))
 	{
-	//------------------
-	case WP_BRYAR_PISTOL:
-	case WP_BLASTER_PISTOL:
-	case WP_REY:
-		// alt-fire charges the weapon
-		if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-		{
-			charging = qtrue;
-			altFire = qtrue;
-		}
-		break;
-
-	//------------------
-	case WP_DISRUPTOR:
-
-		// alt-fire charges the weapon...but due to zooming being controlled by the alt-button, the main button actually charges...but only when zoomed.
-		//	lovely, eh?
-		if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) )
-		{
-			if ( cg.zoomMode == 2 )
-			{
-				if ( pm->cmd.buttons & BUTTON_ATTACK )
-				{
-					charging = qtrue;
-					altFire = qtrue; // believe it or not, it really is an alt-fire in this case!
-				}
-			}
-		}
-		else if ( pm->gent && pm->gent->NPC )
-		{
-			if ( (pm->gent->NPC->scriptFlags&SCF_ALT_FIRE) )
-			{
-				if ( pm->gent->fly_sound_debounce_time > level.time )
-				{
-					charging = qtrue;
-					altFire = qtrue;
-				}
-			}
-		}
-		break;
-
-	//------------------
-	case WP_BOWCASTER:
-
-		// main-fire charges the weapon
-		if ( pm->cmd.buttons & BUTTON_ATTACK )
-		{
-			charging = qtrue;
-		}
-		break;
-
-	//------------------
-	case WP_DEMP2:
-
-		// alt-fire charges the weapon
-		if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-		{
-			charging = qtrue;
-			altFire = qtrue;
-		}
-		break;
-
-	//------------------
-	case WP_ROCKET_LAUNCHER:
-
-		// Not really a charge weapon, but we still want to delay fire until the button comes up so that we can
-		//	implement our alt-fire locking stuff
-		if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-		{
-			charging = qtrue;
-			altFire = qtrue;
-		}
-		break;
-
-	//------------------
-	case WP_THERMAL:
-		//			FIXME: Really should have a wind-up anim for player
-		//			as he holds down the fire button to throw, then play
-		//			the actual throw when he lets go...
-		if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-		{
-			altFire = qtrue; // override default of not being an alt-fire
-			charging = qtrue;
-		}
-		else if ( pm->cmd.buttons & BUTTON_ATTACK )
-		{
-			charging = qtrue;
-		}
-		break;
-
-	} // end switch
+		charging = qtrue;
+	}
 
 	// set up the appropriate weapon state based on the button that's down.
 	//	Note that we ALWAYS return if charging is set ( meaning the buttons are still down )
@@ -13260,7 +13180,7 @@ static bool PM_DoChargedWeapons( void )
 				pm->ps->weaponstate = WEAPON_CHARGING_ALT;
 				pm->ps->weaponChargeTime = level.time;
 
-				if (weaponData[pm->ps->weapon].attackData[1].chargeSnd )
+				if (weaponData[pm->ps->weapon].attackData[1].chargeSnd && weaponData[pm->ps->weapon].attackData[1].chargeSnd[0])
 				{
 					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].attackData[1].chargeSnd );
 				}
@@ -13282,7 +13202,8 @@ static bool PM_DoChargedWeapons( void )
 				pm->ps->weaponstate = WEAPON_CHARGING;
 				pm->ps->weaponChargeTime = level.time;
 
-				if (weaponData[pm->ps->weapon].attackData[0].chargeSnd && pm->gent && !pm->gent->NPC ) // HACK: !NPC mostly for bowcaster and weequay
+				if (weaponData[pm->ps->weapon].attackData[0].chargeSnd && weaponData[pm->ps->weapon].attackData[0].chargeSnd[0]
+					&& pm->gent && !pm->gent->NPC ) // HACK: !NPC mostly for bowcaster and weequay
 				{
 					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].attackData[0].chargeSnd );
 				}
@@ -13312,13 +13233,6 @@ static bool PM_DoChargedWeapons( void )
 	return false; // continue with the rest of the weapon code
 }
 
-
-#define BOWCASTER_CHARGE_UNIT	200.0f	// bowcaster charging gives us one more unit every 200ms--if you change this, you'll have to do the same in g_weapon
-#define BRYAR_CHARGE_UNIT		200.0f	// bryar charging gives us one more unit every 200ms--if you change this, you'll have to do the same in g_weapon
-#define DEMP2_CHARGE_UNIT		500.0f	// ditto
-#define DISRUPTOR_CHARGE_UNIT	150.0f	// ditto
-
-
 extern qboolean CG_PlayerIsDualWielding(int weapon);
 // Specific weapons can opt to modify the ammo usage based on charges, otherwise if no special case code
 //	is handled below, regular ammo usage will happen
@@ -13330,172 +13244,51 @@ static int PM_DoChargingAmmoUsage( int *amount )
 	int weapon = pm->ps->weapon;
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 	int weaponCount = CG_PlayerIsDualWielding(weapon) ? 2 : 1;
+	//DWS-TODO : Here lol
+	int attackIndex = (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? 1 : 0;
+	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 
-	if (baseWeapon == WP_BOWCASTER && !( pm->cmd.buttons & BUTTON_ALT_ATTACK ))
+	if (attackData->firingLogic == FL_BOWCASTER
+		|| attackData->firingLogic == FL_BLASTER_CHARGED
+		|| attackData->firingLogic == FL_BEAM_CHARGED)
 	{
-		// this code is duplicated ( I know, I know ) in G_weapon.cpp for the bowcaster alt-fire
-		count = ( level.time - pm->ps->weaponChargeTime ) / BOWCASTER_CHARGE_UNIT;
+		// this code is duplicated ( I know, I know ) in G_weapon.cpp for the demp2 alt-fire
+		count = (level.time - pm->ps->weaponChargeTime) / attackData->chargeUnitTime;
 
-		if ( count < 1 )
+		if (count < 1)
 		{
 			count = 1;
 		}
-		else if ( count > 5 )
+		else if (count > attackData->maxChargeUnits)
 		{
-			count = 5;
+			count = attackData->maxChargeUnits;
 		}
 
-		if ( !(count & 1 ))
+		if (!(count & 1) && attackData->firingLogic == FL_BOWCASTER)
 		{
 			// if we aren't odd, knock us down a level
 			count--;
 		}
-
 		count *= weaponCount;
 
 		// Only bother with these checks if we don't have infinite ammo
-		if ( pm->ps->ammo[ weaponData[weapon].ammoIndex ] != -1 )
+		if (pm->ps->ammo[weaponData[weapon].ammoIndex] != -1)
 		{
 			int dif = pm->ps->ammo[weaponData[weapon].ammoIndex] - *amount * count;
 
 			// If we have enough ammo to do the full charged shot, we are ok
-			if ( dif < 0 )
+			if (dif < 0)
 			{
 				// we are not ok, so hack our chargetime and ammo usage, note that DIF is going to be negative
 				count += floor(dif / (float)*amount);
 
-				if ( count < 1 )
+				if (count < 1)
 				{
 					count = 1;
 				}
 
 				// now get a real chargeTime so the duplicated code in g_weapon doesn't get freaked
-				pm->ps->weaponChargeTime = level.time - ( count * BOWCASTER_CHARGE_UNIT );
-			}
-		}
-
-		// now that count is cool, get the real ammo usage
-		*amount *= count;
-	}
-	else if(  ( baseWeapon == WP_BRYAR_PISTOL && pm->cmd.buttons & BUTTON_ALT_ATTACK )
-			  || (baseWeapon == WP_BLASTER_PISTOL && pm->cmd.buttons & BUTTON_ALT_ATTACK ) )
-	{
-		// this code is duplicated ( I know, I know ) in G_weapon.cpp for the bryar alt-fire
-		count = ( level.time - pm->ps->weaponChargeTime ) / BRYAR_CHARGE_UNIT;
-
-		if ( count < 1 )
-		{
-			count = 1;
-		}
-		else if ( count > 5 )
-		{
-			count = 5;
-		}
-
-		count *= weaponCount;
-
-		// Only bother with these checks if we don't have infinite ammo
-		if ( pm->ps->ammo[ weaponData[weapon].ammoIndex ] != -1 )
-		{
-			int dif = pm->ps->ammo[weaponData[weapon].ammoIndex] - *amount * count;
-
-			// If we have enough ammo to do the full charged shot, we are ok
-			if ( dif < 0 )
-			{
-				// we are not ok, so hack our chargetime and ammo usage, note that DIF is going to be negative
-				count += floor(dif / (float)*amount);
-
-				if ( count < 1 )
-				{
-					count = 1;
-				}
-
-				// now get a real chargeTime so the duplicated code in g_weapon doesn't get freaked
-				pm->ps->weaponChargeTime = level.time - ( count * BRYAR_CHARGE_UNIT );
-			}
-		}
-
-		// now that count is cool, get the real ammo usage
-		*amount *= count;
-	}
-	else if (baseWeapon == WP_DEMP2 && pm->cmd.buttons & BUTTON_ALT_ATTACK )
-	{
-		// this code is duplicated ( I know, I know ) in G_weapon.cpp for the demp2 alt-fire
-		count = ( level.time - pm->ps->weaponChargeTime ) / DEMP2_CHARGE_UNIT;
-
-		if ( count < 1 )
-		{
-			count = 1;
-		}
-		else if ( count > 3 )
-		{
-			count = 3;
-		}
-
-		count *= weaponCount;
-
-		// Only bother with these checks if we don't have infinite ammo
-		if ( pm->ps->ammo[ weaponData[weapon].ammoIndex ] != -1 )
-		{
-			int dif = pm->ps->ammo[weaponData[weapon].ammoIndex] - *amount * count;
-
-			// If we have enough ammo to do the full charged shot, we are ok
-			if ( dif < 0 )
-			{
-				// we are not ok, so hack our chargetime and ammo usage, note that DIF is going to be negative
-				count += floor(dif / (float)*amount);
-
-				if ( count < 1 )
-				{
-					count = 1;
-				}
-
-				// now get a real chargeTime so the duplicated code in g_weapon doesn't get freaked
-				pm->ps->weaponChargeTime = level.time - ( count * DEMP2_CHARGE_UNIT );
-			}
-		}
-
-		// now that count is cool, get the real ammo usage
-		*amount *= count;
-
-		// this is an after-thought.  should probably re-write the function to do this naturally.
-		if ( *amount > pm->ps->ammo[weaponData[weapon].ammoIndex] )
-		{
-			*amount = pm->ps->ammo[weaponData[weapon].ammoIndex];
-		}
-	}
-	else if (baseWeapon == WP_DISRUPTOR && pm->cmd.buttons & BUTTON_ALT_ATTACK ) // BUTTON_ATTACK will have been mapped to BUTTON_ALT_ATTACK if we are zoomed
-	{
-		// this code is duplicated ( I know, I know ) in G_weapon.cpp for the disruptor alt-fire
-		count = ( level.time - pm->ps->weaponChargeTime ) / DISRUPTOR_CHARGE_UNIT;
-
-		if ( count < 1 )
-		{
-			count = 1;
-		}
-		else if ( count > 10 )
-		{
-			count = 10;
-		}
-
-		// Only bother with these checks if we don't have infinite ammo
-		if ( pm->ps->ammo[ weaponData[weapon].ammoIndex ] != -1 )
-		{
-			int dif = pm->ps->ammo[weaponData[weapon].ammoIndex] - *amount * count;
-
-			// If we have enough ammo to do the full charged shot, we are ok
-			if ( dif < 0 )
-			{
-				// we are not ok, so hack our chargetime and ammo usage, note that DIF is going to be negative
-				count += floor(dif / (float)*amount);
-
-				if ( count < 1 )
-				{
-					count = 1;
-				}
-
-				// now get a real chargeTime so the duplicated code in g_weapon doesn't get freaked
-				pm->ps->weaponChargeTime = level.time - ( count * DISRUPTOR_CHARGE_UNIT );
+				pm->ps->weaponChargeTime = level.time - (count * attackData->chargeUnitTime);
 			}
 		}
 

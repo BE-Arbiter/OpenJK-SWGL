@@ -228,6 +228,7 @@ set(SPGameCGameFiles
 	"${SPDir}/cgame/FX_Disruptor.cpp"
 	"${SPDir}/cgame/FX_Emplaced.cpp"
 	"${SPDir}/cgame/FX_Flechette.cpp"
+	"${SPDir}/cgame/FX_GenericWeaponEffects.cpp"
 	"${SPDir}/cgame/FX_HeavyRepeater.cpp"
 	"${SPDir}/cgame/FX_NoghriShot.cpp"
 	"${SPDir}/cgame/FX_RocketLauncher.cpp"

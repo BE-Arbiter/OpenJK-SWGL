@@ -75,28 +75,6 @@ void FX_BryarProjectileThink(  centity_t *cent, const struct weaponInfo_s *weapo
 		theFxScheduler.PlayEffect( cgs.effects.bryarShotEffect, cent->lerpOrigin, forward );
 	}
 }
-
-/*
--------------------------
-FX_BryarHitWall
--------------------------
-*/
-void FX_BryarHitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( cgs.effects.bryarWallImpactEffect, origin, normal );
-}
-
-/*
--------------------------
-FX_BryarHitPlayer
--------------------------
-*/
-void FX_BryarHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	theFxScheduler.PlayEffect( cgs.effects.bryarFleshImpactEffect, origin, normal );
-}
-
-
 /*
 -------------------------
 
@@ -151,39 +129,4 @@ void FX_BryarAltProjectileThink(  centity_t *cent, const struct weaponInfo_s *we
 	else {
 		theFxScheduler.PlayEffect(cgs.effects.bryarShotEffect, cent->lerpOrigin, forward);
 	}
-}
-
-/*
--------------------------
-FX_BryarAltHitWall
--------------------------
-*/
-void FX_BryarAltHitWall( vec3_t origin, vec3_t normal, int power )
-{
-	switch( power )
-	{
-	case 4:
-	case 5:
-		theFxScheduler.PlayEffect( cgs.effects.bryarWallImpactEffect3, origin, normal );
-		break;
-
-	case 2:
-	case 3:
-		theFxScheduler.PlayEffect( cgs.effects.bryarWallImpactEffect2, origin, normal );
-		break;
-
-	default:
-		theFxScheduler.PlayEffect( cgs.effects.bryarWallImpactEffect, origin, normal );
-		break;
-	}
-}
-
-/*
--------------------------
-FX_BryarAltHitPlayer
--------------------------
-*/
-void FX_BryarAltHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	theFxScheduler.PlayEffect( cgs.effects.bryarFleshImpactEffect, origin, normal );
 }

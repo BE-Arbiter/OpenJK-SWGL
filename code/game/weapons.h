@@ -222,8 +222,13 @@ typedef struct weaponAttackData_s
 
 	/* Effects */
 	void* missileFunc;		// "FX for the missile"
-	char	projectileEffect[64]; // Effecto to Override the base Projectile
-	char	mMuzzleEffect[64];  // Effect to Override the base muzzle
+	char	projectileEffect[64]; // Effect to Override the base Projectile
+	char	hitWallEffect[64];  
+	char	hitWallEffect2[64]; 
+	char	hitWallEffect3[64];
+	char	hitDroidEffect[64];
+	char	hitFleshEffect[64];
+	char	muzzleEffect[64];  // Effect to Override the base muzzle
 	char	explosionEffect[64]; // For explosives
 	char    shockwaveEffect[64]; // For explosives
 
