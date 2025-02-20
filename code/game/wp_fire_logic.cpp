@@ -207,6 +207,7 @@ void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,int a
 	}
 
 	missile->dflags = DAMAGE_DEATH_KNOCKBACK;
+	missile->damage = damage;
 	missile->splashDamage = attackData->splashDamage;
 	missile->splashRadius = attackData->splashRadius;
 

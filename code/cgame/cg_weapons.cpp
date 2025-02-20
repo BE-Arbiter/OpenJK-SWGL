@@ -3948,7 +3948,7 @@ char baseHitFleshEffects[][64] = {
 	"blaster/flesh_impact",//WP_BLASTER
 	"disruptor/flesh_impact",//WP_DISRUPTOR
 	"bowcaster/explosion",//WP_BOWCASTER
-	"repeater/concussion",//WP_REPEATER
+	"repeater/flesh_impact",//WP_REPEATER
 	"demp2/flesh_impact",//WP_DEMP2
 	"flechette/flesh_impact",//WP_FLECHETTE
 	"rocket/explosion",//WP_ROCKET_LAUNCHER
