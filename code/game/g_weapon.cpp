@@ -1278,7 +1278,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 	}
 
 	// set aiming directions
-	if ( (ent->s.weapon == WP_DISRUPTOR || ent->s.weapon == WP_CIS_SNIPER) && alt_fire )
+	if ( (ent->s.weapon == WP_DISRUPTOR || ent->s.weapon == WP_CIS_SNIPER) && (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode > ST_A280) )
 	{
 		if ( ent->NPC )
 		{

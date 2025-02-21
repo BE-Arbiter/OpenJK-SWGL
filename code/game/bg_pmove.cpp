@@ -14608,10 +14608,11 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	int weapon = pm->ps->weapon;
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
-	//TODO-DWS
-	int main_firing_type = weaponData[weapon].attackData[0].fireOption[FIRING_TYPE];
-	int alt_firing_type = weaponData[weapon].attackData[1].fireOption[FIRING_TYPE];
-	int tertiary_firing_type = weaponData[weapon].attackData[2].fireOption[FIRING_TYPE];
+	qboolean altFire = (!(pm->cmd.buttons & BUTTON_ATTACK) && pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
+	qboolean mainFire = (!(pm->cmd.buttons & BUTTON_ALT_ATTACK) && pm->cmd.buttons & BUTTON_ATTACK) ? qtrue : qfalse;
+	int attackIndex = CG_GetAttackIndex(weapon, altFire);
+	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
+	firingType_t firingType = (firingType_t) attackData->fireOption[FIRING_TYPE];
 	int burst_shots = 0;
 
 	qboolean primFireDown = qfalse;
@@ -14633,30 +14634,24 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		// Keep attack button 'pressed' until no more shots are remaining.
 		if (pm->ps->shotsRemaining & ~SHOTS_TOGGLEBIT)
 		{
-			if (pm->ps->eFlags & EF_FIRING)
+			if ( (pm->ps->eFlags & EF_FIRING) && (firingType == FT_BURST) && pm->ps->pm_type != PM_NOCLIP)
 			{
-				if ((main_firing_type == FT_BURST || alt_firing_type == FT_BURST || tertiary_firing_type == FT_BURST) && pm->ps->pm_type != PM_NOCLIP)
-				{
-					pm->cmd.buttons |= BUTTON_ATTACK;
-				}
-				else if (pm->ps->pm_type == PM_NOCLIP)
-				{
-					pm->ps->shotsRemaining = SHOTS_TOGGLEBIT;
-				}
+				pm->cmd.buttons |= BUTTON_ATTACK;
 			}
+			if ( (pm->ps->eFlags & EF_ALT_FIRING) && (firingType == FT_BURST) && pm->ps->pm_type != PM_NOCLIP)
+			{
+				pm->cmd.buttons |= BUTTON_ALT_ATTACK;
+			}
+			else if (pm->ps->pm_type == PM_NOCLIP)
+			{
+				pm->ps->shotsRemaining = SHOTS_TOGGLEBIT;
+			}
+			
 		}
 	}
 
 	// get ammo usage
-	if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-	{
-		amount = pm->ps->ammo[weaponData[ weapon ].ammoIndex] - weaponData[weapon].attackData[1].energyPerShot;
-	}
-	else
-	{
-		amount = pm->ps->ammo[weaponData[ weapon ].ammoIndex] - weaponData[weapon].attackData[0].energyPerShot;
-	}
-	//FIXME : is baseWeapon Necessary here?
+	amount = pm->ps->ammo[weaponData[ weapon ].ammoIndex] - weaponData[weapon].attackData[attackIndex].energyPerShot;
 	if ( weapon == WP_SABER && (!cg.zoomMode||pm->ps->clientNum) )
 	{//don't let the alt-attack be interpreted as an actual attack command
 		if ( pm->ps->saberInFlight )
@@ -14686,9 +14681,9 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	// disruptor alt-fire should toggle the zoom mode, but only bother doing this for the player?
 	if (weaponData[weapon].scopeType == ST_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING )
 	{
-		// we are not alt-firing yet, but the alt-attack button was just pressed and
-		//	we either are ducking ( in which case we don't care if they are moving )...or they are not ducking...and also not moving right/forward.
+		// Activate Zoom if you are not firing and not moving.
 		if (pm->cmd.buttons & BUTTON_ZOOM && !(pm->ps->pFlags & PF_ZOOMING)
+			&& !(pm->cmd.buttons & BUTTON_ATTACK) && !(pm->cmd.buttons & BUTTON_ALT_ATTACK)
 				&& ( pm->cmd.upmove < 0 || ( !pm->cmd.forwardmove && !pm->cmd.rightmove )))
 		{
 			// We just pressed the alt-fire key
@@ -14722,14 +14717,10 @@ void PM_AdjustAttackStates( pmove_t *pm )
 
 	if ( weaponData[weapon].scopeType >= ST_A280 && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING && weaponData[weapon].scopeType >= ST_A280 )
 	{
-		// If you are not holding down main, you are not currently alt-firing,
-		// you press the alt key, and the alt firing type is not high powered.
+		// Activate the zoom mode if you are not actually firing
 		if (!(pm->cmd.buttons & BUTTON_ATTACK) && !(pm->cmd.buttons & BUTTON_ALT_ATTACK)
-			&& !(pm->ps->pFlags & PF_ZOOMING) && pm->cmd.buttons & BUTTON_ZOOM
-			&& (main_firing_type != FT_HIGH_POWERED && alt_firing_type != FT_HIGH_POWERED)
-			&& !(weapon == WP_CLONECOMMANDO && pm->ps->tertiaryMode))
+			&& !(pm->ps->pFlags & PF_ZOOMING) && pm->cmd.buttons & BUTTON_ZOOM)
 		{
-			Com_Printf("Zoom Other\n");
 			if (cg.zoomMode == 0)
 			{
 				switch (weaponData[weapon].scopeType)
@@ -14756,7 +14747,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 						break;
 				}
 
-				// I probably shouldn't hard code this, but oh well.
+				//DWS-TODO : Add a scopeFov Parameter
 				if (pm->ps->weapon == WP_REBELBLASTER)
 				{
 					cg.zoomMode = ST_A280;
@@ -14768,9 +14759,6 @@ void PM_AdjustAttackStates( pmove_t *pm )
 				cg.zoomMode = 0;
 			}
 		}
-		// If you are holding down main while trying to
-		// scope, stop firing. This is to avoid main firing
-		// while scoped.
 	}
 
 	// Check for binocular specific mode
@@ -14799,94 +14787,31 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		pm->ps->eFlags &= ~EF_ALT_FIRING;
 		pm->cmd.buttons &= ~(BUTTON_ALT_ATTACK|BUTTON_ATTACK);
 	}
-/*
-	DWS-TODO : This code should not be relevant anymore?
-	// If main click is not pressed(this is to avoid main overriding alt), 
-	// you pressed alt click, alt-fire is not currently firing,
-	// you have no scope, tertiary mode is not enabled, and you have an alt firing type.
-	// When you have a scope, alt click doesn't get through.
-	if (!(pm->cmd.buttons & BUTTON_ATTACK) && pm->cmd.buttons & BUTTON_ALT_ATTACK
-		&& !(pm->ps->eFlags & EF_ALT_FIRING) && weaponData[weapon].scopeType < ST_A280
-		&& pm->ps->tertiaryMode == qfalse && alt_firing_type >= FT_AUTOMATIC)
-	{
-		// Don't let the alt-fire get through.
-		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
-		// Switch the flag.
-		pm->cmd.buttons |= BUTTON_ATTACK;
-		// Clear it just in case.
-		pm->ps->firing_attack &= ~MAIN_ATTACK;
 
-		// Setting burst_shots.
-		burst_shots = weaponData[weapon].attackData[1].fireOption[SHOTS_PER_BURST];
-		pm->ps->firing_attack |= ALT_ATTACK;
-	}
-	// If a you press the main key, alt click is not pressed(this is to avoid one overriding the other),
-	// main fire is not currently firing, and you either have a tertiary or main firing type.
-	else if (pm->cmd.buttons & BUTTON_ATTACK && !(pm->cmd.buttons & BUTTON_ALT_ATTACK) 
-		&& !(pm->ps->eFlags & EF_FIRING) && (tertiary_firing_type >= FT_AUTOMATIC || main_firing_type >= FT_AUTOMATIC))
+	//Initiate Burst Fire
+	if (firingType >= FT_AUTOMATIC && (
+		(altFire && !(pm->ps->eFlags & EF_ALT_FIRING)) || (mainFire && !(pm->ps->eFlags & EF_FIRING) )
+		))
 	{
-		// If you have tertiaryMode on regardless if you are scoped or not.
-		if (pm->ps->tertiaryMode)
-		{
-			// If you are not scope and you have the firing type of high powered, you can not use main click,
-			// and you should still be able to turbo boost while you are in noclip.
-			if (cg.zoomMode < ST_A280 && tertiary_firing_type == FT_HIGH_POWERED && pm->ps->pm_type != PM_NOCLIP)
-			{
-				pm->cmd.buttons &= ~BUTTON_ATTACK;
-			}
-			else
-			{
-				burst_shots = weaponData[weapon].attackData[2].fireOption[SHOTS_PER_BURST];
-				pm->ps->firing_attack |= TERTIARY_ATTACK;
-
-				// I don't want an extra shot to get through right after
-				// you turn off noclip.
-				if (pm->ps->pm_type == PM_NOCLIP)
-				{
-					pm->ps->shotsRemaining = SHOTS_TOGGLEBIT;
-				}
-			}
-		}
-		// If you are scoped.
-		else if (cg.zoomMode >= ST_A280)
-		{
-			burst_shots = weaponData[weapon].attackData[1].fireOption[SHOTS_PER_BURST];
-			pm->ps->firing_attack |= ALT_ATTACK;
-		}
-		// Default main.
-		else
-		{
-			burst_shots = weaponData[weapon].attackData[1].fireOption[SHOTS_PER_BURST];
-			pm->ps->firing_attack |= MAIN_ATTACK;
-		}
-	}
-	else if (weaponData[weapon].scopeType < ST_A280
-		&& (tertiary_firing_type >= FT_AUTOMATIC || alt_firing_type >= FT_AUTOMATIC || main_firing_type >= FT_AUTOMATIC))
-	{
-		// Don't let the alt-fire get through.
-		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
+		burst_shots = weaponData[weapon].attackData[attackIndex].fireOption[SHOTS_PER_BURST];
+		pm->ps->firing_attack |= altFire ? ALT_ATTACK : 0;
+		pm->ps->firing_attack |= mainFire ? MAIN_ATTACK : 0;
 	}
 
-	if (weapon == WP_CLONECOMMANDO && pm->ps->tertiaryMode || weapon == WP_SBD || weapon == WP_DROIDEKA)
-	{
-		// Don't let the alt-fire get through.
-		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
-	}
-*/
 	primFireDown = (qboolean)(pm->cmd.buttons & BUTTON_ATTACK);
 
-	// Code from JKG: 1
-	// This is the initial click.
-	// If there are no shots, main click is pressed, and the weapon is not currently firing.
-	if (!(pm->ps->shotsRemaining) && (primFireDown && !(pm->ps->eFlags & EF_FIRING)) )
+	//No shot Remaining
+	//Pressed Alt Fire
+	//Pressed Main Fire
+	if (!(pm->ps->shotsRemaining) && 
+		( (mainFire && !(pm->ps->eFlags & EF_FIRING))  || (altFire && !(pm->ps->eFlags & EF_FIRING)) )
+		)
 	{
-		// Right when you press main click. 
+		// Right when you click. 
 		if (pm->ps->weaponTime <= 0)
 		{
 			// First time loading shotsRemaining.
-			if ((tertiary_firing_type == FT_BURST && pm->ps->firing_attack & TERTIARY_ATTACK)
-				|| (alt_firing_type == FT_BURST && pm->ps->firing_attack & ALT_ATTACK)
-				|| (main_firing_type == FT_BURST && pm->ps->firing_attack & MAIN_ATTACK))
+			if (firingType == FT_BURST && burst_shots)
 			{
 				pm->ps->shotsRemaining = burst_shots;
 			}
@@ -14895,9 +14820,9 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		// should be able to turbo boost. 
 		else if (pm->ps->pm_type != PM_NOCLIP)
 		{
-			// If you try to press main click between burts, do nothing.
+			// If you try to press one attack between bursts, do nothing.
 			pm->cmd.buttons &= ~BUTTON_ATTACK;
-			primFireDown = qfalse;
+			pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
 		}
 	}
 
@@ -14907,6 +14832,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	else {
 		pm->ps->pFlags &= ~PF_ZOOMING;
 	}
+
 	// set the firing flag for continuous beam weapons, phaser will fire even if out of ammo
 	if ( (( pm->cmd.buttons & BUTTON_ATTACK || pm->cmd.buttons & BUTTON_ALT_ATTACK ) && ( amount >= 0 || weapon == WP_SABER )) )
 	{
@@ -14932,9 +14858,6 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	}
 	else
 	{
-//		int iFlags = pm->ps->eFlags;
-
-		// Clear 'em out
 		pm->ps->eFlags &= ~EF_FIRING;
 		pm->ps->eFlags &= ~EF_ALT_FIRING;
 
@@ -14947,17 +14870,6 @@ void PM_AdjustAttackStates( pmove_t *pm )
 
 		// Clear it out
 		pm->ps->firing_attack = 0;
-
-		// if I don't check the flags before stopping FX then it switches them off too often, which tones down
-		//	the stronger FFFX so you can hardly feel them. However, if you only do iton these flags then the
-		//	repeat-fire weapons like tetrion and dreadnought don't switch off quick enough. So...
-		//
-/* // Might need this for beam type weapons
-		if ( pm->ps->weapon == WP_DREADNOUGHT || (iFlags & (EF_FIRING|EF_ALT_FIRING) )
-		{
-			cgi_FF_StopAllFX();
-		}
-		*/
 	}
 	
 }
