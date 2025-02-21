@@ -13425,23 +13425,14 @@ static void PM_Weapon( void )
 
 	int weapon = pm->ps->weapon;
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
-	int firing_type = 0;
-	int fire_time = 0;
-	int burst_fire_delay = 0;
-	int burst_shots = 0;
 
-	qboolean altFire = pm->ps->firing_attack & ALT_ATTACK ? qtrue : qfalse;
-	int attackIndex = CG_GetAttackIndex(weapon, altFire);
-	if (pm->cmd.buttons & BUTTON_ATTACK)
-	{	
-		if (pm->ps->firing_attack & ALT_ATTACK || pm->ps->firing_attack & MAIN_ATTACK)
-		{
-			firing_type = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[FIRING_TYPE];
-			fire_time = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
-			burst_shots = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[SHOTS_PER_BURST];
-			burst_fire_delay = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[BURST_FIRE_DELAY];
-		}
-	}
+	int attackIndex = CG_GetAttackIndex(weapon, (pm->cmd.buttons & BUTTON_ALT_ATTACK)?qtrue:qfalse);
+	
+	int firing_type = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[FIRING_TYPE];
+	int fire_time = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
+	int burst_shots = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[SHOTS_PER_BURST];
+	int burst_fire_delay = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[BURST_FIRE_DELAY];
+	
 
 	if ( (pm->ps->eFlags&EF_HELD_BY_WAMPA) )
 	{
@@ -13743,6 +13734,7 @@ static void PM_Weapon( void )
 			}
 		}
 
+#pragma region Animations
 		if (pm->gent->s.m_iVehicleNum != 0)
 		{
 			// No Anims if on Veh
@@ -14041,6 +14033,8 @@ static void PM_Weapon( void )
 		}
 	}
 
+#pragma endregion
+
 	amount = weaponData[pm->ps->weapon].attackData[attackIndex].energyPerShot;
 
 	if ( (pm->ps->weaponstate == WEAPON_CHARGING) || (pm->ps->weaponstate == WEAPON_CHARGING_ALT) )
@@ -14087,12 +14081,12 @@ static void PM_Weapon( void )
 			&& pm->gent->owner->e_UseFunc == useF_eweb_use )
 		{//eweb always shoots alt-fire, for proper effects and sounds
 			PM_AddEvent( EV_ALT_FIRE );
-			addTime = weaponData[pm->ps->weapon].attackData[1].fireTime;
+			addTime = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
 		}
 		else
 		{//emplaced gun always shoots normal fire
 			PM_AddEvent( EV_FIRE_WEAPON );
-			addTime = weaponData[pm->ps->weapon].attackData[0].fireTime;
+			addTime = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
 		}
 	}
 	else if ( (pm->ps->weapon == WP_MELEE && (pm->ps->clientNum>=MAX_CLIENTS||!g_debugMelee->integer) )
@@ -14105,7 +14099,7 @@ static void PM_Weapon( void )
 	else if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
 	{
 		PM_AddEvent( EV_ALT_FIRE );
-		addTime = weaponData[pm->ps->weapon].attackData[1].fireTime;
+		addTime = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
 		if ( pm->ps->weapon == WP_THERMAL )
 		{//threw our thermal
 			if ( pm->gent )
@@ -14128,7 +14122,7 @@ static void PM_Weapon( void )
 			return;
 		}
 		PM_AddEvent( EV_FIRE_WEAPON );
-		addTime = weaponData[pm->ps->weapon].attackData[0].fireTime;
+		addTime = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
 
 		switch( pm->ps->weapon)
 		{
@@ -14162,11 +14156,11 @@ static void PM_Weapon( void )
 	}
 
 	// Code from JKG: 3
-	if (pm->cmd.buttons & BUTTON_ATTACK)
+	if (pm->cmd.buttons & (BUTTON_ATTACK | BUTTON_ALT_ATTACK) )
 	{
 		// This is for firing sounds.
 		pm->ps->prev_firing_attack = pm->ps->firing_attack;
-
+		Com_Printf("Firing type check %d\n", firing_type);
 		switch (firing_type)
 		{
 			case FT_AUTOMATIC:
@@ -14183,6 +14177,7 @@ static void PM_Weapon( void )
 			case FT_BURST:
 				if (pm->ps->shotsRemaining == 1)
 				{
+					Com_Printf("End of burst\n");
 					// Setting it to a regular fire delay between each burst.
 					addTime = fire_time;
 					// Checks the above SHOTS_TOGGLEBIT if statement (2) to reset shotsRemaining so it's ready for burst again.
@@ -14191,6 +14186,7 @@ static void PM_Weapon( void )
 				}
 				else
 				{
+					Com_Printf("burst fired\n");
 					// The delay between each shot.
 					addTime = burst_fire_delay;
 					// Minus it by 1 to call the above if statement.
@@ -14203,13 +14199,13 @@ static void PM_Weapon( void )
 	// If the current firing type is high powered.
 	if (firing_type == FT_HIGH_POWERED)
 	{
-		weaponData[pm->ps->weapon].attackData[0].damage = HIGH_POWERED_DAMAGE;
+		weaponData[pm->ps->weapon].attackData[attackIndex].damage = HIGH_POWERED_DAMAGE;
 	}
 	// If the damages are different.
-	else if (weaponData[pm->ps->weapon].attackData[0].damage != weaponData[pm->ps->weapon].attackData[0].defaultDamage)
+	else if (weaponData[pm->ps->weapon].attackData[attackIndex].damage != weaponData[pm->ps->weapon].attackData[attackIndex].defaultDamage)
 	{
 		// Load back the default damage of that weapon.
-		weaponData[pm->ps->weapon].attackData[0].damage = weaponData[pm->ps->weapon].attackData[0].defaultDamage;
+		weaponData[pm->ps->weapon].attackData[attackIndex].damage = weaponData[pm->ps->weapon].attackData[attackIndex].defaultDamage;
 	}
 
 	//That look so much better
@@ -14634,13 +14630,13 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		// Keep attack button 'pressed' until no more shots are remaining.
 		if (pm->ps->shotsRemaining & ~SHOTS_TOGGLEBIT)
 		{
-			if ( (pm->ps->eFlags & EF_FIRING) && (firingType == FT_BURST) && pm->ps->pm_type != PM_NOCLIP)
-			{
-				pm->cmd.buttons |= BUTTON_ATTACK;
-			}
-			if ( (pm->ps->eFlags & EF_ALT_FIRING) && (firingType == FT_BURST) && pm->ps->pm_type != PM_NOCLIP)
+			if ((pm->ps->eFlags & EF_ALT_FIRING) && (firingType == FT_BURST) && pm->ps->pm_type != PM_NOCLIP)
 			{
 				pm->cmd.buttons |= BUTTON_ALT_ATTACK;
+			}
+			else if ( (pm->ps->eFlags & EF_FIRING) && (firingType == FT_BURST) && pm->ps->pm_type != PM_NOCLIP)
+			{
+				pm->cmd.buttons |= BUTTON_ATTACK;
 			}
 			else if (pm->ps->pm_type == PM_NOCLIP)
 			{
@@ -14789,7 +14785,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	}
 
 	//Initiate Burst Fire
-	if (firingType >= FT_AUTOMATIC && (
+	if (firingType > FT_AUTOMATIC && (
 		(altFire && !(pm->ps->eFlags & EF_ALT_FIRING)) || (mainFire && !(pm->ps->eFlags & EF_FIRING) )
 		))
 	{
@@ -14804,7 +14800,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	//Pressed Alt Fire
 	//Pressed Main Fire
 	if (!(pm->ps->shotsRemaining) && 
-		( (mainFire && !(pm->ps->eFlags & EF_FIRING))  || (altFire && !(pm->ps->eFlags & EF_FIRING)) )
+		( (mainFire && !(pm->ps->eFlags & EF_FIRING))  || (altFire && !(pm->ps->eFlags & EF_ALT_FIRING)) )
 		)
 	{
 		// Right when you click. 

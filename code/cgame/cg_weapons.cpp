@@ -172,7 +172,7 @@ Return The attack Index of the attack :D
 int CG_GetAttackIndex(int weaponNum, qboolean alt_fire) 
 {
 	int attackIndex = alt_fire ? 1 : 0;
-	if (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode > ST_A280) {
+	if (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode >= ST_A280) {
 		if (alt_fire && weaponData[weaponNum].attackData[3].firingLogic != FL_NONE) {
 			attackIndex = 3;
 		}
