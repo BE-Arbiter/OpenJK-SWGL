@@ -13164,7 +13164,7 @@ static bool PM_DoChargedWeapons( void )
 	if ( charging )
 	{
 
-		//DWS-TODO : Integrate scoped variant here
+		int attackIndex = CG_GetAttackIndex(pm->ps->weapon, altFire);
 		if ( altFire )
 		{
 			if ( pm->ps->weaponstate != WEAPON_CHARGING_ALT && pm->ps->weaponstate != WEAPON_DROPPING )
@@ -13180,9 +13180,9 @@ static bool PM_DoChargedWeapons( void )
 				pm->ps->weaponstate = WEAPON_CHARGING_ALT;
 				pm->ps->weaponChargeTime = level.time;
 
-				if (weaponData[pm->ps->weapon].attackData[1].chargeSnd && weaponData[pm->ps->weapon].attackData[1].chargeSnd[0])
+				if (weaponData[pm->ps->weapon].attackData[attackIndex].chargeSnd && weaponData[pm->ps->weapon].attackData[attackIndex].chargeSnd[0])
 				{
-					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].attackData[1].chargeSnd );
+					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].attackData[attackIndex].chargeSnd );
 				}
 			}
 		}
@@ -13202,10 +13202,10 @@ static bool PM_DoChargedWeapons( void )
 				pm->ps->weaponstate = WEAPON_CHARGING;
 				pm->ps->weaponChargeTime = level.time;
 
-				if (weaponData[pm->ps->weapon].attackData[0].chargeSnd && weaponData[pm->ps->weapon].attackData[0].chargeSnd[0]
+				if (weaponData[pm->ps->weapon].attackData[attackIndex].chargeSnd && weaponData[pm->ps->weapon].attackData[attackIndex].chargeSnd[0]
 					&& pm->gent && !pm->gent->NPC ) // HACK: !NPC mostly for bowcaster and weequay
 				{
-					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].attackData[0].chargeSnd );
+					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].attackData[attackIndex].chargeSnd );
 				}
 			}
 		}
@@ -13244,8 +13244,10 @@ static int PM_DoChargingAmmoUsage( int *amount )
 	int weapon = pm->ps->weapon;
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 	int weaponCount = CG_PlayerIsDualWielding(weapon) ? 2 : 1;
-	//DWS-TODO : Here lol
-	int attackIndex = (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? 1 : 0;
+	
+	qboolean altFire = (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
+	int attackIndex = CG_GetAttackIndex(weapon, altFire);
+
 	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 
 	if (attackData->firingLogic == FL_BOWCASTER
@@ -13428,22 +13430,16 @@ static void PM_Weapon( void )
 	int burst_fire_delay = 0;
 	int burst_shots = 0;
 
-	//DWS-TODO : Integrate Attack 3 & 4
+	qboolean altFire = pm->ps->firing_attack & ALT_ATTACK ? qtrue : qfalse;
+	int attackIndex = CG_GetAttackIndex(weapon, altFire);
 	if (pm->cmd.buttons & BUTTON_ATTACK)
 	{	
-		if (pm->ps->firing_attack & ALT_ATTACK)
+		if (pm->ps->firing_attack & ALT_ATTACK || pm->ps->firing_attack & MAIN_ATTACK)
 		{
-			firing_type = weaponData[pm->ps->weapon].attackData[1].fireOption[FIRING_TYPE];
-			fire_time = weaponData[pm->ps->weapon].attackData[1].fireTime;
-			burst_shots = weaponData[pm->ps->weapon].attackData[1].fireOption[SHOTS_PER_BURST];
-			burst_fire_delay = weaponData[pm->ps->weapon].attackData[1].fireOption[BURST_FIRE_DELAY];
-		}
-		else if (pm->ps->firing_attack & MAIN_ATTACK)
-		{
-			firing_type = weaponData[pm->ps->weapon].attackData[0].fireOption[FIRING_TYPE];
-			fire_time = weaponData[pm->ps->weapon].attackData[0].fireTime;
-			burst_shots = weaponData[pm->ps->weapon].attackData[0].fireOption[SHOTS_PER_BURST];
-			burst_fire_delay = weaponData[pm->ps->weapon].attackData[0].fireOption[BURST_FIRE_DELAY];
+			firing_type = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[FIRING_TYPE];
+			fire_time = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
+			burst_shots = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[SHOTS_PER_BURST];
+			burst_fire_delay = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[BURST_FIRE_DELAY];
 		}
 	}
 
@@ -14045,24 +14041,9 @@ static void PM_Weapon( void )
 		}
 	}
 
-	
-	if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-	{
-		amount = weaponData[pm->ps->weapon].attackData[1].energyPerShot;
-	}
-	else
-	{
-		//DWS-TODO : Integrate Scoped variants
-		if (pm->ps->firing_attack & ALT_ATTACK)
-		{
-			amount = weaponData[pm->ps->weapon].attackData[1].energyPerShot;
-		}
-		else
-		{
-			// We need to make sure that the base guns also get their energy shot.
-			amount = weaponData[pm->ps->weapon].attackData[0].energyPerShot;
-		}
-	}
+	qboolean altFire = (pm->ps->firing_attack & ALT_ATTACK || pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
+	int attackIndex = CG_GetAttackIndex(pm->ps->weapon, altFire);
+	amount = weaponData[pm->ps->weapon].attackData[attackIndex].energyPerShot;
 
 	if ( (pm->ps->weaponstate == WEAPON_CHARGING) || (pm->ps->weaponstate == WEAPON_CHARGING_ALT) )
 	{
@@ -14233,8 +14214,7 @@ static void PM_Weapon( void )
 		weaponData[pm->ps->weapon].attackData[0].damage = weaponData[pm->ps->weapon].attackData[0].defaultDamage;
 	}
 
-	//DWS-TODO: TO KEEP or NOT?
-	//Shoot faster in dual fire
+	//That look so much better
 	if (pm->gent->weaponModel[1] > 0) {
 		addTime /= 2;
 	}
@@ -14706,11 +14686,11 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	}
 
 	// disruptor alt-fire should toggle the zoom mode, but only bother doing this for the player?
-	if ( baseWeapon == WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING )
+	if (weaponData[weapon].scopeType == ST_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING )
 	{
 		// we are not alt-firing yet, but the alt-attack button was just pressed and
 		//	we either are ducking ( in which case we don't care if they are moving )...or they are not ducking...and also not moving right/forward.
-		if ( !(pm->ps->eFlags & EF_ALT_FIRING) && (pm->cmd.buttons & BUTTON_ALT_ATTACK)
+		if (pm->cmd.buttons & BUTTON_ZOOM && !(pm->ps->pFlags & PF_ZOOMING)
 				&& ( pm->cmd.upmove < 0 || ( !pm->cmd.forwardmove && !pm->cmd.rightmove )))
 		{
 			// We just pressed the alt-fire key
@@ -14731,7 +14711,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 				cg.zoomLocked = qfalse;
 			}
 		}
-		else if ( !(pm->cmd.buttons & BUTTON_ALT_ATTACK ))
+		else if ( !(pm->cmd.buttons & BUTTON_ZOOM))
 		{
 			// Not pressing zoom any more
 			if ( cg.zoomMode == 2 )
@@ -14740,34 +14720,18 @@ void PM_AdjustAttackStates( pmove_t *pm )
 				cg.zoomLocked = qtrue;
 			}
 		}
-
-		if ( pm->cmd.buttons & BUTTON_ATTACK )
-		{
-			// If we are zoomed, we should switch the ammo usage to the alt-fire, otherwise, we'll
-			//	just use whatever ammo was selected from above
-			if ( cg.zoomMode == 2 )
-			{
-				amount = pm->ps->ammo[weaponData[weapon].ammoIndex] -
-							weaponData[weapon].attackData[1].energyPerShot;
-			}
-		}
-		else
-		{
-			// alt-fire button pressing doesn't use any ammo
-			amount = 0;
-		}
-
 	}
 
-	if ( baseWeapon != WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING && weaponData[weapon].scopeType >= ST_A280 )
+	if ( weaponData[weapon].scopeType >= ST_A280 && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING && weaponData[weapon].scopeType >= ST_A280 )
 	{
 		// If you are not holding down main, you are not currently alt-firing,
 		// you press the alt key, and the alt firing type is not high powered.
-		if (!(pm->cmd.buttons & BUTTON_ATTACK)
-			&& !(pm->ps->eFlags & EF_ALT_FIRING) && pm->cmd.buttons & BUTTON_ALT_ATTACK 
+		if (!(pm->cmd.buttons & BUTTON_ATTACK) && !(pm->cmd.buttons & BUTTON_ALT_ATTACK)
+			&& !(pm->ps->pFlags & PF_ZOOMING) && pm->cmd.buttons & BUTTON_ZOOM
 			&& (main_firing_type != FT_HIGH_POWERED && alt_firing_type != FT_HIGH_POWERED)
 			&& !(weapon == WP_CLONECOMMANDO && pm->ps->tertiaryMode))
 		{
+			Com_Printf("Zoom Other\n");
 			if (cg.zoomMode == 0)
 			{
 				switch (weaponData[weapon].scopeType)
@@ -14809,10 +14773,6 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		// If you are holding down main while trying to
 		// scope, stop firing. This is to avoid main firing
 		// while scoped.
-		else if (pm->ps->eFlags & EF_ALT_FIRING && !(pm->ps->shotsRemaining))
-		{
-			pm->cmd.buttons &= ~BUTTON_ATTACK;
-		}
 	}
 
 	// Check for binocular specific mode
@@ -14841,7 +14801,8 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		pm->ps->eFlags &= ~EF_ALT_FIRING;
 		pm->cmd.buttons &= ~(BUTTON_ALT_ATTACK|BUTTON_ATTACK);
 	}
-
+/*
+	DWS-TODO : This code should not be relevant anymore?
 	// If main click is not pressed(this is to avoid main overriding alt), 
 	// you pressed alt click, alt-fire is not currently firing,
 	// you have no scope, tertiary mode is not enabled, and you have an alt firing type.
@@ -14877,7 +14838,6 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			}
 			else
 			{
-				//DWS-TODO
 				burst_shots = weaponData[weapon].attackData[2].fireOption[SHOTS_PER_BURST];
 				pm->ps->firing_attack |= TERTIARY_ATTACK;
 
@@ -14914,7 +14874,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		// Don't let the alt-fire get through.
 		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
 	}
-
+*/
 	primFireDown = (qboolean)(pm->cmd.buttons & BUTTON_ATTACK);
 
 	// Code from JKG: 1
@@ -14943,6 +14903,12 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		}
 	}
 
+	if (pm->cmd.buttons && BUTTON_ZOOM) {
+		pm->ps->pFlags |= PF_ZOOMING;
+	}
+	else {
+		pm->ps->pFlags &= ~PF_ZOOMING;
+	}
 	// set the firing flag for continuous beam weapons, phaser will fire even if out of ammo
 	if ( (( pm->cmd.buttons & BUTTON_ATTACK || pm->cmd.buttons & BUTTON_ALT_ATTACK ) && ( amount >= 0 || weapon == WP_SABER )) )
 	{
@@ -14995,52 +14961,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		}
 		*/
 	}
-
-	// disruptor should convert a main fire to an alt-fire if the gun is currently zoomed
-	if ( baseWeapon == WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) )
-	{
-		if ( pm->cmd.buttons & BUTTON_ATTACK && cg.zoomMode == 2 )
-		{
-			// converting the main fire to an alt-fire
-			pm->cmd.buttons |= BUTTON_ALT_ATTACK;
-			pm->ps->eFlags |= EF_ALT_FIRING;
-		}
-		else
-		{
-			// don't let an alt-fire through
-			pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
-		}
-	}
 	
-	if (baseWeapon != WP_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)))
-	{
-		// If you have a scope.
-		if (weaponData[weapon].scopeType >= ST_A280)
-		{
-			// High powered shot only works with tertiary.
-			if (main_firing_type == FT_HIGH_POWERED || alt_firing_type == FT_HIGH_POWERED)
-			{
-				pm->cmd.buttons &= ~BUTTON_ATTACK;
-				pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
-			}
-			// Don't let an alt-fire through.
-			else
-			{
-				pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
-			}
-		}
-		// If you don't have a scope, but a firing type.
-		else if (weaponData[weapon].scopeType < ST_A280)
-		{
-			// If you have the firing type of high powered, you can not use main or alt click.
-			// High powered firing type is useless without a scope.
-			if ((main_firing_type == FT_HIGH_POWERED || alt_firing_type == FT_HIGH_POWERED) || (tertiary_firing_type == FT_HIGH_POWERED && pm->ps->tertiaryMode))
-			{
-				pm->cmd.buttons &= ~BUTTON_ATTACK;
-				pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
-			}
-		}
-	}
 }
 
 qboolean PM_WeaponOkOnVehicle( int weapon )

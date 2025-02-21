@@ -9688,7 +9688,6 @@ Ghoul2 Insert End
 			float	val = 0.0f, scale = 1.0f;
 			vec3_t	WHITE	= {1.0f,1.0f,1.0f};
 
-			int attackIndex = (ps->weaponstate == WEAPON_CHARGING_ALT) ? 1 : 0;
 			int weapon = ps->weapon;
 			int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 			if (baseWeapon == WP_BRYAR_PISTOL
@@ -9712,8 +9711,16 @@ Ghoul2 Insert End
 				shader = cgi_R_RegisterShader( "gfx/misc/lightningFlash" );
 				scale = 1.75f;
 			}
+			//Default values for new weapons;
+			else {
+				// Hardcoded max charge time of 1 second
+				val = (cg.time - ps->weaponChargeTime) * 0.001f;
+				shader = cgi_R_RegisterShader("gfx/effects/bryarFrontFlash");
+			}
+
 			//Overwrite the muzzle effect if needed
-			//DWS-TODO : Same about scope and attack type....
+			qboolean altFire = (ps->weaponstate == WEAPON_CHARGING_ALT) ? qtrue : qfalse;
+			int attackIndex = CG_GetAttackIndex(weapon, altFire);
 			if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) {
 				shader = cg_weapons[weapon].weaponAttacksInfo[attackIndex].chargeMuzzleShader;
 			}

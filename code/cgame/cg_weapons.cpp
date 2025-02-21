@@ -161,6 +161,27 @@ void CG_InitItemForWeapon(gitem_t* item, int weaponNum) {
 
 	RegisterItem(item);
 }
+
+/*
+=================
+CG_GetAttackIndex
+
+Return The attack Index of the attack :D
+=================
+*/
+int CG_GetAttackIndex(int weaponNum, qboolean alt_fire) 
+{
+	int attackIndex = alt_fire ? 1 : 0;
+	if (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode > ST_A280) {
+		if (alt_fire && weaponData[weaponNum].attackData[3].firingLogic != FL_NONE) {
+			attackIndex = 3;
+		}
+		else if (weaponData[weaponNum].attackData[2].firingLogic != FL_NONE) {
+			attackIndex = 2;
+		}
+	}
+	return attackIndex
+}
 /*
 =================
 CG_RegisterWeapon
@@ -1149,30 +1170,18 @@ qboolean CG_IsChargedAttack(centity_t* cent)
 char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData) {
 	char* effect = NULL;
 
+	int attackIndex = CG_GetAttackIndex(cent->gent->client->ps.weapon, cent->altFire);
 	// I declared this variable just for readability.
-	char firing_attack = cent->gent->client->ps.prev_firing_attack;
 
 	// Try and get a default muzzle so we have one to fall back on
-	if (firing_attack & ALT_ATTACK && wData->attackData[1].muzzleEffect[0])
+	if ( wData->attackData[attackIndex].muzzleEffect[0])
 	{
-		effect = &wData->attackData[1].muzzleEffect[0];
+		effect = &wData->attackData[attackIndex].muzzleEffect[0];
 	}
-	//DWS-TODO
-	/*
-	else if (firing_attack & TERTIARY_ATTACK && wData->mTertiaryMuzzleEffect)
-	{
-		effect = &wData->mTertiaryMuzzleEffect[0];
-	}*/
 	else if (wData->attackData[0].muzzleEffect[0])
 	{
 		// We need to make sure that the base guns also get their sound.
 		effect = &wData->attackData[0].muzzleEffect[0];
-	}
-
-
-	if (cent->altFire && wData->attackData[1].muzzleEffect[0])
-	{
-		effect = &wData->attackData[1].muzzleEffect[0];
 	}
 
 	return effect;
@@ -1550,7 +1559,6 @@ void CG_AddViewWeapon( playerState_t *ps )
 	{
 		int		shader = 0;
 
-		int attackIndex = (ps->weaponstate == WEAPON_CHARGING_ALT) ? 1 : 0;
 		int weapon = ps->weapon;
 		int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
@@ -1578,9 +1586,16 @@ void CG_AddViewWeapon( playerState_t *ps )
 			shader = cgi_R_RegisterShader( "gfx/misc/lightningFlash" );
 			scale = 1.75f;
 		}
+		//Default values for new weapons;
+		else {
+			// Hardcoded max charge time of 1 second
+			val = (cg.time - ps->weaponChargeTime) * 0.001f;
+			shader = cgi_R_RegisterShader("gfx/effects/bryarFrontFlash");
+		}
 
 		//Overwrite the muzzle effect if needed
-		//DWS-TODO : Integrate Scoped and charge
+		qboolean altFire = (ps->weaponstate == WEAPON_CHARGING_ALT) ? qtrue : qfalse;
+		int attackIndex = CG_GetAttackIndex(weapon, altFire);
 		if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) {
 			shader = cg_weapons[weapon].weaponAttacksInfo[attackIndex].chargeMuzzleShader;
 		}
@@ -3729,7 +3744,6 @@ CG_MissileHitWall
 Caused by an EV_MISSILE_MISS event, or directly by local bullet tracing
 =================
 */
-//DWS-TODO Don't like it right now
 void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, qboolean altFire )
 {
 	weaponData_t* wpnData = &weaponData[weapon];

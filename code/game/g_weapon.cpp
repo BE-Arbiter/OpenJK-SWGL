@@ -1461,17 +1461,18 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 	}
 
 	// fire the specific weapon
-	//TODO : Find the correct logic based on attackData and scope status
 	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
 	weaponAttackData_t *attackData;
-
 	int attackIndex = alt_fire ? 1 : 0;
-	if (alt_fire) {
-		attackData = &weaponData[weaponNum].attackData[1];
+	if (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode > ST_A280) {
+		if (alt_fire && weaponData[weaponNum].attackData[3].firingLogic != FL_NONE) {
+			attackIndex = 3;
+		}
+		else if (weaponData[weaponNum].attackData[2].firingLogic != FL_NONE) {
+			attackIndex = 2;
+		}
 	}
-	else {
-		attackData = &weaponData[weaponNum].attackData[0];
-	}
+	attackData = &weaponData[weaponNum].attackData[attackIndex];
 
 	switch (attackData->firingLogic) {
 		case FL_MELEE:
@@ -1486,6 +1487,9 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 		case FL_DEMP2_ALT:
 		case FL_GRENADE_LAUNCHER:
 			WP_FireGenericBlaster(ent, attackIndex);
+			break;
+		case FL_SBD:
+			WP_FireDroidsTwinBlasters(ent, attackIndex);
 			break;
 		case FL_BOWCASTER:
 			WP_FireGenericBowcaster(ent, attackIndex);

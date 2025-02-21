@@ -5556,6 +5556,7 @@ void  Menus_Activate(menuDef_t *menu)
 static const char *g_bindCommands[] = {
 	"+altattack",
 	"+attack",
+	"+zoom",
 	"+back",
 #ifndef JK2_MODE
 	"+force_drain",

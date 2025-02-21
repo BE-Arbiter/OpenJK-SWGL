@@ -51,6 +51,7 @@ int G_GetHitLocFromTrace( trace_t *trace, int mod );
 
 // Specific weapon functions
 void WP_FireGenericBeam(gentity_t* ent, int attackIndex);
+void WP_FireDroidsTwinBlasters(gentity_t* ent, int attackIndex);
 void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex);
 void WP_FireGenericBlaster(gentity_t* ent, int attackIndex);
 void WP_FireDetPack(gentity_t* ent,int attackIndex);

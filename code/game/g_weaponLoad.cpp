@@ -284,6 +284,9 @@ void WPN_WeaponCategory(const char** holdBuf)
 	if (!Q_stricmp(tokenStr, "WC_NONE")) {
 		weaponCategory = WC_NONE;
 	}
+	else if (!Q_stricmp(tokenStr, "WC_MELEE")) {
+		weaponCategory = WC_MELEE;
+	}
 	else if (!Q_stricmp(tokenStr, "WC_MELEE_1H")) {
 		weaponCategory = WC_MELEE_1H;
 	}
@@ -300,7 +303,7 @@ void WPN_WeaponCategory(const char** holdBuf)
 		weaponCategory = WC_HEAVY;
 	}
 	else if (!Q_stricmp(tokenStr, "WC_GRENADE")) {
-		weaponCategory = WC_EXPLOSIVE;
+		weaponCategory = WC_GRENADE;
 	}
 	else if (!Q_stricmp(tokenStr, "WC_EXPLOSIVE")) {
 		weaponCategory = WC_EXPLOSIVE;
@@ -361,23 +364,44 @@ void WPN_WeaponBucket(const char** holdBuf)
 //--------------------------------------------
 void WPN_ScopeType(const char** holdBuf)
 {
-	int        tokenInt;
+	const char* tokenStr;
+	scopeType_t scopeType = ST_NONE;
 
-	if (COM_ParseInt(holdBuf, &tokenInt))
+	if (COM_ParseString(holdBuf, &tokenStr))
 	{
-		SkipRestOfLine(holdBuf);
 		return;
 	}
 
-	// This is for cg.zoommode.
-	tokenInt += 3;
-
-	if ((tokenInt < ST_A280) || (tokenInt > ST_E5))
+	if (!Q_stricmp(tokenStr, "ST_DISRUPTOR"))
 	{
-		gi.Printf(S_COLOR_YELLOW"WARNING: bad scopeType in external weapon data '%d'\n", tokenInt);
+		scopeType = ST_DISRUPTOR;
+	}
+	else if (!Q_stricmp(tokenStr, "ST_A280"))
+	{
+		scopeType = ST_A280;
+	}
+	else if (!Q_stricmp(tokenStr, "ST_DC17M"))
+	{
+		scopeType = ST_DC17M;
+	}
+	else if (!Q_stricmp(tokenStr, "ST_E5"))
+	{
+		scopeType = ST_E5;
+	}
+	else if (!Q_stricmp(tokenStr, "ST_EE3"))
+	{
+		scopeType = ST_EE3;
+	}
+	else if (!Q_stricmp(tokenStr, "ST_F11D"))
+	{
+		scopeType = ST_F11D;
+	}
+	else
+	{
+		gi.Printf(S_COLOR_YELLOW"WARNING: bad scopeType in external weapon data '%s'\n", tokenStr);
 		return;
 	}
-	weaponData[wpnParms.weaponNum].scopeType = tokenInt;
+	weaponData[wpnParms.weaponNum].scopeType = scopeType;
 }
 
 /*
@@ -476,6 +500,10 @@ void ATK_FiringLogic(const char** holdBuf)
 	{
 	    firingLogic = FL_STUNBATON;
 	}
+	else if(!Q_stricmp(tokenStr, "FL_SBD"))
+	{
+	    firingLogic = FL_STUNBATON;
+	}
 	else if(!Q_stricmp(tokenStr, "FL_OTHER"))
 	{
 	    firingLogic = FL_OTHER;
@@ -557,7 +585,7 @@ void ATK_BounceWall(const char** holdBuf)
 		return;
 	}
 
-	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].maxChargeUnits = (qboolean)tokenInt;
+	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].bounceWall = (qboolean)tokenInt;
 }
 
 //--------------------------------------------
@@ -730,8 +758,34 @@ void ATK_FireOptions(const char **holdBuf)
 {
 	int i;
 	int tokenInt;
+	const char* tokenStr;
 
-	for (i = 0; i < 3; i++)
+	if (COM_ParseString(holdBuf, &tokenStr))
+	{
+		return;
+	}
+
+	if (!Q_stricmp(tokenStr, "FT_AUTOMATIC"))
+	{
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fireOption[0] = FT_AUTOMATIC;
+	}
+	else if (!Q_stricmp(tokenStr, "FT_SEMI"))
+	{
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fireOption[0] = FT_SEMI;
+	}
+	else if (!Q_stricmp(tokenStr, "FT_BURST")) 
+	{
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fireOption[0] = FT_BURST;
+	}
+	else if (!Q_stricmp(tokenStr, "FT_HIGH_POWERED")) 
+	{
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fireOption[0] = FT_HIGH_POWERED;
+	}
+	else {
+		gi.Printf(S_COLOR_YELLOW"WARNING: bad Fireoptions in external weapon data '%s'\n", tokenStr);
+		return;
+	}
+	for (i = 1; i < 3; i++)
 	{
 		if (COM_ParseInt(holdBuf, &tokenInt))
 		{
@@ -741,7 +795,7 @@ void ATK_FireOptions(const char **holdBuf)
 
 		if ((tokenInt < 0) || (tokenInt > 10000 ))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad mainfireopt in external weapon data '%d'\n", tokenInt);
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad Fireoptions[%d] in external weapon data '%d'\n", i, tokenInt);
 			continue;
 		}
 
@@ -962,9 +1016,6 @@ void WP_LoadWeaponParms (void)
 
 	//Get unset data from each weapon which is a copy of another;
 	for (int i = 0; i < weaponCount; i++) {
-		//DWS-TODO :    Copy AttackData from Main to Alt
-		//              Copy AttackData from Main to scoped_main if both arent FL_NONE
-		//              Copy AttackData from alt to scoped_alt if both arent FL_NONE
 		if (weaponData[i].baseclass[0])
 		{
 			int baseWeapon = -1;

@@ -1639,6 +1639,7 @@ public:
 								// used to twist the legs during strafing
 
 	int			eFlags;			// copied to entityState_t->eFlags
+	int         pFlags;	
 
 	int			eventSequence;	// pmove generated events
 	int			events[MAX_PS_EVENTS];
@@ -2347,6 +2348,7 @@ using playerState_t = PlayerStateBase<saberInfo_t>;
 #define	BUTTON_FORCE_FOCUS	256			// any key whatsoever
 
 #define BUTTON_FORCEGRASP	512			//
+#define BUTTON_ZOOM			65536
 
 #define	MOVE_RUN			120			// if forwardmove or rightmove are >= MOVE_RUN,
 										// then BUTTON_WALKING should be set

@@ -424,30 +424,8 @@ void Svcmd_SaberAttackCycle_f( void )
 	}
 
 	gentity_t *self = G_GetSelfForPlayerCmd();
-	/*
-	if ( self->s.weapon != WP_SABER )
-	{// saberAttackCycle button also switches to saber
-		gi.SendConsoleCommand("weapon 1" );
-		return;
-	}
-	*/
 
-	// If you have a tertiary option and you are not firing.
-	// DWS-TODO : Set zoom here?
-	/*if (weaponData[self->s.weapon].tertiaryFireOpt[FIRING_TYPE] >= FT_AUTOMATIC && self->client->ps.weaponTime == 0)
-	{
-		if (self->client->ps.tertiaryMode)
-		{
-			self->client->ps.tertiaryMode = qfalse;
-		}
-		else
-		{
-			self->client->ps.tertiaryMode = qtrue;
-		}
-
-		G_Sound(self, G_SoundIndex("sound/vehicles/common/linkweaps.wav"));
-	}*/
-
+	//DWS-TODO : This code whould move to bg_move:PM_AdjustAttackStates
 	if (self->client->ps.saber->type == SABER_INQUISITOR )
 	{
 		float spinSpeed = 0.0f;

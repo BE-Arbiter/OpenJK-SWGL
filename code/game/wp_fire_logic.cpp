@@ -39,6 +39,8 @@ qboolean is_player_scoped(gentity_t* ent)
 /*
 	Set the method of death based on the weapon
 */
+
+//DWS-TDDO : Need to dehardcode this, allowing to override... Warning that sometimes there are several MOD  
 void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, qboolean altFire) 
 {
 	int baseWeapon = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
@@ -58,8 +60,8 @@ void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, qboolean altFire)
 			missile->splashMethodOfDeath = altFire ? MOD_REPEATER_ALT: MOD_REPEATER;
 			return;
 		case WP_DISRUPTOR:
-			missile->methodOfDeath = MOD_DISRUPTOR;
-			missile->splashMethodOfDeath = MOD_DISRUPTOR;
+			missile->methodOfDeath = altFire ? MOD_SNIPER : MOD_DISRUPTOR;
+			missile->splashMethodOfDeath = altFire ? MOD_SNIPER : MOD_DISRUPTOR;
 			return;
 		case WP_BLASTER : 
 			missile->methodOfDeath = altFire ? MOD_BLASTER_ALT : MOD_BLASTER;
@@ -362,6 +364,9 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 }
 
 
+//DWS-TODO : Here we need to integrate custom beam shaders
+//DWS-TODO : MOD_XXXX still hardcoded
+//DWS-TODO : Bug with Disruptor where charged beam not firing straight when not scoped. But other weapons with this logic work well...
 //---------------------------------------------------------
 void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 //---------------------------------------------------------
@@ -395,8 +400,6 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 	}
 	else if(attackData->firingLogic == FL_BEAM_CHARGED)
 	{
-		VectorCopy(ent->client->renderInfo.eyePoint, start);
-		AngleVectors(ent->client->renderInfo.eyeAngles, forwardVec, NULL, NULL);
 
 		int count = (level.time - ent->client->ps.weaponChargeTime - 50) / attackData->chargeUnitTime;
 
@@ -406,7 +409,7 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 		}
 		else if (count >= attackData->maxChargeUnits)
 		{
-			count = 10;
+			count = attackData->maxChargeUnits;
 			fullCharge = qtrue;
 		}
 
@@ -425,8 +428,15 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 
 		damage = damage * count + attackData->damage * 0.5f; // give a boost to low charge shots
 	}
-	else {
-		VectorCopy(muzzle, start);
+
+	if (!ent->NPC) {
+		if (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode > ST_A280) {
+			VectorCopy(ent->client->renderInfo.eyePoint, start);
+			AngleVectors(ent->client->renderInfo.eyeAngles, forwardVec, NULL, NULL);
+		}
+		else {
+			VectorCopy(muzzle, start);
+		}
 		WP_TraceSetStart(ent, start, vec3_origin, vec3_origin);
 		WP_MissileTargetHint(ent, start, forwardVec);
 	}
@@ -545,8 +555,10 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 //---------------
 //	Super Battle Droid & Droideka
 //---------------
-void WP_FireDroidsTwinBlasters(gentity_t* ent, weaponAttackData_t* attackData)
+void WP_FireDroidsTwinBlasters(gentity_t* ent, int attackIndex)
 {
+	weaponData_t* wpnData = &weaponData[ent->s.weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	vec3_t	angs;
 	int velocity = attackData->mVelocity;
 	int damage = WP_GetWeaponDamage(ent, attackData);
@@ -560,7 +572,7 @@ void WP_FireDroidsTwinBlasters(gentity_t* ent, weaponAttackData_t* attackData)
 
 	WP_TraceSetStart(ent, muzzle, vec3_origin, vec3_origin);
 
-	if (ent->client->NPC_class == CLASS_DROIDEKA)
+	if (ent->client && ent->client->NPC_class == CLASS_DROIDEKA)
 	{
 		if (NPC && NPC->enemy)
 		{

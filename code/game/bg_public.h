@@ -244,6 +244,7 @@ typedef enum {
 #define EF_FORCE_DRAINED		0x40000000	// Force drained effect
 #define EF_BLOCKED_MOVER		0x80000000	// for movers that are blocked - shared with previous
 
+#define PF_ZOOMING				0x00000001  //Define if player is zooming
 typedef enum {
 	PW_NONE,
 	PW_QUAD,// This can go away

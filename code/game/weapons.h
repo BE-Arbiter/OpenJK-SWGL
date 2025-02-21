@@ -124,6 +124,7 @@ typedef enum
 	FL_GRENADE,
 	FL_IMPACT_GRENADE,
 	FL_STUNBATON,
+	FL_SBD,
 	FL_OTHER, // For not yet done weapon
 }firingLogic_t;
 
@@ -155,23 +156,25 @@ typedef enum //# ammo_e
 	AMMO_HC_MAX
 } ammo_t;
 
-enum firingType
+typedef enum firingType_s
 {
 	FT_AUTOMATIC = 1,
 	FT_SEMI,
 	FT_BURST,
 	FT_HIGH_POWERED
-};
+} firingType_t;
 
 
-enum scopeType
+typedef enum scopeType_s
 {
+	ST_NONE = 0,
+	ST_DISRUPTOR = 2,
 	ST_A280 = 4,
 	ST_DC17M,
 	ST_EE3,
 	ST_F11D,
 	ST_E5
-};
+} scopeType_t;
 
 
 enum firingOptions
