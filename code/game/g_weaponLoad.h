@@ -221,6 +221,10 @@ void ATK_HitWallEffect2(const char** holdBuf);
 void ATK_HitWallEffect3(const char** holdBuf);
 void ATK_HitFleshEffect(const char** holdBuf);
 void ATK_HitDroidEffect(const char** holdBuf);
+void ATK_BeamShader(const char** holdBuf);
+void ATK_BeamColor(const char** holdBuf);
+void ATK_FullBeamShader(const char** holdBuf);
+void ATK_FullBeamColor(const char** holdBuf);
 void ATK_ChargeSnd(const char** holdBuf);
 void ATK_ShockwaveEffect(const char** holdBuf);
 void ATK_FireOptions(const char** holdBuf);
@@ -258,6 +262,10 @@ wpnParms_t AttackDataParms[] =
 	{ "missileLightColor",	ATK_MissileLightColor },
 	{ "missileFuncName",	ATK_FuncName },
 	{ "missileHitSound",	ATK_MissileHitSound },
+	{ "beamShader", ATK_BeamShader},
+	{ "beamColor",	ATK_BeamColor },
+	{ "fullBeamShader",	ATK_FullBeamShader },
+	{ "fullBeamColor",	ATK_FullBeamColor },
 	{ "muzzleEffect",		ATK_MuzzleEffect },
 	{ "chargeMuzzleShader",	ATK_ChargeMuzzleEffect },
 	{ "projectileEffect",	ATK_ProjectileEffect },

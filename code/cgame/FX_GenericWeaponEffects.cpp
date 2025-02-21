@@ -132,3 +132,63 @@ void FX_GenericBlasterHitPlayer(gentity_t* gent, int weapon, vec3_t origin, vec3
 		theFxScheduler.PlayEffect(cgs.effects.blasterFleshImpactEffect, origin, normal);
 	}
 }
+
+
+/*
+------------------------
+Generic Beam Effect
+------------------------
+*/
+static vec3_t WHITE = { 1.0f,1.0f,1.0f };
+static vec3_t YELLER = { 0.8f,0.7f,0.0f };
+void FX_GenericBeam(vec3_t start, vec3_t end, gentity_t *gent)
+{
+	weaponAttackData_t* attackData = &weaponData[gent->s.weapon].attackData[gent->attack_index];
+	qhandle_t shaderHandle;
+	if (attackData->beamShader[0])
+	{
+		shaderHandle = cgi_R_RegisterShader(attackData->beamShader);
+	}
+	else 
+	{
+		shaderHandle = cgi_R_RegisterShader("gfx/effects/redLine");
+	}
+	vec3_t color;
+	if (attackData->beamColor) {
+		VectorCopy(attackData->beamColor,color);
+	}
+	else
+	{
+		VectorCopy(WHITE, color);
+	}
+	FX_AddLine(-1, start, end, 0.1f, 10.0f, 0.0f,
+		1.0f, 0.0f, 0.0f,
+		color, color, 0.0f,
+		175, shaderHandle,
+		0, FX_SIZE_LINEAR | FX_ALPHA_LINEAR);
+
+	if (gent->count || attackData->firingLogic == FL_FULL_BEAM)
+	{
+		if (attackData->fullBeamShader[0])
+		{
+			shaderHandle = cgi_R_RegisterShader(attackData->fullBeamShader);
+		}
+		else
+		{
+			shaderHandle = cgi_R_RegisterShader("gfx/misc/whiteline2");
+		}
+		if (attackData->fullBeamColor) {
+			VectorCopy(attackData->fullBeamColor, color);
+		}
+		else
+		{
+			VectorCopy(YELLER, color);
+		}
+		// add some beef
+		FX_AddLine(-1, start, end, 0.1f, 7.0f, 0.0f,
+			1.0f, 0.0f, 0.0f,
+			color, color, 0.0f,
+			150, shaderHandle,
+			0, FX_SIZE_LINEAR | FX_ALPHA_LINEAR);
+	}
+}

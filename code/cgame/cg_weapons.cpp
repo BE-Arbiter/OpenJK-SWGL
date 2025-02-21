@@ -395,6 +395,14 @@ void CG_RegisterWeapon( int weaponNum ) {
 		{
 			weaponInfo->weaponAttacksInfo[i].missileTrailFunc = (void (*)(struct centity_s*, const struct weaponInfo_s*))weaponData[weaponNum].attackData[i].missileFunc;
 		}
+		if (weaponData[weaponNum].attackData[i].beamShader[0])
+		{
+			cgi_R_RegisterShader(weaponData[weaponNum].attackData[i].beamShader);
+		}
+		if (weaponData[weaponNum].attackData[i].fullBeamShader[0])
+		{
+			cgi_R_RegisterShader(weaponData[weaponNum].attackData[i].fullBeamShader);
+		}
 
 	}
 	if (weaponData[weaponNum].stopSnd[0]) {
@@ -1156,11 +1164,13 @@ void CG_SetGhoul2InfoRef( refEntity_t *ent, refEntity_t	*s1)
 qboolean CG_IsChargedAttack(centity_t* cent) 
 {
 	int weaponNum = cent->gent->s.weapon;
-	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
-	if ((baseWeaponNum == WP_BRYAR_PISTOL && cent->altFire)
-		|| (baseWeaponNum == WP_BLASTER_PISTOL && cent->altFire)
-		|| (baseWeaponNum == WP_DEMP2 && cent->altFire)
-		|| (baseWeaponNum == WP_BOWCASTER && !cent->altFire)
+	int attackIndex = CG_GetAttackIndex(weaponNum, cent->altFire);
+	weaponAttackData_t *attackData = &weaponData[weaponNum].attackData[attackIndex];
+	if (attackData->firingLogic == FL_BEAM_CHARGED
+		|| attackData->firingLogic == FL_BLASTER_CHARGED
+		|| attackData->firingLogic == FL_BOWCASTER
+		|| attackData->firingLogic == FL_DEMP2_ALT
+		|| attackData->firingLogic == FL_BLASTER_CHARGED
 		) {
 		return qtrue;
 	}

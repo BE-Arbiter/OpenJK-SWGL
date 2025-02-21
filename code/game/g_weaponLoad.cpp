@@ -440,6 +440,10 @@ void ATK_FiringLogic(const char** holdBuf)
 	{
 	    firingLogic = FL_BEAM;
 	}
+	else if(!Q_stricmp(tokenStr, "FL_FULL_BEAM"))
+	{
+	    firingLogic = FL_BEAM;
+	}
 	else if(!Q_stricmp(tokenStr, "FL_BEAM_CHARGED"))
 	{
 	    firingLogic = FL_BEAM_CHARGED;
@@ -713,6 +717,64 @@ void ATK_HitFleshEffect(const char** holdBuf)
 	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].hitFleshEffect);
 }
 
+void ATK_BeamShader(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].beamShader, 64, "beamShader");
+}
+
+//--------------------------------------------
+void ATK_BeamColor(const char** holdBuf)
+{
+	int i;
+	float	tokenFlt;
+
+	for (i = 0;i < 3;++i)
+	{
+		if (COM_ParseFloat(holdBuf, &tokenFlt))
+		{
+			SkipRestOfLine(holdBuf);
+			continue;
+		}
+
+		if ((tokenFlt < 0) || (tokenFlt > 1))
+		{
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad beamColor[%d] in external weapon data '%f'\n",i, tokenFlt);
+			continue;
+		}
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].beamColor[i] = tokenFlt;
+	}
+}
+
+//--------------------------------------------
+void ATK_FullBeamShader(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fullBeamShader, 64, "fullBeamShader");
+}
+
+//--------------------------------------------
+void ATK_FullBeamColor(const char** holdBuf)
+{
+	int i;
+	float	tokenFlt;
+
+	for (i = 0;i < 3;++i)
+	{
+		if (COM_ParseFloat(holdBuf, &tokenFlt))
+		{
+			SkipRestOfLine(holdBuf);
+			continue;
+		}
+
+		if ((tokenFlt < 0) || (tokenFlt > 1))
+		{
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad fullBeamColor[%d] in external weapon data '%f'\n", i, tokenFlt);
+			continue;
+		}
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fullBeamColor[i] = tokenFlt;
+	}
+}
+
+//--------------------------------------------
 //--------------------------------------------
 void ATK_HitDroidEffect(const char** holdBuf)
 {
@@ -1106,6 +1168,12 @@ void WP_LoadWeaponParms (void)
 					if (weaponData[i].attackData[k].muzzleEffect[0] == 0) {
 						strcpy(weaponData[i].attackData[k].muzzleEffect, weaponData[j].attackData[k].muzzleEffect);
 					}
+					if (weaponData[i].attackData[k].beamShader[0] == 0) {
+						strcpy(weaponData[i].attackData[k].beamShader, weaponData[j].attackData[k].beamShader);
+					}
+					if (weaponData[i].attackData[k].fullBeamShader[0] == 0) {
+						strcpy(weaponData[i].attackData[k].fullBeamShader, weaponData[j].attackData[k].fullBeamShader);
+					}
 
 					//copying weapon missile trail Function pointers
 					weaponData[i].attackData[k].missileFunc = weaponData[i].attackData[k].missileFunc == 0 ? weaponData[j].attackData[k].missileFunc : weaponData[i].attackData[k].missileFunc;
@@ -1114,6 +1182,12 @@ void WP_LoadWeaponParms (void)
 					//Copying vectors
 					if (weaponData[i].attackData[k].missileDlightColor[0] == 0 && weaponData[i].attackData[k].missileDlightColor[1] == 0 && weaponData[i].attackData[k].missileDlightColor[2] == 0) {
 						VectorCopy(weaponData[j].attackData[k].missileDlightColor, weaponData[i].attackData[k].missileDlightColor);
+					}
+					if (weaponData[i].attackData[k].beamColor[0] == 0 && weaponData[i].attackData[k].beamColor[1] == 0 && weaponData[i].attackData[k].beamColor[2] == 0) {
+						VectorCopy(weaponData[j].attackData[k].beamColor, weaponData[i].attackData[k].beamColor);
+					}
+					if (weaponData[i].attackData[k].fullBeamColor[0] == 0 && weaponData[i].attackData[k].fullBeamColor[1] == 0 && weaponData[i].attackData[k].fullBeamColor[2] == 0) {
+						VectorCopy(weaponData[j].attackData[k].fullBeamColor, weaponData[i].attackData[k].fullBeamColor);
 					}
 
 					//Copying the int arrays

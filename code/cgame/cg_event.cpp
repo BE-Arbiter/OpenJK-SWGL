@@ -584,6 +584,11 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		FX_BlackLightningStrike(cent->currentState.origin2, cent->lerpOrigin);
 		break;
 
+	case EV_GENERIC_BEAM:
+		DEBUGNAME("EV_GENERIC_BEAM");
+		FX_GenericBeam(cent->currentState.origin2, cent->lerpOrigin, cent->gent);
+		break;
+
 	case EV_DISRUPTOR_SNIPER_SHOT:
 		DEBUGNAME("EV_DISRUPTOR_SNIPER_SHOT");
 		FX_DisruptorAltShot( cent->currentState.origin2, cent->lerpOrigin, (qboolean) cent->gent->alt_fire);

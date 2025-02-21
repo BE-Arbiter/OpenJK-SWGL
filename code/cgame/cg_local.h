@@ -1167,6 +1167,8 @@ void FX_PurpleLightningStrike(vec3_t start, vec3_t end);
 void FX_WhiteLightningStrike(vec3_t start, vec3_t end);
 void FX_BlackLightningStrike(vec3_t start, vec3_t end);
 
+void FX_GenericBeam(vec3_t start, vec3_t end, gentity_t *tempEntity);
+
 void FX_DisruptorMainShot( vec3_t start, vec3_t end );
 void FX_DisruptorAltShot( vec3_t start, vec3_t end, qboolean full );
 void FX_DisruptorAltMiss( vec3_t origin, vec3_t normal );

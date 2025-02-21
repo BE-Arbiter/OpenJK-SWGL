@@ -109,6 +109,7 @@ typedef enum
 	FL_BLASTER_CHARGED,
 	FL_BOWCASTER,
 	FL_BEAM,
+	FL_FULL_BEAM,
 	FL_BEAM_CHARGED,
 	FL_GRENADE_LAUNCHER,
 	FL_DEMP2,
@@ -235,6 +236,13 @@ typedef struct weaponAttackData_s
 	char	explosionEffect[64]; // For explosives
 	char    shockwaveEffect[64]; // For explosives
 
+
+	/* Beam Effects */
+	char	beamShader[64];
+	vec3_t  beamColor;
+	char	fullBeamShader[64];
+	vec3_t  fullBeamColor;
+	
 	/* Blaster Bounce Data */
 	qboolean bounceWall;		//BounceOnWalls;
 	int		bounceCount;		//BounceCounts

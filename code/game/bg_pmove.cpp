@@ -13143,9 +13143,9 @@ static bool PM_DoChargedWeapons( void )
 
 	int weapon = pm->ps->weapon;
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
-	int attackIndex = (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? 1 : 0;
-	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 	qboolean altFire = (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
+	int attackIndex = CG_GetAttackIndex(weapon, altFire);
+	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 	qboolean mainFire = (pm->cmd.buttons & BUTTON_ATTACK) ? qtrue : qfalse;
 	if ( (mainFire || altFire) && 
 		(attackData->firingLogic == FL_BEAM_CHARGED
@@ -14160,7 +14160,6 @@ static void PM_Weapon( void )
 	{
 		// This is for firing sounds.
 		pm->ps->prev_firing_attack = pm->ps->firing_attack;
-		Com_Printf("Firing type check %d\n", firing_type);
 		switch (firing_type)
 		{
 			case FT_AUTOMATIC:

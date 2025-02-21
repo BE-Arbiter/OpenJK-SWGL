@@ -40,7 +40,7 @@ qboolean is_player_scoped(gentity_t* ent)
 	Set the method of death based on the weapon
 */
 
-//DWS-TDDO : Need to dehardcode this, allowing to override... Warning that sometimes there are several MOD  
+//DWS-TDDO : Need to dehardcode this, allowing to override... Warning that sometimes there are several MOD for a same weapon...
 void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, qboolean altFire) 
 {
 	int baseWeapon = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
@@ -364,9 +364,7 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 }
 
 
-//DWS-TODO : Here we need to integrate custom beam shaders
 //DWS-TODO : MOD_XXXX still hardcoded
-//DWS-TODO : Bug with Disruptor where charged beam not firing straight when not scoped. But other weapons with this logic work well...
 //---------------------------------------------------------
 void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 //---------------------------------------------------------
@@ -380,7 +378,7 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 	trace_t		tr;
 	gentity_t* traceEnt, * tent;
 	float		dist, shotDist, shotRange = 8192;
-	qboolean	charged = qfalse,hitDodged = qfalse, fullCharge = qfalse;
+	qboolean	hitDodged = qfalse, fullCharge = qfalse;
 
 	// The trace start will originate at the eye so we can ensure that it hits the crosshair.
 	if (ent->NPC)
@@ -391,7 +389,6 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 		{
 			fullCharge = qtrue;
 			traces = DISRUPTOR_ALT_TRACES;
-			charged = qtrue;
 			isNpcAltdamage = qtrue;
 		}
 		damage = WP_GetWeaponDamage(ent, attackData,isNpcAltdamage); //We don't check for alt fire but for charged.
@@ -491,7 +488,15 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 					|| traceEnt->s.eType == ET_MOVER)
 				{
 					// Create a simple impact type mark that doesn't last long in the world
-					G_PlayEffect(G_EffectIndex("disruptor/alt_hit"), tr.endpos, tr.plane.normal);
+					int effect;
+					if (attackData->hitFleshEffect[0]) {
+						effect = G_EffectIndex(attackData->hitFleshEffect);
+					}
+					else {
+						effect = G_EffectIndex("disruptor/alt_hit");
+					}
+
+					G_PlayEffect(effect, tr.endpos, tr.plane.normal);
 
 					if (traceEnt->client && LogAccuracyHit(traceEnt, ent))
 					{//NOTE: hitting multiple ents can still get you over 100% accuracy
@@ -529,9 +534,12 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 		hitDodged = qfalse;
 	}
 	//just draw one solid beam all the way to the end...
-	tent = G_TempEntity(tr.endpos, charged ? EV_DISRUPTOR_SNIPER_SHOT : EV_DISRUPTOR_MAIN_SHOT);
+	tent = G_TempEntity(tr.endpos,EV_GENERIC_BEAM);
 	tent->svFlags |= SVF_BROADCAST;
-	tent->alt_fire = fullCharge; // mark us so we can alter the effect DWS-TODO : Find another way to mark it... use count?
+	tent->count = fullCharge; // mark us so we can alter the effect
+	tent->attack_index = attackIndex;
+	tent->s.weapon = ent->s.weapon;
+
 	VectorCopy(muzzle, tent->s.origin2);
 
 	// now go along the trail and make sight events
@@ -548,6 +556,9 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 	//FIXME: spawn a temp ent that continuously spawns sight alerts here?  And 1 sound alert to draw their attention?
 	VectorMA(start, shotDist - 4, forwardVec, spot);
 	AddSightEvent(ent, spot, 256, AEL_DISCOVERED, 50);
+
+
+	WP_SwitchPistolMuzzle(ent);
 }
 
 //---------------
