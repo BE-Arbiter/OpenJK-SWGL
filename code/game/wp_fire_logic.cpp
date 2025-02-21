@@ -382,8 +382,6 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 	float		dist, shotDist, shotRange = 8192;
 	qboolean	charged = qfalse,hitDodged = qfalse, fullCharge = qfalse;
 
-	//VectorCopy(muzzle, muzzle2); // making a backup copy
-
 	// The trace start will originate at the eye so we can ensure that it hits the crosshair.
 	if (ent->NPC)
 	{

@@ -180,7 +180,7 @@ int CG_GetAttackIndex(int weaponNum, qboolean alt_fire)
 			attackIndex = 2;
 		}
 	}
-	return attackIndex
+	return attackIndex;
 }
 /*
 =================

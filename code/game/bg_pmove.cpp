@@ -14041,8 +14041,6 @@ static void PM_Weapon( void )
 		}
 	}
 
-	qboolean altFire = (pm->ps->firing_attack & ALT_ATTACK || pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
-	int attackIndex = CG_GetAttackIndex(pm->ps->weapon, altFire);
 	amount = weaponData[pm->ps->weapon].attackData[attackIndex].energyPerShot;
 
 	if ( (pm->ps->weaponstate == WEAPON_CHARGING) || (pm->ps->weaponstate == WEAPON_CHARGING_ALT) )
