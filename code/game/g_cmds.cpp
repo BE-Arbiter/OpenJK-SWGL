@@ -172,6 +172,7 @@ int ClientNumberFromString( gentity_t *to, char *s ) {
 	return -1;
 }
 
+extern stringID_table_t attrTable[];
 void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 {
 	gitem_t		*it;
@@ -284,6 +285,32 @@ void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 
 		if (!give_all)
 			return;
+	}
+
+	if (!Q_stricmp(name, "attribute"))
+	{
+		if (args)
+		{
+			int attr = GetIDForString(attrTable, args);
+			if (attr >= 0)
+			{
+				if (!(ent->attrFlags & attr))
+				{
+					gi.SendServerCommand(ent - g_entities, va("print \"^2Applying Attribute: %s\n\"", args));
+					ent->attrFlags |= attr;
+				}
+				else
+				{
+					gi.SendServerCommand(ent - g_entities, va("print \"^2Removing Attribute: %s\n\"", args));
+					ent->attrFlags &= ~attr;
+				}
+			}
+			else
+			{
+				gi.SendServerCommand(ent - g_entities, va("print \"^1Unknown attribute: %s\n\"", args));
+			}
+			return;
+		}
 	}
 
 	// spawn a specific item right on the player
