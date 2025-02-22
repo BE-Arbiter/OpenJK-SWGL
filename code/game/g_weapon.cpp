@@ -1495,6 +1495,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 			WP_FireGenericBowcaster(ent, attackIndex);
 			break;
 		case FL_BEAM:
+		case FL_FULL_BEAM:
 		case FL_BEAM_CHARGED:
 			alert = 50;
 			WP_FireGenericBeam(ent, attackIndex);

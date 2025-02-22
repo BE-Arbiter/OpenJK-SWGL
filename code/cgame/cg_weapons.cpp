@@ -3786,6 +3786,7 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 			//DWS-TODO : Check where it is handled
 			return;
 		case FL_BEAM:
+		case FL_FULL_BEAM:
 		case FL_BEAM_CHARGED:
 		    break;
 		case FL_GRENADE:
@@ -3883,6 +3884,7 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		//DWS-TODO : Check where it is handled
 		return;
 	case FL_BEAM:
+	case FL_FULL_BEAM:
 	case FL_BEAM_CHARGED:
 		break;
 	case FL_GRENADE:
