@@ -442,7 +442,7 @@ void ATK_FiringLogic(const char** holdBuf)
 	}
 	else if(!Q_stricmp(tokenStr, "FL_FULL_BEAM"))
 	{
-	    firingLogic = FL_BEAM;
+	    firingLogic = FL_FULL_BEAM;
 	}
 	else if(!Q_stricmp(tokenStr, "FL_BEAM_CHARGED"))
 	{
