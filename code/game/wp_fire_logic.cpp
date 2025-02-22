@@ -401,7 +401,7 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 		for (int i = 0; i < count; i++)
 		{
 			// create a range of different velocities
-			vel = attackData->mVelocity * (Q_flrand(-1.0f, 1.0f) * attackData->mVelocity + 1.0f);
+			vel = attackData->mVelocity * (Q_flrand(0.8f, 1.2f) + 1.0f);
 
 			vectoangles(forwardVec, angs);
 

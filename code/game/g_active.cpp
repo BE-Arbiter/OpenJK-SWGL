@@ -1860,7 +1860,7 @@ void ClientEvents( gentity_t *ent, int oldEventSequence ) {
 			}
 			fired = qtrue;
 #endif
-			FireWeapon( ent, qfalse );
+			FireWeapon( ent, 0 );
 			break;
 
 		case EV_ALT_FIRE:
@@ -1870,7 +1870,25 @@ void ClientEvents( gentity_t *ent, int oldEventSequence ) {
 			}
 			fired = qtrue;
 #endif
-			FireWeapon( ent, qtrue );
+			FireWeapon( ent, 1 );
+			break;
+		case EV_SCOPED_FIRE:
+#ifndef FINAL_BUILD
+			if ( fired ) {
+				gi.Printf( "DOUBLE EV_FIRE_WEAPON AND-OR EV_ALT_FIRE!!\n" );
+			}
+			fired = qtrue;
+#endif
+			FireWeapon( ent, 2 );
+			break;
+		case EV_SCOPED_ALT_FIRE:
+#ifndef FINAL_BUILD
+			if ( fired ) {
+				gi.Printf( "DOUBLE EV_FIRE_WEAPON AND-OR EV_ALT_FIRE!!\n" );
+			}
+			fired = qtrue;
+#endif
+			FireWeapon( ent, 3 );
 			break;
 
 		default:

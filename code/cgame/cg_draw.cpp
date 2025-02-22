@@ -380,14 +380,7 @@ static void CG_DrawAmmo(const centity_t	*cent,const int xPos,const int yPos, con
 			}
 			else
 			{
-				if (cent->gent->client->ps.tertiaryMode == qtrue)
-				{
-					memcpy(calcColor, colorTable[CT_RED], sizeof(vec4_t));
-				}
-				else
-				{
-					memcpy(calcColor, otherHUDBits[OHB_AMMOAMOUNT].color, sizeof(vec4_t));
-				}
+				memcpy(calcColor, otherHUDBits[OHB_AMMOAMOUNT].color, sizeof(vec4_t));
 			}
 		}
 		else
@@ -3463,7 +3456,7 @@ static void CG_RunRocketLocking(void)
 
 	// Only bother with this when the player is holding down the alt-fire button of the rocket launcher
 	qboolean altFire = (player->currentState.eFlags & EF_ALT_FIRING) ? qtrue : qfalse;
-	int attackIndex = CG_GetAttackIndex(player->currentState.weapon, altFire);
+	int attackIndex = CG_GetAttackIndex(player->gent,altFire);
 	weaponAttackData_t* atkData = &weaponData[player->currentState.weapon].attackData[attackIndex];
 
 	if (atkData->firingLogic == FL_MISSILE_AIMED && (player->currentState.eFlags & (EF_ALT_FIRING | EF_FIRING)))

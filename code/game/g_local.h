@@ -541,7 +541,7 @@ qboolean	ConsoleCommand( void );
 //
 // g_weapon.c
 //
-void FireWeapon( gentity_t *ent, qboolean alt_fire );
+void FireWeapon( gentity_t *ent, int attack_index);
 
 //
 // p_hud.c

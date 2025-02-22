@@ -1260,9 +1260,10 @@ void WP_FireScepter( gentity_t *ent, qboolean alt_fire )
 
 extern Vehicle_t *G_IsRidingVehicle( gentity_t *ent );
 //---------------------------------------------------------
-void FireWeapon( gentity_t *ent, qboolean alt_fire )
+void FireWeapon( gentity_t *ent, int attack_index)
 //---------------------------------------------------------
 {
+	qboolean alt_fire = (attack_index == 1 || attack_index == 3) ? qtrue : qfalse;
 	float alert = 256;
 	Vehicle_t *pVeh = NULL;
 	int weaponNum = ent->s.weapon;
@@ -1273,7 +1274,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 	// If this is a vehicle, fire it's weapon and we're done.
 	if ( ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE )
 	{
-		FireVehicleWeapon( ent, alt_fire );
+		FireVehicleWeapon( ent, alt_fire);
 		return;
 	}
 
@@ -1462,17 +1463,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 
 	// fire the specific weapon
 	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
-	weaponAttackData_t *attackData;
-	int attackIndex = alt_fire ? 1 : 0;
-	if (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode > ST_A280) {
-		if (alt_fire && weaponData[weaponNum].attackData[3].firingLogic != FL_NONE) {
-			attackIndex = 3;
-		}
-		else if (weaponData[weaponNum].attackData[2].firingLogic != FL_NONE) {
-			attackIndex = 2;
-		}
-	}
-	attackData = &weaponData[weaponNum].attackData[attackIndex];
+	weaponAttackData_t *attackData  = &weaponData[weaponNum].attackData[attack_index];
 
 	switch (attackData->firingLogic) {
 		case FL_MELEE:
@@ -1489,23 +1480,23 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 		case FL_BLASTER_CHARGED:
 		case FL_DEMP2_ALT:
 		case FL_GRENADE_LAUNCHER:
-			WP_FireGenericBlaster(ent, attackIndex);
+			WP_FireGenericBlaster(ent, attack_index);
 			break;
 		case FL_SBD:
-			WP_FireDroidsTwinBlasters(ent, attackIndex);
+			WP_FireDroidsTwinBlasters(ent, attack_index);
 			break;
 		case FL_BOWCASTER:
-			WP_FireGenericBowcaster(ent, attackIndex);
+			WP_FireGenericBowcaster(ent, attack_index);
 			break;
 		case FL_BEAM:
 		case FL_FULL_BEAM:
 		case FL_BEAM_CHARGED:
 			alert = 50;
-			WP_FireGenericBeam(ent, attackIndex);
+			WP_FireGenericBeam(ent, attack_index);
 			break;
 		case FL_GRENADE:
 		case FL_IMPACT_GRENADE:
-			WP_FireGrenade(ent, attackIndex);
+			WP_FireGrenade(ent, attack_index);
 			break;
 		case FL_LASER_TRAP:
 			alert = 0;
@@ -1517,7 +1508,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 			break;
 		case FL_EXPLOSIVES:
 			alert = 0;
-			WP_FireDetPack(ent, attackIndex);
+			WP_FireDetPack(ent, attack_index);
 			break;
 		case FL_FLECHETTE:
 			WP_FireFlechette(ent, qfalse);

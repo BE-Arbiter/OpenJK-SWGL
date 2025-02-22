@@ -546,6 +546,16 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		CG_FireWeapon( cent, qtrue );
 		break;
 
+	case EV_SCOPED_FIRE:
+		DEBUGNAME("EV_SCOPED_FIRE");
+		CG_FireWeapon( cent, qtrue );
+		break;
+
+	case EV_SCOPED_ALT_FIRE:
+		DEBUGNAME("EV_SCOPED_ALT_FIRE");
+		CG_FireWeapon( cent, qtrue );
+		break;
+
 	case EV_DISRUPTOR_MAIN_SHOT:
 		DEBUGNAME("EV_DISRUPTOR_MAIN_SHOT");
 		FX_DisruptorMainShot( cent->currentState.origin2, cent->lerpOrigin );

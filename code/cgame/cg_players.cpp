@@ -9720,7 +9720,7 @@ Ghoul2 Insert End
 
 			//Overwrite the muzzle effect if needed
 			qboolean altFire = (ps->weaponstate == WEAPON_CHARGING_ALT) ? qtrue : qfalse;
-			int attackIndex = CG_GetAttackIndex(weapon, altFire);
+			int attackIndex = CG_GetAttackIndex(cent->gent, altFire);
 			if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) {
 				shader = cg_weapons[weapon].weaponAttacksInfo[attackIndex].chargeMuzzleShader;
 			}

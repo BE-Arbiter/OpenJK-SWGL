@@ -166,18 +166,25 @@ void CG_InitItemForWeapon(gitem_t* item, int weaponNum) {
 =================
 CG_GetAttackIndex
 
-Return The attack Index of the attack :D
+Return The attack Index of the attack
 =================
 */
-int CG_GetAttackIndex(int weaponNum, qboolean alt_fire) 
+int CG_GetAttackIndex(gentity_t *gent,qboolean alt_fire) 
 {
+	int weaponNum = gent->s.weapon;
+	if (gent->client && gent->client->ps.clientNum > 0) {
+		return alt_fire ? 1 : 0;
+	}
+	if (gent->client && gent->client->ps.firing_attack >= 0) {
+		return gent->client->ps.firing_attack;
+	}
 	int attackIndex = alt_fire ? 1 : 0;
 	if (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode >= ST_A280) {
 		if (alt_fire && weaponData[weaponNum].attackData[3].firingLogic != FL_NONE) {
-			attackIndex = 3;
+			return 3;
 		}
 		else if (weaponData[weaponNum].attackData[2].firingLogic != FL_NONE) {
-			attackIndex = 2;
+			return 2;
 		}
 	}
 	return attackIndex;
@@ -1164,7 +1171,7 @@ void CG_SetGhoul2InfoRef( refEntity_t *ent, refEntity_t	*s1)
 qboolean CG_IsChargedAttack(centity_t* cent) 
 {
 	int weaponNum = cent->gent->s.weapon;
-	int attackIndex = CG_GetAttackIndex(weaponNum, cent->altFire);
+	int attackIndex = CG_GetAttackIndex(cent->gent, cent->altFire);
 	weaponAttackData_t *attackData = &weaponData[weaponNum].attackData[attackIndex];
 	if (attackData->firingLogic == FL_BEAM_CHARGED
 		|| attackData->firingLogic == FL_BOWCASTER
@@ -1179,7 +1186,7 @@ qboolean CG_IsChargedAttack(centity_t* cent)
 char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData) {
 	char* effect = NULL;
 
-	int attackIndex = CG_GetAttackIndex(cent->gent->client->ps.weapon, cent->altFire);
+	int attackIndex = CG_GetAttackIndex(cent->gent, cent->altFire);
 	// I declared this variable just for readability.
 
 	// Try and get a default muzzle so we have one to fall back on
@@ -1604,7 +1611,7 @@ void CG_AddViewWeapon( playerState_t *ps )
 
 		//Overwrite the muzzle effect if needed
 		qboolean altFire = (ps->weaponstate == WEAPON_CHARGING_ALT) ? qtrue : qfalse;
-		int attackIndex = CG_GetAttackIndex(weapon, altFire);
+		int attackIndex = CG_GetAttackIndex(cent->gent, altFire);
 		if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) {
 			shader = cg_weapons[weapon].weaponAttacksInfo[attackIndex].chargeMuzzleShader;
 		}
@@ -3577,7 +3584,7 @@ CG_FireWeapon
 Caused by an EV_FIRE_WEAPON event
 ================
 */
-void CG_FireWeapon( centity_t *cent, qboolean alt_fire )
+void CG_FireWeapon( centity_t *cent, int attackIndex)
 {
 	entityState_t *ent;
 	//weaponInfo_t	*weap;
@@ -3606,67 +3613,17 @@ void CG_FireWeapon( centity_t *cent, qboolean alt_fire )
 	// mark the entity as muzzle flashing, so when it is added it will
 	// append the flash to the weapon model
 	cent->muzzleFlashTime = cg.time;
-	cent->altFire = alt_fire;
+	cent->altFire = (attackIndex == 1 || attackIndex == 3) ? qtrue: qfalse;
+	cent->attack_index = attackIndex;
 
-	// lightning type guns only does this this on initial press
 	if ( ent->weapon == WP_SABER )
 	{
 		if ( cent->pe.lightningFiring )
 		{
-/*			if ( ent->weapon == WP_DREADNOUGHT )
-			{
-				cgi_FF_EnsureFX( fffx_Laser3 );
-			}
-*/
 			return;
 		}
 	}
 
-	// Do overcharge sound that get's added to the top
-/*	if (( ent->powerups & ( 1<<PW_WEAPON_OVERCHARGE )))
-	{
-		if ( alt_fire )
-		{
-			switch( ent->weapon )
-			{
-			case WP_THERMAL:
-			case WP_DET_PACK:
-			case WP_TRIP_MINE:
-			case WP_ROCKET_LAUNCHER:
-			case WP_FLECHETTE:
-				// these weapon fires don't overcharge
-				break;
-
-			case WP_BLASTER:
-				cgi_S_StartSound( NULL, ent->number, CHAN_AUTO, cgs.media.overchargeFastSound );
-				break;
-
-			default:
-				cgi_S_StartSound( NULL, ent->number, CHAN_AUTO, cgs.media.overchargeSlowSound );
-				break;
-			}
-		}
-		else
-		{
-			switch( ent->weapon )
-			{
-			case WP_THERMAL:
-			case WP_DET_PACK:
-			case WP_TRIP_MINE:
-			case WP_ROCKET_LAUNCHER:
-				// these weapon fires don't overcharge
-				break;
-
-			case WP_REPEATER:
-				cgi_S_StartSound( NULL, ent->number, CHAN_AUTO, cgs.media.overchargeFastSound );
-				break;
-
-			default:
-				cgi_S_StartSound( NULL, ent->number, CHAN_AUTO, cgs.media.overchargeSlowSound );
-				break;
-			}
-		}
-	}*/
 }
 
 /*

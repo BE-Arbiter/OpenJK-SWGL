@@ -9126,8 +9126,6 @@ static void PM_BeginWeaponChange( int weapon ) {
 		}
 	}
 
-	pm->ps->tertiaryMode = qfalse;
-
 	if ( pm->gent
 		&& pm->gent->client
 		&& (pm->gent->client->NPC_class == CLASS_ATST||pm->gent->client->NPC_class == CLASS_RANCOR || pm->gent->client->NPC_class == CLASS_DROIDEKA) )
@@ -13144,7 +13142,7 @@ static bool PM_DoChargedWeapons( void )
 	int weapon = pm->ps->weapon;
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 	qboolean altFire = (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
-	int attackIndex = CG_GetAttackIndex(weapon, altFire);
+	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
 	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 	qboolean mainFire = (pm->cmd.buttons & BUTTON_ATTACK) ? qtrue : qfalse;
 	if ( (mainFire || altFire) && 
@@ -13164,7 +13162,7 @@ static bool PM_DoChargedWeapons( void )
 	if ( charging )
 	{
 
-		int attackIndex = CG_GetAttackIndex(pm->ps->weapon, altFire);
+		int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
 		if ( altFire )
 		{
 			if ( pm->ps->weaponstate != WEAPON_CHARGING_ALT && pm->ps->weaponstate != WEAPON_DROPPING )
@@ -13246,7 +13244,7 @@ static int PM_DoChargingAmmoUsage( int *amount )
 	int weaponCount = CG_PlayerIsDualWielding(weapon) ? 2 : 1;
 	
 	qboolean altFire = (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
-	int attackIndex = CG_GetAttackIndex(weapon, altFire);
+	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
 
 	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 
@@ -13427,11 +13425,8 @@ static void PM_Weapon( void )
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
 
-	int attackIndex = 0;
-	if (pm->ps->firing_attack != -1) {
-		attackIndex = pm->ps->firing_attack;
-		Com_Printf("Trying to fire Something : %d\n", attackIndex);
-	}
+	qboolean altFire = (qboolean)((pm->ps->weaponstate == WEAPON_CHARGING_ALT) || (pm->cmd.buttons & ALT_ATTACK));
+	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
 	
 	int firing_type = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[FIRING_TYPE];
 	int fire_time = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
@@ -14112,7 +14107,12 @@ static void PM_Weapon( void )
 	}
 	else if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
 	{
-		PM_AddEvent( EV_ALT_FIRE );
+		if (attackIndex == 3) {
+			PM_AddEvent(EV_SCOPED_ALT_FIRE);
+		}
+		else {
+			PM_AddEvent(EV_ALT_FIRE);
+		}
 		addTime = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
 		if ( pm->ps->weapon == WP_THERMAL )
 		{//threw our thermal
@@ -14135,7 +14135,7 @@ static void PM_Weapon( void )
 		{//oops, got knocked out of the anim, don't throw the thermal
 			return;
 		}
-		PM_AddEvent( EV_FIRE_WEAPON );
+		PM_AddEvent( EV_FIRE_WEAPON+attackIndex );
 		addTime = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
 
 		switch( baseWeapon)
@@ -14172,8 +14172,6 @@ static void PM_Weapon( void )
 	// Code from JKG: 3
 	if (pm->cmd.buttons & BUTTON_ATTACK)
 	{
-		// This is for firing sounds.
-		pm->ps->prev_firing_attack = pm->ps->firing_attack;
 		switch (firing_type)
 		{
 			case FT_AUTOMATIC:
@@ -14190,7 +14188,6 @@ static void PM_Weapon( void )
 			case FT_BURST:
 				if (pm->ps->shotsRemaining == 1)
 				{
-					Com_Printf("End of burst\n");
 					// Setting it to a regular fire delay between each burst.
 					addTime = fire_time;
 					// Checks the above SHOTS_TOGGLEBIT if statement (2) to reset shotsRemaining so it's ready for burst again.
@@ -14621,12 +14618,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	qboolean altFire = (!(pm->cmd.buttons & BUTTON_ATTACK) && pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
 
 	//Get current Attack index if we just clicked on the button
-	int attackIndex = CG_GetAttackIndex(weapon, altFire);
-
-	//if we have a a pm->ps-firing_attack defined, it override it
-	if (pm->ps->firing_attack != -1) {
-		attackIndex = pm->ps->firing_attack;
-	}
+	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
 
 	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 	firingType_t firingType = (firingType_t) attackData->fireOption[FIRING_TYPE];
@@ -14807,13 +14799,12 @@ void PM_AdjustAttackStates( pmove_t *pm )
 #pragma endregion
 	//Initiate Burst Fire
 	//Don't allow mixed clicks
-	if (firingType > FT_AUTOMATIC && (
+	if (firingType > FT_AUTOMATIC && pm->ps->weaponstate != WEAPON_CHARGING && pm->ps->weaponstate != WEAPON_CHARGING_ALT && (
 		(altFire && !(pm->ps->eFlags & EF_ALT_FIRING)) || (mainFire && !(pm->ps->eFlags & EF_FIRING) )
 		))
 	{
 		burst_shots = weaponData[weapon].attackData[attackIndex].fireOption[SHOTS_PER_BURST];
 		pm->ps->firing_attack = attackIndex;
-
 		// Don't let the alt-fire get through.
 		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
 
