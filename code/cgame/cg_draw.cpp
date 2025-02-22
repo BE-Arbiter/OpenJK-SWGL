@@ -3456,29 +3456,30 @@ static void CG_DrawRocketLocking( int lockEntNum, int lockTime )
 
 
 //------------------------------------
-static void CG_RunRocketLocking( void )
+static void CG_RunRocketLocking(void)
 //------------------------------------
 {
-	centity_t	*player = &cg_entities[0];
+	centity_t* player = &cg_entities[0];
 
 	// Only bother with this when the player is holding down the alt-fire button of the rocket launcher
-	if ( player->currentState.weapon == WP_ROCKET_LAUNCHER )
-	{
-		if ( player->currentState.eFlags & EF_ALT_FIRING )
-		{
-			CG_ScanForRocketLock();
+	qboolean altFire = (player->currentState.eFlags & EF_ALT_FIRING) ? qtrue : qfalse;
+	int attackIndex = CG_GetAttackIndex(player->currentState.weapon, altFire);
+	weaponAttackData_t* atkData = &weaponData[player->currentState.weapon].attackData[attackIndex];
 
-			if ( g_rocketLockEntNum > 0 && g_rocketLockEntNum < ENTITYNUM_WORLD && g_rocketLockTime > 0 )
-			{
-				CG_DrawRocketLocking( g_rocketLockEntNum, g_rocketLockTime );
-			}
-		}
-		else
+	if (atkData->firingLogic == FL_MISSILE_AIMED && (player->currentState.eFlags & (EF_ALT_FIRING | EF_FIRING)))
+	{
+		CG_ScanForRocketLock();
+
+		if (g_rocketLockEntNum > 0 && g_rocketLockEntNum < ENTITYNUM_WORLD && g_rocketLockTime > 0)
 		{
-			// disengage any residual locking
-			g_rocketLockEntNum = ENTITYNUM_WORLD;
-			g_rocketLockTime = 0;
+			CG_DrawRocketLocking(g_rocketLockEntNum, g_rocketLockTime);
 		}
+	}
+	else
+	{
+		// disengage any residual locking
+		g_rocketLockEntNum = ENTITYNUM_WORLD;
+		g_rocketLockTime = 0;
 	}
 }
 

@@ -13426,12 +13426,19 @@ static void PM_Weapon( void )
 	int weapon = pm->ps->weapon;
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
-	int attackIndex = CG_GetAttackIndex(weapon, (pm->cmd.buttons & BUTTON_ALT_ATTACK)?qtrue:qfalse);
+
+	int attackIndex = 0;
+	if (pm->ps->firing_attack != -1) {
+		attackIndex = pm->ps->firing_attack;
+		Com_Printf("Trying to fire Something : %d\n", attackIndex);
+	}
 	
 	int firing_type = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[FIRING_TYPE];
 	int fire_time = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
 	int burst_shots = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[SHOTS_PER_BURST];
 	int burst_fire_delay = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[BURST_FIRE_DELAY];
+
+
 	
 
 	if ( (pm->ps->eFlags&EF_HELD_BY_WAMPA) )
@@ -14035,7 +14042,14 @@ static void PM_Weapon( void )
 
 #pragma endregion
 
-	amount = weaponData[pm->ps->weapon].attackData[attackIndex].energyPerShot;
+	if (pm->cmd.buttons & BUTTON_ALT_ATTACK)
+	{
+		amount = weaponData[pm->ps->weapon].attackData[1].energyPerShot;
+	}
+	else
+	{
+		amount = weaponData[pm->ps->weapon].attackData[attackIndex].energyPerShot;
+	}
 
 	if ( (pm->ps->weaponstate == WEAPON_CHARGING) || (pm->ps->weaponstate == WEAPON_CHARGING_ALT) )
 	{
@@ -14124,7 +14138,7 @@ static void PM_Weapon( void )
 		PM_AddEvent( EV_FIRE_WEAPON );
 		addTime = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
 
-		switch( pm->ps->weapon)
+		switch( baseWeapon)
 		{
 		case WP_REPEATER:
 			// repeater is supposed to do smoke after sustained bursts
@@ -14156,7 +14170,7 @@ static void PM_Weapon( void )
 	}
 
 	// Code from JKG: 3
-	if (pm->cmd.buttons & (BUTTON_ATTACK | BUTTON_ALT_ATTACK) )
+	if (pm->cmd.buttons & BUTTON_ATTACK)
 	{
 		// This is for firing sounds.
 		pm->ps->prev_firing_attack = pm->ps->firing_attack;
@@ -14185,7 +14199,6 @@ static void PM_Weapon( void )
 				}
 				else
 				{
-					Com_Printf("burst fired\n");
 					// The delay between each shot.
 					addTime = burst_fire_delay;
 					// Minus it by 1 to call the above if statement.
@@ -14603,11 +14616,21 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	int weapon = pm->ps->weapon;
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
-	qboolean altFire = (!(pm->cmd.buttons & BUTTON_ATTACK) && pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
+	//Define clicks
 	qboolean mainFire = (!(pm->cmd.buttons & BUTTON_ALT_ATTACK) && pm->cmd.buttons & BUTTON_ATTACK) ? qtrue : qfalse;
+	qboolean altFire = (!(pm->cmd.buttons & BUTTON_ATTACK) && pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
+
+	//Get current Attack index if we just clicked on the button
 	int attackIndex = CG_GetAttackIndex(weapon, altFire);
+
+	//if we have a a pm->ps-firing_attack defined, it override it
+	if (pm->ps->firing_attack != -1) {
+		attackIndex = pm->ps->firing_attack;
+	}
+
 	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 	firingType_t firingType = (firingType_t) attackData->fireOption[FIRING_TYPE];
+
 	int burst_shots = 0;
 
 	qboolean primFireDown = qfalse;
@@ -14629,19 +14652,17 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		// Keep attack button 'pressed' until no more shots are remaining.
 		if (pm->ps->shotsRemaining & ~SHOTS_TOGGLEBIT)
 		{
-			if ((pm->ps->eFlags & EF_ALT_FIRING) && (firingType == FT_BURST) && pm->ps->pm_type != PM_NOCLIP)
+			if (pm->ps->eFlags & EF_FIRING)
 			{
-				pm->cmd.buttons |= BUTTON_ALT_ATTACK;
+				if ((firingType == FT_BURST) && pm->ps->pm_type != PM_NOCLIP)
+				{
+					pm->cmd.buttons |= BUTTON_ATTACK;
+				}
+				else if (pm->ps->pm_type == PM_NOCLIP)
+				{
+					pm->ps->shotsRemaining = SHOTS_TOGGLEBIT;
+				}
 			}
-			else if ( (pm->ps->eFlags & EF_FIRING) && (firingType == FT_BURST) && pm->ps->pm_type != PM_NOCLIP)
-			{
-				pm->cmd.buttons |= BUTTON_ATTACK;
-			}
-			else if (pm->ps->pm_type == PM_NOCLIP)
-			{
-				pm->ps->shotsRemaining = SHOTS_TOGGLEBIT;
-			}
-			
 		}
 	}
 
@@ -14672,7 +14693,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			}
 		}
 	}
-
+#pragma region zoom_logic
 	// disruptor alt-fire should toggle the zoom mode, but only bother doing this for the player?
 	if (weaponData[weapon].scopeType == ST_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING )
 	{
@@ -14783,14 +14804,21 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		pm->cmd.buttons &= ~(BUTTON_ALT_ATTACK|BUTTON_ATTACK);
 	}
 
+#pragma endregion
 	//Initiate Burst Fire
+	//Don't allow mixed clicks
 	if (firingType > FT_AUTOMATIC && (
 		(altFire && !(pm->ps->eFlags & EF_ALT_FIRING)) || (mainFire && !(pm->ps->eFlags & EF_FIRING) )
 		))
 	{
 		burst_shots = weaponData[weapon].attackData[attackIndex].fireOption[SHOTS_PER_BURST];
-		pm->ps->firing_attack |= altFire ? ALT_ATTACK : 0;
-		pm->ps->firing_attack |= mainFire ? MAIN_ATTACK : 0;
+		pm->ps->firing_attack = attackIndex;
+
+		// Don't let the alt-fire get through.
+		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
+
+		// Switch the flag.
+		pm->cmd.buttons |= BUTTON_ATTACK;
 	}
 
 	primFireDown = (qboolean)(pm->cmd.buttons & BUTTON_ATTACK);
@@ -14798,9 +14826,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	//No shot Remaining
 	//Pressed Alt Fire
 	//Pressed Main Fire
-	if (!(pm->ps->shotsRemaining) && 
-		( (mainFire && !(pm->ps->eFlags & EF_FIRING))  || (altFire && !(pm->ps->eFlags & EF_ALT_FIRING)) )
-		)
+	if (!(pm->ps->shotsRemaining) && primFireDown && !(pm->ps->eFlags & EF_FIRING))
 	{
 		// Right when you click. 
 		if (pm->ps->weaponTime <= 0)
@@ -14808,6 +14834,9 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			// First time loading shotsRemaining.
 			if (firingType == FT_BURST && burst_shots)
 			{
+				if (pm->gent->weaponModel[1] > 0) {
+					burst_shots *= 2;
+				}
 				pm->ps->shotsRemaining = burst_shots;
 			}
 		}
@@ -14815,9 +14844,9 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		// should be able to turbo boost. 
 		else if (pm->ps->pm_type != PM_NOCLIP)
 		{
-			// If you try to press one attack between bursts, do nothing.
+			// If you try to press main click between burts, do nothing.
 			pm->cmd.buttons &= ~BUTTON_ATTACK;
-			pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
+			primFireDown = qfalse;
 		}
 	}
 
@@ -14864,7 +14893,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		}
 
 		// Clear it out
-		pm->ps->firing_attack = 0;
+		pm->ps->firing_attack = -1;
 	}
 	
 }
@@ -15272,14 +15301,7 @@ void Pmove( pmove_t *pmove )
 	if ( pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_VEHICLE )
 	{
 		pVeh = pm->gent->m_pVehicle;
-
-		// Using vehicle weapon...
-		//if ( pm->cmd.weapon == WP_NONE )
-		{
-			//PM_Weapon();
-			//PM_AddEvent( EV_FIRE_WEAPON );
-			PM_VehicleWeapon();
-		}
+		PM_VehicleWeapon();
 	}
 	// If we are riding a vehicle...
 	else if ( PM_RidingVehicle() )

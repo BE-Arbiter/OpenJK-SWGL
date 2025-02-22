@@ -321,7 +321,7 @@ void WP_FireGenericBlaster(gentity_t* ent, int attackIndex)
 	
 	vectoangles(forwardVec, angs);
 	/* Calculate Spread, If we are a vehicle or we have Sense 2, no spread*/
-	if (!ent->client || !ent->client->NPC_class == CLASS_VEHICLE
+	if (!ent->client || !(ent->client->NPC_class == CLASS_VEHICLE)
 		|| !(ent->client->ps.forcePowersActive & (1 << FP_SEE))
 		|| ent->client->ps.forcePowerLevel[FP_SEE] < FORCE_LEVEL_2)
 	{
