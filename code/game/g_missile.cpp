@@ -1494,7 +1494,7 @@ void G_RunMissile( gentity_t *ent )
 			}
 			else
 			{
-				if ( ent->s.weapon == WP_ROCKET_LAUNCHER && ent->e_ThinkFunc == thinkF_rocketThink )
+				if ( ent->s.weapon == WP_ROCKET_LAUNCHER && ent->e_ThinkFunc == thinkF_WP_RocketThink)
 				{//homing rocket- run like hell!
 					AddSightEvent( ent->owner, ent->currentOrigin, ent->splashRadius, AEL_DANGER_GREAT, 50 );
 				}

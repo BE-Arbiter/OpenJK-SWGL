@@ -614,12 +614,19 @@ void ATK_MissileLightColor(const char **holdBuf)
 
 		if ((tokenFlt < 0) || (tokenFlt > 1 ))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelightcolor in external weapon data '%f'\n", tokenFlt);
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelightcolor[%d] in external weapon data '%f'\n",i, tokenFlt);
 			continue;
 		}
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileDlightColor[i] = tokenFlt;
 	}
 
+}
+
+//--------------------------------------------
+void ATK_MissileSize(const char **holdBuf)
+{
+
+	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileSize);
 }
 
 //--------------------------------------------

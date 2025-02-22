@@ -55,6 +55,7 @@ void WP_FireDroidsTwinBlasters(gentity_t* ent, int attackIndex);
 void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex);
 void WP_FireGenericBlaster(gentity_t* ent, int attackIndex);
 void WP_FireDetPack(gentity_t* ent,int attackIndex);
+void WP_RocketThink(gentity_t* ent);
 
 // Grenades
 qboolean WP_LobFire(gentity_t* self, vec3_t start, vec3_t target, vec3_t mins, vec3_t maxs, int clipmask,
@@ -92,7 +93,5 @@ void WP_Melee( gentity_t *ent );
 
 //Weapon still to do
 void WP_FireFlechette(gentity_t* ent, qboolean alt_fire);
-void WP_FireNoghriStick( gentity_t *ent );
-void rocketThink( gentity_t *ent );
 void WP_FireRocket( gentity_t *ent, qboolean alt_fire );
 

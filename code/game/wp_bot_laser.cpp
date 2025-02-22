@@ -28,12 +28,13 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 void WP_BotLaser( gentity_t *ent )
 //---------------------------------------------------------
 {
-	gentity_t	*missile = CreateMissile( muzzle, forwardVec, BRYAR_PISTOL_VEL, 10000, ent );
+	weaponAttackData_t* attackData = &weaponData[ent->s.weapon].attackData[0];
+	gentity_t	*missile = CreateMissile( muzzle, forwardVec, attackData->mVelocity, 10000, ent );
 
 	missile->classname = "bryar_proj";
 	missile->s.weapon = WP_BRYAR_PISTOL;
 
-	missile->damage = BRYAR_PISTOL_DAMAGE;
+	missile->damage = attackData->damage;
 	missile->dflags = DAMAGE_DEATH_KNOCKBACK;
 	missile->methodOfDeath = MOD_ENERGY;
 	missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;

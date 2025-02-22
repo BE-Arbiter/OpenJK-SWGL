@@ -887,7 +887,7 @@ void WP_FireVehicleWeapon( gentity_t *ent, vec3_t start, vec3_t dir, vehWeaponIn
 							missile->disconnectDebounceTime = level.time + vehWeapon->iLifeTime;
 							missile->lockCount = (int)(vehWeapon->bExplodeOnExpire);
 						}
-						missile->e_ThinkFunc = thinkF_rocketThink;
+						missile->e_ThinkFunc = thinkF_WP_RocketThink;
 						missile->nextthink = level.time + VEH_HOMING_MISSILE_THINK_TIME;
 						//FIXME: implement radar in SP?
 						//missile->s.eFlags |= EF_RADAROBJECT;
@@ -1482,6 +1482,9 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 			}
 			break;
 		case FL_BLASTER:
+		case FL_NOGHRI:
+		case FL_MISSILE:
+		case FL_MISSILE_AIMED:
 		case FL_DEMP2:
 		case FL_BLASTER_CHARGED:
 		case FL_DEMP2_ALT:
@@ -1522,15 +1525,9 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 		case FL_FLECHETTE_ALT:
 			WP_FireFlechette(ent, qtrue);
 			break;
-		case FL_NOGHRI:
-			WP_FireNoghriStick(ent);
-			break;
 		default:
 			//Legacy for NPC Weapons even if most of them will be blaster fire
 			switch (baseWeaponNum) {
-				case WP_ROCKET_LAUNCHER:
-					WP_FireRocket(ent, alt_fire);
-					break;
 				case WP_TIE_FIGHTER:
 				case WP_EMPLACED_GUN:
 					// doesn't care about whether it's alt-fire or not.  We can do an alt-fire if needed

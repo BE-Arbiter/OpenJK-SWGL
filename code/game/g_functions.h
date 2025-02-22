@@ -110,7 +110,7 @@ typedef enum
 	thinkF_laserTrapThink,
 	thinkF_TieFighterThink,
 	thinkF_TieBomberThink,
-	thinkF_rocketThink,
+	thinkF_WP_RocketThink,
 	thinkF_prox_mine_think,
 	thinkF_emplaced_blow,
 	thinkF_WP_Explode,
@@ -217,7 +217,7 @@ extern void LimbThink				( gentity_t *ent );
 extern void laserTrapThink			( gentity_t *self );
 extern void TieFighterThink			( gentity_t *self );
 extern void TieBomberThink			( gentity_t *self );
-extern void rocketThink				( gentity_t *ent );
+extern void WP_RocketThink				( gentity_t *ent );
 extern void prox_mine_think			( gentity_t *ent );
 extern void emplaced_blow			( gentity_t *self );
 extern void WP_Explode				( gentity_t *self );

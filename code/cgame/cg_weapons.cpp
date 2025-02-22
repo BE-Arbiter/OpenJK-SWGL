@@ -1167,7 +1167,6 @@ qboolean CG_IsChargedAttack(centity_t* cent)
 	int attackIndex = CG_GetAttackIndex(weaponNum, cent->altFire);
 	weaponAttackData_t *attackData = &weaponData[weaponNum].attackData[attackIndex];
 	if (attackData->firingLogic == FL_BEAM_CHARGED
-		|| attackData->firingLogic == FL_BLASTER_CHARGED
 		|| attackData->firingLogic == FL_BOWCASTER
 		|| attackData->firingLogic == FL_DEMP2_ALT
 		|| attackData->firingLogic == FL_BLASTER_CHARGED

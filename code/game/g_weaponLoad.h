@@ -205,6 +205,7 @@ void ATK_ChargeMuzzleEffect(const char** holdBuf);
 void ATK_Range(const char** holdBuf);
 void ATK_MissileName(const char** holdBuf);
 void ATK_MissileSound(const char** holdBuf);
+void ATK_MissileSize(const char** holdBuf);
 void ATK_MissileLight(const char** holdBuf);
 void ATK_MissileLightColor(const char** holdBuf);
 void ATK_FuncName(const char** holdBuf);
@@ -257,6 +258,7 @@ wpnParms_t AttackDataParms[] =
 	{ "chargesound",		ATK_ChargeSnd },
 	{ "range",				ATK_Range },
 	{ "missileModel",		ATK_MissileName },
+	{ "missileSize",		ATK_MissileSize },
 	{ "missileSound",		ATK_MissileSound },
 	{ "missileLight",		ATK_MissileLight },
 	{ "missileLightColor",	ATK_MissileLightColor },
