@@ -814,7 +814,7 @@ typedef enum
 #define	MAX_PERSISTANT			16
 
 #define	MAX_POWERUPS			16
-#define	MAX_WEAPONS				64
+#define	MAX_WEAPONS				128
 #define MAX_WEAPONBITS			1 + (MAX_WEAPONS - 1)/32
 #define MAX_AMMO				32
 #define WEAPON_BUCKETS_SIZE (MAX_WEAPONS - WB_OTHERS)

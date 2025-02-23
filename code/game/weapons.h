@@ -126,6 +126,7 @@ typedef enum
 	FL_IMPACT_GRENADE,
 	FL_STUNBATON,
 	FL_SBD,
+	FL_FLAMETHROWER,
 	FL_OTHER, // For not yet done weapon
 }firingLogic_t;
 

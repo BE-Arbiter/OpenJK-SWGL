@@ -335,6 +335,10 @@ void CG_RegisterWeapon( int weaponNum ) {
 
 	// register weaponAttackInfo
 	for (int i = 0; i < MAX_WEAPON_ATTACKS; i++) {
+		if (weaponData[weaponNum].attackData[i].firingLogic == FL_FLAMETHROWER) {
+			theFxScheduler.RegisterEffect("env/fire.efx");
+			theFxScheduler.RegisterEffect("env/small_fire.efx");
+		}
 		// register the sounds for the weapon
 		if (weaponData[weaponNum].attackData[i].firingSnd[0]) {
 			weaponInfo->weaponAttacksInfo[i].firingSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].firingSnd);
@@ -3765,6 +3769,9 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 				theFxScheduler.PlayEffect("thermal/shockwave", origin);
 			}
 		    break;
+		case FL_FLAMETHROWER:
+			theFxScheduler.PlayEffect("env/small_fire.efx", origin);
+			break;
 		case FL_OTHER:
 		case FL_NONE:
 			if (baseWeapon == WP_ROCKET_LAUNCHER && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
@@ -3863,6 +3870,8 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 			theFxScheduler.PlayEffect("thermal/shockwave", origin);
 		}
 		break;
+		
+	case FL_FLAMETHROWER:
 	case FL_OTHER:
 	case FL_NONE:
 		if (baseWeapon == WP_ROCKET_LAUNCHER && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {

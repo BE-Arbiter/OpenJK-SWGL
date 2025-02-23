@@ -1488,6 +1488,9 @@ void FireWeapon( gentity_t *ent, int attack_index)
 		case FL_BOWCASTER:
 			WP_FireGenericBowcaster(ent, attack_index);
 			break;
+		case FL_FLAMETHROWER:
+			WP_FireFlameThrower(ent, attack_index);
+			break;
 		case FL_BEAM:
 		case FL_FULL_BEAM:
 		case FL_BEAM_CHARGED:

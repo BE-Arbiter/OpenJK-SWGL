@@ -428,6 +428,10 @@ void ATK_FiringLogic(const char** holdBuf)
 	{
 	    firingLogic = FL_BLASTER;
 	}
+	else if(!Q_stricmp(tokenStr, "FL_FLAMETHROWER"))
+	{
+	    firingLogic = FL_FLAMETHROWER;
+	}
 	else if(!Q_stricmp(tokenStr, "FL_BLASTER_CHARGED"))
 	{
 	    firingLogic = FL_BLASTER_CHARGED;

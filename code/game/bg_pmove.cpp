@@ -14868,6 +14868,9 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			}
 		}
 
+		if (attackData->firingLogic == FL_FLAMETHROWER && attackData->firingSnd[0]) {
+			pm->gent->s.loopSound = G_EffectIndex(attackData->firingSnd);
+		}
 		// This flag should always get set, even when alt-firing
 		pm->ps->eFlags |= EF_FIRING;
 	}

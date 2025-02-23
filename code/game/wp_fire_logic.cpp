@@ -33,7 +33,7 @@ File for default fire behavior
 
 qboolean is_player_scoped(gentity_t* ent)
 {
-	return (qboolean)(cg.zoomMode >= ST_A280 && ent->client->ps.clientNum == 0);
+	return (qboolean)((cg.zoomMode >= ST_A280 || cg.zoomMode == ST_DISRUPTOR) && ent->client->ps.clientNum == 0);
 }
 
 /*
@@ -359,6 +359,89 @@ void WP_FireGenericBlaster(gentity_t* ent, int attackIndex)
 }
 
 
+//---------------------------------------------------------
+void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
+//---------------------------------------------------------
+{
+	trace_t		tr;
+	weaponData_t* wpnData = &weaponData[ent->s.weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
+	vec3_t	dir, start,end;
+	float range = attackData->range;
+
+	/* Calculate the damage, it's a little bit random */
+	int	damage = attackData->damage;
+	
+	//Get normalized direction in dir
+	VectorCopy(forwardVec, dir);
+	VectorNormalizeFast(dir);
+
+	//Init start point
+	VectorCopy(muzzle, start);
+
+	VectorMA(start, range, dir, end);
+
+
+	vec3_t mins = { 0,0,0 };
+	vec3_t maxs = { 0,0,0 };
+	for (int i = 0; i < 3; i++)
+	{
+		mins[i] = start[i] - range;
+		maxs[i] = start[i] + range;
+	}
+	gentity_t* entityList[MAX_GENTITIES];
+	int numListedEntities = gi.EntitiesInBox(mins, maxs, entityList, MAX_GENTITIES);
+	
+	for(int i = 0 ; i < numListedEntities; i++){
+		gentity_t *target = entityList[i];
+
+		if (target->s.clientNum == ent->s.clientNum) {
+			//Don't target oneself
+			continue;
+		}
+
+		//Aim for somewhere in the torso
+		vec3_t hitloc;
+		VectorCopy(target->currentOrigin, hitloc);
+		hitloc[2] += 25.0f;
+		
+
+		//Is he in front of us?
+		vec3_t target_dir;
+		VectorSubtract(hitloc, start, target_dir);
+
+		int dist = VectorLength(target_dir);
+		if (dist == 0) {
+			continue; // Just in case
+		}
+
+		VectorNormalizeFast(target_dir);
+		if (DotProduct(target_dir, dir) < 0.80f) {
+			continue; // We are not "in front" of the muzzle
+		}
+
+		gi.trace(&tr, start, vec3_origin, vec3_origin, hitloc, ent->s.number, MASK_FORCE_PUSH, (EG2_Collision)0, 0);//was MASK_SHOT, but changed to match above trace and crosshair trace
+		if (tr.fraction < 1.0f && tr.entityNum != target->s.number)
+		{//must have clear LOS
+			continue;
+		}
+
+		if (target->takedamage)
+		{
+			G_Damage(target, ent, ent, target_dir, hitloc, damage, DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC | DAMAGE_IGNORE_TEAM, MOD_LAVA, HL_NONE);
+			// HeEeHuHahEHoHo
+			if (target->health > 0)
+			{
+				G_PlayEffect(G_EffectIndex("env/fire.efx"), target->currentOrigin);
+				G_PlayEffect(G_EffectIndex("env/small_fire.efx"), hitloc);
+			}
+			else
+			{
+				G_PlayEffect(G_EffectIndex("env/small_fire.efx"), target->currentOrigin);
+			}
+		}
+	}
+}
 //---------------------------------------------------------
 void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 //---------------------------------------------------------
