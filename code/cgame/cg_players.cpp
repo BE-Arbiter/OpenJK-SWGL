@@ -5620,28 +5620,50 @@ static void CG_StopWeaponSounds( centity_t *cent )
 		return;
 	}
 
-	if ( !( cent->currentState.eFlags & EF_FIRING ) )
+
+
+	//Handle weapon Looping Sounds
+	if ( (cent->currentState.eFlags & EF_FIRING) && !(cent->currentState.eFlags & EF_ALT_FIRING))
 	{
-		if ( cent->pe.lightningFiring )
+		if ( weapon->weaponAttacksInfo[0].firingSound)
 		{
-			if ( weapon->stopSound )
-			{
-				cgi_S_StartSound( cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound );
-			}
-
-			cent->pe.lightningFiring = qfalse;
+			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[0].firingSound );
 		}
-		return;
-	}
 
-	//
-	if ( cent->currentState.eFlags & EF_ALT_FIRING )
+		cent->pe.lightningFiring = qtrue;
+	}
+	else if ( cent->currentState.eFlags & EF_ALT_FIRING )
 	{
 		if ( weapon->weaponAttacksInfo[1].firingSound)
 		{
 			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[1].firingSound );
 		}
+
 		cent->pe.lightningFiring = qtrue;
+	}
+	else if (weapon->readySound)
+	{
+		cgi_S_AddLoopingSound(cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->readySound);
+
+		cent->pe.lightningFiring = qfalse;
+		cent->pe.lightningReady = qtrue;
+	}
+	else
+	{
+		if (cent->pe.lightningFiring || cent->pe.lightningReady)
+		{
+
+			if (weapon->stopSound)
+			{
+				cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound);
+			}
+			else {
+				cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, cgi_S_RegisterSound("sound/null.wav"));
+			}
+
+			cent->pe.lightningFiring = qfalse;
+			cent->pe.lightningReady = qfalse;
+		}
 	}
 }
 

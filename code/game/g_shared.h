@@ -1772,6 +1772,7 @@ typedef struct weaponInfo_s {
 	sfxHandle_t		stopSound;
 
 	sfxHandle_t		selectSound;	// sound played when weapon is selected
+	sfxHandle_t		readySound;		// sound played when weapon is idle
 
 	weaponAttackInfo_s weaponAttacksInfo[MAX_WEAPON_ATTACKS];
 } weaponInfo_t;

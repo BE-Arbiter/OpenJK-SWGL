@@ -155,6 +155,7 @@ typedef enum //# ammo_e
 	AMMO_THERMAL,
 	AMMO_TRIPMINE,
 	AMMO_DETPACK,
+	AMMO_FLAMER,	// FOR THE FLAMER,
 	AMMO_HC_MAX
 } ammo_t;
 
@@ -280,6 +281,7 @@ typedef struct weaponData_s
 	char	weaponMdl[64];		// Weapon Model
 	char	stopSnd[64];		// Sound made when weapon stops firing
 	char	selectSnd[64];		// the sound to play when this weapon gets selected
+	char	readySnd[64];		// the sound to play when this weapon is Idle
 
 	int		ammoIndex;			// Index to proper ammo slot
 	int		ammoLow;			// Count when ammo is low

@@ -184,6 +184,7 @@ void WPN_AmmoMax(const char** holdBuf);
 void WPN_AmmoLowCnt(const char** holdBuf);
 void WPN_AmmoType(const char** holdBuf);
 void WPN_StopSnd(const char** holdBuf);
+void WPN_ReadySound(const char** holdBuf);
 void WPN_SelectSnd(const char** holdBuf);
 void WPN_WeaponClass(const char** holdBuf);
 void WPN_WeaponIcon(const char** holdBuf);
@@ -310,6 +311,7 @@ wpnParms_t WpnParms[] =
 	// Sound Info
 	{ "stopsound",		WPN_StopSnd },
 	{ "selectsound",	WPN_SelectSnd },
+	{ "readySound",		WPN_ReadySound },
 	
 	//Attacks Definition
 	{ "attackDefinition",	WPN_ParseAttack},

@@ -207,6 +207,8 @@ void WPN_Ammo(const char** holdBuf)
 		wpnParms.ammoNum = AMMO_BLASTER;
 	else if (!Q_stricmp(tokenStr, "AMMO_POWERCELL"))
 		wpnParms.ammoNum = AMMO_POWERCELL;
+	else if (!Q_stricmp(tokenStr, "AMMO_FLAMER"))
+		wpnParms.ammoNum = AMMO_FLAMER;
 	else if (!Q_stricmp(tokenStr, "AMMO_METAL_BOLTS"))
 		wpnParms.ammoNum = AMMO_METAL_BOLTS;
 	else if (!Q_stricmp(tokenStr, "AMMO_ROCKETS"))
@@ -402,6 +404,11 @@ void WPN_ScopeType(const char** holdBuf)
 		return;
 	}
 	weaponData[wpnParms.weaponNum].scopeType = scopeType;
+}
+
+void WPN_ReadySound(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].readySnd, 64, "readySound");
 }
 
 /*

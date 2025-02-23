@@ -137,6 +137,7 @@ typedef struct {
 
 	// For persistent beam weapons, so they don't play their start sound more than once
 	qboolean		lightningFiring;
+	qboolean		lightningReady;
 
 	// machinegun spinning
 //	float			barrelAngle;

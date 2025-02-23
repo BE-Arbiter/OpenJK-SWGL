@@ -422,6 +422,9 @@ void CG_RegisterWeapon( int weaponNum ) {
 	if (weaponData[weaponNum].selectSnd[0]) {
 		weaponInfo->selectSound = cgi_S_RegisterSound( weaponData[weaponNum].selectSnd );
 	}
+	if (weaponData[weaponNum].readySnd[0]) {
+		weaponInfo->readySound = cgi_S_RegisterSound( weaponData[weaponNum].readySnd);
+	}
 
 	//Register a blank effect to overwrite the charging sound of dual pistols... Hate this hack...
 	cgs.effects.blankEffect = theFxScheduler.RegisterEffect("misc/blank");
