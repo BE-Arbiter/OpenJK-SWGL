@@ -6754,8 +6754,11 @@ qboolean WP_SaberLaunch( gentity_t *self, gentity_t *saber, qboolean thrown, qbo
 					WP_SetSaber(self, 0, "9th_sister_staff");
 					TIMER_Set(NPC, "saber_switch", Q_irand(3000, 5000));
 				}
-				NPC->client->ps.saber[0].blade[0].color = currentColor;
-				NPC->client->ps.saber[0].blade[1].color = currentColor;
+				if (NPC->client->ps.saber[0].numBlades > 1) // Should avoid an indexoutofbounds exception just in case.
+				{
+					NPC->client->ps.saber[0].blade[0].color = currentColor;
+					NPC->client->ps.saber[0].blade[1].color = currentColor;
+				}
 			}
 			//this is a regular throw, so take force power
 			if ( self->client->ps.forcePowerLevel[FP_SABERTHROW] > FORCE_LEVEL_2 )

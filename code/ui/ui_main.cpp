@@ -268,7 +268,7 @@ typedef struct
 
 typedef struct missionData
 {
-	const char* title;
+	const char *title;
 	const char *missionNum;
 	const char *picCode;
 	const char *mapCode;
@@ -430,7 +430,8 @@ static missionTopicData_t missionTopicData[1][MAX_MISSION_TOPIC] =
 static missionData_t missionData[MAX_MISSION_TOPIC][MAX_MISSION] =
 {
 
-// Phantom Menace
+	// Phantom Menace
+
 {
 	{ "@SWGLMISSIONS_EPI_DOTF",			"0",		"Ep1_DotF", NULL, "@SWGLMISSIONS_EP1_DOTF_DESC", qtrue},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
@@ -671,7 +672,6 @@ static missionData_t missionData[MAX_MISSION_TOPIC][MAX_MISSION] =
 	{ "@SWGLMISSIONS_YAVIN_COURTYARD",	"23",				"levelshots/yavin_courtyard", "yavin_courtyard", "@SWGLMISSIONS_YAVIN_COURTYARD_DESC"},
 	{ "@SWGLMISSIONS_YAVIN_FINAL",		"24",			"levelshots/yavin_final", "yavin_final", "@SWGLMISSIONS_YAVIN_FINAL_DESC"},
 	{ "@SWGLMISSIONS_JODEMO",			"25",		"levelshots/jodemo", "jodemo", "@SWGLMISSIONS_JODEMO_DESC"},
-
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
@@ -5398,7 +5398,6 @@ extern saber_colors_t TranslateSaberColor( const char *name );
 
 static void UI_UpdateSaberCvars ( void )
 {
-
 	if (!Cvar_VariableIntegerValue("ui_saber_edit") && !Cvar_VariableIntegerValue("ui_npc_menu"))
 	{
 		Cvar_Set("g_saber_type", Cvar_VariableString("ui_saber_type"));
@@ -5408,10 +5407,17 @@ static void UI_UpdateSaberCvars ( void )
 		Cvar_Set("g_saber2_color", Cvar_VariableString("ui_saber2_color"));
 	}
 
-
 	if (TranslateSaberColor(Cvar_VariableString("ui_saber_color")) >= SABER_RGB)
 	{
 		char rgbColor[8];
+
+		if(Cvar_VariableIntegerValue("ui_rgb_saber_red") < 0)
+			Cvar_Set("ui_rgb_saber_red", 0);
+		if (Cvar_VariableIntegerValue("ui_rgb_saber_green") < 0)
+			Cvar_Set("ui_rgb_saber_green", 0);
+		if (Cvar_VariableIntegerValue("ui_rgb_saber_blue") < 0)
+			Cvar_Set("ui_rgb_saber_blue", 0);
+
 		Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber_red"),
 					(Cvar_VariableIntegerValue("ui_rgb_saber_green")),
 					(Cvar_VariableIntegerValue("ui_rgb_saber_blue")));
@@ -5421,12 +5427,19 @@ static void UI_UpdateSaberCvars ( void )
 		}
 		else
 		{
-			Cvar_Set("ui_npc_saberonecolor", rgbColor);
+			Cvar_Set("g_NPCsabercolor", rgbColor);
 		}
 	}
 
 	if (TranslateSaberColor(Cvar_VariableString("ui_saber2_color")) >= SABER_RGB)
 	{
+		if (Cvar_VariableIntegerValue("ui_rgb_saber2_red") < 0)
+			Cvar_Set("ui_rgb_saber2_red", 0);
+		if (Cvar_VariableIntegerValue("ui_rgb_saber2_green") < 0)
+			Cvar_Set("ui_rgb_saber2_green", 0);
+		if (Cvar_VariableIntegerValue("ui_rgb_saber2_blue") < 0)
+			Cvar_Set("ui_rgb_saber2_blue", 0);
+
 		char rgbColor[8];
 		Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber2_red"),
 					(Cvar_VariableIntegerValue("ui_rgb_saber2_green")),
@@ -5437,7 +5450,7 @@ static void UI_UpdateSaberCvars ( void )
 		}
 		else
 		{
-			Cvar_Set("ui_npc_sabertwocolor", rgbColor);
+			Cvar_Set("g_NPCsabertwocolor", rgbColor);
 		}
 	}
 

@@ -91,6 +91,8 @@
 #define STORMCOMMANDO "Storm_Commando"
 #define SUPERCOMMANDO "Supercommando"
 #define VADER "Darth_Vader"
+#define SIM_ALOO "Sim_Aloo"
+#define GREEJATUS "Janus_Greejatus"
 
 
 
@@ -125,6 +127,10 @@
 
 // Mandalorians
 #define MANDALORIAN "Mandalorian"
+
+// Nightsisters
+#define MERRIN "Merrin"
+#define NS_GHOST "Nightsister_Spirit"
 
 
 

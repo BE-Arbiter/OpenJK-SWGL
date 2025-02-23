@@ -143,6 +143,9 @@ void NPC_Vader_Precache(void)
 	// Strained Vader breathing
 	G_SoundIndex("sound/chars/am_darth_vader/vader_breathe_strained.wav");
 
+	// Wheezing Vader breathing
+	G_SoundIndex("sound/chars/am_darth_vader/vader_breathe_wheeze.wav");
+
 	// Regular Starkiller breathing
 	G_SoundIndex("sound/chars/lord_starkiller/starkiller_breathe.wav");
 
@@ -6623,7 +6626,14 @@ void NPC_BSJedi_FollowLeader( void )
 		if (!Q_stricmp(VADER, NPC->NPC_type)
 			|| !Q_stricmp(VADER_INFINITIES, NPC->NPC_type))
 		{
-			if (NPC->health > (NPC->max_health * .33))
+
+			if ((NPC->attrFlags & ATTR_HELD_BY_HATRED && NPC->max_health < 100) || (!(NPC->attrFlags & ATTR_HELD_BY_HATRED) && NPC->health <= (NPC->max_health * .20f)))
+			{
+				G_SoundOnEnt(NPC, CHAN_VOICE, va("sound/chars/am_darth_vader/vader_breathe_wheeze.wav"));
+				TIMER_Set(NPC, "breathing", Q_irand(3000, 5000));
+
+			}
+			else if (NPC->health >= (NPC->max_health * .50))
 			{
 				G_SoundOnEnt(NPC, CHAN_VOICE, va("sound/chars/am_darth_vader/vader_breathe.wav"));
 				TIMER_Set(NPC, "breathing", Q_irand(7300, 10000));
@@ -6633,10 +6643,16 @@ void NPC_BSJedi_FollowLeader( void )
 				G_SoundOnEnt(NPC, CHAN_VOICE, va("sound/chars/am_darth_vader/vader_breathe_strained.wav"));
 				TIMER_Set(NPC, "breathing", Q_irand(1500, 3000));
 			}
+
 		}
 		else
 		{
-			if (NPC->health > (NPC->max_health * .33))
+			if ((NPC->attrFlags & ATTR_HELD_BY_HATRED && NPC->max_health < 100))
+			{
+				G_SoundOnEnt(NPC, CHAN_VOICE, va("sound/chars/lord_starkiller/starkiller_breathe_strained.wav"));
+				TIMER_Set(NPC, "breathing", Q_irand(2120, 4000));
+			}
+			else if (NPC->health > (NPC->max_health * .33))
 			{
 				G_SoundOnEnt(NPC, CHAN_VOICE, va("sound/chars/lord_starkiller/starkiller_breathe.wav"));
 				TIMER_Set(NPC, "breathing", Q_irand(3131, 5000));
@@ -7902,7 +7918,14 @@ void NPC_BSJedi_Default( void )
 		if (!Q_stricmp(VADER, NPC->NPC_type)
 			|| !Q_stricmp(VADER_INFINITIES, NPC->NPC_type))
 		{
-			if (NPC->health > (NPC->max_health * .33))
+
+			if ((NPC->attrFlags & ATTR_HELD_BY_HATRED && NPC->max_health < 100) || (!(NPC->attrFlags & ATTR_HELD_BY_HATRED) && NPC->health <= (NPC->max_health * .20f)))
+			{
+				G_SoundOnEnt(NPC, CHAN_VOICE, va("sound/chars/am_darth_vader/vader_breathe_wheeze.wav"));
+				TIMER_Set(NPC, "breathing", Q_irand(3000, 5000));
+
+			}
+			else if (NPC->health >= (NPC->max_health * .50))
 			{
 				G_SoundOnEnt(NPC, CHAN_VOICE, va("sound/chars/am_darth_vader/vader_breathe.wav"));
 				TIMER_Set(NPC, "breathing", Q_irand(7300, 10000));
@@ -7912,10 +7935,16 @@ void NPC_BSJedi_Default( void )
 				G_SoundOnEnt(NPC, CHAN_VOICE, va("sound/chars/am_darth_vader/vader_breathe_strained.wav"));
 				TIMER_Set(NPC, "breathing", Q_irand(1500, 3000));
 			}
+
 		}
 		else
 		{
-			if (NPC->health > (NPC->max_health * .33))
+			if ((NPC->attrFlags & ATTR_HELD_BY_HATRED && NPC->max_health < 100))
+			{
+				G_SoundOnEnt(NPC, CHAN_VOICE, va("sound/chars/lord_starkiller/starkiller_breathe_strained.wav"));
+				TIMER_Set(NPC, "breathing", Q_irand(2120, 4000));
+			}
+			else if (NPC->health > (NPC->max_health * .33))
 			{
 				G_SoundOnEnt(NPC, CHAN_VOICE, va("sound/chars/lord_starkiller/starkiller_breathe.wav"));
 				TIMER_Set(NPC, "breathing", Q_irand(3131, 5000));
@@ -7972,7 +8001,6 @@ void NPC_BSJedi_Default( void )
 
 			NPC->client->ps.saber[0].blade[0].color = currentColor;
 			NPC->client->ps.saber[0].blade[1].color = currentColor;
-
 		}
 		TIMER_Set(NPC, "saber_switch", Q_irand(5000, 20000));
 	}
