@@ -1913,6 +1913,9 @@ void CG_DrawDataPadWeaponSelect( void )
 	{
 		weaponSelectI = 0;
 	}
+	else {
+		weaponSelectI = currentIconIndex + 1;
+	}
 
 	// Right side ICONS
 	// Work forwards from current icon
@@ -1920,14 +1923,14 @@ void CG_DrawDataPadWeaponSelect( void )
 	holdX = centerXPos + (bigIconSize_x / 2) + bigPad;
 	for (iconCnt=1;iconCnt<(sideRightIconCnt+1);weaponSelectI++)
 	{
-		if ( !(cg.snap->ps.weapons[weaponBuckets[weaponSelectI]]))	// Does he have this weapon?
+		int currentWeapon = weaponBuckets[weaponSelectI];
+		if ( !(cg.snap->ps.weapons[currentWeapon]))	// Does he have this weapon?
 		{
 			continue;
 		}
 
 		++iconCnt;					// Good icon
 
-		int currentWeapon = weaponBuckets[weaponSelectI];
 		if (weaponData[currentWeapon].weaponIcon[0])
 		{
 			weaponInfo_t	*weaponInfo;
