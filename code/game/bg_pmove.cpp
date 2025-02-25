@@ -14604,6 +14604,243 @@ void PM_SetSpecialMoveValues (void )
 
 extern float cg_zoomFov;	//from cg_view.cpp
 
+extern qboolean WP_SaberCanTurnOffSomeBlades(saberInfo_t* saber);
+extern qboolean WP_SaberBladeUseSecondBladeStyle(saberInfo_t* saber, int bladeNum);
+//-------------------------------------------
+void PM_SaberAttackCycle_f(gentity_t *self)
+//-------------------------------------------
+{
+
+	if (self->client->ps.saber->type == SABER_INQUISITOR)
+	{
+		float spinSpeed = 0.0f;
+		if (self->client->ps.saber->inquisitor_spin < 3)
+		{
+			Inquisitor_Spin(self);
+		}
+		else
+		{
+			Inquisitor_Stop(self);
+		}
+		return;
+	}
+
+	if (self->client->ps.dualSabers)
+	{//can't cycle styles with dualSabers, so just toggle second saber on/off
+		if (WP_SaberCanTurnOffSomeBlades(&self->client->ps.saber[1]))
+		{//can turn second saber off
+			if (self->client->ps.saber[1].ActiveManualOnly())
+			{//turn it off
+				qboolean skipThisBlade;
+				for (int bladeNum = 0; bladeNum < self->client->ps.saber[1].numBlades; bladeNum++)
+				{
+					skipThisBlade = qfalse;
+					if (WP_SaberBladeUseSecondBladeStyle(&self->client->ps.saber[1], bladeNum))
+					{//check to see if we should check the secondary style's flags
+						if ((self->client->ps.saber[1].saberFlags2 & SFL2_NO_MANUAL_DEACTIVATE2))
+						{
+							skipThisBlade = qtrue;
+						}
+					}
+					else
+					{//use the primary style's flags
+						if ((self->client->ps.saber[1].saberFlags2 & SFL2_NO_MANUAL_DEACTIVATE))
+						{
+							skipThisBlade = qtrue;
+						}
+					}
+					if (!skipThisBlade)
+					{
+						self->client->ps.saber[1].BladeActivate(bladeNum, qfalse);
+						if (self->s.weapon == WP_SABER)
+						{
+							G_SoundIndexOnEnt(self, CHAN_WEAPON, self->client->ps.saber[1].soundOff);
+						}
+					}
+				}
+			}
+			else if (!self->client->ps.saber[0].ActiveManualOnly())
+			{//first one is off, too, so just turn that one on
+				if (!self->client->ps.saberInFlight)
+				{//but only if it's in your hand!
+					self->client->ps.saber[0].Activate();
+				}
+			}
+			else
+			{//turn on the second one
+				self->client->ps.saber[1].Activate();
+			}
+			return;
+		}
+	}
+	else if (self->client->ps.saber[0].numBlades > 1
+		&& WP_SaberCanTurnOffSomeBlades(&self->client->ps.saber[0]))//self->client->ps.saber[0].type == SABER_STAFF )
+	{//can't cycle styles with saberstaff, so just toggles saber blades on/off
+		if (self->client->ps.saberInFlight)
+		{//can't turn second blade back on if it's in the air, you naughty boy!
+			return;
+		}
+		/*
+		if ( self->client->ps.saber[0].singleBladeStyle == SS_NONE )
+		{//can't use just one blade?
+			return;
+		}
+		*/
+		qboolean playedSound = qfalse;
+		if (!self->client->ps.saber[0].blade[0].active)
+		{//first one is not even on
+			//turn only it on
+			self->client->ps.SaberBladeActivate(0, 0, qtrue);
+			return;
+		}
+
+		qboolean skipThisBlade;
+		for (int bladeNum = 1; bladeNum < self->client->ps.saber[0].numBlades; bladeNum++)
+		{
+			if (!self->client->ps.saber[0].blade[bladeNum].active)
+			{//extra is off, turn it on
+				self->client->ps.saber[0].BladeActivate(bladeNum, qtrue);
+			}
+			else
+			{//turn extra off
+				skipThisBlade = qfalse;
+				if (WP_SaberBladeUseSecondBladeStyle(&self->client->ps.saber[1], bladeNum))
+				{//check to see if we should check the secondary style's flags
+					if ((self->client->ps.saber[1].saberFlags2 & SFL2_NO_MANUAL_DEACTIVATE2))
+					{
+						skipThisBlade = qtrue;
+					}
+				}
+				else
+				{//use the primary style's flags
+					if ((self->client->ps.saber[1].saberFlags2 & SFL2_NO_MANUAL_DEACTIVATE))
+					{
+						skipThisBlade = qtrue;
+					}
+				}
+				if (!skipThisBlade)
+				{
+					self->client->ps.saber[0].BladeActivate(bladeNum, qfalse);
+					if (!playedSound)
+					{
+						if (self->s.weapon == WP_SABER)
+						{
+							G_SoundIndexOnEnt(self, CHAN_WEAPON, self->client->ps.saber[0].soundOff);
+						}
+						playedSound = qtrue;
+					}
+				}
+			}
+		}
+		return;
+	}
+
+	int allowedStyles = self->client->ps.saberStylesKnown;
+	if (self->client->ps.dualSabers
+		&& self->client->ps.saber[0].Active()
+		&& self->client->ps.saber[1].Active())
+	{
+		allowedStyles |= (1 << SS_DUAL);
+		for (int styleNum = SS_NONE + 1; styleNum < SS_NUM_SABER_STYLES; styleNum++)
+		{
+			if (styleNum == SS_TAVION
+				&& ((self->client->ps.saber[0].stylesLearned & (1 << SS_TAVION)) || (self->client->ps.saber[1].stylesLearned & (1 << SS_TAVION)))//was given this style by one of my sabers
+				&& !(self->client->ps.saber[0].stylesForbidden & (1 << SS_TAVION))
+				&& !(self->client->ps.saber[1].stylesForbidden & (1 << SS_TAVION)))
+			{//if have both sabers on, allow tavion only if one of our sabers specifically wanted to use it... (unless specifically forbidden)
+			}
+			else if (styleNum == SS_DUAL
+				&& !(self->client->ps.saber[0].stylesForbidden & (1 << SS_DUAL))
+				&& !(self->client->ps.saber[1].stylesForbidden & (1 << SS_DUAL)))
+			{//if have both sabers on, only dual style is allowed (unless specifically forbidden)
+			}
+			else
+			{
+				allowedStyles &= ~(1 << styleNum);
+			}
+		}
+	}
+
+	if (!allowedStyles)
+	{
+		return;
+	}
+
+	int	saberAnimLevel;
+	if (!self->s.number)
+	{
+		saberAnimLevel = cg.saberAnimLevelPending;
+	}
+	else
+	{
+		saberAnimLevel = self->client->ps.saberAnimLevel;
+	}
+	saberAnimLevel++;
+	int sanityCheck = 0;
+	while (self->client->ps.saberAnimLevel != saberAnimLevel
+		&& !(allowedStyles & (1 << saberAnimLevel))
+		&& sanityCheck < SS_NUM_SABER_STYLES + 1)
+	{
+		saberAnimLevel++;
+		if (saberAnimLevel > SS_STAFF)
+		{
+			saberAnimLevel = SS_FAST;
+		}
+		sanityCheck++;
+	}
+
+	if (!(allowedStyles & (1 << saberAnimLevel)))
+	{
+		return;
+	}
+
+	WP_UseFirstValidSaberStyle(self, &saberAnimLevel);
+	if (!self->s.number)
+	{
+		cg.saberAnimLevelPending = saberAnimLevel;
+	}
+	else
+	{
+		self->client->ps.saberAnimLevel = saberAnimLevel;
+	}
+
+#ifndef FINAL_BUILD
+	switch (saberAnimLevel)
+	{
+	case SS_FAST:
+		gi.Printf(S_COLOR_BLUE "Lightsaber Combat Style: Fast\n");
+		//LIGHTSABERCOMBATSTYLE_FAST
+		break;
+	case SS_MEDIUM:
+		gi.Printf(S_COLOR_YELLOW "Lightsaber Combat Style: Medium\n");
+		//LIGHTSABERCOMBATSTYLE_MEDIUM
+		break;
+	case SS_STRONG:
+		gi.Printf(S_COLOR_RED "Lightsaber Combat Style: Strong\n");
+		//LIGHTSABERCOMBATSTYLE_STRONG
+		break;
+	case SS_DESANN:
+		gi.Printf(S_COLOR_CYAN "Lightsaber Combat Style: Desann\n");
+		//LIGHTSABERCOMBATSTYLE_DESANN
+		break;
+	case SS_TAVION:
+		gi.Printf(S_COLOR_MAGENTA "Lightsaber Combat Style: Tavion\n");
+		//LIGHTSABERCOMBATSTYLE_TAVION
+		break;
+	case SS_DUAL:
+		gi.Printf(S_COLOR_MAGENTA "Lightsaber Combat Style: Dual\n");
+		//LIGHTSABERCOMBATSTYLE_TAVION
+		break;
+	case SS_STAFF:
+		gi.Printf(S_COLOR_MAGENTA "Lightsaber Combat Style: Staff\n");
+		//LIGHTSABERCOMBATSTYLE_TAVION
+		break;
+	}
+	//gi.Printf("\n");
+#endif
+}
+
+
 //-------------------------------------------
 void PM_AdjustAttackStates( pmove_t *pm )
 //-------------------------------------------
@@ -14662,6 +14899,9 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	amount = pm->ps->ammo[weaponData[ weapon ].ammoIndex] - weaponData[weapon].attackData[attackIndex].energyPerShot;
 	if ( weapon == WP_SABER && (!cg.zoomMode||pm->ps->clientNum) )
 	{//don't let the alt-attack be interpreted as an actual attack command
+		if (pm->cmd.buttons & BUTTON_ZOOM && !(pm->ps->pFlags & PF_ZOOMING) && pm->gent && (pm->gent->s.number < MAX_CLIENTS || G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING) {
+			PM_SaberAttackCycle_f(pm->gent);
+		}
 		if ( pm->ps->saberInFlight )
 		{
 			pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
@@ -14841,7 +15081,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		}
 	}
 
-	if (pm->cmd.buttons && BUTTON_ZOOM) {
+	if (pm->cmd.buttons & BUTTON_ZOOM) {
 		pm->ps->pFlags |= PF_ZOOMING;
 	}
 	else {

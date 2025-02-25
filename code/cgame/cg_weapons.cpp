@@ -1778,14 +1778,13 @@ void CG_DrawDataPadWeaponSelect( void )
 	int				sideLeftIconCnt,sideRightIconCnt;
 	int				holdCount,iconCnt;
 	char			text[1024]={0};
-	qboolean drewConc = qfalse;
 
 	// showing weapon select clears pickup item display, but not the blend blob
 	cg.itemPickupTime = 0;
 
 	// count the number of weapons owned
 	ownedWeaponCount = 0;
-	for ( i = 1 ; i < weaponCount ; i++ )
+	for ( i =  1; i < weaponCount ; i++ )
 	{
 		if ( cg.snap->ps.weapons[i] )
 		{
@@ -1828,18 +1827,19 @@ void CG_DrawDataPadWeaponSelect( void )
 		cg.DataPadWeaponSelect = weaponCount - 1;
 	}
 
-	// What weapon does the player currently have selected
-	if ( cg.DataPadWeaponSelect == WP_CONCUSSION )
-	{
-		weaponSelectI = WP_FLECHETTE;
+	int currentIconIndex = 0;
+	for (int i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+		if (weaponBuckets[i] == cg.DataPadWeaponSelect) {
+			currentIconIndex = i;
+			break;
+		}
 	}
-	else
-	{
-		weaponSelectI = cg.DataPadWeaponSelect - 1;
+	
+	if (currentIconIndex == 0) {
+		weaponSelectI = WEAPON_BUCKETS_SIZE - 1;
 	}
-	if (weaponSelectI<1)
-	{
-		weaponSelectI = weaponCount - 1;
+	else {
+		weaponSelectI = currentIconIndex - 1;
 	}
 
 	const float smallIconSize_x = 40 * cgs.widthRatioCoef, smallIconSize_y = 40;
@@ -1858,39 +1858,25 @@ void CG_DrawDataPadWeaponSelect( void )
 	cgi_R_SetColor( colorTable[CT_WHITE] );
 	for (iconCnt=1 ; iconCnt <= sideLeftIconCnt ; weaponSelectI-- )
 	{
-		if ( weaponSelectI == WP_CONCUSSION )
-		{
-			weaponSelectI--;
-		}
-		else if ( weaponSelectI == WP_FLECHETTE && !drewConc && cg.DataPadWeaponSelect != WP_CONCUSSION )
-		{
-			weaponSelectI = WP_CONCUSSION;
-		}
-
 		if (weaponSelectI<1)
 		{
-			weaponSelectI = weaponCount - 1;
+			weaponSelectI = WEAPON_BUCKETS_SIZE - 1;
 		}
 
-		if ( !(cg.snap->ps.weapons[weaponSelectI]))	// Does he have this weapon?
+		if ( !(cg.snap->ps.weapons[weaponBuckets[weaponSelectI]]))	// Does he have this weapon?
 		{
-			if ( weaponSelectI == WP_CONCUSSION )
-			{
-				drewConc = qtrue;
-				weaponSelectI = WP_ROCKET_LAUNCHER;
-			}
 			continue;
 		}
 
 		++iconCnt;					// Good icon
-
-		if (weaponData[weaponSelectI].weaponIcon[0])
+		int currentWeapon = weaponBuckets[weaponSelectI];
+		if (weaponData[currentWeapon].weaponIcon[0])
 		{
 			weaponInfo_t	*weaponInfo;
-			CG_RegisterWeapon( weaponSelectI );
-			weaponInfo = &cg_weapons[weaponSelectI];
+			CG_RegisterWeapon(currentWeapon);
+			weaponInfo = &cg_weapons[currentWeapon];
 
-			if (!CG_WeaponCheck(weaponSelectI))
+			if (!CG_WeaponCheck(currentWeapon))
 			{
 				CG_DrawPic(holdX, graphicYPos, smallIconSize_x, smallIconSize_y, weaponInfo->weaponIconNoAmmo);
 			}
@@ -1900,12 +1886,6 @@ void CG_DrawDataPadWeaponSelect( void )
 			}
 
 			holdX -= (smallIconSize_x + pad);
-		}
-
-		if ( weaponSelectI == WP_CONCUSSION )
-		{
-			drewConc = qtrue;
-			weaponSelectI = WP_ROCKET_LAUNCHER;
 		}
 	}
 
@@ -1929,18 +1909,9 @@ void CG_DrawDataPadWeaponSelect( void )
 		}
 	}
 
-	if ( cg.DataPadWeaponSelect == WP_CONCUSSION )
+	if (weaponSelectI>= (WEAPON_BUCKETS_SIZE -1) )
 	{
-		weaponSelectI = WP_ROCKET_LAUNCHER;
-	}
-	else
-	{
-		weaponSelectI = cg.DataPadWeaponSelect + 1;
-	}
-
-	if (weaponSelectI>= weaponCount)
-	{
-		weaponSelectI = 1;
+		weaponSelectI = 0;
 	}
 
 	// Right side ICONS
@@ -1949,39 +1920,22 @@ void CG_DrawDataPadWeaponSelect( void )
 	holdX = centerXPos + (bigIconSize_x / 2) + bigPad;
 	for (iconCnt=1;iconCnt<(sideRightIconCnt+1);weaponSelectI++)
 	{
-		if ( weaponSelectI == WP_CONCUSSION )
+		if ( !(cg.snap->ps.weapons[weaponBuckets[weaponSelectI]]))	// Does he have this weapon?
 		{
-			weaponSelectI++;
-		}
-		else if ( weaponSelectI == WP_ROCKET_LAUNCHER && !drewConc && cg.DataPadWeaponSelect != WP_CONCUSSION )
-		{
-			weaponSelectI = WP_CONCUSSION;
-		}
-		if (weaponSelectI>= weaponCount)
-		{
-			weaponSelectI = 1;
-		}
-
-		if ( !(cg.snap->ps.weapons[weaponSelectI]))	// Does he have this weapon?
-		{
-			if ( weaponSelectI == WP_CONCUSSION )
-			{
-				drewConc = qtrue;
-				weaponSelectI = WP_FLECHETTE;
-			}
 			continue;
 		}
 
 		++iconCnt;					// Good icon
 
-		if (weaponData[weaponSelectI].weaponIcon[0])
+		int currentWeapon = weaponBuckets[weaponSelectI];
+		if (weaponData[currentWeapon].weaponIcon[0])
 		{
 			weaponInfo_t	*weaponInfo;
-			CG_RegisterWeapon( weaponSelectI );
-			weaponInfo = &cg_weapons[weaponSelectI];
+			CG_RegisterWeapon(currentWeapon);
+			weaponInfo = &cg_weapons[currentWeapon];
 
 			// Draw graphic to show weapon has ammo or no ammo
-			if (!CG_WeaponCheck(i))
+			if (!CG_WeaponCheck(currentWeapon))
 			{
 				CG_DrawPic(holdX, graphicYPos, smallIconSize_x, smallIconSize_y, weaponInfo->weaponIconNoAmmo);
 			}
@@ -1992,11 +1946,6 @@ void CG_DrawDataPadWeaponSelect( void )
 
 
 			holdX += (smallIconSize_x + pad);
-		}
-		if ( weaponSelectI == WP_CONCUSSION )
-		{
-			drewConc = qtrue;
-			weaponSelectI = WP_FLECHETTE;
 		}
 	}
 
@@ -3171,7 +3120,7 @@ void CG_DPPrevWeapon_f( void )
 
 	//Search where is the current weapon in the array
 	int currentWeaponIndex = - 1;
-	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+	for (i = 0; i <= WEAPON_BUCKETS_SIZE; i++) {
 		if (weaponBuckets[i] == original) {
 			currentWeaponIndex = i;
 			break;

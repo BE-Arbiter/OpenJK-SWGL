@@ -319,7 +319,6 @@ static const char *gcmds[] = {
 	"playertint",
 	"runscript",
 	"saber",
-	"saberAttackCycle",
 	"saberColor",
 	"saberblade",
 	"scale",

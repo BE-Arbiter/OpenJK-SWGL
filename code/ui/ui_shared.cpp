@@ -5614,7 +5614,7 @@ static const char *g_bindCommands[] = {
 #else
 	"load quick",
 #endif
-	"saberAttackCycle",
+	"+zoom",
 #ifdef JK2_MODE
 	"save quik*",
 #else
