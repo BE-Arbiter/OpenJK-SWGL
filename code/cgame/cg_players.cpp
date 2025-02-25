@@ -5628,18 +5628,18 @@ static void CG_StopWeaponSounds( centity_t *cent )
 		if ( weapon->weaponAttacksInfo[0].firingSound)
 		{
 			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[0].firingSound );
+			cent->pe.lightningFiring = qtrue;
 		}
 
-		cent->pe.lightningFiring = qtrue;
 	}
 	else if ( cent->currentState.eFlags & EF_ALT_FIRING )
 	{
 		if ( weapon->weaponAttacksInfo[1].firingSound)
 		{
 			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[1].firingSound );
+			cent->pe.lightningFiring = qtrue;
 		}
 
-		cent->pe.lightningFiring = qtrue;
 	}
 	else if (weapon->readySound)
 	{

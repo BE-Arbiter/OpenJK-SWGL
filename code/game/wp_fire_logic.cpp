@@ -342,7 +342,7 @@ void WP_FireGenericBlaster(gentity_t* ent, int attackIndex)
 	}
 
 	if (is_player_scoped(ent)) {
-		AngleVectors(angs, forwardVec, NULL, NULL);
+		AngleVectors(ent->client->renderInfo.eyeAngles, forwardVec, NULL, NULL);
 		WP_FireGenericBlasterMissile(ent, ent->client->renderInfo.eyePoint, forwardVec, attackIndex);
 	}
 	else {
@@ -599,7 +599,7 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 	}
 
 	if (!ent->NPC) {
-		if (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode > ST_A280) {
+		if (is_player_scoped(ent)) {
 			VectorCopy(ent->client->renderInfo.eyePoint, start);
 			AngleVectors(ent->client->renderInfo.eyeAngles, forwardVec, NULL, NULL);
 		}

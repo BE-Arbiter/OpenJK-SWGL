@@ -141,7 +141,7 @@ Toss the weapon and powerups for the killed player
 */
 extern gentity_t *WP_DropGrenade( gentity_t *ent, int attackIndex);
 extern qboolean WP_SaberLose( gentity_t *self, vec3_t throwDir );
-gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
+gentity_t* TossClientItems_Configurable(gentity_t* self,  bool fromConsoleCommand)
 {
 	//FIXME: drop left-hand weapon, too?
 	gentity_t	*dropped = NULL;
@@ -171,7 +171,7 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 			self->s.weapon = WP_NONE;
 		}
 		//If it's called from DropWeapon Command, First drop the left saber.
-		else if (g_saberPickuppableDroppedSabers->integer && self->weaponModel[1] > 0 && dropOneSaber)
+		else if (g_saberPickuppableDroppedSabers->integer && self->weaponModel[1] > 0 && fromConsoleCommand)
 		{
 			if (self->client->ps.saber[1].name && self->client->ps.saber[1].name[0]) {
 				//If drop is successfull then remove the saber from the player.
@@ -183,7 +183,7 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 			}
 		}
 		//If it's called from DropWeapon Command, Secondly drop the right saber
-		else if (g_saberPickuppableDroppedSabers->integer && self->weaponModel[0] > 0 && dropOneSaber)
+		else if (g_saberPickuppableDroppedSabers->integer && self->weaponModel[0] > 0 && fromConsoleCommand)
 		{
 			if (self->client->ps.saber[0].name && self->client->ps.saber[0].name[0]) {
 				//If drop is successfull then remove the saber from the player.
@@ -209,18 +209,14 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 			}
 		}
 	}
-	/*else if ( weapon == WP_BLASTER_PISTOL )
-	{//FIXME: either drop the pistol and make the pickup only give ammo or drop ammo
-	}
-	*/
 	else if (weapon == WP_MELEE )
 	{//never drop this
 	}
-	else if ( weapon > WP_SABER && weapon < weaponCount && weaponData[weapon].playerUsable )//&& self->client->ps.ammo[ weaponData[weapon].ammoIndex ]
+	else if ( weapon > WP_SABER && weapon < weaponCount && weaponData[weapon].playerUsable )
 	{
 		self->s.weapon = WP_NONE;
 
-		if ( weapon == WP_THERMAL || weaponData[weapon].baseWeaponNum == WP_THERMAL && self->client->ps.torsoAnim == BOTH_ATTACK10)
+		if ( weapon == WP_THERMAL || weaponData[weapon].baseWeaponNum == WP_THERMAL && self->client->ps.torsoAnim == BOTH_ATTACK10 )
 		{//we were getting ready to throw the thermal, drop it!
 			self->client->ps.weaponChargeTime = level.time - FRAMETIME;//so it just kind of drops it
 			//DWS-TODO Here?
@@ -356,11 +352,6 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 			dropped2->s.radius = 10;
 		}
 	}
-//	else if (( self->client->NPC_class == CLASS_SENTRY ) || ( self->client->NPC_class == CLASS_PROBE )) // Looks dumb, Steve told us to take it out.
-//	{
-//		item = FindItemForAmmo( AMMO_BLASTER );
-//		Drop_Item( self, item, 0, qtrue );
-//	}
 	else if ( self->client->NPC_class == CLASS_MARK1 )
 	{
 
@@ -387,7 +378,9 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 		}
 		Drop_Item( self, item, 0, qtrue );
 	}
-
+	if (dropped != NULL && fromConsoleCommand) {
+		dropped->flags |= FL_WILLINGLY_DROPPED;
+	}
 	return dropped;//NOTE: presumes only drop one thing
 }
 

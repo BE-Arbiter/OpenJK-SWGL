@@ -684,6 +684,16 @@ qboolean CheckItemCanBePickedUpByNPC( gentity_t *item, gentity_t *pickerupper )
 		item->item->giTag == INV_SECURITY_KEY ) {
 		return qfalse;
 	}
+	if ((item->flags & FL_WILLINGLY_DROPPED)
+		&& item->item->giType == IT_WEAPON
+		&& pickerupper->s.number
+		&& pickerupper->painDebounceTime < level.time
+		&& pickerupper->NPC && pickerupper->NPC->surrenderTime < level.time //not surrendering
+		)
+	{
+		//Yay, free weapon from the player
+		return qtrue;
+	}
 	if ( (item->flags&FL_DROPPED_ITEM)
 		&& item->activator != &g_entities[0]
 		&& pickerupper->s.number
@@ -782,6 +792,58 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 		return;
 	}
 
+	else if (!(ent->spawnflags & ITMSF_ALLOWNPC) && !(ent->flags & FL_WILLINGLY_DROPPED))
+	{// NPCs cannot pick it up
+		if (other->s.number != 0)
+		{// Not the player?-
+			return;
+		}
+	}
+
+	// the same pickup rules are used for client side and server side
+	// Don't care for npc
+	if (!(ent->s.number) && !BG_CanItemBeGrabbed(&ent->s, &other->client->ps)) {
+		return;
+	}
+
+	if (other->client)
+	{
+		if ((other->client->ps.eFlags & EF_FORCE_GRIPPED) || (other->client->ps.eFlags & EF_FORCE_DRAINED))
+		{//can't pick up anything while being gripped
+			return;
+		}
+		if (PM_InKnockDown(&other->client->ps) && !PM_InGetUp(&other->client->ps))
+		{//can't pick up while in a knockdown
+			return;
+		}
+	}
+	if (!ent->item) {		//not an item!
+		gi.Printf("Touch_Item: %s is not an item!\n", ent->classname);
+		return;
+	}
+	//If the item was just dropped, should not be picked up before 1s
+	if ((!ent->activator || ent->activator->s.number == other->s.number) && (level.time - ent->s.time <= 1000)) {
+		return;
+	}
+
+	if (ent->item->giType == IT_WEAPON
+		&& ent->item->giTag == WP_SABER)
+	{//a saber
+		if (ent->delay > level.time)
+		{//just picked it up, don't pick up again right away
+			return;
+		}
+	}
+
+	if (other->s.number < MAX_CLIENTS
+		&& (ent->spawnflags & ITMSF_USEPICKUP))
+	{//only if player is holing use button
+		if (!(other->client->usercmd.buttons & BUTTON_USE))
+		{//not holding use?
+			return;
+		}
+	}
+
 	//FIXME: need to make them run toward a dropped weapon when fleeing without one?
 	//FIXME: need to make them come out of flee mode when pick up their old weapon?
 	if ( CheckItemCanBePickedUpByNPC( ent, other ) )
@@ -793,68 +855,42 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
  			NPCInfo->tempBehavior	= BS_DEFAULT;
 			TIMER_Set(other, "flee", -1);
 		}
-		else
+		else if (ent->item->giType == IT_WEAPON && other->NPC && other->s.weapon && other->s.weapon == ent->item->giTag) {
+			//Don't give me a weapon I already have
+			return;
+		}
+		else if (ent->item->giType == IT_WEAPON && other->NPC && other->s.weapon) {
+			//Get item from weapon
+			gitem_t* item = FindItemForWeapon(other->s.weapon);
+			TossClientItems(other);
+			if (other->ghoul2.IsValid())
+			{
+				if (other->weaponModel[0] > 0)
+				{//NOTE: guess you never drop the left-hand weapon, eh?
+					gi.G2API_RemoveGhoul2Model(other->ghoul2, other->weaponModel[0]);
+					other->weaponModel[0] = -1;
+				}
+				if (other->weaponModel[1] > 0)
+				{//NOTE: guess you never drop the left-hand weapon, eh?
+					gi.G2API_RemoveGhoul2Model(other->ghoul2, other->weaponModel[1]);
+					other->weaponModel[1] = -1;
+				}
+			}
+			other->client->ps.weapons[other->s.weapon] = 0;
+			other->s.weapon = WP_NONE;
+		}
+		else if( !(ent->flags & FL_WILLINGLY_DROPPED) )
 		{
 			return;
 		}
 	}
-	else if ( !(ent->spawnflags &  ITMSF_ALLOWNPC) )
-	{// NPCs cannot pick it up
-		if ( other->s.number != 0 )
-		{// Not the player?
-			return;
-		}
-	}
-
-	// the same pickup rules are used for client side and server side
-	if ( !BG_CanItemBeGrabbed( &ent->s, &other->client->ps ) ) {
-		return;
-	}
-
-	if ( other->client )
-	{
-		if ( (other->client->ps.eFlags&EF_FORCE_GRIPPED) || (other->client->ps.eFlags&EF_FORCE_DRAINED) )
-		{//can't pick up anything while being gripped
-			return;
-		}
-		if ( PM_InKnockDown( &other->client->ps ) && !PM_InGetUp( &other->client->ps ) )
-		{//can't pick up while in a knockdown
-			return;
-		}
-	}
-	if (!ent->item) {		//not an item!
-		gi.Printf( "Touch_Item: %s is not an item!\n", ent->classname);
-		return;
-	}
-	//If the item was just dropped, should not be picked up before 1s
-	if (level.time - ent->s.time <= 1000) {
-		return;
-	}
-
-	if ( ent->item->giType == IT_WEAPON
-		&& ent->item->giTag == WP_SABER )
-	{//a saber
-		if ( ent->delay > level.time )
-		{//just picked it up, don't pick up again right away
-			return;
-		}
-	}
-
-	if ( other->s.number < MAX_CLIENTS
-		&& (ent->spawnflags&ITMSF_USEPICKUP) )
-	{//only if player is holing use button
-		if ( !(other->client->usercmd.buttons&BUTTON_USE) )
-		{//not holding use?
-			return;
-		}
-	}
-
 	qboolean bHadWeapon = qfalse;
 	// call the item-specific pickup function
 	switch( ent->item->giType )
 	{
 	case IT_WEAPON:
-		if ( other->NPC && other->s.weapon == WP_NONE )
+		if (!(ent->flags &= FL_WILLINGLY_DROPPED) &&
+			other->NPC && other->s.weapon == WP_NONE )
 		{//Make them duck and sit here for a few seconds
 			int pickUpTime = Q_irand( 1000, 3000 );
 			TIMER_Set( other, "duck", pickUpTime );
@@ -900,7 +936,7 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	// play the normal pickup sound
 	if ( !other->s.number && g_timescale->value < 1.0f  )
 	{//SIGH... with timescale on, you lose events left and right
-extern void CG_ItemPickup( int itemNum, qboolean bHadItem );
+		extern void CG_ItemPickup( int itemNum, qboolean bHadItem );
 		// but we're SP so we'll cheat
 		cgi_S_StartSound( NULL, other->s.number, CHAN_AUTO,	cgi_S_RegisterSound( ent->item->pickup_sound ) );
 		// show icon and name on status bar
@@ -936,20 +972,9 @@ extern void CG_ItemPickup( int itemNum, qboolean bHadItem );
 			return;
 		}
 	}
-	// wait of -1 will not respawn
-//	if ( ent->wait == -1 )
-	{
-		//why not just remove me?
-		G_FreeEntity( ent );
-		/*
-		//NOTE: used to do this:  (for respawning?)
-		ent->svFlags |= SVF_NOCLIENT;
-		ent->s.eFlags |= EF_NODRAW;
-		ent->contents = 0;
-		ent->unlinkAfterEvent = qtrue;
-		*/
-		return;
-	}
+
+	G_FreeEntity( ent );
+	return;
 }
 
 
