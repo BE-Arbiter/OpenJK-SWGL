@@ -1858,7 +1858,7 @@ void CG_DrawDataPadWeaponSelect( void )
 	cgi_R_SetColor( colorTable[CT_WHITE] );
 	for (iconCnt=1 ; iconCnt <= sideLeftIconCnt ; weaponSelectI-- )
 	{
-		if (weaponSelectI<1)
+		if (weaponSelectI<0)
 		{
 			weaponSelectI = WEAPON_BUCKETS_SIZE - 1;
 		}
@@ -1923,6 +1923,10 @@ void CG_DrawDataPadWeaponSelect( void )
 	holdX = centerXPos + (bigIconSize_x / 2) + bigPad;
 	for (iconCnt=1;iconCnt<(sideRightIconCnt+1);weaponSelectI++)
 	{
+		if (weaponSelectI >= WEAPON_BUCKETS_SIZE - 1)
+		{
+			weaponSelectI = 0;
+		}
 		int currentWeapon = weaponBuckets[weaponSelectI];
 		if ( !(cg.snap->ps.weapons[currentWeapon]))	// Does he have this weapon?
 		{
