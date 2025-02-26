@@ -926,8 +926,8 @@ typedef enum {
 // these are also in be_aas_def.h - argh (rjr)
 #define	MAX_MODELS			512		// these are sent over the net as -12 bits
 #define	MAX_SOUNDS			256		// so they cannot be blindly increased
-#define MAX_ICONS			64		// max registered icons you can have per map
-#define MAX_FX				64		// max effects strings, I'm hoping that 64 will be plenty
+#define MAX_ICONS			128		// max registered icons you can have per map
+#define MAX_FX				128		// max effects strings, I'm hoping that 64 will be plenty
 
 #define MAX_SUB_BSP			32 //rwwRMG - added
 

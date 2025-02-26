@@ -290,6 +290,7 @@ typedef struct weaponData_s
 	int		numBarrels;			// how many barrels should we expect for this weapon?
 
 	int 	scopeType;
+	float 	scopeFov;
 
 	char	weaponMdl2[64];
 	qboolean secondaryMdl;

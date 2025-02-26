@@ -406,6 +406,13 @@ void WPN_ScopeType(const char** holdBuf)
 	weaponData[wpnParms.weaponNum].scopeType = scopeType;
 }
 
+//--------------------------------------------
+void WPN_ScopeFov(const char** holdBuf)
+{
+	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].scopeFov);
+}
+
+//--------------------------------------------
 void WPN_ReadySound(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].readySnd, 64, "readySound");

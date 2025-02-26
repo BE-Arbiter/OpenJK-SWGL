@@ -14971,35 +14971,14 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		{
 			if (cg.zoomMode == 0)
 			{
-				switch (weaponData[weapon].scopeType)
+				cg.zoomMode = weaponData[weapon].scopeType;
+				if (weaponData[weapon].scopeFov != 0) 
 				{
-					case ST_A280:
-						cg.zoomMode = ST_A280;
-						cg_zoomFov = 25.0f;
-						break;
-					case ST_DC17M:
-						cg.zoomMode = ST_DC17M;
-						cg_zoomFov = 20.0f;
-						break;
-					case ST_EE3:
-						cg.zoomMode = ST_EE3;
-						cg_zoomFov = 10.0f;
-						break;
-					case ST_F11D:
-						cg.zoomMode = ST_F11D;
-						cg_zoomFov = 25.0f;
-						break;
-					case ST_E5:
-						cg.zoomMode = ST_E5;
-						cg_zoomFov = 25.0f;
-						break;
+					cg_zoomFov = weaponData[weapon].scopeFov;
 				}
-
-				//DWS-TODO : Add a scopeFov Parameter
-				if (pm->ps->weapon == WP_REBELBLASTER)
+				else
 				{
-					cg.zoomMode = ST_A280;
-					cg_zoomFov = 25.0f;
+						cg_zoomFov = 25.0f;
 				}
 			}
 			else if (cg.zoomMode >= ST_A280)

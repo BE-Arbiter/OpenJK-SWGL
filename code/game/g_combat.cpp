@@ -219,7 +219,6 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool fromConsoleComman
 		if ( (weapon == WP_THERMAL || weaponData[weapon].baseWeaponNum == WP_THERMAL) && self->client->ps.torsoAnim == BOTH_ATTACK10 )
 		{//we were getting ready to throw the thermal, drop it!
 			self->client->ps.weaponChargeTime = level.time - FRAMETIME;//so it just kind of drops it
-			//DWS-TODO Here?
 			dropped = WP_DropGrenade( self , 0 );
 		}
 		else

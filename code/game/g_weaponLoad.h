@@ -191,6 +191,7 @@ void WPN_WeaponIcon(const char** holdBuf);
 void WPN_WeaponModel(const char** holdBuf);
 void WPN_BarrelCount(const char** holdBuf);
 void WPN_ScopeType(const char** holdBuf);
+void WPN_ScopeFov(const char** holdBuf);
 void WPN_WeaponModel2(const char** holdBuf);
 void WPN_PlayerUsable(const char** holdBuf);
 void WPN_WeaponCategory(const char** holdBuf);
@@ -300,6 +301,7 @@ wpnParms_t WpnParms[] =
 	{ "weaponCategory",	WPN_WeaponCategory },
 	{ "weaponBucket",	WPN_WeaponBucket },
 	{ "scopeType",		WPN_ScopeType },
+	{ "scopeFov",		WPN_ScopeFov },
 
 	//Ammo Information
 	{ "ammo",			WPN_Ammo },	//ammo
