@@ -257,7 +257,8 @@ float forceJumpStrength[NUM_FORCE_POWER_LEVELS] =
 	JUMP_VELOCITY,//normal jump
 	420,
 	590,
-	840
+	840,
+	840,
 };
 
 float forceJumpHeight[NUM_FORCE_POWER_LEVELS] =
@@ -265,7 +266,8 @@ float forceJumpHeight[NUM_FORCE_POWER_LEVELS] =
 	32,//normal jump (+stepheight+crouchdiff = 66)
 	96,//(+stepheight+crouchdiff = 130)
 	192,//(+stepheight+crouchdiff = 226)
-	384//(+stepheight+crouchdiff = 418)
+	384,//(+stepheight+crouchdiff = 418)
+	384,//(+stepheight+crouchdiff = 418)
 };
 
 float forceJumpHeightMax[NUM_FORCE_POWER_LEVELS] =
@@ -273,7 +275,8 @@ float forceJumpHeightMax[NUM_FORCE_POWER_LEVELS] =
 	66,//normal jump (32+stepheight(18)+crouchdiff(24) = 74)
 	130,//(96+stepheight(18)+crouchdiff(24) = 138)
 	226,//(192+stepheight(18)+crouchdiff(24) = 234)
-	418//(384+stepheight(18)+crouchdiff(24) = 426)
+	418,//(384+stepheight(18)+crouchdiff(24) = 426)
+	418,//(384+stepheight(18)+crouchdiff(24) = 426)
 };
 
 float forcePushPullRadius[NUM_FORCE_POWER_LEVELS] =
@@ -281,7 +284,8 @@ float forcePushPullRadius[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	384,//256,
 	448,//384,
-	512
+	512,
+	512,
 };
 
 float forcePushCone[NUM_FORCE_POWER_LEVELS] =
@@ -289,7 +293,8 @@ float forcePushCone[NUM_FORCE_POWER_LEVELS] =
 	1.0f,//none
 	1.0f,
 	0.8f,
-	0.6f
+	0.6f,
+	0.6f,
 };
 
 float forcePullCone[NUM_FORCE_POWER_LEVELS] =
@@ -297,7 +302,8 @@ float forcePullCone[NUM_FORCE_POWER_LEVELS] =
 	1.0f,//none
 	1.0f,
 	1.0f,
-	0.8f
+	0.8f,
+	0.8f,
 };
 
 float forceSpeedValue[NUM_FORCE_POWER_LEVELS] =
@@ -305,7 +311,8 @@ float forceSpeedValue[NUM_FORCE_POWER_LEVELS] =
 	1.0f,//none
 	0.75f,
 	0.5f,
-	0.25f
+	0.25f,
+	0.25f,
 };
 
 float forceSpeedRangeMod[NUM_FORCE_POWER_LEVELS] =
@@ -313,7 +320,8 @@ float forceSpeedRangeMod[NUM_FORCE_POWER_LEVELS] =
 	0.0f,//none
 	30.0f,
 	45.0f,
-	60.0f
+	60.0f,
+	60.0f,
 };
 
 float forceSpeedFOVMod[NUM_FORCE_POWER_LEVELS] =
@@ -321,7 +329,8 @@ float forceSpeedFOVMod[NUM_FORCE_POWER_LEVELS] =
 	0.0f,//none
 	20.0f,
 	30.0f,
-	40.0f
+	40.0f,
+	40.0f,
 };
 
 int forceGripDamage[NUM_FORCE_POWER_LEVELS] =
@@ -329,7 +338,8 @@ int forceGripDamage[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	0,
 	6,
-	9
+	9,
+	9,
 };
 
 int forceGraspDamage[NUM_FORCE_POWER_LEVELS] =
@@ -337,7 +347,8 @@ int forceGraspDamage[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	0,
 	0,
-	0
+	0,
+	0,
 };
 
 int mindTrickTime[NUM_FORCE_POWER_LEVELS] =
@@ -345,7 +356,8 @@ int mindTrickTime[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	10000,//5000,
 	15000,//10000,
-	30000//15000
+	30000,//15000
+	30000,//15000
 };
 
 int fearTime[NUM_FORCE_POWER_LEVELS] =
@@ -353,7 +365,8 @@ int fearTime[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	5000,//5000,
 	10000,//10000,
-	20000//15000
+	20000,//15000
+	20000,//15000
 };
 
 //NOTE: keep in synch with table below!!!
@@ -362,7 +375,8 @@ int saberThrowDist[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	256,
 	400,
-	400
+	400,
+	400,
 };
 
 int stasisTime[NUM_FORCE_POWER_LEVELS] =
@@ -370,7 +384,8 @@ int stasisTime[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	5000,//5000,
 	10000,//10000,
-	15000//15000
+	15000,//15000
+	15000,//15000
 };
 
 
@@ -380,7 +395,8 @@ int saberThrowDistSquared[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	65536,
 	160000,
-	160000
+	160000,
+	160000,
 };
 
 int parryDebounce[NUM_FORCE_POWER_LEVELS] =
@@ -388,7 +404,8 @@ int parryDebounce[NUM_FORCE_POWER_LEVELS] =
 	500,//if don't even have defense, can't use defense!
 	300,
 	150,
-	50
+	50,
+	50,
 };
 
 float saberAnimSpeedMod[NUM_FORCE_POWER_LEVELS] =
@@ -396,7 +413,8 @@ float saberAnimSpeedMod[NUM_FORCE_POWER_LEVELS] =
 	0.0f,//if don't even have offense, can't use offense!
 	0.75f,
 	1.0f,
-	2.0f
+	2.0f,
+	2.0f,
 };
 
 stringID_table_t SaberStyleTable[] =

@@ -378,12 +378,10 @@ void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 
 	//Init start point
 	VectorCopy(muzzle, start);
-
 	VectorMA(start, range, dir, end);
 
 
-	vec3_t mins = { 0,0,0 };
-	vec3_t maxs = { 0,0,0 };
+	vec3_t mins, maxs;
 	for (int i = 0; i < 3; i++)
 	{
 		mins[i] = start[i] - range;
@@ -406,7 +404,7 @@ void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 		hitloc[2] += 25.0f;
 		
 
-		//Is he in front of us?
+        // Is the target in front of us?
 		vec3_t target_dir;
 		VectorSubtract(hitloc, start, target_dir);
 
@@ -432,12 +430,26 @@ void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 			// HeEeHuHahEHoHo
 			if (target->health > 0)
 			{
-				G_PlayEffect(G_EffectIndex("env/fire.efx"), target->currentOrigin);
-				G_PlayEffect(G_EffectIndex("env/small_fire.efx"), hitloc);
+				if (attackData->hitFleshEffect[0]) 
+				{
+					G_PlayEffect(G_EffectIndex(attackData->hitFleshEffect), target->currentOrigin);
+				}
+				else
+				{
+					G_PlayEffect(G_EffectIndex("env/fire.efx"), target->currentOrigin);
+					G_PlayEffect(G_EffectIndex("env/small_fire.efx"), hitloc);
+				}
 			}
 			else
 			{
-				G_PlayEffect(G_EffectIndex("env/small_fire.efx"), target->currentOrigin);
+				if (attackData->hitFleshEffect[0])
+				{
+					G_PlayEffect(G_EffectIndex(attackData->hitFleshEffect), target->currentOrigin);
+				}
+				else
+				{
+					G_PlayEffect(G_EffectIndex("env/small_fire.efx"), target->currentOrigin);
+				}
 			}
 		}
 	}

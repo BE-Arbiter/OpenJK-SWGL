@@ -11335,12 +11335,13 @@ qboolean PM_PickAutoMultiKick( qboolean allowSingles )
 qboolean PM_SaberThrowable( void )
 {
 	//ugh, hard-coding this is bad...
-	if ( pm->ps->saberAnimLevel == SS_STAFF )
+	if ( pm->ps->saberAnimLevel == SS_STAFF && pm->ps->forcePowerLevel[FP_SABERTHROW] <= FORCE_LEVEL_3)
 	{
 		return qfalse;
 	}
 
-	if ( !(pm->ps->saber[0].saberFlags&SFL_NOT_THROWABLE) )
+	if ( !(pm->ps->saber[0].saberFlags&SFL_NOT_THROWABLE)
+		&& pm->ps->forcePowerLevel[FP_SABERTHROW] >= FORCE_LEVEL_1)
 	{//yes, this saber is always throwable
 		return qtrue;
 	}
@@ -11358,7 +11359,8 @@ qboolean PM_SaberThrowable( void )
 					numBladesActive++;
 				}
 			}
-			if ( numBladesActive == 1 )
+			if ( numBladesActive == 1 
+				&& pm->ps->forcePowerLevel[FP_SABERTHROW] >= FORCE_LEVEL_1)
 			{//only 1 blade is on
 				return qtrue;
 			}
@@ -11375,8 +11377,8 @@ qboolean PM_CheckAltKickAttack( void )
 		&& (!PM_FlippingAnim(pm->ps->legsAnim)||pm->ps->legsAnimTimer<=250)
 		&& (!PM_SaberThrowable())
 		&& pm->ps->SaberActive()
-		&& !(pm->ps->saber[0].saberFlags&SFL_NO_KICKS)//okay to do kicks with this saber
-		&& (!pm->ps->dualSabers || !(pm->ps->saber[1].saberFlags&SFL_NO_KICKS) )//okay to do kicks with this saber
+		/* && !(pm->ps->saber[0].saberFlags & SFL_NO_KICKS)//okay to do kicks with this saber
+		&& (!pm->ps->dualSabers || !(pm->ps->saber[1].saberFlags&SFL_NO_KICKS) )//okay to do kicks with this saber*/
 		)
 	{
 		return qtrue;
@@ -12699,8 +12701,7 @@ void PM_WeaponLightsaber(void)
 	if ( PM_CheckAltKickAttack() )
 	{//trying to do a kick
 		//FIXME: in-air kicks?
-		if ( pm->ps->saberAnimLevel == SS_STAFF
-			&& (pm->ps->clientNum >= MAX_CLIENTS||PM_ControlledByPlayer()) )
+		if (pm->ps->clientNum >= MAX_CLIENTS||PM_ControlledByPlayer())
 		{//NPCs spin the staff
 			//NOTE: only NPCs can do it the easy way... they kick directly, not through ucmds...
 			PM_SetSaberMove( LS_SPINATTACK );
@@ -13425,7 +13426,7 @@ static void PM_Weapon( void )
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
 
-	qboolean altFire = (qboolean)((pm->ps->weaponstate == WEAPON_CHARGING_ALT) || (pm->cmd.buttons & ALT_ATTACK));
+	qboolean altFire = (qboolean)((pm->ps->weaponstate == WEAPON_CHARGING_ALT) || (pm->cmd.buttons & BUTTON_ALT_ATTACK));
 	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
 	
 	int firing_type = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[FIRING_TYPE];
@@ -14912,8 +14913,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			}
 		}
 		//saber staff alt-attack does a special attack anim, non-throwable sabers do kicks
-		if ( pm->ps->saberAnimLevel != SS_STAFF
-			&& !(pm->ps->saber[0].saberFlags&SFL_NOT_THROWABLE) )
+		if ( PM_SaberThrowable())
 		{//using a throwable saber, so remove the saber throw button
 			if ( !g_saberNewControlScheme->integer
 				&& PM_CanDoKata() )

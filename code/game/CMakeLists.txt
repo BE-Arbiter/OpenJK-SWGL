@@ -129,7 +129,6 @@ set(SPGameGameFiles
 	"${SPDir}/game/wp_saber.cpp"
 	"${SPDir}/game/wp_saberLoad.cpp"
 	"${SPDir}/game/wp_stun_baton.cpp"
-	"${SPDir}/game/wp_thermal.cpp"
 	"${SPDir}/game/wp_trip_mine.cpp"
 	"${SPDir}/game/Q3_Interface.cpp"
 	"${SPDir}/game/bg_misc.cpp"

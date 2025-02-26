@@ -9630,25 +9630,16 @@ Ghoul2 Insert End
 				cent->muzzleFlashTime  = 0;
 
 				CG_PositionEntityOnTag( &flash, &gun, gun.hModel, "tag_flash");
-
+				int attackIndex = CG_GetAttackIndex(cent->gent, (cent->currentState.eFlags & EF_ALT_FIRING) ? qtrue : qfalse);
 				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->attackData[0].muzzleEffect[0])
+				if ( wData->attackData[attackIndex].muzzleEffect[0])
+				{
+					effect = wInfo->weaponAttacksInfo[attackIndex].muzzleEffect;
+				}
+				//Default fallback
+				else if ( wData->attackData[0].muzzleEffect[0])
 				{
 					effect = wInfo->weaponAttacksInfo[0].muzzleEffect;
-				}
-				//DWS-TODO : HERE
-				/*if (wData->mTertiaryMuzzleEffectID)
-				{
-					effect = wData->mTertiaryMuzzleEffectID;
-				}*/
-
-				if ( cent->currentState.eFlags & EF_ALT_FIRING )
-				{
-					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->attackData[1].muzzleEffect[0])
-					{
-						effect = wInfo->weaponAttacksInfo[1].muzzleEffect;
-					}
 				}
 
 
