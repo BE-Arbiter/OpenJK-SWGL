@@ -941,7 +941,7 @@ Ghoul2 Insert End
 
 #define MAX_AMBIENT_SETS		256 //rww - ambient soundsets must be sent over in config strings.
 
-#define	MAX_CONFIGSTRINGS	1700 //this is getting pretty high. Try not to raise it anymore than it already is.
+#define	MAX_CONFIGSTRINGS	2048 //this is getting pretty high. Try not to raise it anymore than it already is.
 
 // these are the only configstrings that the system reserves, all the
 // other ones are strictly for servergame to clientgame communication
