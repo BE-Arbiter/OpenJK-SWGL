@@ -1406,6 +1406,6 @@ void WP_RocketThink(gentity_t* ent)
 		ent->s.pos.trTime = level.time;
 	}
 
-	ent->nextthink = level.time + 100;	//DWS-TODO : May be dehardcode this
+	ent->nextthink = level.time + 100;
 	return;
 }
