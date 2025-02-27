@@ -1879,6 +1879,7 @@ public:
 	int			forcePowersKnown;
 	int			forcePowerDuration[NUM_FORCE_POWERS];	//for effects that have a duration
 	int			forcePowerDebounce[NUM_FORCE_POWERS];	//for effects that must have an interval
+	int			forcePowerTime;	//for effects that must have an interval
 	int			forcePower;
 	int			forcePowerMax;
 	int			forcePowerRegenDebounceTime;
@@ -2070,6 +2071,7 @@ public:
 		saved_game.write<int32_t>(forcePowerDuration);
 		saved_game.write<int32_t>(forcePowerDebounce);
 		saved_game.write<int32_t>(forcePower);
+		saved_game.write<int32_t>(forcePowerTime);
 		saved_game.write<int32_t>(forcePowerMax);
 		saved_game.write<int32_t>(forcePowerRegenDebounceTime);
 
@@ -2253,6 +2255,7 @@ public:
 		saved_game.read<int32_t>(forcePowerDuration);
 		saved_game.read<int32_t>(forcePowerDebounce);
 		saved_game.read<int32_t>(forcePower);
+		saved_game.read<int32_t>(forcePowerTime);
 		saved_game.read<int32_t>(forcePowerMax);
 		saved_game.read<int32_t>(forcePowerRegenDebounceTime);
 
