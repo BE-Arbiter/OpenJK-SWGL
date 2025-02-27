@@ -15367,6 +15367,14 @@ static void WP_ForcePowerRun( gentity_t *self, forcePowers_t forcePower, usercmd
 	float				dist;
 	extern usercmd_t	ucmd;
 
+	//If gLegacyForceTiming is true, ensure that we only execute Force power logic once every 33ms (33 times per seconds)
+	if (g_LegacyForceTiming->integer && self->client->ps.forcePowerTime > level.time) {
+		return;
+	}
+	else if (g_LegacyForceTiming->integer)
+	{
+		self->client->ps.forcePowerTime = level.time + 33;
+	}
 	switch( (int)forcePower )
 	{
 	case FP_HEAL:

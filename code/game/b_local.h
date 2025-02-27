@@ -342,6 +342,7 @@ extern cvar_t	*g_newforcepowers;
 extern cvar_t	*g_allowForceAbsorb;
 extern cvar_t	*g_allowForceProtect;
 extern cvar_t	*g_adoptcharstats;
+extern cvar_t	*g_LegacyForceTiming;
 
 #define	NIF_NONE		0x00000000
 #define	NIF_FAILED		0x00000001	//failed to find a way to the goal
