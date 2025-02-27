@@ -81,9 +81,6 @@ void WP_ATSTSideAltFire( gentity_t *ent );
 void WP_ATSTSideFire( gentity_t *ent );
 void charge_stick(gentity_t* self, gentity_t* other, trace_t* trace);
 
-// DEMP2
-void WP_FireDEMP2( gentity_t *ent, qboolean alt_fire );
-
 // Fire Stun Baton
 void WP_FireStunBaton(gentity_t* ent);
 

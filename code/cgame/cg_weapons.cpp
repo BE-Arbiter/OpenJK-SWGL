@@ -363,7 +363,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 		{
 			weaponInfo->weaponAttacksInfo[i].chargeMuzzleShader = cgi_R_RegisterShader(weaponData[weaponNum].attackData[i].chargeMuzzleShader);
 		}
-
 		if (weaponData[weaponNum].attackData[i].projectileEffect[0])
 		{
 			weaponInfo->weaponAttacksInfo[i].projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].projectileEffect);
