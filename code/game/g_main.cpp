@@ -267,6 +267,7 @@ cvar_t	*g_allowBunnyhopping;
 cvar_t	*g_allowAlignmentChange;
 
 cvar_t	*g_adoptcharstats;
+cvar_t	*g_LegacyForceTiming;
 
 qboolean	stop_icarus = qfalse;
 
@@ -733,6 +734,8 @@ void G_InitCvars( void ) {
 	g_adoptcharstats = gi.cvar("g_adoptcharstats", "1", CVAR_ARCHIVE);// Lets the player adopt the health and armor of characters they select while ingame (or disable it). Disabled by default in missions.
 
 	g_validJKO = gi.cvar("g_validJKO", "0", CVAR_INIT);
+
+	g_LegacyForceTiming = gi.cvar("g_LegacyForceTiming", "0", CVAR_ARCHIVE);
 
 	g_forceLightningColor = gi.cvar("g_forceLightningColor", "0", CVAR_ARCHIVE);
 
