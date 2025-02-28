@@ -215,7 +215,7 @@ void WP_ApplyLockDownOnMissile(gentity_t* ent, gentity_t* missile, qboolean alwa
 
 	missile->e_ThinkFunc = thinkF_WP_RocketThink;
 	missile->random = 1.0f;
-	missile->nextthink = level.time + 100; //DWS-TODO : May be dehardcode this
+	missile->nextthink = level.time + 100;
 }
 //---------------------------------------------------------
 void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,int attackIndex,int forcedVelocity = -1)

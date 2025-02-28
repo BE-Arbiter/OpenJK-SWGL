@@ -652,7 +652,7 @@ typedef struct {
 
 #define	MAX_SUBMODELS		512		// nine bits
 
-#define MAX_FX				128
+#define MAX_FX				256
 
 #ifdef JK2_MODE
 #define MAX_WORLD_FX (4)
@@ -671,7 +671,7 @@ Ghoul2 Insert End
 #ifdef JK2_MODE
 #define MAX_CONFIGSTRINGS (1024)
 #else
-#define	MAX_CONFIGSTRINGS	1600//1024 //rww - I had to up this for terrains
+#define	MAX_CONFIGSTRINGS	2048//1024 //rww - I had to up this for effects
 #endif // JK2_MODE
 
 // these are the only configstrings that the system reserves, all the

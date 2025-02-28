@@ -2887,7 +2887,7 @@ void CG_LDO_DrawWeapons(void) {
 				void;
 			}
 			//Dynamic Weapons
-			else if (cgi_SP_GetStringTextString(va("%s_NAME", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			else if (!cgi_SP_GetStringTextString(va("%s_NAME", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
 			{
 				Com_sprintf(text, sizeof(text), "Unknown Item");
 			}
@@ -3701,7 +3701,6 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 			FX_GenericChargedBlasterHitWall(cent->gent, weapon, origin, dir);
 		    return;
 		case FL_DEMP2_ALT:
-			//DWS-TODO : Check where it is handled
 			return;
 		case FL_BEAM:
 		case FL_FULL_BEAM:
@@ -3802,7 +3801,6 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 		FX_GenericBlasterHitPlayer(cent->gent, weapon, origin, dir, other, humanoid);
 		return;
 	case FL_DEMP2_ALT:
-		//DWS-TODO : Check where it is handled
 		return;
 	case FL_BEAM:
 	case FL_FULL_BEAM:

@@ -197,8 +197,7 @@ typedef enum{
 	WC_NONE, //Only for weapon none else is "unset"
 	WC_MELEE, //Like melee
 	WC_STUN_BATON, //For this specific weapons. Is handled by "other case"
-	WC_MELEE_1H, //Like Saber
-	WC_MELEE_2H, //Like nogri staff
+	WC_MELEE_1H, //Like Tusken Staff
 	WC_PISTOL, // Like bryar
 	WC_LIGHT, // Like blaster
 	WC_SNIPER, // Like Disruptor

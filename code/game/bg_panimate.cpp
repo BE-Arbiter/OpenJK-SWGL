@@ -6068,12 +6068,7 @@ void PM_TorsoAnimation(void)
 					PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND3, SETANIM_FLAG_NORMAL);
 				}
 			}
-			else if (weaponData[weapon].weaponCategory == WC_MELEE_2H)
-			{
-				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
-			}
-			else if (weaponData[weapon].weaponCategory == WC_SNIPER
-			|| baseWeapon == WP_TUSKEN_RIFLE) {
+			else if (weaponData[weapon].weaponCategory == WC_SNIPER) {
 				if ((pm->ps->weaponstate != WEAPON_FIRING
 					&& pm->ps->weaponstate != WEAPON_CHARGING
 					&& pm->ps->weaponstate != WEAPON_CHARGING_ALT)
@@ -6301,20 +6296,8 @@ void PM_TorsoAnimation(void)
 				PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND3, SETANIM_FLAG_NORMAL);
 			}
 		}
-		else if (weaponData[weapon].weaponCategory == WC_MELEE_2H)
-		{
-			if (weaponBusy)
-			{
-				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY3, SETANIM_FLAG_NORMAL);
-			}
-			else
-			{
-				PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE3, SETANIM_FLAG_NORMAL);
-			}
-		}
 		/* Special Sniper Case */
-		else if (weaponData[weapon].weaponCategory == WC_SNIPER
-		|| baseWeapon == WP_TUSKEN_RIFLE)
+		else if (weaponData[weapon].weaponCategory == WC_SNIPER)
 		{
 			if ((pm->ps->weaponstate != WEAPON_FIRING && pm->ps->weaponstate != WEAPON_CHARGING && pm->ps->weaponstate != WEAPON_CHARGING_ALT)
 				|| PM_RunningAnim(pm->ps->legsAnim) || PM_WalkingAnim(pm->ps->legsAnim)

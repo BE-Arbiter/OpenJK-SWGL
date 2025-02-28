@@ -13428,6 +13428,7 @@ static void PM_Weapon( void )
 
 	qboolean altFire = (qboolean)((pm->ps->weaponstate == WEAPON_CHARGING_ALT) || (pm->cmd.buttons & BUTTON_ALT_ATTACK));
 	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
+	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 	
 	int firing_type = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[FIRING_TYPE];
 	int fire_time = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
@@ -13812,6 +13813,17 @@ static void PM_Weapon( void )
 				}
 			}
 		}
+		else if (attackData->firingLogic == FL_MELEE) {
+			int anim = PM_PickAnim(pm->gent, BOTH_TUSKENATTACK1, BOTH_TUSKENATTACK3);	// Rifle
+			if (VectorCompare(pm->ps->velocity, vec3_origin) && pm->cmd.upmove >= 0)
+			{
+				PM_SetAnim(pm, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+			}
+			else
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+			}
+		}
 		else if (weaponData[weapon].weaponCategory == WC_MINIGUN) {
 			PM_SetAnim(pm, SETANIM_TORSO, TORSO_Z6_AIM, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 		}
@@ -13905,26 +13917,6 @@ static void PM_Weapon( void )
 				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK3, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
 			}
 		}
-		else if (baseWeapon == WP_TUSKEN_RIFLE)
-		{
-			if (pm->cmd.buttons & BUTTON_ALT_ATTACK)
-			{//shoot
-				//in alt-fire, sniper mode
-				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK4, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
-			}
-			else
-			{//melee
-				int anim = PM_PickAnim(pm->gent, BOTH_TUSKENATTACK1, BOTH_TUSKENATTACK3);	// Rifle
-				if (VectorCompare(pm->ps->velocity, vec3_origin) && pm->cmd.upmove >= 0)
-				{
-					PM_SetAnim(pm, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
-				}
-				else
-				{
-					PM_SetAnim(pm, SETANIM_TORSO, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
-				}
-			}
-		}
 		else if (weaponData[weapon].weaponCategory == WC_MELEE_1H)
 		{
 			if (pm->gent && pm->gent->client)
@@ -13971,29 +13963,6 @@ static void PM_Weapon( void )
 				else
 				{
 					PM_SetAnim(pm, SETANIM_TORSO, anim, flags, 0);
-				}
-			}
-		}
-		else if (weaponData[weapon].weaponCategory == WC_MELEE_2H)
-		{
-			if (pm->gent && pm->gent->client)
-			{
-				int anim;
-				if (pm->cmd.buttons & BUTTON_ATTACK)
-				{
-					anim = BOTH_ATTACK3;
-				}
-				else
-				{
-					anim = PM_PickAnim(pm->gent, BOTH_TUSKENATTACK1, BOTH_TUSKENATTACK3);
-				}
-				if (anim != BOTH_ATTACK3 && VectorCompare(pm->ps->velocity, vec3_origin) && pm->cmd.upmove >= 0)
-				{
-					PM_SetAnim(pm, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
-				}
-				else
-				{
-					PM_SetAnim(pm, SETANIM_TORSO, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
 				}
 			}
 		}
