@@ -13813,31 +13813,6 @@ static void PM_Weapon( void )
 				}
 			}
 		}
-		else if (attackData->firingLogic == FL_MELEE) {
-			int anim = PM_PickAnim(pm->gent, BOTH_TUSKENATTACK1, BOTH_TUSKENATTACK3);	// Rifle
-			if (VectorCompare(pm->ps->velocity, vec3_origin) && pm->cmd.upmove >= 0)
-			{
-				PM_SetAnim(pm, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
-			}
-			else
-			{
-				PM_SetAnim(pm, SETANIM_TORSO, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
-			}
-		}
-		else if (weaponData[weapon].weaponCategory == WC_MINIGUN) {
-			PM_SetAnim(pm, SETANIM_TORSO, TORSO_Z6_AIM, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
-		}
-		else if (weaponData[weapon].weaponCategory == WC_PISTOL)
-		{
-			if (pm->gent && pm->gent->weaponModel[1] > 0)
-			{//dual pistols
-				PM_SetAnim(pm, SETANIM_TORSO, TORSO_D_PISTOL, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
-			}
-			else
-			{//single pistol
-				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK2, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
-			}
-		}
 		else if (weaponData[weapon].weaponCategory == WC_MELEE)
 		{
 			// since there's no RACE_BOTS, I listed all the droids that have might have melee attacks - dmv
@@ -13888,6 +13863,31 @@ static void PM_Weapon( void )
 						}
 					}
 				}
+			}
+		}
+		else if (attackData->firingLogic == FL_MELEE) {
+			int anim = PM_PickAnim(pm->gent, BOTH_TUSKENATTACK1, BOTH_TUSKENATTACK3);	// Rifle
+			if (VectorCompare(pm->ps->velocity, vec3_origin) && pm->cmd.upmove >= 0)
+			{
+				PM_SetAnim(pm, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+			}
+			else
+			{
+				PM_SetAnim(pm, SETANIM_TORSO, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+			}
+		}
+		else if (weaponData[weapon].weaponCategory == WC_MINIGUN) {
+			PM_SetAnim(pm, SETANIM_TORSO, TORSO_Z6_AIM, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+		}
+		else if (weaponData[weapon].weaponCategory == WC_PISTOL)
+		{
+			if (pm->gent && pm->gent->weaponModel[1] > 0)
+			{//dual pistols
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_D_PISTOL, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+			}
+			else
+			{//single pistol
+				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK2, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 			}
 		}
 		else if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_GALAKMECH)
