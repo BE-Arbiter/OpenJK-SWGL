@@ -280,14 +280,24 @@ void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,int a
 		}
 		missile->count = count; // this will get used in the projectile rendering code to make a beefier effect
 	}
+
 	//If Grenade Launcher
 	else if (attackData->firingLogic == FL_GRENADE_LAUNCHER) {
 		missile->s.pos.trType = TR_GRAVITY;
 		missile->s.pos.trDelta[2] += 40.0f;
 		missile->mass = 10;
 	}
+	else if (attackData->firingLogic == FL_MISSILE) {
+		missile->mass = 10;
+		/* Reduce damage further for "small missiles" */
+		if (ent->client && (ent->client->NPC_class == CLASS_BOBAFETT || ent->client->NPC_class == CLASS_MANDALORIAN || ent->client->NPC_class == CLASS_JANGO))
+		{
+			damage = damage / 2;
+		}
+	}
 	else if (attackData->firingLogic == FL_MISSILE_AIMED) {
 		WP_ApplyLockDownOnMissile(ent, missile);
+		missile->mass = 10;
 	}
 
 	if (attackData->missileSize) {
