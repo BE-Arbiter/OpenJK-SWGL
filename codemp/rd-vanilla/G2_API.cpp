@@ -682,7 +682,7 @@ void SaveGhoul2InfoArray()
 	size_t written =
 #endif
 		singleton->Serialize ((char *)data);
-#ifdef _DEBUG
+
 	assert (written == size);
 
 	if ( !ri.PD_Store (PERSISTENT_G2DATA, data, size) )

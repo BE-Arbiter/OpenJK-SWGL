@@ -1593,7 +1593,7 @@ CFontInfo *GetFont(int index)
 }
 
 
-int RE_Font_StrLenPixels(const char *psText, const int iFontHandle, const float fScale, const float fAspectCorrection)
+int RE_Font_StrLenPixels(const char *psText, const int iFontHandle, const float fScaleIn, const float fAspectCorrection)
 {
 	float fScale = fScaleIn;
 #ifdef JK2_MODE
@@ -1753,7 +1753,7 @@ int RE_Font_HeightPixels(const int iFontHandle, const float fScaleIn)
 
 // iMaxPixelWidth is -1 for "all of string", else pixel display count...
 //
-void RE_Font_DrawString(int ox, int oy, const char *psText, const float *rgba, const int iFontHandle, int iMaxPixelWidth, const float fScale, const float fAspectCorrection)
+void RE_Font_DrawString(int ox, int oy, const char *psText, const float *rgba, const int iFontHandleIn, int iMaxPixelWidth, const float fScaleIn, const float fAspectCorrection)
 {
 	int iFontHandle = iFontHandleIn;
 	float fScale = fScaleIn;

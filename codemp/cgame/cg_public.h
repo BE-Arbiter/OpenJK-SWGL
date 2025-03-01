@@ -559,8 +559,8 @@ typedef struct cgameImport_s {
 	void			(*R_ClearDecals)						( void );
 	void			(*R_ClearScene)							( void );
 	void			(*R_DrawStretchPic)						( float x, float y, float w, float h, float s1, float t1, float s2, float t2, qhandle_t hShader );	// 0 = white
-	void			(*R_DrawRotatePic)						( float x, float y, float w, float h, float s1, float t1, float s2, float t2, float a1, qhandle_t hShader );	// 0 = white
-	void			(*R_DrawRotatePic2)						( float x, float y, float w, float h, float s1, float t1, float s2, float t2, float a1, qhandle_t hShader );	// 0 = white
+	void			(*R_DrawRotatePic)						( float x, float y, float w, float h, float s1, float t1, float s2, float t2, float a1, qhandle_t hShader, float aspectCorrection );	// 0 = white
+	void			(*R_DrawRotatePic2)						( float x, float y, float w, float h, float s1, float t1, float s2, float t2, float a1, qhandle_t hShader, float aspectCorrection );	// 0 = white
 	void			(*R_Font_DrawString)					( int ox, int oy, const char *text, const float *rgba, const int setIndex, int iCharLimit, const float scale );
 	int				(*R_Font_HeightPixels)					( const int iFontIndex, const float scale );
 	int				(*R_Font_StrLenChars)					( const char *text );
