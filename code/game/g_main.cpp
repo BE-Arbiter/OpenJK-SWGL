@@ -735,7 +735,7 @@ void G_InitCvars( void ) {
 
 	g_validJKO = gi.cvar("g_validJKO", "0", CVAR_INIT);
 
-	g_LegacyForceTiming = gi.cvar("g_LegacyForceTiming", "0", CVAR_ARCHIVE);
+	g_LegacyForceTiming = gi.cvar("g_LegacyForceTiming", "1", CVAR_ARCHIVE);
 
 	g_forceLightningColor = gi.cvar("g_forceLightningColor", "0", CVAR_ARCHIVE);
 
