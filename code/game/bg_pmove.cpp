@@ -3844,7 +3844,7 @@ static qboolean PM_TryRoll( void )
 			{//only jedi/reborn NPCs should be able to do rolls (with a few exceptions)
 				if ( !pm->gent
 					|| !pm->gent->client
-					|| (pm->gent->client->NPC_class != CLASS_BOBAFETT && 
+					|| (pm->gent->client->NPC_class != CLASS_BOBAFETT &&
 						pm->gent->client->NPC_class != CLASS_MANDALORIAN &&
 						pm->gent->client->NPC_class != CLASS_JANGO &&//Fetts see me rollin, they hatin.
 						pm->gent->client->NPC_class != CLASS_REBORN //reborn using weapons other than saber can still roll
@@ -4419,8 +4419,8 @@ qboolean PM_RocketeersAvoidDangerousFalls( void )
 	{//fixme:  fall through if jetpack broken?
 		if ( JET_Flying( pm->gent ) )
 		{
-			if (pm->gent->client->NPC_class == CLASS_BOBAFETT || 
-				pm->gent->client->NPC_class == CLASS_MANDALORIAN || 
+			if (pm->gent->client->NPC_class == CLASS_BOBAFETT ||
+				pm->gent->client->NPC_class == CLASS_MANDALORIAN ||
 				pm->gent->client->NPC_class == CLASS_JANGO)
 			{
 				pm->gent->client->jetPackTime = level.time + 2000;
@@ -8163,9 +8163,9 @@ static void PM_Footsteps( void )
 			{
 				if ( pm->gent
 					&& pm->gent->client
-					&& (pm->gent->client->NPC_class == CLASS_BOBAFETT || 
-					pm->gent->client->NPC_class == CLASS_MANDALORIAN || 
-					pm->gent->client->NPC_class == CLASS_JANGO || 
+					&& (pm->gent->client->NPC_class == CLASS_BOBAFETT ||
+					pm->gent->client->NPC_class == CLASS_MANDALORIAN ||
+					pm->gent->client->NPC_class == CLASS_JANGO ||
 					pm->gent->client->NPC_class == CLASS_ROCKETTROOPER)
 					&& pm->gent->client->moveType == MT_FLYSWIM )
 				{//flying around with jetpack
@@ -8902,7 +8902,7 @@ qboolean CasualWalker(pmove_t *pm)
 				|| pm->ps->saberAnimLevel == SS_FAST)))
 			return qtrue;
 	}
-	
+
 	return qfalse;
 }
 
@@ -11359,7 +11359,7 @@ qboolean PM_SaberThrowable( void )
 					numBladesActive++;
 				}
 			}
-			if ( numBladesActive == 1 
+			if ( numBladesActive == 1
 				&& pm->ps->forcePowerLevel[FP_SABERTHROW] >= FORCE_LEVEL_1)
 			{//only 1 blade is on
 				return qtrue;
@@ -13146,7 +13146,7 @@ static bool PM_DoChargedWeapons( void )
 	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
 	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 	qboolean mainFire = (pm->cmd.buttons & BUTTON_ATTACK) ? qtrue : qfalse;
-	if ( (mainFire || altFire) && 
+	if ( (mainFire || altFire) &&
 		(attackData->firingLogic == FL_BEAM_CHARGED
 		|| attackData->firingLogic == FL_BLASTER_CHARGED
 		|| attackData->firingLogic == FL_BOWCASTER
@@ -13243,7 +13243,7 @@ static int PM_DoChargingAmmoUsage( int *amount )
 	int weapon = pm->ps->weapon;
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 	int weaponCount = CG_PlayerIsDualWielding(weapon) ? 2 : 1;
-	
+
 	qboolean altFire = (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
 	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
 
@@ -13429,14 +13429,14 @@ static void PM_Weapon( void )
 	qboolean altFire = (qboolean)((pm->ps->weaponstate == WEAPON_CHARGING_ALT) || (pm->cmd.buttons & BUTTON_ALT_ATTACK));
 	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
 	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
-	
+
 	int firing_type = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[FIRING_TYPE];
 	int fire_time = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
 	int burst_shots = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[SHOTS_PER_BURST];
 	int burst_fire_delay = weaponData[pm->ps->weapon].attackData[attackIndex].fireOption[BURST_FIRE_DELAY];
 
 
-	
+
 
 	if ( (pm->ps->eFlags&EF_HELD_BY_WAMPA) )
 	{
@@ -14941,7 +14941,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			if (cg.zoomMode == 0)
 			{
 				cg.zoomMode = weaponData[weapon].scopeType;
-				if (weaponData[weapon].scopeFov != 0) 
+				if (weaponData[weapon].scopeFov != 0)
 				{
 					cg_zoomFov = weaponData[weapon].scopeFov;
 				}
@@ -15007,7 +15007,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	//Pressed Main Fire
 	if (!(pm->ps->shotsRemaining) && primFireDown && !(pm->ps->eFlags & EF_FIRING))
 	{
-		// Right when you click. 
+		// Right when you click.
 		if (pm->ps->weaponTime <= 0)
 		{
 			// First time loading shotsRemaining.
@@ -15020,7 +15020,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 			}
 		}
 		// If you enter noclip while you are bursting, you still
-		// should be able to turbo boost. 
+		// should be able to turbo boost.
 		else if (pm->ps->pm_type != PM_NOCLIP)
 		{
 			// If you try to press main click between burts, do nothing.
@@ -15074,7 +15074,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		// Clear it out
 		pm->ps->firing_attack = -1;
 	}
-	
+
 }
 
 qboolean PM_WeaponOkOnVehicle( int weapon )

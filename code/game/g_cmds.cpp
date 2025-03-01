@@ -215,7 +215,7 @@ void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 		{
 			ent->client->ps.forcePowerMax = atoi(args);
 
-			// Such a big number it turns negative 
+			// Such a big number it turns negative
 			if (ent->client->ps.forcePowerMax < 0 || ent->client->ps.forcePowerMax > 10000000)
 			{
 				ent->client->ps.forcePowerMax = 10000000;
@@ -355,12 +355,12 @@ void Cmd_Give_f( gentity_t *ent )
 
 void Cmd_ForceRegen_f( gentity_t* ent )
 {
-	if (!CheatsOk(ent)) 
+	if (!CheatsOk(ent))
 	{
 		return;
 	}
 	int amt = atoi(gi.argv(1));
-	
+
 	if(!amt)
 	{
 		gi.SendServerCommand(0, "print \"Usage: setForceRegen <number> \nDefault value is 100\nThe lower the value, the faster your force will regenerate\n\"");

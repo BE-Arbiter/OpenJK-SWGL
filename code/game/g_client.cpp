@@ -842,7 +842,7 @@ static void Player_RestoreFromPrevLevel(gentity_t *ent, SavedGameJustLoaded_e eS
 				var = strtok( NULL, " " );
 			}
 			assert(i == MAX_WEAPONS);
-			
+
 			//ammo
 			gi.Cvar_VariableStringBuffer( "playerammo", s, sizeof(s) );
 			i=0;
@@ -2500,7 +2500,7 @@ void G_ChangePlayerModel( gentity_t *ent, const char *newModel )
 				gi.Printf( S_COLOR_RED"G_ChangePlayerModel: cannot find NPC %s\n", newModel );
 				G_ChangePlayerModel( ent, "stormtrooper" );	//need a better fallback?
 			}
-			
+
 		}
 	}
 }
@@ -2994,7 +2994,7 @@ qboolean PlayingMission()
 						"vjun1", "vjun2", "vjun3", "yavin1", "yavin1b", "yavin2" };
 
 	// Not including cutscene-only maps (because the player isn't in control so it doesn't matter)
-	char* swglmaps[] = { 
+	char* swglmaps[] = {
 						 "ep1_dotf_obi",  "ep1_dotf_qui", "ep1_dotf_qui_3", "ep1_dotf_qui_4", "ep1_dotf_maul", "ep1_dotf_maul_3", "ep1_dotf_maul_7", "ep1_dotf_maul_8",
 						 "ep3_ok_anakin_2", "ep3_ok_anakin_3", "ep3_ok_anakin_4", "ep3_ok_anakin_5", "ep3_ok_anakin_r1", "ep3_ok_anakin_r2", "ep3_ok_anakin_r3", "ep3_ok_anakin_r4", "ep3_ok_anakin_r5", "ep3_ok_anakin_r6", "ep3_ok_anakin_r7", "ep3_ok_anakin_r8",
 						 "ep3_ok_drallig_1", "ep3_ok_drallig_2", "ep3_ok_drallig_3", "ep3_ok_drallig_4",

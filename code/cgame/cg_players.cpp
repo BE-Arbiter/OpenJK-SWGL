@@ -5157,7 +5157,7 @@ void CG_AddRefEntityWithPowerups( refEntity_t *ent, int powerups, centity_t *cen
 		ent->shaderRGBA[1] = 0;
 		ent->shaderRGBA[2] = 255;
 		ent->shaderRGBA[3] = 254;
-		
+
 		ent->renderfx &= ~RF_RGB_TINT;
 		ent->customShader = cgs.media.playerShieldDamage;
 
@@ -7590,10 +7590,10 @@ float GetSelfLegAnimPoint(void)
 									NULL))
 	{
 		float percentComplete = (current-start)/(end-start);
-		
+
 		return percentComplete;
 	}
-	
+
 	return 0.0f;
 
 }
@@ -7602,7 +7602,7 @@ float GetSelfLegAnimPoint(void)
 /*
  ================
  GetSelfTorsoAnimPoint
- 
+
  ================
  */
 //Get the point in the torso animation and return a percentage of the current point in the anim between 0 and the total anim length (0.0f - 1.0f)
@@ -7623,10 +7623,10 @@ float GetSelfTorsoAnimPoint(void)
 									NULL))
 	{
 		float percentComplete = (current-start)/(end-start);
-		
+
 		return percentComplete;
 	}
-	
+
 	return 0.0f;
 }
 
@@ -7634,7 +7634,7 @@ float GetSelfTorsoAnimPoint(void)
 /*
  ===============
  SmoothTrueView
- 
+
  Purpose:  Uses the currently setup model-based First Person View to calculation the final viewangles.  Features the
  following:
  1.  Simulates allowable eye movement by makes a deadzone around the inputed viewangles vs the desired
@@ -7648,25 +7648,25 @@ void SmoothTrueView(vec3_t eyeAngles)
 {
 	float LegAnimPoint = GetSelfLegAnimPoint();
 	float TorsoAnimPoint = GetSelfTorsoAnimPoint();
-	
+
 	//counter
 	int		i;
-	
+
 	//cg.refdef.viewangles in relation to eyeAngles
 	float	AngDiff;
-	
+
 	qboolean	eyeRange = qtrue;
 	qboolean	UseRefDef = qfalse;
 	qboolean	DidSpecial = qfalse;
-	
+
 	//Debug messages
 	//CG_Printf("eyeAngles: %f, %f, %f\n", eyeAngles[0], eyeAngles[1], eyeAngles[2]);
 	//CG_Printf("cg.refdef.viewangles: %f, %f, %f\n", cg.refdefViewAngles[0], cg.refdefViewAngles[1], cg.refdefViewAngles[2]);
-	
-	
-	
+
+
+
 	//RAFIXME: See if I can find a link this to the prediction stuff.  I think the snap is of just the last gamestate snap
-	
+
 	//Rolls
 	if ( cg_trueroll.integer )
 	{
@@ -7730,7 +7730,7 @@ void SmoothTrueView(vec3_t eyeAngles)
 	{//you don't want rolling so use cg.refdef.viewangles as the view
 		UseRefDef = qtrue;
 	}
-	
+
 	//Flips
 	if( cg_trueflip.integer )
 	{
@@ -7783,9 +7783,9 @@ void SmoothTrueView(vec3_t eyeAngles)
 	{//you don't want flipping so use cg.refdef.viewangles as the view
 		UseRefDef = qtrue;
 	}
-	
-	
-	
+
+
+
 	if ( cg_truespin.integer )
 	{
 		if ( cg_truespin.integer == 1 )
@@ -7877,7 +7877,7 @@ void SmoothTrueView(vec3_t eyeAngles)
 	{
 		UseRefDef = qtrue;
 	}
-	
+
 	//Prevent camera flicker while landing.
 	if ( ((cg.snap->ps.legsAnim)  == BOTH_LAND1)
 		|| ((cg.snap->ps.legsAnim)  == BOTH_LAND2)
@@ -7887,29 +7887,29 @@ void SmoothTrueView(vec3_t eyeAngles)
 	{
 		UseRefDef = qtrue;
 	}
-	
+
 	//Prevent the camera flicker while switching to the saber.
 	if ( ( (cg.snap->ps.torsoAnim) ==	BOTH_STAND2TO1 )
 		|| ( (cg.snap->ps.torsoAnim) == BOTH_STAND1TO2 ) )
 	{
 		UseRefDef = qtrue;
 	}
-	
+
 	//special camera view for blue backstab
 	if ( (cg.snap->ps.torsoAnim) == BOTH_A2_STABBACK1)
 	{
 		eyeRange = qfalse;
 		DidSpecial = qtrue;
 	}
-	
+
 	if ( ( (cg.snap->ps.torsoAnim) == BOTH_JUMPFLIPSLASHDOWN1)
 		|| ( (cg.snap->ps.torsoAnim) == BOTH_JUMPFLIPSLASHDOWN1) )
 	{
 		eyeRange = qfalse;
 		DidSpecial = qtrue;
 	}
-	
-	
+
+
 	if ( UseRefDef )
 	{
 		VectorCopy( cg.refdefViewAngles, eyeAngles );
@@ -7928,7 +7928,7 @@ void SmoothTrueView(vec3_t eyeAngles)
 				eyeAngles[2] *= .5;
 			}
 		}
-		
+
 		//eye movement
 		if ( eyeRange )
 		{//allow eye motion
@@ -7943,9 +7943,9 @@ void SmoothTrueView(vec3_t eyeAngles)
 				{
 					fov = cg_fov.value;
 				}
-				
+
 				AngDiff = eyeAngles[i] - cg.refdefViewAngles[i];
-				
+
 				AngDiff = AngleNormalize180( AngDiff );
 				if ( fabs( AngDiff ) > fov )
 				{
@@ -8503,16 +8503,16 @@ Ghoul2 Insert Start
 				vec3_t			OldeyeOrigin;
 				qhandle_t		eyesBolt;
 				qboolean		boneBased = qfalse;
-				
+
 				//make the player's be based on the ghoul2 model
-				
+
 				//grab the location data for the "*head_eyes" tag surface
 				eyesBolt = gi.G2API_AddBolt(&cent->gent->ghoul2[cent->gent->playerModel], "*head_eyes");
 				if( !gi.G2API_GetBoltMatrix(cent->gent->ghoul2, cent->gent->playerModel, eyesBolt, &eyeMatrix, tempAngles, cent->lerpOrigin,
 											  cg.time, cgs.model_draw, cent->currentState.modelScale) )
 				{//Something prevented you from getting the "*head_eyes" information.  The model probably doesn't have a
 					//*head_eyes tag surface.  Try using *head_front instead
-					
+
 					eyesBolt = gi.G2API_AddBolt(&cent->gent->ghoul2[cent->gent->playerModel], "*head_front");
 					if( !gi.G2API_GetBoltMatrix(cent->gent->ghoul2, cent->gent->playerModel, eyesBolt, &eyeMatrix, tempAngles, cent->lerpOrigin,
 												  cg.time, cgs.model_draw, cent->currentState.modelScale) )
@@ -8527,32 +8527,32 @@ Ghoul2 Insert Start
 								CG_Printf("WARNING:  This Model seems to have missing the *head_eyes and *head_front tag surfaces.  True View Disabled.\n");
 								trueviewwarning = qtrue;
 							}*/
-							
+
 							goto SkipTrueView;
 						}
 					}
 				}
-				
+
 				//Set the original eye Origin
 				VectorCopy( cg.refdef.vieworg, OldeyeOrigin);
-				
+
 				//set the player's view origin
 				gi.G2API_GiveMeVectorFromMatrix(eyeMatrix, ORIGIN, cg.refdef.vieworg);
-				
+
 				//Find the orientation of the eye tag surface
 				//I based this on coordsys.h that I found at http://www.xs4all.nl/~hkuiper/cwmtx/html/coordsys_8h-source.html
 				//According to the file, Harry Kuiper, Will DeVore deserve credit for making that file that I based this on.
-				
+
 				if(boneBased)
 				{//the eye bone has different default axis orientation than the tag surfaces.
 					EyeAxis[0][0] = eyeMatrix.matrix[0][1];
 					EyeAxis[1][0] = eyeMatrix.matrix[1][1];
 					EyeAxis[2][0] = eyeMatrix.matrix[2][1];
-					
+
 					EyeAxis[0][1] = eyeMatrix.matrix[0][0];
 					EyeAxis[1][1] = eyeMatrix.matrix[1][0];
 					EyeAxis[2][1] = eyeMatrix.matrix[2][0];
-					
+
 					EyeAxis[0][2] = -eyeMatrix.matrix[0][2];
 					EyeAxis[1][2] = -eyeMatrix.matrix[1][2];
 					EyeAxis[2][2] = -eyeMatrix.matrix[2][2];
@@ -8562,46 +8562,46 @@ Ghoul2 Insert Start
 					EyeAxis[0][0] = eyeMatrix.matrix[0][0];
 					EyeAxis[1][0] = eyeMatrix.matrix[1][0];
 					EyeAxis[2][0] = eyeMatrix.matrix[2][0];
-					
+
 					EyeAxis[0][1] = eyeMatrix.matrix[0][1];
 					EyeAxis[1][1] = eyeMatrix.matrix[1][1];
 					EyeAxis[2][1] = eyeMatrix.matrix[2][1];
-					
+
 					EyeAxis[0][2] = eyeMatrix.matrix[0][2];
 					EyeAxis[1][2] = eyeMatrix.matrix[1][2];
 					EyeAxis[2][2] = eyeMatrix.matrix[2][2];
 				}
-				
+
 				eyeAngles[YAW] = ( atan2(EyeAxis[1][0], EyeAxis[0][0]) * 180 / M_PI );
-				
+
 				//I want asin but it's not setup in the libraries so I'm useing the statement asin x = (M_PI / 2) - acos x
 				eyeAngles[PITCH] = ( ( (M_PI / 2) - acos (-EyeAxis[2][0]) ) * 180 / M_PI );
 				eyeAngles[ROLL] = ( atan2(EyeAxis[2][1], EyeAxis[2][2]) * 180 / M_PI );
-				
+
 				//END Find the orientation of the eye tag surface
-				
+
 				//Shift the camera origin by cg_trueeyeposition
 				AngleVectors( eyeAngles, EyeAxis[0], NULL, NULL );
 				VectorMA( cg.refdef.vieworg, cg_trueeyeposition.value, EyeAxis[0], cg.refdef.vieworg );
-				
+
 				//Trace to see if the bolt eye origin is ok to move to.  If it's not, place it at the last safe position.
 				CheckCameraLocation( OldeyeOrigin );
-				
+
 				//Singleplayer TrueView fix (ghoul2 axes calculated differently to in MP!)
 				eyeAngles[YAW] -= 90;
 
 				//Do all the Eye "movement" and simplified moves here.
 				SmoothTrueView(eyeAngles);
-				
+
 				//set the player view angles
 				VectorCopy( eyeAngles, cg.refdefViewAngles );
-				
+
 				//set the player view axis
 				AnglesToAxis( eyeAngles, cg.refdef.viewaxis );
-				
+
 			}
 		}
-		
+
 SkipTrueView:
 
 		//Handle saber
@@ -9808,14 +9808,14 @@ fxHandle_t CG_GetWideForceLightning(centity_t* const cent)
 	else
 	{
 		return cgs.effects.forceLightningWide;
-	}	
+	}
 }
 
 fxHandle_t CG_GetForceLightning(centity_t* const cent)
 {
 	if (cent->gent == player)
 	{
-		cent->gent->NPC_LightningColor = g_forceLightningColor->string;		
+		cent->gent->NPC_LightningColor = g_forceLightningColor->string;
 	}
 
 	if (cent->gent->NPC_LightningColor)
@@ -9855,7 +9855,7 @@ fxHandle_t CG_GetForceLightning(centity_t* const cent)
 	{
 		return cgs.effects.forceLightning;
 	}
-	
+
 }
 
 //=====================================================================

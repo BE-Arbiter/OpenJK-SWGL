@@ -24,8 +24,12 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // initializes cycling through a DMA buffer and returns information on it
 qboolean SNDDMA_Init(int sampleFrequencyInKHz);
 
+<<<<<<<< HEAD:shared/sdl/sdl_sound.h
 // gets the current DMA position
 int		SNDDMA_GetDMAPos(void);
+========
+} eventType_t;
+>>>>>>>> rend2/rend2-builds:codeJK2/game/events.h
 
 // shutdown the DMA xfer.
 void	SNDDMA_Shutdown(void);

@@ -64,7 +64,11 @@ qboolean CL_InitCGameVM( void *gameLibrary )
 	typedef void DllEntryProc( SyscallProc * );
 
 	DllEntryProc *dllEntry = (DllEntryProc *)Sys_LoadFunction( gameLibrary, "dllEntry" );
-	cgvm.entryPoint = (intptr_t (*)(int,...))Sys_LoadFunction( gameLibrary, "vmMain" );
+
+	// NOTE: arm64 mac has a different calling convention for fixed parameters vs. variadic parameters.
+	//       As the cgame entryPoints (vmMain) in jk2 and jka use fixed arg0 to arg7 we can't use "..." around here or we end up with undefined behavior.
+	//       See: https://developer.apple.com/documentation/apple-silicon/addressing-architectural-differences-in-your-macos-code
+	cgvm.entryPoint = (intptr_t (*)(int,intptr_t,intptr_t,intptr_t,intptr_t,intptr_t,intptr_t,intptr_t,intptr_t))Sys_LoadFunction( gameLibrary, "vmMain" );
 
 	if ( !cgvm.entryPoint || !dllEntry ) {
 #ifdef JK2_MODE
@@ -1002,7 +1006,7 @@ intptr_t CL_CgameSystemCalls( intptr_t *args ) {
 	case CG_R_GETLIGHTING:
 		return re.GetLighting( (const float * ) VMA(1), (float *) VMA(2), (float *) VMA(3), (float *) VMA(4) );
 	case CG_R_ADDPOLYTOSCENE:
-		re.AddPolyToScene( args[1], args[2], (const polyVert_t *) VMA(3) );
+		re.AddPolyToScene( args[1], args[2], (const polyVert_t *) VMA(3), 1 );
 		return 0;
 	case CG_R_ADDLIGHTTOSCENE:
 		re.AddLightToScene( (const float *) VMA(1), VMF(2), VMF(3), VMF(4), VMF(5) );

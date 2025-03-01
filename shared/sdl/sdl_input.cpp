@@ -270,6 +270,23 @@ static void IN_TranslateNumpad(SDL_Keysym* keysym, fakeAscii_t* key)
 
 /*
 ===============
+IN_ModTogglesConsole
+===============
+*/
+static qboolean IN_ModTogglesConsole( int mod ) {
+	switch (cl_consoleShiftRequirement->integer) {
+	case 0:
+		return qtrue;
+	case 2:
+		return (qboolean)!!(mod & KMOD_SHIFT);
+	case 1:
+	default:
+		return (qboolean)((mod & KMOD_SHIFT) || (Key_GetCatcher() & KEYCATCH_CONSOLE));
+	}
+}
+
+/*
+===============
 IN_TranslateSDLToJKKey
 ===============
 */
@@ -1297,26 +1314,26 @@ static void IN_ProcessEvents(void)
 			{
 				char* c = e.text.text;
 
-				// Quick and dirty UTF-8 to UTF-32 conversion
-				while (*c)
-				{
-					uint32_t utf32 = ConvertUTF8ToUTF32(c, &c);
-					if (utf32 != 0)
+					// Quick and dirty UTF-8 to UTF-32 conversion
+					while( *c )
 					{
-						if (IN_IsConsoleKey(A_NULL, utf32))
+						uint32_t utf32 = ConvertUTF8ToUTF32( c, &c );
+						if( utf32 != 0 )
 						{
-							Sys_QueEvent(0, SE_KEY, A_CONSOLE, qtrue, 0, NULL);
-							Sys_QueEvent(0, SE_KEY, A_CONSOLE, qfalse, 0, NULL);
-						}
-						else
-						{
-							uint8_t encoded = ConvertUTF32ToExpectedCharset(utf32);
-							Sys_QueEvent(0, SE_CHAR, encoded, 0, 0, NULL);
+							if( IN_IsConsoleKey( A_NULL, utf32 ) )
+							{
+								Sys_QueEvent( 0, SE_KEY, A_CONSOLE, qtrue, 0, NULL );
+								Sys_QueEvent( 0, SE_KEY, A_CONSOLE, qfalse, 0, NULL );
+							}
+							else
+							{
+								uint8_t encoded = ConvertUTF32ToExpectedCharset( utf32 );
+								Sys_QueEvent( 0, SE_CHAR, encoded, 0, 0, NULL );
+							}
 						}
 					}
 				}
-			}
-			break;
+				break;
 
 		case SDL_MOUSEMOTION:
 			if (mouseActive)

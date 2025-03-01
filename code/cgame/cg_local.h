@@ -1269,4 +1269,6 @@ void	CG_SetLightstyle( int i );
 void CG_TrueViewInit( void );
 void CG_AdjustEyePos (const char *modelName);
 
+int CG_MagicFontToReal( int menuFontIndex );
+
 #endif	//__CG_LOCAL_H__

@@ -54,6 +54,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #pragma warning(disable : 4710)		// not inlined
 #pragma warning(disable : 4711)		// selected for automatic inline expansion
 #pragma warning(disable : 4786)		// identifier was truncated
+#pragma warning(disable : 5208)		// unnamed class used in typedef name cannot declare members other than non-static data members, member enumerations, or member classes
 
 #pragma warning(disable : 4996)		// This function or variable may be unsafe.
 
@@ -379,6 +380,7 @@ void	COM_MatchToken( char**buf_p, char *match );
 
 
 int Q_parseSaberColor(const char* p, float* color);/////// Jace Solaris
+qboolean SkipBracedSection (const char **program, int depth);
 void SkipBracedSection (const char **program);
 void SkipRestOfLine ( const char **data );
 
@@ -767,7 +769,7 @@ typedef enum
 	FP_ABSORB,//duration - protect against dark force powers (grip, lightning, drain - maybe push/pull, too?)
 	FP_DRAIN,//hold/duration - drain force power for health
 	FP_SEE,//duration - detect/see hidden enemies
-	
+
 
 	// SWGL Powers
 	// Light Side
@@ -1639,7 +1641,7 @@ public:
 								// used to twist the legs during strafing
 
 	int			eFlags;			// copied to entityState_t->eFlags
-	int         pFlags;	
+	int         pFlags;
 
 	int			eventSequence;	// pmove generated events
 	int			events[MAX_PS_EVENTS];
@@ -2306,7 +2308,7 @@ public:
 		saved_game.read<int32_t>(vehTurnaroundTime);
 		saved_game.read<int32_t>(brokenLimbs);
 		saved_game.read<int32_t>(electrifyTime);
-		saved_game.read<int32_t>(stasisTime); 
+		saved_game.read<int32_t>(stasisTime);
 		saved_game.read<int32_t>(shotsRemaining);
 		saved_game.read<int8_t>(firing_attack);
 		saved_game.read<int32_t>(forceUpperAnim);
@@ -2316,7 +2318,7 @@ public:
 		saved_game.read<int32_t>(forceUpperAnimSpeed);
 		saved_game.read<int32_t>(forceLowerAnimSpeed);
 #endif // !JK2_MODE
-		
+
 	}
 }; // PlayerStateBase
 
@@ -2367,7 +2369,7 @@ typedef enum
 	GENCMD_FORCE_SEEING,
 	GENCMD_FORCE_STASIS,
 	GENCMD_FORCE_BLAST,
-	GENCMD_FORCE_GRASP,	
+	GENCMD_FORCE_GRASP,
 	GENCMD_FORCE_DESTRUCTION,
 	GENCMD_FORCE_LIGHTNING_STRIKE,
 	GENCMD_FORCE_FEAR,
