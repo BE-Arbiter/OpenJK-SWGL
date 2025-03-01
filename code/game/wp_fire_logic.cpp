@@ -110,15 +110,15 @@ float WP_GetNpcVelocity(gentity_t* ent) {
 int WP_GetWeaponDamage(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire = qfalse) {
 	int baseWeaponNum = weaponData[ent->s.weapon].baseWeaponNum ? weaponData[ent->s.weapon].baseWeaponNum : ent->s.weapon;
 	/* Disruptor effect (All npc do reduced damage) */
-	if (ent->NPC && baseWeaponNum == WP_DISRUPTOR && g_spskill->integer == 0)
+	if (ent->s.number != 0 && baseWeaponNum == WP_DISRUPTOR && g_spskill->integer == 0)
 	{
 		return altFire ? DISRUPTOR_NPC_ALT_DAMAGE_EASY : DISRUPTOR_NPC_MAIN_DAMAGE_EASY;
 	}
-	if (ent->NPC && baseWeaponNum == WP_DISRUPTOR && g_spskill->integer == 1)
+	if (ent->s.number != 0 && baseWeaponNum == WP_DISRUPTOR && g_spskill->integer == 1)
 	{
 		return altFire ? DISRUPTOR_NPC_ALT_DAMAGE_MEDIUM : DISRUPTOR_NPC_MAIN_DAMAGE_MEDIUM;
 	}
-	if (ent->NPC && baseWeaponNum == WP_DISRUPTOR)
+	if (ent->s.number != 0 && baseWeaponNum == WP_DISRUPTOR)
 	{
 		return altFire ? DISRUPTOR_NPC_ALT_DAMAGE_HARD : DISRUPTOR_NPC_MAIN_DAMAGE_HARD;
 	}
@@ -572,7 +572,7 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 	qboolean	hitDodged = qfalse, fullCharge = qfalse;
 
 	// The trace start will originate at the eye so we can ensure that it hits the crosshair.
-	if (ent->NPC)
+	if (ent->s.number != 0)
 	{
 		qboolean isNpcAltdamage = qfalse;
 		VectorCopy(muzzle, start);
@@ -582,6 +582,7 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 			traces = DISRUPTOR_ALT_TRACES;
 			isNpcAltdamage = qtrue;
 		}
+		//DWS-TODO : Need to do something else here to remove the Disruptor NPC damage constant..
 		damage = WP_GetWeaponDamage(ent, attackData,isNpcAltdamage); //We don't check for alt fire but for charged.
 	}
 	else if(attackData->firingLogic == FL_BEAM_CHARGED)
