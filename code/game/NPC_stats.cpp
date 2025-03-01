@@ -2584,7 +2584,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				continue;
 			}
-			if (NPC->NPC_color_red >= 0 && NPC->NPC_color_green >= 0 && NPC->NPC_color_blue >= 0)
+			if ((NPC->NPC_color_red >= 0 && NPC->NPC_color_green >= 0 && NPC->NPC_color_blue >= 0) && !Q_stricmp("noclass", NPC->classname)) // We only want NPCs spawned by the player to follow this. Not NPCs spawned in maps.
 			{
 				ri->customRGBA[0] = NPC->NPC_color_red;
 				ri->customRGBA[1] = NPC->NPC_color_green;

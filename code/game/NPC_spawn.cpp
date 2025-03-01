@@ -330,7 +330,7 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 		const char* info = CG_ConfigString(CS_SERVERINFO);
 		const char* s = Info_ValueForKey(info, "mapname");
 
-		if (!Q_stricmp(s, "t3_bounty"))
+		if (!Q_stricmp(ent->targetname, "bobafett") || !Q_stricmp(ent->targetname, "bobafett1"))
 		{
 			NPC->flags |= FL_UNDYING;		// Can't Kill Boba, he's got plot armor!
 		}
@@ -1985,8 +1985,8 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 	if (ent->NPC_color_green)
 		newent->NPC_color_green = ent->NPC_color_green;
 
-	if (ent->NPC_color_red)
-		newent->NPC_color_blue = ent->NPC_color_red;
+	if (ent->NPC_color_blue)
+		newent->NPC_color_blue = ent->NPC_color_blue;
 
 	VectorCopy(ent->s.origin, newent->s.origin);
 	VectorCopy(ent->s.origin, newent->client->ps.origin);
