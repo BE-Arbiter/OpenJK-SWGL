@@ -236,6 +236,10 @@ void ATK_MaxChargeUnits(const char** holdBuf);
 void ATK_BounceWall(const char** holdBuf);
 void ATK_BounceCount(const char** holdBuf);
 void ATK_FiringLogic(const char** holdBuf);
+void ATK_MissileMass(const char** holdBuf);
+void ATK_MissileDFlags(const char** holdBuf);
+void ATK_FiringLogic(const char** holdBuf);
+void ATK_FiringLogic(const char** holdBuf);
 
 // Legacy weapons.dat force fields
 void WPN_FuncSkip(const char** holdBuf);
@@ -266,6 +270,8 @@ wpnParms_t AttackDataParms[] =
 	{ "missileLightColor",	ATK_MissileLightColor },
 	{ "missileFuncName",	ATK_FuncName },
 	{ "missileHitSound",	ATK_MissileHitSound },
+	{ "missileMass",		ATK_MissileMass },
+	{ "missileDFlags",		ATK_MissileDFlags},
 	{ "beamShader", ATK_BeamShader},
 	{ "beamColor",	ATK_BeamColor },
 	{ "fullBeamShader",	ATK_FullBeamShader },

@@ -71,6 +71,10 @@ void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, qboolean altFire)
 			missile->methodOfDeath = altFire ? MOD_SNIPER : MOD_DISRUPTOR;
 			missile->splashMethodOfDeath = altFire ? MOD_SNIPER : MOD_DISRUPTOR;
 			return;
+		case WP_CONCUSSION:
+			missile->methodOfDeath = altFire ? MOD_CONC_ALT : MOD_CONC;
+			missile->splashMethodOfDeath = altFire ? MOD_CONC_ALT : MOD_CONC;
+			return;
 		case WP_ROCKET_LAUNCHER:
 			missile->methodOfDeath = altFire ? MOD_ROCKET_ALT : MOD_ROCKET;
 			missile->splashMethodOfDeath = altFire ? MOD_ROCKET_ALT : MOD_ROCKET;
@@ -285,10 +289,8 @@ void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,int a
 	else if (attackData->firingLogic == FL_GRENADE_LAUNCHER) {
 		missile->s.pos.trType = TR_GRAVITY;
 		missile->s.pos.trDelta[2] += 40.0f;
-		missile->mass = 10;
 	}
 	else if (attackData->firingLogic == FL_MISSILE) {
-		missile->mass = 10;
 		/* Reduce damage further for "small missiles" */
 		if (ent->client && (ent->client->NPC_class == CLASS_BOBAFETT || ent->client->NPC_class == CLASS_MANDALORIAN || ent->client->NPC_class == CLASS_JANGO))
 		{
@@ -297,21 +299,26 @@ void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,int a
 	}
 	else if (attackData->firingLogic == FL_MISSILE_AIMED) {
 		WP_ApplyLockDownOnMissile(ent, missile);
-		missile->mass = 10;
 	}
 
-	if (attackData->missileSize) {
+	if (attackData->missileSize > 0) {
 		// Make it easier to hit things
 		VectorSet(missile->maxs, attackData->missileSize, attackData->missileSize, attackData->missileSize);
 		VectorScale(missile->maxs, -1, missile->mins);
 	}
-
-	if (attackData->firingLogic == FL_NOGHRI) {
-		missile->dflags = DAMAGE_NO_KNOCKBACK;
+	if (attackData->missileMass > 0) {
+		missile->mass = attackData->missileMass;
+	}
+	if (attackData->missileDFlags > 0) {
+		missile->dflags = attackData->missileDFlags;
+	}
+	else if (attackData->firingLogic == FL_NOGHRI) {
+		missile->dflags |= DAMAGE_NO_KNOCKBACK;
 	}
 	else {
-		missile->dflags = DAMAGE_DEATH_KNOCKBACK;
+		missile->dflags |= DAMAGE_DEATH_KNOCKBACK;
 	}
+
 	missile->damage = damage;
 	missile->splashDamage = attackData->splashDamage;
 	missile->splashRadius = attackData->splashRadius;
@@ -566,6 +573,7 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 
 
 //DWS-TODO : MOD_XXXX still hardcoded
+//DWS-TODO : Concussion normally have "push back" effect that is not found here. Commit with file deletion : b4b8b395348774ea41461dbcf310fc254a0bf293
 //---------------------------------------------------------
 void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 //---------------------------------------------------------

@@ -1527,24 +1527,11 @@ void FireWeapon( gentity_t *ent, int attack_index)
 					// doesn't care about whether it's alt-fire or not.  We can do an alt-fire if needed
 					WP_EmplacedFire(ent);
 					break;
-				case WP_ATST_MAIN:
-					WP_ATSTMainFire(ent);
-					break;
 				case WP_STUN_BATON:
 					WP_FireStunBaton(ent);
 					break;
 				case WP_SCEPTER:
 					WP_FireScepter(ent, alt_fire);
-					break;
-				case WP_ATST_SIDE:
-					if (alt_fire)
-					{
-						WP_ATSTSideAltFire(ent);
-					}
-					else
-					{
-						WP_ATSTSideFire(ent);
-					}
 					break;
 				default:
 					return;

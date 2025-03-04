@@ -76,9 +76,6 @@ void prox_mine_think(gentity_t* ent);
 void prox_mine_stick(gentity_t* self, gentity_t* other, trace_t* trace);
 
 // Det_packs
-void WP_ATSTMainFire( gentity_t *ent );
-void WP_ATSTSideAltFire( gentity_t *ent );
-void WP_ATSTSideFire( gentity_t *ent );
 void charge_stick(gentity_t* self, gentity_t* other, trace_t* trace);
 
 // Fire Stun Baton

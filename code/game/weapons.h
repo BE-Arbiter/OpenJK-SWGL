@@ -259,7 +259,9 @@ typedef struct weaponAttackData_s
 	char	missileMdl[64];		// Missile Model
 	char	missileSound[64];	// Missile flight sound
 	float  	missileDlight;		// what is says
-	int  missileSize;		// Physical "size" of the missile (max & min)
+	int		missileSize;		// Physical "size" of the missile (max & min)
+	int		missileMass;		// Physical "mass" of the missile
+	int		missileDFlags;		// Overwrite the default flags for some weapons.
 	vec3_t 	missileDlightColor;	// ditto
 	char	firingSnd[64];		// Sound made when fired
 	char	missileHitSound[64];	// Missile impact sound

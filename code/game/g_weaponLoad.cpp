@@ -645,6 +645,62 @@ void ATK_MissileSize(const char **holdBuf)
 }
 
 //--------------------------------------------
+void ATK_MissileDFlags(const char** holdBuf)
+{
+	const char* tokenStr;
+	int dFlags = 0;
+	
+	for (COM_ParseString(holdBuf, &tokenStr);!Q_stricmp(tokenStr, ";");COM_ParseString(holdBuf, &tokenStr)) {
+		if (!Q_stricmp(tokenStr, "DAMAGE_RADIUS")) {
+			dFlags |= DAMAGE_RADIUS;
+		}
+		else if (!Q_stricmp(tokenStr, "DAMAGE_NO_ARMOR")) {
+			dFlags |= DAMAGE_NO_ARMOR;
+		}
+		else if (!Q_stricmp(tokenStr, "DAMAGE_NO_KNOCKBACK")) {
+			dFlags |= DAMAGE_NO_KNOCKBACK;
+		}
+		else if (!Q_stricmp(tokenStr, "DAMAGE_NO_HIT_LOC")) {
+			dFlags |= DAMAGE_NO_HIT_LOC;
+		}
+		else if (!Q_stricmp(tokenStr, "DAMAGE_NO_PROTECTION")) {
+			dFlags |= DAMAGE_NO_PROTECTION;
+		}
+		else if (!Q_stricmp(tokenStr, "DAMAGE_EXTRA_KNOCKBACK")) {
+			dFlags |= DAMAGE_EXTRA_KNOCKBACK;
+		}
+		else if (!Q_stricmp(tokenStr, "DAMAGE_DEATH_KNOCKBACK")) {
+			dFlags |= DAMAGE_DEATH_KNOCKBACK;
+		}
+		else if (!Q_stricmp(tokenStr, "DAMAGE_IGNORE_TEAM")) {
+			dFlags |= DAMAGE_IGNORE_TEAM;
+		}
+		else if (!Q_stricmp(tokenStr, "DAMAGE_NO_DAMAGE")) {
+			dFlags |= DAMAGE_NO_DAMAGE;
+		}
+		else if (!Q_stricmp(tokenStr, "DAMAGE_DISMEMBER")) {
+			dFlags |= DAMAGE_DISMEMBER;
+		}
+		else if (!Q_stricmp(tokenStr, "DAMAGE_NO_KILL")) {
+			dFlags |= DAMAGE_NO_KILL;
+		}
+		else if (!Q_stricmp(tokenStr, "DAMAGE_HEAVY_WEAP_CLASS")) {
+			dFlags |= DAMAGE_HEAVY_WEAP_CLASS;
+		}
+		else {
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad Damage Flag in external weapon data '%s'\n", tokenStr);
+		}
+	}
+	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileDFlags = dFlags;
+}
+//--------------------------------------------
+void ATK_MissileMass(const char **holdBuf)
+{
+
+	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileMass);
+}
+
+//--------------------------------------------
 void ATK_MissileLight(const char **holdBuf)
 {
 	float	tokenFlt;
@@ -1057,6 +1113,8 @@ void WP_LoadWeaponParms (void)
 		{
 			weaponData[i].attackData[k].bounceCount = -1;
 			weaponData[i].attackData[k].bounceWall = qunset;
+			weaponData[i].attackData[k].missileDFlags = -1;
+			weaponData[i].attackData[k].missileSize = -1;
 		}
 	}
 
@@ -1147,6 +1205,8 @@ void WP_LoadWeaponParms (void)
 
 					weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount == -1 ? weaponData[j].attackData[k].bounceCount : weaponData[i].attackData[k].bounceCount;
 					weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall == qunset ? weaponData[j].attackData[k].bounceWall : weaponData[i].attackData[k].bounceWall;
+					weaponData[i].attackData[k].missileDFlags = weaponData[i].attackData[k].missileDFlags == -1 ? weaponData[j].attackData[k].missileDFlags : weaponData[i].attackData[k].missileDFlags;
+					weaponData[i].attackData[k].missileSize = weaponData[i].attackData[k].missileSize == -1 ? weaponData[j].attackData[k].missileSize : weaponData[i].attackData[k].missileSize;
 					weaponData[i].attackData[k].chargeUnitTime = weaponData[i].attackData[k].chargeUnitTime == 0 ? weaponData[j].attackData[k].chargeUnitTime : weaponData[i].attackData[k].chargeUnitTime;
 					weaponData[i].attackData[k].maxChargeUnits = weaponData[i].attackData[k].maxChargeUnits == 0 ? weaponData[j].attackData[k].maxChargeUnits : weaponData[i].attackData[k].maxChargeUnits;
 
