@@ -651,7 +651,7 @@ void RB_BeginDrawingView (void) {
 
 	// we will only draw a sun if there was sky rendered in this view
 	backEnd.skyRenderedThisView = qfalse;
-	backEnd.skyNumber = 0;
+	backEnd.skyNumber = 1;
 
 	// clip to the plane of the portal
 	if ( backEnd.viewParms.isPortal ) {
@@ -1489,10 +1489,12 @@ static void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs )
 
 	if ( backEnd.depthFill )
 	{
+		R_PushDebugGroup(AL_STAGE, "Depthpass");
 		RB_SubmitDrawSurfsForDepthFill(drawSurfs, numDrawSurfs, originalTime);
 	}
 	else
 	{
+		R_PushDebugGroup(AL_STAGE, "Mainpass");
 		RB_SubmitDrawSurfs(drawSurfs, numDrawSurfs, originalTime);
 
 		// TODO: Find a better place to add the fog cap surface
@@ -3045,6 +3047,8 @@ static const void	*RB_SwapBuffers( const void *data ) {
 
 	GLimp_LogComment( "***************** RB_SwapBuffers *****************\n\n\n" );
 
+	R_PushDebugGroup(AL_NONE, "Done with frame");
+
 	ri.WIN_Present( &window );
 
 	return (const void *)(cmd + 1);
@@ -3207,6 +3211,29 @@ const void *RB_PostProcess(const void *data)
 			autoExposure = (qboolean)(r_autoExposure->integer || r_forceAutoExposure->integer);
 			RB_ToneMap(srcFbo, srcBox, NULL, dstBox, autoExposure);
 		}
+		else if (r_smaa->integer == 1)
+		{
+			FBO_Bind(NULL);
+			GL_SetViewportAndScissor(0, 0, srcFbo->width, srcFbo->height);
+			GLSL_BindProgram(&tr.smaaResolveShader);
+			GL_BindToTMU(tr.renderImage, 0);
+			GL_BindToTMU(tr.smaaBlendImage, 1);
+			GL_BindToTMU(tr.velocityImage, 2);
+			if (r_cameraExposure->value == 0.0f)
+			{
+				GLSL_SetUniformVec4(&tr.smaaResolveShader, UNIFORM_COLOR, colorWhite);
+			}
+			else
+			{
+				vec4_t color;
+				color[0] =
+				color[1] =
+				color[2] = pow(2, r_cameraExposure->value);
+				color[3] = 1.0f;
+				GLSL_SetUniformVec4(&tr.smaaResolveShader, UNIFORM_COLOR, color);
+			}
+			qglDrawArrays(GL_TRIANGLES, 0, 3);
+		}
 		else if (r_cameraExposure->value == 0.0f)
 		{
 			FBO_FastBlit(srcFbo, srcBox, NULL, dstBox, GL_COLOR_BUFFER_BIT, GL_NEAREST);
@@ -3217,14 +3244,14 @@ const void *RB_PostProcess(const void *data)
 
 			color[0] =
 			color[1] =
-			color[2] = pow(2, r_cameraExposure->value); //exp2(r_cameraExposure->value);
+			color[2] = pow(2, r_cameraExposure->value);
 			color[3] = 1.0f;
 
 			FBO_FastBlitFromTexture(srcFbo->colorImage[0], NULL, dstBox, color, 0);
 		}
 
-		// Copy depth buffer to the backbuffer for depth culling refractive surfaces, or don't. It's slow
-		//FBO_FastBlit(srcFbo, srcBox, NULL, dstBox, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+		// Copy depth buffer to the backbuffer for depth culling refractive surfaces
+		FBO_FastBlit(srcFbo, srcBox, NULL, dstBox, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 	}
 
 	if (r_drawSunRays->integer)
@@ -3305,8 +3332,6 @@ const void *RB_PostProcess(const void *data)
 		backEnd.refdef.drawSurfs + backEnd.refdef.fistDrawSurf,
 		backEnd.refdef.numDrawSurfs - tr.refdef.fistDrawSurf);
 	backEnd.refractionFill = qfalse;
-	GL_State(GLS_DEFAULT);
-	glClear(GL_DEPTH_BUFFER_BIT);
 
 	return (const void *)(cmd + 1);
 }
