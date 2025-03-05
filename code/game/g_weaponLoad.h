@@ -238,6 +238,9 @@ void ATK_BounceCount(const char** holdBuf);
 void ATK_FiringLogic(const char** holdBuf);
 void ATK_MissileMass(const char** holdBuf);
 void ATK_MissileDFlags(const char** holdBuf);
+void ATK_NpcDamage(const char** holdBuf);
+void ATK_NpcSpread(const char** holdBuf);
+void ATK_NpcVelocity(const char** holdBuf);
 void ATK_FiringLogic(const char** holdBuf);
 void ATK_FiringLogic(const char** holdBuf);
 
@@ -287,6 +290,9 @@ wpnParms_t AttackDataParms[] =
 	{ "hitFleshEffect" ,	ATK_HitFleshEffect},
 	{ "hitDroidEffect" ,	ATK_HitDroidEffect},
 	{ "damage",				ATK_Damage },
+	{ "npcDamage",			ATK_NpcDamage },
+	{ "npcVelocity",		ATK_NpcVelocity },
+	{ "npcSpread",			ATK_NpcSpread },
 	{ "splashDamage",		ATK_SplashDamage },
 	{ "splashRadius",		ATK_SplashRadius },
 	{ "velocity",			ATK_Velocity },

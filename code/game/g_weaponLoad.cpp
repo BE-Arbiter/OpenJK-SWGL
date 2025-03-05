@@ -638,6 +638,79 @@ void ATK_MissileLightColor(const char **holdBuf)
 }
 
 //--------------------------------------------
+void ATK_NpcDamage(const char **holdBuf)
+{
+	int i;
+	int	tokenInt;
+
+	for (i=0;i<3;++i)
+	{
+		if ( COM_ParseInt(holdBuf,&tokenInt))
+		{
+			SkipRestOfLine(holdBuf);
+			continue;
+		}
+
+		if ((tokenInt < 0))
+		{
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad npcDamage[%d] in external weapon data '%f'\n",i, tokenInt);
+			continue;
+		}
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcDamage[i] = tokenInt;
+	}
+
+}
+
+//--------------------------------------------
+void ATK_NpcSpread(const char **holdBuf)
+{
+	int i;
+	int	tokenInt;
+
+	for (i=0;i<3;++i)
+	{
+		if ( COM_ParseInt(holdBuf,&tokenInt))
+		{
+			SkipRestOfLine(holdBuf);
+			continue;
+		}
+
+		if ((tokenInt < 0))
+		{
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad npcSpread[%d] in external weapon data '%f'\n",i, tokenInt);
+			weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcSpread[i] = 0;
+			continue;
+		}
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcSpread[i] = tokenInt;
+	}
+
+}
+
+//--------------------------------------------
+void ATK_NpcVelocity(const char **holdBuf)
+{
+	int i;
+	int	tokenInt;
+
+	for (i=0;i<3;++i)
+	{
+		if ( COM_ParseInt(holdBuf,&tokenInt))
+		{
+			SkipRestOfLine(holdBuf);
+			continue;
+		}
+
+		if ((tokenInt < 0))
+		{
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad npcVelocity[%d] in external weapon data '%f'\n",i, tokenInt);
+			continue;
+		}
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcVelocity[i] = tokenInt;
+	}
+
+}
+
+//--------------------------------------------
 void ATK_MissileSize(const char **holdBuf)
 {
 
@@ -650,7 +723,8 @@ void ATK_MissileDFlags(const char** holdBuf)
 	const char* tokenStr;
 	int dFlags = 0;
 	
-	for (COM_ParseString(holdBuf, &tokenStr);!Q_stricmp(tokenStr, ";");COM_ParseString(holdBuf, &tokenStr)) {
+	do {
+		COM_ParseString(holdBuf, &tokenStr);
 		if (!Q_stricmp(tokenStr, "DAMAGE_RADIUS")) {
 			dFlags |= DAMAGE_RADIUS;
 		}
@@ -687,10 +761,12 @@ void ATK_MissileDFlags(const char** holdBuf)
 		else if (!Q_stricmp(tokenStr, "DAMAGE_HEAVY_WEAP_CLASS")) {
 			dFlags |= DAMAGE_HEAVY_WEAP_CLASS;
 		}
-		else {
+		else if (Q_stricmp(tokenStr, ";")) {
 			gi.Printf(S_COLOR_YELLOW"WARNING: bad Damage Flag in external weapon data '%s'\n", tokenStr);
 		}
 	}
+	while (Q_stricmp(tokenStr, ";"));
+
 	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileDFlags = dFlags;
 }
 //--------------------------------------------
@@ -947,7 +1023,7 @@ void ATK_FireOptions(const char **holdBuf)
 //--------------------------------------------
 void ATK_Velocity(const char** holdBuf)
 {
-	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].mVelocity);
+	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].velocity);
 }
 
 //--------------------------------------------
@@ -1115,6 +1191,12 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].attackData[k].bounceWall = qunset;
 			weaponData[i].attackData[k].missileDFlags = -1;
 			weaponData[i].attackData[k].missileSize = -1;
+			weaponData[i].attackData[k].npcDamage[0] = -1;
+			weaponData[i].attackData[k].npcDamage[1] = -1;
+			weaponData[i].attackData[k].npcDamage[2] = -1;
+			weaponData[i].attackData[k].npcVelocity[0] = -1;
+			weaponData[i].attackData[k].npcVelocity[1] = -1;
+			weaponData[i].attackData[k].npcVelocity[2] = -1;
 		}
 	}
 
@@ -1200,7 +1282,7 @@ void WP_LoadWeaponParms (void)
 					weaponData[i].attackData[k].damage = weaponData[i].attackData[k].damage == 0 ? weaponData[j].attackData[k].damage : weaponData[i].attackData[k].damage;
 					weaponData[i].attackData[k].splashDamage = weaponData[i].attackData[k].splashDamage == 0 ? weaponData[j].attackData[k].splashDamage : weaponData[i].attackData[k].splashDamage;
 					weaponData[i].attackData[k].splashRadius = weaponData[i].attackData[k].splashRadius == 0 ? weaponData[j].attackData[k].splashRadius : weaponData[i].attackData[k].splashRadius;
-					weaponData[i].attackData[k].mVelocity = weaponData[i].attackData[k].mVelocity == 0 ? weaponData[j].attackData[k].mVelocity : weaponData[i].attackData[k].mVelocity;
+					weaponData[i].attackData[k].velocity = weaponData[i].attackData[k].velocity == 0 ? weaponData[j].attackData[k].velocity : weaponData[i].attackData[k].velocity;
 					weaponData[i].attackData[k].spread = weaponData[i].attackData[k].spread == 0 ? weaponData[j].attackData[k].spread : weaponData[i].attackData[k].spread;
 
 					weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount == -1 ? weaponData[j].attackData[k].bounceCount : weaponData[i].attackData[k].bounceCount;
@@ -1278,6 +1360,21 @@ void WP_LoadWeaponParms (void)
 						weaponData[i].attackData[k].fireOption[1] = weaponData[j].attackData[k].fireOption[1];
 						weaponData[i].attackData[k].fireOption[2] = weaponData[j].attackData[k].fireOption[2];
 					}
+					if (weaponData[i].attackData[k].npcDamage[0] == -1 && weaponData[i].attackData[k].npcDamage[1] == -1 && weaponData[i].attackData[k].npcDamage[2] == -1) {
+						weaponData[i].attackData[k].npcDamage[0] = weaponData[j].attackData[k].npcDamage[0];
+						weaponData[i].attackData[k].npcDamage[1] = weaponData[j].attackData[k].npcDamage[1];
+						weaponData[i].attackData[k].npcDamage[2] = weaponData[j].attackData[k].npcDamage[2];
+					}
+					if (weaponData[i].attackData[k].npcVelocity[0] == -1 && weaponData[i].attackData[k].npcVelocity[1] == -1 && weaponData[i].attackData[k].npcVelocity[2] == -1) {
+						weaponData[i].attackData[k].npcVelocity[0] = weaponData[j].attackData[k].npcVelocity[0];
+						weaponData[i].attackData[k].npcVelocity[1] = weaponData[j].attackData[k].npcVelocity[1];
+						weaponData[i].attackData[k].npcVelocity[2] = weaponData[j].attackData[k].npcVelocity[2];
+					}
+					if (weaponData[i].attackData[k].npcSpread[0] == -1 && weaponData[i].attackData[k].npcSpread[1] == -1 && weaponData[i].attackData[k].npcSpread[2] == -1) {
+						weaponData[i].attackData[k].npcSpread[0] = weaponData[j].attackData[k].npcSpread[0];
+						weaponData[i].attackData[k].npcSpread[1] = weaponData[j].attackData[k].npcSpread[1];
+						weaponData[i].attackData[k].npcSpread[2] = weaponData[j].attackData[k].npcSpread[2];
+					}
 				}
 
 				weaponData[i].scopeType = weaponData[i].scopeType == 0 ? weaponData[j].scopeType : weaponData[i].scopeType;
@@ -1315,6 +1412,12 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount != -1 ? weaponData[i].attackData[k].bounceCount : 0;
 			weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall != qunset ? weaponData[i].attackData[k].bounceWall : qfalse;
 			weaponData[i].attackData[k].maxChargeUnits = weaponData[i].attackData[k].maxChargeUnits == 0 ? 1 : weaponData[i].attackData[k].maxChargeUnits;
+
+			if (weaponData[i].attackData[k].npcDamage[0] == -1 && weaponData[i].attackData[k].npcDamage[1] == -1 && weaponData[i].attackData[k].npcDamage[2] == -1) {
+				weaponData[i].attackData[k].npcDamage[0] = weaponData[i].attackData[k].damage * 0.3f;
+				weaponData[i].attackData[k].npcDamage[1] = weaponData[i].attackData[k].damage * 0.6f;
+				weaponData[i].attackData[k].npcDamage[2] = weaponData[i].attackData[k].damage * 0.9f;
+			}
 		}
 	}
 	//Sort weapons in buckets

@@ -216,9 +216,12 @@ typedef struct weaponAttackData_s
 	int		fireTime;			// Amount of time between firings
 	int		range;				// Range of weapon
 	float 	spread;				// Accuracy of shots
+	float 	npcSpread[3];		// Accuracy of shots for most npc
 	int		damage;				// Damage per shot
+	int		npcDamage[3];		// Damage per shot for most npc 
 	int		defaultDamage;		// Default damage per shot
-	float	mVelocity;			// Speed of missile
+	float	velocity;			// Speed of missile
+	float	npcVelocity[3];		// Speed of missile for most npc
 	int 	fireOption[3];		// Option for the fire (Type, Projectile count,...)
 
 	/* Splash Damage */

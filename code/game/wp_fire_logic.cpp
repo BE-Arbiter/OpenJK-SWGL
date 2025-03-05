@@ -89,23 +89,19 @@ void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, qboolean altFire)
 /*
 	Return the weapon missile velocity for NPC
 */
-float WP_GetNpcVelocity(gentity_t* ent) {
+int WP_GetVelocity(gentity_t* ent,weaponAttackData_t * attackData) {
 	//Player and those NPC fire like... really fast
 	if (ent->s.number == 0
 		|| ent->client->NPC_class == CLASS_BOBAFETT
 		|| ent->client->NPC_class == CLASS_MANDALORIAN
 		|| ent->client->NPC_class == CLASS_JANGO) {
-		return 1;
+		return attackData->velocity;;
 	}
-	if (g_spskill->integer < 2)
-	{
-		return BLASTER_NPC_VEL_CUT;
+	int diff = g_spskill->integer + 1;
+	if (attackData->npcVelocity[diff] > 0) {
+		return attackData->npcVelocity[diff];
 	}
-	else
-	{
-		return BLASTER_NPC_HARD_VEL_CUT;
-	}
-	return 1;
+	return attackData->velocity;;
 }
 
 /*
@@ -113,19 +109,6 @@ float WP_GetNpcVelocity(gentity_t* ent) {
 */
 int WP_GetWeaponDamage(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire = qfalse) {
 	int baseWeaponNum = weaponData[ent->s.weapon].baseWeaponNum ? weaponData[ent->s.weapon].baseWeaponNum : ent->s.weapon;
-	/* Disruptor effect (All npc do reduced damage) */
-	if (ent->s.number != 0 && baseWeaponNum == WP_DISRUPTOR && g_spskill->integer == 0)
-	{
-		return altFire ? DISRUPTOR_NPC_ALT_DAMAGE_EASY : DISRUPTOR_NPC_MAIN_DAMAGE_EASY;
-	}
-	if (ent->s.number != 0 && baseWeaponNum == WP_DISRUPTOR && g_spskill->integer == 1)
-	{
-		return altFire ? DISRUPTOR_NPC_ALT_DAMAGE_MEDIUM : DISRUPTOR_NPC_MAIN_DAMAGE_MEDIUM;
-	}
-	if (ent->s.number != 0 && baseWeaponNum == WP_DISRUPTOR)
-	{
-		return altFire ? DISRUPTOR_NPC_ALT_DAMAGE_HARD : DISRUPTOR_NPC_MAIN_DAMAGE_HARD;
-	}
 	// Player and those NPC do Normal Damage
 	if (ent->s.number == 0
 		|| ent->client->NPC_class == CLASS_BOBAFETT
@@ -133,24 +116,30 @@ int WP_GetWeaponDamage(gentity_t* ent, weaponAttackData_t* attackData, qboolean 
 		|| ent->client->NPC_class == CLASS_JANGO) {
 		return attackData->damage;
 	}
-	//Instead of thousand of define, base the damage around a difficulty modifier
-	//Could even be set in a float cvar next...
-	float mult = (g_spskill->integer == 0) ? 0.3f : ((g_spskill->integer == 1) ? 0.6f : 0.9f);
-	return (int) (attackData->damage * mult);
+	int diff = g_spskill->integer + 1;
+	if (attackData->npcDamage[diff]) {
+		return attackData->npcDamage[diff];
+	}
+	//Fallback Case Should not happen
+	return (int) (attackData->damage * 0.3f * diff);
 }
 
 /*
 	Return the spread for NPC if it is found, 0 otherwise
 */
-float WP_GetNpcSpread(gentity_t* ent, qboolean altFire = qfalse) {
-	int baseWeaponNum = weaponData[ent->s.weapon].baseWeaponNum ? weaponData[ent->s.weapon].baseWeaponNum : ent->s.weapon;
-	if (baseWeaponNum == WP_BLASTER || baseWeaponNum == WP_BOWCASTER) {
-		return BLASTER_NPC_SPREAD;
+float WP_GetSpread(gentity_t* ent, weaponAttackData_t *attackData) {
+	//Player and those NPC use normal spread
+	if (ent->s.number == 0
+		|| ent->client->NPC_class == CLASS_BOBAFETT
+		|| ent->client->NPC_class == CLASS_MANDALORIAN
+		|| ent->client->NPC_class == CLASS_JANGO) {
+		return attackData->spread;
 	}
-	if (baseWeaponNum == WP_THEFIRSTORDER) {
-		return F_11D_NPC_SPREAD;
+	int mod = g_spskill->integer + 1;
+	if (attackData->npcVelocity[mod] > 0) {
+		return attackData->npcVelocity[mod];
 	}
-	return BLASTER_NPC_SPREAD;
+	return attackData->spread;
 }
 
 void WP_ApplyLockDownOnMissile(gentity_t* ent, gentity_t* missile, qboolean alwaysLock = qfalse) {
@@ -235,17 +224,13 @@ void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,int a
 {
 	weaponData_t* wpnData = &weaponData[ent->s.weapon];
 	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
-	int velocity = attackData->mVelocity;
+	int velocity = WP_GetVelocity(ent, attackData);
 	int	damage = WP_GetWeaponDamage(ent, attackData);
 
 	if (ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE)
 	{
 		damage *= 3;
 		velocity = ATST_MAIN_VEL + ent->client->ps.speed;
-	}
-	else
-	{
-		velocity *= WP_GetNpcVelocity(ent);
 	}
 
 	WP_TraceSetStart(ent, start, vec3_origin, vec3_origin);//make sure our start point isn't on the other side of a wall
@@ -352,7 +337,7 @@ void WP_FireGenericBlaster(gentity_t* ent, int attackIndex)
 			|| ent->client->NPC_class == CLASS_SWAMPTROOPER  || ent->client->NPC_class == CLASS_IMPWORKER)
 		)
 		{
-			float npcSpread = WP_GetNpcSpread(ent);
+			float npcSpread = WP_GetSpread(ent,attackData);
 			angs[PITCH] += (Q_flrand(-1.0f, 1.0f) * (npcSpread + (6 - ent->NPC->currentAim) * 0.25f));
 			angs[YAW] += (Q_flrand(-1.0f, 1.0f) * (npcSpread + (6 - ent->NPC->currentAim) * 0.25f));
 		}
@@ -518,7 +503,7 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 		for (int i = 0; i < count; i++)
 		{
 			// create a range of different velocities
-			vel = attackData->mVelocity * (Q_flrand(0.8f, 1.2f) + 1.0f);
+			vel = attackData->velocity * (Q_flrand(0.8f, 1.2f) + 1.0f);
 
 			vectoangles(forwardVec, angs);
 
@@ -779,15 +764,9 @@ void WP_FireDroidsTwinBlasters(gentity_t* ent, int attackIndex)
 	weaponData_t* wpnData = &weaponData[ent->s.weapon];
 	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	vec3_t	angs;
-	int velocity = attackData->mVelocity;
+	int velocity = WP_GetVelocity(ent, attackData);
 	int damage = WP_GetWeaponDamage(ent, attackData);
 	float scalers[2] = { SBD_LEFT_SHOT, SBD_RIGHT_SHOT };
-
-	// If an enemy is shooting at us, lower the velocity so you have a chance to evade
-	if (ent->client && ent->client->ps.clientNum != 0)
-	{
-		velocity *= WP_GetNpcVelocity(ent);
-	}
 
 	WP_TraceSetStart(ent, muzzle, vec3_origin, vec3_origin);
 
@@ -1180,7 +1159,7 @@ gentity_t* WP_FireGrenade(gentity_t* ent, int attackIndex)
 	}
 
 	// get charge amount
-	chargeAmount = chargeAmount / (float)attackData->mVelocity;
+	chargeAmount = chargeAmount / (float)attackData->velocity;
 
 	if (chargeAmount > 1.0f)
 	{
@@ -1191,7 +1170,7 @@ gentity_t* WP_FireGrenade(gentity_t* ent, int attackIndex)
 		chargeAmount = TD_MIN_CHARGE;
 	}
 
-	float	thrownSpeed = attackData->mVelocity;
+	float	thrownSpeed = attackData->velocity;
 	const qboolean thisIsAShooter = (qboolean)!Q_stricmp("misc_weapon_shooter", ent->classname);
 
 	if (thisIsAShooter)
@@ -1318,7 +1297,7 @@ void WP_RocketThink(gentity_t* ent)
 	}
 	if (ent->enemy && ent->enemy->inuse)
 	{
-		float vel = (ent->spawnflags & 1) ? ent->speed : atkData->mVelocity;
+		float vel = (ent->spawnflags & 1) ? ent->speed : atkData->velocity;
 		float newDirMult = ent->angle ? ent->angle * 2.0f : 1.0f;
 		float oldDirMult = ent->angle ? (1.0f - ent->angle) * 2.0f : 1.0f;
 

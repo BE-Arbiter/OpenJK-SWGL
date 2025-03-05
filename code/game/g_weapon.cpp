@@ -49,9 +49,9 @@ float WP_SpeedOfMissileForWeapon( int wp, qboolean alt_fire )
 {
 	if ( alt_fire )
 	{
-		return weaponData[wp].attackData[1].mVelocity;
+		return weaponData[wp].attackData[1].velocity;
 	}
-	return weaponData[wp].attackData[0].mVelocity;
+	return weaponData[wp].attackData[0].velocity;
 }
 
 //-----------------------------------------------------------------------------

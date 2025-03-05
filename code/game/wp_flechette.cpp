@@ -36,7 +36,7 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 {
 	vec3_t		fwd, angs, start;
 	gentity_t	*missile;
-	float		damage = weaponData[ent->s.weapon].attackData[0].damage, vel = weaponData[ent->s.weapon].attackData[0].mVelocity;
+	float		damage = weaponData[ent->s.weapon].attackData[0].damage, vel = weaponData[ent->s.weapon].attackData[0].velocity;
 
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
@@ -194,8 +194,8 @@ void WP_flechette_alt_blow( gentity_t *ent )
 static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *self )
 //------------------------------------------------------------------------------
 {
-	int randVelocity = FLECHETTE_ALT_MAX_VEL - weaponData[self->s.weapon].attackData[1].mVelocity;
-	gentity_t	*missile = CreateMissile( start, fwd, weaponData[self->s.weapon].attackData[1].mVelocity + Q_flrand(0.0f, 1.0f) * FLECHETTE_ALT_MAX_VEL, 1500 + Q_flrand(0.0f, 1.0f) * 2000, self, qtrue );
+	int randVelocity = FLECHETTE_ALT_MAX_VEL - weaponData[self->s.weapon].attackData[1].velocity;
+	gentity_t	*missile = CreateMissile( start, fwd, weaponData[self->s.weapon].attackData[1].velocity + Q_flrand(0.0f, 1.0f) * FLECHETTE_ALT_MAX_VEL, 1500 + Q_flrand(0.0f, 1.0f) * 2000, self, qtrue );
 
 	missile->e_ThinkFunc = thinkF_WP_flechette_alt_blow;
 
