@@ -522,9 +522,9 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 		|| !Q_stricmp("cultist_grip", ent->NPC_type)
 		|| !Q_stricmp("cultist_drain", ent->NPC_type)
 		|| !Q_stricmp("cultist_lightning", ent->NPC_type)
-		||!Q_stricmp(NS_GHOST, ent->NPC_type)
-		||!Q_stricmp(SIM_ALOO, ent->NPC_type) 
-		||!Q_stricmp(GREEJATUS, ent->NPC_type))
+		|| !Q_stricmp(NS_GHOST, ent->NPC_type)
+		|| !Q_stricmp(SIM_ALOO, ent->NPC_type)
+		|| !Q_stricmp(GREEJATUS, ent->NPC_type))
 	{//FIXME: extern this into NPC.cfg?
 		ent->NPC->scriptFlags |= SCF_DONT_FIRE;//so he uses only force powers
 	}
@@ -544,6 +544,10 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 	if (!Q_stricmp(PHASMA, ent->NPC_type))
 	{
 		ent->NPC->scriptFlags |= SCF_ALT_FIRE;
+		ent->flags |= FL_SHIELDED;
+	}
+	if (!Q_stricmp(GEODE, ent->NPC_type))
+	{
 		ent->flags |= FL_SHIELDED;
 	}
 	if (!Q_stricmp("Rax", ent->NPC_type))

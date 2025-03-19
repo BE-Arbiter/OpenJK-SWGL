@@ -48,6 +48,9 @@
 #define YADDLE "Yaddle"
 #define YODA "yoda"
 
+// High Republic
+#define GEODE "Geode"
+
 
 
 // Separatists
