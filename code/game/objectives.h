@@ -586,6 +586,8 @@ stringID_table_t missionFailedTable [] =
 	ENUM2STRING(MISSIONFAILED_ROSH),
 	ENUM2STRING(MISSIONFAILED_WEDGE),
 	ENUM2STRING(MISSIONFAILED_TURNED),		//# Turned on your friends.
+	ENUM2STRING(MISSIONFAILED_QUEEN),		//# Queen Amidala died.
+	ENUM2STRING(MISSIONFAILED_DEATHSTAR),		//# Failed to escape the Deathstar.
 
 	//stringID_table_t Must end with a null entry
 	{ "", 0 }
