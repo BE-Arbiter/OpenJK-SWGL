@@ -38,7 +38,7 @@ bool RE_SplitSkins(const char *INname, char *skinhead, char *skintorso, char *sk
 {	//INname= "models/players/jedi_tf/|head01_skin1|torso01|lower01";
 	if (strchr(INname, '|'))
 	{
-		char name[MAX_QPATH];
+		char name[MAX_CSPATH];
 		strcpy(name, INname);
 		char *p = strchr(name, '|');
 		*p=0;
@@ -174,8 +174,26 @@ qhandle_t RE_RegisterSkin( const char *name ) {
 		return 0;
 	}
 
-	if ( strlen( name ) >= MAX_QPATH ) {
-		Com_Printf( "Skin name exceeds MAX_QPATH\n" );
+	char skinhead[MAX_QPATH] = { 0 };
+	char skintorso[MAX_QPATH] = { 0 };
+	char skinlower[MAX_QPATH] = { 0 };
+
+	bool multiskin = RE_SplitSkins(name, (char*)&skinhead, (char*)&skintorso, (char*)&skinlower);
+
+	if ((!multiskin && strlen(name) >= MAX_QPATH)) {
+		Com_Printf("WARNING : RE_REGISTERSkin Skin name (%s) exceeds MAX_QPATH\n", name);
+		return 0;
+	}
+	else if (multiskin && strlen(skinhead) >= MAX_QPATH) {
+		Com_Printf("WARNING : RE_REGISTERSkin Skin name (%s) exceeds MAX_QPATH\n", skinhead);
+		return 0;
+	}
+	else if (multiskin && strlen(skinlower) >= MAX_QPATH) {
+		Com_Printf("WARNING : RE_REGISTERSkin Skin name (%s) exceeds MAX_QPATH\n", skinlower);
+		return 0;
+	}
+	else if (multiskin && strlen(skintorso) >= MAX_QPATH) {
+		Com_Printf("WARNING : RE_REGISTERSkin Skin name (%s) exceeds MAX_QPATH\n", skintorso);
 		return 0;
 	}
 
@@ -213,10 +231,7 @@ qhandle_t RE_RegisterSkin( const char *name ) {
 
 	}
 #endif
-	char skinhead[MAX_QPATH]={0};
-	char skintorso[MAX_QPATH]={0};
-	char skinlower[MAX_QPATH]={0};
-	if ( RE_SplitSkins(name, (char*)&skinhead, (char*)&skintorso, (char*)&skinlower ) )
+	if( multiskin )
 	{//three part
 		hSkin = RE_RegisterIndividualSkin(skinhead, hSkin);
 		if (hSkin)

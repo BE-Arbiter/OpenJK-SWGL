@@ -7783,7 +7783,7 @@ static void UI_UpdateCharacterSkin( void )
 {
 	menuDef_t *menu;
 	itemDef_t *item;
-	char skin[MAX_QPATH];
+	char skin[MAX_CSPATH];
 
 	menu = Menu_GetFocused();	// Get current menu
 
@@ -7813,7 +7813,7 @@ static void UI_CharacterDefaultSkin(void)
 {
 	menuDef_t* menu;
 	itemDef_t* item;
-	char skin[MAX_QPATH];
+	char skin[MAX_CSPATH];
 
 	menu = Menu_GetFocused();	// Get current menu
 

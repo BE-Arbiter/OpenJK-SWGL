@@ -209,6 +209,7 @@ typedef int32_t qhandle_t, thandle_t, fxHandle_t, sfxHandle_t, fileHandle_t, cli
 #define	BIG_INFO_VALUE		8192
 
 #define	MAX_QPATH			64		// max length of a quake game pathname
+#define	MAX_CSPATH			128		// max length for a composite skin pathname (models/players/%s/|%s|%s|%s)
 #ifdef PATH_MAX
 #define MAX_OSPATH			PATH_MAX
 #else

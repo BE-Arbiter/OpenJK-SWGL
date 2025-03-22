@@ -895,7 +895,7 @@ Ghoul2 Insert Start
 
 static void G_SetSkin( gentity_t *ent )
 {
-	char	skinName[MAX_QPATH];
+	char	skinName[MAX_CSPATH];
 	//ok, lets register the skin name, and then pass that name to the config strings so the client can get it too.
 	if (Q_stricmp( "hoth2", level.mapname ) == 0	//hack, is this the only map?
 		||
@@ -2076,7 +2076,7 @@ qboolean G_SetG2PlayerModelInfo( gentity_t *ent, const char *modelName, const ch
 
 void G_SetG2PlayerModel( gentity_t * const ent, const char *modelName, const char *customSkin, const char *surfOff, const char *surfOn )
 {
-	char	skinName[MAX_QPATH];
+	char	skinName[MAX_CSPATH];
 
 	//ok, lets register the skin name, and then pass that name to the config strings so the client can get it too.
 	if ( !customSkin )

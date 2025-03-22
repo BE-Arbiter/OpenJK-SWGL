@@ -9914,7 +9914,7 @@ extern cvar_t	*g_char_skin_legs;
 		// If this is a (fake) Player NPC or this IS the Player...
 		if ( entID == 0 || ( ent->NPC_type && Q_stricmp( ent->NPC_type, "player" ) == 0 ) )
 		{
-			char strSkin[MAX_QPATH];
+			char strSkin[MAX_CSPATH];
 			// Set the Winter Gear Skin if true, otherwise set back to normal configuration.
 			if( Q_stricmp( "true", ((char *)data) ) == 0 )
 			{

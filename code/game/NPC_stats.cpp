@@ -1689,7 +1689,7 @@ void CG_NPC_Precache ( gentity_t *spawner )
 	char	sound[MAX_QPATH];
 	qboolean	md3Model = qfalse;
 	char	playerModel[MAX_QPATH] = { 0 };
-	char	customSkin[MAX_QPATH];
+	char	customSkin[MAX_CSPATH];
 
 	if ( !Q_stricmp( "random", spawner->NPC_type ) )
 	{//sorry, can't precache a random just yet
@@ -1995,7 +1995,7 @@ void CG_NPC_Precache ( gentity_t *spawner )
 	}
 	else
 	{
-		char	skinName[MAX_QPATH];
+		char	skinName[MAX_CSPATH];
 		//precache ghoul2 model
 		gi.G2API_PrecacheGhoul2Model( va( "models/players/%s/model.glm", playerModel ) );
 		//precache skin
@@ -2042,7 +2042,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 	char	*patch;
 	char	sound[MAX_QPATH];
 	char	playerModel[MAX_QPATH];
-	char	customSkin[MAX_QPATH];
+	char	customSkin[MAX_CSPATH];
 	clientInfo_t	*ci = &NPC->client->clientInfo;
 	renderInfo_t	*ri = &NPC->client->renderInfo;
 	gNPCstats_t		*stats = NULL;
