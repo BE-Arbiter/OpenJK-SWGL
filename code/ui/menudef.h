@@ -163,3 +163,4 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define UI_STARTMAPCINEMATIC	255
 #define UI_MAPS_SELECTION		256
 #define UI_DATAPAD_LOADOUT		257
+#define UI_NPC_WEAPON_LABEL		258

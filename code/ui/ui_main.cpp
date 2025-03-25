@@ -823,6 +823,7 @@ vmCvar_t	ui_npc_saberonecolor;
 vmCvar_t	ui_npc_sabertwo;
 vmCvar_t	ui_npc_sabertwocolor;
 vmCvar_t	ui_npc_weapon;
+vmCvar_t	ui_npc_weapon_label;
 vmCvar_t	ui_npc_spawnscript;
 vmCvar_t	ui_npc_fleescript;
 vmCvar_t	ui_npc_deathscript;
@@ -944,6 +945,7 @@ static cvarTable_t cvarTable[] =
 	{ &ui_npc_sabertwo,			"ui_npc_sabertwo",	"single_1", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_sabertwocolor,	"ui_npc_sabertwocolor",	"red", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_weapon,			"ui_npc_weapon",	"WP_BLASTER", NULL, CVAR_ARCHIVE},
+	{ &ui_npc_weapon_label,			"ui_npc_weapon_label",	"Blaster", NULL, CVAR_ARCHIVE},
 	{ &ui_lightning_color,		"ui_lightning_color",	"blue", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_spawnscript,		"ui_npc_spawnscript",	"spawnscripts/no_follow", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_fleescript,		"ui_npc_fleescript",	"fleescripts/surrender", NULL, CVAR_ARCHIVE},
@@ -1568,6 +1570,18 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if (Q_stricmp(name, "loadoutSwitchSelectWeapon") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSwitchSelectWeapon\n");
+		}
+		else if (Q_stricmp(name, "uiNpcWeaponNext") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "uiNpcWeaponNext\n");
+		}
+		else if (Q_stricmp(name, "uiNpcWeaponPrev") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "uiNpcWeaponPrev\n");
+		}
+		else if (Q_stricmp(name, "uiNpcWeaponLabelUpd") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "uiNpcWeaponLabelUpd\n");
 		}
 		else if (Q_stricmp(name, "loadoutNextPage") == 0)
 		{
@@ -4794,6 +4808,10 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 		case UI_DATAPAD_LOADOUT:
 			ui.Draw_DataPad(DP_LOADOUT_FRAME);
 			ui.Draw_DataPad(DP_LOADOUT);
+			break;
+
+		case UI_NPC_WEAPON_LABEL:
+			ui.Draw_DataPad(DP_NPC_WEAPON_LABEL);
 			break;
 
 		case UI_ALLMAPS_SELECTION://saved game thumbnail

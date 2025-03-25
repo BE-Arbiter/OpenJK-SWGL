@@ -2815,6 +2815,83 @@ void CG_LDO_NextPage_f(void) {
 		cg.LoadoutPageSelect = 0;
 	}
 }
+
+/* CG_NPC_NextWeapon_f
+	Next weapon for charName
+*/
+extern int WP_GetWeaponID(const char* weaponName);
+extern vmCvar_t		ui_npc_weapon;
+extern vmCvar_t		ui_npc_weapon_label;
+void CG_NPC_NextWeapon_f(void) {
+	cgi_Cvar_Update(&ui_npc_weapon);
+	int currentWeaponIndex = WP_GetWeaponID(ui_npc_weapon.string);
+	if (currentWeaponIndex == -1) {
+		currentWeaponIndex = 1; // 0 is WP_NONE
+	}
+	int nextWeaponIndex = currentWeaponIndex;
+	do {
+		nextWeaponIndex = (nextWeaponIndex == weaponCount - 1) ? 1 : nextWeaponIndex + 1;
+	} while (!weaponData[nextWeaponIndex].classname 
+		|| !weaponData[nextWeaponIndex].classname[0]
+		|| !weaponData[nextWeaponIndex].playerUsable);
+	cgi_Cvar_Set("ui_npc_weapon", weaponData[nextWeaponIndex].classname);
+	CG_NPC_UpdateLabel();
+}
+
+void CG_NPC_PrevWeapon_f(void) {
+	cgi_Cvar_Update(&ui_npc_weapon);
+	int currentWeaponIndex = WP_GetWeaponID(ui_npc_weapon.string);
+	if (currentWeaponIndex == -1) {
+		currentWeaponIndex = 1; // 0 is WP_NONE
+	}
+	int prevWeaponIndex = currentWeaponIndex;
+	do {
+		prevWeaponIndex = (prevWeaponIndex == 1) ? weaponCount - 1 : prevWeaponIndex - 1;
+	} while (!weaponData[prevWeaponIndex].classname
+		|| !weaponData[prevWeaponIndex].classname[0]
+		|| !weaponData[prevWeaponIndex].playerUsable);
+	cgi_Cvar_Set("ui_npc_weapon",weaponData[prevWeaponIndex].classname);
+	CG_NPC_UpdateLabel();
+}
+
+char label[256];
+void CG_NPC_UpdateLabel(void) {
+	cgi_Cvar_Update(&ui_npc_weapon);
+	int currentWeaponIndex = WP_GetWeaponID(ui_npc_weapon.string);
+	//Get Weapon Name */
+	if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
+	{
+		void;
+	}
+	else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
+	{
+		void;
+	}
+	//Dynamic Weapons
+	else if (!cgi_SP_GetStringTextString(va("%s_NAME", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
+	{
+		Com_sprintf(label, sizeof(label), weaponData[currentWeaponIndex].classname);
+	}
+	cgi_Cvar_Set("ui_npc_weapon_label", label);
+}
+
+void CG_DrawNpcWeaponLabel(void) {
+	CG_NPC_UpdateLabel();
+	const short textboxXPos = 508;
+	const short textboxYPos = 57;
+	const int	textboxWidth = 106;
+	const int	textboxHeight = 16;
+	const float	textScale = 0.75f;
+
+	CG_DisplayBoxedText(
+		textboxXPos, textboxYPos,
+		textboxWidth, textboxHeight,
+		label,
+		CG_MagicFontToReal(4),
+		textScale,
+		colorTable[CT_WHITE]
+	);
+}
 /*
 ===============
 CG_UI_DrawListWeaponCategory_f

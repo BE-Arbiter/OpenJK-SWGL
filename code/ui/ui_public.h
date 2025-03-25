@@ -163,7 +163,8 @@ typedef enum {
 	DP_INVENTORY,
 	DP_FORCEPOWERS,
 	DP_LOADOUT,
-	DP_LOADOUT_FRAME
+	DP_LOADOUT_FRAME,
+	DP_NPC_WEAPON_LABEL
 }dpTypes_t;
 
 typedef enum {

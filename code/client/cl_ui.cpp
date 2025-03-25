@@ -193,6 +193,9 @@ void CL_DrawDatapad(int HUDType)
 	case DP_LOADOUT_FRAME:
 		VM_Call(CG_DRAW_DATAPAD_LOADOUT_FRAME);
 		break;
+	case DP_NPC_WEAPON_LABEL:
+		VM_Call(CG_DRAW_NPC_WEAPON_LABEL);
+		break;
 	default:
 		break;
 	}

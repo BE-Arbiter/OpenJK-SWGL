@@ -161,6 +161,13 @@ Ghoul2 Insert End
 		}
 		return 0;
 
+	case CG_DRAW_NPC_WEAPON_LABEL:
+		if (cg.snap)
+		{
+			CG_DrawNpcWeaponLabel();
+		}
+		return 0;
+
 	case CG_DRAW_DATAPAD_OBJECTIVES:
 		if (cg.snap)
 		{
@@ -390,6 +397,8 @@ vmCvar_t		cg_hudRatio;
 
 vmCvar_t		ui_loadout_base_weapon;
 vmCvar_t		ui_loadout_weapon;
+vmCvar_t		ui_npc_weapon;
+vmCvar_t		ui_npc_weapon_label;
 
 
 typedef struct {
@@ -537,7 +546,9 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_hudRatio, "cg_hudRatio", "1", CVAR_ARCHIVE },
 	//Loadout Menu cvar
 	{ &ui_loadout_base_weapon , "ui_loadout_base_weapon","weapon_none", CVAR_TEMP},
-	{ &ui_loadout_weapon , "ui_loadout_weapon","0", CVAR_TEMP}
+	{ &ui_loadout_weapon , "ui_loadout_weapon","0", CVAR_TEMP},
+	{ &ui_npc_weapon, "ui_npc_weapon",	"WP_BLASTER", CVAR_ARCHIVE },
+	{ &ui_npc_weapon_label, "ui_npc_weapon_label",	"Blaster", CVAR_ARCHIVE }
 };
 
 static const size_t cvarTableSize = ARRAY_LEN( cvarTable );

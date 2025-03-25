@@ -842,6 +842,10 @@ void CG_LDO_SelectWeapon_f(void);
 void CG_LDO_SwitchWeapon_f(void);
 void CG_LDO_PreviousPage_f(void);
 void CG_LDO_NextPage_f(void);
+void CG_NPC_NextWeapon_f(void);
+void CG_NPC_PrevWeapon_f(void);
+void CG_NPC_UpdateLabel(void);
+void CG_DrawNpcWeaponLabel();
 void CG_Dualwield_f(void);
 
 void CG_DPNextInventory_f( void );
