@@ -363,6 +363,8 @@ typedef enum //# setType_e
 	SET_ANIM_SPEED_UPPER_FORCED,
 	SET_ANIM_SPEED_BOTH_FORCED,
 
+	SET_ATTRIBUTE,
+
 	//# #eol
 	SET_
 } setType_t;

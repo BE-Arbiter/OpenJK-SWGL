@@ -115,8 +115,6 @@ stringID_table_t BSTable[] =
 	{ "",				-1 }
 };
 
-
-
 stringID_table_t BSETTable[] =
 {
 	ENUM2STRING(BSET_SPAWN),//# script to use when first spawned
@@ -247,6 +245,8 @@ stringID_table_t HLTable[] =
 	ENUM2STRING(HL_GENERIC6),
 	{ "", -1 }
 };
+
+extern stringID_table_t attrTable[];
 
 stringID_table_t setTable[] =
 {
@@ -546,6 +546,7 @@ stringID_table_t setTable[] =
 	ENUM2STRING(SET_ANIM_SPEED_LOWER_FORCED),
 	ENUM2STRING(SET_ANIM_SPEED_UPPER_FORCED),
 	ENUM2STRING(SET_ANIM_SPEED_BOTH_FORCED),
+	ENUM2STRING(SET_ATTRIBUTE),
 
 	{ "",	SET_ }
 };
@@ -10073,6 +10074,20 @@ extern cvar_t	*g_char_skin_legs;
 		return; //Don't call it back
 		//////////////////////////////
 	break;
+	case SET_ATTRIBUTE:
+		ent = &g_entities[entID];
+		if (ent && ent->inuse && ent->ghoul2.size())
+		{
+			int attr = GetIDForString(attrTable, data);
+			if (attr != -1)
+			{
+				if (!(ent->attrFlags & attr))
+					ent->attrFlags |= attr;
+				else
+					ent->attrFlags &= ~attr;
+			}
+		}
+		break;
 	default:
 		//DebugPrint( WL_ERROR, "Set: '%s' is not a valid set field\n", type_name );
 		SetVar( taskID, entID, type_name, data );
