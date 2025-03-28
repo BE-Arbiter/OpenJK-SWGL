@@ -14,6 +14,7 @@
 #define	ATTR_DROID	 0x00000200 // They're a droid. Take increased damage from electrical attacks. Can't be mind tricked, drown, or suffocate.
 #define ATTR_SADISTIC 0x00000400 // Enjoys inflicting harm on others. Heals upon inflicting damage.
 #define ATTR_BERSERKER	 0x0000800	// Increased attacking speed at certain health thresholds
+#define ATTR_UNCIVILIZED	 0x0001000	// Will shoot at an enemy even if in a lightsaber duel
 
 // Old Republic
 #define HAVOC_MAJOR "Havoc_Major"
