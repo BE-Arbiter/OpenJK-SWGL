@@ -2754,6 +2754,16 @@ SHY - Spawner is shy
 */
 void SP_NPC_Galak(gentity_t *self)
 {
+	if ((self->spawnflags & 1))
+	{
+		self->NPC_type = "Galak_Mech";
+	}
+	else
+	{
+		self->NPC_type = "Galak";
+	}
+
+	SP_NPC_spawner(self);
 }
 
 /*QUAKED NPC_Desann(1 0 0) (-16 -16 -24) (16 16 40) x x x x CEILING CINEMATIC NOTSOLID STARTINSOLID SHY
