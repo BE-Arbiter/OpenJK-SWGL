@@ -1984,6 +1984,9 @@ typedef enum //# animNumber_e
 	TORSO_RAISEWEAP2,
 	TORSO_RAISEWEAP3,
 
+	// Cut standing animation from JK2
+	BOTH_STAND7,
+
 	//# #eol
 	MAX_ANIMATIONS,
 	MAX_TOTALANIMATIONS,

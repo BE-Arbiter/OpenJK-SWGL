@@ -331,7 +331,7 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 		const char* info = CG_ConfigString(CS_SERVERINFO);
 		const char* s = Info_ValueForKey(info, "mapname");
 
-		if (!Q_stricmp(s, "t3_bounty"))
+		if (!Q_stricmp(ent->targetname, "bobafett") || !Q_stricmp(ent->targetname, "bobafett1"))
 		{
 			NPC->flags |= FL_UNDYING;		// Can't Kill Boba, he's got plot armor!
 		}
@@ -545,6 +545,10 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 	if (!Q_stricmp(PHASMA, ent->NPC_type))
 	{
 		ent->NPC->scriptFlags |= SCF_ALT_FIRE;
+		ent->flags |= FL_SHIELDED;
+	}
+	if (!Q_stricmp(GEODE, ent->NPC_type))
+	{
 		ent->flags |= FL_SHIELDED;
 	}
 	if (!Q_stricmp("Rax", ent->NPC_type))
@@ -1986,8 +1990,8 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 	if (ent->NPC_color_green)
 		newent->NPC_color_green = ent->NPC_color_green;
 
-	if (ent->NPC_color_red)
-		newent->NPC_color_blue = ent->NPC_color_red;
+	if (ent->NPC_color_blue)
+		newent->NPC_color_blue = ent->NPC_color_blue;
 
 	VectorCopy(ent->s.origin, newent->s.origin);
 	VectorCopy(ent->s.origin, newent->client->ps.origin);
@@ -2751,6 +2755,16 @@ SHY - Spawner is shy
 */
 void SP_NPC_Galak(gentity_t *self)
 {
+	if ((self->spawnflags & 1))
+	{
+		self->NPC_type = "Galak_Mech";
+	}
+	else
+	{
+		self->NPC_type = "Galak";
+	}
+
+	SP_NPC_spawner(self);
 }
 
 /*QUAKED NPC_Desann(1 0 0) (-16 -16 -24) (16 16 40) x x x x CEILING CINEMATIC NOTSOLID STARTINSOLID SHY
