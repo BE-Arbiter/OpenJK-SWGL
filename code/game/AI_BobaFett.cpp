@@ -129,7 +129,7 @@ extern cvar_t*		g_bobaDebug;
 	#include <stdio.h>
 	#define STDIO_H_INC
 #endif
-#include "../../codemp/cgame/cg_local.h"
+#include "../cgame/cg_local.h"
 #include <cgame/cg_local.h>
 void	Boba_Printf(const char * format, ...)
 {
