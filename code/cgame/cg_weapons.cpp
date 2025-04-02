@@ -2326,7 +2326,7 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 {
 	int	usage_for_weap;
 
-	if (i >= weaponCount || !weaponData[i].playerUsable)
+	if (i >= weaponCount)
 	{
 #ifndef FINAL_BUILD
 		Com_Printf("CG_WeaponSelectable() passed illegal index of %d!\n",i);
@@ -2334,7 +2334,7 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 		return qfalse;
 	}
 
-	if ( cg.weaponSelectTime + 100 > cg.time )
+	if (!weaponData[i].playerUsable || cg.weaponSelectTime + 100 > cg.time )
 	{//TEMP standard weapon cycle debounce for E3 because G2 can't keep up with fast weapon changes
 		return qfalse;
 	}
