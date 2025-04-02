@@ -6043,6 +6043,7 @@ void PM_TorsoAnimation(void)
 				{
 					if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_RANCOR)
 					{//ignore
+
 					}
 					else if (pm->gent && pm->gent->client && !PM_DroidMelee(pm->gent->client->NPC_class))
 					{
@@ -6195,7 +6196,12 @@ void PM_TorsoAnimation(void)
 		{
 			PM_SetAnim(pm, SETANIM_TORSO, BOTH_SWIM_IDLE1, SETANIM_FLAG_NORMAL);
 		}
-		else if (pm->ps->legsAnim == BOTH_SWIMFORWARD)
+
+		else if (pm->ps->legsAnim == BOTH_WALK1 && pm->ps->weapon == WP_SBD)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY2, SETANIM_FLAG_NORMAL);
+		}
+		else if( pm->ps->legsAnim == BOTH_SWIMFORWARD )
 		{
 			PM_SetAnim(pm, SETANIM_TORSO, BOTH_SWIMFORWARD, SETANIM_FLAG_NORMAL);
 		}

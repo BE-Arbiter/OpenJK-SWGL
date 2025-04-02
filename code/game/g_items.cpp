@@ -825,6 +825,10 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	if ((!ent->activator || ent->activator->s.number == other->s.number) && (level.time - ent->s.time <= 1000)) {
 		return;
 	}
+	//If the item was just dropped, should not be picked up before 1s
+	if (level.time - ent->s.time <= 1000) {
+		return;
+	}
 
 	if (ent->item->giType == IT_WEAPON
 		&& ent->item->giTag == WP_SABER)
