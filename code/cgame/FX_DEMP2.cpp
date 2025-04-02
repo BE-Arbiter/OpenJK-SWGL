@@ -43,31 +43,15 @@ void FX_DEMP2_ProjectileThink( centity_t *cent, const struct weaponInfo_s *weapo
 		forward[2] = 1.0f;
 	}
 
-//	theFxScheduler.PlayEffect( "demp2/shot", cent->lerpOrigin, forward );
-//	theFxScheduler.PlayEffect( "demp2/shot2", cent->lerpOrigin, forward );
-	theFxScheduler.PlayEffect( "demp2/projectile", cent->lerpOrigin, forward );
-}
 
-/*
----------------------------
-FX_DEMP2_HitWall
----------------------------
-*/
-
-void FX_DEMP2_HitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( "demp2/wall_impact", origin, normal );
-}
-
-/*
----------------------------
-FX_DEMP2_HitPlayer
----------------------------
-*/
-
-void FX_DEMP2_HitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	theFxScheduler.PlayEffect( "demp2/flesh_impact", origin, normal );
+	if (weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect("demp2/projectile", cent->lerpOrigin, forward);
+	}
 }
 
 /*

@@ -70,8 +70,15 @@ void FX_CloneProjectileThink(centity_t *cent, const struct weaponInfo_s *weapon)
 		VectorScale(forward, scale, forward);
 	}
 
-	theFxScheduler.PlayEffect(cgs.effects.cloneShotEffect, cent->lerpOrigin, forward);
 
+	if (weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect(cgs.effects.cloneShotEffect, cent->lerpOrigin, forward);
+	}
 }
 
 /*
@@ -82,33 +89,6 @@ FX_CloneAltFireThink
 void FX_CloneAltFireThink(centity_t *cent, const struct weaponInfo_s *weapon)
 {
 	FX_CloneProjectileThink(cent, weapon);
-}
-
-/*
--------------------------
-FX_CloneWeaponHitWall
--------------------------
-*/
-void FX_CloneWeaponHitWall(vec3_t origin, vec3_t normal)
-{
-	theFxScheduler.PlayEffect(cgs.effects.cloneWallImpactEffect, origin, normal);
-}
-
-/*
--------------------------
-FX_CloneWeaponHitPlayer
--------------------------
-*/
-void FX_CloneWeaponHitPlayer(gentity_t *hit, vec3_t origin, vec3_t normal, qboolean humanoid)
-{
-	//temporary? just testing out the damage skin stuff -rww
-	if (hit && hit->client && hit->ghoul2.size())
-	{
-		CG_AddGhoul2Mark(cgs.media.bdecal_burnmark1, flrand(3.5, 4.0), origin, normal, hit->s.number,
-			hit->client->ps.origin, hit->client->renderInfo.legsYaw, hit->ghoul2, hit->s.modelScale, Q_irand(10000, 13000));
-	}
-
-	theFxScheduler.PlayEffect(cgs.effects.cloneFleshImpactEffect, origin, normal);
 }
 
 /*
@@ -154,61 +134,6 @@ void FX_CloneAltProjectileThink(centity_t *cent, const struct weaponInfo_s *weap
 	theFxScheduler.PlayEffect(cgs.effects.cloneShotEffect, cent->lerpOrigin, forward);
 }
 
-/*
--------------------------
-FX_CloneAltHitWall
--------------------------
-*/
-void FX_CloneAltHitWall(vec3_t origin, vec3_t normal, int power)
-{
-	switch (power)
-	{
-	case 4:
-	case 5:
-		theFxScheduler.PlayEffect(cgs.effects.cloneWallImpactEffect3, origin, normal);
-		break;
-
-	case 2:
-	case 3:
-		theFxScheduler.PlayEffect(cgs.effects.cloneWallImpactEffect2, origin, normal);
-		break;
-
-	default:
-		theFxScheduler.PlayEffect(cgs.effects.cloneWallImpactEffect, origin, normal);
-		break;
-	}
-}
-
-/*
--------------------------
-FX_CloneAltHitPlayer
--------------------------
-*/
-void FX_CloneAltHitPlayer(vec3_t origin, vec3_t normal, qboolean humanoid)
-{
-	theFxScheduler.PlayEffect(cgs.effects.cloneFleshImpactEffect, origin, normal);
-}
-
-/*
--------------------------
-FX_CloneWeaponHitWall
--------------------------
-*/
-void FX_CloneCommandoHitWall(vec3_t origin, vec3_t normal)
-{
-	theFxScheduler.PlayEffect("dc17/explosion", origin, normal);
-}
-
-/*
----------------------------
-FX_CloneCommandoHitPlayer
----------------------------
-*/
-
-void FX_CloneCommandoHitPlayer(vec3_t origin, vec3_t normal, qboolean humanoid)
-{
-	theFxScheduler.PlayEffect("dc17/explosion", origin, normal);
-}
 
 /*
 ---------------------------

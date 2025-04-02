@@ -32,7 +32,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 FX_BowcasterProjectileThink
 ---------------------------
 */
-
 void FX_BowcasterProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon )
 {
 	vec3_t forward;
@@ -59,28 +58,13 @@ void FX_BowcasterProjectileThink( centity_t *cent, const struct weaponInfo_s *we
 
 		VectorScale( forward, scale, forward );
 	}
-
-	theFxScheduler.PlayEffect( cgs.effects.bowcasterShotEffect, cent->lerpOrigin, forward );
-}
-
-/*
----------------------------
-FX_BowcasterHitWall
----------------------------
-*/
-
-void FX_BowcasterHitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( cgs.effects.bowcasterImpactEffect, origin, normal );
-}
-
-/*
----------------------------
-FX_BowcasterHitPlayer
----------------------------
-*/
-
-void FX_BowcasterHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	theFxScheduler.PlayEffect( cgs.effects.bowcasterImpactEffect, origin, normal );
+	
+	if (weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect, cent->lerpOrigin, forward);
+	}
+	else 
+	{
+		theFxScheduler.PlayEffect(cgs.effects.bowcasterShotEffect, cent->lerpOrigin, forward);
+	}
 }

@@ -42,30 +42,15 @@ void FX_RepeaterProjectileThink( centity_t *cent, const struct weaponInfo_s *wea
 		forward[2] = 1.0f;
 	}
 
-	theFxScheduler.PlayEffect( "repeater/projectile", cent->lerpOrigin, forward );
-}
-
-/*
-------------------------
-FX_RepeaterHitWall
-------------------------
-*/
-
-void FX_RepeaterHitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( "repeater/wall_impact", origin, normal );
-}
-
-/*
-------------------------
-FX_RepeaterHitPlayer
-------------------------
-*/
-
-void FX_RepeaterHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	theFxScheduler.PlayEffect( "repeater/wall_impact", origin, normal );
-//	theFxScheduler.PlayEffect( "repeater/flesh_impact", origin, normal );
+	if (weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect("repeater/projectile", cent->lerpOrigin, forward);
+	}
+	
 }
 
 /*
@@ -84,29 +69,4 @@ void FX_RepeaterAltProjectileThink( centity_t *cent, const struct weaponInfo_s *
 	}
 
 	theFxScheduler.PlayEffect( "repeater/alt_projectile", cent->lerpOrigin, forward );
-//	theFxScheduler.PlayEffect( "repeater/alt_projectile", cent->lerpOrigin, forward );
-}
-
-/*
-------------------------
-FX_RepeaterAltHitWall
-------------------------
-*/
-
-void FX_RepeaterAltHitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( "repeater/concussion", origin, normal );
-//	theFxScheduler.PlayEffect( "repeater/alt_wall_impact2", origin, normal );
-}
-
-/*
-------------------------
-FX_RepeaterAltHitPlayer
-------------------------
-*/
-
-void FX_RepeaterAltHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	theFxScheduler.PlayEffect( "repeater/concussion", origin );
-//	theFxScheduler.PlayEffect( "repeater/alt_wall_impact2", origin, normal );
 }

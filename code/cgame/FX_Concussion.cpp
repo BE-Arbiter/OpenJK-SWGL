@@ -42,29 +42,15 @@ void FX_ConcProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon 
 		forward[2] = 1.0f;
 	}
 
-	theFxScheduler.PlayEffect( "concussion/shot", cent->lerpOrigin, forward );
-}
 
-/*
----------------------------
-FX_ConcHitWall
----------------------------
-*/
-
-void FX_ConcHitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( "concussion/explosion", origin, normal );
-}
-
-/*
----------------------------
-FX_ConcHitPlayer
----------------------------
-*/
-
-void FX_ConcHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	theFxScheduler.PlayEffect( "concussion/explosion", origin, normal );
+	if (weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect("concussion/shot", cent->lerpOrigin, forward);
+	}
 }
 
 /*

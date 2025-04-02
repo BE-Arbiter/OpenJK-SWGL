@@ -188,7 +188,7 @@ vec3_t	g_saberFlashPos = {0,0,0};
 
 const char* CG_GetForceLightning(gentity_t* ent);
 
-extern gentity_t* WP_FireThermalDetonator(gentity_t* ent, qboolean alt_fire);
+extern gentity_t* WP_FireGrenade(gentity_t* ent, int attackIndex);
 
 int forcePowerDarkLight[NUM_FORCE_POWERS] = //0 == neutral
 { //nothing should be usable at rank 0..
@@ -257,7 +257,8 @@ float forceJumpStrength[NUM_FORCE_POWER_LEVELS] =
 	JUMP_VELOCITY,//normal jump
 	420,
 	590,
-	840
+	840,
+	840,
 };
 
 float forceJumpHeight[NUM_FORCE_POWER_LEVELS] =
@@ -265,7 +266,8 @@ float forceJumpHeight[NUM_FORCE_POWER_LEVELS] =
 	32,//normal jump (+stepheight+crouchdiff = 66)
 	96,//(+stepheight+crouchdiff = 130)
 	192,//(+stepheight+crouchdiff = 226)
-	384//(+stepheight+crouchdiff = 418)
+	384,//(+stepheight+crouchdiff = 418)
+	384,//(+stepheight+crouchdiff = 418)
 };
 
 float forceJumpHeightMax[NUM_FORCE_POWER_LEVELS] =
@@ -273,7 +275,8 @@ float forceJumpHeightMax[NUM_FORCE_POWER_LEVELS] =
 	66,//normal jump (32+stepheight(18)+crouchdiff(24) = 74)
 	130,//(96+stepheight(18)+crouchdiff(24) = 138)
 	226,//(192+stepheight(18)+crouchdiff(24) = 234)
-	418//(384+stepheight(18)+crouchdiff(24) = 426)
+	418,//(384+stepheight(18)+crouchdiff(24) = 426)
+	418,//(384+stepheight(18)+crouchdiff(24) = 426)
 };
 
 float forcePushPullRadius[NUM_FORCE_POWER_LEVELS] =
@@ -281,7 +284,8 @@ float forcePushPullRadius[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	384,//256,
 	448,//384,
-	512
+	512,
+	512,
 };
 
 float forcePushCone[NUM_FORCE_POWER_LEVELS] =
@@ -289,7 +293,8 @@ float forcePushCone[NUM_FORCE_POWER_LEVELS] =
 	1.0f,//none
 	1.0f,
 	0.8f,
-	0.6f
+	0.6f,
+	0.6f,
 };
 
 float forcePullCone[NUM_FORCE_POWER_LEVELS] =
@@ -297,7 +302,8 @@ float forcePullCone[NUM_FORCE_POWER_LEVELS] =
 	1.0f,//none
 	1.0f,
 	1.0f,
-	0.8f
+	0.8f,
+	0.8f,
 };
 
 float forceSpeedValue[NUM_FORCE_POWER_LEVELS] =
@@ -305,7 +311,8 @@ float forceSpeedValue[NUM_FORCE_POWER_LEVELS] =
 	1.0f,//none
 	0.75f,
 	0.5f,
-	0.25f
+	0.25f,
+	0.25f,
 };
 
 float forceSpeedRangeMod[NUM_FORCE_POWER_LEVELS] =
@@ -313,7 +320,8 @@ float forceSpeedRangeMod[NUM_FORCE_POWER_LEVELS] =
 	0.0f,//none
 	30.0f,
 	45.0f,
-	60.0f
+	60.0f,
+	60.0f,
 };
 
 float forceSpeedFOVMod[NUM_FORCE_POWER_LEVELS] =
@@ -321,7 +329,8 @@ float forceSpeedFOVMod[NUM_FORCE_POWER_LEVELS] =
 	0.0f,//none
 	20.0f,
 	30.0f,
-	40.0f
+	40.0f,
+	40.0f,
 };
 
 int forceGripDamage[NUM_FORCE_POWER_LEVELS] =
@@ -329,7 +338,8 @@ int forceGripDamage[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	0,
 	6,
-	9
+	9,
+	9,
 };
 
 int forceGraspDamage[NUM_FORCE_POWER_LEVELS] =
@@ -337,7 +347,8 @@ int forceGraspDamage[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	0,
 	0,
-	0
+	0,
+	0,
 };
 
 int mindTrickTime[NUM_FORCE_POWER_LEVELS] =
@@ -345,7 +356,8 @@ int mindTrickTime[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	10000,//5000,
 	15000,//10000,
-	30000//15000
+	30000,//15000
+	30000,//15000
 };
 
 int fearTime[NUM_FORCE_POWER_LEVELS] =
@@ -353,7 +365,8 @@ int fearTime[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	5000,//5000,
 	10000,//10000,
-	20000//15000
+	20000,//15000
+	20000,//15000
 };
 
 //NOTE: keep in synch with table below!!!
@@ -362,7 +375,8 @@ int saberThrowDist[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	256,
 	400,
-	400
+	400,
+	400,
 };
 
 int stasisTime[NUM_FORCE_POWER_LEVELS] =
@@ -370,7 +384,8 @@ int stasisTime[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	5000,//5000,
 	10000,//10000,
-	15000//15000
+	15000,//15000
+	15000,//15000
 };
 
 
@@ -380,7 +395,8 @@ int saberThrowDistSquared[NUM_FORCE_POWER_LEVELS] =
 	0,//none
 	65536,
 	160000,
-	160000
+	160000,
+	160000,
 };
 
 int parryDebounce[NUM_FORCE_POWER_LEVELS] =
@@ -388,7 +404,8 @@ int parryDebounce[NUM_FORCE_POWER_LEVELS] =
 	500,//if don't even have defense, can't use defense!
 	300,
 	150,
-	50
+	50,
+	50,
 };
 
 float saberAnimSpeedMod[NUM_FORCE_POWER_LEVELS] =
@@ -396,7 +413,8 @@ float saberAnimSpeedMod[NUM_FORCE_POWER_LEVELS] =
 	0.0f,//if don't even have offense, can't use offense!
 	0.75f,
 	1.0f,
-	2.0f
+	2.0f,
+	2.0f,
 };
 
 stringID_table_t SaberStyleTable[] =
@@ -8429,7 +8447,7 @@ void WP_DropWeapon_Configurable( gentity_t *dropper, vec3_t velocity, bool fromC
 	{
 		if ( oldWeap == WP_THERMAL && !fromConsoleCommand)
 		{
-			dropper->client->ps.ammo[weaponData[oldWeap].ammoIndex] -= weaponData[oldWeap].energyPerShot;
+			dropper->client->ps.ammo[weaponData[oldWeap].ammoIndex] -= weaponData[oldWeap].attackData[0].energyPerShot;
 		}
 		else
 		{
@@ -9640,7 +9658,7 @@ void ForceThrow( gentity_t *self, qboolean pull, qboolean fake )
 							&& push_list[x]->client->ps.weapon == WP_SABER
 							&& !push_list[x]->client->ps.saberInFlight
 							&& push_list[x]->client->ps.saberEntityNum < ENTITYNUM_WORLD
-							&& !PM_InOnGroundAnim( &push_list[x]->client->ps ) 
+							&& !PM_InOnGroundAnim( &push_list[x]->client->ps )
 							&& Q_stricmp(CIN_DRALLIG, self->NPC_type))
 						{
 							vec3_t throwVec;
@@ -10625,7 +10643,7 @@ void ForceTelepathy( gentity_t *self )
 				traceEnt->NPC->controlledTime = level.time + 30000;
 			}
 			else if ( traceEnt->s.weapon != WP_SABER
-				&& traceEnt->client->NPC_class != CLASS_REBORN 
+				&& traceEnt->client->NPC_class != CLASS_REBORN
 				&& !(traceEnt->attrFlags & ATTR_HERO)
 				&& !(traceEnt->attrFlags & ATTR_DROID)
 				&& !(traceEnt->attrFlags & ATTR_COMMANDO))
@@ -11026,7 +11044,7 @@ void ForceGrip( gentity_t *self )
 				&& traceEnt->client->NPC_class != CLASS_MANDALORIAN
 				&& traceEnt->client->NPC_class != CLASS_JANGO
 				&& traceEnt->client->NPC_class != CLASS_ASSASSIN_DROID
-				&& traceEnt->s.weapon != WP_SBD	
+				&& traceEnt->s.weapon != WP_SBD
 				&& traceEnt->s.weapon != WP_DROIDEKA
 				&& traceEnt->s.weapon != WP_CONCUSSION	// so rax can't drop his
 				&& !FalseEmperorMission() // Player shouldn't be disarmed in the False Emperor mission (because that would be very bad)
@@ -11413,7 +11431,7 @@ qboolean ToBeAffectedByStasis(gentity_t *self, gentity_t *traceEnt)
 		|| traceEnt->client->NPC_class == CLASS_SAND_CREATURE
 		|| traceEnt->client->NPC_class == CLASS_DROIDEKA
 			|| traceEnt->client->NPC_class == CLASS_VEHICLE
-		|| traceEnt->client->NPC_class == CLASS_ASSASSIN_DROID	
+		|| traceEnt->client->NPC_class == CLASS_ASSASSIN_DROID
 		|| traceEnt->client->NPC_class == CLASS_HAZARD_TROOPER
 		|| traceEnt->client->NPC_class == CLASS_INTERROGATOR
 		|| traceEnt->client->NPC_class == CLASS_ATST
@@ -11809,7 +11827,7 @@ void ForceGrasp(gentity_t *self)
 #define DESTRUCTION_NPC_DAMAGE_HARD		30
 #define DESTRUCTION_SIZE				20
 
-gentity_t *CreateMissile(vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, qboolean altFire = qfalse);
+extern gentity_t* CreateMissile(vec3_t org, vec3_t dir, float vel, int life, gentity_t* owner, int attackIndex = 0);
 //---------------------------------------------------------
 void WP_FireDestruction(gentity_t *ent, int forceLevel)
 //---------------------------------------------------------
@@ -11843,7 +11861,7 @@ void WP_FireDestruction(gentity_t *ent, int forceLevel)
 
 	VectorCopy(ent->client->renderInfo.eyePoint, start);
 
-	gentity_t *missile = CreateMissile(start, forward, vel, 10000, ent, qfalse);
+	gentity_t *missile = CreateMissile(start, forward, vel, 10000, ent, 0);
 
 	missile->classname = "rocket_proj";
 	missile->s.weapon = WP_CONCUSSION;
@@ -11958,7 +11976,6 @@ void ForceBlast(gentity_t *self)
 #define BLAST_NPC_DAMAGE_HARD		30
 #define BLAST_SIZE				1
 
-//gentity_t *CreateMissile(vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, qboolean altFire = qfalse);
 //---------------------------------------------------------
 void WP_FireBlast(gentity_t *ent, int forceLevel)
 //---------------------------------------------------------
@@ -11979,7 +11996,7 @@ void WP_FireBlast(gentity_t *ent, int forceLevel)
 
 	VectorCopy(ent->client->renderInfo.eyePoint, start);
 
-	gentity_t *missile = CreateMissile(start, forward, vel, 10000, ent, qfalse);
+	gentity_t *missile = CreateMissile(start, forward, vel, 10000, ent, 0);
 
 	missile->classname = "rocket_proj";
 	missile->s.weapon = WP_ROCKET_LAUNCHER;
@@ -15583,7 +15600,7 @@ else if (gripEnt->NPC
 	&& (gripEnt->attrFlags & ATTR_COMMANDO)
 	&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20)))
 {
-	WP_FireThermalDetonator(gripEnt, qtrue);
+	WP_FireGrenade(gripEnt, 1);
 	NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
 	WP_ForcePowerStop(self, FP_GRASP);
 }
@@ -15968,7 +15985,7 @@ else
 				&& (gripEnt->attrFlags & ATTR_COMMANDO)
 				&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20)))
 			{
-				WP_FireThermalDetonator(gripEnt, qtrue);
+				WP_FireGrenade(gripEnt, 1);
 				NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
 				WP_ForcePowerStop(self, FP_GRIP);
 			}
@@ -16956,7 +16973,7 @@ void Inquisitor_Spin(gentity_t *ent, qboolean increment)
 			{// Just in case
 				if (ent->weaponModel[0] < 0 || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW) || ent->client->ps.torsoAnim == BOTH_SABERPULL)
 					return;
-				
+
 				ent->client->ps.saber->inquisitor_spin = ent->client->ps.saber->inquisitor_speed / 20.0f;
 				gi.G2API_SetBoneAnim(&ent->ghoul2[ent->weaponModel[0]], "model_root", 0, 360, BONE_ANIM_OVERRIDE_LOOP, ent->client->ps.saber->inquisitor_speed, level.time, -1, -1);
 
@@ -17045,7 +17062,7 @@ void Inquisitor_Stop(gentity_t* ent, qboolean running)
 		{
 			return;
 		}
-		
+
 		// If the Inquisitor has no enemy or their saber is off, stop the spinning anyway and reset the timer, otherwise, do the check.
 		if (!ent->enemy || !ent->client->ps.SaberActive())
 		{// Just in case

@@ -44,10 +44,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define MAX_TEAMNAME 32
 #define MAX_MASTER_SERVERS      5	// number of supported master servers
 
-#define BASE_COMPAT // some unused and leftover code has been stripped out, but this breaks compatibility
-					//	between base<->modbase clients and servers (mismatching events, powerups, etc)
-					// leave this defined to ensure compatibility
-
 #include "qcommon/q_math.h"
 #include "qcommon/q_color.h"
 #include "qcommon/q_string.h"
@@ -690,8 +686,8 @@ qboolean Info_NextPair( const char **s, char *key, char *value );
 
 // this is only here so the functions in q_shared.c and bg_*.c can link
 #if defined( _GAME ) || defined( _CGAME ) || defined( UI_BUILD )
-	NORETURN_PTR void (*Com_Error)( int level, const char *error, ... );
-	void (*Com_Printf)( const char *msg, ... );
+	extern NORETURN_PTR void (*Com_Error)( int level, const char *error, ... );
+	extern void (*Com_Printf)( const char *msg, ... );
 #else
 	void NORETURN QDECL Com_Error( int level, const char *error, ... );
 	void QDECL Com_Printf( const char *msg, ... );
@@ -926,8 +922,8 @@ typedef enum {
 // these are also in be_aas_def.h - argh (rjr)
 #define	MAX_MODELS			512		// these are sent over the net as -12 bits
 #define	MAX_SOUNDS			256		// so they cannot be blindly increased
-#define MAX_ICONS			64		// max registered icons you can have per map
-#define MAX_FX				64		// max effects strings, I'm hoping that 64 will be plenty
+#define MAX_ICONS			128		// max registered icons you can have per map
+#define MAX_FX				128		// max effects strings, I'm hoping that 64 will be plenty
 
 #define MAX_SUB_BSP			32 //rwwRMG - added
 
@@ -941,7 +937,7 @@ Ghoul2 Insert End
 
 #define MAX_AMBIENT_SETS		256 //rww - ambient soundsets must be sent over in config strings.
 
-#define	MAX_CONFIGSTRINGS	1700 //this is getting pretty high. Try not to raise it anymore than it already is.
+#define	MAX_CONFIGSTRINGS	2048 //this is getting pretty high. Try not to raise it anymore than it already is.
 
 // these are the only configstrings that the system reserves, all the
 // other ones are strictly for servergame to clientgame communication

@@ -41,7 +41,7 @@ bool RE_SplitSkins(const char *INname, char *skinhead, char *skintorso, char *sk
 {	//INname= "models/players/jedi_tf/|head01_skin1|torso01|lower01";
 	if (strchr(INname, '|'))
 	{
-		char name[MAX_QPATH];
+		char name[MAX_CSPATH];
 		strcpy(name, INname);
 		char *p = strchr(name, '|');
 		*p=0;
@@ -146,7 +146,7 @@ qhandle_t RE_RegisterIndividualSkin( const char *name , qhandle_t hSkin)
 			break;
 		}
 		surf = (skinSurface_t *) Hunk_Alloc( sizeof( *skin->surfaces[0] ), h_low );
-		skin->surfaces[skin->numSurfaces] = (_skinSurface_t *)surf;
+		skin->surfaces[skin->numSurfaces] = (skinSurface_t *)surf;
 
 		Q_strncpyz( surf->name, surfName, sizeof( surf->name ) );
 
@@ -175,8 +175,26 @@ qhandle_t RE_RegisterSkin( const char *name ) {
 		return 0;
 	}
 
-	if ( strlen( name ) >= MAX_QPATH ) {
-		Com_Printf( "Skin name exceeds MAX_QPATH\n" );
+	char skinhead[MAX_QPATH] = { 0 };
+	char skintorso[MAX_QPATH] = { 0 };
+	char skinlower[MAX_QPATH] = { 0 };
+
+	bool multiskin = RE_SplitSkins(name, (char*)&skinhead, (char*)&skintorso, (char*)&skinlower);
+
+	if ((!multiskin && strlen(name) >= MAX_QPATH)) {
+		Com_Printf("WARNING : RE_REGISTERSkin Skin name (%s) exceeds MAX_QPATH\n", name);
+		return 0;
+	}
+	else if (multiskin && strlen(skinhead) >= MAX_QPATH) {
+		Com_Printf("WARNING : RE_REGISTERSkin Skin name (%s) exceeds MAX_QPATH\n", skinhead);
+		return 0;
+	}
+	else if (multiskin && strlen(skinlower) >= MAX_QPATH) {
+		Com_Printf("WARNING : RE_REGISTERSkin Skin name (%s) exceeds MAX_QPATH\n", skinlower);
+		return 0;
+	}
+	else if (multiskin && strlen(skintorso) >= MAX_QPATH) {
+		Com_Printf("WARNING : RE_REGISTERSkin Skin name (%s) exceeds MAX_QPATH\n", skintorso);
 		return 0;
 	}
 
@@ -214,10 +232,7 @@ qhandle_t RE_RegisterSkin( const char *name ) {
 */
 	}
 
-	char skinhead[MAX_QPATH]={0};
-	char skintorso[MAX_QPATH]={0};
-	char skinlower[MAX_QPATH]={0};
-	if ( RE_SplitSkins(name, (char*)&skinhead, (char*)&skintorso, (char*)&skinlower ) )
+	if ( multiskin )
 	{//three part
 		hSkin = RE_RegisterIndividualSkin(skinhead, hSkin);
 		if (hSkin)
@@ -378,7 +393,7 @@ void	R_InitSkins( void ) {
 	skin = tr.skins[0] = (struct skin_s *)ri.Hunk_Alloc( sizeof( skin_t ), h_low );
 	Q_strncpyz( skin->name, "<default skin>", sizeof( skin->name )  );
 	skin->numSurfaces = 1;
-	skin->surfaces[0] = (_skinSurface_t *)ri.Hunk_Alloc( sizeof( skinSurface_t ), h_low );
+	skin->surfaces[0] = (skinSurface_t *)ri.Hunk_Alloc( sizeof( skinSurface_t ), h_low );
 	skin->surfaces[0]->shader = tr.defaultShader;
 }
 

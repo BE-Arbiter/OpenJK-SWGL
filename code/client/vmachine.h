@@ -59,7 +59,10 @@ Ghoul2 Insert End
 	CG_DRAW_DATAPAD_OBJECTIVES,
 	CG_DRAW_DATAPAD_WEAPONS,
 	CG_DRAW_DATAPAD_INVENTORY,
-	CG_DRAW_DATAPAD_FORCEPOWERS
+	CG_DRAW_DATAPAD_FORCEPOWERS,
+	CG_DRAW_DATAPAD_LOADOUT,
+	CG_DRAW_DATAPAD_LOADOUT_FRAME,
+	CG_DRAW_NPC_WEAPON_LABEL
 
 } cgameExport_t;
 
@@ -71,7 +74,10 @@ VIRTUAL MACHINE
 ==============================================================
 */
 typedef struct vm_s {
-	intptr_t	(*entryPoint)( int callNum, ... );
+	// NOTE: arm64 mac has a different calling convention for fixed parameters vs. variadic parameters.
+	//       As the cgame entryPoints (vmMain) in jk2 and jka use fixed arg0 to arg7 we can't use "..." around here or we end up with undefined behavior.
+	//       See: https://developer.apple.com/documentation/apple-silicon/addressing-architectural-differences-in-your-macos-code
+	intptr_t	(*entryPoint)( int callNum, intptr_t arg0, intptr_t arg1, intptr_t arg2, intptr_t arg3, intptr_t arg4, intptr_t arg5, intptr_t arg6, intptr_t arg7 );
 } vm_t;
 
 extern vm_t cgvm;

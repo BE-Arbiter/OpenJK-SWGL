@@ -54,6 +54,7 @@ extern void NPC_GalakMech_Init(gentity_t* ent);
 
 extern saber_colors_t TranslateSaberColor(const char* name);
 
+extern int WP_GetWeaponID(const char* weaponName);
 extern stringID_table_t WPTable[];
 extern stringID_table_t attrTable[];
 
@@ -481,10 +482,10 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 
 		// Droidekas have two guns, so let's use them
 		G_CreateG2AttachedWeaponModel(ent, weaponData[ent->client->ps.weapon].weaponMdl, ent->handLBolt, 1);
-	
+
 		ent->flags |= FL_NO_KNOCKBACK;
 		//ent->NPC->scriptFlags = SCF_CHASE_ENEMIES | SCF_LOOK_FOR_ENEMIES | SCF_DONT_FLEE;
-		
+
 	}
 
 	if (ent->spawnflags & 4096)
@@ -522,9 +523,9 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 		|| !Q_stricmp("cultist_grip", ent->NPC_type)
 		|| !Q_stricmp("cultist_drain", ent->NPC_type)
 		|| !Q_stricmp("cultist_lightning", ent->NPC_type)
-		|| !Q_stricmp(NS_GHOST, ent->NPC_type)
-		|| !Q_stricmp(SIM_ALOO, ent->NPC_type)
-		|| !Q_stricmp(GREEJATUS, ent->NPC_type))
+		||!Q_stricmp(NS_GHOST, ent->NPC_type)
+		||!Q_stricmp(SIM_ALOO, ent->NPC_type)
+		||!Q_stricmp(GREEJATUS, ent->NPC_type))
 	{//FIXME: extern this into NPC.cfg?
 		ent->NPC->scriptFlags |= SCF_DONT_FIRE;//so he uses only force powers
 	}
@@ -699,7 +700,7 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 				}
 				break;
 			}
-			
+
 		}
 		if (!Q_stricmp("galak_mech", ent->NPC_type))
 		{//starts with armor
@@ -855,7 +856,7 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 					}
 					break;
 				}
-			
+
 		}
 		if (!Q_stricmp("galak_mech", ent->NPC_type))
 		{//starts with armor
@@ -1193,7 +1194,7 @@ void NPC_SetWeapons(gentity_t *ent)
 	{
 		ent->client->ps.weapons[i] = 0;
 	}
-	for (int curWeap = WP_SABER; curWeap < WP_NUM_WEAPONS; curWeap++)
+	for (int curWeap = WP_SABER; curWeap < weaponCount; curWeap++)
 	{
 		if ((weapons & (1 << curWeap)))
 		{
@@ -3693,7 +3694,7 @@ void SP_NPC_Stormtrooper(gentity_t *self)
 				case 1:
 					self->NPC_type = PURGE_UPRISING;
 					break;
-					
+
 				case 2:
 					self->NPC_type = SUPERCOMMANDO;
 					break;
@@ -3728,7 +3729,7 @@ void SP_NPC_Stormtrooper(gentity_t *self)
 				case 2:
 					self->NPC_type = SUPERCOMMANDO;
 					break;
-					
+
 				case 3:
 					self->NPC_type = PURGE_COMMANDER;
 					break;
@@ -5674,7 +5675,7 @@ static void NPC_Spawn_f(void)
 
 	NPCspawner->NPC_skin = G_NewString(skin);
 
-	NPCspawner->NPC_team = G_NewString(team);	
+	NPCspawner->NPC_team = G_NewString(team);
 
 	if (!Q_stricmp(NPCspawner->NPC_type, DOOKU))
 	{
@@ -6028,7 +6029,7 @@ void NPC_Anim_f(void)
 						PM_SetLegsAnimTimer(ent, &ent->client->ps.legsAnimTimer, -1);
 						PM_SetTorsoAnimTimer(ent, &ent->client->ps.torsoAnimTimer, -1);
 					}
-					
+
 				}
 
 			}
@@ -6209,14 +6210,17 @@ void NPC_Weapon_f(void)
 		return;
 	}
 
-	weapon = (weapon_t)GetIDForString(WPTable, wp);
+	weapon = (weapon_t) WP_GetWeaponID(wp);
 	if (weapon == (weapon_t)-1)
 	{
 		gi.Printf(S_COLOR_RED "'NPC Weapon' unrecognized weapon code %s!\n", wp);
 		gi.Printf(S_COLOR_RED "Valid weapon names are:\n");
-		for (int n = WP_NONE; n < WP_NUM_WEAPONS; n++)
+		for (int n = WP_NONE; n < WP_HC_NUM_WEAPONS; n++)
 		{
 			gi.Printf(S_COLOR_RED "%s\n", GetStringForID(WPTable, n));
+		}
+		for (int i = 1; i < weaponCount; i++) {
+			gi.Printf(S_COLOR_RED "%s\n", weaponData[i].classname);
 		}
 		return;
 	}
@@ -6530,7 +6534,7 @@ void NPC_Attribute_f(void)
 		if ((!Q_stricmp("all", targetname) || ent->targetname && Q_stricmp(targetname, ent->targetname) == 0) && (ent->NPC && ent != player))
 		{
 			attr = GetIDForString(attrTable, attribute);
-			
+
 			if (attr >= 0)
 			{
 				if (!(ent->attrFlags & attr))

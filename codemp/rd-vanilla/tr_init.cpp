@@ -216,6 +216,8 @@ cvar_t *se_language;
 cvar_t *r_aviMotionJpegQuality;
 cvar_t *r_screenshotJpegQuality;
 
+cvar_t	*r_patchStitching;
+
 #if !defined(__APPLE__)
 PFNGLSTENCILOPSEPARATEPROC qglStencilOpSeparate;
 #endif
@@ -283,7 +285,7 @@ void R_Splash()
 	{
 		pImage = R_FindImageFile( "menu/splash", qfalse, qfalse, qfalse, GL_CLAMP);
 	}
-*/	
+*/
 	// Using Q_irand(0, 4) always kept giving us 2.
 	// Idk why, so I guess we will use rand().
 	int splashPick = rand() % 5;
@@ -775,7 +777,7 @@ static const char *TruncateGLExtensionsString (const char *extensionsString, int
 
 	char *truncatedExtensions;
 
-	while ( (q = strchr (p, ' ')) != NULL && numExtensions <= maxExtensions )
+	while ( (q = strchr (p, ' ')) != NULL && numExtensions < maxExtensions )
 	{
 		p = q + 1;
 		numExtensions++;
@@ -1594,6 +1596,8 @@ void R_Register( void )
 	r_ext_compiled_vertex_array			= ri.Cvar_Get( "r_ext_compiled_vertex_array",		"1",						CVAR_ARCHIVE_ND|CVAR_LATCH, "" );
 	r_ext_texture_env_add				= ri.Cvar_Get( "r_ext_texture_env_add",			"1",						CVAR_ARCHIVE_ND|CVAR_LATCH, "" );
 	r_ext_texture_filter_anisotropic	= ri.Cvar_Get( "r_ext_texture_filter_anisotropic",	"16",						CVAR_ARCHIVE_ND, "" );
+	// MSAA shall be computed on OpenGls default framebuffer
+	ri.Cvar_Set("r_ext_multisample_default_fb", "1");
 	r_gammaShaders						= ri.Cvar_Get( "r_gammaShaders",					"0",						CVAR_ARCHIVE_ND|CVAR_LATCH, "" );
 	r_environmentMapping				= ri.Cvar_Get( "r_environmentMapping",				"1",						CVAR_ARCHIVE_ND, "" );
 	r_DynamicGlow						= ri.Cvar_Get( "r_DynamicGlow",					"0",						CVAR_ARCHIVE_ND, "" );
@@ -1728,6 +1732,8 @@ Ghoul2 Insert End
 
 	ri.Cvar_CheckRange( r_aviMotionJpegQuality, 10, 100, qtrue );
 	ri.Cvar_CheckRange( r_screenshotJpegQuality, 10, 100, qtrue );
+
+	r_patchStitching = ri.Cvar_Get("r_patchStitching", "1", CVAR_ARCHIVE, "Enable stitching of neighbouring patch surfaces" );
 
 	for ( size_t i = 0; i < numCommands; i++ )
 		ri.Cmd_AddCommand( commands[i].cmd, commands[i].func, "" );

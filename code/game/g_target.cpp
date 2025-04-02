@@ -951,7 +951,7 @@ void set_mission_stats_cvars( void )
 	// Find the favorite weapon
 	int wpn=0,i;
 	int max_wpn = cg_entities[0].gent->client->sess.missionStats.weaponUsed[0];
-	for (i = 1; i<WP_NUM_WEAPONS; i++)
+	for (i = 1; i< weaponCount; i++)
 	{
 		if (cg_entities[0].gent->client->sess.missionStats.weaponUsed[i] > max_wpn)
 		{
@@ -963,9 +963,14 @@ void set_mission_stats_cvars( void )
 	if ( wpn )
 	{
 		gitem_t	*wItem= FindItemForWeapon( (weapon_t)wpn);
-		if (!cgi_SP_GetStringTextString( va("SP_INGAME_%s",wItem->classname ), text, sizeof( text )))
+		if (!cgi_SP_GetStringTextString(va("SP_INGAME_%s", wItem->classname), text, sizeof(text)))
 		{
-			cgi_SP_GetStringTextString( va("SPMOD_INGAME_%s",wItem->classname ), text, sizeof( text ));
+			void;
+		}
+		else if (!cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", wItem->classname), text, sizeof(text)))
+		{
+			cgi_SP_GetStringTextString(va("%s_NAME", wItem->classname), text, sizeof(text));
+
 		}
 		gi.cvar_set("ui_stats_fave", va("%s",text));	//pass this on to the menu
 	}

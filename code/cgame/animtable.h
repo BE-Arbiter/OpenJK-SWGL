@@ -1752,6 +1752,9 @@ stringID_table_t animTable [MAX_ANIMATIONS+1] =
 
 	//New anim as per Jarrod's request
 	ENUM2STRING(LEGS_TURN180),
+	ENUM2STRING(TORSO_D_PISTOL),
+	ENUM2STRING(TORSO_D_IDLE),
+	ENUM2STRING(TORSO_Z6_AIM),
 
 	//======================================================
 	//cinematic anims

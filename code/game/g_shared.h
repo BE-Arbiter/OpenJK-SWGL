@@ -257,6 +257,8 @@ public:
 	//
 	vec3_t		muzzlePoint;
 	vec3_t		muzzleDir;
+	vec3_t		muzzlePoint2;
+	vec3_t		muzzleDir2;
 	vec3_t		muzzlePointOld;
 	vec3_t		muzzleDirOld;
 	//vec3_t		muzzlePointNext;	// Muzzle point one server frame in the future!
@@ -524,7 +526,7 @@ public:
 	int				torsoAttacksCnt;				// # of times torso was hit with saber
 	int				otherAttacksCnt;				// # of times anything else on a monster was hit with saber
 	int				forceUsed[NUM_FORCE_POWERS];	// # of times each force power was used
-	int				weaponUsed[WP_NUM_WEAPONS];		// # of times each weapon was used
+	int				weaponUsed[MAX_WEAPONS];		// # of times each weapon was used
 
 
 	void sg_export(
@@ -990,6 +992,7 @@ struct gentity_s {
 
 	vec3_t		absmin, absmax;		// derived from mins/maxs and origin + rotation
 
+
 	// currentOrigin will be used for all collision detection and world linking.
 	// it will not necessarily be the same as the trajectory evaluation for the current
 	// time, because each entity must be moved one at a time after time is advanced
@@ -1118,7 +1121,8 @@ Ghoul2 Insert End
 	float		wait;
 	float		random;
 	int			delay;
-	qboolean	alt_fire;
+	qboolean	alt_fire;		
+	int			attack_index; // for projectiles, so that we know where to find the effects
 	int			count;
 	int			bounceCount;
 	int			fly_sound_debounce_time;	// wind tunnel
@@ -1399,6 +1403,7 @@ Ghoul2 Insert End
 		saved_game.write<float>(random);
 		saved_game.write<int32_t>(delay);
 		saved_game.write<int32_t>(alt_fire);
+		saved_game.write<int32_t>(attack_index);
 		saved_game.write<int32_t>(count);
 		saved_game.write<int32_t>(bounceCount);
 		saved_game.write<int32_t>(fly_sound_debounce_time);
@@ -1599,6 +1604,7 @@ Ghoul2 Insert End
 		saved_game.read<float>(random);
 		saved_game.read<int32_t>(delay);
 		saved_game.read<int32_t>(alt_fire);
+		saved_game.read<int32_t>(attack_index);
 		saved_game.read<int32_t>(count);
 		saved_game.read<int32_t>(bounceCount);
 		saved_game.read<int32_t>(fly_sound_debounce_time);
@@ -1720,6 +1726,30 @@ Ghoul2 Insert End
 extern	gentity_t		g_entities[MAX_GENTITIES];
 extern	game_import_t	gi;
 
+
+typedef struct weaponAttackInfo_s {
+
+	qhandle_t		missileModel;
+	sfxHandle_t		missileSound;
+	void			(*missileTrailFunc)(centity_t*, const struct weaponInfo_s* wi);
+
+	fxHandle_t		projectileEffect;
+	fxHandle_t		hitWallEffect;
+	fxHandle_t		hitWallEffect2;
+	fxHandle_t		hitWallEffect3;
+	fxHandle_t		hitFleshEffect;
+	fxHandle_t		hitDroidEffect;
+	fxHandle_t		explosionEffect;
+	fxHandle_t		shockwaveEffect;
+	fxHandle_t		muzzleEffect;
+
+	qhandle_t		chargeMuzzleShader;
+
+	sfxHandle_t		firingSound;
+	sfxHandle_t		missileHitSound;
+
+	sfxHandle_t		chargeSound;
+} weaponAttackInfo_t;
 // each WP_* weapon enum has an associated weaponInfo_t
 // that contains media references necessary to present the
 // weapon and its effects
@@ -1739,30 +1769,12 @@ typedef struct weaponInfo_s {
 	qhandle_t		ammoIcon;
 
 	qhandle_t		ammoModel;
-
-	qhandle_t		missileModel;
-	sfxHandle_t		missileSound;
-	void			(*missileTrailFunc)( centity_t *, const struct weaponInfo_s *wi );
-
-	qhandle_t		alt_missileModel;
-	sfxHandle_t		alt_missileSound;
-	void			(*alt_missileTrailFunc)( centity_t *, const struct weaponInfo_s *wi );
-
-//	sfxHandle_t		flashSound;
-//	sfxHandle_t		altFlashSound;
-
-	sfxHandle_t		firingSound;
-	sfxHandle_t		altFiringSound;
-
 	sfxHandle_t		stopSound;
 
-	sfxHandle_t		missileHitSound;
-	sfxHandle_t		altmissileHitSound;
-
-	sfxHandle_t		chargeSound;
-	sfxHandle_t		altChargeSound;
-
 	sfxHandle_t		selectSound;	// sound played when weapon is selected
+	sfxHandle_t		readySound;		// sound played when weapon is idle
+
+	weaponAttackInfo_s weaponAttacksInfo[MAX_WEAPON_ATTACKS];
 } weaponInfo_t;
 
 extern sfxHandle_t CAS_GetBModelSound( const char *name, int stage );

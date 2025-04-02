@@ -363,7 +363,7 @@ SetForceCmd SetForceTable[NUM_FORCE_POWERS] = {
 	{ "forceMindTrick",		"setForceMindTrick",	FORCE_LEVEL_4			},
 	{ "forceGrip",			"setForceGrip",			FORCE_LEVEL_3			},
 	{ "forceLightning",		"setForceLightning",	FORCE_LEVEL_3			},
-	{ "saberThrow",			"setSaberThrow",		FORCE_LEVEL_3			},
+	{ "saberThrow",			"setSaberThrow",		FORCE_LEVEL_4			},
 	{ "saberDefense",		"setSaberDefense",		FORCE_LEVEL_3			},
 	{ "saberOffense",		"setSaberOffense",		SS_NUM_SABER_STYLES-1	},
 	{ "forceRage",			"setForceRage",			FORCE_LEVEL_3			},
@@ -410,270 +410,6 @@ static void Svcmd_ForceSetLevel_f( int forcePower )
 	{
 		g_entities[0].client->ps.forcePowerLevel[forcePower] = SetForceTable[forcePower].maxlevel;
 	}
-}
-
-extern qboolean PM_SaberInStart( int move );
-extern qboolean PM_SaberInTransition( int move );
-extern qboolean PM_SaberInAttack( int move );
-extern qboolean WP_SaberCanTurnOffSomeBlades( saberInfo_t *saber );
-void Svcmd_SaberAttackCycle_f( void )
-{
-	if ( !&g_entities[0] || !g_entities[0].client )
-	{
-		return;
-	}
-
-	gentity_t *self = G_GetSelfForPlayerCmd();
-	/*
-	if ( self->s.weapon != WP_SABER )
-	{// saberAttackCycle button also switches to saber
-		gi.SendConsoleCommand("weapon 1" );
-		return;
-	}
-	*/
-
-	// If you have a tertiary option and you are not firing.
-	if (weaponData[self->s.weapon].tertiaryFireOpt[FIRING_TYPE] >= FT_AUTOMATIC && self->client->ps.weaponTime == 0)
-	{
-		if (self->client->ps.tertiaryMode)
-		{
-			self->client->ps.tertiaryMode = qfalse;
-		}
-		else
-		{
-			self->client->ps.tertiaryMode = qtrue;
-		}
-
-		G_Sound(self, G_SoundIndex("sound/vehicles/common/linkweaps.wav"));
-	}
-
-	if (self->client->ps.saber->type == SABER_INQUISITOR )
-	{
-		float spinSpeed = 0.0f;
-		if (self->client->ps.saber->inquisitor_spin < 3)
-		{
-			Inquisitor_Spin(self);
-		}
-		else
-		{
-			Inquisitor_Stop(self);
-		}
-		return;
-	}
-
-	if ( self->client->ps.dualSabers )
-	{//can't cycle styles with dualSabers, so just toggle second saber on/off
-		if ( WP_SaberCanTurnOffSomeBlades( &self->client->ps.saber[1] ) )
-		{//can turn second saber off
-			if ( self->client->ps.saber[1].ActiveManualOnly() )
-			{//turn it off
-				qboolean skipThisBlade;
-				for ( int bladeNum = 0; bladeNum < self->client->ps.saber[1].numBlades; bladeNum++ )
-				{
-					skipThisBlade = qfalse;
-					if ( WP_SaberBladeUseSecondBladeStyle( &self->client->ps.saber[1], bladeNum ) )
-					{//check to see if we should check the secondary style's flags
-						if ( (self->client->ps.saber[1].saberFlags2&SFL2_NO_MANUAL_DEACTIVATE2) )
-						{
-							skipThisBlade = qtrue;
-						}
-					}
-					else
-					{//use the primary style's flags
-						if ( (self->client->ps.saber[1].saberFlags2&SFL2_NO_MANUAL_DEACTIVATE) )
-						{
-							skipThisBlade = qtrue;
-						}
-					}
-					if ( !skipThisBlade )
-					{
-						self->client->ps.saber[1].BladeActivate( bladeNum, qfalse );
-						if ( self->s.weapon == WP_SABER )
-						{
-							G_SoundIndexOnEnt( self, CHAN_WEAPON, self->client->ps.saber[1].soundOff );
-						}
-					}
-				}
-			}
-			else if ( !self->client->ps.saber[0].ActiveManualOnly() )
-			{//first one is off, too, so just turn that one on
-				if ( !self->client->ps.saberInFlight )
-				{//but only if it's in your hand!
-					self->client->ps.saber[0].Activate();
-				}
-			}
-			else
-			{//turn on the second one
-				self->client->ps.saber[1].Activate();
-			}
-			return;
-		}
-	}
-	else if ( self->client->ps.saber[0].numBlades > 1
-		&& WP_SaberCanTurnOffSomeBlades( &self->client->ps.saber[0] ) )//self->client->ps.saber[0].type == SABER_STAFF )
-	{//can't cycle styles with saberstaff, so just toggles saber blades on/off
-		if ( self->client->ps.saberInFlight )
-		{//can't turn second blade back on if it's in the air, you naughty boy!
-			return;
-		}
-		/*
-		if ( self->client->ps.saber[0].singleBladeStyle == SS_NONE )
-		{//can't use just one blade?
-			return;
-		}
-		*/
-		qboolean playedSound = qfalse;
-		if ( !self->client->ps.saber[0].blade[0].active )
-		{//first one is not even on
-			//turn only it on
-			self->client->ps.SaberBladeActivate( 0, 0, qtrue );
-			return;
-		}
-
-		qboolean skipThisBlade;
-		for ( int bladeNum = 1; bladeNum < self->client->ps.saber[0].numBlades; bladeNum++ )
-		{
-			if ( !self->client->ps.saber[0].blade[bladeNum].active )
-			{//extra is off, turn it on
-				self->client->ps.saber[0].BladeActivate( bladeNum, qtrue );
-			}
-			else
-			{//turn extra off
-				skipThisBlade = qfalse;
-				if ( WP_SaberBladeUseSecondBladeStyle( &self->client->ps.saber[1], bladeNum ) )
-				{//check to see if we should check the secondary style's flags
-					if ( (self->client->ps.saber[1].saberFlags2&SFL2_NO_MANUAL_DEACTIVATE2) )
-					{
-						skipThisBlade = qtrue;
-					}
-				}
-				else
-				{//use the primary style's flags
-					if ( (self->client->ps.saber[1].saberFlags2&SFL2_NO_MANUAL_DEACTIVATE) )
-					{
-						skipThisBlade = qtrue;
-					}
-				}
-				if ( !skipThisBlade )
-				{
-					self->client->ps.saber[0].BladeActivate( bladeNum, qfalse );
-					if ( !playedSound )
-					{
-						if ( self->s.weapon == WP_SABER )
-						{
-							G_SoundIndexOnEnt( self, CHAN_WEAPON, self->client->ps.saber[0].soundOff );
-						}
-						playedSound = qtrue;
-					}
-				}
-			}
-		}
-		return;
-	}
-
-	int allowedStyles = self->client->ps.saberStylesKnown;
-	if ( self->client->ps.dualSabers
-		&& self->client->ps.saber[0].Active()
-		&& self->client->ps.saber[1].Active() )
-	{
-		allowedStyles |= (1<<SS_DUAL);
-		for ( int styleNum = SS_NONE+1; styleNum < SS_NUM_SABER_STYLES; styleNum++ )
-		{
-			if ( styleNum == SS_TAVION
-				&& ((self->client->ps.saber[0].stylesLearned&(1<<SS_TAVION))||(self->client->ps.saber[1].stylesLearned&(1<<SS_TAVION)))//was given this style by one of my sabers
-				&& !(self->client->ps.saber[0].stylesForbidden&(1<<SS_TAVION))
-				&& !(self->client->ps.saber[1].stylesForbidden&(1<<SS_TAVION)) )
-			{//if have both sabers on, allow tavion only if one of our sabers specifically wanted to use it... (unless specifically forbidden)
-			}
-			else if ( styleNum == SS_DUAL
-				&& !(self->client->ps.saber[0].stylesForbidden&(1<<SS_DUAL))
-				&& !(self->client->ps.saber[1].stylesForbidden&(1<<SS_DUAL)) )
-			{//if have both sabers on, only dual style is allowed (unless specifically forbidden)
-			}
-			else
-			{
-				allowedStyles &= ~(1<<styleNum);
-			}
-		}
-	}
-
-	if ( !allowedStyles )
-	{
-		return;
-	}
-
-	int	saberAnimLevel;
-	if ( !self->s.number )
-	{
-		saberAnimLevel = cg.saberAnimLevelPending;
-	}
-	else
-	{
-		saberAnimLevel = self->client->ps.saberAnimLevel;
-	}
-	saberAnimLevel++;
-	int sanityCheck = 0;
-	while ( self->client->ps.saberAnimLevel != saberAnimLevel
-		&& !(allowedStyles&(1<<saberAnimLevel))
-		&& sanityCheck < SS_NUM_SABER_STYLES+1 )
-	{
-		saberAnimLevel++;
-		if ( saberAnimLevel > SS_STAFF )
-		{
-			saberAnimLevel = SS_FAST;
-		}
-		sanityCheck++;
-	}
-
-	if ( !(allowedStyles&(1<<saberAnimLevel)) )
-	{
-		return;
-	}
-
-	WP_UseFirstValidSaberStyle( self, &saberAnimLevel );
-	if ( !self->s.number )
-	{
-		cg.saberAnimLevelPending = saberAnimLevel;
-	}
-	else
-	{
-		self->client->ps.saberAnimLevel = saberAnimLevel;
-	}
-
-#ifndef FINAL_BUILD
-	switch ( saberAnimLevel )
-	{
-	case SS_FAST:
-		gi.Printf( S_COLOR_BLUE "Lightsaber Combat Style: Fast\n" );
-		//LIGHTSABERCOMBATSTYLE_FAST
-		break;
-	case SS_MEDIUM:
-		gi.Printf( S_COLOR_YELLOW "Lightsaber Combat Style: Medium\n" );
-		//LIGHTSABERCOMBATSTYLE_MEDIUM
-		break;
-	case SS_STRONG:
-		gi.Printf( S_COLOR_RED "Lightsaber Combat Style: Strong\n" );
-		//LIGHTSABERCOMBATSTYLE_STRONG
-		break;
-	case SS_DESANN:
-		gi.Printf( S_COLOR_CYAN "Lightsaber Combat Style: Desann\n" );
-		//LIGHTSABERCOMBATSTYLE_DESANN
-		break;
-	case SS_TAVION:
-		gi.Printf( S_COLOR_MAGENTA "Lightsaber Combat Style: Tavion\n" );
-		//LIGHTSABERCOMBATSTYLE_TAVION
-		break;
-	case SS_DUAL:
-		gi.Printf( S_COLOR_MAGENTA "Lightsaber Combat Style: Dual\n" );
-		//LIGHTSABERCOMBATSTYLE_TAVION
-		break;
-	case SS_STAFF:
-		gi.Printf( S_COLOR_MAGENTA "Lightsaber Combat Style: Staff\n" );
-		//LIGHTSABERCOMBATSTYLE_TAVION
-		break;
-	}
-	//gi.Printf("\n");
-#endif
 }
 
 qboolean G_ReleaseEntity( gentity_t *grabber )
@@ -883,7 +619,7 @@ static void Svcmd_Spawn_f(void)
 
 	vec3_t			forward, end;
 	trace_t			trace;
-	
+
 
 	if (!NPCspawner)
 	{
@@ -893,8 +629,8 @@ static void Svcmd_Spawn_f(void)
 
 	NPCspawner->e_ThinkFunc = thinkF_G_FreeEntity;
 	NPCspawner->nextthink = level.time + FRAMETIME;
-	
-	
+
+
 
 	//Spawn it at spot of first player
 	//FIXME: will gib them!
@@ -934,15 +670,15 @@ static void Svcmd_Spawn_f(void)
 
 	NPCspawner->NPC_model = g_NPCmodel->string;
 
-	if (Q_stricmp("", g_NPCsabertwo->string) 
-	&& Q_stricmp("empty", g_NPCsabertwo->string) 
+	if (Q_stricmp("", g_NPCsabertwo->string)
+	&& Q_stricmp("empty", g_NPCsabertwo->string)
 	&& Q_stricmp("null", g_NPCsabertwo->string))
 		NPCspawner->NPC_SaberTwo = g_NPCsabertwo->string;
 
 	NPCspawner->NPC_SaberOneColor = g_NPCsabercolor->string;
 
 	NPCspawner->NPC_LightningColor = g_NPCLightningColor->string;
-	
+
 	NPCspawner->NPC_SaberTwoColor = g_NPCsabertwocolor->string;
 
 	NPCspawner->health = g_NPChealth->integer;
@@ -961,7 +697,7 @@ static void Svcmd_Spawn_f(void)
 
 	NPCspawner->delay = 0;
 
-	NPCspawner->wait = 500;	
+	NPCspawner->wait = 500;
 
 	if (!NPCspawner->NPC_targetname)
 	{
@@ -984,7 +720,7 @@ static void Svcmd_Spawn_f(void)
 		NPCspawner->NPC_SaberOne = NULL;
 
 		NPCspawner->NPC_model = NULL;
-		
+
 		NPCspawner->NPC_SaberTwo = NULL;
 
 		NPCspawner->NPC_SaberOneColor = NULL;
@@ -1038,7 +774,7 @@ static void Svcmd_Spawn_f(void)
 	{
 		NPC_Spawn(NPCspawner, NPCspawner, NPCspawner);
 	}
-	
+
 }
 
 static void Svcmd_Scale_f(void)
@@ -1048,7 +784,7 @@ static void Svcmd_Scale_f(void)
 		gi.Printf(S_COLOR_RED "USAGE: scale <30-150>" S_COLOR_WHITE "\n");
 	}
 	else if (gi.argc() == 2)
-	{		
+	{
 		int value = atoi((char*)gi.argv(1));
 
 		if (value < 30 || value > 150)
@@ -1058,7 +794,7 @@ static void Svcmd_Scale_f(void)
 		else
 		{
 			player->s.modelScale[0] = player->s.modelScale[1] = player->s.modelScale[2] = value / 100.0f;
-		}		
+		}
 	}
 }
 
@@ -1187,7 +923,7 @@ static svcmd_t svcmds[] = {
 	{ "saber",						Svcmd_Saber_f,								CMD_CHEAT },
 	{ "saberBlade",					Svcmd_SaberBlade_f,							CMD_CHEAT },
 	{ "lightningColor",				Svcmd_LightningColor_f,						CMD_NONE  },
-	
+
 	{ "setForceJump",				Svcmd_ForceSetLevel_f<FP_LEVITATION>,		CMD_CHEAT },
 	{ "setSaberThrow",				Svcmd_ForceSetLevel_f<FP_SABERTHROW>,		CMD_CHEAT },
 	{ "setForceHeal",				Svcmd_ForceSetLevel_f<FP_HEAL>,				CMD_CHEAT },
@@ -1212,31 +948,29 @@ static svcmd_t svcmds[] = {
 	{ "setForceLightningStrike",	Svcmd_ForceSetLevel_f<FP_LIGHTNING_STRIKE>,	CMD_CHEAT },
 	{ "setForceAll",				Svcmd_SetForceAll_f,						CMD_CHEAT },
 	{ "setSaberAll",				Svcmd_SetSaberAll_f,						CMD_CHEAT },
-	
-	{ "saberAttackCycle",			Svcmd_SaberAttackCycle_f,					CMD_NONE },
-	
+
 	{ "runscript",					Svcmd_RunScript_f,							CMD_CHEAT },
-	
+
 	{ "playerTeam",					Svcmd_PlayerTeam_f,							CMD_CHEAT },
-	
+
 	{ "control",					Svcmd_Control_f,							CMD_CHEAT },
 	{ "grab",						Svcmd_Grab_f,								CMD_CHEAT },
 	{ "knockdown",					Svcmd_Knockdown_f,							CMD_CHEAT },
 
 	{ "playerModel",				Svcmd_PlayerModel_f,						CMD_NONE },
 	{ "playerTint",					Svcmd_PlayerTint_f,							CMD_NONE },
-	
+
 	{ "nexttestaxes",				G_NextTestAxes,								CMD_NONE },
-	
+
 	{ "exitview",					Svcmd_ExitView_f,							CMD_NONE },
-	
+
 	{ "iknowkungfu",				Svcmd_IKnowKungfu_f,						CMD_CHEAT },
-	
+
 	{ "secrets",					Svcmd_Secrets_f,							CMD_NONE },
 	{ "difficulty",					Svcmd_Difficulty_f,							CMD_NONE },
 	{ "scale",						Svcmd_Scale_f,							CMD_NONE },
 	{ "spawnNPC",					Svcmd_Spawn_f,							CMD_NONE},
-	
+
 	//{ "say",						Svcmd_Say_f,						qtrue },
 	//{ "toggleallowvote",			Svcmd_ToggleAllowVote_f,			qfalse },
 	//{ "toggleuserinfovalidation",	Svcmd_ToggleUserinfoValidation_f,	qfalse },
@@ -1254,7 +988,7 @@ qboolean	ConsoleCommand( void ) {
 
 	if ( !command )
 		return qfalse;
-	
+
 	if ( (command->flags & CMD_CHEAT)
 		&& !g_cheats->integer )
 	{

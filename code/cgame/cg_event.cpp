@@ -111,6 +111,12 @@ void CG_ItemPickup( int itemNum, qboolean bHadItem ) {
 				cgi_Cvar_Set( "cg_WeaponPickupText", va("%s %s\n", text, data));
 				cg.weaponPickupTextTime	= cg.time + 5000;
 			}
+			//Dynamic Weapons
+			else if (cgi_SP_GetStringTextString(va("%s_NAME", bg_itemlist[itemNum].classname), data, sizeof(text)))
+			{
+				cgi_Cvar_Set("cg_WeaponPickupText", va("%s %s\n", text, data));
+				cg.weaponPickupTextTime = cg.time + 5000;
+			}
 		}
 	}
 
@@ -145,13 +151,14 @@ void CG_ItemPickup( int itemNum, qboolean bHadItem ) {
 		}
 		else if (1 == cg_autoswitch.integer)
 		{
+			int baseWeapon = weaponData[nNewWpn].baseWeaponNum ? weaponData[nNewWpn].baseWeaponNum : nNewWpn;
 			// safe switching
 			if (	(nNewWpn > nCurWpn) &&
-					!(nNewWpn == WP_DET_PACK) &&
-					!(nNewWpn == WP_TRIP_MINE) &&
-					!(nNewWpn == WP_THERMAL) &&
-					!(nNewWpn == WP_ROCKET_LAUNCHER) &&
-					!(nNewWpn == WP_CONCUSSION) )
+					!(baseWeapon == WP_DET_PACK) &&
+					!(baseWeapon == WP_TRIP_MINE) &&
+					!(baseWeapon == WP_THERMAL) &&
+					!(baseWeapon == WP_ROCKET_LAUNCHER) &&
+					!(baseWeapon == WP_CONCUSSION) )
 			{
 				// switch to new wpn
 //				cg.weaponSelectTime = cg.time;
@@ -539,6 +546,16 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		CG_FireWeapon( cent, qtrue );
 		break;
 
+	case EV_SCOPED_FIRE:
+		DEBUGNAME("EV_SCOPED_FIRE");
+		CG_FireWeapon( cent, qtrue );
+		break;
+
+	case EV_SCOPED_ALT_FIRE:
+		DEBUGNAME("EV_SCOPED_ALT_FIRE");
+		CG_FireWeapon( cent, qtrue );
+		break;
+
 	case EV_DISRUPTOR_MAIN_SHOT:
 		DEBUGNAME("EV_DISRUPTOR_MAIN_SHOT");
 		FX_DisruptorMainShot( cent->currentState.origin2, cent->lerpOrigin );
@@ -577,9 +594,14 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		FX_BlackLightningStrike(cent->currentState.origin2, cent->lerpOrigin);
 		break;
 
+	case EV_GENERIC_BEAM:
+		DEBUGNAME("EV_GENERIC_BEAM");
+		FX_GenericBeam(cent->currentState.origin2, cent->lerpOrigin, cent->gent);
+		break;
+
 	case EV_DISRUPTOR_SNIPER_SHOT:
 		DEBUGNAME("EV_DISRUPTOR_SNIPER_SHOT");
-		FX_DisruptorAltShot( cent->currentState.origin2, cent->lerpOrigin, cent->gent->alt_fire );
+		FX_DisruptorAltShot( cent->currentState.origin2, cent->lerpOrigin, (qboolean) cent->gent->alt_fire);
 		break;
 
 	case EV_DISRUPTOR_SNIPER_MISS:
@@ -777,7 +799,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		}
 		else
 		{
-			CG_MissileHitWall( cent, es->weapon, position, cent->gent->pos1, cent->gent->alt_fire );
+			CG_MissileHitWall( cent, es->weapon, position, cent->gent->pos1, cent->gent->alt_fire);
 		}
 		break;
 

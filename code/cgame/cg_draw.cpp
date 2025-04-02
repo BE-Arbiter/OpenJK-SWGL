@@ -380,14 +380,7 @@ static void CG_DrawAmmo(const centity_t	*cent,const int xPos,const int yPos, con
 			}
 			else
 			{
-				if (cent->gent->client->ps.tertiaryMode == qtrue)
-				{
-					memcpy(calcColor, colorTable[CT_RED], sizeof(vec4_t));
-				}
-				else
-				{
-					memcpy(calcColor, otherHUDBits[OHB_AMMOAMOUNT].color, sizeof(vec4_t));
-				}
+				memcpy(calcColor, otherHUDBits[OHB_AMMOAMOUNT].color, sizeof(vec4_t));
 			}
 		}
 		else
@@ -1739,7 +1732,7 @@ static void CG_DrawSimpleAmmo( const centity_t *cent )
 	currValue = ps->ammo[weaponData[cent->currentState.weapon].ammoIndex];
 
 	// No ammo
-	if ( currValue < 0 || (weaponData[cent->currentState.weapon].energyPerShot == 0 && weaponData[cent->currentState.weapon].altEnergyPerShot == 0) )
+	if ( currValue < 0 || (weaponData[cent->currentState.weapon].attackData[0].energyPerShot == 0 && weaponData[cent->currentState.weapon].attackData[1].energyPerShot == 0) )
 	{
 		SimpleHud_DrawString(SCREEN_WIDTH - cgs.widthRatioCoef * (16 + 32), (SCREEN_HEIGHT - 80) + 40, "--", colorTable[CT_HUD_ORANGE]);
 		return;
@@ -2023,6 +2016,50 @@ void CG_DrawDataPadHUD( centity_t *cent )
 
 }
 
+void CG_DrawDataPadLoadoutFrame( centity_t *cent )
+{
+	int x,y;
+
+	x = 34;
+	y = 286;
+
+	CG_DrawHealth(x, y, 80, 80, 1.0f);
+
+	x = 526;
+
+	if ((missionInfo_Updated) && ((cg_updatedDataPadForcePower1.integer) || (cg_updatedDataPadObjective.integer)))
+	{
+		// Stop flashing light
+		cg.missionInfoFlashTime = 0;
+		missionInfo_Updated = qfalse;
+
+		// Set which force power to show.
+		// cg_updatedDataPadForcePower is set from Q3_Interface, because force powers would only be given
+		// from a script.
+		if (cg_updatedDataPadForcePower1.integer)
+		{
+			cg.DataPadforcepowerSelect = cg_updatedDataPadForcePower1.integer - 1; // Not pretty, I know
+			if (cg.DataPadforcepowerSelect >= MAX_DPSHOWPOWERS)
+			{	//duh
+				cg.DataPadforcepowerSelect = MAX_DPSHOWPOWERS-1;
+			}
+			else if (cg.DataPadforcepowerSelect<0)
+			{
+				cg.DataPadforcepowerSelect=0;
+			}
+		}
+//		CG_ClearDataPadCvars();
+	}
+
+	CG_DrawForcePower(cent, x, y, 1.0f);
+	CG_DrawAmmo(cent, x, y, 1.0f);
+	CG_DrawMessageLit(cent,x,y);
+
+	cgi_R_SetColor( colorTable[CT_WHITE]);
+	CG_DrawPic( 0, 0, 640, 480, cgs.media.dataPadLoadoutFrame );
+
+}
+
 //------------------------
 // CG_DrawZoomMask
 //------------------------
@@ -2236,7 +2273,7 @@ static void CG_DrawZoomMask( void )
 		float cx, cy;
 		float max;
 
-		max = cg_entities[0].gent->client->ps.ammo[weaponData[WP_DISRUPTOR].ammoIndex] / (float)ammoData[weaponData[WP_DISRUPTOR].ammoIndex].max;
+		max = cg_entities[0].gent->client->ps.ammo[weaponData[cent->gent->s.weapon].ammoIndex] / (float)ammoData[weaponData[cent->gent->s.weapon].ammoIndex].max;
 
 		if ( max > 1.0f )
 		{
@@ -3412,29 +3449,30 @@ static void CG_DrawRocketLocking( int lockEntNum, int lockTime )
 
 
 //------------------------------------
-static void CG_RunRocketLocking( void )
+static void CG_RunRocketLocking(void)
 //------------------------------------
 {
-	centity_t	*player = &cg_entities[0];
+	centity_t* player = &cg_entities[0];
 
 	// Only bother with this when the player is holding down the alt-fire button of the rocket launcher
-	if ( player->currentState.weapon == WP_ROCKET_LAUNCHER )
-	{
-		if ( player->currentState.eFlags & EF_ALT_FIRING )
-		{
-			CG_ScanForRocketLock();
+	qboolean altFire = (player->currentState.eFlags & EF_ALT_FIRING) ? qtrue : qfalse;
+	int attackIndex = CG_GetAttackIndex(player->gent,altFire);
+	weaponAttackData_t* atkData = &weaponData[player->currentState.weapon].attackData[attackIndex];
 
-			if ( g_rocketLockEntNum > 0 && g_rocketLockEntNum < ENTITYNUM_WORLD && g_rocketLockTime > 0 )
-			{
-				CG_DrawRocketLocking( g_rocketLockEntNum, g_rocketLockTime );
-			}
-		}
-		else
+	if (atkData->firingLogic == FL_MISSILE_AIMED && (player->currentState.eFlags & (EF_ALT_FIRING | EF_FIRING)))
+	{
+		CG_ScanForRocketLock();
+
+		if (g_rocketLockEntNum > 0 && g_rocketLockEntNum < ENTITYNUM_WORLD && g_rocketLockTime > 0)
 		{
-			// disengage any residual locking
-			g_rocketLockEntNum = ENTITYNUM_WORLD;
-			g_rocketLockTime = 0;
+			CG_DrawRocketLocking(g_rocketLockEntNum, g_rocketLockTime);
 		}
+	}
+	else
+	{
+		// disengage any residual locking
+		g_rocketLockEntNum = ENTITYNUM_WORLD;
+		g_rocketLockTime = 0;
 	}
 }
 

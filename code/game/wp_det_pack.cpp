@@ -70,23 +70,23 @@ static void WP_DropDetPack( gentity_t *self, vec3_t start, vec3_t dir )
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( self, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
 
-	gentity_t	*missile = CreateMissile( start, forwardVec, 300, 10000, self, qfalse );
+	gentity_t	*missile = CreateMissile( start, forwardVec, 300, 10000, self, 0 );
 
 	missile->fxID = G_EffectIndex( "detpack/explosion" ); // if we set an explosion effect, explode death can use that instead
 
 	missile->classname = "detpack";
-	missile->s.weapon = WP_DET_PACK;
+	missile->s.weapon = self->s.weapon;
 
 	missile->s.pos.trType = TR_GRAVITY;
 
 	missile->s.eFlags |= EF_MISSILE_STICK;
 	missile->e_TouchFunc = touchF_charge_stick;
 
-	missile->damage = weaponData[WP_DET_PACK].damage;
+	missile->damage = weaponData[self->s.weapon].attackData[0].damage;
 	missile->methodOfDeath = MOD_DETPACK;
 
-	missile->splashDamage = weaponData[WP_DET_PACK].splashDamage;
-	missile->splashRadius = weaponData[WP_DET_PACK].splashRadius;
+	missile->splashDamage = weaponData[self->s.weapon].attackData[0].splashDamage;
+	missile->splashRadius = weaponData[self->s.weapon].attackData[0].splashRadius;
 	missile->splashMethodOfDeath = MOD_DETPACK;// ?SPLASH;
 
 	missile->clipmask = (CONTENTS_SOLID|CONTENTS_BODY|CONTENTS_SHOTCLIP);//MASK_SHOT;
@@ -96,7 +96,7 @@ static void WP_DropDetPack( gentity_t *self, vec3_t start, vec3_t dir )
 
 	missile->s.radius = 30;
 	VectorSet( missile->s.modelScale, 1.0f, 1.0f, 1.0f );
-	gi.G2API_InitGhoul2Model( missile->ghoul2, weaponData[WP_DET_PACK].missileMdl, G_ModelIndex( weaponData[WP_DET_PACK].missileMdl ),
+	gi.G2API_InitGhoul2Model( missile->ghoul2, weaponData[self->s.weapon].attackData[0].missileMdl, G_ModelIndex( weaponData[self->s.weapon].attackData[0].missileMdl ),
 		NULL_HANDLE, NULL_HANDLE, 0, 0);
 
 	AddSoundEvent( NULL, missile->currentOrigin, 128, AEL_MINOR, qtrue );
@@ -104,15 +104,18 @@ static void WP_DropDetPack( gentity_t *self, vec3_t start, vec3_t dir )
 }
 
 //---------------------------------------------------------
-void WP_FireDetPack( gentity_t *ent, qboolean alt_fire )
+void WP_FireDetPack( gentity_t *ent, int attackIndex )
 //---------------------------------------------------------
 {
+
+	weaponData_t* wpnData = &weaponData[ent->s.weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	if ( !ent || !ent->client )
 	{
 		return;
 	}
 
-	if ( alt_fire  )
+	if ( attackIndex == 1  )
 	{
 		if ( ent->client->ps.eFlags & EF_PLANTED_CHARGE )
 		{

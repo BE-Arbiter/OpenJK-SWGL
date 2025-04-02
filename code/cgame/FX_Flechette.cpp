@@ -44,34 +44,14 @@ void FX_FlechetteProjectileThink( centity_t *cent, const struct weaponInfo_s *we
 		forward[2] = 1.0f;
 	}
 
-	theFxScheduler.PlayEffect( cgs.effects.flechetteShotEffect, cent->lerpOrigin, forward );
-}
-
-/*
--------------------------
-FX_FlechetteWeaponHitWall
--------------------------
-*/
-void FX_FlechetteWeaponHitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( cgs.effects.flechetteShotDeathEffect, origin, normal );
-}
-
-/*
--------------------------
-FX_BlasterWeaponHitPlayer
--------------------------
-*/
-void FX_FlechetteWeaponHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-//	if ( humanoid )
-//	{
-		theFxScheduler.PlayEffect( cgs.effects.flechetteFleshImpactEffect, origin, normal );
-//	}
-//	else
-//	{
-//		theFxScheduler.PlayEffect( "blaster/droid_impact", origin, normal );
-//	}
+	if (weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect(cgs.effects.flechetteShotEffect, cent->lerpOrigin, forward);
+	}
 }
 
 /*

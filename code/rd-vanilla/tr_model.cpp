@@ -822,7 +822,7 @@ qhandle_t RE_RegisterModel( const char *name )
 
 		qhandle_t q = RE_RegisterModel_Actual( name );
 
-	if (Q_stricmp(&name[strlen(name)-4],".gla")){
+	if (!COM_CompareExtension(name, ".gla")) {
 		gbInsideRegisterModel = qfalse;		// GLA files recursively call this, so don't turn off half way. A reference count would be nice, but if any ERR_DROP ever occurs within the load then the refcount will be knackered from then on
 	}
 
@@ -1172,7 +1172,7 @@ static md3Tag_t *R_GetTag( md3Header_t *mod, int frame, const char *tagName ) {
 R_LerpTag
 ================
 */
-void	R_LerpTag( orientation_t *tag, qhandle_t handle, int startFrame, int endFrame,
+int	R_LerpTag( orientation_t *tag, qhandle_t handle, int startFrame, int endFrame,
 					 float frac, const char *tagName ) {
 	md3Tag_t	*start, *finish;
 	int		i;
@@ -1189,13 +1189,13 @@ void	R_LerpTag( orientation_t *tag, qhandle_t handle, int startFrame, int endFra
 	{
 		AxisClear( tag->axis );
 		VectorClear( tag->origin );
-		return;
+		return qfalse;
 	}
 
 	if ( !start || !finish ) {
 		AxisClear( tag->axis );
 		VectorClear( tag->origin );
-		return;
+		return qfalse;
 	}
 
 	frontLerp = frac;
@@ -1210,6 +1210,7 @@ void	R_LerpTag( orientation_t *tag, qhandle_t handle, int startFrame, int endFra
 	VectorNormalize( tag->axis[0] );
 	VectorNormalize( tag->axis[1] );
 	VectorNormalize( tag->axis[2] );
+	return qtrue;
 }
 
 

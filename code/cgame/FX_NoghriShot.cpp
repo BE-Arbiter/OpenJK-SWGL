@@ -61,33 +61,12 @@ void FX_NoghriShotProjectileThink( centity_t *cent, const struct weaponInfo_s *w
 		VectorScale( forward, scale, forward );
 	}
 
-	theFxScheduler.PlayEffect( "noghri_stick/shot", cent->lerpOrigin, forward );
-}
-
-/*
--------------------------
-FX_NoghriShotWeaponHitWall
--------------------------
-*/
-void FX_NoghriShotWeaponHitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( "noghri_stick/flesh_impact", origin, normal );//no "noghri/wall_impact"?
-}
-/*
--------------------------
-FX_NoghriShotWeaponHitPlayer
--------------------------
-*/
-void FX_NoghriShotWeaponHitPlayer( gentity_t *hit, vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	//temporary? just testing out the damage skin stuff -rww
-	/*
-	if ( hit && hit->client && hit->ghoul2.size() )
+	if (weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect)
 	{
-		CG_AddGhoul2Mark(cgs.media.bdecal_burnmark1, flrand(3.5, 4.0), origin, normal, hit->s.number,
-			hit->client->ps.origin, hit->client->renderInfo.legsYaw, hit->ghoul2, hit->s.modelScale, Q_irand(10000, 13000));
+		theFxScheduler.PlayEffect(weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect, cent->lerpOrigin, forward);
 	}
-	*/
-
-	theFxScheduler.PlayEffect( "noghri_stick/flesh_impact", origin, normal );
+	else
+	{
+		theFxScheduler.PlayEffect("noghri_stick/shot", cent->lerpOrigin, forward);
+	}
 }

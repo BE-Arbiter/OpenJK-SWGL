@@ -65,33 +65,6 @@ void FX_ATSTMainProjectileThink( centity_t *cent, const struct weaponInfo_s *wea
 
 /*
 ---------------------------
-FX_ATSTMainHitWall
----------------------------
-*/
-void FX_ATSTMainHitWall( vec3_t origin, vec3_t normal )
-{
-	theFxScheduler.PlayEffect( "atst/wall_impact", origin, normal );
-}
-
-/*
----------------------------
-FX_ATSTMainHitPlayer
----------------------------
-*/
-void FX_ATSTMainHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid )
-{
-	if ( humanoid )
-	{
-		theFxScheduler.PlayEffect( "atst/flesh_impact", origin, normal );
-	}
-	else
-	{
-		theFxScheduler.PlayEffect( "atst/droid_impact", origin, normal );
-	}
-}
-
-/*
----------------------------
 FX_ATSTSideAltProjectileThink
 ---------------------------
 */

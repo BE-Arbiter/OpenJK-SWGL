@@ -187,6 +187,15 @@ void CL_DrawDatapad(int HUDType)
 	case DP_FORCEPOWERS:
 		VM_Call( CG_DRAW_DATAPAD_FORCEPOWERS );
 		break;
+	case DP_LOADOUT:
+		VM_Call( CG_DRAW_DATAPAD_LOADOUT );
+		break;
+	case DP_LOADOUT_FRAME:
+		VM_Call(CG_DRAW_DATAPAD_LOADOUT_FRAME);
+		break;
+	case DP_NPC_WEAPON_LABEL:
+		VM_Call(CG_DRAW_NPC_WEAPON_LABEL);
+		break;
 	default:
 		break;
 	}
@@ -264,7 +273,7 @@ void CL_InitUI( void ) {
 #endif
 	uii.R_ClearScene			= re.ClearScene;
 	uii.R_AddRefEntityToScene	= re.AddRefEntityToScene;
-	uii.R_AddPolyToScene		=  re.AddPolyToScene;
+	uii.R_AddPolyToScene		= re.AddPolyToScene;
 	uii.R_AddLightToScene		= re.AddLightToScene;
 	uii.R_RenderScene			= re.RenderScene;
 

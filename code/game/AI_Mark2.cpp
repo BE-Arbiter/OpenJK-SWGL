@@ -47,7 +47,7 @@ enum
 	LSTATE_RISINGUP,
 };
 
-gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, qboolean altFire = qfalse );
+extern gentity_t* CreateMissile(vec3_t org, vec3_t dir, float vel, int life, gentity_t* owner, int attackIndex = 0);
 
 void NPC_Mark2_Precache( void )
 {
@@ -61,7 +61,7 @@ void NPC_Mark2_Precache( void )
 	G_EffectIndex( "blaster/smoke_bolton" );
 	G_EffectIndex( "bryar/muzzle_flash" );
 
-	RegisterItem( FindItemForWeapon( WP_BRYAR_PISTOL ));
+	RegisterItem( FindItemForWeapon((int) WP_BRYAR_PISTOL ));
 	RegisterItem( FindItemForAmmo( 	AMMO_METAL_BOLTS));
 	RegisterItem( FindItemForAmmo( AMMO_POWERCELL ));
 	RegisterItem( FindItemForAmmo( AMMO_BLASTER ));

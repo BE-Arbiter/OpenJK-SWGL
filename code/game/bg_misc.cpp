@@ -31,8 +31,12 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_vehicles.h"
 
 
-extern weaponData_t weaponData[WP_NUM_WEAPONS];
-extern ammoData_t ammoData[AMMO_MAX];
+extern int weaponCount;
+extern int ammoCount;
+extern weaponIndexes_t weaponIndexes[MAX_WEAPONS];
+extern int weaponBuckets[MAX_WEAPONS - WB_OTHERS];
+extern weaponData_t weaponData[MAX_WEAPONS];
+extern ammoData_t ammoData[MAX_AMMO];
 
 
 #define PICKUPSOUND "sound/weapons/w_pkup.wav"
@@ -237,10 +241,10 @@ force saberthrow pickup item
 "count"     level of force power this holocron gives activator ( range: 0-3, default 1)
 */
 
-gitem_t	bg_itemlist[ITM_NUM_ITEMS+1];//need a null on the end
+gitem_t	bg_itemlist[MAX_ITEMS+1];//need a null on the end
 
 //int		bg_numItems = sizeof(bg_itemlist) / sizeof(bg_itemlist[0]) ;
-const int		bg_numItems = ITM_NUM_ITEMS;
+int		bg_numItems = ITM_NUM_HC_ITEMS;
 
 
 
@@ -250,17 +254,48 @@ FindItemForWeapon
 
 ===============
 */
-gitem_t	*FindItemForWeapon( weapon_t weapon ) {
+extern void CG_InitItemForWeapon(gitem_t* item, int weaponNum);
+extern void CG_InitItemForAmmo(gitem_t* item, int weaponNum);
+gitem_t* FindItemForWeapon(int weaponNum) {
 	int		i;
+	gitem_t* item = NULL;
 
-	for ( i = 1 ; i < bg_numItems ; i++ ) {
-		if ( bg_itemlist[i].giType == IT_WEAPON && bg_itemlist[i].giTag == weapon ) {
-			return &bg_itemlist[i];
+	// find the weapon in the item list
+	for (i = 1; i < bg_numItems; i++) {
+		item = &(bg_itemlist[i]);
+		if ((item->giType == IT_WEAPON && item->giTag == weaponNum)
+			|| (item->giType == IT_WEAPON && item->giTag == -1 && !Q_stricmp(item->giTagName, weaponData[weaponNum].classname))
+			) {
+			//Overwrite correctly the item
+			if (item->giTag == -1) {
+				item->giTag = weaponNum;
+			}
+			//Found it !
+			return item;
 		}
 	}
+	// if we couldn't find which weapon this is, Create one!
+	if (i == MAX_ITEMS) {
+		CG_Error("Too many items in external items data(%d); Cannot create nor found item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
+	}
+	item = &(bg_itemlist[bg_numItems]);
+	CG_InitItemForWeapon(item, weaponNum);
+	bg_numItems++;
 
-	Com_Error( ERR_DROP, "Couldn't find item for weapon %i", weapon);
-	return NULL;
+	CG_RegisterItemVisuals(item - bg_itemlist);
+
+
+	if (weaponData[weaponNum].baseWeaponNum == WP_THERMAL
+		|| weaponData[weaponNum].baseWeaponNum == WP_DET_PACK
+		|| weaponData[weaponNum].baseWeaponNum == WP_TRIP_MINE) {
+		if (i == MAX_ITEMS) {
+			CG_Error("Too many items in external items data(%d); Cannot create nor found ammo item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
+		}
+		gitem_t *ammoItem = &(bg_itemlist[bg_numItems]);
+		CG_InitItemForAmmo(ammoItem, weaponNum);
+		bg_numItems++;
+	}
+	return item;
 }
 
 //----------------------------------------------
@@ -273,13 +308,9 @@ gitem_t	*FindItemForInventory( int inv )
 	for ( i = 1 ; i < bg_numItems ; i++ )
 	{
 		it = &bg_itemlist[i];
-
-		if ( it->giType == IT_HOLDABLE )
+		if ( it->giType == IT_HOLDABLE && it->giTag == inv )
 		{
-			if ( it->giTag == inv )
-			{
-				return it;
-			}
+			return it;
 		}
 	}
 
@@ -392,6 +423,11 @@ qboolean	BG_CanItemBeGrabbed( const entityState_t *ent, const playerState_t *ps 
 					return qtrue;
 				}
 				break;
+			}
+
+			int wpIndex = ammoData[item->giTag].giveWeaponIndex;
+			if (wpIndex && !(ps->weapons[wpIndex])){
+				return qtrue;
 			}
 
 			if ( ps->ammo[ item->giTag ] >= ammoData[item->giTag].max )	// checkme

@@ -46,9 +46,9 @@ void NPC_ATST_Precache(void)
 	G_SoundIndex( "sound/chars/atst/atst_damaged1" );
 	G_SoundIndex( "sound/chars/atst/atst_damaged2" );
 
-	RegisterItem( FindItemForWeapon( WP_ATST_MAIN ));	//precache the weapon
-	RegisterItem( FindItemForWeapon( WP_BOWCASTER ));	//precache the weapon
-	RegisterItem( FindItemForWeapon( WP_ROCKET_LAUNCHER ));	//precache the weapon
+	RegisterItem( FindItemForWeapon((int) WP_ATST_MAIN ));	//precache the weapon
+	RegisterItem( FindItemForWeapon((int) WP_BOWCASTER ));	//precache the weapon
+	RegisterItem( FindItemForWeapon((int) WP_ROCKET_LAUNCHER ));	//precache the weapon
 
 	G_EffectIndex( "env/med_explode2" );
 //	G_EffectIndex( "smaller_chunks" );

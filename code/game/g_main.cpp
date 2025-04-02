@@ -37,6 +37,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 //rww - RAGDOLL_END
 
 #include "qcommon/ojk_saved_game_helper.h"
+#include "qcommon/q_version.h"
 
 extern void WP_SaberLoadParms( void );
 extern qboolean G_PlayerSpawned( void );
@@ -802,9 +803,9 @@ void G_InitCvars( void ) {
 	gi.cvar( "g_clearstats", "1", CVAR_ROM|CVAR_NORESTART);
 
 	static_cam = gi.cvar("static_Cam", "0", CVAR_NORESTART);
-	
+
 	g_allowAttributes = gi.cvar("g_allowAttributes", "1", CVAR_ARCHIVE);
-	
+
 }
 /*
 ============

@@ -223,7 +223,7 @@ qboolean G_ClearViewEntity( gentity_t *ent )
 
 	if ( ent->client->ps.viewEntity > 0 && ent->client->ps.viewEntity < ENTITYNUM_NONE )
 	{
-		if ( &g_entities[ent->client->ps.viewEntity] )
+		if ( g_entities[ent->client->ps.viewEntity].inuse )
 		{
 			g_entities[ent->client->ps.viewEntity].svFlags &= ~SVF_BROADCAST;
 			if ( g_entities[ent->client->ps.viewEntity].NPC )
@@ -1774,8 +1774,8 @@ void ClientTimerActions( gentity_t *ent, int msec ) {
 				player->client->ps.stats[STAT_HEALTH] = player->health;
 			}
 		}
-		
-		
+
+
 		if ( (ent->flags&FL_OVERCHARGED_HEALTH) )
 		{//need to gradually reduce health back to max
 			if ( ent->health > ent->client->ps.stats[STAT_MAX_HEALTH] )
@@ -1861,7 +1861,7 @@ void ClientEvents( gentity_t *ent, int oldEventSequence ) {
 			}
 			fired = qtrue;
 #endif
-			FireWeapon( ent, qfalse );
+			FireWeapon( ent, 0 );
 			break;
 
 		case EV_ALT_FIRE:
@@ -1871,7 +1871,25 @@ void ClientEvents( gentity_t *ent, int oldEventSequence ) {
 			}
 			fired = qtrue;
 #endif
-			FireWeapon( ent, qtrue );
+			FireWeapon( ent, 1 );
+			break;
+		case EV_SCOPED_FIRE:
+#ifndef FINAL_BUILD
+			if ( fired ) {
+				gi.Printf( "DOUBLE EV_FIRE_WEAPON AND-OR EV_ALT_FIRE!!\n" );
+			}
+			fired = qtrue;
+#endif
+			FireWeapon( ent, 2 );
+			break;
+		case EV_SCOPED_ALT_FIRE:
+#ifndef FINAL_BUILD
+			if ( fired ) {
+				gi.Printf( "DOUBLE EV_FIRE_WEAPON AND-OR EV_ALT_FIRE!!\n" );
+			}
+			fired = qtrue;
+#endif
+			FireWeapon( ent, 3 );
 			break;
 
 		default:
@@ -4419,7 +4437,7 @@ void G_CheckClientIdle( gentity_t *ent, usercmd_t *ucmd )
 					TIMER_Set(player, "breathing", Q_irand(2120, 4000));
 				}
 			}
-			
+
 		}
 	}
 	if ( !VectorCompare( vec3_origin, ent->client->ps.velocity )

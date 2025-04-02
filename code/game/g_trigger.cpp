@@ -286,7 +286,7 @@ void Touch_Multi( gentity_t *self, gentity_t *other, trace_t *trace )
 
 		//FIXME: do we care about the sniper rifle or not?
 
-		if( other->s.number == 0 && ( other->client->ps.weapon >= WP_NUM_WEAPONS || other->client->ps.weapon <= WP_NONE || !playerUsableWeapons[other->client->ps.weapon]) )
+		if( other->s.number == 0 && ( other->client->ps.weapon >= weaponCount || other->client->ps.weapon <= WP_NONE || !weaponData[other->client->ps.weapon].playerUsable) )
 		{//don't care about non-player weapons if this is the player
 			return;
 		}

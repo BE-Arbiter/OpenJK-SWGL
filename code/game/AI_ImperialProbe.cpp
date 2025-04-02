@@ -25,7 +25,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "../cgame/cg_local.h"
 #include "g_functions.h"
 
-gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, qboolean altFire = qfalse );
+extern gentity_t* CreateMissile(vec3_t org, vec3_t dir, float vel, int life, gentity_t* owner, int attackIndex = 0);
 extern gitem_t	*FindItemForAmmo( ammo_t ammo );
 
 //Local state enums
@@ -56,7 +56,7 @@ void NPC_Probe_Precache(void)
 	G_EffectIndex( "bryar/muzzle_flash" );
 
 	RegisterItem( FindItemForAmmo( AMMO_BLASTER ));
-	RegisterItem( FindItemForWeapon( WP_BRYAR_PISTOL ) );
+	RegisterItem( FindItemForWeapon((int) WP_BRYAR_PISTOL ) );
 }
 /*
 -------------------------

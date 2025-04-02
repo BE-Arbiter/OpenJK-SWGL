@@ -44,6 +44,9 @@ USER INTERFACE MAIN
 #include "game/bg_saga.h"
 #include "ui_shared.h"
 
+NORETURN_PTR void (*Com_Error)( int level, const char *error, ... );
+void (*Com_Printf)( const char *msg, ... );
+
 extern void UI_SaberAttachToChar( itemDef_t *item );
 
 const char *forcepowerDesc[NUM_FORCE_POWERS] =
@@ -6570,7 +6573,6 @@ static void UI_RunMenuScript(char **args)
 		{
 			UI_UpdateCharacterSkin();
 		}
-#if 0
 		else if (Q_stricmp(name, "setui_dualforcepower") == 0)
 		{
 			int forcePowerDisable = trap->Cvar_VariableValue("g_forcePowerDisable");
@@ -6605,7 +6607,7 @@ static void UI_RunMenuScript(char **args)
 		}
 		else if (Q_stricmp(name, "dualForcePowers") == 0)
 		{
-			int	dualforcePower,i, forcePowerDisable;
+			int	dualforcePower,i, forcePowerDisable=0;
 			dualforcePower = trap->Cvar_VariableValue("ui_dualforcepower");
 
 			if (dualforcePower==0)	// All force powers
@@ -6663,8 +6665,8 @@ static void UI_RunMenuScript(char **args)
 			int	weaponDisable,i;
 			const char *cvarString;
 
-			if (uiInfo.gameTypes[ui_netGameType.integer].gtEnum == GT_DUEL ||
-				uiInfo.gameTypes[ui_netGameType.integer].gtEnum == GT_POWERDUEL)
+			if (uiInfo.gameTypes[ui_netGametype.integer].gtEnum == GT_DUEL ||
+				uiInfo.gameTypes[ui_netGametype.integer].gtEnum == GT_POWERDUEL)
 			{
 				cvarString = "g_duelWeaponDisable";
 			}
@@ -6689,7 +6691,6 @@ static void UI_RunMenuScript(char **args)
 				trap->Cvar_Set(cvarString, va("%i",weaponDisable));
 			}
 		}
-#endif
 		// If this is siege, change all the bots to humans, because we faked it earlier
 		//  swapping humans for bots on the menu
 		else if (Q_stricmp(name, "setSiegeNoBots") == 0)
@@ -7479,7 +7480,6 @@ static void UI_BuildServerDisplayList(int force) {
 	int i, count, clients, maxClients, ping, game, len, passw/*, visible*/;
 	char info[MAX_STRING_CHARS];
 //	qboolean startRefresh = qtrue; TTimo: unused
-	static int numinvisible;
 	int	lanSource;
 
 	if (!(force || uiInfo.uiDC.realTime > uiInfo.serverStatus.nextDisplayRefresh)) {
@@ -7505,7 +7505,6 @@ static void UI_BuildServerDisplayList(int force) {
 	lanSource = UI_SourceForLAN();
 
 	if (force) {
-		numinvisible = 0;
 		// clear number of displayed servers
 		uiInfo.serverStatus.numDisplayServers = 0;
 		uiInfo.serverStatus.numPlayersOnServers = 0;
@@ -7600,7 +7599,6 @@ static void UI_BuildServerDisplayList(int force) {
 			// done with this server
 			if (ping > 0) {
 				trap->LAN_MarkServerVisible(lanSource, i, qfalse);
-				numinvisible++;
 			}
 		}
 	}
@@ -7770,7 +7768,7 @@ UI_BuildFindPlayerList
 ==================
 */
 static void UI_BuildFindPlayerList(qboolean force) {
-	static int numFound, numTimeOuts;
+	static int numFound;
 	int i, j, resend;
 	serverStatusInfo_t info;
 	char name[MAX_NAME_LENGTH+2];
@@ -7810,7 +7808,6 @@ static void UI_BuildFindPlayerList(qboolean force) {
 	//					sizeof(uiInfo.foundPlayerServerNames[uiInfo.numFoundPlayerServers-1]),
 	//						"searching %d...", uiInfo.pendingServerStatus.num);
 		numFound = 0;
-		numTimeOuts++;
 	}
 	for (i = 0; i < MAX_SERVERSTATUSREQUESTS; i++) {
 		// if this pending server is valid
@@ -7861,7 +7858,7 @@ static void UI_BuildFindPlayerList(qboolean force) {
 		if (!uiInfo.pendingServerStatus.server[i].valid ||
 			uiInfo.pendingServerStatus.server[i].startTime < uiInfo.uiDC.realTime - ui_serverStatusTimeOut.integer) {
 			if (uiInfo.pendingServerStatus.server[i].valid) {
-				numTimeOuts++;
+				// timed out
 			}
 			// reset server status request for this address
 			UI_GetServerStatusInfo( uiInfo.pendingServerStatus.server[i].adrstr, NULL );
@@ -9902,6 +9899,8 @@ UI_Init
 */
 void UI_Init( qboolean inGameLoad ) {
 	const char *menuSet;
+
+	Rand_Init( trap->Milliseconds() );
 
 	// Get the list of possible languages
 	uiInfo.languageCount = trap->SE_GetNumLanguages();	// this does a dir scan, so use carefully

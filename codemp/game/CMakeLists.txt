@@ -25,6 +25,7 @@ set(MPGameIncludeDirectories
 	"${MPDir}"
 	"${SharedDir}"
 	"${GSLIncludeDirectory}"
+	"${CMAKE_BINARY_DIR}/shared"
 	)
 if(WIN32)
 	set(MPGameLibraries "winmm")
@@ -149,7 +150,7 @@ set(MPGameCommonFiles
 	"${MPDir}/qcommon/disablewarnings.h"
 	"${MPDir}/qcommon/q_shared.h"
 	"${MPDir}/qcommon/tags.h"
-	
+
 	${SharedCommonFiles}
 	)
 source_group("common" FILES ${MPGameCommonFiles})

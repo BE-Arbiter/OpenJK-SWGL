@@ -81,8 +81,8 @@ typedef enum
 	thinkF_health_think,
 	thinkF_ammo_think,
 	thinkF_trigger_teleporter_find_closest_portal,
-	thinkF_thermalDetonatorExplode,
-	thinkF_WP_ThermalThink,
+	thinkF_WP_GrenadeExplode,
+	thinkF_WP_GrenadeThink,
 	thinkF_trigger_hurt_reset,
 	thinkF_turret_base_think,
 	thinkF_turret_head_think,
@@ -110,7 +110,7 @@ typedef enum
 	thinkF_laserTrapThink,
 	thinkF_TieFighterThink,
 	thinkF_TieBomberThink,
-	thinkF_rocketThink,
+	thinkF_WP_RocketThink,
 	thinkF_prox_mine_think,
 	thinkF_emplaced_blow,
 	thinkF_WP_Explode,
@@ -189,8 +189,8 @@ extern void blow_chunks_link		( gentity_t *ent );
 extern void health_think			( gentity_t *ent );
 extern void ammo_think				( gentity_t *ent );
 extern void trigger_teleporter_find_closest_portal ( gentity_t *self );
-extern void thermalDetonatorExplode	( gentity_t *ent );
-extern void WP_ThermalThink			( gentity_t *ent );
+extern void WP_GrenadeExplode	( gentity_t *ent );
+extern void WP_GrenadeThink			( gentity_t *ent );
 extern void trigger_hurt_reset		( gentity_t *self );
 extern void turret_base_think		( gentity_t *self );
 extern void turret_head_think		( gentity_t *self );
@@ -217,7 +217,7 @@ extern void LimbThink				( gentity_t *ent );
 extern void laserTrapThink			( gentity_t *self );
 extern void TieFighterThink			( gentity_t *self );
 extern void TieBomberThink			( gentity_t *self );
-extern void rocketThink				( gentity_t *ent );
+extern void WP_RocketThink				( gentity_t *ent );
 extern void prox_mine_think			( gentity_t *ent );
 extern void emplaced_blow			( gentity_t *self );
 extern void WP_Explode				( gentity_t *self );
@@ -606,7 +606,7 @@ typedef enum
 	dieF_Interrogator_die,
 	dieF_misc_atst_die,
 	dieF_misc_panel_turret_die,
-	dieF_thermal_die,
+	dieF_WP_GrenadeDie,
 	dieF_eweb_die,
 } dieFunc_t;
 
@@ -632,7 +632,7 @@ extern void Mark1_die					(gentity_t *self, gentity_t *inflictor, gentity_t *att
 extern void Interrogator_die			(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod,int dFlags=0,int hitLoc=HL_NONE);
 extern void misc_atst_die				(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod,int dFlags=0,int hitLoc=HL_NONE);
 extern void misc_panel_turret_die		(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod,int dFlags=0,int hitLoc=HL_NONE);
-extern void thermal_die					(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod,int dFlags=0,int hitLoc=HL_NONE);
+extern void WP_GrenadeDie				(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod,int dFlags=0,int hitLoc=HL_NONE);
 extern void eweb_die					(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod,int dFlags=0,int hitLoc=HL_NONE);
 
 void GEntity_ThinkFunc(gentity_t *self);

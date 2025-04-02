@@ -730,8 +730,9 @@ void RestoreGhoul2InfoArray()
 #endif // _DEBUG
 			singleton->Deserialize ((const char *)data, size);
 		R_Free ((void *)data);
-
+#ifdef _DEBUG
 		assert (read == size);
+#endif
 	}
 }
 
@@ -743,9 +744,9 @@ void SaveGhoul2InfoArray()
 	size_t written =
 #endif // _DEBUG
 		singleton->Serialize ((char *)data);
-
+#ifdef _DEBUG
 	assert (written == size);
-
+#endif // _DEBUG
 	if ( !ri.PD_Store (PERSISTENT_G2DATA, data, size) )
 	{
 		Com_Printf (S_COLOR_RED "ERROR: Failed to store persistent renderer data.\n");
@@ -2280,12 +2281,12 @@ bool G2_TestModelPointers(CGhoul2Info *ghlInfo) // returns true if the model is 
 }
 
 extern model_t* R_GetAnimModelByHandle(CGhoul2Info* ghlInfo, qhandle_t index);
-bool G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the model is properly set up
+qboolean G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the model is properly set up
 {
 	G2ERROR(ghlInfo,"NULL ghlInfo");
 	if (!ghlInfo)
 	{
-		return false;
+		return qfalse;
 	}
 	ghlInfo->mValid=false;
 //	G2WARNING(ghlInfo->mModelindex != -1,"Setup request on non-used info slot?");
@@ -2342,17 +2343,17 @@ bool G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the model is
 		ghlInfo->currentAnimModelSize=0;
 		ghlInfo->aHeader=0;
 	}
-	return ghlInfo->mValid;
+	return (qboolean)ghlInfo->mValid;
 }
 
-bool G2_SetupModelPointers(CGhoul2Info_v &ghoul2) // returns true if any model is properly set up
+qboolean G2_SetupModelPointers(CGhoul2Info_v &ghoul2) // returns true if any model is properly set up
 {
-	bool ret=false;
+	qboolean ret=qfalse;
 	int i;
 	for (i=0; i<ghoul2.size(); i++)
 	{
-		bool r=G2_SetupModelPointers(&ghoul2[i]);
-		ret=ret||r;
+		qboolean r=G2_SetupModelPointers(&ghoul2[i]);
+		ret=(qboolean)(ret||r);
 	}
 	return ret;
 }

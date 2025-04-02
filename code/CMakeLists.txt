@@ -29,6 +29,11 @@ endif(BuildSPGame)
 #    Add Modular Renderer project
 add_subdirectory("${SPDir}/rd-vanilla")
 
+#	Add rend2 JKA Renderer Project
+if(BuildSPRend2 OR BuildJK2SPRdRend2)
+	add_subdirectory("${SPDir}/rd-rend2")
+endif(BuildSPRend2 OR BuildJK2SPRdRend2)
+
 #    Add Engine Project
 if(BuildSPEngine OR BuildJK2SPEngine)
 	# Libraries
@@ -41,10 +46,19 @@ if(BuildSPEngine OR BuildJK2SPEngine)
 	set(SPEngineIncludeDirectories
 		${SPEngineIncludeDirectories}
 		${SharedDir}
+		${CMAKE_BINARY_DIR}/shared
 		${SPDir}
 		"${GSLIncludeDirectory}")
 
 	#    Dependencies
+
+	if (NOT WIN32)
+		# OpenGL
+		find_package(OpenGL REQUIRED)
+		set(SPEngineIncludeDirectories ${SPEngineIncludeDirectories} ${OPENGL_INCLUDE_DIR})
+		set(SPEngineLibraries ${SPEngineLibraries} ${OPENGL_LIBRARIES})
+	endif()
+
 	# OpenAL (is optionally included for Windows)
 
 	if (NOT WIN32)
@@ -197,7 +211,7 @@ if(BuildSPEngine OR BuildJK2SPEngine)
 		)
 	source_group("common" FILES ${SPEngineCommonFiles})
 	set(SPEngineFiles ${SPEngineFiles} ${SPEngineCommonFiles})
-	
+
 	set(SPEngineCommonSafeFiles
 		"${SharedDir}/qcommon/safe/files.cpp"
 		"${SharedDir}/qcommon/safe/files.h"

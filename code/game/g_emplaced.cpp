@@ -480,7 +480,7 @@ void SP_emplaced_eweb( gentity_t *ent )
 	//set the constraints for this guy as an emplaced weapon, and his constraint angles
 	//ent->s.origin2[0] = 60.0f; //60 degrees in either direction
 
-	RegisterItem( FindItemForWeapon( WP_EMPLACED_GUN ));
+	RegisterItem( FindItemForWeapon((int)WP_EMPLACED_GUN ));
 	ent->s.weapon = WP_EMPLACED_GUN;
 
 	G_SetOrigin( ent, ent->s.origin );
@@ -841,7 +841,7 @@ void SP_emplaced_gun( gentity_t *ent )
 	ent->lowerLumbarBone = gi.G2API_GetBoneIndex( &ent->ghoul2[ent->playerModel], "swivel_bone", qtrue );
 	gi.G2API_SetBoneAnglesIndex( &ent->ghoul2[ent->playerModel], ent->lowerLumbarBone, vec3_origin, BONE_ANGLES_POSTMULT, POSITIVE_Y, POSITIVE_Z, POSITIVE_X, NULL, 0, 0);
 
-	RegisterItem( FindItemForWeapon( WP_EMPLACED_GUN ));
+	RegisterItem( FindItemForWeapon((int) WP_EMPLACED_GUN ));
 	ent->s.weapon = WP_EMPLACED_GUN;
 
 	G_SetOrigin( ent, ent->s.origin );
@@ -1054,7 +1054,7 @@ extern void CG_ChangeWeapon( int num );
 
 		if ( ent->client->ps.weapon == WP_SABER )
 		{
-			if ( ent->owner->alt_fire )
+			if ( ent->owner->alt_fire)
 			{
 				ent->client->ps.SaberActivate();
 			}

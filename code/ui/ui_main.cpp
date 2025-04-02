@@ -823,6 +823,7 @@ vmCvar_t	ui_npc_saberonecolor;
 vmCvar_t	ui_npc_sabertwo;
 vmCvar_t	ui_npc_sabertwocolor;
 vmCvar_t	ui_npc_weapon;
+vmCvar_t	ui_npc_weapon_label;
 vmCvar_t	ui_npc_spawnscript;
 vmCvar_t	ui_npc_fleescript;
 vmCvar_t	ui_npc_deathscript;
@@ -944,6 +945,7 @@ static cvarTable_t cvarTable[] =
 	{ &ui_npc_sabertwo,			"ui_npc_sabertwo",	"single_1", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_sabertwocolor,	"ui_npc_sabertwocolor",	"red", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_weapon,			"ui_npc_weapon",	"WP_BLASTER", NULL, CVAR_ARCHIVE},
+	{ &ui_npc_weapon_label,			"ui_npc_weapon_label",	"Blaster", NULL, CVAR_ARCHIVE},
 	{ &ui_lightning_color,		"ui_lightning_color",	"blue", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_spawnscript,		"ui_npc_spawnscript",	"spawnscripts/no_follow", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_fleescript,		"ui_npc_fleescript",	"fleescripts/surrender", NULL, CVAR_ARCHIVE},
@@ -1212,12 +1214,12 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 		return SE_GetLanguageName( index );
 #endif
 	}
-	
+
 	else if (feederID == FEEDER_PLAYER_SKIN_HEAD)
 	{
 		if (index >= 0 && index < uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinHeadCount)
 		{
-			
+
 			*handle = ui.R_RegisterShaderNoMip(va("models/players/%s/icon_%s.jpg", uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].Name, uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinHead[index].name));
 			return uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinHead[index].name;
 		}
@@ -1293,7 +1295,7 @@ qhandle_t UI_FeederItemImage(float feederID, int index)
 			return ui.R_RegisterShaderNoMip(va("models/players/%s/icon_%s.jpg", uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].Name, skinString.c_str()));
 		}
 	}
-	
+
 	else if (feederID == FEEDER_PLAYER_SKIN_TORSO)
 	{
 		if (index >= 0 && index < uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinTorsoCount)
@@ -1514,7 +1516,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 			if (uiInfo.modList[uiInfo.modIndex].modName)
 			{
 				Cvar_Set( "fs_game", uiInfo.modList[uiInfo.modIndex].modName);
-				extern	void FS_Restart( void );
+				extern	void FS_Restart( qboolean inPlace = qfalse );
 				FS_Restart();
 				Cbuf_ExecuteText( EXEC_APPEND, "vid_restart;" );
 			}
@@ -1556,6 +1558,38 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if (Q_stricmp(name, "nextDataPadWeapon") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "dpweapnext\n");
+		}
+		else if (Q_stricmp(name, "loadoutSelectBaseWeapon") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSelectBaseWeapon\n");
+		}
+		else if (Q_stricmp(name, "loadoutSelectWeapon") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSelectWeapon\n");
+		}
+		else if (Q_stricmp(name, "loadoutSwitchSelectWeapon") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSwitchSelectWeapon\n");
+		}
+		else if (Q_stricmp(name, "uiNpcWeaponNext") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "uiNpcWeaponNext\n");
+		}
+		else if (Q_stricmp(name, "uiNpcWeaponPrev") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "uiNpcWeaponPrev\n");
+		}
+		else if (Q_stricmp(name, "uiNpcWeaponLabelUpd") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "uiNpcWeaponLabelUpd\n");
+		}
+		else if (Q_stricmp(name, "loadoutNextPage") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutNextPage\n");
+		}
+		else if (Q_stricmp(name, "loadoutPreviousPage") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutPreviousPage\n");
 		}
 		else if (Q_stricmp(name, "prevDataPadWeapon") == 0)
 		{
@@ -1801,7 +1835,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 			UI_UpdateSaberHilt( qfalse );
 		}
 		else if (Q_stricmp(name, "hilt_change") == 0)
-		{	
+		{
 			const char* num;
 			String_Parse(args, &num);
 			UI_HiltChange(atoi(num));
@@ -2526,7 +2560,7 @@ static void UI_AnglesEsc()
 	{
 		Cvar_Set("d_npcfreeze", "0");
 		openedAngles = qfalse;
-	}	
+	}
 }
 
 /*
@@ -2580,7 +2614,7 @@ static int UI_FeederCount(float feederID)
 	else if (feederID == FEEDER_MISSION)
 	{
 		int count = 0, i;
-		
+
 		for (i = 0; i < MAX_MISSION; i++)
 		{
 			if (missionData[Cvar_VariableIntegerValue("ui_mission_topic")][i].title)
@@ -2623,7 +2657,7 @@ static int UI_FeederCount(float feederID)
 	{
 		return uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinLegCount;
 	}
-	
+
 	else if (feederID == FEEDER_COLORCHOICES)
 	{
 		return uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].ColorCount;
@@ -3256,7 +3290,7 @@ static void UI_FreeSpecies( playerSpeciesInfo_t *species )
 	free(species->SkinLeg);
 	free(species->Color);
 	free(species->Skin);
-	memset(species, 0, sizeof(playerSpeciesInfo_t));	
+	memset(species, 0, sizeof(playerSpeciesInfo_t));
 }
 
 void UI_FreeAllSpecies( void )
@@ -4771,6 +4805,15 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 			ui.Draw_DataPad(DP_FORCEPOWERS);
 			break;
 
+		case UI_DATAPAD_LOADOUT:
+			ui.Draw_DataPad(DP_LOADOUT_FRAME);
+			ui.Draw_DataPad(DP_LOADOUT);
+			break;
+
+		case UI_NPC_WEAPON_LABEL:
+			ui.Draw_DataPad(DP_NPC_WEAPON_LABEL);
+			break;
+
 		case UI_ALLMAPS_SELECTION://saved game thumbnail
 
 			int levelshot;
@@ -5046,7 +5089,7 @@ void UI_SystemMenu(void)
 	Menus_CloseByName("mainhud");
 
 	Menus_ActivateByName("GameSelectionMenu");
-	
+
 	ui.Key_SetCatcher(KEYCATCH_UI);
 
 }
@@ -5076,6 +5119,7 @@ void UI_InGameMenu(const char*menuID)
 
 	if (menuID)
 	{
+		Com_Printf(S_COLOR_CYAN"here\n");
 		Menus_ActivateByName(menuID);
 	}
 	else
@@ -5345,7 +5389,7 @@ static void UI_RandomSkin(void)
 			UI_FeederSelection(FEEDER_PLAYER_SKIN_LEGS, Q_irand(0, uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinLegCount - 1), item);
 
 			return;
-			
+
 		}
 	}
 }
@@ -5395,7 +5439,7 @@ static void UI_UpdateSaberCvars ( void )
 		Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber_red"),
 					(Cvar_VariableIntegerValue("ui_rgb_saber_green")),
 					(Cvar_VariableIntegerValue("ui_rgb_saber_blue")));
-		if (!Cvar_VariableIntegerValue("ui_npc_menu"))
+		if (!Cvar_VariableIntegerValue("ui_npc_saber"))
 		{
 			Cvar_Set("g_saber_color", rgbColor);
 		}
@@ -5418,7 +5462,7 @@ static void UI_UpdateSaberCvars ( void )
 		Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber2_red"),
 					(Cvar_VariableIntegerValue("ui_rgb_saber2_green")),
 					(Cvar_VariableIntegerValue("ui_rgb_saber2_blue")));
-		if (!Cvar_VariableIntegerValue("ui_npc_menu"))
+		if (!Cvar_VariableIntegerValue("ui_npc_saber"))
 		{
 			Cvar_Set( "g_saber2_color", rgbColor );
 		}
@@ -5434,7 +5478,7 @@ static void UI_UpdateSaberCvars ( void )
 		playerState_t* ps;
 
 		ps = cl->gentity->client;
-		
+
 		ps->dualSabers = qfalse;
 	}
 
@@ -5723,7 +5767,6 @@ static void UI_SwitchSaberStyle(const char* saberStyle) {
 				pState->saberAnimLevel = newStance;
 			}
 		}
-		
 	}
 	else {
 		pState->saberStylesKnown |= (1 << stanceIndex);
@@ -5841,11 +5884,11 @@ static void UI_SetPowerTitleText ( qboolean showAllocated )
 }
 
 #ifndef JK2_MODE
-static int UI_CountForcePowers(void) 
+static int UI_CountForcePowers(void)
 {
 	const client_t* cl = &svs.clients[0];
 
-	if (cl && cl->gentity) 
+	if (cl && cl->gentity)
 	{
 		const playerState_t* ps = cl->gentity->client;
 		return		ps->forcePowerLevel[FP_HEAL] +
@@ -5857,7 +5900,7 @@ static int UI_CountForcePowers(void)
 			ps->forcePowerLevel[FP_RAGE] +
 			ps->forcePowerLevel[FP_DRAIN];
 	}
-	else 
+	else
 	{
 		return		uiInfo.forcePowerLevel[FP_HEAL] +
 			uiInfo.forcePowerLevel[FP_TELEPATHY] +
@@ -5882,9 +5925,9 @@ static void UI_ForcePowerWeaponsButton(qboolean activeFlag)
 	{
 		return;
 	}
-	
+
 	#ifndef JK2_MODE
-	if (!activeFlag) 
+	if (!activeFlag)
 	{
 		// total light and dark powers are at maximum level 3    ( 3 levels * ( 4ls + 4ds ) = 24 )
 		if (UI_CountForcePowers() >= 24)
@@ -6060,7 +6103,7 @@ static void	UI_DemoSetForceLevels( void )
 		uiInfo.forcePowerLevel[FP_ABSORB]=Q_max(pState->forcePowerLevel[FP_ABSORB], uiInfo.forcePowerLevel[FP_ABSORB]);
 		uiInfo.forcePowerLevel[FP_DRAIN]=Q_max(pState->forcePowerLevel[FP_DRAIN], uiInfo.forcePowerLevel[FP_DRAIN]);
 		uiInfo.forcePowerLevel[FP_RAGE]=Q_max(pState->forcePowerLevel[FP_RAGE], uiInfo.forcePowerLevel[FP_RAGE]);
-		
+
 		uiInfo.forcePowerLevel[FP_STASIS] = Q_max(pState->forcePowerLevel[FP_STASIS], uiInfo.forcePowerLevel[FP_STASIS]);
 
 		uiInfo.forcePowerLevel[FP_DESTRUCTION] = Q_max(pState->forcePowerLevel[FP_DESTRUCTION], uiInfo.forcePowerLevel[FP_DESTRUCTION]);
@@ -6794,7 +6837,7 @@ static void UI_ApplyCharWeapons()
 
 		// Reset the secondary saber, just in case
 		Cvar_Set("ui_saber2", "");
-		
+
 	}
 
 	weaponOne = 0;
@@ -6902,11 +6945,11 @@ static void UI_ShowMissionInfo()
 
 	menuDef_t* menu = Menu_GetFocused();
 	//Menu_ShowItemByName(menu, "CharacterSelection", qfalse);
-	if (missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode 
+	if (missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode
 	&& Q_stricmp(Cvar_VariableString("ui_mission_code"), "") && Q_stricmp(Cvar_VariableString("ui_mission_code"), NULL))
 	{
 		Menu_ShowItemByName(menu, "missionInfo", qtrue);
-	
+
 		if (!strncmp(missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode, "levelshots/", 11))
 			Menu_SetItemBackground(menu, "MissionPic", missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode);
 		else
@@ -6920,7 +6963,7 @@ static void UI_ShowMissionInfo()
 	{
 		Menu_ShowItemByName(menu, "missionInfo", qfalse);
 		Menu_ShowItemByName(menu, "MissionDesc", qfalse);
-		
+
 
 	}
 
@@ -7098,8 +7141,8 @@ static void UI_GiveWeapon ( const int weaponIndex )
 	if (cl->gentity && cl->gentity->client)
 	{
 		playerState_t*	pState = cl->gentity->client;
-
-		if (weaponIndex<WP_NUM_WEAPONS)
+		//TODO - CORRECT THIS
+		if (weaponIndex< 64 )
 		{
 			pState->weapons[weaponIndex] = 1;
 		}
@@ -7120,7 +7163,8 @@ static void UI_EquipWeapon ( const int weaponIndex )
 	{
 		playerState_t*	pState = cl->gentity->client;
 
-		if (weaponIndex<WP_NUM_WEAPONS)
+		//TODO - CORRECT THIS
+		if (weaponIndex< 64)
 		{
 			pState->weapon = weaponIndex;
 			//force it to change
@@ -7260,14 +7304,14 @@ static void	UI_AddWeaponSelection ( const int weaponIndex, const int ammoIndex, 
 		if (cl->gentity && cl->gentity->client)
 		{
 			playerState_t*	pState = cl->gentity->client;
-
-			if ((weaponIndex>0) && (weaponIndex<WP_NUM_WEAPONS))
+			//TODO FIX THIS
+			if ((weaponIndex>0) && (weaponIndex< 64))
 			{
 				pState->weapons[weaponIndex] = 1;
 			}
 
 			// Give them ammo too
-			if ((ammoIndex>0) && (ammoIndex<AMMO_MAX))
+			if ((ammoIndex>0) && (ammoIndex< MAX_AMMO))
 			{
 				pState->ammo[ ammoIndex ] = ammoAmount;
 			}
@@ -7366,13 +7410,14 @@ static void UI_RemoveWeaponSelection ( const int weaponSelectionIndex )
 		{
 			playerState_t*	pState = cl->gentity->client;
 
-			if ((weaponIndex>0) && (weaponIndex<WP_NUM_WEAPONS))
+			//TODO - CORRECT THIS
+			if ((weaponIndex>0) && (weaponIndex< 64))
 			{
 				pState->weapons[weaponIndex] = 0;
 			}
 
 			// Remove ammo too
-			if ((ammoIndex>0) && (ammoIndex<AMMO_MAX))
+			if ((ammoIndex>0) && (ammoIndex<MAX_AMMO))
 			{	// But don't take it away if the other weapon is using that ammo
 				if ( uiInfo.selectedWeapon1AmmoIndex != uiInfo.selectedWeapon2AmmoIndex )
 				{
@@ -7552,13 +7597,14 @@ static void	UI_AddThrowWeaponSelection ( const int weaponIndex, const int ammoIn
 		{
 			playerState_t*	pState = cl->gentity->client;
 
-			if ((weaponIndex>0) && (weaponIndex<WP_NUM_WEAPONS))
+			//TODO - CORRECT THIS
+			if ((weaponIndex>0) && (weaponIndex< 64))
 			{
 				pState->weapons[weaponIndex] = 1;
 			}
 
 			// Give them ammo too
-			if ((ammoIndex>0) && (ammoIndex<AMMO_MAX))
+			if ((ammoIndex>0) && (ammoIndex<MAX_AMMO))
 			{
 				pState->ammo[ ammoIndex ] = ammoAmount;
 			}
@@ -7631,13 +7677,14 @@ static void UI_RemoveThrowWeaponSelection ( void )
 		{
 			playerState_t*	pState = cl->gentity->client;
 
-			if ((uiInfo.selectedThrowWeapon>0) && (uiInfo.selectedThrowWeapon<WP_NUM_WEAPONS))
+			//TODO - CORRECT THIS
+			if ((uiInfo.selectedThrowWeapon>0) && (uiInfo.selectedThrowWeapon< 64))
 			{
 				pState->weapons[uiInfo.selectedThrowWeapon] = 0;
 			}
 
 			// Remove ammo too
-			if ((uiInfo.selectedThrowWeaponAmmoIndex>0) && (uiInfo.selectedThrowWeaponAmmoIndex<AMMO_MAX))
+			if ((uiInfo.selectedThrowWeaponAmmoIndex>0) && (uiInfo.selectedThrowWeaponAmmoIndex<MAX_AMMO))
 			{
 				pState->ammo[ uiInfo.selectedThrowWeaponAmmoIndex ] = 0;
 			}
@@ -7703,7 +7750,7 @@ static void UI_GetSaberCvars ( void )
 
 	Cvar_Set("ui_saber_type", Cvar_VariableString("g_saber_type"));
 	if (!Cvar_VariableIntegerValue("ui_saber_edit"))
-	{		
+	{
 		Cvar_Set("ui_saber", Cvar_VariableString("g_saber"));
 		Cvar_Set("ui_saber2", Cvar_VariableString("g_saber2"));
 		Cvar_Set("ui_saber_color", Cvar_VariableString("g_saber_color"));
@@ -7753,7 +7800,7 @@ static void UI_UpdateCharacterSkin( void )
 {
 	menuDef_t *menu;
 	itemDef_t *item;
-	char skin[MAX_QPATH];
+	char skin[MAX_CSPATH];
 
 	menu = Menu_GetFocused();	// Get current menu
 
@@ -7783,7 +7830,7 @@ static void UI_CharacterDefaultSkin(void)
 {
 	menuDef_t* menu;
 	itemDef_t* item;
-	char skin[MAX_QPATH];
+	char skin[MAX_CSPATH];
 
 	menu = Menu_GetFocused();	// Get current menu
 
@@ -7791,7 +7838,7 @@ static void UI_CharacterDefaultSkin(void)
 	{
 		return;
 	}
-	
+
 	item = (itemDef_s*)Menu_FindItemByName(menu, "character");
 
 	if (!item)
@@ -7833,7 +7880,7 @@ static void UI_CharacterDefaultSkin(void)
 				for (int j = 0; j < uiInfo.playerSpecies[i].SkinCount; j++)
 				{
 					if (!Q_stricmp(uiInfo.playerSpecies[i].Skin[j].name, "model_default"))
-					{						
+					{
 						UI_FeederSelection(FEEDER_MODEL_SKINS, j, item);
 						break;
 					}
@@ -7849,7 +7896,7 @@ static void UI_CharacterDefaultSkin(void)
 				Menu_ShowItemByName(menu, "Skins", qfalse);
 			}
 			break;
-			
+
 
 		}
 	}
@@ -7917,7 +7964,7 @@ static void UI_HiltChange(int i)
 	// Done to fix a cosmetic issue with the menu.
 	// If changing to dual from single, do nothing
 	// If changing to dual from staff, change to single_1
-	
+
 	if (!i)
 	{
 		if (!Q_stricmp(Cvar_VariableString("ui_saber_type"), "staff"))

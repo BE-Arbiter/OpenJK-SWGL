@@ -36,7 +36,7 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 {
 	vec3_t		fwd, angs, start;
 	gentity_t	*missile;
-	float		damage = weaponData[WP_FLECHETTE].damage, vel = FLECHETTE_VEL;
+	float		damage = weaponData[ent->s.weapon].attackData[0].damage, vel = weaponData[ent->s.weapon].attackData[0].velocity;
 
 	VectorCopy( muzzle, start );
 	WP_TraceSetStart( ent, start, vec3_origin, vec3_origin );//make sure our start point isn't on the other side of a wall
@@ -64,8 +64,8 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 		}
 		else
 		{
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * FLECHETTE_SPREAD;
-			angs[YAW]	+= Q_flrand(-1.0f, 1.0f) * FLECHETTE_SPREAD;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
+			angs[YAW]	+= Q_flrand(-1.0f, 1.0f) * weaponData[ent->s.weapon].attackData[0].spread;
 		}
 
 		AngleVectors( angs, fwd, NULL, NULL );
@@ -75,7 +75,7 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 		missile = CreateMissile( start, fwd, vel, 10000, ent );
 
 		missile->classname = "flech_proj";
-		missile->s.weapon = WP_FLECHETTE;
+		missile->s.weapon = ent->s.weapon;
 
 		VectorSet( missile->maxs, FLECHETTE_SIZE, FLECHETTE_SIZE, FLECHETTE_SIZE );
 		VectorScale( missile->maxs, -1, missile->mins );
@@ -97,6 +97,12 @@ static void WP_FlechetteMainFire( gentity_t *ent )
 
 		missile->s.eFlags |= EF_BOUNCE_SHRAPNEL;
 		ent->client->sess.missionStats.shotsFired++;
+
+	}
+
+	if (ent->weaponModel[1] > 0)
+	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
+		ent->count = (ent->count) ? 0 : 1;
 	}
 }
 
@@ -171,36 +177,7 @@ void prox_mine_stick( gentity_t *self, gentity_t *other, trace_t *trace )
 
 	gi.linkentity( self );
 }
-/* Old Flechette alt-fire code....
-//---------------------------------------------------------
-static void WP_FlechetteProxMine( gentity_t *ent )
-//---------------------------------------------------------
-{
-	gentity_t	*missile = CreateMissile( muzzle, forwardVec, FLECHETTE_MINE_VEL, 10000, ent, qtrue );
 
-	missile->fxID = G_EffectIndex( "flechette/explosion" );
-
-	missile->classname = "proxMine";
-	missile->s.weapon = WP_FLECHETTE;
-
-	missile->s.pos.trType = TR_GRAVITY;
-
-	missile->s.eFlags |= EF_MISSILE_STICK;
-	missile->e_TouchFunc = touchF_prox_mine_stick;
-
-	missile->damage = FLECHETTE_MINE_DAMAGE;
-	missile->methodOfDeath = MOD_EXPLOSIVE;
-
-	missile->splashDamage = FLECHETTE_MINE_SPLASH_DAMAGE;
-	missile->splashRadius = FLECHETTE_MINE_SPLASH_RADIUS;
-	missile->splashMethodOfDeath = MOD_EXPLOSIVE_SPLASH;
-
-	missile->clipmask = MASK_SHOT;
-
-	// we don't want it to bounce forever
-	missile->bounceCount = 0;
-}
-*/
 //----------------------------------------------
 void WP_flechette_alt_blow( gentity_t *ent )
 //----------------------------------------------
@@ -217,17 +194,18 @@ void WP_flechette_alt_blow( gentity_t *ent )
 static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *self )
 //------------------------------------------------------------------------------
 {
-	gentity_t	*missile = CreateMissile( start, fwd, 950 + Q_flrand(0.0f, 1.0f) * 700, 1500 + Q_flrand(0.0f, 1.0f) * 2000, self, qtrue );
+	int randVelocity = FLECHETTE_ALT_MAX_VEL - weaponData[self->s.weapon].attackData[1].velocity;
+	gentity_t	*missile = CreateMissile( start, fwd, weaponData[self->s.weapon].attackData[1].velocity + Q_flrand(0.0f, 1.0f) * FLECHETTE_ALT_MAX_VEL, 1500 + Q_flrand(0.0f, 1.0f) * 2000, self, qtrue );
 
 	missile->e_ThinkFunc = thinkF_WP_flechette_alt_blow;
 
-	missile->s.weapon = WP_FLECHETTE;
+	missile->s.weapon = self->s.weapon;
 	missile->classname = "flech_alt";
 	missile->mass = 4;
 
 	// How 'bout we give this thing a size...
-	VectorSet( missile->mins, -3.0f, -3.0f, -3.0f );
-	VectorSet( missile->maxs, 3.0f, 3.0f, 3.0f );
+	VectorSet( missile->mins, FLECHETTE_ALT_MIN_SIZE, FLECHETTE_ALT_MIN_SIZE, FLECHETTE_ALT_MIN_SIZE );
+	VectorSet( missile->maxs, FLECHETTE_ALT_MAX_SIZE, FLECHETTE_ALT_MAX_SIZE, FLECHETTE_ALT_MAX_SIZE );
 	missile->clipmask = MASK_SHOT;
 	missile->clipmask &= ~CONTENTS_CORPSE;
 
@@ -236,10 +214,10 @@ static void WP_CreateFlechetteBouncyThing( vec3_t start, vec3_t fwd, gentity_t *
 
 	missile->s.eFlags |= EF_BOUNCE_HALF;
 
-	missile->damage = weaponData[WP_FLECHETTE].altDamage;
+	missile->damage = weaponData[self->s.weapon].attackData[1].damage;
 	missile->dflags = 0;
-	missile->splashDamage = weaponData[WP_FLECHETTE].altSplashDamage;
-	missile->splashRadius = weaponData[WP_FLECHETTE].altSplashRadius;
+	missile->splashDamage = weaponData[self->s.weapon].attackData[1].splashDamage;
+	missile->splashRadius = weaponData[self->s.weapon].attackData[1].splashRadius;
 
 	missile->svFlags = SVF_USE_CURRENT_ORIGIN;
 
@@ -270,6 +248,11 @@ static void WP_FlechetteAltFire( gentity_t *self )
 
 		WP_CreateFlechetteBouncyThing( start, fwd, self );
 		self->client->sess.missionStats.shotsFired++;
+	}
+
+	if (self->weaponModel[1] > 0)
+	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
+		self->count = (self->count) ? 0 : 1;
 	}
 }
 

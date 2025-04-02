@@ -34,7 +34,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 typedef	std::map< sstring_t, unsigned char  >	namePrecache_m;
 extern namePrecache_m	*as_preCacheMap;
 extern void CG_RegisterNPCCustomSounds( clientInfo_t *ci );
-extern qboolean G_AddSexToMunroString ( char *string, qboolean qDoBoth );
 extern int G_ParseAnimFileSet( const char *skeletonName, const char *modelName=0);
 extern void CG_DrawDataPadInventorySelect( void );
 
@@ -88,9 +87,11 @@ int	force_icons[NUM_FORCE_POWERS];
 
 
 void CG_DrawDataPadHUD( centity_t *cent );
+void CG_DrawDataPadLoadoutFrame( centity_t *cent );
 void CG_DrawDataPadObjectives(const centity_t *cent );
 void CG_DrawDataPadIconBackground(const int backgroundType);
 void CG_DrawDataPadWeaponSelect( void );
+void CG_LDO_DrawWeapons( void );
 void CG_DrawDataPadForceSelect( void );
 
 /*
@@ -101,7 +102,7 @@ This is the only way control passes into the cgame module.
 This must be the very first function compiled into the .q3vm file
 ================
 */
-extern "C" Q_EXPORT intptr_t QDECL vmMain( intptr_t command, intptr_t arg0, intptr_t arg1, intptr_t arg2, intptr_t arg3, intptr_t arg4, intptr_t arg5, intptr_t arg6, intptr_t arg7  ) {
+extern "C" Q_EXPORT intptr_t QDECL vmMain( int command, intptr_t arg0, intptr_t arg1, intptr_t arg2, intptr_t arg3, intptr_t arg4, intptr_t arg5, intptr_t arg6, intptr_t arg7  ) {
 	centity_t		*cent;
 
 	switch ( command ) {
@@ -152,6 +153,21 @@ Ghoul2 Insert End
 		}
 		return 0;
 
+	case CG_DRAW_DATAPAD_LOADOUT_FRAME:
+		if (cg.snap)
+		{
+			cent = &cg_entities[cg.snap->ps.clientNum];
+			CG_DrawDataPadLoadoutFrame(cent);
+		}
+		return 0;
+
+	case CG_DRAW_NPC_WEAPON_LABEL:
+		if (cg.snap)
+		{
+			CG_DrawNpcWeaponLabel();
+		}
+		return 0;
+
 	case CG_DRAW_DATAPAD_OBJECTIVES:
 		if (cg.snap)
 		{
@@ -165,6 +181,13 @@ Ghoul2 Insert End
 		{
 			CG_DrawDataPadIconBackground(ICON_WEAPONS);
 			CG_DrawDataPadWeaponSelect();
+		}
+		return 0;
+	case CG_DRAW_DATAPAD_LOADOUT:
+		if (cg.snap)
+		{
+			CG_DrawDataPadIconBackground(ICON_INVENTORY);
+			CG_LDO_DrawWeapons();
 		}
 		return 0;
 	case CG_DRAW_DATAPAD_INVENTORY:
@@ -372,6 +395,11 @@ vmCvar_t		cg_truefov;
 vmCvar_t        cg_truebobbing;
 vmCvar_t		cg_hudRatio;
 
+vmCvar_t		ui_loadout_base_weapon;
+vmCvar_t		ui_loadout_weapon;
+vmCvar_t		ui_npc_weapon;
+vmCvar_t		ui_npc_weapon_label;
+
 
 typedef struct {
 	vmCvar_t	*vmCvar;
@@ -513,8 +541,14 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_trueinvertsaber,	"cg_trueinvertsaber",	"0", CVAR_ARCHIVE},
 	{ &cg_truefov,	"cg_truefov",	"80", CVAR_ARCHIVE},
     { &cg_truebobbing,	"cg_truebobbing",	"1", CVAR_ARCHIVE},
+
 	{ &r_ratioFix, "r_ratioFix", "", 0 },
 	{ &cg_hudRatio, "cg_hudRatio", "1", CVAR_ARCHIVE },
+	//Loadout Menu cvar
+	{ &ui_loadout_base_weapon , "ui_loadout_base_weapon","weapon_none", CVAR_TEMP},
+	{ &ui_loadout_weapon , "ui_loadout_weapon","0", CVAR_TEMP},
+	{ &ui_npc_weapon, "ui_npc_weapon",	"WP_BLASTER", CVAR_ARCHIVE },
+	{ &ui_npc_weapon_label, "ui_npc_weapon_label",	"Blaster", CVAR_ARCHIVE }
 };
 
 static const size_t cvarTableSize = ARRAY_LEN( cvarTable );
@@ -1341,37 +1375,6 @@ HUDMenuItem_t otherHUDBits[] =
 };
 */
 
-/*
-=================
-CG_IsWeaponUsablePlayer
-
-These weapons are not really used by the player, so let's not preregister them.
-Some weapons like the noghri stick can be used by the player
-but those are in special circumstances.
-=================
-*/
-static qboolean CG_IsWeaponUsablePlayer(int weaponNum)
-{
-	switch (weaponNum)
-	{
-		case WP_ATST_MAIN:
-		case WP_ATST_SIDE:
-		case WP_EMPLACED_GUN:
-		case WP_BOT_LASER:
-		case WP_TURRET:
-		case WP_TIE_FIGHTER:
-		case WP_RAPID_FIRE_CONC:
-		case WP_JAWA:
-		case WP_TUSKEN_RIFLE:
-		case WP_TUSKEN_STAFF:
-		case WP_SCEPTER:
-		case WP_NOGHRI_STICK:
-			return qfalse;
-		default:
-			return qtrue;
-	}
-}
-
 extern void CG_NPC_Precache ( gentity_t *spawner );
 qboolean NPCsPrecached = qfalse;
 /*
@@ -1493,6 +1496,7 @@ static void CG_RegisterGraphics( void ) {
 	cgs.media.forceIconBackground	= cgi_R_RegisterShaderNoMip( "gfx/hud/background_f");
 	cgs.media.inventoryIconBackground= cgi_R_RegisterShaderNoMip( "gfx/hud/background_i");
 	cgs.media.dataPadFrame			= cgi_R_RegisterShaderNoMip( "gfx/menus/datapad");
+	cgs.media.dataPadLoadoutFrame			= cgi_R_RegisterShaderNoMip( "gfx/menus/equipment_bg");
 
 	//gore decal shaders -rww
 	cgs.media.bdecal_burnmark1		= cgi_R_RegisterShader( "gfx/damage/burnmark1" );
@@ -1730,7 +1734,7 @@ Ghoul2 Insert End
 
 	for (i=0 ; i < ENTITYNUM_WORLD ; i++)
 	{
-		if(&g_entities[i])
+		if(g_entities[i].inuse)
 		{
 			if(g_entities[i].client)
 			{
@@ -1800,9 +1804,9 @@ Ghoul2 Insert End
 
 	// Preregister all of the weapons that were not already
 	// registered to avoid lag when using cheats like "give all".
-	for (i = 0; i < WP_NUM_WEAPONS; i++)
+	for (i = 0; i < weaponCount; i++)
 	{
-		if (CG_IsWeaponUsablePlayer(i))
+		if (weaponData[i].playerUsable)
 		{
 			// We are going to register the current weapon twice
 			// as we need to register the secondary model.
@@ -4589,10 +4593,47 @@ void CG_DrawDataPadForceSelect( void )
 		const float	textScale = 1.0f;
 
 		CG_DisplayBoxedText(textboxXPos,textboxYPos,textboxWidth,textboxHeight,va("%s%s",text,text2),
-													4,
+													CG_MagicFontToReal(4),
 													textScale,
 													colorTable[CT_WHITE]
 													);
+	}
+}
+
+int CG_MagicFontToReal( int menuFontIndex )
+{
+	// As the engine supports multiple renderers now we can no longer assume the
+	// order of fontindex values to be the same as it was on vanilla jasp with
+	// vanilla assets. Sadly the code uses magic numbers in various places that
+	// no longer match. This function tries to map these magic numbers to the
+	// fonts the would refer to on vanilla jasp with vanilla assets.
+
+	static int fonthandle_aurabesh;
+	static int fonthandle_ergoec;
+	static int fonthandle_anewhope;
+	static int fonthandle_arialnb;
+
+	static qboolean fontsRegistered = qfalse;
+
+	if ( !fontsRegistered )
+	{ // Only try registering the fonts once
+		fonthandle_aurabesh = cgi_R_RegisterFont( "aurabesh" );
+		fonthandle_ergoec   = cgi_R_RegisterFont( "ergoec" );
+		fonthandle_anewhope = cgi_R_RegisterFont( "anewhope" );
+		fonthandle_arialnb  = cgi_R_RegisterFont( "arialnb" );
+
+		fontsRegistered = qtrue;
+	}
+
+	// Default fonts from a clean installation
+	switch ( menuFontIndex ) {
+		case 1: return fonthandle_aurabesh;
+		case 2: return fonthandle_ergoec;
+		case 3: return fonthandle_anewhope;
+		case 4: return fonthandle_arialnb;
+
+		default:
+			return cgs.media.qhFontMedium;
 	}
 }
 

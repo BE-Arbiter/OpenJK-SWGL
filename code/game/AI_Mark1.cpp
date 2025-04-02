@@ -59,7 +59,7 @@ enum
 };
 
 qboolean NPC_CheckPlayerTeamStealth( void );
-gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, qboolean altFire = qfalse );
+gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, int attackIndex = 0);
 void Mark1_BlasterAttack(qboolean advance);
 void DeathFX( gentity_t *ent );
 extern gitem_t	*FindItemForAmmo( ammo_t ammo );
@@ -91,8 +91,8 @@ void NPC_Mark1_Precache(void)
 
 	RegisterItem( FindItemForAmmo( 	AMMO_METAL_BOLTS));
 	RegisterItem( FindItemForAmmo( AMMO_BLASTER ));
-	RegisterItem( FindItemForWeapon( WP_BOWCASTER ));
-	RegisterItem( FindItemForWeapon( WP_BRYAR_PISTOL ));
+	RegisterItem( FindItemForWeapon((int) WP_BOWCASTER ));
+	RegisterItem( FindItemForWeapon((int) WP_BRYAR_PISTOL ));
 }
 
 /*

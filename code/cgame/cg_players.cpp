@@ -5157,7 +5157,7 @@ void CG_AddRefEntityWithPowerups( refEntity_t *ent, int powerups, centity_t *cen
 		ent->shaderRGBA[1] = 0;
 		ent->shaderRGBA[2] = 255;
 		ent->shaderRGBA[3] = 254;
-		
+
 		ent->renderfx &= ~RF_RGB_TINT;
 		ent->customShader = cgs.media.playerShieldDamage;
 
@@ -5616,31 +5616,54 @@ static void CG_StopWeaponSounds( centity_t *cent )
 		cgi_S_AddLoopingSound( cent->currentState.number,
 			cent->lerpOrigin,
 			vec3_origin,
-			weapon->firingSound );
+			weapon->weaponAttacksInfo[cent->gent->alt_fire].firingSound );
 		return;
 	}
 
-	if ( !( cent->currentState.eFlags & EF_FIRING ) )
+
+
+	//Handle weapon Looping Sounds
+	if ( (cent->currentState.eFlags & EF_FIRING) && !(cent->currentState.eFlags & EF_ALT_FIRING))
 	{
-		if ( cent->pe.lightningFiring )
+		if ( weapon->weaponAttacksInfo[0].firingSound)
 		{
-			if ( weapon->stopSound )
+			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[0].firingSound );
+			cent->pe.lightningFiring = qtrue;
+		}
+
+	}
+	else if ( cent->currentState.eFlags & EF_ALT_FIRING )
+	{
+		if ( weapon->weaponAttacksInfo[1].firingSound)
+		{
+			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[1].firingSound );
+			cent->pe.lightningFiring = qtrue;
+		}
+
+	}
+	else if (weapon->readySound)
+	{
+		cgi_S_AddLoopingSound(cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->readySound);
+
+		cent->pe.lightningFiring = qfalse;
+		cent->pe.lightningReady = qtrue;
+	}
+	else
+	{
+		if (cent->pe.lightningFiring || cent->pe.lightningReady)
+		{
+
+			if (weapon->stopSound)
 			{
-				cgi_S_StartSound( cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound );
+				cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound);
+			}
+			else {
+				cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, cgi_S_RegisterSound("sound/null.wav"));
 			}
 
 			cent->pe.lightningFiring = qfalse;
+			cent->pe.lightningReady = qfalse;
 		}
-		return;
-	}
-
-	if ( cent->currentState.eFlags & EF_ALT_FIRING )
-	{
-		if ( weapon->altFiringSound )
-		{
-			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->altFiringSound );
-		}
-		cent->pe.lightningFiring = qtrue;
 	}
 }
 
@@ -7567,10 +7590,10 @@ float GetSelfLegAnimPoint(void)
 									NULL))
 	{
 		float percentComplete = (current-start)/(end-start);
-		
+
 		return percentComplete;
 	}
-	
+
 	return 0.0f;
 
 }
@@ -7579,7 +7602,7 @@ float GetSelfLegAnimPoint(void)
 /*
  ================
  GetSelfTorsoAnimPoint
- 
+
  ================
  */
 //Get the point in the torso animation and return a percentage of the current point in the anim between 0 and the total anim length (0.0f - 1.0f)
@@ -7600,10 +7623,10 @@ float GetSelfTorsoAnimPoint(void)
 									NULL))
 	{
 		float percentComplete = (current-start)/(end-start);
-		
+
 		return percentComplete;
 	}
-	
+
 	return 0.0f;
 }
 
@@ -7611,7 +7634,7 @@ float GetSelfTorsoAnimPoint(void)
 /*
  ===============
  SmoothTrueView
- 
+
  Purpose:  Uses the currently setup model-based First Person View to calculation the final viewangles.  Features the
  following:
  1.  Simulates allowable eye movement by makes a deadzone around the inputed viewangles vs the desired
@@ -7625,25 +7648,25 @@ void SmoothTrueView(vec3_t eyeAngles)
 {
 	float LegAnimPoint = GetSelfLegAnimPoint();
 	float TorsoAnimPoint = GetSelfTorsoAnimPoint();
-	
+
 	//counter
 	int		i;
-	
+
 	//cg.refdef.viewangles in relation to eyeAngles
 	float	AngDiff;
-	
+
 	qboolean	eyeRange = qtrue;
 	qboolean	UseRefDef = qfalse;
 	qboolean	DidSpecial = qfalse;
-	
+
 	//Debug messages
 	//CG_Printf("eyeAngles: %f, %f, %f\n", eyeAngles[0], eyeAngles[1], eyeAngles[2]);
 	//CG_Printf("cg.refdef.viewangles: %f, %f, %f\n", cg.refdefViewAngles[0], cg.refdefViewAngles[1], cg.refdefViewAngles[2]);
-	
-	
-	
+
+
+
 	//RAFIXME: See if I can find a link this to the prediction stuff.  I think the snap is of just the last gamestate snap
-	
+
 	//Rolls
 	if ( cg_trueroll.integer )
 	{
@@ -7707,7 +7730,7 @@ void SmoothTrueView(vec3_t eyeAngles)
 	{//you don't want rolling so use cg.refdef.viewangles as the view
 		UseRefDef = qtrue;
 	}
-	
+
 	//Flips
 	if( cg_trueflip.integer )
 	{
@@ -7760,9 +7783,9 @@ void SmoothTrueView(vec3_t eyeAngles)
 	{//you don't want flipping so use cg.refdef.viewangles as the view
 		UseRefDef = qtrue;
 	}
-	
-	
-	
+
+
+
 	if ( cg_truespin.integer )
 	{
 		if ( cg_truespin.integer == 1 )
@@ -7854,7 +7877,7 @@ void SmoothTrueView(vec3_t eyeAngles)
 	{
 		UseRefDef = qtrue;
 	}
-	
+
 	//Prevent camera flicker while landing.
 	if ( ((cg.snap->ps.legsAnim)  == BOTH_LAND1)
 		|| ((cg.snap->ps.legsAnim)  == BOTH_LAND2)
@@ -7864,29 +7887,29 @@ void SmoothTrueView(vec3_t eyeAngles)
 	{
 		UseRefDef = qtrue;
 	}
-	
+
 	//Prevent the camera flicker while switching to the saber.
 	if ( ( (cg.snap->ps.torsoAnim) ==	BOTH_STAND2TO1 )
 		|| ( (cg.snap->ps.torsoAnim) == BOTH_STAND1TO2 ) )
 	{
 		UseRefDef = qtrue;
 	}
-	
+
 	//special camera view for blue backstab
 	if ( (cg.snap->ps.torsoAnim) == BOTH_A2_STABBACK1)
 	{
 		eyeRange = qfalse;
 		DidSpecial = qtrue;
 	}
-	
+
 	if ( ( (cg.snap->ps.torsoAnim) == BOTH_JUMPFLIPSLASHDOWN1)
 		|| ( (cg.snap->ps.torsoAnim) == BOTH_JUMPFLIPSLASHDOWN1) )
 	{
 		eyeRange = qfalse;
 		DidSpecial = qtrue;
 	}
-	
-	
+
+
 	if ( UseRefDef )
 	{
 		VectorCopy( cg.refdefViewAngles, eyeAngles );
@@ -7905,7 +7928,7 @@ void SmoothTrueView(vec3_t eyeAngles)
 				eyeAngles[2] *= .5;
 			}
 		}
-		
+
 		//eye movement
 		if ( eyeRange )
 		{//allow eye motion
@@ -7920,9 +7943,9 @@ void SmoothTrueView(vec3_t eyeAngles)
 				{
 					fov = cg_fov.value;
 				}
-				
+
 				AngDiff = eyeAngles[i] - cg.refdefViewAngles[i];
-				
+
 				AngDiff = AngleNormalize180( AngDiff );
 				if ( fabs( AngDiff ) > fov )
 				{
@@ -7993,14 +8016,14 @@ CG_Player
 extern qboolean G_GetRootSurfNameWithVariant( gentity_t *ent, const char *rootSurfName, char *returnSurfName, int returnSize );
 extern qboolean G_ControlledByPlayer( gentity_t *self );
 extern qboolean G_RagDoll(gentity_t *ent, vec3_t forcedAngles);
-extern qboolean CG_IsWeaponPistol(gentity_t* ent);
 int	cg_saberOnSoundTime[MAX_GENTITIES] = {0};
 
 void CG_Player( centity_t *cent ) {
 	clientInfo_t	*ci;
 	qboolean		shadow, staticScale = qfalse;
 	float			shadowPlane;
-	const weaponData_t  *wData = NULL;
+	weaponData_t  *wData = NULL;
+	weaponInfo_t  *wInfo = NULL;
 
 	if ( cent->currentState.eFlags & EF_NODRAW )
 	{
@@ -8051,6 +8074,7 @@ void CG_Player( centity_t *cent ) {
 	if ( cent->currentState.weapon )
 	{
 		wData = &weaponData[cent->currentState.weapon];
+		wInfo = &cg_weapons[cent->currentState.weapon];
 	}
 /*
 Ghoul2 Insert Start
@@ -8479,16 +8503,16 @@ Ghoul2 Insert Start
 				vec3_t			OldeyeOrigin;
 				qhandle_t		eyesBolt;
 				qboolean		boneBased = qfalse;
-				
+
 				//make the player's be based on the ghoul2 model
-				
+
 				//grab the location data for the "*head_eyes" tag surface
 				eyesBolt = gi.G2API_AddBolt(&cent->gent->ghoul2[cent->gent->playerModel], "*head_eyes");
 				if( !gi.G2API_GetBoltMatrix(cent->gent->ghoul2, cent->gent->playerModel, eyesBolt, &eyeMatrix, tempAngles, cent->lerpOrigin,
 											  cg.time, cgs.model_draw, cent->currentState.modelScale) )
 				{//Something prevented you from getting the "*head_eyes" information.  The model probably doesn't have a
 					//*head_eyes tag surface.  Try using *head_front instead
-					
+
 					eyesBolt = gi.G2API_AddBolt(&cent->gent->ghoul2[cent->gent->playerModel], "*head_front");
 					if( !gi.G2API_GetBoltMatrix(cent->gent->ghoul2, cent->gent->playerModel, eyesBolt, &eyeMatrix, tempAngles, cent->lerpOrigin,
 												  cg.time, cgs.model_draw, cent->currentState.modelScale) )
@@ -8503,32 +8527,32 @@ Ghoul2 Insert Start
 								CG_Printf("WARNING:  This Model seems to have missing the *head_eyes and *head_front tag surfaces.  True View Disabled.\n");
 								trueviewwarning = qtrue;
 							}*/
-							
+
 							goto SkipTrueView;
 						}
 					}
 				}
-				
+
 				//Set the original eye Origin
 				VectorCopy( cg.refdef.vieworg, OldeyeOrigin);
-				
+
 				//set the player's view origin
 				gi.G2API_GiveMeVectorFromMatrix(eyeMatrix, ORIGIN, cg.refdef.vieworg);
-				
+
 				//Find the orientation of the eye tag surface
 				//I based this on coordsys.h that I found at http://www.xs4all.nl/~hkuiper/cwmtx/html/coordsys_8h-source.html
 				//According to the file, Harry Kuiper, Will DeVore deserve credit for making that file that I based this on.
-				
+
 				if(boneBased)
 				{//the eye bone has different default axis orientation than the tag surfaces.
 					EyeAxis[0][0] = eyeMatrix.matrix[0][1];
 					EyeAxis[1][0] = eyeMatrix.matrix[1][1];
 					EyeAxis[2][0] = eyeMatrix.matrix[2][1];
-					
+
 					EyeAxis[0][1] = eyeMatrix.matrix[0][0];
 					EyeAxis[1][1] = eyeMatrix.matrix[1][0];
 					EyeAxis[2][1] = eyeMatrix.matrix[2][0];
-					
+
 					EyeAxis[0][2] = -eyeMatrix.matrix[0][2];
 					EyeAxis[1][2] = -eyeMatrix.matrix[1][2];
 					EyeAxis[2][2] = -eyeMatrix.matrix[2][2];
@@ -8538,46 +8562,46 @@ Ghoul2 Insert Start
 					EyeAxis[0][0] = eyeMatrix.matrix[0][0];
 					EyeAxis[1][0] = eyeMatrix.matrix[1][0];
 					EyeAxis[2][0] = eyeMatrix.matrix[2][0];
-					
+
 					EyeAxis[0][1] = eyeMatrix.matrix[0][1];
 					EyeAxis[1][1] = eyeMatrix.matrix[1][1];
 					EyeAxis[2][1] = eyeMatrix.matrix[2][1];
-					
+
 					EyeAxis[0][2] = eyeMatrix.matrix[0][2];
 					EyeAxis[1][2] = eyeMatrix.matrix[1][2];
 					EyeAxis[2][2] = eyeMatrix.matrix[2][2];
 				}
-				
+
 				eyeAngles[YAW] = ( atan2(EyeAxis[1][0], EyeAxis[0][0]) * 180 / M_PI );
-				
+
 				//I want asin but it's not setup in the libraries so I'm useing the statement asin x = (M_PI / 2) - acos x
 				eyeAngles[PITCH] = ( ( (M_PI / 2) - acos (-EyeAxis[2][0]) ) * 180 / M_PI );
 				eyeAngles[ROLL] = ( atan2(EyeAxis[2][1], EyeAxis[2][2]) * 180 / M_PI );
-				
+
 				//END Find the orientation of the eye tag surface
-				
+
 				//Shift the camera origin by cg_trueeyeposition
 				AngleVectors( eyeAngles, EyeAxis[0], NULL, NULL );
 				VectorMA( cg.refdef.vieworg, cg_trueeyeposition.value, EyeAxis[0], cg.refdef.vieworg );
-				
+
 				//Trace to see if the bolt eye origin is ok to move to.  If it's not, place it at the last safe position.
 				CheckCameraLocation( OldeyeOrigin );
-				
+
 				//Singleplayer TrueView fix (ghoul2 axes calculated differently to in MP!)
 				eyeAngles[YAW] -= 90;
 
 				//Do all the Eye "movement" and simplified moves here.
 				SmoothTrueView(eyeAngles);
-				
+
 				//set the player view angles
 				VectorCopy( eyeAngles, cg.refdefViewAngles );
-				
+
 				//set the player view axis
 				AnglesToAxis( eyeAngles, cg.refdef.viewaxis );
-				
+
 			}
 		}
-		
+
 SkipTrueView:
 
 		//Handle saber
@@ -8814,8 +8838,8 @@ SkipTrueView:
 			//NOTE: these are used for any case where an NPC fires and the next shot needs to come out
 			//		of a new barrel/point.  That way the muzzleflash will draw on the old barrel/point correctly
 			//NOTE: I'm only doing this for the saboteur right now - AT-STs might need this... others?
-			vec3_t oldMP = {0,0,0};
-			vec3_t oldMD = {0,0,0};
+			VectorCopy(vec3_origin, cent->gent->client->renderInfo.muzzlePoint2);
+			VectorCopy(vec3_origin, cent->gent->client->renderInfo.muzzleDir2);
 
 			if( !calcedMp )
 			{
@@ -8931,16 +8955,19 @@ SkipTrueView:
 					&& cent->gent->client->NPC_class == CLASS_REBORN//cultist
 					&& cent->gent->NPC->rank >= RANK_LT_COMM//commando
 					*/
-					&& CG_IsWeaponPistol(cent->gent)//using pistol
+					&& weaponData[cent->gent->s.weapon].weaponCategory == WC_PISTOL//using pistol
 					&& cent->gent->weaponModel[1] )//one in each hand
 				{
 
 					qboolean getBoth = qfalse;
 					int	oldOne = 0;
-					if ( cent->muzzleFlashTime > 0 && wData && !(cent->currentState.eFlags & EF_LOCKED_TO_WEAPON ))
-					{//we need to get both muzzles since we're toggling and we fired recently
+					if ( (cent->muzzleFlashTime > 0 && wData && !(cent->currentState.eFlags & EF_LOCKED_TO_WEAPON )) //TOGGLING Case
+						|| (cent->gent->client->ps.weaponstate == WEAPON_CHARGING || cent->gent->client->ps.weaponstate == WEAPON_CHARGING_ALT) //Charge Case
+						|| CG_IsChargedAttack(cent)  //Firing both weapon at the same time
+						)
+					{
 						getBoth = qtrue;
-						oldOne = (cent->gent->count)?0:1;
+						oldOne = (cent->gent->count) ? 0 : 1;
 					}
 					if ((cent->gent->client->ps.weapon == WP_SBD || cent->gent->client->ps.weapon == WP_DROIDEKA) || ( ( cent->gent->weaponModel[cent->gent->count] != -1)
 						&& ( cent->gent->ghoul2.size() > cent->gent->weaponModel[cent->gent->count] )
@@ -8963,6 +8990,8 @@ SkipTrueView:
 						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, ORIGIN, cent->gent->client->renderInfo.muzzlePoint );
 						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, NEGATIVE_Y, cent->gent->client->renderInfo.muzzleDir );
 					}
+
+					//TODO MERGE : See here for SBD & Droideka
 					//get the old one too, if needbe, and store it in muzzle2
 					if ( getBoth
 						&& ((cent->gent->client->ps.weapon == WP_SBD || cent->gent->client->ps.weapon == WP_DROIDEKA)
@@ -8984,15 +9013,15 @@ SkipTrueView:
 							gi.G2API_GetBoltMatrix(cent->gent->ghoul2, cent->gent->weaponModel[oldOne], 0, &boltMatrix, tempAngles, ent.origin, cg.time, cgs.model_draw, cent->currentState.modelScale);
 						}
 						// work the matrix axis stuff into the original axis and origins used.
-						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, ORIGIN, oldMP );
-						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, NEGATIVE_Y, oldMD );
+						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, ORIGIN, cent->gent->client->renderInfo.muzzlePoint2);
+						gi.G2API_GiveMeVectorFromMatrix( boltMatrix, NEGATIVE_Y, cent->gent->client->renderInfo.muzzleDir2);
 					}
 				}
 				else if ((cent->gent->client->ps.weapon == WP_SBD || cent->gent->client->ps.weapon == WP_DROIDEKA) || (( cent->gent->weaponModel[0] != -1) &&
 					( cent->gent->ghoul2.size() > cent->gent->weaponModel[0] ) &&
 					( cent->gent->ghoul2[cent->gent->weaponModel[0]].mModelindex != -1)))
 				{
-					
+
 					mdxaBone_t	boltMatrix;
 					if (cent->gent->client->ps.weapon == WP_SBD || cent->gent->client->ps.weapon == WP_DROIDEKA)
 					{
@@ -9033,7 +9062,7 @@ SkipTrueView:
 
 					if ( cent->gent->m_pVehicle->m_Muzzles[i].m_bFired )
 					{
-						const char *effect = &weaponData[ cent->gent->m_pVehicle->m_pVehicleInfo->weapMuzzle[i] ].mMuzzleEffect[0];
+						const char *effect = &weaponData[ cent->gent->m_pVehicle->m_pVehicleInfo->weapMuzzle[i] ].attackData[0].muzzleEffect[0];
 						if ( effect )
 						{
 							theFxScheduler.PlayEffect( effect, cent->gent->m_pVehicle->m_Muzzles[i].m_vMuzzlePos, cent->gent->m_pVehicle->m_Muzzles[i].m_vMuzzleDir );
@@ -9045,53 +9074,37 @@ SkipTrueView:
 			// Pick the right effect for the type of weapon we are, defaults to no effect unless explicitly specified
 			else if ( cent->muzzleFlashTime > 0 && wData && !(cent->currentState.eFlags & EF_LOCKED_TO_WEAPON ))
 			{
-				const char *effect = NULL;
+				const char* effect = CG_GetMuzzleEffect(cent, wData);
 
 				cent->muzzleFlashTime  = 0;
 
-				// I declared this variable just for readability.
-				char firing_attack = cent->gent->client->ps.prev_firing_attack;
-
-				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->mMuzzleEffect[0] )
-				{
-					if (firing_attack & ALT_ATTACK)
-					{
-						effect = &wData->mAltMuzzleEffect[0];
-					}
-					else if (firing_attack & TERTIARY_ATTACK)
-					{
-						effect = &wData->mTertiaryMuzzleEffect[0];
-					}
-					else
-					{	
-						// We need to make sure that the base guns also get their sound.
-						effect = &wData->mMuzzleEffect[0];
-					}
-				}
-
-				if ( cent->altFire )
-				{
-					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->mAltMuzzleEffect[0] )
-					{
-						effect = &wData->mAltMuzzleEffect[0];
-					}
-				}
-
-				if (/*( cent->currentState.eFlags & EF_FIRING || cent->currentState.eFlags & EF_ALT_FIRING ) &&*/ effect )
+				if (effect )
 				{
 					if ( (cent->gent && cent->gent->NPC) || CG_ChangeFirstPersonView() )
 					{
-						if ( !VectorCompare( oldMP, vec3_origin )
-							&& !VectorCompare( oldMD, vec3_origin ) )
+
+						if(CG_IsChargedAttack(cent)	) {
+							theFxScheduler.PlayEffect(effect, cent->gent->client->renderInfo.muzzlePoint2,
+								cent->gent->client->renderInfo.muzzleDir2);
+							theFxScheduler.PlayEffect(effect, cent->gent->client->renderInfo.muzzlePoint,
+								cent->gent->client->renderInfo.muzzleDir);
+							//Fixme : The way the game handle stopping the looping effect is to replace the old effect on the new one.
+							//Ideally we should use G_SoundOnEnt(gentity_t* ent, soundChannel_t channel, const char* soundPath);
+							//With a "empty" sound so that it doens't play the sound a third time and place a redudant effect.
+							//G_SoundOnEnt(cent->gent, CHAN_WEAPON, "sound/null.wav");
+							theFxScheduler.PlayEffect("misc/blank", cent->currentState.clientNum);
+
+						}
+						if ( !VectorCompare(cent->gent->client->renderInfo.muzzlePoint2, vec3_origin )
+							&& !VectorCompare(cent->gent->client->renderInfo.muzzleDir2, vec3_origin ) )
 						{//we have an old muzzlePoint we want to use
-							theFxScheduler.PlayEffect( effect, oldMP, oldMD );
+							theFxScheduler.PlayEffect( effect, cent->gent->client->renderInfo.muzzlePoint2,
+								cent->gent->client->renderInfo.muzzleDir2);
 						}
 						else
 						{//use the current one
-							theFxScheduler.PlayEffect( effect, cent->gent->client->renderInfo.muzzlePoint,
-														cent->gent->client->renderInfo.muzzleDir );
+							theFxScheduler.PlayEffect(effect, cent->gent->client->renderInfo.muzzlePoint,
+								cent->gent->client->renderInfo.muzzleDir);
 						}
 					}
 					else
@@ -9163,7 +9176,7 @@ SkipTrueView:
 					vec3_t	fxAxis[3];
 					AnglesToAxis( tAng, fxAxis );
 					if (cent->gent->attrFlags & ATTR_PRECISE_LIGHTNING)
-						theFxScheduler.PlayEffect(CG_GetForceLightning(cent), cent->gent->client->renderInfo.handLPoint, fxAxis);						
+						theFxScheduler.PlayEffect(CG_GetForceLightning(cent), cent->gent->client->renderInfo.handLPoint, fxAxis);
 					else
 						theFxScheduler.PlayEffect(CG_GetWideForceLightning(cent), cent->gent->client->renderInfo.handLPoint, fxAxis);
 
@@ -9617,26 +9630,18 @@ Ghoul2 Insert End
 				cent->muzzleFlashTime  = 0;
 
 				CG_PositionEntityOnTag( &flash, &gun, gun.hModel, "tag_flash");
-
+				int attackIndex = CG_GetAttackIndex(cent->gent, (cent->currentState.eFlags & EF_ALT_FIRING) ? qtrue : qfalse);
 				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->mMuzzleEffectID )
+				if ( wData->attackData[attackIndex].muzzleEffect[0])
 				{
-					effect = wData->mMuzzleEffectID;
+					effect = wInfo->weaponAttacksInfo[attackIndex].muzzleEffect;
+				}
+				//Default fallback
+				else if ( wData->attackData[0].muzzleEffect[0])
+				{
+					effect = wInfo->weaponAttacksInfo[0].muzzleEffect;
 				}
 
-				if (wData->mTertiaryMuzzleEffectID)
-				{
-					effect = wData->mTertiaryMuzzleEffectID;
-				}
-
-				if ( cent->currentState.eFlags & EF_ALT_FIRING )
-				{
-					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->mAltMuzzleEffectID )
-					{
-						effect = wData->mAltMuzzleEffectID;
-					}
-				}
 
 				if (( cent->currentState.eFlags & EF_FIRING || cent->currentState.eFlags & EF_ALT_FIRING ) && effect )
 				{
@@ -9647,15 +9652,7 @@ Ghoul2 Insert End
 					CrossProduct( up, ax[0], ax[1] );
 					CrossProduct( ax[0], ax[1], ax[2] );
 
-					if (( cent->gent && cent->gent->NPC ) || cg.renderingThirdPerson )
-					{
-						theFxScheduler.PlayEffect( effect, flash.origin, ax );
-					}
-					else
-					{
-						// We got an effect and we're firing, so let 'er rip.
-						theFxScheduler.PlayEffect( effect, flash.origin, ax );
-					}
+					theFxScheduler.PlayEffect( effect, flash.origin, ax );
 				}
 			}
 
@@ -9697,38 +9694,49 @@ Ghoul2 Insert End
 	{
 		playerState_t *ps = &cg.predicted_player_state;
 
-		if (( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BRYAR_PISTOL )
-			|| (ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BLASTER_PISTOL)
-			|| (ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_REY)
-			|| ( ps->weapon == WP_BOWCASTER && ps->weaponstate == WEAPON_CHARGING )
-			|| ( ps->weapon == WP_DEMP2 && ps->weaponstate == WEAPON_CHARGING_ALT ))
+		//Normally, the weapons should not charging if they are not supposed to...
+		if ( ps->weaponstate == WEAPON_CHARGING_ALT || ps->weaponstate == WEAPON_CHARGING )
 		{
 			int		shader = 0;
 			float	val = 0.0f, scale = 1.0f;
 			vec3_t	WHITE	= {1.0f,1.0f,1.0f};
 
-			if ( ps->weapon == WP_BRYAR_PISTOL
-				|| ps->weapon == WP_BLASTER_PISTOL
-				|| ps->weapon == WP_REY)
+			int weapon = ps->weapon;
+			int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+			if (baseWeapon == WP_BRYAR_PISTOL
+				|| baseWeapon  == WP_BLASTER_PISTOL
+				|| baseWeapon == WP_REY)
 			{
 				// Hardcoded max charge time of 1 second
 				val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 				shader = cgi_R_RegisterShader( "gfx/effects/bryarFrontFlash" );
 			}
-			else if ( ps->weapon == WP_BOWCASTER )
+			else if ( baseWeapon == WP_BOWCASTER )
 			{
 				// Hardcoded max charge time of 1 second
 				val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 				shader = cgi_R_RegisterShader( "gfx/effects/greenFrontFlash" );
 			}
-			else if ( ps->weapon == WP_DEMP2 )
+			else if ( baseWeapon == WP_DEMP2 )
 			{
 				// Hardcoded max charge time of 1 second
 				val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 				shader = cgi_R_RegisterShader( "gfx/misc/lightningFlash" );
 				scale = 1.75f;
 			}
+			//Default values for new weapons;
+			else {
+				// Hardcoded max charge time of 1 second
+				val = (cg.time - ps->weaponChargeTime) * 0.001f;
+				shader = cgi_R_RegisterShader("gfx/effects/bryarFrontFlash");
+			}
 
+			//Overwrite the muzzle effect if needed
+			qboolean altFire = (ps->weaponstate == WEAPON_CHARGING_ALT) ? qtrue : qfalse;
+			int attackIndex = CG_GetAttackIndex(cent->gent, altFire);
+			if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) {
+				shader = cg_weapons[weapon].weaponAttacksInfo[attackIndex].chargeMuzzleShader;
+			}
 			if ( val < 0.0f )
 			{
 				val = 0.0f;
@@ -9746,6 +9754,9 @@ Ghoul2 Insert End
 			val += Q_flrand(0.0f, 1.0f) * 0.5f;
 
 			FX_AddSprite( cent->gent->client->renderInfo.muzzlePoint, NULL, NULL, 3.0f * val * scale, 0.0f, 0.7f, 0.7f, WHITE, WHITE, Q_flrand(0.0f, 1.0f) * 360, 0.0f, 1.0f, shader, FX_USE_ALPHA );
+			if (weaponData[cent->gent->s.weapon].weaponCategory == WC_PISTOL && cent->gent->weaponModel[1]) {
+				FX_AddSprite(cent->gent->client->renderInfo.muzzlePoint2, NULL, NULL, 3.0f * val * scale, 0.0f, 0.7f, 0.7f, WHITE, WHITE, Q_flrand(0.0f, 1.0f) * 360, 0.0f, 1.0f, shader, FX_USE_ALPHA);
+			}
 		}
 	}
 }
@@ -9797,14 +9808,14 @@ fxHandle_t CG_GetWideForceLightning(centity_t* const cent)
 	else
 	{
 		return cgs.effects.forceLightningWide;
-	}	
+	}
 }
 
 fxHandle_t CG_GetForceLightning(centity_t* const cent)
 {
 	if (cent->gent == player)
 	{
-		cent->gent->NPC_LightningColor = g_forceLightningColor->string;		
+		cent->gent->NPC_LightningColor = g_forceLightningColor->string;
 	}
 
 	if (cent->gent->NPC_LightningColor)
@@ -9844,7 +9855,7 @@ fxHandle_t CG_GetForceLightning(centity_t* const cent)
 	{
 		return cgs.effects.forceLightning;
 	}
-	
+
 }
 
 //=====================================================================

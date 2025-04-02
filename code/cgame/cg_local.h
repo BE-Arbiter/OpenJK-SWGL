@@ -137,6 +137,7 @@ typedef struct {
 
 	// For persistent beam weapons, so they don't play their start sound more than once
 	qboolean		lightningFiring;
+	qboolean		lightningReady;
 
 	// machinegun spinning
 //	float			barrelAngle;
@@ -157,6 +158,7 @@ struct centity_s
 
 	int				muzzleFlashTime;	// move to playerEntity?
 	qboolean		altFire;			// move to playerEntity?
+	int				attack_index;			// move to playerEntity?
 
 	int				previousEvent;
 //	int				teleportFlag;
@@ -437,6 +439,9 @@ typedef struct {
 	int			DataPadInventorySelect;		// Current inventory item chosen on Data Pad
 	int			DataPadWeaponSelect;		// Current weapon item chosen on Data Pad
 	int			DataPadforcepowerSelect;	// Current force power chosen on Data Pad
+	int			LoadoutBaseWeaponSelect;	// Current Base weapon chosen for Weapon Add/Remove
+	int			LoadoutWeaponSelect;		// Current Weapon chosen for Weapon Add/Remove
+	int			LoadoutPageSelect;			// Current Page
 
 	qboolean	messageLitActive;			// Flag to show of message lite is active
 
@@ -832,6 +837,15 @@ void CG_PrevWeapon_f( void );
 void CG_Weapon_f( void );
 void CG_DPNextWeapon_f( void );
 void CG_DPPrevWeapon_f(void);
+void CG_LDO_SelectBaseWeapon_f(void);
+void CG_LDO_SelectWeapon_f(void);
+void CG_LDO_SwitchWeapon_f(void);
+void CG_LDO_PreviousPage_f(void);
+void CG_LDO_NextPage_f(void);
+void CG_NPC_NextWeapon_f(void);
+void CG_NPC_PrevWeapon_f(void);
+void CG_NPC_UpdateLabel(void);
+void CG_DrawNpcWeaponLabel();
 void CG_Dualwield_f(void);
 
 void CG_DPNextInventory_f( void );
@@ -840,11 +854,16 @@ void CG_DPNextForcePower_f( void );
 void CG_DPPrevForcePower_f( void );
 
 
+void CG_InitItemForWeapon(gitem_t* item, int weaponNum);
+void CG_InitItemForAmmo(gitem_t* item, int weaponNum);
+qboolean CG_IsChargedAttack(centity_t* cent);
+char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData);
 void CG_RegisterWeapon( int weaponNum );
+int CG_GetAttackIndex(gentity_t *gent,qboolean alt_fire);
 void CG_RegisterItemVisuals( int itemNum );
 void CG_RegisterItemSounds( int itemNum );
 
-void CG_FireWeapon( centity_t *cent, qboolean alt_fire );
+void CG_FireWeapon( centity_t *cent, int attack_index );
 
 void CG_AddViewWeapon (playerState_t *ps);
 void CG_DrawWeaponSelect( void );
@@ -1128,15 +1147,9 @@ void CG_DrawMiscEnts(void);
 // Weapon prototypes
 void FX_Saber( vec3_t start, vec3_t normal, float height, float radius, saber_colors_t color );
 
-void FX_BryarHitWall( vec3_t origin, vec3_t normal );
-void FX_BryarAltHitWall( vec3_t origin, vec3_t normal, int power );
-void FX_BryarHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid );
-void FX_BryarAltHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid );
-
-void FX_BlasterProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_BlasterAltFireThink( centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_BlasterWeaponHitWall( vec3_t origin, vec3_t normal );
-void FX_BlasterWeaponHitPlayer( gentity_t *hit, vec3_t origin, vec3_t normal, qboolean humanoid );
+void FX_GenericBlasterHitWall(gentity_t* gent, int weapon, vec3_t origin, vec3_t normal);
+void FX_GenericChargedBlasterHitWall(gentity_t* gent, int weapon, vec3_t origin, vec3_t normal);
+void FX_GenericBlasterHitPlayer(gentity_t* gent, int weapon, vec3_t origin, vec3_t normal, gentity_t* hit, qboolean humanoid);
 
 void FX_DestructionProjectileThink(centity_t *cent, const struct weaponInfo_s *weapon);
 void FX_DestructionHitWall(vec3_t origin, vec3_t normal);
@@ -1159,67 +1172,39 @@ void FX_PurpleLightningStrike(vec3_t start, vec3_t end);
 void FX_WhiteLightningStrike(vec3_t start, vec3_t end);
 void FX_BlackLightningStrike(vec3_t start, vec3_t end);
 
+void FX_GenericBeam(vec3_t start, vec3_t end, gentity_t *tempEntity);
+
 void FX_DisruptorMainShot( vec3_t start, vec3_t end );
 void FX_DisruptorAltShot( vec3_t start, vec3_t end, qboolean full );
 void FX_DisruptorAltMiss( vec3_t origin, vec3_t normal );
 
-void FX_BowcasterHitWall( vec3_t origin, vec3_t normal );
-void FX_BowcasterHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid );
-
-void FX_RepeaterHitWall( vec3_t origin, vec3_t normal );
-void FX_RepeaterAltHitWall( vec3_t origin, vec3_t normal );
-void FX_RepeaterHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid );
-void FX_RepeaterAltHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid );
-
-void FX_DEMP2_HitWall( vec3_t origin, vec3_t normal );
-void FX_DEMP2_HitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid );
 void FX_DEMP2_AltDetonate( vec3_t org, float size );
 
 void FX_FlechetteProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_FlechetteWeaponHitWall( vec3_t origin, vec3_t normal );
-void FX_FlechetteWeaponHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid );
 
-void FX_RocketHitWall( vec3_t origin, vec3_t normal );
-void FX_RocketHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid );
 
 void FX_ConcProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_ConcHitWall( vec3_t origin, vec3_t normal );
-void FX_ConcHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid );
 void FX_ConcAltShot( vec3_t start, vec3_t end );
 void FX_ConcAltMiss( vec3_t origin, vec3_t normal );
 
-void FX_EmplacedHitWall( vec3_t origin, vec3_t normal, qboolean eweb );
-void FX_EmplacedHitPlayer( vec3_t origin, vec3_t normal, qboolean eweb );
 void FX_EmplacedProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
 
-void FX_ATSTMainHitWall( vec3_t origin, vec3_t normal );
-void FX_ATSTMainHitPlayer( vec3_t origin, vec3_t normal, qboolean humanoid );
 void FX_ATSTMainProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
 
 void FX_TuskenShotProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_TuskenShotWeaponHitWall( vec3_t origin, vec3_t normal );
-void FX_TuskenShotWeaponHitPlayer( gentity_t *hit, vec3_t origin, vec3_t normal, qboolean humanoid );
 
 void FX_NoghriShotProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
-void FX_NoghriShotWeaponHitWall( vec3_t origin, vec3_t normal );
-void FX_NoghriShotWeaponHitPlayer( gentity_t *hit, vec3_t origin, vec3_t normal, qboolean humanoid );
 
 void FX_CloneProjectileThink(centity_t *cent, const struct weaponInfo_s *weapon);
 void FX_CloneAltFireThink(centity_t *cent, const struct weaponInfo_s *weapon);
-void FX_CloneAltHitWall(vec3_t origin, vec3_t normal, int power);
-void FX_CloneWeaponHitWall(vec3_t origin, vec3_t normal);
-void FX_CloneWeaponHitPlayer(gentity_t *hit, vec3_t origin, vec3_t normal, qboolean humanoid);
-void FX_CloneAltHitPlayer(vec3_t origin, vec3_t normal, qboolean humanoid);
-void FX_CloneCommandoHitWall(vec3_t origin, vec3_t normal);
-void FX_CloneCommandoHitPlayer(vec3_t origin, vec3_t normal, qboolean humanoid);
 void FX_CloneCommandoSniperShot(vec3_t start, vec3_t end);
 void FX_CloneCommandoSniperMiss( vec3_t origin, vec3_t normal );
 
 void CG_BounceEffect( centity_t *cent, int weapon, vec3_t origin, vec3_t normal );
 void CG_MissileStick( centity_t *cent, int weapon, vec3_t origin );
 
-void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, qboolean altFire );
-void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, qboolean altFire );
+void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, int attackIndex );
+void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, qboolean altFire);
 
 void CG_DrawTargetBeam( vec3_t start, vec3_t end, vec3_t norm, const char *beamFx, const char *impactFx );
 
@@ -1287,5 +1272,7 @@ void	CG_SetLightstyle( int i );
 //trueview stuff
 void CG_TrueViewInit( void );
 void CG_AdjustEyePos (const char *modelName);
+
+int CG_MagicFontToReal( int menuFontIndex );
 
 #endif	//__CG_LOCAL_H__

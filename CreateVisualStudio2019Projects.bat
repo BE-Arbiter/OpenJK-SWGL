@@ -13,6 +13,10 @@ if not defined FOUND (
 )
 if not exist build\nul (mkdir build)
 pushd build
+<<<<<<<< HEAD:CreateVisualStudio2019Projects.bat
 cmake -G "Visual Studio 16 2019" -A Win32 -D CMAKE_INSTALL_PREFIX=../install ..
+========
+cmake -G "Visual Studio 12 2013" -A Win32 -D CMAKE_INSTALL_PREFIX=../install ..
+>>>>>>>> rend2/rend2-builds:CreateVisualStudio2013Projects.bat
 popd
 pause

@@ -156,6 +156,11 @@ int Add_Ammo2 (gentity_t *ent, int ammoType, int count)
 			break;
 		}
 
+		int wpIndex = ammoData[ammoType].giveWeaponIndex;
+		if (wpIndex && !(ent->client->ps.weapons[wpIndex])) {
+			ent->client->ps.weapons[wpIndex] = 1;
+		}
+
 		if ( ent->client->ps.ammo[ammoType] > ammoData[ammoType].max )
 		{
 			ent->client->ps.ammo[ammoType] = ammoData[ammoType].max;
@@ -292,7 +297,7 @@ gentity_t *G_DropSaberItem( const char *saberType, saber_colors_t saberColor, ve
 			}
 			newItem->count = 1;
 			newItem->flags = FL_DROPPED_ITEM;
-			G_SpawnItem( newItem, FindItemForWeapon( WP_SABER ) );
+			G_SpawnItem( newItem, FindItemForWeapon((int) WP_SABER ) );
 			newItem->s.pos.trType = TR_GRAVITY;
 			newItem->s.pos.trTime = level.time;
 			VectorCopy( saberVel, newItem->s.pos.trDelta );
@@ -347,7 +352,7 @@ qboolean Pickup_Saber( gentity_t *self, qboolean hadSaber, gentity_t *pickUpSabe
 		{//successfully found a saber .sab entry to use
 			int	saberNum = 0;
 			qboolean removeLeftSaber = qfalse;
-			if ( pickUpSaber->alt_fire )
+			if ( pickUpSaber->alt_fire)
 			{//always go in the left hand
 				if ( !hadSaber )
 				{//can't have a saber only in your left hand!
@@ -459,19 +464,17 @@ extern void PM_WpnMdlChange(const char *currWeaponMdl, int weaponNum, playerStat
 int Pickup_Weapon (gentity_t *ent, gentity_t *other)
 {
 	int		quantity;
+	int weaponNum = ent->item->giTag;
 	qboolean	hadWeapon = qfalse;
-	int weaponNum = 0;
 
-	/*
-	if ( ent->count || (ent->activator && !ent->activator->s.number) )
-	{
-		quantity = ent->count;
+	if (weaponNum == -1) {
+		for (int i = 0; i < weaponCount; i++) {
+			if (!Q_stricmp(weaponData[i].classname, ent->item->giTagName)) {
+				weaponNum = i;
+				break;
+			}
+		}
 	}
-	else
-	{
-		quantity = ent->item->quantity;
-	}
-	*/
 
 	// dropped items are always picked up
 	if ( ent->flags & FL_DROPPED_ITEM )
@@ -484,14 +487,13 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other)
 	}
 
 	// add the weapon
-	if ( other->client->ps.weapons[ent->item->giTag] )
+	if ( other->client->ps.weapons[weaponNum] )
 	{
 		hadWeapon = qtrue;
 	}
+	other->client->ps.weapons[weaponNum] = 1;
 
-	other->client->ps.weapons[ent->item->giTag] = 1;
-
-	if ( ent->item->giTag == WP_SABER && (!hadWeapon || ent->NPC_type != NULL) )
+	if (weaponNum == WP_SABER && (!hadWeapon || ent->NPC_type != NULL) )
 	{//didn't have a saber or it is specifying a certain kind of saber to use
 		if ( !Pickup_Saber( other, hadWeapon, ent ) )
 		{
@@ -502,24 +504,24 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other)
 	if ( other->s.number )
 	{//NPC
 		if ( other->s.weapon == WP_NONE
-			|| ent->item->giTag == WP_SABER )
+			|| weaponNum == WP_SABER )
 		{//NPC with no weapon picked up a weapon, change to this weapon
 			//FIXME: clear/set the alt-fire flag based on the picked up weapon and my class?
-			other->client->ps.weapon = ent->item->giTag;
+			other->client->ps.weapon = weaponNum;
 			other->client->ps.weaponstate = WEAPON_RAISING;
-			ChangeWeapon( other, ent->item->giTag );
-			if ( ent->item->giTag == WP_SABER )
+			ChangeWeapon( other, weaponNum);
+			if (weaponNum == WP_SABER )
 			{
 				other->client->ps.SaberActivate();
 				WP_SaberAddG2SaberModels( other );
 			}
 			else
 			{
-				G_CreateG2AttachedWeaponModel( other, weaponData[ent->item->giTag].weaponMdl, other->handRBolt, 0 );
+				G_CreateG2AttachedWeaponModel( other, weaponData[weaponNum].weaponMdl, other->handRBolt, 0 );
 			}
 		}
 	}
-	if ( ent->item->giTag == WP_SABER )
+	if (weaponNum == WP_SABER )
 	{//picked up a saber
 		if ( other->s.weapon != WP_SABER )
 		{//player picking up saber
@@ -543,7 +545,7 @@ int Pickup_Weapon (gentity_t *ent, gentity_t *other)
 	if ( quantity )
 	{
 		// Give ammo
-		Add_Ammo( other, ent->item->giTag, quantity );
+		Add_Ammo( other, weaponNum, quantity );
 	}
 	return 5;
 }
@@ -682,6 +684,16 @@ qboolean CheckItemCanBePickedUpByNPC( gentity_t *item, gentity_t *pickerupper )
 		item->item->giTag == INV_SECURITY_KEY ) {
 		return qfalse;
 	}
+	if ((item->flags & FL_WILLINGLY_DROPPED)
+		&& item->item->giType == IT_WEAPON
+		&& pickerupper->s.number
+		&& pickerupper->painDebounceTime < level.time
+		&& pickerupper->NPC && pickerupper->NPC->surrenderTime < level.time //not surrendering
+		)
+	{
+		//Yay, free weapon from the player
+		return qtrue;
+	}
 	if ( (item->flags&FL_DROPPED_ITEM)
 		&& item->activator != &g_entities[0]
 		&& pickerupper->s.number
@@ -780,6 +792,62 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 		return;
 	}
 
+	else if (!(ent->spawnflags & ITMSF_ALLOWNPC) && !(ent->flags & FL_WILLINGLY_DROPPED))
+	{// NPCs cannot pick it up
+		if (other->s.number != 0)
+		{// Not the player?-
+			return;
+		}
+	}
+
+	// the same pickup rules are used for client side and server side
+	// Don't care for npc
+	if (!(ent->s.number) && !BG_CanItemBeGrabbed(&ent->s, &other->client->ps)) {
+		return;
+	}
+
+	if (other->client)
+	{
+		if ((other->client->ps.eFlags & EF_FORCE_GRIPPED) || (other->client->ps.eFlags & EF_FORCE_DRAINED))
+		{//can't pick up anything while being gripped
+			return;
+		}
+		if (PM_InKnockDown(&other->client->ps) && !PM_InGetUp(&other->client->ps))
+		{//can't pick up while in a knockdown
+			return;
+		}
+	}
+	if (!ent->item) {		//not an item!
+		gi.Printf("Touch_Item: %s is not an item!\n", ent->classname);
+		return;
+	}
+	//If the item was just dropped, should not be picked up before 1s
+	if ((!ent->activator || ent->activator->s.number == other->s.number) && (level.time - ent->s.time <= 1000)) {
+		return;
+	}
+	//If the item was just dropped, should not be picked up before 1s
+	if (level.time - ent->s.time <= 1000) {
+		return;
+	}
+
+	if (ent->item->giType == IT_WEAPON
+		&& ent->item->giTag == WP_SABER)
+	{//a saber
+		if (ent->delay > level.time)
+		{//just picked it up, don't pick up again right away
+			return;
+		}
+	}
+
+	if (other->s.number < MAX_CLIENTS
+		&& (ent->spawnflags & ITMSF_USEPICKUP))
+	{//only if player is holing use button
+		if (!(other->client->usercmd.buttons & BUTTON_USE))
+		{//not holding use?
+			return;
+		}
+	}
+
 	//FIXME: need to make them run toward a dropped weapon when fleeing without one?
 	//FIXME: need to make them come out of flee mode when pick up their old weapon?
 	if ( CheckItemCanBePickedUpByNPC( ent, other ) )
@@ -791,68 +859,42 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
  			NPCInfo->tempBehavior	= BS_DEFAULT;
 			TIMER_Set(other, "flee", -1);
 		}
-		else
+		else if (ent->item->giType == IT_WEAPON && other->NPC && other->s.weapon && other->s.weapon == ent->item->giTag) {
+			//Don't give me a weapon I already have
+			return;
+		}
+		else if (ent->item->giType == IT_WEAPON && other->NPC && other->s.weapon) {
+			//Get item from weapon
+			gitem_t* item = FindItemForWeapon(other->s.weapon);
+			TossClientItems(other);
+			if (other->ghoul2.IsValid())
+			{
+				if (other->weaponModel[0] > 0)
+				{//NOTE: guess you never drop the left-hand weapon, eh?
+					gi.G2API_RemoveGhoul2Model(other->ghoul2, other->weaponModel[0]);
+					other->weaponModel[0] = -1;
+				}
+				if (other->weaponModel[1] > 0)
+				{//NOTE: guess you never drop the left-hand weapon, eh?
+					gi.G2API_RemoveGhoul2Model(other->ghoul2, other->weaponModel[1]);
+					other->weaponModel[1] = -1;
+				}
+			}
+			other->client->ps.weapons[other->s.weapon] = 0;
+			other->s.weapon = WP_NONE;
+		}
+		else if( !(ent->flags & FL_WILLINGLY_DROPPED) )
 		{
 			return;
 		}
 	}
-	else if ( !(ent->spawnflags &  ITMSF_ALLOWNPC) )
-	{// NPCs cannot pick it up
-		if ( other->s.number != 0 )
-		{// Not the player?
-			return;
-		}
-	}
-
-	// the same pickup rules are used for client side and server side
-	if ( !BG_CanItemBeGrabbed( &ent->s, &other->client->ps ) ) {
-		return;
-	}
-
-	if ( other->client )
-	{
-		if ( (other->client->ps.eFlags&EF_FORCE_GRIPPED) || (other->client->ps.eFlags&EF_FORCE_DRAINED) )
-		{//can't pick up anything while being gripped
-			return;
-		}
-		if ( PM_InKnockDown( &other->client->ps ) && !PM_InGetUp( &other->client->ps ) )
-		{//can't pick up while in a knockdown
-			return;
-		}
-	}
-	if (!ent->item) {		//not an item!
-		gi.Printf( "Touch_Item: %s is not an item!\n", ent->classname);
-		return;
-	}
-	//If the item was just dropped, should not be picked up before 1s
-	if (level.time - ent->s.time <= 1000) {
-		return;
-	}
-
-	if ( ent->item->giType == IT_WEAPON
-		&& ent->item->giTag == WP_SABER )
-	{//a saber
-		if ( ent->delay > level.time )
-		{//just picked it up, don't pick up again right away
-			return;
-		}
-	}
-
-	if ( other->s.number < MAX_CLIENTS
-		&& (ent->spawnflags&ITMSF_USEPICKUP) )
-	{//only if player is holing use button
-		if ( !(other->client->usercmd.buttons&BUTTON_USE) )
-		{//not holding use?
-			return;
-		}
-	}
-
 	qboolean bHadWeapon = qfalse;
 	// call the item-specific pickup function
 	switch( ent->item->giType )
 	{
 	case IT_WEAPON:
-		if ( other->NPC && other->s.weapon == WP_NONE )
+		if (!(ent->flags &= FL_WILLINGLY_DROPPED) &&
+			other->NPC && other->s.weapon == WP_NONE )
 		{//Make them duck and sit here for a few seconds
 			int pickUpTime = Q_irand( 1000, 3000 );
 			TIMER_Set( other, "duck", pickUpTime );
@@ -898,7 +940,7 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	// play the normal pickup sound
 	if ( !other->s.number && g_timescale->value < 1.0f  )
 	{//SIGH... with timescale on, you lose events left and right
-extern void CG_ItemPickup( int itemNum, qboolean bHadItem );
+		extern void CG_ItemPickup( int itemNum, qboolean bHadItem );
 		// but we're SP so we'll cheat
 		cgi_S_StartSound( NULL, other->s.number, CHAN_AUTO,	cgi_S_RegisterSound( ent->item->pickup_sound ) );
 		// show icon and name on status bar
@@ -934,20 +976,9 @@ extern void CG_ItemPickup( int itemNum, qboolean bHadItem );
 			return;
 		}
 	}
-	// wait of -1 will not respawn
-//	if ( ent->wait == -1 )
-	{
-		//why not just remove me?
-		G_FreeEntity( ent );
-		/*
-		//NOTE: used to do this:  (for respawning?)
-		ent->svFlags |= SVF_NOCLIENT;
-		ent->s.eFlags |= EF_NODRAW;
-		ent->contents = 0;
-		ent->unlinkAfterEvent = qtrue;
-		*/
-		return;
-	}
+
+	G_FreeEntity( ent );
+	return;
 }
 
 
@@ -1221,13 +1252,13 @@ void FinishSpawningItem( gentity_t *ent ) {
 		gi.trace( &tr, ent->s.origin, ent->mins, ent->maxs, dest, ent->s.number, MASK_SOLID|CONTENTS_PLAYERCLIP, (EG2_Collision)0, 0 );
 		if ( tr.startsolid )
 		{
-			if ( &g_entities[tr.entityNum] != NULL )
+			if ( g_entities[tr.entityNum].inuse )
 			{
 				gi.Printf (S_COLOR_RED"FinishSpawningItem: removing %s startsolid at %s (in a %s)\n", ent->classname, vtos(ent->s.origin), g_entities[tr.entityNum].classname );
 			}
 			else
 			{
-				gi.Printf (S_COLOR_RED"FinishSpawningItem: removing %s startsolid at %s (in a %s)\n", ent->classname, vtos(ent->s.origin) );
+				gi.Printf (S_COLOR_RED"FinishSpawningItem: removing %s startsolid at %s\n", ent->classname, vtos(ent->s.origin) );
 			}
 			assert( 0 && "item starting in solid");
 			if (!g_entities[ENTITYNUM_WORLD].s.radius){	//not a region
@@ -1294,9 +1325,9 @@ void ClearRegisteredItems( void ) {
 	itemRegistered[ bg_numItems ] = 0;
 
 	//these are given in g_client, ClientSpawn(), but MUST be registered HERE, BEFORE cgame starts.
-	RegisterItem(FindItemForWeapon(WP_MELEE));	//has no item /////// Jace Solaris fix
-	RegisterItem(FindItemForWeapon(WP_BRYAR_PISTOL));	//these are given in g_client, ClientSpawn(), but MUST be registered HERE, BEFORE cgame starts./////// Jace Solaris fix
-	RegisterItem(FindItemForWeapon(WP_STUN_BATON)); /////// Jace Solaris fix
+	RegisterItem(FindItemForWeapon((int) WP_MELEE));	//has no item /////// Jace Solaris fix
+	RegisterItem(FindItemForWeapon((int) WP_BRYAR_PISTOL));	//these are given in g_client, ClientSpawn(), but MUST be registered HERE, BEFORE cgame starts./////// Jace Solaris fix
+	RegisterItem(FindItemForWeapon((int) WP_STUN_BATON)); /////// Jace Solaris fix
 
 	RegisterItem(FindItemForInventory(INV_ELECTROBINOCULARS));
 	RegisterItem(FindItemForInventory(INV_BACTA_CANISTER));

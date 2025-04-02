@@ -76,7 +76,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define FL_OVERCHARGED_HEALTH	0x00100000	// Reduce health back to max
 #define FL_NO_ANGLES			0x00200000	// No bone angle overrides, no pitch or roll in full angles
 #define FL_RED_CROSSHAIR		0x00400000	// Crosshair red on me
-
+#define FL_WILLINGLY_DROPPED	0x00800000 //I have been dropped willingly (free gift!) 
 
 //Pointer safety utilities
 #define VALID( a )		( a != NULL )
@@ -541,7 +541,7 @@ qboolean	ConsoleCommand( void );
 //
 // g_weapon.c
 //
-void FireWeapon( gentity_t *ent, qboolean alt_fire );
+void FireWeapon( gentity_t *ent, int attack_index);
 
 //
 // p_hud.c
@@ -618,8 +618,8 @@ extern qboolean INV_GoodieKeyGive( gentity_t *target );
 extern qboolean INV_GoodieKeyTake( gentity_t *target );
 extern int INV_GoodieKeyCheck( gentity_t *target );
 extern qboolean INV_SecurityKeyGive( gentity_t *target, const char *keyname );
-extern void INV_SecurityKeyTake( gentity_t *target, char *keyname );
-extern qboolean INV_SecurityKeyCheck( gentity_t *target, char *keyname );
+extern void INV_SecurityKeyTake( gentity_t *target, const char *keyname );
+extern qboolean INV_SecurityKeyCheck( gentity_t *target, const char *keyname );
 
 //
 // g_team.c

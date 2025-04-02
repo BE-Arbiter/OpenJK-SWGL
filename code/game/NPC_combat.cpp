@@ -195,6 +195,7 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 	{//delay their attack based on how far away they're facing from enemy
 		vec3_t		fwd, dir;
 		int			attDelay;
+		qboolean altFire = (self->NPC->scriptFlags & SCF_ALT_FIRE) ? qtrue : qfalse;
 
 		VectorSubtract( self->client->renderInfo.eyePoint, enemy->currentOrigin, dir );//purposely backwards
 		VectorNormalize( dir );
@@ -204,7 +205,7 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 		attDelay = (4-g_spskill->integer)*500;//initial: from 1000ms delay on hard to 2000ms delay on easy
 		if ( self->client->playerTeam == TEAM_PLAYER )
 		{//invert
-			attDelay = 2000-attDelay;
+			attDelay = 2500-attDelay; //Was 2000, but 2000-2000(easy) is 0 ...
 		}
 		attDelay += floor( (DotProduct( fwd, dir )+1.0f) * 2000.0f );//add up to 4000ms delay if they're facing away
 
@@ -304,7 +305,7 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 		case WP_JANGO:
 		case WP_BOBA:
 		case WP_CLONEPISTOL:
-			if ( self->NPC->scriptFlags & SCF_ALT_FIRE )
+			if ( altFire )
 			{//rapid-fire blasters
 				attDelay += Q_irand( 0, 500 );
 			}
@@ -317,7 +318,7 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 			attDelay += Q_irand( 0, 500 );
 			break;
 		case WP_REPEATER:
-			if ( !(self->NPC->scriptFlags&SCF_ALT_FIRE) )
+			if ( !altFire )
 			{//rapid-fire blasters
 				attDelay += Q_irand( 0, 500 );
 			}
@@ -395,7 +396,13 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 		{
 			attDelay = 4000+((2-g_spskill->integer)*3000);
 		}
+
+		int minimumDelay = weaponData[self->s.weapon].attackData[altFire ? 1 : 0].fireTime;
+		if (minimumDelay > attDelay) {
+			attDelay = minimumDelay;
+		}
 		TIMER_Set( self, "attackDelay", attDelay );//Q_irand( 1500, 4500 ) );
+		
 		//don't move right away either
 		if ( attDelay > 4000 )
 		{
@@ -1288,13 +1295,13 @@ void WeaponThink( qboolean inCombat )
 
 //MCG - Begin
 	//For now, no-one runs out of ammo
-	if ( NPC->client->ps.ammo[ weaponData[client->ps.weapon].ammoIndex ] < weaponData[client->ps.weapon].energyPerShot )
+	if ( NPC->client->ps.ammo[ weaponData[client->ps.weapon].ammoIndex ] < weaponData[client->ps.weapon].attackData[0].energyPerShot )
 	{
-		Add_Ammo( NPC, client->ps.weapon, weaponData[client->ps.weapon].energyPerShot*10 );
+		Add_Ammo( NPC, client->ps.weapon, weaponData[client->ps.weapon].attackData[0].energyPerShot*10 );
 	}
-	else if ( NPC->client->ps.ammo[ weaponData[client->ps.weapon].ammoIndex ] < weaponData[client->ps.weapon].altEnergyPerShot )
+	else if ( NPC->client->ps.ammo[ weaponData[client->ps.weapon].ammoIndex ] < weaponData[client->ps.weapon].attackData[1].energyPerShot )
 	{
-		Add_Ammo( NPC, client->ps.weapon, weaponData[client->ps.weapon].altEnergyPerShot*5 );
+		Add_Ammo( NPC, client->ps.weapon, weaponData[client->ps.weapon].attackData[1].energyPerShot*5 );
 	}
 
 	ucmd.weapon = client->ps.weapon;

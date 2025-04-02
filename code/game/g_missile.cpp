@@ -46,7 +46,8 @@ extern qboolean PM_SaberInSpecialAttack( int anim );
 void G_MissileBounceEffect( gentity_t *ent, vec3_t org, vec3_t dir, qboolean hitWorld )
 {
 	//FIXME: have an EV_BOUNCE_MISSILE event that checks the s.weapon and does the appropriate effect
-	switch( ent->s.weapon )
+	int baseWeapon = weaponData[ent->s.weapon].baseWeaponNum ? weaponData[ent->s.weapon].baseWeaponNum : ent->s.weapon;
+	switch(baseWeapon)
 	{
 	case WP_BOWCASTER:
 		if ( hitWorld )
@@ -78,7 +79,8 @@ void G_MissileBounceEffect( gentity_t *ent, vec3_t org, vec3_t dir, qboolean hit
 void G_MissileReflectEffect( gentity_t *ent, vec3_t org, vec3_t dir )
 {
 	//FIXME: have an EV_BOUNCE_MISSILE event that checks the s.weapon and does the appropriate effect
-	switch( ent->s.weapon )
+	int baseWeapon = weaponData[ent->s.weapon].baseWeaponNum ? weaponData[ent->s.weapon].baseWeaponNum : ent->s.weapon;
+	switch (baseWeapon)
 	{
 	case WP_BOWCASTER:
 		G_PlayEffect( "bowcaster/deflect", ent->currentOrigin, dir );
@@ -505,6 +507,10 @@ extern void laserTrapStick( gentity_t *ent, vec3_t endpos, vec3_t normal );
 extern qboolean W_AccuracyLoggableWeapon( int weapon, qboolean alt_fire, int mod );
 void G_MissileImpacted( gentity_t *ent, gentity_t *other, vec3_t impactPos, vec3_t normal, int hitLoc=HL_NONE )
 {
+	weaponData_t *wpnData = &weaponData[ent->s.weapon];
+	qboolean altFire = ent->alt_fire;
+	int attackIndex = CG_GetAttackIndex(ent, altFire);
+	weaponAttackData_t* atkData = &wpnData->attackData[attackIndex];
 	// impact damage
 	if ( other->takedamage )
 	{
@@ -541,31 +547,17 @@ void G_MissileImpacted( gentity_t *ent, gentity_t *other, vec3_t impactPos, vec3
 					//FIXME: throw some sparks off droids,too
 				}
 			}
-
-			/*
-			if (other->NPC_type != 0)
-			{
-				if (!(strcmp("stormtrooper", other->NPC_type)))
-				{
-					damage += a_lot_of_extra_damage;
-				}
-				else
-				{
-					damage = defaultDamageCopy[ent->s.weapon];
-				}
-			}
-			*/
 			
 			G_Damage( other, ent, ent->owner, velocity,
 					impactPos, damage,
 					ent->dflags, ent->methodOfDeath, hitLoc);
 
-			if ( ent->s.weapon == WP_DEMP2 )
+			if (atkData->firingLogic == FL_DEMP2 || atkData->firingLogic == FL_DEMP2_ALT)
 			{//a hit with demp2 decloaks saboteurs
 				if ( other && other->client && other->client->NPC_class == CLASS_SABOTEUR )
 				{//FIXME: make this disabled cloak hold for some amount of time?
 					Saboteur_Decloak( other, Q_irand( 3000, 10000 ) );
-					if ( ent->methodOfDeath == MOD_DEMP2_ALT )
+					if (atkData->firingLogic == FL_DEMP2_ALT)
 					{//direct hit with alt disabled cloak forever
 						if ( other->NPC )
 						{//permanently disable the saboteur's cloak
@@ -656,6 +648,11 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 	gentity_t		*other;
 	vec3_t			diff;
 
+	weaponData_t* wpnData = &weaponData[ent->s.weapon];
+	qboolean altFire = ent->alt_fire;
+	int attackIndex = CG_GetAttackIndex(ent, altFire);
+	weaponAttackData_t* atkData = &wpnData->attackData[attackIndex];
+
 	other = &g_entities[trace->entityNum];
 	if ( other == ent )
 	{
@@ -714,20 +711,15 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 		}
 	}
 
-	if ( ent->s.weapon == WP_DEMP2 )
-	{
-		// demp2 shots can never bounce
-		bounce = qfalse;
 
-		// in fact, alt-charge shots will not call the regular impact functions
-		if ( ent->alt_fire )
-		{
-			// detonate at the trace end
-			VectorCopy( trace->endpos, ent->currentOrigin );
-			VectorCopy( trace->plane.normal, ent->pos1 );
-			DEMP2_AltDetonate( ent );
-			return;
-		}
+	// in fact, alt-charge shots will not call the regular impact functions
+	if (atkData->firingLogic == FL_DEMP2_ALT)
+	{
+		// detonate at the trace end
+		VectorCopy(trace->endpos, ent->currentOrigin);
+		VectorCopy(trace->plane.normal, ent->pos1);
+		DEMP2_AltDetonate(ent);
+		return;
 	}
 
 	if ( bounce )
@@ -771,6 +763,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 	if ( (!other->takedamage && ( ent->s.eFlags&(EF_BOUNCE_SHRAPNEL) ) )
 		|| ((trace->surfaceFlags&SURF_FORCEFIELD)&&!ent->splashDamage&&!ent->splashRadius) )
 	{
+		//DWS-TODO : Need a parameter to specify at what difficulty level the weapon is saber reflected
 		if ( !(other->contents&CONTENTS_LIGHTSABER)
 			|| g_spskill->integer <= 0//on easy, it reflects all shots
 			|| (g_spskill->integer == 1 && ent->s.weapon != WP_FLECHETTE && ent->s.weapon != WP_DEMP2 && ent->s.weapon != WP_CIS_SNIPER )//on medium it won't reflect flechette, E-5 sniper or demp shots
@@ -790,7 +783,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 
 	if ( (!other->takedamage || (other->client && other->health <= 0))
 		&& ent->s.weapon == WP_THERMAL
-		&& !ent->alt_fire )
+		&& !ent->alt_fire)
 	{//rolling thermal det - FIXME: make this an eFlag like bounce & stick!!!
 		//G_BounceRollMissile( ent, trace );
 		if ( ent->owner )//&& ent->owner->s.number == 0 )
@@ -835,6 +828,7 @@ extern bool WP_DoingMoronicForcedAnimationForForcePowers(gentity_t *ent);
 		{
 			other->owner->client->sess.missionStats.saberBlocksCnt++;
 		}
+		//DWS-TODO : Need a parameter to specify at what difficulty level the weapon is saber reflected
 		if ( ( g_spskill->integer <= 0//on easy, it reflects all shots
 				|| (g_spskill->integer == 1 && ent->s.weapon != WP_FLECHETTE && ent->s.weapon != WP_DEMP2 )//on medium it won't reflect flechette or demp shots
 				|| (g_spskill->integer >= 2 && ent->s.weapon != WP_FLECHETTE && ent->s.weapon != WP_DEMP2 && ent->s.weapon != WP_BOWCASTER && ent->s.weapon != WP_REPEATER )//on hard it won't reflect flechette, demp, repeater or bowcaster shots
@@ -1202,7 +1196,7 @@ void G_RollMissile( gentity_t *ent )
 		//
 		// modify velocity so it parallels all of the clip planes
 		//
-		if ( &g_entities[trace.entityNum] != NULL && g_entities[trace.entityNum].client )
+		if ( g_entities[trace.entityNum].inuse && g_entities[trace.entityNum].client )
 		{//hit a person, bounce off much less
 			bounceAmt = OVERCLIP;
 		}
@@ -1492,7 +1486,7 @@ void G_RunMissile( gentity_t *ent )
 			}
 			else
 			{
-				if ( ent->s.weapon == WP_ROCKET_LAUNCHER && ent->e_ThinkFunc == thinkF_rocketThink )
+				if ( ent->s.weapon == WP_ROCKET_LAUNCHER && ent->e_ThinkFunc == thinkF_WP_RocketThink)
 				{//homing rocket- run like hell!
 					AddSightEvent( ent->owner, ent->currentOrigin, ent->splashRadius, AEL_DANGER_GREAT, 50 );
 				}

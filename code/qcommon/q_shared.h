@@ -54,6 +54,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #pragma warning(disable : 4710)		// not inlined
 #pragma warning(disable : 4711)		// selected for automatic inline expansion
 #pragma warning(disable : 4786)		// identifier was truncated
+#pragma warning(disable : 5208)		// unnamed class used in typedef name cannot declare members other than non-static data members, member enumerations, or member classes
 
 #pragma warning(disable : 4996)		// This function or variable may be unsafe.
 
@@ -208,6 +209,7 @@ typedef int32_t qhandle_t, thandle_t, fxHandle_t, sfxHandle_t, fileHandle_t, cli
 #define	BIG_INFO_VALUE		8192
 
 #define	MAX_QPATH			64		// max length of a quake game pathname
+#define	MAX_CSPATH			128		// max length for a composite skin pathname (models/players/%s/|%s|%s|%s)
 #ifdef PATH_MAX
 #define MAX_OSPATH			PATH_MAX
 #else
@@ -379,6 +381,7 @@ void	COM_MatchToken( char**buf_p, char *match );
 
 
 int Q_parseSaberColor(const char* p, float* color);/////// Jace Solaris
+qboolean SkipBracedSection (const char **program, int depth);
 void SkipBracedSection (const char **program);
 void SkipRestOfLine ( const char **data );
 
@@ -652,7 +655,7 @@ typedef struct {
 
 #define	MAX_SUBMODELS		512		// nine bits
 
-#define MAX_FX				128
+#define MAX_FX				256
 
 #ifdef JK2_MODE
 #define MAX_WORLD_FX (4)
@@ -671,7 +674,7 @@ Ghoul2 Insert End
 #ifdef JK2_MODE
 #define MAX_CONFIGSTRINGS (1024)
 #else
-#define	MAX_CONFIGSTRINGS	1600//1024 //rww - I had to up this for terrains
+#define	MAX_CONFIGSTRINGS	2048//1024 //rww - I had to up this for effects
 #endif // JK2_MODE
 
 // these are the only configstrings that the system reserves, all the
@@ -767,7 +770,7 @@ typedef enum
 	FP_ABSORB,//duration - protect against dark force powers (grip, lightning, drain - maybe push/pull, too?)
 	FP_DRAIN,//hold/duration - drain force power for health
 	FP_SEE,//duration - detect/see hidden enemies
-	
+
 
 	// SWGL Powers
 	// Light Side
@@ -814,12 +817,15 @@ typedef enum
 #define	MAX_PERSISTANT			16
 
 #define	MAX_POWERUPS			16
-#define	MAX_WEAPONS				64
+#define	MAX_WEAPONS				128
 #define MAX_WEAPONBITS			1 + (MAX_WEAPONS - 1)/32
-#define MAX_AMMO				10
+#define MAX_AMMO				32
+#define WEAPON_BUCKETS_SIZE (MAX_WEAPONS - WB_OTHERS)
+
 #define MAX_INVENTORY			15		// See INV_MAX
 #define MAX_SECURITY_KEYS		5
 #define MAX_SECURITY_KEY_MESSSAGE		24
+
 
 #define	MAX_PS_EVENTS			2		// this must be a power of 2 unless you change some &'s to %'s -ste
 
@@ -1636,6 +1642,7 @@ public:
 								// used to twist the legs during strafing
 
 	int			eFlags;			// copied to entityState_t->eFlags
+	int         pFlags;
 
 	int			eventSequence;	// pmove generated events
 	int			events[MAX_PS_EVENTS];
@@ -1948,9 +1955,7 @@ public:
 #endif // !JK2_MODE
 	int			shotsRemaining;
 
-	qboolean	tertiaryMode;
 	int8_t		firing_attack;
-	int8_t		prev_firing_attack;
 
 
 	void sg_export(
@@ -2125,9 +2130,7 @@ public:
 		saved_game.write<int32_t>(stasisTime);
 #endif // !JK2_MODE
 		saved_game.write<int32_t>(shotsRemaining);
-		saved_game.write<int32_t>(tertiaryMode);
 		saved_game.write<int8_t>(firing_attack);
-		saved_game.write<int8_t>(prev_firing_attack);
 
 		saved_game.write<int32_t>(forceUpperAnim);
 		saved_game.write<int32_t>(forceLowerAnim);
@@ -2306,11 +2309,9 @@ public:
 		saved_game.read<int32_t>(vehTurnaroundTime);
 		saved_game.read<int32_t>(brokenLimbs);
 		saved_game.read<int32_t>(electrifyTime);
-		saved_game.read<int32_t>(stasisTime); 
+		saved_game.read<int32_t>(stasisTime);
 		saved_game.read<int32_t>(shotsRemaining);
-		saved_game.read<int32_t>(tertiaryMode);
 		saved_game.read<int8_t>(firing_attack);
-		saved_game.read<int8_t>(prev_firing_attack);
 		saved_game.read<int32_t>(forceUpperAnim);
 		saved_game.read<int32_t>(forceLowerAnim);
 		saved_game.read<int32_t>(forceUpperAnimTimer);
@@ -2318,7 +2319,7 @@ public:
 		saved_game.read<int32_t>(forceUpperAnimSpeed);
 		saved_game.read<int32_t>(forceLowerAnimSpeed);
 #endif // !JK2_MODE
-		
+
 	}
 }; // PlayerStateBase
 
@@ -2347,6 +2348,7 @@ using playerState_t = PlayerStateBase<saberInfo_t>;
 #define	BUTTON_FORCE_FOCUS	256			// any key whatsoever
 
 #define BUTTON_FORCEGRASP	512			//
+#define BUTTON_ZOOM			65536
 
 #define	MOVE_RUN			120			// if forwardmove or rightmove are >= MOVE_RUN,
 										// then BUTTON_WALKING should be set
@@ -2368,7 +2370,7 @@ typedef enum
 	GENCMD_FORCE_SEEING,
 	GENCMD_FORCE_STASIS,
 	GENCMD_FORCE_BLAST,
-	GENCMD_FORCE_GRASP,	
+	GENCMD_FORCE_GRASP,
 	GENCMD_FORCE_DESTRUCTION,
 	GENCMD_FORCE_LIGHTNING_STRIKE,
 	GENCMD_FORCE_FEAR,

@@ -7918,7 +7918,7 @@ void NPC_BSJedi_Default( void )
 		if (!Q_stricmp(VADER, NPC->NPC_type)
 			|| !Q_stricmp(VADER_INFINITIES, NPC->NPC_type))
 		{
-				
+
 			if ((NPC->attrFlags & ATTR_HELD_BY_HATRED && NPC->max_health < 100) || (!(NPC->attrFlags & ATTR_HELD_BY_HATRED) && NPC->health <= (NPC->max_health * .20f)))
 			{
 				G_SoundOnEnt(NPC, CHAN_VOICE, va("sound/chars/am_darth_vader/vader_breathe_wheeze.wav"));
@@ -7931,11 +7931,11 @@ void NPC_BSJedi_Default( void )
 				TIMER_Set(NPC, "breathing", Q_irand(7300, 10000));
 			}
 			else
-			{				
+			{
 				G_SoundOnEnt(NPC, CHAN_VOICE, va("sound/chars/am_darth_vader/vader_breathe_strained.wav"));
-				TIMER_Set(NPC, "breathing", Q_irand(1500, 3000));				
+				TIMER_Set(NPC, "breathing", Q_irand(1500, 3000));
 			}
-			
+
 		}
 		else
 		{
@@ -7979,6 +7979,7 @@ void NPC_BSJedi_Default( void )
 
 			NPC->client->ps.saber[0].blade[0].color = currentColor;
 			NPC->client->ps.saber[0].blade[1].color = currentColor;
+
 		}
 		else if (!Q_stricmp("dagan_gera_staff", NPC->client->ps.saber[0].name))
 		{

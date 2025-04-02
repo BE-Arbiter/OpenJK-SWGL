@@ -35,6 +35,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 	#include "../Rufl/hstring.h"
 	#include "../Ratl/vector_vs.h"
 
+extern int WP_GetWeaponID(const char* weaponName);
 extern void WP_RemoveSaber( gentity_t *ent, int saberNum );
 extern qboolean NPCsPrecached;
 extern vec3_t playerMins;
@@ -1455,7 +1456,7 @@ void NPC_PrecacheWeapons( team_t playerTeam, int spawnflags, char *NPCtype )
 {
 	int weapons = NPC_WeaponsForTeam( playerTeam, spawnflags, NPCtype );
 	gitem_t	*item;
-	for ( int curWeap = WP_SABER; curWeap < WP_NUM_WEAPONS; curWeap++ )
+	for ( int curWeap = WP_SABER; curWeap < weaponCount; curWeap++ )
 	{
 		if ( (weapons & ( 1 << curWeap )) )
 		{
@@ -1689,7 +1690,7 @@ void CG_NPC_Precache ( gentity_t *spawner )
 	char	sound[MAX_QPATH];
 	qboolean	md3Model = qfalse;
 	char	playerModel[MAX_QPATH] = { 0 };
-	char	customSkin[MAX_QPATH];
+	char	customSkin[MAX_CSPATH];
 
 	if ( !Q_stricmp( "random", spawner->NPC_type ) )
 	{//sorry, can't precache a random just yet
@@ -1906,7 +1907,7 @@ void CG_NPC_Precache ( gentity_t *spawner )
 				ci.customJediSoundDir = G_NewString(sound);
 			}
 			continue;
-		}		
+		}
 
 		//cache weapons
 		if ( !Q_stricmp( token, "weapon" ) )
@@ -1915,8 +1916,8 @@ void CG_NPC_Precache ( gentity_t *spawner )
 			{
 				continue;
 			}
-			int weap = GetIDForString( WPTable, value );
-			if ( weap >= WP_NONE && weap < WP_NUM_WEAPONS )
+			int weap = WP_GetWeaponID( value );
+			if ( weap >= WP_NONE && weap < weaponCount)
 			{
 				if ( weap > WP_NONE )
 				{
@@ -1995,7 +1996,7 @@ void CG_NPC_Precache ( gentity_t *spawner )
 	}
 	else
 	{
-		char	skinName[MAX_QPATH];
+		char	skinName[MAX_CSPATH];
 		//precache ghoul2 model
 		gi.G2API_PrecacheGhoul2Model( va( "models/players/%s/model.glm", playerModel ) );
 		//precache skin
@@ -2042,7 +2043,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 	char	*patch;
 	char	sound[MAX_QPATH];
 	char	playerModel[MAX_QPATH];
-	char	customSkin[MAX_QPATH];
+	char	customSkin[MAX_CSPATH];
 	clientInfo_t	*ci = &NPC->client->clientInfo;
 	renderInfo_t	*ri = &NPC->client->renderInfo;
 	gNPCstats_t		*stats = NULL;
@@ -3809,7 +3810,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					NPC->flags &= ~FL_UNDYING;
 					NPC->client->dismembered = qtrue;
 				}
-				
+
 				continue;
 			}
 
@@ -3827,7 +3828,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					value = NPC->NPC_Weapon;
 				}
 				//FIXME: need to precache the weapon, too?  (in above func)
-				int weap = GetIDForString( WPTable, value );
+				int weap = WP_GetWeaponID( value );
 
 				if (!Q_stricmp(value, "WP_CLONERANDOM"))
 				{
@@ -3837,7 +3838,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 						weap = WP_CLONERIFLE;
 
 				}
-				if ( weap >= WP_NONE && weap < WP_NUM_WEAPONS )
+				if ( weap >= WP_NONE && weap < weaponCount )
 				{
 					NPC->client->ps.weapon = weap;
 					NPC->client->ps.weapons[weap] = 1;
@@ -3847,7 +3848,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 						NPC->client->ps.ammo[weaponData[weap].ammoIndex] = ammoData[weaponData[weap].ammoIndex].max;
 					}
 				}
-				
+
 				if (NPC->NPC_SaberOne)
 				{
 					value = NPC->NPC_SaberOne;
@@ -3942,7 +3943,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				//Other unique behaviors/numbers that are currently hardcoded?
 			}
-			
+
 			//force powers
 			int fp = GetIDForString( FPTable, token );
 			if ( fp >= FP_FIRST && fp < NUM_FORCE_POWERS)
@@ -3970,7 +3971,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				{//clear
 					NPC->client->ps.forcePowersKnown &= ~( 1 << fp );
 				}
-				
+
 				NPC->client->ps.forcePowerLevel[fp] = n;
 				continue;
 			}
@@ -4577,7 +4578,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					NPC->client->ps.forcePowersKnown &= ~(1 << i);
 			}
 
-			
+
 		}
 	}
 

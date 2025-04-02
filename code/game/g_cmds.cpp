@@ -215,7 +215,7 @@ void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 		{
 			ent->client->ps.forcePowerMax = atoi(args);
 
-			// Such a big number it turns negative 
+			// Such a big number it turns negative
 			if (ent->client->ps.forcePowerMax < 0 || ent->client->ps.forcePowerMax > 10000000)
 			{
 				ent->client->ps.forcePowerMax = 10000000;
@@ -237,7 +237,7 @@ void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 			ent->client->ps.weapons[i] = 1;
 		}
 		// Skip the unusable weapons, add in extra weapons.
-		for (int i = WP_BATTLEDROID; i < WP_NUM_WEAPONS; i++)
+		for (int i = WP_BATTLEDROID; i < weaponCount; i++)
 		{
 			if (i == WP_SBD || i == WP_DROIDEKA)
 			{
@@ -258,7 +258,7 @@ void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 
 	if ( !give_all && !Q_stricmp( name, "eweaps" ) )	//for developing, gives you all the weapons, including enemy
 	{
-		for ( int i = 0; i < WP_NUM_WEAPONS; i++ )
+		for ( int i = 0; i < weaponCount; i++ )
 		{
 			ent->client->ps.weapons[i] = 1;
 		}
@@ -270,7 +270,7 @@ void G_Give( gentity_t *ent, const char *name, const char *args, int argc )
 		int num = 999;
 		if ( argc == 3 )
 			num = Com_Clampi( -1, 999, atoi( args ) );
-		for ( i=AMMO_BLASTER; i<AMMO_MAX; i++ )
+		for ( i=AMMO_BLASTER; i<ammoCount; i++ )
 			ent->client->ps.ammo[i] = num != -1 ? num : ammoData[i].max;
 		if ( !give_all )
 			return;
@@ -355,12 +355,12 @@ void Cmd_Give_f( gentity_t *ent )
 
 void Cmd_ForceRegen_f( gentity_t* ent )
 {
-	if (!CheatsOk(ent)) 
+	if (!CheatsOk(ent))
 	{
 		return;
 	}
 	int amt = atoi(gi.argv(1));
-	
+
 	if(!amt)
 	{
 		gi.SendServerCommand(0, "print \"Usage: setForceRegen <number> \nDefault value is 100\nThe lower the value, the faster your force will regenerate\n\"");

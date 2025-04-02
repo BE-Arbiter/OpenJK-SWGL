@@ -510,17 +510,17 @@ const weaponData_t  *wData = NULL;
 				cc->muzzleFlashTime = 0;
 
 				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->mMuzzleEffect[0] )
+				if ( wData->attackData[0].muzzleEffect[0] )
 				{
-					effect = &wData->mMuzzleEffect[0];
+					effect = &wData->attackData[0].muzzleEffect[0];
 				}
 
 				if ( cc->currentState.eFlags & EF_ALT_FIRING )
 				{
 					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->mAltMuzzleEffect[0] )
+					if ( wData->attackData[1].muzzleEffect[0] )
 					{
-						effect = &wData->mAltMuzzleEffect[0];
+						effect = &wData->attackData[1].muzzleEffect[0];
 					}
 				}
 
@@ -673,10 +673,10 @@ const weaponData_t  *wData = NULL;
 				if ( cent->gent->owner->client->ps.saberEntityState == SES_RETURNING
 					&& cent->gent->owner->client->ps.saber[0].type != SABER_STAR )
 				{
-					if ( cg_weapons[WP_SABER].firingSound )
+					if ( cg_weapons[WP_SABER].weaponAttacksInfo[0].firingSound )
 					{
 						cgi_S_AddLoopingSound( cent->currentState.number,
-							cent->lerpOrigin, vec3_origin, cg_weapons[WP_SABER].firingSound );
+							cent->lerpOrigin, vec3_origin, cg_weapons[WP_SABER].weaponAttacksInfo[0].firingSound );
 					}
 				}
 				else
@@ -855,9 +855,10 @@ Ghoul2 Insert End
 		&& cg.snap->ps.clientNum != cent->currentState.number
 		&& CG_PlayerCanSeeCent( cent ) )
 	{//so player can see dark missiles/explosives
-		if ( s1->weapon == WP_THERMAL
-			|| s1->weapon == WP_DET_PACK
-			|| s1->weapon == WP_TRIP_MINE
+		int baseWeapon = weaponData[s1->weapon].baseWeaponNum ? weaponData[s1->weapon].baseWeaponNum : s1->weapon;
+		if (baseWeapon == WP_THERMAL
+			|| baseWeapon == WP_DET_PACK
+			|| baseWeapon == WP_TRIP_MINE
 			|| (cent->gent&&cent->gent->e_UseFunc==useF_ammo_power_converter_use)
 			|| (cent->gent&&cent->gent->e_UseFunc==useF_shield_power_converter_use)
 			|| (s1->eFlags&EF_FORCE_VISIBLE) )
@@ -1113,7 +1114,7 @@ static void CG_Missile( centity_t *cent ) {
 		return;
 
 	s1 = &cent->currentState;
-	if ( s1->weapon >= WP_NUM_WEAPONS ) {
+	if ( s1->weapon >= weaponCount) {
 		s1->weapon = 0;
 	}
 	weapon = &cg_weapons[s1->weapon];
@@ -1177,7 +1178,8 @@ static void CG_Missile( centity_t *cent ) {
 	}
 	else if (s1->powerups & (1 << PW_FORCE_PROJECTILE))
 	{
-		if (s1->weapon == WP_CONCUSSION)
+		int baseWeapon = weaponData[s1->weapon].baseWeaponNum ? weaponData[s1->weapon].baseWeaponNum : s1->weapon;
+		if (baseWeapon == WP_CONCUSSION)
 		{
 			FX_DestructionProjectileThink(cent, weapon);
 			cgi_R_AddLightToScene(cent->lerpOrigin, 125, 1.0f, 0.65f, 0.0f); /////// Jace Solaris fix
@@ -1185,7 +1187,7 @@ static void CG_Missile( centity_t *cent ) {
 			return;
 
 		}
-		else if (s1->weapon == WP_ROCKET_LAUNCHER)
+		else if (baseWeapon == WP_ROCKET_LAUNCHER)
 		{
 			FX_BlastProjectileThink(cent, weapon);
 			cgi_R_AddLightToScene(cent->lerpOrigin, 125,1.0f, 0.65f, 0.0f);/////// Jace Solaris fix
@@ -1193,7 +1195,7 @@ static void CG_Missile( centity_t *cent ) {
 			return;
 
 		}
-		else if (s1->weapon == WP_DISRUPTOR)
+		else if (baseWeapon == WP_DISRUPTOR)
 		{
 			FX_StrikeProjectileThink(cent, weapon);
 			cgi_R_AddLightToScene(cent->lerpOrigin, 125, 1.0f, 0.65f, 0.0f);/////// Jace Solaris fix
@@ -1201,42 +1203,23 @@ static void CG_Missile( centity_t *cent ) {
 
 		}
 	}
-	else if ( cent->gent->alt_fire )
-	{
-		// add trails
-		if ( weapon->alt_missileTrailFunc )
-			weapon->alt_missileTrailFunc( cent, weapon );
-
-		// add dynamic light
-		if ( wData->alt_missileDlight )
-				cgi_R_AddLightToScene(cent->lerpOrigin, wData->alt_missileDlight,
-					wData->alt_missileDlightColor[0], wData->alt_missileDlightColor[1], wData->alt_missileDlightColor[2] );
-
-		// add missile sound
-		if ( weapon->alt_missileSound )
-			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->alt_missileSound );
-
-		//Don't draw something without a model
-		if ( weapon->alt_missileModel == NULL_HANDLE )
-			return;
-	}
 	else
 	{
 		// add trails
-		if ( weapon->missileTrailFunc )
-			weapon->missileTrailFunc( cent, weapon );
+		if ( weapon->weaponAttacksInfo[cent->gent->alt_fire].missileTrailFunc )
+			weapon->weaponAttacksInfo[cent->gent->alt_fire].missileTrailFunc( cent, weapon );
 
 		// add dynamic light
-		if ( wData->missileDlight )
-			cgi_R_AddLightToScene(cent->lerpOrigin, wData->missileDlight,
-				wData->missileDlightColor[0], wData->missileDlightColor[1], wData->missileDlightColor[2] );
+		if ( wData->attackData[cent->gent->alt_fire].missileDlight )
+			cgi_R_AddLightToScene(cent->lerpOrigin, wData->attackData[cent->gent->alt_fire].missileDlight,
+				wData->attackData[cent->gent->alt_fire].missileDlightColor[0], wData->attackData[cent->gent->alt_fire].missileDlightColor[1], wData->attackData[cent->gent->alt_fire].missileDlightColor[2] );
 
 		// add missile sound
-		if ( weapon->missileSound )
-			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->missileSound );
+		if ( weapon->weaponAttacksInfo[cent->gent->alt_fire].missileSound )
+			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[cent->gent->alt_fire].missileSound );
 
 		//Don't draw something without a model
-		if ( weapon->missileModel == NULL_HANDLE )
+		if ( weapon->weaponAttacksInfo[cent->gent->alt_fire].missileModel == NULL_HANDLE )
 			return;
 	}
 
@@ -1259,10 +1242,8 @@ Ghoul2 Insert End
 
 	if ( s1->otherEntityNum2 && g_vehWeaponInfo[s1->otherEntityNum2].iModel && cgs.model_draw[g_vehWeaponInfo[s1->otherEntityNum2].iModel] != NULL_HANDLE)
 		ent.hModel = cgs.model_draw[g_vehWeaponInfo[s1->otherEntityNum2].iModel];
-	else if ( cent->gent->alt_fire )
-		ent.hModel = weapon->alt_missileModel;
 	else
-		ent.hModel = weapon->missileModel;
+		ent.hModel = weapon->weaponAttacksInfo[cent->gent->alt_fire].missileModel;
 
 	// spin as it moves
 	if ( s1->apos.trType != TR_INTERPOLATE )
@@ -1298,9 +1279,10 @@ Ghoul2 Insert End
 		&& cg.snap->ps.clientNum != cent->currentState.number
 		&& CG_PlayerCanSeeCent( cent ) )
 	{//so player can see dark missiles/explosives
-		if ( s1->weapon == WP_THERMAL
-			|| s1->weapon == WP_DET_PACK
-			|| s1->weapon == WP_TRIP_MINE
+		int baseWeapon = weaponData[s1->weapon].baseWeaponNum ? weaponData[s1->weapon].baseWeaponNum : s1->weapon;
+		if (baseWeapon == WP_THERMAL
+			|| baseWeapon == WP_DET_PACK
+			|| baseWeapon == WP_TRIP_MINE
 			|| (s1->eFlags&EF_FORCE_VISIBLE) )
 		{//really, we only need to do this for things like thermals, detpacks and tripmines, no?
 			CG_AddForceSightShell( &ent, cent );

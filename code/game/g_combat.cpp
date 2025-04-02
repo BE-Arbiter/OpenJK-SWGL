@@ -139,16 +139,15 @@ TossClientItems
 Toss the weapon and powerups for the killed player
 =================
 */
-extern gentity_t *WP_DropThermal( gentity_t *ent );
+extern gentity_t *WP_DropGrenade( gentity_t *ent, int attackIndex);
 extern qboolean WP_SaberLose( gentity_t *self, vec3_t throwDir );
-gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
+gentity_t* TossClientItems_Configurable(gentity_t* self,  bool fromConsoleCommand)
 {
 	//FIXME: drop left-hand weapon, too?
 	gentity_t	*dropped = NULL;
 	gentity_t	*dropped2 = NULL;
 	gitem_t		*item = NULL;
 	int			weapon;
-	qboolean 	is_pistol = qfalse;
 
 	if ( self->client->NPC_class == CLASS_SEEKER
 		|| self->client->NPC_class == CLASS_REMOTE
@@ -163,10 +162,6 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 
 	// drop the weapon if not a saber or enemy-only weapon
 	weapon = self->s.weapon;
-	is_pistol = (qboolean)(self->weaponModel[1] > 0 && (weapon == WP_BLASTER_PISTOL
-		|| weapon == WP_REY
-		|| weapon == WP_JANGO
-		|| weapon == WP_CLONEPISTOL));
 
 	if ( weapon == WP_SABER )
 	{
@@ -176,7 +171,7 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 			self->s.weapon = WP_NONE;
 		}
 		//If it's called from DropWeapon Command, First drop the left saber.
-		else if (g_saberPickuppableDroppedSabers->integer && self->weaponModel[1] > 0 && dropOneSaber)
+		else if (g_saberPickuppableDroppedSabers->integer && self->weaponModel[1] > 0 && fromConsoleCommand)
 		{
 			if (self->client->ps.saber[1].name && self->client->ps.saber[1].name[0]) {
 				//If drop is successfull then remove the saber from the player.
@@ -188,7 +183,7 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 			}
 		}
 		//If it's called from DropWeapon Command, Secondly drop the right saber
-		else if (g_saberPickuppableDroppedSabers->integer && self->weaponModel[0] > 0 && dropOneSaber)
+		else if (g_saberPickuppableDroppedSabers->integer && self->weaponModel[0] > 0 && fromConsoleCommand)
 		{
 			if (self->client->ps.saber[0].name && self->client->ps.saber[0].name[0]) {
 				//If drop is successfull then remove the saber from the player.
@@ -207,33 +202,28 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 			{
 				self->s.weapon = WP_NONE;
 			}
-			if (g_saberPickuppableDroppedSabers->integer && self->weaponModel[1] > 0 && self->client->ps.saber[1].name && self->client->ps.saber[1].name[0] 
+			if (g_saberPickuppableDroppedSabers->integer && self->weaponModel[1] > 0 && self->client->ps.saber[1].name && self->client->ps.saber[1].name[0]
 				&& G_DropSaberItem(self->client->ps.saber[1].name, self->client->ps.saber[1].blade[0].color, self->client->renderInfo.handLPoint, self->client->ps.velocity, self->currentAngles) != NULL)
 			{
 				WP_RemoveSaber(self, 1);
 			}
 		}
 	}
-	/*else if ( weapon == WP_BLASTER_PISTOL )
-	{//FIXME: either drop the pistol and make the pickup only give ammo or drop ammo
+	else if (weapon == WP_MELEE )
+	{//never drop this
 	}
-	*/
-	else if ( weapon == WP_STUN_BATON
-		|| weapon == WP_MELEE )
-	{//never drop these
-	}
-	else if ( weapon > WP_SABER && weapon < WP_NUM_WEAPONS && playerUsableWeapons[weapon] )//&& self->client->ps.ammo[ weaponData[weapon].ammoIndex ]
+	else if ( weapon > WP_SABER && weapon < weaponCount && weaponData[weapon].playerUsable )
 	{
 		self->s.weapon = WP_NONE;
 
-		if ( weapon == WP_THERMAL && self->client->ps.torsoAnim == BOTH_ATTACK10 )
+		if ( (weapon == WP_THERMAL || weaponData[weapon].baseWeaponNum == WP_THERMAL) && self->client->ps.torsoAnim == BOTH_ATTACK10 )
 		{//we were getting ready to throw the thermal, drop it!
 			self->client->ps.weaponChargeTime = level.time - FRAMETIME;//so it just kind of drops it
-			dropped = WP_DropThermal( self );
+			dropped = WP_DropGrenade( self , 0 );
 		}
 		else
-		{// find the item type for this weapon			
-			item = FindItemForWeapon( (weapon_t) weapon );			
+		{// find the item type for this weapon
+			item = FindItemForWeapon( weapon );
 		}
 		if ( item && !dropped && IsWeaponDroppable(weapon) )
 		{
@@ -328,7 +318,8 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 			}
 		}
 
-		if (item && !dropped2 && self->weaponModel[1] > 0 && is_pistol)
+		//Drop the second pistol if you have two.
+		if (item && !dropped2 && (self->weaponModel[1] > 0) && weaponData[weapon].weaponCategory == WC_PISTOL)
 		{
 			dropped2 = Drop_Item(self, item, 45, qtrue);
 			dropped2->e_ThinkFunc = thinkF_NULL;
@@ -360,11 +351,6 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 			dropped2->s.radius = 10;
 		}
 	}
-//	else if (( self->client->NPC_class == CLASS_SENTRY ) || ( self->client->NPC_class == CLASS_PROBE )) // Looks dumb, Steve told us to take it out.
-//	{
-//		item = FindItemForAmmo( AMMO_BLASTER );
-//		Drop_Item( self, item, 0, qtrue );
-//	}
 	else if ( self->client->NPC_class == CLASS_MARK1 )
 	{
 
@@ -391,7 +377,9 @@ gentity_t* TossClientItems_Configurable(gentity_t* self,  bool dropOneSaber)
 		}
 		Drop_Item( self, item, 0, qtrue );
 	}
-
+	if (dropped != NULL && fromConsoleCommand) {
+		dropped->flags |= FL_WILLINGLY_DROPPED;
+	}
 	return dropped;//NOTE: presumes only drop one thing
 }
 
@@ -693,7 +681,7 @@ void DeathFX( gentity_t *ent)
 	if ( !ent || !ent->client )
 		return;
 
-	
+
 /*
 	switch( ent->client->playerTeam )
 	{
@@ -4160,7 +4148,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 	{//FIXME: just HazTeam members in formation on away missions?
 		//or more controlled- via deathscripts?
 		// Don't count player
-		if (( &g_entities[0] != NULL && g_entities[0].client ) && (self->s.number != 0))
+		if (( g_entities[0].inuse && g_entities[0].client ) && (self->s.number != 0))
 		{//add to the number of teammates lost
 			g_entities[0].client->ps.persistant[PERS_TEAMMATES_KILLED]++;
 		}
@@ -4642,7 +4630,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 				self->NPC->timeOfDeath = level.time + 10000;
 			}
 		}
-		else if ( (meansOfDeath == MOD_SNIPER 
+		else if ( (meansOfDeath == MOD_SNIPER
 			|| meansOfDeath == MOD_DESTRUCTION
 			|| meansOfDeath == MOD_HIGH_POWERED_SHOT) && (self->client->NPC_class != CLASS_VEHICLE || (self->client->NPC_class == CLASS_VEHICLE && self->m_pVehicle->m_pVehicleInfo->type == VH_ANIMAL)))
 		{
@@ -4831,7 +4819,7 @@ extern void RunEmplacedWeapon( gentity_t *ent, usercmd_t **ucmd );
 	// Start any necessary death fx for this entity
 	DeathFX( self);
 
-	
+
 }
 
 qboolean G_CheckForStrongAttackMomentum( gentity_t *self )
@@ -5009,7 +4997,7 @@ int CheckArmor (gentity_t *ent, int damage, int dflags, int mod)
 			client->ps.stats[STAT_ARMOR] = 0;
 			return 0;
 		}
-		
+
 		// No shield, no protection
 		if (!(ent->flags & FL_SHIELDED))
 		{
@@ -5858,9 +5846,9 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 	// Heroes deal more damage and receive reduced damage (but not heavy weapons)
 	if (attacker && attacker->attrFlags & ATTR_HERO)
 	{
-		if (mod != MOD_CONC && mod != MOD_CONC_ALT && mod != MOD_DETPACK && mod != MOD_EMPLACED 
-		&& mod != MOD_EXPLOSIVE && mod != MOD_EXPLOSIVE_SPLASH && mod != MOD_ROCKET 
-		&& mod != MOD_ROCKET_ALT && mod != MOD_THERMAL && mod != MOD_THERMAL_ALT 
+		if (mod != MOD_CONC && mod != MOD_CONC_ALT && mod != MOD_DETPACK && mod != MOD_EMPLACED
+		&& mod != MOD_EXPLOSIVE && mod != MOD_EXPLOSIVE_SPLASH && mod != MOD_ROCKET
+		&& mod != MOD_ROCKET_ALT && mod != MOD_THERMAL && mod != MOD_THERMAL_ALT
 		&& mod != MOD_REPEATER_ALT && mod != MOD_FLECHETTE_ALT && mod != MOD_SABER && mod != MOD_DISRUPTOR)
 		{
 			damage *= 5.0f;
@@ -7238,14 +7226,14 @@ int KnightfallDamage(int damage, gentity_t* attacker, gentity_t* targ, int mod)
 	{
 		if ((attacker && attacker->client)
 			&& (targ && targ->client))
-		{		
+		{
 			// Trying to stop friendly fire between the player and the clones
 			if (attacker->client->playerTeam == targ->client->playerTeam)
 				damage = 0;
 			// 2x damage from clones to Jedi (so they're actually helpful)
 			else if ((mod == MOD_CLONERIFLE || mod == MOD_CLONERIFLE_ALT) && targ->client->NPC_class == CLASS_JEDI && !IsKnightfallBoss(targ))
 				damage *= 2.0f;
-			
+
 			else if (IsKnightfallBoss(attacker) && targ != player)
 			{
 				damage *= 3.0f;

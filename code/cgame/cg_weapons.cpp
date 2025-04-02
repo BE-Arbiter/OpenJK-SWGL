@@ -34,7 +34,12 @@ extern void CG_LightningBolt( centity_t *cent, vec3_t origin );
 
 extern cvar_t *g_char_model;
 
+//Values at bottom of file
+char baseHitFleshEffects[][64];
+char baseHitWallEffects[][64];
+
 #define	PHASER_HOLDFRAME	2
+#define LOADOUT_PAGESIZE	18
 extern void G_SoundOnEnt( gentity_t *ent, soundChannel_t channel, const char *soundPath );
 const char *CG_DisplayBoxedText(int iBoxX, int iBoxY, int iBoxWidth, int iBoxHeight,
 								const char *psText, int iFontHandle, float fScale,
@@ -44,6 +49,147 @@ extern void Inquisitor_Stop(gentity_t* ent, qboolean running = qfalse);
 extern void Inquisitor_Spin(gentity_t* ent, qboolean increment = qtrue);
 
 /*
+
+=================
+CG_GetWorldModelName
+
+Get WorldModelName. Returned string must be used right away
+=================
+*/
+void CG_GetWorldModelName(char* initalModelName,char* weaponModel,int size) {
+
+	Q_strncpyz(weaponModel, initalModelName, size);
+	if (char* spot = strstr(weaponModel, ".md3"))
+	{
+		*spot = 0;
+		spot = strstr(weaponModel, "_w");//i'm using the in view weapon array instead of scanning the item list, so put the _w back on
+		if (!spot)
+		{
+			Q_strcat(weaponModel, size, "_w");
+		}
+		Q_strcat(weaponModel, size, ".glm");	//and change to ghoul2
+	}
+}
+/*
+
+=================
+CG_GetAmmoName
+
+Get Ammo className from weaponClass Name
+=================
+*/
+void CG_GetAmmoName(const char* weaponClassName, char* ammoClassName, int size) {
+	if (Q_stricmpn(weaponClassName, "weapon_", 7)) {
+		Com_Printf(S_COLOR_YELLOW"Warning : %s not starting with 'weapon_' ammo name will be inconsistent");
+	}
+	const char* ammoName = weaponClassName + 7;
+	Com_sprintf(ammoClassName, size, "ammo_%s", ammoName);
+}
+/*
+=================
+CG_InitItemForAmmo
+
+We need a new item initialized.
+=================
+*/
+void CG_InitItemForAmmo(gitem_t* item, int weaponNum) {
+	//Init the item
+	item->mins[0] = -16;
+	item->mins[1] = -16;
+	item->mins[2] = -8;
+
+	item->maxs[0] = 16;
+	item->maxs[1] = 16;
+	item->maxs[2] = 16;
+
+
+	item->pickup_sound = "sound/weapons/w_pkup.wav";	//give it a default sound
+	item->precaches = NULL;
+	item->sounds = NULL;
+
+	//Set specific data from weapon
+	char ammoClassName[64];
+	CG_GetAmmoName(weaponData[weaponNum].classname, ammoClassName, 64);
+	item->classname = G_NewString(ammoClassName);
+	item->giTag = weaponData[weaponNum].ammoIndex;
+	item->giType = (itemType_t) IT_AMMO;
+	item->giTagName = G_NewString(ammoClassName);
+	item->quantity = 5; //TODO : What value to put here
+	item->icon = G_NewString(weaponData[weaponNum].weaponIcon);
+
+	char world_model[64];
+	CG_GetWorldModelName(&weaponData[weaponNum].weaponMdl[0], &world_model[0], 64);
+	item->world_model = G_NewString(world_model);
+	gi.G2API_PrecacheGhoul2Model(world_model);
+
+	RegisterItem(item);
+}
+/*
+=================
+CG_InitItemForWeapon
+
+We need a new item initialized.
+=================
+*/
+void CG_InitItemForWeapon(gitem_t* item, int weaponNum) {
+	//Init the item
+	item->mins[0] = -16;
+	item->mins[1] = -16;
+	item->mins[2] = -8;
+
+	item->maxs[0] = 16;
+	item->maxs[1] = 16;
+	item->maxs[2] = 16;
+
+
+	item->pickup_sound = "sound/weapons/w_pkup.wav";	//give it a default sound
+	item->precaches = NULL;
+	item->sounds = NULL;
+
+	//Set specific data from weapon
+	item->classname = G_NewString(weaponData[weaponNum].classname);
+	item->giTag = weaponNum;
+	item->giType = (itemType_t) IT_WEAPON;
+	item->giTagName = G_NewString(weaponData[weaponNum].classname);
+	item->quantity = 50; //TODO : Shall we get base weapon ammo count?
+	item->icon = G_NewString(weaponData[weaponNum].weaponIcon);
+
+	char world_model[64];
+	CG_GetWorldModelName(&weaponData[weaponNum].weaponMdl[0], &world_model[0], 64);
+	item->world_model = G_NewString(world_model);
+	gi.G2API_PrecacheGhoul2Model(world_model);
+
+	RegisterItem(item);
+}
+
+/*
+=================
+CG_GetAttackIndex
+
+Return The attack Index of the attack
+=================
+*/
+int CG_GetAttackIndex(gentity_t *gent,qboolean alt_fire) 
+{
+	int weaponNum = gent->s.weapon;
+	if (gent->client && gent->client->ps.clientNum > 0) {
+		return alt_fire ? 1 : 0;
+	}
+	if (gent->client && gent->client->ps.firing_attack >= 0) {
+		return gent->client->ps.firing_attack;
+	}
+	int attackIndex = alt_fire ? 1 : 0;
+	if (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode >= ST_A280) {
+		if (alt_fire && weaponData[weaponNum].attackData[3].firingLogic != FL_NONE) {
+			return 3;
+		}
+		else if (weaponData[weaponNum].attackData[2].firingLogic != FL_NONE) {
+			return 2;
+		}
+	}
+	return attackIndex;
+}
+/*
 =================
 CG_RegisterWeapon
 
@@ -52,6 +198,7 @@ The server says this item is used on this level
 */
 void CG_RegisterWeapon( int weaponNum ) {
 	weaponInfo_t	*weaponInfo;
+	qboolean found = qfalse;
 	gitem_t			*item, *ammo;
 	char			path[MAX_QPATH];
 	vec3_t			mins, maxs;
@@ -59,9 +206,10 @@ void CG_RegisterWeapon( int weaponNum ) {
 	char			*currWeaponMdl;
 
 	weaponInfo = &cg_weapons[weaponNum];
+	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
 
 	// error checking
-	if ( weaponNum == 0 ) {
+	if ( weaponNum <= 0 ) {
 		return;
 	}
 
@@ -74,17 +222,43 @@ void CG_RegisterWeapon( int weaponNum ) {
 	weaponInfo->registered = qtrue;
 
 	// find the weapon in the item list
-	for ( item = bg_itemlist + 1 ; item->classname ; item++ ) {
-		if ( item->giType == IT_WEAPON && item->giTag == weaponNum ) {
+	for ( i = 1 ;  i < bg_numItems; i++ ) {
+		item = &(bg_itemlist[i]);
+		if( ( item->giType == IT_WEAPON && item->giTag == weaponNum )
+			|| (item->giType == IT_WEAPON && item->giTag == -1 && !Q_stricmp(item->giTagName, weaponData[weaponNum].classname))
+		){
 			weaponInfo->item = item;
+			//Overwrite correctly the item
+			if (item->giTag == -1) {
+				item->giTag = weaponNum;
+			}
+			found = qtrue;
+			Com_Printf(S_COLOR_CYAN, "Found item %s for weapon %s", item->classname, weaponData[weaponNum].classname);
 			break;
 		}
 	}
-	// if we couldn't find which weapon this is, give us an error
-	if ( !item->classname ) {
-		CG_Error( "Couldn't find item for weapon %s\nNeed to update Items.dat!", weaponData[weaponNum].classname);
+	// if we couldn't find which weapon this is, Create one!
+	if ( !found) {
+		if (i == MAX_ITEMS) {
+			CG_Error("Too many items in external items data(%d); Cannot create nor found item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
+		}
+		item = &(bg_itemlist[bg_numItems]);
+		CG_InitItemForWeapon(item, weaponNum);
+		weaponInfo->item = item;
+		bg_numItems++;
+
+		if (weaponData[weaponNum].baseWeaponNum == WP_THERMAL
+			|| weaponData[weaponNum].baseWeaponNum == WP_DET_PACK
+			|| weaponData[weaponNum].baseWeaponNum == WP_TRIP_MINE) {
+			if (i == MAX_ITEMS) {
+				CG_Error("Too many items in external items data(%d); Cannot create nor found ammo item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
+			}
+			item = &(bg_itemlist[bg_numItems]);
+			CG_InitItemForAmmo(item, weaponNum);
+			bg_numItems++;
+		}
 	}
-	
+
 	CG_RegisterItemVisuals( item - bg_itemlist );
 
 	currWeaponMdl = (weaponData[weaponNum].secondaryMdl) ? weaponData[weaponNum].weaponMdl2 : weaponData[weaponNum].weaponMdl;
@@ -93,24 +267,13 @@ void CG_RegisterWeapon( int weaponNum ) {
 	weaponInfo->weaponModel = cgi_R_RegisterModel( currWeaponMdl );
 	{//in case the weaponmodel isn't _w, precache the _w.glm
 		char weaponModel[64];
-
-		Q_strncpyz (weaponModel, currWeaponMdl, sizeof(weaponModel));
-		if (char *spot = strstr(weaponModel, ".md3") )
-		{
-			*spot = 0;
-			spot = strstr(weaponModel, "_w");//i'm using the in view weapon array instead of scanning the item list, so put the _w back on
-			if (!spot)
-			{
-				Q_strcat (weaponModel, sizeof(weaponModel), "_w");
-			}
-			Q_strcat (weaponModel, sizeof(weaponModel), ".glm");	//and change to ghoul2
-		}
-		gi.G2API_PrecacheGhoul2Model( weaponModel ); // correct way is item->world_model
+		CG_GetWorldModelName(&currWeaponMdl[0], &weaponModel[0],64);
+		gi.G2API_PrecacheGhoul2Model(weaponModel);
 	}
 
 	if ( weaponInfo->weaponModel == 0 )
 	{
-		CG_Error( "Couldn't find weapon model %s for weapon %s\n", currWeaponMdl, weaponData[weaponNum].classname);
+		CG_Error( "Couldn't find weapon model '%s' for weapon %s(%d)\n", currWeaponMdl, weaponData[weaponNum].classname,weaponNum);
 		return;
 	}
 
@@ -169,86 +332,120 @@ void CG_RegisterWeapon( int weaponNum ) {
 		weaponInfo->handsModel = cgi_R_RegisterModel( "models/weapons2/briar_pistol/briar_pistol_hand.md3" );
 	}
 
-	// register the sounds for the weapon
-	if (weaponData[weaponNum].firingSnd[0]) {
-		weaponInfo->firingSound = cgi_S_RegisterSound( weaponData[weaponNum].firingSnd );
-	}
-	if (weaponData[weaponNum].altFiringSnd[0]) {
-		weaponInfo->altFiringSound = cgi_S_RegisterSound( weaponData[weaponNum].altFiringSnd );
+
+	// register weaponAttackInfo
+	for (int i = 0; i < MAX_WEAPON_ATTACKS; i++) {
+		if (weaponData[weaponNum].attackData[i].firingLogic == FL_FLAMETHROWER) {
+			theFxScheduler.RegisterEffect("env/fire.efx");
+			theFxScheduler.RegisterEffect("env/small_fire.efx");
+		}
+		// register the sounds for the weapon
+		if (weaponData[weaponNum].attackData[i].firingSnd[0]) {
+			weaponInfo->weaponAttacksInfo[i].firingSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].firingSnd);
+		}
+		if (weaponData[weaponNum].attackData[i].chargeSnd[0]) {
+			weaponInfo->weaponAttacksInfo[i].chargeSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].chargeSnd);
+		}
+		if (weaponData[weaponNum].attackData[i].missileMdl[0]) {
+			weaponInfo->weaponAttacksInfo[i].missileModel = cgi_R_RegisterModel(weaponData[weaponNum].attackData[i].missileMdl);
+		}
+		if (weaponData[weaponNum].attackData[i].missileSound[0]) {
+			weaponInfo->weaponAttacksInfo[i].missileSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].missileSound);
+		}
+		if (weaponData[weaponNum].attackData[i].missileHitSound[0]) {
+			weaponInfo->weaponAttacksInfo[i].missileHitSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].missileHitSound);
+		}
+		if (weaponData[weaponNum].attackData[i].muzzleEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].muzzleEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].muzzleEffect);
+		}
+		if (weaponData[weaponNum].attackData[i].chargeMuzzleShader[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].chargeMuzzleShader = cgi_R_RegisterShader(weaponData[weaponNum].attackData[i].chargeMuzzleShader);
+		}
+		if (weaponData[weaponNum].attackData[i].projectileEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].projectileEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].projectileEffect);
+		}
+		if (weaponData[weaponNum].attackData[i].explosionEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].explosionEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].explosionEffect);
+		}
+		if (weaponData[weaponNum].attackData[i].shockwaveEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].shockwaveEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].shockwaveEffect);
+		}
+		if (weaponData[weaponNum].attackData[i].hitWallEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].hitWallEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].hitWallEffect);
+		}
+		else if (baseHitWallEffects[baseWeaponNum][0]) {
+			weaponInfo->weaponAttacksInfo[i].hitWallEffect = theFxScheduler.RegisterEffect(baseHitWallEffects[baseWeaponNum]);
+		}
+		if (weaponData[weaponNum].attackData[i].hitWallEffect2[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].hitWallEffect2 = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].hitWallEffect2);
+		}
+		if (weaponData[weaponNum].attackData[i].hitWallEffect3[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].hitWallEffect3 = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].hitWallEffect3);
+		}
+		if (weaponData[weaponNum].attackData[i].hitDroidEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].hitDroidEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].hitDroidEffect);
+		}
+		if (weaponData[weaponNum].attackData[i].hitFleshEffect[0])
+		{
+			weaponInfo->weaponAttacksInfo[i].hitFleshEffect = theFxScheduler.RegisterEffect(weaponData[weaponNum].attackData[i].hitFleshEffect);
+		}
+		else if (baseHitFleshEffects[baseWeaponNum][0]) {
+			weaponInfo->weaponAttacksInfo[i].hitFleshEffect = theFxScheduler.RegisterEffect(baseHitFleshEffects[baseWeaponNum]);
+		}
+		if (weaponData[weaponNum].attackData[i].missileFunc)
+		{
+			weaponInfo->weaponAttacksInfo[i].missileTrailFunc = (void (*)(struct centity_s*, const struct weaponInfo_s*))weaponData[weaponNum].attackData[i].missileFunc;
+		}
+		if (weaponData[weaponNum].attackData[i].beamShader[0])
+		{
+			cgi_R_RegisterShader(weaponData[weaponNum].attackData[i].beamShader);
+		}
+		if (weaponData[weaponNum].attackData[i].fullBeamShader[0])
+		{
+			cgi_R_RegisterShader(weaponData[weaponNum].attackData[i].fullBeamShader);
+		}
+
 	}
 	if (weaponData[weaponNum].stopSnd[0]) {
-		weaponInfo->stopSound = cgi_S_RegisterSound( weaponData[weaponNum].stopSnd );
-	}
-	if (weaponData[weaponNum].chargeSnd[0]) {
-		weaponInfo->chargeSound = cgi_S_RegisterSound( weaponData[weaponNum].chargeSnd );
-	}
-	if (weaponData[weaponNum].altChargeSnd[0]) {
-		weaponInfo->altChargeSound = cgi_S_RegisterSound( weaponData[weaponNum].altChargeSnd );
+		weaponInfo->stopSound = cgi_S_RegisterSound(weaponData[weaponNum].stopSnd);
 	}
 	if (weaponData[weaponNum].selectSnd[0]) {
 		weaponInfo->selectSound = cgi_S_RegisterSound( weaponData[weaponNum].selectSnd );
 	}
-
-	// give us missile models if we should
-	if (weaponData[weaponNum].missileMdl[0]) 	{
-		weaponInfo->missileModel = cgi_R_RegisterModel(weaponData[weaponNum].missileMdl );
-	}
-	if (weaponData[weaponNum].alt_missileMdl[0]) 	{
-		weaponInfo->alt_missileModel = cgi_R_RegisterModel(weaponData[weaponNum].alt_missileMdl );
-	}
-	if (weaponData[weaponNum].missileSound[0]) {
-		weaponInfo->missileSound = cgi_S_RegisterSound( weaponData[weaponNum].missileSound );
-	}
-	if (weaponData[weaponNum].alt_missileSound[0]) {
-		weaponInfo->alt_missileSound = cgi_S_RegisterSound( weaponData[weaponNum].alt_missileSound );
-	}
-	if (weaponData[weaponNum].missileHitSound[0]) {
-		weaponInfo->missileHitSound = cgi_S_RegisterSound( weaponData[weaponNum].missileHitSound );
-	}
-	if (weaponData[weaponNum].altmissileHitSound[0]) {
-		weaponInfo->altmissileHitSound = cgi_S_RegisterSound( weaponData[weaponNum].altmissileHitSound );
-	}
-	if ( weaponData[weaponNum].mMuzzleEffect[0] )
-	{
-		weaponData[weaponNum].mMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].mMuzzleEffect );
-	}
-	if ( weaponData[weaponNum].mAltMuzzleEffect[0] )
-	{
-		weaponData[weaponNum].mAltMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].mAltMuzzleEffect );
-	}
-	if ( weaponData[weaponNum].mTertiaryMuzzleEffect[0] )
-	{
-		weaponData[weaponNum].mTertiaryMuzzleEffectID = theFxScheduler.RegisterEffect( weaponData[weaponNum].mTertiaryMuzzleEffect );
+	if (weaponData[weaponNum].readySnd[0]) {
+		weaponInfo->readySound = cgi_S_RegisterSound( weaponData[weaponNum].readySnd);
 	}
 
-	//fixme: don't really need to copy these, should just use directly
-	// give ourselves the functions if we can
-	if (weaponData[weaponNum].func)
-	{
-		weaponInfo->missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].func;
-	}
-	if (weaponData[weaponNum].altfunc)
-	{
-		weaponInfo->alt_missileTrailFunc = (void (*)(struct centity_s *,const struct weaponInfo_s *))weaponData[weaponNum].altfunc;
-	}
+	//Register a blank effect to overwrite the charging sound of dual pistols... Hate this hack...
+	cgs.effects.blankEffect = theFxScheduler.RegisterEffect("misc/blank");
 
-	switch ( weaponNum )	//extra client only stuff
+	switch (baseWeaponNum)	//extra client only stuff
 	{
 	case WP_SABER:
+	{
 		//saber/force FX
-		theFxScheduler.RegisterEffect( "sparks/spark_nosnd" );//was "sparks/spark"
-		theFxScheduler.RegisterEffect( "sparks/blood_sparks2" );
-		theFxScheduler.RegisterEffect( "force/force_touch" );
-		theFxScheduler.RegisterEffect( "saber/saber_block" );
-		theFxScheduler.RegisterEffect( "saber/saber_cut" );
+		theFxScheduler.RegisterEffect("sparks/spark_nosnd");//was "sparks/spark"
+		theFxScheduler.RegisterEffect("sparks/blood_sparks2");
+		theFxScheduler.RegisterEffect("force/force_touch");
+		theFxScheduler.RegisterEffect("saber/saber_block");
+		theFxScheduler.RegisterEffect("saber/saber_cut");
 		//theFxScheduler.RegisterEffect( "saber/limb_bolton" );
-		theFxScheduler.RegisterEffect( "saber/fizz" );
-		theFxScheduler.RegisterEffect( "saber/boil" );
+		theFxScheduler.RegisterEffect("saber/fizz");
+		theFxScheduler.RegisterEffect("saber/boil");
 		//theFxScheduler.RegisterEffect( "saber/fire" );//was "sparks/spark"
 
-		cgs.effects.forceHeal			= theFxScheduler.RegisterEffect( "force/heal" );
+		cgs.effects.forceHeal = theFxScheduler.RegisterEffect("force/heal");
 		//cgs.effects.forceInvincibility	= theFxScheduler.RegisterEffect( "force/invin" );
-		cgs.effects.forceConfusion		= theFxScheduler.RegisterEffect( "force/confusion" );
+		cgs.effects.forceConfusion = theFxScheduler.RegisterEffect("force/confusion");
 		cgs.effects.forceLightning = theFxScheduler.RegisterEffect("force/lightning");
 		cgs.effects.forceLightningWide = theFxScheduler.RegisterEffect("force/lightningwide");
 		cgs.effects.redForceLightning = theFxScheduler.RegisterEffect("force/redlightning");
@@ -269,8 +466,8 @@ void CG_RegisterWeapon( int weaponNum ) {
 		cgs.effects.blackForceLightningWide = theFxScheduler.RegisterEffect("force/blacklightningwide");
 
 		//new Jedi Academy force power effects
-		cgs.effects.forceDrain		= theFxScheduler.RegisterEffect( "mp/drain" );
-		cgs.effects.forceDrainWide	= theFxScheduler.RegisterEffect( "mp/drainwide" );
+		cgs.effects.forceDrain = theFxScheduler.RegisterEffect("mp/drain");
+		cgs.effects.forceDrainWide = theFxScheduler.RegisterEffect("mp/drainwide");
 		//cgs.effects.forceDrained	= theFxScheduler.RegisterEffect( "mp/drainhit");
 
 		cgs.effects.destructionProjectile = theFxScheduler.RegisterEffect("force/destruction");
@@ -286,172 +483,159 @@ void CG_RegisterWeapon( int weaponNum ) {
 		cgs.media.strikeSound = cgi_S_RegisterSound("sound/weapons/explosions/explode5.wav");
 
 		//saber sounds
-		//cgi_S_RegisterSound( "sound/weapons/saber/saberon.wav" );
-		//cgi_S_RegisterSound( "sound/weapons/saber/enemy_saber_on.wav" );
-		cgi_S_RegisterSound( "sound/weapons/saber/saberonquick.wav" );
-		//cgi_S_RegisterSound( "sound/weapons/saber/saberoff.wav" );
-		//cgi_S_RegisterSound( "sound/weapons/saber/enemy_saber_off.wav" );
-		cgi_S_RegisterSound( "sound/weapons/saber/saberspinoff.wav" );
-		cgi_S_RegisterSound( "sound/weapons/saber/saberoffquick.wav" );
-		for ( i = 1; i < 4; i++ )
+		cgi_S_RegisterSound("sound/weapons/saber/saberonquick.wav");
+		cgi_S_RegisterSound("sound/weapons/saber/saberspinoff.wav");
+		cgi_S_RegisterSound("sound/weapons/saber/saberoffquick.wav");
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberbounce%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/saberbounce%d.wav", i));
 		}
-		for ( i = 1; i < 4; i++ )
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberhit%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/saberhit%d.wav", i));
 		}
-		for ( i = 1; i < 4; i++ )
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberhitwall%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/saberhitwall%d.wav", i));
 		}
-		for ( i = 1; i < 10; i++ )
+		for (i = 1; i < 10; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberblock%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/saberblock%d.wav", i));
 		}
-		/*
-		for ( i = 1; i < 6; i++ )
+		for (i = 1; i < 10; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberhum%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/saberhup%d.wav", i));
 		}
-		*/
-		for ( i = 1; i < 10; i++ )
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberhup%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/saberspin%d.wav", i));
 		}
-		for ( i = 1; i < 4; i++ )
+		cgi_S_RegisterSound("sound/weapons/saber/saber_catch.wav");
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/saberspin%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/bounce%d.wav", i));
 		}
-		cgi_S_RegisterSound( "sound/weapons/saber/saber_catch.wav" );
-		for ( i = 1; i < 4; i++ )
+		cgi_S_RegisterSound("sound/weapons/saber/hitwater.wav");
+		cgi_S_RegisterSound("sound/weapons/saber/boiling.wav");
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/bounce%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/saber/rainfizz%d.wav", i));
 		}
-		cgi_S_RegisterSound( "sound/weapons/saber/hitwater.wav" );
-		cgi_S_RegisterSound( "sound/weapons/saber/boiling.wav" );
-		for ( i = 1; i < 4; i++ )
-		{
-			cgi_S_RegisterSound( va( "sound/weapons/saber/rainfizz%d.wav", i ) );
-		}
-		cgi_S_RegisterSound( "sound/movers/objects/saber_slam" );
+		cgi_S_RegisterSound("sound/movers/objects/saber_slam");
 
 		//force sounds
-		cgi_S_RegisterSound( "sound/weapons/force/heal.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/speed.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/speedloop.mp3" );
-		for ( i = 1; i < 5; i++ )
+		cgi_S_RegisterSound("sound/weapons/force/heal.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/speed.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/speedloop.mp3");
+		for (i = 1; i < 5; i++)
 		{
 			cgi_S_RegisterSound(va("sound/weapons/force/heal%d.mp3", i));
-			cgi_S_RegisterSound( va( "sound/weapons/force/heal%d_m.mp3", i ) );
-			cgi_S_RegisterSound( va( "sound/weapons/force/heal%d_f.mp3", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/force/heal%d_m.mp3", i));
+			cgi_S_RegisterSound(va("sound/weapons/force/heal%d_f.mp3", i));
 		}
-		cgi_S_RegisterSound( "sound/weapons/force/lightning.wav" );
-		cgi_S_RegisterSound( "sound/weapons/force/lightning2.wav" );
-		for ( i = 1; i < 4; i++ )
+		cgi_S_RegisterSound("sound/weapons/force/lightning.wav");
+		cgi_S_RegisterSound("sound/weapons/force/lightning2.wav");
+		for (i = 1; i < 4; i++)
 		{
-			cgi_S_RegisterSound( va( "sound/weapons/force/lightninghit%d.wav", i ) );
+			cgi_S_RegisterSound(va("sound/weapons/force/lightninghit%d.wav", i));
 		}
-		cgi_S_RegisterSound( "sound/weapons/force/push.wav" );
-		cgi_S_RegisterSound( "sound/weapons/force/pull.wav" );
-		cgi_S_RegisterSound( "sound/weapons/force/jump.wav" );
-		cgi_S_RegisterSound( "sound/weapons/force/jumpbuild.wav" );
-		cgi_S_RegisterSound( "sound/weapons/force/grip.mp3" );
+		cgi_S_RegisterSound("sound/weapons/force/push.wav");
+		cgi_S_RegisterSound("sound/weapons/force/pull.wav");
+		cgi_S_RegisterSound("sound/weapons/force/jump.wav");
+		cgi_S_RegisterSound("sound/weapons/force/jumpbuild.wav");
+		cgi_S_RegisterSound("sound/weapons/force/grip.mp3");
 		//new Jedi Academy force sounds
-		cgi_S_RegisterSound( "sound/weapons/force/absorb.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/absorbhit.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/absorbloop.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/protect.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/protecthit.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/protectloop.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/rage.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/ragehit.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/rageloop.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/see.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/seeloop.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/drain.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/force/drained.mp3" );
+		cgi_S_RegisterSound("sound/weapons/force/absorb.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/absorbhit.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/absorbloop.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/protect.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/protecthit.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/protectloop.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/rage.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/ragehit.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/rageloop.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/see.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/seeloop.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/drain.mp3");
+		cgi_S_RegisterSound("sound/weapons/force/drained.mp3");
 		//force graphics
 		cgs.media.playerShieldDamage = cgi_R_RegisterShader("gfx/misc/personalshield");
 		//cgs.media.forceSightBubble = cgi_R_RegisterShader("gfx/misc/sightbubble");
 		//cgs.media.forceShell = cgi_R_RegisterShader("powerups/forceshell");
 		cgs.media.forceShell = cgi_R_RegisterShader("gfx/misc/forceprotect");
 		cgs.media.sightShell = cgi_R_RegisterShader("powerups/sightshell");
-		cgi_R_RegisterShader( "gfx/2d/jsense" );
+		cgi_R_RegisterShader("gfx/2d/jsense");
 		//force effects - FIXME: only if someone has these powers?
-		theFxScheduler.RegisterEffect( "force/rage2" );
+		theFxScheduler.RegisterEffect("force/rage2");
 		//theFxScheduler.RegisterEffect( "force/heal_joint" );
-		theFxScheduler.RegisterEffect( "force/heal2" );
-		theFxScheduler.RegisterEffect( "force/drain_hand" );
+		theFxScheduler.RegisterEffect("force/heal2");
+		theFxScheduler.RegisterEffect("force/drain_hand");
 
 		//saber graphics
-		cgs.media.saberBlurShader			= cgi_R_RegisterShader("gfx/effects/sabers/saberBlur");
-		cgs.media.swordTrailShader			= cgi_R_RegisterShader("gfx/effects/sabers/swordTrail");
-		cgs.media.yellowDroppedSaberShader	= cgi_R_RegisterShader("gfx/effects/yellow_glow");
-		cgi_R_RegisterShader( "gfx/effects/saberDamageGlow" );
-		cgi_R_RegisterShader( "gfx/effects/solidWhite_cull" );
-		cgi_R_RegisterShader( "gfx/effects/forcePush" );
-		cgi_R_RegisterShader( "gfx/effects/saberFlare" );
-		cgs.media.redSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/red_glow" );
-		cgs.media.redSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/red_line" );
-		cgs.media.orangeSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/orange_glow" );
-		cgs.media.orangeSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/orange_line" );
-		cgs.media.yellowSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/yellow_glow" );
-		cgs.media.yellowSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/yellow_line" );
-		cgs.media.greenSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/green_glow" );
-		cgs.media.greenSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/green_line" );
-		cgs.media.blueSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/blue_glow" );
-		cgs.media.blueSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/blue_line" );
-		cgs.media.purpleSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/purple_glow" );
-		cgs.media.purpleSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/purple_line" );
+		cgs.media.saberBlurShader = cgi_R_RegisterShader("gfx/effects/sabers/saberBlur");
+		cgs.media.swordTrailShader = cgi_R_RegisterShader("gfx/effects/sabers/swordTrail");
+		cgs.media.yellowDroppedSaberShader = cgi_R_RegisterShader("gfx/effects/yellow_glow");
+		cgi_R_RegisterShader("gfx/effects/saberDamageGlow");
+		cgi_R_RegisterShader("gfx/effects/solidWhite_cull");
+		cgi_R_RegisterShader("gfx/effects/forcePush");
+		cgi_R_RegisterShader("gfx/effects/saberFlare");
+		cgs.media.redSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/red_glow");
+		cgs.media.redSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/red_line");
+		cgs.media.orangeSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/orange_glow");
+		cgs.media.orangeSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/orange_line");
+		cgs.media.yellowSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/yellow_glow");
+		cgs.media.yellowSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/yellow_line");
+		cgs.media.greenSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/green_glow");
+		cgs.media.greenSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/green_line");
+		cgs.media.blueSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/blue_glow");
+		cgs.media.blueSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/blue_line");
+		cgs.media.purpleSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/purple_glow");
+		cgs.media.purpleSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/purple_line");
 		cgs.media.unstableRedSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/unstable_red_glow");
 		cgs.media.unstableRedSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/unstable_red_line");
-		cgs.media.blackSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/black_glow" );
-		cgs.media.blackSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/black_line" );
-		cgs.media.blackSaberBlurShader		= cgi_R_RegisterShader("gfx/effects/sabers/blackSaberBlur");
-		cgs.media.rgbSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/rgb_glow" );
-		cgs.media.rgbSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/rgb_line" );
-		cgs.media.darkSaberGlowShader		= cgi_R_RegisterShader( "gfx/effects/sabers/darksaber_glow" );
-		cgs.media.darkSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/darksaber_line" );
-		cgs.media.darkSaberCoreShader		= cgi_R_RegisterShader( "gfx/effects/sabers/darksabercore" );
-		cgs.media.darkSaberGlowShader       = cgi_R_RegisterShader( "gfx/effects/sabers/darksaberglow" );
+		cgs.media.blackSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/black_glow");
+		cgs.media.blackSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/black_line");
+		cgs.media.blackSaberBlurShader = cgi_R_RegisterShader("gfx/effects/sabers/blackSaberBlur");
+		cgs.media.rgbSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/rgb_glow");
+		cgs.media.rgbSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/rgb_line");
+		cgs.media.darkSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/darksaber_glow");
+		cgs.media.darkSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/darksaber_line");
+		cgs.media.darkSaberCoreShader = cgi_R_RegisterShader("gfx/effects/sabers/darksabercore");
+		cgs.media.darkSaberGlowShader = cgi_R_RegisterShader("gfx/effects/sabers/darksaberglow");
 
-		cgs.media.forceCoronaShader			= cgi_R_RegisterShaderNoMip( "gfx/hud/force_swirl" );
+		cgs.media.forceCoronaShader = cgi_R_RegisterShaderNoMip("gfx/hud/force_swirl");
 
 		//new Jedi Academy force graphics
-		cgs.media.drainShader				= cgi_R_RegisterShader( "gfx/misc/redLine" );
+		cgs.media.drainShader = cgi_R_RegisterShader("gfx/misc/redLine");
 
 		//for grip slamming into walls
-		theFxScheduler.RegisterEffect( "env/impact_dustonly" );
-		cgi_S_RegisterSound( "sound/weapons/melee/punch1.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/melee/punch2.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/melee/punch3.mp3" );
-		cgi_S_RegisterSound( "sound/weapons/melee/punch4.mp3" );
+		theFxScheduler.RegisterEffect("env/impact_dustonly");
+		cgi_S_RegisterSound("sound/weapons/melee/punch1.mp3");
+		cgi_S_RegisterSound("sound/weapons/melee/punch2.mp3");
+		cgi_S_RegisterSound("sound/weapons/melee/punch3.mp3");
+		cgi_S_RegisterSound("sound/weapons/melee/punch4.mp3");
 
 		//For kicks with saber staff...
-		theFxScheduler.RegisterEffect( "melee/kick_impact" );
+		theFxScheduler.RegisterEffect("melee/kick_impact");
 
 		//Kothos beam
-		cgi_R_RegisterShader( "gfx/misc/dr1" );
+		cgi_R_RegisterShader("gfx/misc/dr1");
 		break;
-
+	}
 	case WP_BRYAR_PISTOL:
-	case WP_BLASTER_PISTOL: // enemy version
+	case WP_BLASTER_PISTOL:
 	case WP_JAWA:
 	case WP_REY:
 		cgs.effects.bryarShotEffect			= theFxScheduler.RegisterEffect( "bryar/shot" );
 											theFxScheduler.RegisterEffect( "bryar/NPCshot" );
 		cgs.effects.bryarPowerupShotEffect	= theFxScheduler.RegisterEffect( "bryar/crackleShot" );
-		cgs.effects.bryarWallImpactEffect	= theFxScheduler.RegisterEffect( "bryar/wall_impact" );
 		cgs.effects.bryarWallImpactEffect2	= theFxScheduler.RegisterEffect( "bryar/wall_impact2" );
 		cgs.effects.bryarWallImpactEffect3	= theFxScheduler.RegisterEffect( "bryar/wall_impact3" );
-		cgs.effects.bryarFleshImpactEffect	= theFxScheduler.RegisterEffect( "bryar/flesh_impact" );
 
 		// Note....these are temp shared effects
 		theFxScheduler.RegisterEffect( "blaster/deflect" );
-		theFxScheduler.RegisterEffect( "blaster/smoke_bolton" ); // note: this will be called game side
+		theFxScheduler.RegisterEffect( "blaster/smoke_bolton" );
 		break;
-
 	case WP_BLASTER:
 	case WP_BATTLEDROID:
 	case WP_THEFIRSTORDER:
@@ -461,18 +645,12 @@ void CG_RegisterWeapon( int weaponNum ) {
 	case WP_SBD:
 	case WP_DROIDEKA:
 	case WP_CIS_SNIPER:
-		cgs.effects.blasterShotEffect			= theFxScheduler.RegisterEffect( "blaster/shot" );
-													theFxScheduler.RegisterEffect( "blaster/NPCshot" );
-//		cgs.effects.blasterOverchargeEffect		= theFxScheduler.RegisterEffect( "blaster/overcharge" );
-		cgs.effects.blasterWallImpactEffect		= theFxScheduler.RegisterEffect( "blaster/wall_impact" );
-		cgs.effects.blasterFleshImpactEffect	= theFxScheduler.RegisterEffect( "blaster/flesh_impact" );
+		cgs.effects.blasterShotEffect = theFxScheduler.RegisterEffect( "blaster/shot" );
+		theFxScheduler.RegisterEffect( "blaster/NPCshot" );
 		theFxScheduler.RegisterEffect( "blaster/deflect" );
-		theFxScheduler.RegisterEffect( "blaster/smoke_bolton" ); // note: this will be called game side
+		theFxScheduler.RegisterEffect( "blaster/smoke_bolton" );
 		break;
-
 	case WP_DISRUPTOR:
-		theFxScheduler.RegisterEffect( "disruptor/wall_impact" );
-		theFxScheduler.RegisterEffect( "disruptor/flesh_impact" );
 		theFxScheduler.RegisterEffect( "disruptor/alt_miss" );
 		theFxScheduler.RegisterEffect( "disruptor/alt_hit" );
 		theFxScheduler.RegisterEffect( "disruptor/line_cap" );
@@ -500,7 +678,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 	case WP_BOWCASTER:
 		cgs.effects.bowcasterShotEffect		= theFxScheduler.RegisterEffect( "bowcaster/shot" );
 		cgs.effects.bowcasterBounceEffect	= theFxScheduler.RegisterEffect( "bowcaster/bounce_wall" );
-		cgs.effects.bowcasterImpactEffect	= theFxScheduler.RegisterEffect( "bowcaster/explosion" );
 		theFxScheduler.RegisterEffect( "bowcaster/deflect" );
 		break;
 
@@ -508,16 +685,10 @@ void CG_RegisterWeapon( int weaponNum ) {
 		theFxScheduler.RegisterEffect( "repeater/muzzle_smoke" );
 		theFxScheduler.RegisterEffect( "repeater/projectile" );
 		theFxScheduler.RegisterEffect( "repeater/alt_projectile" );
-		theFxScheduler.RegisterEffect( "repeater/wall_impact" );
-//		theFxScheduler.RegisterEffect( "repeater/alt_wall_impact2" );
-//		theFxScheduler.RegisterEffect( "repeater/flesh_impact" );
-		theFxScheduler.RegisterEffect( "repeater/concussion" );
 		break;
 
 	case WP_DEMP2:
 		theFxScheduler.RegisterEffect( "demp2/projectile" );
-		theFxScheduler.RegisterEffect( "demp2/wall_impact" );
-		theFxScheduler.RegisterEffect( "demp2/flesh_impact" );
 		theFxScheduler.RegisterEffect( "demp2/altDetonate" );
 		cgi_R_RegisterModel( "models/items/sphere.md3" );
 		cgi_R_RegisterShader( "gfx/effects/demp2shell" );
@@ -546,11 +717,7 @@ void CG_RegisterWeapon( int weaponNum ) {
 	case WP_FLECHETTE:
 		cgs.effects.flechetteShotEffect				= theFxScheduler.RegisterEffect( "flechette/shot" );
 		cgs.effects.flechetteAltShotEffect			= theFxScheduler.RegisterEffect( "flechette/alt_shot" );
-		cgs.effects.flechetteShotDeathEffect		= theFxScheduler.RegisterEffect( "flechette/wall_impact" ); // shot death
-		cgs.effects.flechetteFleshImpactEffect		= theFxScheduler.RegisterEffect( "flechette/flesh_impact" );
 		cgs.effects.flechetteRicochetEffect			= theFxScheduler.RegisterEffect( "flechette/ricochet" );
-
-//		theFxScheduler.RegisterEffect( "flechette/explosion" );
 		theFxScheduler.RegisterEffect( "flechette/alt_blow" );
 		break;
 
@@ -615,8 +782,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 		//E-Web, too, can't tell here which one you wanted, so...
 		theFxScheduler.RegisterEffect( "eweb/shot" );
 		theFxScheduler.RegisterEffect( "eweb/shotNPC" );
-		theFxScheduler.RegisterEffect( "eweb/wall_impact" );
-		theFxScheduler.RegisterEffect( "eweb/flesh_impact" );
 
 		cgi_R_RegisterShader( "models/map_objects/imp_mine/turret_chair_dmg" );
 		cgi_R_RegisterShader( "models/map_objects/imp_mine/turret_chair_on" );
@@ -666,8 +831,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 		cgi_S_RegisterSound( "sound/weapons/melee/punch4.mp3" );
 		//fire
 		theFxScheduler.RegisterEffect( "tusken/shot" );
-		theFxScheduler.RegisterEffect( "tusken/hit" );
-		theFxScheduler.RegisterEffect( "tusken/hitwall" );
 
 		break;
 
@@ -678,7 +841,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 	case WP_NOGHRI_STICK:
 		//fire
 		theFxScheduler.RegisterEffect( "noghri_stick/shot" );
-		theFxScheduler.RegisterEffect( "noghri_stick/flesh_impact" );
 		//explosion
 		theFxScheduler.RegisterEffect( "noghri_stick/gas_cloud" );
 		//cgi_S_RegisterSound("sound/weapons/noghri/smoke.wav");
@@ -742,7 +904,19 @@ void CG_RegisterItemVisuals( int itemNum ) {
 
 	if ( item->giType == IT_WEAPON )
 	{
-		CG_RegisterWeapon( item->giTag );
+		if (item->giTag >= 0) {
+			CG_RegisterWeapon(item->giTag);
+		}
+		//Case dynamic weapons
+		else if (item->giTag < 0) {
+			int _wpnum;
+			for (_wpnum = 0; _wpnum < weaponCount; _wpnum++) {
+				if(!Q_stricmp(item->giTagName,weaponData[_wpnum].classname)){
+					CG_RegisterWeapon(_wpnum);
+					break;
+				}
+			}
+		}
 	}
 
 	// some ammo types are actually the weapon, like in the case of explosives
@@ -759,6 +933,10 @@ void CG_RegisterItemVisuals( int itemNum ) {
 		case AMMO_DETPACK:
 			CG_RegisterWeapon( WP_DET_PACK );
 			break;
+		}
+
+		if (item->giTag && ammoData[item->giTag].giveWeaponIndex) {
+			CG_RegisterWeapon(ammoData[item->giTag].giveWeaponIndex);
 		}
 	}
 
@@ -996,6 +1174,40 @@ void CG_SetGhoul2InfoRef( refEntity_t *ent, refEntity_t	*s1)
 	VectorCopy( s1->angles, ent->angles);
 }
 
+qboolean CG_IsChargedAttack(centity_t* cent) 
+{
+	int weaponNum = cent->gent->s.weapon;
+	int attackIndex = CG_GetAttackIndex(cent->gent, cent->altFire);
+	weaponAttackData_t *attackData = &weaponData[weaponNum].attackData[attackIndex];
+	if (attackData->firingLogic == FL_BEAM_CHARGED
+		|| attackData->firingLogic == FL_BOWCASTER
+		|| attackData->firingLogic == FL_DEMP2_ALT
+		|| attackData->firingLogic == FL_BLASTER_CHARGED
+		) {
+		return qtrue;
+	}
+	return qfalse;
+}
+
+char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData) {
+	char* effect = NULL;
+
+	int attackIndex = CG_GetAttackIndex(cent->gent, cent->altFire);
+	// I declared this variable just for readability.
+
+	// Try and get a default muzzle so we have one to fall back on
+	if ( wData->attackData[attackIndex].muzzleEffect[0])
+	{
+		effect = &wData->attackData[attackIndex].muzzleEffect[0];
+	}
+	else if (wData->attackData[0].muzzleEffect[0])
+	{
+		// We need to make sure that the base guns also get their sound.
+		effect = &wData->attackData[0].muzzleEffect[0];
+	}
+
+	return effect;
+}
 
 //--------------------------------------------------------------------------
 static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponData_t *wData )
@@ -1004,41 +1216,9 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 	if ( cent->muzzleFlashTime > 0 )
 	{
 		cent->muzzleFlashTime  = 0;
-		const char *effect = NULL;
 
-		// I declared this variable just for readability.
-		char firing_attack = cent->gent->client->ps.prev_firing_attack;
-
-//		CG_PositionEntityOnTag( &flash, &gun, gun.hModel, "tag_flash");
-
-		// Try and get a default muzzle so we have one to fall back on
-		if ( wData->mMuzzleEffect[0] )
-		{
-			if (firing_attack & ALT_ATTACK)
-			{
-				effect = &wData->mAltMuzzleEffect[0];
-			}
-			else if (firing_attack & TERTIARY_ATTACK)
-			{
-				effect = &wData->mTertiaryMuzzleEffect[0];
-			}
-			else
-			{	
-				// We need to make sure that the base guns also get their sound.
-				effect = &wData->mMuzzleEffect[0];
-			}
-		}
-
-		if ( cent->altFire )
-		{
-			// We're alt-firing, so see if we need to override with a custom alt-fire effect
-			if ( wData->mAltMuzzleEffect[0] )
-			{
-				effect = &wData->mAltMuzzleEffect[0];
-			}
-		}
-
-		if (/*( cent->currentState.eFlags & EF_FIRING || cent->currentState.eFlags & EF_ALT_FIRING ) &&*/ effect )
+		const char* effect = CG_GetMuzzleEffect(cent, wData);
+		if (effect)
 		{
 			if (( cent->gent && cent->gent->NPC ) || cg.renderingThirdPerson )
 			{
@@ -1050,10 +1230,10 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 				theFxScheduler.PlayEffect( effect, cent->currentState.clientNum );
 			}
 		}
-	}
-	else
-	{
-//		CG_PositionRotatedEntityOnTag( &flash, &gun, weapon->weaponModel, "tag_flash", NULL);
+		else
+		{
+			Com_Printf(S_COLOR_YELLOW"Warning : Muzzle for %s for weapon '%s', didn't found any effect to play\n", cent->altFire ? "main fire" : "alt fire", wData->classname);
+		}
 	}
 }
 
@@ -1207,7 +1387,7 @@ void CG_AddViewWeapon( playerState_t *ps )
 		cgi_S_AddLoopingSound( cent->currentState.number,
 			cent->lerpOrigin,
 			vec3_origin,
-			weapon->firingSound );
+			weapon->weaponAttacksInfo[0].firingSound);
 	}
 
 	// set up gun position
@@ -1396,36 +1576,50 @@ void CG_AddViewWeapon( playerState_t *ps )
 
 	// Do special charge bits
 	//-----------------------
-	if (( ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BRYAR_PISTOL )
-		|| (ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_BLASTER_PISTOL)
-		|| (ps->weaponstate == WEAPON_CHARGING_ALT && ps->weapon == WP_REY)
-			|| ( ps->weapon == WP_BOWCASTER && ps->weaponstate == WEAPON_CHARGING )
-			|| ( ps->weapon == WP_DEMP2 && ps->weaponstate == WEAPON_CHARGING_ALT ))
+	//Should not be important...
+	if ( ps->weaponstate == WEAPON_CHARGING_ALT || ps->weaponstate == WEAPON_CHARGING )
 	{
 		int		shader = 0;
+
+		int weapon = ps->weapon;
+		int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+
 		float	val = 0.0f, scale = 1.0f;
 		vec3_t	WHITE	= {1.0f,1.0f,1.0f};
 
-		if ( ps->weapon == WP_BRYAR_PISTOL
-			|| ps->weapon == WP_BLASTER_PISTOL 
-			|| ps->weapon == WP_REY)
+		if (baseWeapon == WP_BRYAR_PISTOL
+			|| baseWeapon == WP_BLASTER_PISTOL
+			|| baseWeapon == WP_REY)
 		{
 			// Hardcoded max charge time of 1 second
 			val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 			shader = cgi_R_RegisterShader( "gfx/effects/bryarFrontFlash" );
 		}
-		else if ( ps->weapon == WP_BOWCASTER )
+		else if ( baseWeapon == WP_BOWCASTER )
 		{
 			// Hardcoded max charge time of 1 second
 			val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 			shader = cgi_R_RegisterShader( "gfx/effects/greenFrontFlash" );
 		}
-		else if ( ps->weapon == WP_DEMP2 )
+		else if (baseWeapon == WP_DEMP2 )
 		{
 			// Hardcoded max charge time of 1 second
 			val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 			shader = cgi_R_RegisterShader( "gfx/misc/lightningFlash" );
 			scale = 1.75f;
+		}
+		//Default values for new weapons;
+		else {
+			// Hardcoded max charge time of 1 second
+			val = (cg.time - ps->weaponChargeTime) * 0.001f;
+			shader = cgi_R_RegisterShader("gfx/effects/bryarFrontFlash");
+		}
+
+		//Overwrite the muzzle effect if needed
+		qboolean altFire = (ps->weaponstate == WEAPON_CHARGING_ALT) ? qtrue : qfalse;
+		int attackIndex = CG_GetAttackIndex(cent->gent, altFire);
+		if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) {
+			shader = cg_weapons[weapon].weaponAttacksInfo[attackIndex].chargeMuzzleShader;
 		}
 
 		if ( val < 0.0f )
@@ -1498,10 +1692,12 @@ int CG_WeaponCheck( int weaponIndex )
 		return qtrue;
 	}
 
-
-	value = weaponData[weaponIndex].energyPerShot < weaponData[weaponIndex].altEnergyPerShot
-							? weaponData[weaponIndex].energyPerShot
-							: weaponData[weaponIndex].altEnergyPerShot;
+	value = weaponData[weaponIndex].attackData[0].energyPerShot;
+	for (int k = 1; k < MAX_WEAPON_ATTACKS; k++) {
+		if (weaponData[weaponIndex].attackData[k].energyPerShot < value) {
+			value = weaponData[weaponIndex].attackData[k].energyPerShot;
+		}
+	}
 
 	if( !cg.snap )
 	{
@@ -1523,7 +1719,7 @@ int CG_WeaponCheck( int weaponIndex )
 
 int cgi_UI_GetItemText(char *menuFile,char *itemName, char *text);
 
-const char *weaponDesc[WP_NUM_WEAPONS - 1] =
+const char *weaponDesc[MAX_WEAPONS] =
 {
 "SABER_DESC",
 "NEW_BLASTER_PISTOL_DESC",
@@ -1576,27 +1772,26 @@ Allows user to cycle through the various weapons currently owned and view the de
 void CG_DrawDataPadWeaponSelect( void )
 {
 	int				i;
-	int				weaponCount,weaponSelectI;
+	int				ownedWeaponCount,weaponSelectI;
 	float			holdX;
 	int				sideLeftIconCnt,sideRightIconCnt;
 	int				holdCount,iconCnt;
 	char			text[1024]={0};
-	qboolean drewConc = qfalse;
 
 	// showing weapon select clears pickup item display, but not the blend blob
 	cg.itemPickupTime = 0;
 
 	// count the number of weapons owned
-	weaponCount = 0;
-	for ( i = 1 ; i < WP_NUM_WEAPONS ; i++ )
+	ownedWeaponCount = 0;
+	for ( i =  1; i < weaponCount ; i++ )
 	{
 		if ( cg.snap->ps.weapons[i] )
 		{
-			weaponCount++;
+			ownedWeaponCount++;
 		}
 	}
 
-	if (weaponCount == 0)	// If no weapons, don't display
+	if (ownedWeaponCount == 0)	// If no weapons, don't display
 	{
 		return;
 	}
@@ -1604,13 +1799,13 @@ void CG_DrawDataPadWeaponSelect( void )
 	const short sideMax = 3;	// Max number of icons on the side
 
 	// Calculate how many icons will appear to either side of the center one
-	holdCount = weaponCount - 1;	// -1 for the center icon
+	holdCount = ownedWeaponCount - 1;	// -1 for the center icon
 	if (holdCount == 0)			// No icons to either side
 	{
 		sideLeftIconCnt = 0;
 		sideRightIconCnt = 0;
 	}
-	else if (weaponCount > (2*sideMax))	// Go to the max on each side
+	else if (ownedWeaponCount > (2*sideMax))	// Go to the max on each side
 	{
 		sideLeftIconCnt = sideMax;
 		sideRightIconCnt = sideMax;
@@ -1626,23 +1821,24 @@ void CG_DrawDataPadWeaponSelect( void )
 	{
 		cg.DataPadWeaponSelect = FIRST_WEAPON;
 	}
-	else if (cg.DataPadWeaponSelect>=WP_NUM_WEAPONS)
+	else if (cg.DataPadWeaponSelect>= weaponCount)
 	{
-		cg.DataPadWeaponSelect = WP_NUM_WEAPONS - 1;
+		cg.DataPadWeaponSelect = weaponCount - 1;
 	}
 
-	// What weapon does the player currently have selected
-	if ( cg.DataPadWeaponSelect == WP_CONCUSSION )
-	{
-		weaponSelectI = WP_FLECHETTE;
+	int currentIconIndex = 0;
+	for (int i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+		if (weaponBuckets[i] == cg.DataPadWeaponSelect) {
+			currentIconIndex = i;
+			break;
+		}
 	}
-	else
-	{
-		weaponSelectI = cg.DataPadWeaponSelect - 1;
+	
+	if (currentIconIndex == 0) {
+		weaponSelectI = WEAPON_BUCKETS_SIZE - 1;
 	}
-	if (weaponSelectI<1)
-	{
-		weaponSelectI = WP_NUM_WEAPONS - 1;
+	else {
+		weaponSelectI = currentIconIndex - 1;
 	}
 
 	const float smallIconSize_x = 40 * cgs.widthRatioCoef, smallIconSize_y = 40;
@@ -1659,41 +1855,27 @@ void CG_DrawDataPadWeaponSelect( void )
 	holdX = centerXPos - ((bigIconSize_x / 2) + bigPad + smallIconSize_x);
 
 	cgi_R_SetColor( colorTable[CT_WHITE] );
-	for (iconCnt=1;iconCnt<(sideLeftIconCnt+1);weaponSelectI--)
+	for (iconCnt=1 ; iconCnt <= sideLeftIconCnt ; weaponSelectI-- )
 	{
-		if ( weaponSelectI == WP_CONCUSSION )
+		if (weaponSelectI<0)
 		{
-			weaponSelectI--;
-		}
-		else if ( weaponSelectI == WP_FLECHETTE && !drewConc && cg.DataPadWeaponSelect != WP_CONCUSSION )
-		{
-			weaponSelectI = WP_CONCUSSION;
+			weaponSelectI = WEAPON_BUCKETS_SIZE - 1;
 		}
 
-		if (weaponSelectI<1)
+		if ( !(cg.snap->ps.weapons[weaponBuckets[weaponSelectI]]))	// Does he have this weapon?
 		{
-			weaponSelectI = WP_NUM_WEAPONS - 1;
-		}
-
-		if ( !(cg.snap->ps.weapons[weaponSelectI]))	// Does he have this weapon?
-		{
-			if ( weaponSelectI == WP_CONCUSSION )
-			{
-				drewConc = qtrue;
-				weaponSelectI = WP_ROCKET_LAUNCHER;
-			}
 			continue;
 		}
 
 		++iconCnt;					// Good icon
-
-		if (weaponData[weaponSelectI].weaponIcon[0])
+		int currentWeapon = weaponBuckets[weaponSelectI];
+		if (weaponData[currentWeapon].weaponIcon[0])
 		{
 			weaponInfo_t	*weaponInfo;
-			CG_RegisterWeapon( weaponSelectI );
-			weaponInfo = &cg_weapons[weaponSelectI];
+			CG_RegisterWeapon(currentWeapon);
+			weaponInfo = &cg_weapons[currentWeapon];
 
-			if (!CG_WeaponCheck(weaponSelectI))
+			if (!CG_WeaponCheck(currentWeapon))
 			{
 				CG_DrawPic(holdX, graphicYPos, smallIconSize_x, smallIconSize_y, weaponInfo->weaponIconNoAmmo);
 			}
@@ -1702,13 +1884,7 @@ void CG_DrawDataPadWeaponSelect( void )
 				CG_DrawPic(holdX, graphicYPos, smallIconSize_x, smallIconSize_y, weaponInfo->weaponIcon);
 			}
 
-			holdX += (smallIconSize_x + pad);
-		}
-
-		if ( weaponSelectI == WP_CONCUSSION )
-		{
-			drewConc = qtrue;
-			weaponSelectI = WP_ROCKET_LAUNCHER;
+			holdX -= (smallIconSize_x + pad);
 		}
 	}
 
@@ -1732,18 +1908,12 @@ void CG_DrawDataPadWeaponSelect( void )
 		}
 	}
 
-	if ( cg.DataPadWeaponSelect == WP_CONCUSSION )
+	if (weaponSelectI>= (WEAPON_BUCKETS_SIZE -1) )
 	{
-		weaponSelectI = WP_ROCKET_LAUNCHER;
+		weaponSelectI = 0;
 	}
-	else
-	{
-		weaponSelectI = cg.DataPadWeaponSelect + 1;
-	}
-
-	if (weaponSelectI>= WP_NUM_WEAPONS)
-	{
-		weaponSelectI = 1;
+	else {
+		weaponSelectI = currentIconIndex + 1;
 	}
 
 	// Right side ICONS
@@ -1752,39 +1922,26 @@ void CG_DrawDataPadWeaponSelect( void )
 	holdX = centerXPos + (bigIconSize_x / 2) + bigPad;
 	for (iconCnt=1;iconCnt<(sideRightIconCnt+1);weaponSelectI++)
 	{
-		if ( weaponSelectI == WP_CONCUSSION )
+		if (weaponSelectI >= WEAPON_BUCKETS_SIZE - 1)
 		{
-			weaponSelectI++;
+			weaponSelectI = 0;
 		}
-		else if ( weaponSelectI == WP_ROCKET_LAUNCHER && !drewConc && cg.DataPadWeaponSelect != WP_CONCUSSION )
+		int currentWeapon = weaponBuckets[weaponSelectI];
+		if ( !(cg.snap->ps.weapons[currentWeapon]))	// Does he have this weapon?
 		{
-			weaponSelectI = WP_CONCUSSION;
-		}
-		if (weaponSelectI>= WP_NUM_WEAPONS)
-		{
-			weaponSelectI = 1;
-		}
-
-		if ( !(cg.snap->ps.weapons[weaponSelectI]))	// Does he have this weapon?
-		{
-			if ( weaponSelectI == WP_CONCUSSION )
-			{
-				drewConc = qtrue;
-				weaponSelectI = WP_FLECHETTE;
-			}
 			continue;
 		}
 
 		++iconCnt;					// Good icon
 
-		if (weaponData[weaponSelectI].weaponIcon[0])
+		if (weaponData[currentWeapon].weaponIcon[0])
 		{
 			weaponInfo_t	*weaponInfo;
-			CG_RegisterWeapon( weaponSelectI );
-			weaponInfo = &cg_weapons[weaponSelectI];
+			CG_RegisterWeapon(currentWeapon);
+			weaponInfo = &cg_weapons[currentWeapon];
 
 			// Draw graphic to show weapon has ammo or no ammo
-			if (!CG_WeaponCheck(i))
+			if (!CG_WeaponCheck(currentWeapon))
 			{
 				CG_DrawPic(holdX, graphicYPos, smallIconSize_x, smallIconSize_y, weaponInfo->weaponIconNoAmmo);
 			}
@@ -1794,20 +1951,23 @@ void CG_DrawDataPadWeaponSelect( void )
 			}
 
 
-			holdX -= (smallIconSize_x + pad);
-		}
-		if ( weaponSelectI == WP_CONCUSSION )
-		{
-			drewConc = qtrue;
-			weaponSelectI = WP_FLECHETTE;
+			holdX += (smallIconSize_x + pad);
 		}
 	}
 
 	// Print the weapon description
-
-	if (!cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.DataPadWeaponSelect - 1]), text, sizeof(text)))
+	if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.DataPadWeaponSelect - 1]), text, sizeof(text)))
 	{
-		cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.DataPadWeaponSelect - 1]), text, sizeof(text));
+		void;
+	}
+	else if (cgi_SP_GetStringTextString( va("SPMOD_INGAME_%s",weaponDesc[cg.DataPadWeaponSelect-1]), text, sizeof(text) ))
+	{
+		void;
+	}
+	//Dynamic Weapons
+	else if(!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.DataPadWeaponSelect].classname), text, sizeof(text)))
+	{
+		Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
 	}
 
 	if (text[0])
@@ -1822,7 +1982,7 @@ void CG_DrawDataPadWeaponSelect( void )
 			textboxXPos, textboxYPos,
 			textboxWidth, textboxHeight,
 			text,
-			4,
+			CG_MagicFontToReal(4),
 			textScale,
 			colorTable[CT_WHITE]
 				);
@@ -1921,7 +2081,6 @@ void CG_DrawWeaponSelect( void )
 	vec4_t	textColor = { .875f, .718f, .121f, 1.0f };
 	int		yOffset = 0;
 	bool	isOnVeh = false;
-	qboolean drewConc = qfalse;
 
 	if ((cg.weaponSelectTime+WEAPON_SELECT_TIME)<cg.time)	// Time is up for the HUD to display
 	{
@@ -1942,10 +2101,9 @@ void CG_DrawWeaponSelect( void )
 	// count the number of weapons owned
 	count = 0;
 	isOnVeh = (G_IsRidingVehicle(cg_entities[0].gent)!=0);
- 	for ( i = 1 ; i < WP_NUM_WEAPONS ; i++ )
+ 	for ( i = 1 ; i < weaponCount ; i++ )
 	{
-		if ((cg.snap->ps.weapons[i])  &&
-			playerUsableWeapons[i] &&
+		if ((cg.snap->ps.weapons[i])  && weaponData[i].playerUsable &&
 			(!isOnVeh || i==WP_NONE || i==WP_SABER || i==WP_BLASTER))
 		{
 			count++;
@@ -1977,17 +2135,18 @@ void CG_DrawWeaponSelect( void )
 		sideRightIconCnt = holdCount - sideLeftIconCnt;
 	}
 
-	if ( cg.weaponSelect == WP_CONCUSSION )
-	{
-		i = WP_FLECHETTE;
+
+	//Search where is the current weapon in the array
+	int currentWeaponIndex = -1;
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+		if (weaponBuckets[i] == cg.weaponSelect) {
+			currentWeaponIndex = i;
+			i--;
+			break;
+		}
 	}
-	else
-	{
-		i = cg.weaponSelect - 1;
-	}
-	if (i<1)
-	{
-		i = WP_NUM_WEAPONS;
+	if (i < 0) {
+		i = WEAPON_BUCKETS_SIZE - 1;
 	}
 
 	smallIconSize_x = 40 * cgs.widthRatioCoef;
@@ -2013,54 +2172,35 @@ void CG_DrawWeaponSelect( void )
 	// Work backwards from current icon
 	holdX = x - ((bigIconSize_x / 2) + pad + smallIconSize_x);
 	//height = smallIconSize * cg.iconHUDPercent;
-	drewConc = qfalse;
 
 	for (iconCnt=1;iconCnt<(sideLeftIconCnt+1);i--)
 	{
-		if ( i == WP_CONCUSSION )
-		{
-			i--;
-		}
-		else if ( i == WP_FLECHETTE && !drewConc && cg.weaponSelect != WP_CONCUSSION )
-		{
-			i = WP_CONCUSSION;
-		}
 		if (i<1)
 		{
-			i = WP_NUM_WEAPONS;
+			i = WEAPON_BUCKETS_SIZE-1;
 		}
-
-		if ( !(cg.snap->ps.weapons[i] && playerUsableWeapons[i]) )	// Does he have this weapon?
+		int tmpWeapon = weaponBuckets[i];
+		if ( tmpWeapon <= 0 || !(cg.snap->ps.weapons[tmpWeapon] && weaponData[tmpWeapon].playerUsable) )	// Does he have this weapon?
 		{
-			if ( i == WP_CONCUSSION )
-			{
-				drewConc = qtrue;
-				i = WP_ROCKET_LAUNCHER;
-			}
 			continue;
 		}
 		if (isOnVeh)
 		{
-			if ( i != WP_NONE && i!=WP_SABER && i!=WP_BLASTER )
+			if (tmpWeapon != WP_NONE && tmpWeapon != WP_SABER && tmpWeapon != WP_BLASTER )
 			{
-				if ( i == WP_CONCUSSION )
-				{
-					drewConc = qtrue;
-					i = WP_ROCKET_LAUNCHER;
-				}
 				continue;	// Don't draw anything else if on a vehicle
 			}
 		}
 
 		++iconCnt;					// Good icon
 
-		if (weaponData[i].weaponIcon[0])
+		if (weaponData[tmpWeapon].weaponIcon[0])
 		{
 			weaponInfo_t	*weaponInfo;
-			CG_RegisterWeapon( i );
-			weaponInfo = &cg_weapons[i];
+			CG_RegisterWeapon(tmpWeapon);
+			weaponInfo = &cg_weapons[tmpWeapon];
 
-			if (!CG_WeaponCheck(i))
+			if (!CG_WeaponCheck(tmpWeapon))
 			{
 				CG_DrawPic(holdX, y + 10 + yOffset, smallIconSize_x, smallIconSize_y, weaponInfo->weaponIconNoAmmo);
 			}
@@ -2070,11 +2210,6 @@ void CG_DrawWeaponSelect( void )
 			}
 
 			holdX -= (smallIconSize_x + pad);
-		}
-		if ( i == WP_CONCUSSION )
-		{
-			drewConc = qtrue;
-			i = WP_ROCKET_LAUNCHER;
 		}
 	}
 
@@ -2097,16 +2232,10 @@ void CG_DrawWeaponSelect( void )
 		}
 	}
 
-	if ( cg.weaponSelect == WP_CONCUSSION )
-	{
-		i = WP_ROCKET_LAUNCHER;
-	}
-	else
-	{
-		i = cg.weaponSelect + 1;
-	}
-	if (i>= WP_NUM_WEAPONS)
-	{
+
+
+	i = currentWeaponIndex + 1;
+	if (i >= WEAPON_BUCKETS_SIZE ) {
 		i = 1;
 	}
 
@@ -2115,53 +2244,34 @@ void CG_DrawWeaponSelect( void )
 	cgi_R_SetColor( calcColor);
 	holdX = x + (bigIconSize_x / 2) + pad;
 	//height = smallIconSize * cg.iconHUDPercent;
-	drewConc = qfalse;
 	for (iconCnt=1;iconCnt<(sideRightIconCnt+1);i++)
 	{
-		if ( i == WP_CONCUSSION )
-		{
-			i++;
-		}
-		else if ( i == WP_ROCKET_LAUNCHER && !drewConc && cg.weaponSelect != WP_CONCUSSION )
-		{
-			i = WP_CONCUSSION;
-		}
-		if (i>= WP_NUM_WEAPONS)
+		if (i>= WEAPON_BUCKETS_SIZE)
 		{
 			i = 1;
 		}
-
-		if ( !(cg.snap->ps.weapons[i] && playerUsableWeapons[i]))	// Does he have this weapon?
+		int tmpWeapon = weaponBuckets[i];
+		if ( tmpWeapon <= 0 || !(cg.snap->ps.weapons[tmpWeapon] && weaponData[tmpWeapon].playerUsable))	// Does he have this weapon?
 		{
-			if ( i == WP_CONCUSSION )
-			{
-				drewConc = qtrue;
-				i = WP_FLECHETTE;
-			}
 			continue;
 		}
 		if (isOnVeh)
 		{
-			if ( i != WP_NONE && i!=WP_SABER && i!=WP_BLASTER )
+			if (tmpWeapon != WP_NONE && tmpWeapon != WP_SABER && tmpWeapon != WP_BLASTER )
 			{
-				if ( i == WP_CONCUSSION )
-				{
-					drewConc = qtrue;
-					i = WP_FLECHETTE;
-				}
 				continue;	// Don't draw anything else if on a vehicle
 			}
 		}
 
 		++iconCnt;					// Good icon
 
-		if (weaponData[i].weaponIcon[0])
+		if (weaponData[tmpWeapon].weaponIcon[0])
 		{
 			weaponInfo_t	*weaponInfo;
-			CG_RegisterWeapon( i );
-			weaponInfo = &cg_weapons[i];
+			CG_RegisterWeapon(tmpWeapon);
+			weaponInfo = &cg_weapons[tmpWeapon];
 			// No ammo for this weapon?
-			if (!CG_WeaponCheck(i))
+			if (!CG_WeaponCheck(tmpWeapon))
 			{
 				CG_DrawPic(holdX, y + 10 + yOffset, smallIconSize_x, smallIconSize_y, weaponInfo->weaponIconNoAmmo);
 			}
@@ -2172,11 +2282,6 @@ void CG_DrawWeaponSelect( void )
 
 
 			holdX += (smallIconSize_x + pad);
-		}
-		if ( i == WP_CONCUSSION )
-		{
-			drewConc = qtrue;
-			i = WP_FLECHETTE;
 		}
 	}
 
@@ -2199,6 +2304,13 @@ void CG_DrawWeaponSelect( void )
 			int x = ( SCREEN_WIDTH - w ) / 2;
 			cgi_R_Font_DrawString(x, (SCREEN_HEIGHT - 24) + yOffset, text, textColor, cgs.media.qhFontSmall, -1, 1.0f, cgs.widthRatioCoef);
 		}
+		//Dynamic Weapons
+		else if ( cgi_SP_GetStringTextString( va("%s_NAME",item->classname), text, sizeof( text )))
+		{
+			int w = cgi_R_Font_StrLenPixels(text, cgs.media.qhFontSmall, 1.0f, cgs.widthRatioCoef);
+			int x = ( SCREEN_WIDTH - w ) / 2;
+			cgi_R_Font_DrawString(x, (SCREEN_HEIGHT - 24) + yOffset, text, textColor, cgs.media.qhFontSmall, -1, 1.0f, cgs.widthRatioCoef);
+		}
 	}
 
 	cgi_R_SetColor( NULL );
@@ -2214,7 +2326,7 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 {
 	int	usage_for_weap;
 
-	if (i >= WP_NUM_WEAPONS || !playerUsableWeapons[i])
+	if (i >= weaponCount || !weaponData[i].playerUsable)
 	{
 #ifndef FINAL_BUILD
 		Com_Printf("CG_WeaponSelectable() passed illegal index of %d!\n",i);
@@ -2222,7 +2334,7 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 		return qfalse;
 	}
 
-	if ( cg.weaponSelectTime + 200 > cg.time )
+	if ( cg.weaponSelectTime + 100 > cg.time )
 	{//TEMP standard weapon cycle debounce for E3 because G2 can't keep up with fast weapon changes
 		return qfalse;
 	}
@@ -2243,9 +2355,12 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 
 	if (( weaponData[i].ammoIndex != AMMO_NONE ) && !dpMode )
 	{//weapon uses ammo, see if we have any
-		usage_for_weap = weaponData[i].energyPerShot < weaponData[i].altEnergyPerShot
-									? weaponData[i].energyPerShot
-									: weaponData[i].altEnergyPerShot;
+		usage_for_weap = weaponData[i].attackData[0].energyPerShot;
+		for (int k = 1; k < MAX_WEAPON_ATTACKS; k++) {
+			if (weaponData[i].attackData[k].energyPerShot < usage_for_weap) {
+				usage_for_weap = weaponData[i].attackData[k].energyPerShot;
+			}
+		}
 
 		if ( cg.snap->ps.ammo[weaponData[i].ammoIndex] - usage_for_weap < 0 )
 		{
@@ -2325,11 +2440,6 @@ void CG_NextWeapon_f( void ) {
 	if ( !cg.snap ) {
 		return;
 	}
-	/*
-	if ( cg.snap->ps.pm_flags & PMF_FOLLOW ) {
-		return;
-	}
-	*/
 
 	if( g_entities[0].flags & FL_LOCK_PLAYER_WEAPONS )
 	{
@@ -2362,46 +2472,647 @@ void CG_NextWeapon_f( void ) {
 
 	original = cg.weaponSelect;
 
-	int firstWeapon = FIRST_WEAPON;
+	qboolean canSelectNone = qfalse;
 	if (G_IsRidingVehicle(&g_entities[cg.snap->ps.viewEntity]))
 	{
-		firstWeapon = 0;	// include WP_NONE here
+		canSelectNone = qtrue;
 	}
 
-	for ( i = 0 ; i < WP_NUM_WEAPONS ; i++ )
+	//Search where is the current weapon in the array
+	int currentWeaponIndex = - 1;
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+		if (weaponBuckets[i] == original) {
+			currentWeaponIndex = i;
+			break;
+		}
+	}
+	//Cycle forward in the weaponBucketArray, ignoring negatives values
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++)
 	{
-
-		//*SIGH*... Hack to put concussion rifle before rocketlauncher
-		if ( cg.weaponSelect == WP_FLECHETTE )
-		{
-			cg.weaponSelect = WP_CONCUSSION;
+		currentWeaponIndex++;
+		//Go back at the beggining of the array
+		if (currentWeaponIndex == WEAPON_BUCKETS_SIZE) {
+			currentWeaponIndex = 0;
 		}
-		else if ( cg.weaponSelect == WP_CONCUSSION )
-		{
-			cg.weaponSelect = WP_ROCKET_LAUNCHER;
-		}
-		else if ( cg.weaponSelect == WP_DET_PACK )
-		{
-			cg.weaponSelect = WP_MELEE;
-		}
-		else
-		{
-			cg.weaponSelect++;
+		//Never try to switch to Bucket or WP_NONE
+		if (weaponBuckets[currentWeaponIndex] < 0 || (!canSelectNone && weaponBuckets[currentWeaponIndex] == 0)) {
+			continue;
 		}
 
-		if ( cg.weaponSelect < firstWeapon || cg.weaponSelect >= WP_NUM_WEAPONS) {
-			cg.weaponSelect = firstWeapon;
-		}
-
-		if ( CG_WeaponSelectable( cg.weaponSelect, original, qfalse ) )
+		if (CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], original, qfalse))
 		{
-//			cg.weaponSelectTime = cg.time;
+			//Found you!
 			SetWeaponSelectTime();
+			cg.weaponSelect = weaponBuckets[currentWeaponIndex];
 			return;
 		}
 	}
+}
 
-	cg.weaponSelect = original;
+/* 1 -> XXX is base weapons*/
+/* -1 -> Ammo */
+/* -2 -> Inventory*/
+/* -3 -> All Weapons*/
+extern vmCvar_t		ui_loadout_base_weapon;
+void CG_LDO_SelectBaseWeapon_f(void)
+{
+	cgi_Cvar_Update(&ui_loadout_base_weapon);
+	char *baseWeapon = ui_loadout_base_weapon.string;
+
+	//Reset the selected weapon / Ammo / Item & the selected Page
+	cg.LoadoutWeaponSelect = 0;
+	cg.LoadoutPageSelect = 0;
+	if (!Q_stricmp("LD_AMMUNITION", baseWeapon)) {
+		cg.LoadoutBaseWeaponSelect = -1;
+		return;
+	}
+	else if (!Q_stricmp("LD_INVENTORY", baseWeapon)) {
+		cg.LoadoutBaseWeaponSelect = -2;
+		return;
+	}
+	else if (!Q_stricmp("WEAPON_ALL", baseWeapon)) {
+		cg.LoadoutBaseWeaponSelect = -3;
+		return;
+	}
+	else if(!Q_stricmp("WB_MELEE", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_MELEE;
+	}
+	else if(!Q_stricmp("WB_PISTOLS", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_PISTOLS;
+	}
+	else if(!Q_stricmp("WB_BLASTERS", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_BLASTERS;
+	}
+	else if(!Q_stricmp("WB_SPECIALISTS", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_SPECIALISTS;
+	}
+	else if(!Q_stricmp("WB_HEAVY_WEAPONS", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_HEAVY_WEAPONS;
+	}
+	else if(!Q_stricmp("WB_THROWABLES", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_THROWABLES;
+	}
+	else if(!Q_stricmp("WB_OTHERS", baseWeapon)){
+		cg.LoadoutBaseWeaponSelect = -WB_OTHERS;
+	}
+	else{
+		cg.LoadoutBaseWeaponSelect = 0;
+	}
+
+}
+
+extern vmCvar_t		ui_loadout_weapon;
+void CG_LDO_SelectWeapon_f(void)
+{
+	if(cg.LoadoutBaseWeaponSelect == 0)
+	{
+		return;
+	}
+	//Get the weapon menu index value
+	cgi_Cvar_Update(&ui_loadout_weapon);
+
+	if(ui_loadout_weapon.integer == 0){
+		cg.LoadoutWeaponSelect = 0;
+		return;
+	}
+
+	int targetMenuIndex = (cg.LoadoutPageSelect * LOADOUT_PAGESIZE) + ui_loadout_weapon.integer;
+	int currMenuIndex = 0;
+	int i;
+	//Search Ammo || Items
+	if (cg.LoadoutBaseWeaponSelect == -1
+		|| cg.LoadoutBaseWeaponSelect == -2
+		)
+	{
+		for (i = 0; i < bg_numItems; i++)
+		{
+			gitem_t* item = &bg_itemlist[i];
+			//Declared like this for readability
+			if ( ( (cg.LoadoutBaseWeaponSelect == -1 && item->giType == IT_AMMO)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HOLDABLE)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HEALTH)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_ARMOR) )
+				&& item->icon && item->icon[0]
+				)
+			{
+				//This might be the weapon we are looking for
+				currMenuIndex++;
+				if (targetMenuIndex == currMenuIndex) {
+					//This is !
+					cg.LoadoutWeaponSelect = i;
+					break;
+				}
+			}
+		}
+		return;
+	}
+	if (cg.LoadoutBaseWeaponSelect == -3)
+	{
+		//Normal search in the bucket array
+		for (i = 1; i < WEAPON_BUCKETS_SIZE; i++)
+		{
+			int weaponIndex = weaponBuckets[i];
+			if (weaponIndex > 0 && weaponData[weaponIndex].playerUsable)
+			{
+				currMenuIndex++;
+				if (targetMenuIndex == currMenuIndex) {
+					//This is !
+					cg.LoadoutWeaponSelect = weaponIndex;
+					break;
+				}
+			}
+		}
+		return;
+	}
+	int bucketIndex = -1;
+	int bucketSize = -1;
+	//Search for base index and size
+	for (int i = 0; i < WEAPON_BUCKETS_SIZE;i++) {
+		if (weaponBuckets[i] == -cg.LoadoutBaseWeaponSelect) {
+			bucketIndex = i;
+		}
+		else if(bucketIndex >= 0 && weaponBuckets[i] < 0){
+			bucketSize = i - bucketIndex;
+			break;
+		}
+	}
+	//Normal search in the bucket array
+	for (i = bucketIndex; i < (bucketIndex + bucketSize); i++)
+	{
+		int weaponIndex = weaponBuckets[i];
+		if (weaponIndex > 0 && weaponData[weaponIndex].playerUsable)
+		{
+			currMenuIndex++;
+			if (targetMenuIndex == currMenuIndex) {
+				cg.LoadoutWeaponSelect = weaponIndex;
+				break;
+			}
+		}
+	}
+}
+
+void CG_LDO_SwitchWeapon_f(void) {
+	if (cg.LoadoutWeaponSelect == 0)
+	{
+		return;
+	}
+	gentity_t* ent = cg_entities[0].gent;
+	//Add Ammo
+	if (cg.LoadoutBaseWeaponSelect == -1) {
+		gitem_t* item = &bg_itemlist[cg.LoadoutWeaponSelect];
+		cgi_S_StartSound(NULL, ent->s.number, CHAN_AUTO, cgi_S_RegisterSound(item->pickup_sound));
+		ent->client->ps.ammo[item->giTag] += 50;
+		return;
+	}
+	//Add Holdable
+	if (cg.LoadoutBaseWeaponSelect == -2 && bg_itemlist[cg.LoadoutWeaponSelect].giType == IT_HOLDABLE) {
+		gitem_t* item = &bg_itemlist[cg.LoadoutWeaponSelect];
+		cgi_S_StartSound(NULL, ent->s.number, CHAN_AUTO, cgi_S_RegisterSound(item->pickup_sound));
+		if (item->giTag == INV_SECURITY_KEY)
+		{
+			INV_SecurityKeyGive(ent, ent->message);
+		}
+		else if (item->giTag == INV_GOODIE_KEY)
+		{
+			INV_GoodieKeyGive(ent);
+		}
+		else
+		{// Picking up a normal item?
+			ent->client->ps.inventory[item->giTag]++;
+		}
+		return;
+	}
+	//Add Armor or health
+	if (cg.LoadoutBaseWeaponSelect == -2 &&
+		(bg_itemlist[cg.LoadoutWeaponSelect].giType == IT_HEALTH || bg_itemlist[cg.LoadoutWeaponSelect].giType == IT_ARMOR)
+		)
+	{
+		gitem_t* item = &bg_itemlist[cg.LoadoutWeaponSelect];
+
+		cgi_S_StartSound(NULL, ent->s.number, CHAN_AUTO, cgi_S_RegisterSound(item->pickup_sound));
+
+		int stat = (item->giType == IT_ARMOR) ? STAT_ARMOR : STAT_HEALTH;
+		if (stat == STAT_ARMOR) {
+			ent->client->ps.powerups[PW_BATTLESUIT] = Q3_INFINITE;
+		}
+		int quantity = item->quantity ? item->quantity : 30;
+		ent->client->ps.stats[stat] += quantity;
+		if (ent->client->ps.stats[stat] > ent->client->ps.stats[STAT_MAX_HEALTH]) {
+			ent->client->ps.stats[stat] = ent->client->ps.stats[STAT_MAX_HEALTH];
+		}
+		return;
+	}
+
+	cg.snap->ps.weapons[cg.LoadoutWeaponSelect] = cg.snap->ps.weapons[cg.LoadoutWeaponSelect] ? 0 : 1;
+	if (cg.snap->ps.weapons[cg.LoadoutWeaponSelect])
+	{
+		int ammoIndex = weaponData[cg.LoadoutWeaponSelect].ammoIndex;
+		int givenAmmo = ammoData[ammoIndex].max / 3;
+		ent->client->ps.weapons[cg.LoadoutWeaponSelect] = 1;
+		if (ent->client->ps.ammo[ammoIndex] < givenAmmo) {
+			ent->client->ps.ammo[ammoIndex] = givenAmmo;
+		}
+		//FIXME : If weapon == SABER and saber is not defined => CTD
+	}
+	else {
+		ent->client->ps.weapons[cg.LoadoutWeaponSelect] = 0;
+		if (cg.snap->ps.weapon == cg.LoadoutWeaponSelect) {
+			ent->client->ps.weapon = WP_NONE;
+
+			if (ent->ghoul2.IsValid())
+			{
+				if (ent->weaponModel[0] > 0)
+				{
+					gi.G2API_RemoveGhoul2Model(ent->ghoul2, ent->weaponModel[0]);
+					ent->weaponModel[0] = -1;
+				}
+				if (ent->weaponModel[1] > 0)
+				{
+					gi.G2API_RemoveGhoul2Model(ent->ghoul2, ent->weaponModel[1]);
+					ent->weaponModel[1] = -1;
+				}
+			}
+		}
+	}
+}
+
+int CG_LDO_GetMaxPages(void) {
+	int i;
+	int totalIcons = 0;
+
+	if (cg.LoadoutBaseWeaponSelect == -1
+		|| cg.LoadoutBaseWeaponSelect == -2)
+	{
+		for (i = 0; i < bg_numItems; i++) {
+			gitem_t* item = &bg_itemlist[i];
+			//Declared like this for readability
+			if (((cg.LoadoutBaseWeaponSelect == -1 && item->giType == IT_AMMO)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HOLDABLE)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HEALTH)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_ARMOR)
+				) && item->icon && item->icon[0])
+			{
+				totalIcons++;
+			}
+		}
+	}
+	else if (cg.LoadoutBaseWeaponSelect == -3)
+	{
+		for (i = 1; i < WEAPON_BUCKETS_SIZE; i++)
+		{
+			int iw = weaponBuckets[i];
+			if (iw < 0) {
+				continue;
+			}
+			if (weaponData[i].playerUsable)
+			{
+				totalIcons++;
+			}
+		}
+	}
+	else {
+		int bucketIndexStart = -1;
+		for (i = 0; i < WEAPON_BUCKETS_SIZE; i++)
+		{
+			//Searching for the first index bucket
+			if (weaponBuckets[i] == -cg.LoadoutBaseWeaponSelect) {
+				bucketIndexStart = i;
+			}
+			//Then counting Icon
+			else if (bucketIndexStart >= 0) {
+				int iw = weaponBuckets[i];
+				if (iw < 0) {
+					break;;
+				}
+				if (weaponData[i].playerUsable)
+				{
+					totalIcons++;
+				}
+			}
+		}
+	}
+	return (totalIcons + LOADOUT_PAGESIZE - 1) / LOADOUT_PAGESIZE;
+}
+
+void CG_LDO_PreviousPage_f(void) {
+	if (cg.LoadoutBaseWeaponSelect == 0) {
+		return;
+	}
+	cg.LoadoutPageSelect--;
+	int maxPages = CG_LDO_GetMaxPages();
+	if (cg.LoadoutPageSelect < 0) {
+		cg.LoadoutPageSelect = maxPages - 1 ;
+	}
+}
+
+void CG_LDO_NextPage_f(void) {
+	if (cg.LoadoutBaseWeaponSelect == 0) {
+		return;
+	}
+	int maxPages = CG_LDO_GetMaxPages();
+	cg.LoadoutPageSelect++;
+	if (cg.LoadoutPageSelect >= maxPages) {
+		cg.LoadoutPageSelect = 0;
+	}
+}
+
+/* CG_NPC_NextWeapon_f
+	Next weapon for charName
+*/
+extern int WP_GetWeaponID(const char* weaponName);
+extern vmCvar_t		ui_npc_weapon;
+extern vmCvar_t		ui_npc_weapon_label;
+void CG_NPC_NextWeapon_f(void) {
+	cgi_Cvar_Update(&ui_npc_weapon);
+	int currentWeaponIndex = WP_GetWeaponID(ui_npc_weapon.string);
+	if (currentWeaponIndex == -1) {
+		currentWeaponIndex = 1; // 0 is WP_NONE
+	}
+	int nextWeaponIndex = currentWeaponIndex;
+	do {
+		nextWeaponIndex = (nextWeaponIndex == weaponCount - 1) ? 1 : nextWeaponIndex + 1;
+	} while (!weaponData[nextWeaponIndex].classname 
+		|| !weaponData[nextWeaponIndex].classname[0]
+		|| !weaponData[nextWeaponIndex].playerUsable);
+	cgi_Cvar_Set("ui_npc_weapon", weaponData[nextWeaponIndex].classname);
+	CG_NPC_UpdateLabel();
+}
+
+void CG_NPC_PrevWeapon_f(void) {
+	cgi_Cvar_Update(&ui_npc_weapon);
+	int currentWeaponIndex = WP_GetWeaponID(ui_npc_weapon.string);
+	if (currentWeaponIndex == -1) {
+		currentWeaponIndex = 1; // 0 is WP_NONE
+	}
+	int prevWeaponIndex = currentWeaponIndex;
+	do {
+		prevWeaponIndex = (prevWeaponIndex == 1) ? weaponCount - 1 : prevWeaponIndex - 1;
+	} while (!weaponData[prevWeaponIndex].classname
+		|| !weaponData[prevWeaponIndex].classname[0]
+		|| !weaponData[prevWeaponIndex].playerUsable);
+	cgi_Cvar_Set("ui_npc_weapon",weaponData[prevWeaponIndex].classname);
+	CG_NPC_UpdateLabel();
+}
+
+char label[256];
+void CG_NPC_UpdateLabel(void) {
+	cgi_Cvar_Update(&ui_npc_weapon);
+	int currentWeaponIndex = WP_GetWeaponID(ui_npc_weapon.string);
+	//Get Weapon Name */
+	if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
+	{
+		void;
+	}
+	else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
+	{
+		void;
+	}
+	//Dynamic Weapons
+	else if (!cgi_SP_GetStringTextString(va("%s_NAME", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
+	{
+		Com_sprintf(label, sizeof(label), weaponData[currentWeaponIndex].classname);
+	}
+	cgi_Cvar_Set("ui_npc_weapon_label", label);
+}
+
+void CG_DrawNpcWeaponLabel(void) {
+	CG_NPC_UpdateLabel();
+	const short textboxXPos = 508;
+	const short textboxYPos = 57;
+	const int	textboxWidth = 106;
+	const int	textboxHeight = 16;
+	const float	textScale = 0.75f;
+
+	CG_DisplayBoxedText(
+		textboxXPos, textboxYPos,
+		textboxWidth, textboxHeight,
+		label,
+		CG_MagicFontToReal(4),
+		textScale,
+		colorTable[CT_WHITE]
+	);
+}
+/*
+===============
+CG_UI_DrawListWeaponCategory_f
+Show the different variants of weapons for a given weapon
+===============
+*/
+void CG_LDO_DrawWeapons(void) {
+	int marX = 8, marY = 16;
+	int sizeX = 70, sizeY = 55;
+	int startX = 159, startY = 49;
+	int posX = startX, posY = startY;
+	//Icon X Pos, Icon Y Pos, Index of Weapon/Item, Ignored Icon Count (for page display)
+	int ix = 0, iy = 0, iw = 0,iic = 0;
+	int firstIcon = (cg.LoadoutPageSelect * LOADOUT_PAGESIZE);
+	char text[1024] = { 0 };
+	qhandle_t background = cgi_R_RegisterShaderNoMip("gfx/menus/w_icon_background");
+
+	if (cg.LoadoutBaseWeaponSelect == 0) {
+		return;
+	}
+
+	//Print Ammo or inventory
+	if (cg.LoadoutBaseWeaponSelect == -1
+		|| cg.LoadoutBaseWeaponSelect == -2)
+	{
+		for (iw = 0; iw < bg_numItems && iy < 3; iw++) {
+			gitem_t *item = &bg_itemlist[iw];
+			//Declared like this for readability
+			if ( ((cg.LoadoutBaseWeaponSelect == -1 && item->giType == IT_AMMO)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HOLDABLE)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HEALTH)
+				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_ARMOR)
+				) && item->icon && item->icon[0] )
+			{
+				if (iic < firstIcon) {
+					iic++;
+					continue;
+				}
+				CG_DrawPic(posX, posY, sizeX, sizeY, background);
+				CG_RegisterItemVisuals(iw);
+				itemInfo_t *itemInfo = &cg_items[iw];
+				CG_DrawPic(posX + 7, posY, sizeY, sizeY, itemInfo->icon);
+
+				//Next icon
+				if (ix == 5)
+				{
+					ix = 0;
+					posX = startX;
+					iy++;
+					posY += marY + sizeY;
+				}
+				else
+				{
+					ix++;
+					posX += marX + sizeX;
+				}
+			}
+		}
+
+		if (cg.LoadoutWeaponSelect > 0) {
+			char count[128];
+			if (cg.LoadoutBaseWeaponSelect == -1) Q_strncpyz(count, "50 Units", sizeof(count)); else Q_strncpyz(count,"1 unit",sizeof(count));
+			// Print the item Description
+			if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			{
+				void;
+			}
+			else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			{
+				void;
+			}
+			//Dynamic Weapons
+			else if (!cgi_SP_GetStringTextString(va("%s_NAME", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			{
+				Com_sprintf(text, sizeof(text), "Unknown Item");
+			}
+			Com_sprintf(text, sizeof(text), va("%s\nPress this item to get %s of it.", text, count));
+		}
+	}
+	else if(cg.LoadoutBaseWeaponSelect == -3)
+	{
+		for (int i = 1; i < WEAPON_BUCKETS_SIZE && iy < 3; i++)
+		{
+			iw = weaponBuckets[i];
+			if (iw <= 0) {
+				continue;
+			}
+			if (weaponData[iw].playerUsable)
+			{
+				if (iic < firstIcon) {
+					iic++;
+					continue;
+				}
+				CG_DrawPic(posX, posY, sizeX, sizeY, background);
+				weaponInfo_t* weaponInfo;
+				CG_RegisterWeapon(iw);
+				weaponInfo = &cg_weapons[iw];
+				if (cg.snap->ps.weapons[iw])
+				{
+					CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIcon);
+				}
+				else
+				{
+					CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIconNoAmmo);
+				}
+				//Next icon
+				if (ix == 5)
+				{
+					ix = 0;
+					posX = startX;
+					iy++;
+					posY += marY + sizeY;
+				}
+				else
+				{
+					ix++;
+					posX += marX + sizeX;
+				}
+			}
+		}
+		//Draw the current weapon Description to the screen?
+
+		if (cg.LoadoutWeaponSelect > 0) {
+			// Print the weapon description
+			if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect-1]), text, sizeof(text)))
+			{
+				void;
+			}
+			else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect-1]), text, sizeof(text)))
+			{
+				void;
+			}
+			//Dynamic Weapons
+			else if (!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			{
+				Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
+			}
+		}
+	}
+	else {
+		//Search in the current Bucket
+		int bucketIndex = -1;
+		for (int i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+			if (weaponBuckets[i] == -cg.LoadoutBaseWeaponSelect) {
+				bucketIndex = i;
+				break;
+			}
+		}
+		//Show all the icon of the bucket
+		for (int i = bucketIndex+1; i < WEAPON_BUCKETS_SIZE && iy < 3; i++)
+		{
+			iw = weaponBuckets[i];
+			if (iw < 0) {
+				break; // Shown all the icons
+			}
+			if (iw > 0 && weaponData[iw].playerUsable)
+			{
+				if (iic < firstIcon) {
+					iic++;
+					continue;
+				}
+				CG_DrawPic(posX, posY, sizeX, sizeY, background);
+				weaponInfo_t* weaponInfo;
+				CG_RegisterWeapon(iw);
+				weaponInfo = &cg_weapons[iw];
+				if (cg.snap->ps.weapons[iw])
+				{
+					CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIcon);
+				}
+				else
+				{
+					CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIconNoAmmo);
+				}
+				//Next icon
+				if (ix == 5)
+				{
+					ix = 0;
+					posX = startX;
+					iy++;
+					posY += marY + sizeY;
+				}
+				else
+				{
+					ix++;
+					posX += marX + sizeX;
+				}
+			}
+		}
+		//Draw the current weapon Description to the screen?
+
+		if (cg.LoadoutWeaponSelect > 0) {
+			// Print the weapon description
+			if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
+			{
+				void;
+			}
+			else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
+			{
+				void;
+			}
+			//Dynamic Weapons
+			else if (!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			{
+				Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
+			}
+		}
+	}
+	const short textboxXPos = 156;
+	const short textboxYPos = 273;
+	const int	textboxWidth = 466;
+	const int	textboxHeight = 136;
+	const float	textScale = 0.75f;
+
+	CG_DisplayBoxedText(
+		textboxXPos, textboxYPos,
+		textboxWidth, textboxHeight,
+		text,
+		CG_MagicFontToReal(4),
+		textScale,
+		colorTable[CT_WHITE]
+	);
 }
 
 /*
@@ -2416,46 +3127,40 @@ void CG_DPNextWeapon_f( void ) {
 	if ( !cg.snap ) {
 		return;
 	}
-	/*
-	if ( cg.snap->ps.pm_flags & PMF_FOLLOW ) {
-		return;
-	}
-	*/
 
 	original = cg.DataPadWeaponSelect;
+	if (original < 0 || original >= weaponCount) {
+		original = 1;
+	}
 
-	for ( i = 0 ; i < WP_NUM_WEAPONS ; i++ )
+	//Search where is the current weapon in the array
+	int currentWeaponIndex = - 1;
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+		if (weaponBuckets[i] == original) {
+			currentWeaponIndex = i;
+			break;
+		}
+	}
+	//Cycle forward in the weaponBucketArray, ignoring negatives values
+	for (i = 0; i <= WEAPON_BUCKETS_SIZE; i++)
 	{
-
-		//*SIGH*... Hack to put concussion rifle before rocketlauncher
-		if ( cg.DataPadWeaponSelect == WP_FLECHETTE )
-		{
-			cg.DataPadWeaponSelect = WP_CONCUSSION;
+		currentWeaponIndex++;
+		//Go back at the beggining of the array
+		if (currentWeaponIndex == WEAPON_BUCKETS_SIZE) {
+			currentWeaponIndex = 0;
 		}
-		else if ( cg.DataPadWeaponSelect == WP_CONCUSSION )
-		{
-			cg.DataPadWeaponSelect = WP_ROCKET_LAUNCHER;
-		}
-		else if ( cg.DataPadWeaponSelect == WP_DET_PACK )
-		{
-			cg.DataPadWeaponSelect = WP_MELEE;
-		}
-		else
-		{
-			cg.DataPadWeaponSelect++;
+		//Never try to switch to Bucket or WP_NONE
+		if (weaponBuckets[currentWeaponIndex] <= 0) {
+			continue;
 		}
 
-		if ( cg.DataPadWeaponSelect < FIRST_WEAPON || cg.DataPadWeaponSelect >= WP_NUM_WEAPONS ) {
-			cg.DataPadWeaponSelect = FIRST_WEAPON;
-		}
 
-		if ( CG_WeaponSelectable( cg.DataPadWeaponSelect, original, qtrue ) )
+		if (CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], original, qtrue))
 		{
+			cg.DataPadWeaponSelect = weaponBuckets[currentWeaponIndex];
 			return;
 		}
 	}
-
-	cg.DataPadWeaponSelect = original;
 }
 
 /*
@@ -2491,48 +3196,39 @@ void CG_DPPrevWeapon_f( void )
 		return;
 	}
 
-	/*
-	if ( cg.snap->ps.pm_flags & PMF_FOLLOW )
-	{
-		return;
-	}
-	*/
-
 	original = cg.DataPadWeaponSelect;
+	if (original < 0 || original >= weaponCount) {
+		original = 1;
+	}
 
-	for ( i = 0 ; i < WP_NUM_WEAPONS ; i++ )
+	//Search where is the current weapon in the array
+	int currentWeaponIndex = - 1;
+	for (i = 0; i <= WEAPON_BUCKETS_SIZE; i++) {
+		if (weaponBuckets[i] == original) {
+			currentWeaponIndex = i;
+			break;
+		}
+	}
+	//Cycle backward in the weaponBucketArray, ignoring negatives values
+	for (i = 0; i <= WEAPON_BUCKETS_SIZE; i++)
 	{
-
-		//*SIGH*... Hack to put concussion rifle before rocketlauncher
-		if ( cg.DataPadWeaponSelect == WP_ROCKET_LAUNCHER )
-		{
-			cg.DataPadWeaponSelect = WP_CONCUSSION;
+		currentWeaponIndex--;
+		//Go back at the end of the array
+		if (currentWeaponIndex < 0) {
+			currentWeaponIndex = WEAPON_BUCKETS_SIZE - 1;
 		}
-		else if ( cg.DataPadWeaponSelect == WP_CONCUSSION )
-		{
-			cg.DataPadWeaponSelect = WP_FLECHETTE;
-		}
-		else if ( cg.DataPadWeaponSelect == WP_MELEE )
-		{
-			cg.DataPadWeaponSelect = WP_DET_PACK;
-		}
-		else
-		{
-			cg.DataPadWeaponSelect--;
+		//Never try to switch to Bucket or WP_NONE
+		if (weaponBuckets[currentWeaponIndex] <= 0) {
+			continue;
 		}
 
-		if ( cg.DataPadWeaponSelect < FIRST_WEAPON || cg.DataPadWeaponSelect >= WP_NUM_WEAPONS )
-		{
-			cg.DataPadWeaponSelect = WP_NUM_WEAPONS;
-		}
 
-		if ( CG_WeaponSelectable( cg.DataPadWeaponSelect, original, qtrue ) )
+		if (CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], original, qtrue))
 		{
+			cg.DataPadWeaponSelect = weaponBuckets[currentWeaponIndex];
 			return;
 		}
 	}
-
-	cg.DataPadWeaponSelect = original;
 }
 
 /*
@@ -2547,11 +3243,6 @@ void CG_PrevWeapon_f( void ) {
 	if ( !cg.snap ) {
 		return;
 	}
-	/*
-	if ( cg.snap->ps.pm_flags & PMF_FOLLOW ) {
-		return;
-	}
-	*/
 
 	if( g_entities[0].flags & FL_LOCK_PLAYER_WEAPONS )
 	{
@@ -2584,46 +3275,42 @@ void CG_PrevWeapon_f( void ) {
 
 	original = cg.weaponSelect;
 
-	int firstWeapon = FIRST_WEAPON;
+	qboolean canSelectNone = qfalse;
 	if (G_IsRidingVehicle(&g_entities[cg.snap->ps.viewEntity]))
 	{
-		firstWeapon = 0;	// include WP_NONE here
+		canSelectNone = qtrue;
 	}
 
-	for ( i = 0 ; i < WP_NUM_WEAPONS ; i++ ) {
-
-		//*SIGH*... Hack to put concussion rifle before rocketlauncher
-		if ( cg.weaponSelect == WP_ROCKET_LAUNCHER )
-		{
-			cg.weaponSelect = WP_CONCUSSION;
+	//Search where is the current weapon in the array
+	int currentWeaponIndex = -1;
+	for (i = 0; i < WEAPON_BUCKETS_SIZE; i++) {
+		if (weaponBuckets[i] == original) {
+			currentWeaponIndex = i;
+			break;
 		}
-		else if ( cg.weaponSelect == WP_CONCUSSION )
-		{
-			cg.weaponSelect = WP_FLECHETTE;
+	}
+	//Cycle backward in the weaponBucketArray, ignoring negatives values
+	for (i = 0 ; i < WEAPON_BUCKETS_SIZE; i++ )
+	{
+		currentWeaponIndex--;
+		//Go back at the end of the array
+		if (currentWeaponIndex < 0) {
+			currentWeaponIndex = WEAPON_BUCKETS_SIZE - 1;
 		}
-		else if ( cg.weaponSelect == WP_MELEE )
-		{
-			cg.weaponSelect = WP_DET_PACK;
-		}
-		else
-		{
-			cg.weaponSelect--;
-		}
-
-
-		if ( cg.weaponSelect < firstWeapon || cg.weaponSelect >= WP_NUM_WEAPONS ) {
-			cg.weaponSelect = WP_NUM_WEAPONS;
+		//Never try to switch to Bucket or WP_NONE
+		if (weaponBuckets[currentWeaponIndex] < 0 || (!canSelectNone && weaponBuckets[currentWeaponIndex] == 0)) {
+			continue;
 		}
 
-		if ( CG_WeaponSelectable( cg.weaponSelect, original, qfalse ) )
+
+		if ( CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], original, qfalse ) )
 		{
+			//Found you!
 			SetWeaponSelectTime();
-//			cg.weaponSelectTime = cg.time;
+			cg.weaponSelect = weaponBuckets[currentWeaponIndex];
 			return;
 		}
 	}
-
-	cg.weaponSelect = original;
 }
 
 /*
@@ -2635,7 +3322,7 @@ void CG_ChangeWeapon( int num )
 {
 	gentity_t	*player = &g_entities[0];
 
-	if ( num < WP_NONE || num >= WP_NUM_WEAPONS )
+	if ( num < WP_NONE || num >= weaponCount)
 	{
 		return;
 	}
@@ -2652,19 +3339,19 @@ void CG_ChangeWeapon( int num )
 	}
 
 	// because we don't have an empty hand model for the thermal, don't allow selecting that weapon if it has no ammo
-	if ( num == WP_THERMAL )
+	if ( (num == WP_THERMAL &&  cg.snap && cg.snap->ps.ammo[AMMO_THERMAL] <= 0 )
+		|| (num == WP_TRIP_MINE && cg.snap && cg.snap->ps.ammo[AMMO_TRIPMINE] <= 0)
+		|| (num == WP_DET_PACK && cg.snap && cg.snap->ps.ammo[AMMO_DETPACK] <= 0)
+	)
 	{
-		if ( cg.snap && cg.snap->ps.ammo[AMMO_THERMAL] <= 0 )
-		{
-			return;
-		}
+		return;
 	}
-
-	// because we don't have an empty hand model for the thermal, don't allow selecting that weapon if it has no ammo
-	if ( num == WP_TRIP_MINE )
-	{
-		if ( cg.snap && cg.snap->ps.ammo[AMMO_TRIPMINE] <= 0 )
-		{
+	
+	int baseWeaponNum = weaponData[num].baseWeaponNum;
+	if (baseWeaponNum == WP_THERMAL
+		|| baseWeaponNum == WP_DET_PACK
+		|| baseWeaponNum == WP_TRIP_MINE) {
+		if (cg.snap && cg.snap->ps.ammo[weaponData[num].ammoIndex] <= 0) {
 			return;
 		}
 	}
@@ -2681,9 +3368,9 @@ CG_Weapon_f
 */
 void CG_Weapon_f( void )
 {
-	int		num;
+	int	num;
 
-	if ( cg.weaponSelectTime + 200 > cg.time )
+	if ( cg.weaponSelectTime + 100 > cg.time )
 	{
 		return;
 	}
@@ -2728,7 +3415,7 @@ void CG_Weapon_f( void )
 
 	num = atoi( CG_Argv( 1 ) );
 
-	if ( num < WP_NONE || num >= WP_NUM_WEAPONS ) {
+	if ( num < WB_OTHERS || num >= weaponCount) {
 		return;
 	}
 
@@ -2780,50 +3467,58 @@ void CG_Weapon_f( void )
 			}
 		}
 	}
-	else if ( num >= WP_THERMAL && num <= WP_DET_PACK ) // these weapons cycle
-	{
-		int weap, i = 0;
 
-		if ( cg.snap->ps.weapon >= WP_THERMAL && cg.snap->ps.weapon <= WP_DET_PACK )
+	if (num < 0) {
+		int currentWeaponSelected = cg.weaponSelect;
+		int bucketIndex = -1;
+		int baseWeaponIndex = -1;
+		int currentWeaponIndex = -1;
+		int bucketSize = 0;
+		//Initialize the bucket indexes
+		for (int i = 0; i < WEAPON_BUCKETS_SIZE; i++)
 		{
-			// already in cycle range so start with next cycle item
-			weap = cg.snap->ps.weapon + 1;
-		}
-		else
-		{
-			// not in cycle range, so start with thermal detonator
-			weap = WP_THERMAL;
-		}
-
-		// prevent an endless loop
-		while ( i <= 4 )
-		{
-			if ( weap > WP_DET_PACK )
+			//Let's search for the selectedBucketIndex
+			if (weaponBuckets[i] == num)
 			{
-				weap = WP_THERMAL;
+				bucketIndex = i;
 			}
-
-			if ( cg.snap->ps.ammo[weaponData[weap].ammoIndex] > 0 || weap == WP_DET_PACK )
-			{
-				if ( CG_WeaponSelectable( weap, cg.snap->ps.weapon, qfalse ) )
-				{
-					num = weap;
-					break;
-				}
+			//Now search the current weapon if it's in the current Bucket
+			else if (bucketIndex >= 0 && weaponBuckets[i] == currentWeaponSelected) {
+				baseWeaponIndex = i;
 			}
-
-			weap++;
-			i++;
+			//If we enter a new bucket, we stop searching
+			else if (bucketIndex >= 0 && weaponBuckets[i] < 0) {
+				bucketSize = i - bucketIndex;
+				break;
+			}
+		}
+		if (baseWeaponIndex == -1) {
+			baseWeaponIndex = bucketIndex;
+		}
+		currentWeaponIndex = baseWeaponIndex;
+		//Search in the current bucket the next weapon
+		for (int i = 0; i < bucketSize; i++)
+		{
+			//Test next weapon
+			currentWeaponIndex++;
+			//If the next weapon is the last one, back to the first
+			if (currentWeaponIndex >= (bucketIndex + bucketSize)) {
+				currentWeaponIndex = bucketIndex + 1;
+			}
+			//Can we switch to this weapon?
+			if (CG_WeaponSelectable(weaponBuckets[currentWeaponIndex], cg.snap->ps.weapon, qfalse)) {
+				SetWeaponSelectTime();
+				cg.weaponSelect = weaponBuckets[currentWeaponIndex];
+				return;
+			}
 		}
 	}
-
 	if (!CG_WeaponSelectable(num, cg.snap->ps.weapon, qfalse))
 	{
 		return;
 	}
 
 	SetWeaponSelectTime();
-//	cg.weaponSelectTime = cg.time;
 	cg.weaponSelect = num;
 }
 
@@ -2890,30 +3585,15 @@ void CG_OutOfAmmoChange( void ) {
 	}
 }
 
-/*
-Quick note about dynamic weapons.
-
-A dynamic weapon number (dynWpnNum) refers to the dynamicWeapon_t enum
-value like DYN_WP_CLONEPISTOL.
-
-A dynamic weapon value (dynWpnVal) referes to how many dynamic weapons there
-are for that base weapon ranging from 1 to n where n represents how many weapon
-subtypes there are for each weapon.
-*/
 
 /*
 =================
-CG_IsWeaponPistol
+CG_PlayerIsDualWielding
 =================
 */
-qboolean CG_IsWeaponPistol(gentity_t *ent)
+qboolean CG_PlayerIsDualWielding(int weapon)
 {
-	int weaponNum = ent->client->ps.weapon;
-
-	return (qboolean)(weaponNum == WP_BLASTER_PISTOL
-		|| weaponNum == WP_JANGO
-		|| weaponNum == WP_REY
-		|| weaponNum == WP_CLONEPISTOL);
+	return (qboolean)(cg_dualWielding.integer && weaponData[weapon].weaponCategory == WC_PISTOL);
 }
 
 /*
@@ -2923,9 +3603,9 @@ CG_ChangeFirstPersonView
 */
 qboolean CG_ChangeFirstPersonView(void)
 {
-	return (qboolean)((cg_dualWielding.integer && CG_IsWeaponPistol(player)) || player->client->ps.weapon == WP_SBD || player->client->ps.weapon == WP_DROIDEKA);
+	int weapon = weaponData[player->client->ps.weapon].baseWeaponNum ? weaponData[player->client->ps.weapon].baseWeaponNum : player->client->ps.weapon;
+	return (qboolean)(CG_PlayerIsDualWielding(weapon) || weapon  == WP_SBD || weapon == WP_DROIDEKA);
 }
-
 
 
 /*
@@ -2943,7 +3623,7 @@ CG_FireWeapon
 Caused by an EV_FIRE_WEAPON event
 ================
 */
-void CG_FireWeapon( centity_t *cent, qboolean alt_fire )
+void CG_FireWeapon( centity_t *cent, int attackIndex)
 {
 	entityState_t *ent;
 	//weaponInfo_t	*weap;
@@ -2952,7 +3632,7 @@ void CG_FireWeapon( centity_t *cent, qboolean alt_fire )
 	if ( ent->weapon == WP_NONE ) {
 		return;
 	}
-	if ( ent->weapon >= WP_NUM_WEAPONS ) {
+	if ( ent->weapon >= weaponCount) {
 		CG_Error( "CG_FireWeapon: ent->weapon >= WP_NUM_WEAPONS" );
 		return;
 	}
@@ -2972,67 +3652,17 @@ void CG_FireWeapon( centity_t *cent, qboolean alt_fire )
 	// mark the entity as muzzle flashing, so when it is added it will
 	// append the flash to the weapon model
 	cent->muzzleFlashTime = cg.time;
-	cent->altFire = alt_fire;
+	cent->altFire = (attackIndex == 1 || attackIndex == 3) ? qtrue: qfalse;
+	cent->attack_index = attackIndex;
 
-	// lightning type guns only does this this on initial press
 	if ( ent->weapon == WP_SABER )
 	{
 		if ( cent->pe.lightningFiring )
 		{
-/*			if ( ent->weapon == WP_DREADNOUGHT )
-			{
-				cgi_FF_EnsureFX( fffx_Laser3 );
-			}
-*/
 			return;
 		}
 	}
 
-	// Do overcharge sound that get's added to the top
-/*	if (( ent->powerups & ( 1<<PW_WEAPON_OVERCHARGE )))
-	{
-		if ( alt_fire )
-		{
-			switch( ent->weapon )
-			{
-			case WP_THERMAL:
-			case WP_DET_PACK:
-			case WP_TRIP_MINE:
-			case WP_ROCKET_LAUNCHER:
-			case WP_FLECHETTE:
-				// these weapon fires don't overcharge
-				break;
-
-			case WP_BLASTER:
-				cgi_S_StartSound( NULL, ent->number, CHAN_AUTO, cgs.media.overchargeFastSound );
-				break;
-
-			default:
-				cgi_S_StartSound( NULL, ent->number, CHAN_AUTO, cgs.media.overchargeSlowSound );
-				break;
-			}
-		}
-		else
-		{
-			switch( ent->weapon )
-			{
-			case WP_THERMAL:
-			case WP_DET_PACK:
-			case WP_TRIP_MINE:
-			case WP_ROCKET_LAUNCHER:
-				// these weapon fires don't overcharge
-				break;
-
-			case WP_REPEATER:
-				cgi_S_StartSound( NULL, ent->number, CHAN_AUTO, cgs.media.overchargeFastSound );
-				break;
-
-			default:
-				cgi_S_StartSound( NULL, ent->number, CHAN_AUTO, cgs.media.overchargeSlowSound );
-				break;
-			}
-		}
-	}*/
 }
 
 /*
@@ -3044,7 +3674,8 @@ Caused by an EV_BOUNCE | EV_BOUNCE_HALF event
 */
 void CG_BounceEffect( centity_t *cent, int weapon, vec3_t origin, vec3_t normal )
 {
-	switch( weapon )
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+	switch(baseWeapon)
 	{
 	case WP_THERMAL:
 		if ( rand() & 1 ) {
@@ -3078,7 +3709,8 @@ void CG_MissileStick( centity_t *cent, int weapon, vec3_t position )
 {
 	sfxHandle_t snd = 0;
 
-	switch( weapon )
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
+	switch(baseWeapon)
 	{
 	case WP_FLECHETTE:
 		snd = cgs.media.flechetteStickSound;
@@ -3119,170 +3751,70 @@ Caused by an EV_MISSILE_MISS event, or directly by local bullet tracing
 */
 void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, qboolean altFire )
 {
-	int parm;
+	weaponData_t* wpnData = &weaponData[weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[cent->gent->attack_index];
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
-	switch( weapon )
+	switch (attackData->firingLogic)
 	{
-	case WP_BRYAR_PISTOL:
-	case WP_BLASTER_PISTOL:
-	case WP_REY:
-	case WP_JAWA:
-		if ( altFire )
-		{
-			parm = 0;
-
-			if ( cent->gent )
+		case FL_STUNBATON:
+		case FL_MELEE:
+		    return;
+		case FL_MISSILE:
+		case FL_MISSILE_AIMED:
+		case FL_DEMP2:
+		case FL_BLASTER:
+		case FL_BOWCASTER:
+		case FL_GRENADE_LAUNCHER:
+		case FL_FLECHETTE_ALT:
+		case FL_NOGHRI:
+		case FL_LASER_TRAP:
+		case FL_PROXIMITY_TRAP:
+		case FL_EXPLOSIVES:
+		case FL_FLECHETTE:
+			FX_GenericBlasterHitWall(cent->gent, weapon, origin, dir);
+		    return;
+		case FL_BLASTER_CHARGED:
+			FX_GenericChargedBlasterHitWall(cent->gent, weapon, origin, dir);
+		    return;
+		case FL_DEMP2_ALT:
+			return;
+		case FL_BEAM:
+		case FL_FULL_BEAM:
+		case FL_BEAM_CHARGED:
+		    break;
+		case FL_GRENADE:
+		case FL_IMPACT_GRENADE:
+			if (weaponData[weapon].attackData[cent->gent->attack_index].explosionEffect[0])
 			{
-				parm += cent->gent->count;
+				theFxScheduler.PlayEffect(weaponData[weapon].attackData[cent->gent->attack_index].explosionEffect, origin, dir);
+			}
+			else
+			{
+				theFxScheduler.PlayEffect("thermal/explosion", origin, dir);
 			}
 
-			FX_BryarAltHitWall( origin, dir, parm );
-		}
-		else
-		{
-			FX_BryarHitWall( origin, dir );
-		}
-		break;
-
-	case WP_BLASTER:
-	case WP_BATTLEDROID:
-	case WP_THEFIRSTORDER:
-	case WP_REBELBLASTER:
-	case WP_REBELRIFLE:
-	case WP_JANGO:
-	case WP_BOBA:
-	case WP_SBD:
-	case WP_DROIDEKA:
-	case WP_CIS_SNIPER:
-		FX_BlasterWeaponHitWall( origin, dir );
-		break;
-
-	case WP_BOWCASTER:
-		FX_BowcasterHitWall( origin, dir );
-		break;
-
-	case WP_DISRUPTOR:
-		if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))
-		{
-			FX_StrikeHitWall(origin, dir);
-		}
-		break;
-
-	case WP_REPEATER:
-		if ( altFire )
-		{
-			FX_RepeaterAltHitWall( origin, dir );
-		}
-		else
-		{
-			FX_RepeaterHitWall( origin, dir );
-		}
-		break;
-
-	case WP_DEMP2:
-		if ( altFire )
-		{
-		}
-		else
-		{
-			FX_DEMP2_HitWall( origin, dir );
-		}
-		break;
-
-	case WP_FLECHETTE:
-		if ( altFire )
-		{
-			theFxScheduler.PlayEffect( "flechette/alt_blow", origin, dir );
-		}
-		else
-		{
-			FX_FlechetteWeaponHitWall( origin, dir );
-		}
-		break;
-
-	case WP_ROCKET_LAUNCHER:
-		if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))
-		{
-			FX_BlastHitWall(origin, dir);
-		}
-		else
-		{
-			FX_RocketHitWall(origin, dir);
-		}
-
-		break;
-
-	case WP_CONCUSSION:
-		if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))
-		{
-			FX_DestructionHitWall(origin, dir);
-		}
-		else
-		{
-			FX_ConcHitWall(origin, dir);
-		}
-		break;
-
-	case WP_THERMAL:
-		theFxScheduler.PlayEffect( "thermal/explosion", origin, dir );
-		theFxScheduler.PlayEffect( "thermal/shockwave", origin );
-		break;
-
-	case WP_EMPLACED_GUN:
-		FX_EmplacedHitWall( origin, dir, (qboolean)(cent->gent&&cent->gent->alt_fire) );
-		break;
-
-	case WP_ATST_MAIN:
-		FX_ATSTMainHitWall( origin, dir );
-		break;
-
-	case WP_ATST_SIDE:
-		if ( altFire )
-		{
-			theFxScheduler.PlayEffect( "atst/side_alt_explosion", origin, dir );
-		}
-		else
-		{
-			theFxScheduler.PlayEffect( "atst/side_main_impact", origin, dir );
-		}
-		break;
-
-	case WP_TRIP_MINE:
-		theFxScheduler.PlayEffect( "tripmine/explosion", origin, dir );
-		break;
-
-	case WP_DET_PACK:
-		theFxScheduler.PlayEffect( "detpack/explosion", origin, dir );
-		break;
-
-	case WP_TURRET:
-		theFxScheduler.PlayEffect( "turret/wall_impact", origin, dir );
-		break;
-
-	case WP_TUSKEN_RIFLE:
-		FX_TuskenShotWeaponHitWall( origin, dir );
-		break;
-
-	case WP_NOGHRI_STICK:
-		FX_NoghriShotWeaponHitWall( origin, dir );
-		break;
-
-	case WP_CLONECARBINE:
-	case WP_CLONERIFLE:
-	case WP_CLONEPISTOL:
-		FX_CloneWeaponHitWall(origin, dir);
-		break;
-
-	case WP_CLONECOMMANDO:
-		if (altFire)
-		{
-			FX_CloneCommandoHitWall(origin, dir);
-		}
-		else
-		{
-			FX_CloneWeaponHitWall(origin, dir);
-		}
-		break;
+			if (weaponData[weapon].attackData[cent->gent->attack_index].shockwaveEffect[0])
+			{
+				theFxScheduler.PlayEffect(weaponData[weapon].attackData[cent->gent->attack_index].shockwaveEffect, origin);
+			}
+			else
+			{
+				theFxScheduler.PlayEffect("thermal/shockwave", origin);
+			}
+		    break;
+		case FL_FLAMETHROWER:
+			theFxScheduler.PlayEffect("env/small_fire.efx", origin);
+			break;
+		case FL_OTHER:
+		case FL_NONE:
+			if (baseWeapon == WP_ROCKET_LAUNCHER && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
+				FX_BlastHitWall(origin, dir);
+			}
+			else if (baseWeapon == WP_CONCUSSION && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
+				FX_DestructionHitWall(origin, dir);
+			}
+		    break;
 	}
 }
 
@@ -3294,8 +3826,7 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 CG_MissileHitPlayer
 -------------------------
 */
-
-void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, qboolean altFire )
+void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, int attackIndex)
 {
 	gentity_t *other = NULL;
 	qboolean	humanoid = qtrue;
@@ -3316,164 +3847,166 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 			}
 		}
 	}
+	weaponData_t* wpnData = &weaponData[weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[cent->gent->attack_index];
+	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
-	switch (weapon)
+	switch (attackData->firingLogic)
 	{
-	case WP_BRYAR_PISTOL:
-	case WP_BLASTER_PISTOL:
-	case WP_REY:
-	case WP_JAWA:
-		if (altFire)
-		{
-			FX_BryarAltHitPlayer(origin, dir, humanoid);
-		}
-		else
-		{
-			FX_BryarHitPlayer(origin, dir, humanoid);
-		}
-		break;
-
-	case WP_BLASTER:
-	case WP_BATTLEDROID:
-	case WP_THEFIRSTORDER:
-	case WP_REBELBLASTER:
-	case WP_REBELRIFLE:
-	case WP_JANGO:
-	case WP_BOBA:
-	case WP_SBD:
-	case WP_DROIDEKA:
-	case WP_CIS_SNIPER:
-		FX_BlasterWeaponHitPlayer(other, origin, dir, humanoid);
-		break;
-
-	case WP_BOWCASTER:
-		FX_BowcasterHitPlayer(origin, dir, humanoid);
-		break;
-
-	case WP_DISRUPTOR:
-		if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))
-		{
-			FX_StrikeHitWall(origin, dir);
-		}
-		break;
-
-	case WP_REPEATER:
-		if (altFire)
-		{
-			FX_RepeaterAltHitPlayer(origin, dir, humanoid);
-		}
-		else
-		{
-			FX_RepeaterHitPlayer(origin, dir, humanoid);
-		}
-		break;
-
-	case WP_DEMP2:
-		if (!altFire)
-		{
-			FX_DEMP2_HitPlayer(origin, dir, humanoid);
-		}
-
+	case FL_STUNBATON:
+	case FL_MELEE:
+		return;
+	case FL_DEMP2:		
 		// Do a full body effect here for some more feedback
 		if (other && other->client)
 		{
 			other->s.powerups |= (1 << PW_SHOCKED);
 			other->client->ps.powerups[PW_SHOCKED] = cg.time + 1000;
 		}
+	case FL_MISSILE:
+	case FL_MISSILE_AIMED:
+	case FL_BLASTER:
+	case FL_BOWCASTER:
+	case FL_GRENADE_LAUNCHER:
+	case FL_FLECHETTE_ALT:
+	case FL_NOGHRI:
+	case FL_LASER_TRAP:
+	case FL_PROXIMITY_TRAP:
+	case FL_EXPLOSIVES:
+	case FL_BLASTER_CHARGED:
+	case FL_FLECHETTE:
+		FX_GenericBlasterHitPlayer(cent->gent, weapon, origin, dir, other, humanoid);
+		return;
+	case FL_DEMP2_ALT:
+		return;
+	case FL_BEAM:
+	case FL_FULL_BEAM:
+	case FL_BEAM_CHARGED:
 		break;
-
-	case WP_FLECHETTE:
-		if (altFire)
+	case FL_GRENADE:
+	case FL_IMPACT_GRENADE:
+		if (weaponData[weapon].attackData[cent->gent->attack_index].explosionEffect[0])
 		{
-			theFxScheduler.PlayEffect("flechette/alt_blow", origin, dir);
+			theFxScheduler.PlayEffect(weaponData[weapon].attackData[cent->gent->attack_index].explosionEffect, origin, dir);
 		}
 		else
 		{
-			FX_FlechetteWeaponHitPlayer(origin, dir, humanoid);
+			theFxScheduler.PlayEffect("thermal/explosion", origin, dir);
+		}
+
+		if (weaponData[weapon].attackData[cent->gent->attack_index].shockwaveEffect[0])
+		{
+			theFxScheduler.PlayEffect(weaponData[weapon].attackData[cent->gent->attack_index].shockwaveEffect, origin);
+		}
+		else
+		{
+			theFxScheduler.PlayEffect("thermal/shockwave", origin);
 		}
 		break;
-
-	case WP_ROCKET_LAUNCHER:
-		if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))
-		{
+		
+	case FL_FLAMETHROWER:
+	case FL_OTHER:
+	case FL_NONE:
+		if (baseWeapon == WP_ROCKET_LAUNCHER && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
 			FX_BlastHitWall(origin, dir);
 		}
-		else
-		{
-			FX_RocketHitPlayer(origin, dir, humanoid);
-		}
-		break;
-
-	case WP_CONCUSSION:
-		if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))
-		{
+		else if (baseWeapon == WP_CONCUSSION && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
 			FX_DestructionHitPlayer(origin, dir, humanoid);
 		}
-		else
-		{
-			FX_ConcHitPlayer(origin, dir, humanoid);
-		}
-		break;
-
-	case WP_THERMAL:
-		theFxScheduler.PlayEffect("thermal/explosion", origin, dir);
-		theFxScheduler.PlayEffect("thermal/shockwave", origin);
-		break;
-
-	case WP_EMPLACED_GUN:
-		FX_EmplacedHitPlayer(origin, dir, (qboolean)(cent->gent && cent->gent->alt_fire));
-		break;
-
-	case WP_TRIP_MINE:
-		theFxScheduler.PlayEffect("tripmine/explosion", origin, dir);
-		break;
-
-	case WP_DET_PACK:
-		theFxScheduler.PlayEffect("detpack/explosion", origin, dir);
-		break;
-
-	case WP_TURRET:
-		theFxScheduler.PlayEffect("turret/flesh_impact", origin, dir);
-		break;
-
-	case WP_ATST_MAIN:
-		FX_EmplacedHitWall(origin, dir, qfalse);
-		break;
-
-	case WP_ATST_SIDE:
-		if (altFire)
-		{
-			theFxScheduler.PlayEffect("atst/side_alt_explosion", origin, dir);
-		}
-		else
-		{
-			theFxScheduler.PlayEffect("atst/side_main_impact", origin, dir);
-		}
-		break;
-
-	case WP_TUSKEN_RIFLE:
-		FX_TuskenShotWeaponHitPlayer(other, origin, dir, humanoid);
-		break;
-
-	case WP_NOGHRI_STICK:
-		FX_NoghriShotWeaponHitPlayer(other, origin, dir, humanoid);
-		break;
-
-	case WP_CLONECARBINE:
-	case WP_CLONERIFLE:
-	case WP_CLONEPISTOL:
-		FX_CloneWeaponHitPlayer(other, origin, dir, humanoid);
-		break;
-
-	case WP_CLONECOMMANDO:
-		if (altFire)
-		{
-			FX_CloneCommandoHitPlayer(origin, dir, humanoid);
-		}
-		else
-		{
-			FX_CloneWeaponHitPlayer(other, origin, dir, humanoid);
+		else if (baseWeapon == WP_DISRUPTOR && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
+			FX_StrikeHitWall(origin, dir);
 		}
 		break;
 	}
 }
+
+char baseHitWallEffects[][64] = {
+	"",//WP_NONE
+	"",//WP_SABER
+	"bryar/wall_impact",//WP_BLASTER_PISTOL
+	"blaster/wall_impact",//WP_BLASTER
+	"disruptor/wall_impact",//WP_DISRUPTOR
+	"bowcaster/explosion",//WP_BOWCASTER
+	"repeater/wall_impact",//WP_REPEATER
+	"demp2/wall_impact",//WP_DEMP2
+	"flechette/wall_impact",//WP_FLECHETTE
+	"rocket/explosion",//WP_ROCKET_LAUNCHER
+	"",//WP_THERMAL
+	"tripmine/explosion",//WP_TRIP_MINE
+	"detpack/explosion",//WP_DET_PACK
+	"concussion/explosion",//WP_CONCUSSION
+	"",//WP_MELEE
+	"atst/wall_impact",//WP_ATST_MAIN
+	"atst/side_main_impact",//WP_ATST_SIDE
+	"",//WP_STUN_BATON
+	"bryar/wall_impact",//WP_BRYAR_PISTOL
+	"eweb/wall_impact",//WP_EMPLACED_GUN
+	"",//WP_BOT_LASER
+	"turret/flesh_impact",//WP_TURRET
+	"",//WP_TIE_FIGHTER
+	"",//WP_RAPID_FIRE_CONC
+	"bryar/wall_impact",//WP_JAWA
+	"tusken/hitwall" ,//WP_TUSKEN_RIFLE
+	"",//WP_TUSKEN_STAFF
+	"",//WP_SCEPTER
+	"noghri_stick/flesh_impact",//WP_NOGHRI_STICK
+	"blaster/wall_impact",//WP_BATTLEDROID
+	"blaster/wall_impact",//WP_THEFIRSTORDER
+	"clone/wall_impact",//WP_CLONECARBINE
+	"blaster/wall_impact",//WP_REBELBLASTER
+	"clone/wall_impact",//WP_CLONERIFLE
+	"clone/wall_impact",//WP_CLONECOMMANDO
+	"blaster/wall_impact",//WP_REBELRIFLE
+	"bryar/wall_impact",//WP_REY
+	"blaster/wall_impact",//WP_JANGO
+	"blaster/wall_impact",//WP_BOBA
+	"clone/wall_impact",//WP_CLONEPISTOL
+	"blaster/wall_impact",//WP_CIS_SNIPER
+	"blaster/wall_impact",//WP_SBD
+	"blaster/wall_impact",//WP_DROIDEKA
+};
+char baseHitFleshEffects[][64] = {
+	"",//WP_NONE
+	"",//WP_SABER
+	"bryar/flesh_impact",//WP_BLASTER_PISTOL
+	"blaster/flesh_impact",//WP_BLASTER
+	"disruptor/flesh_impact",//WP_DISRUPTOR
+	"bowcaster/explosion",//WP_BOWCASTER
+	"repeater/flesh_impact",//WP_REPEATER
+	"demp2/flesh_impact",//WP_DEMP2
+	"flechette/flesh_impact",//WP_FLECHETTE
+	"rocket/explosion",//WP_ROCKET_LAUNCHER
+	"",//WP_THERMAL
+	"tripmine/explosion",//WP_TRIP_MINE
+	"detpack/explosion",//WP_DET_PACK
+	"concussion/explosion",//WP_CONCUSSION
+	"",//WP_MELEE
+	"atst/flesh_impact",//WP_ATST_MAIN
+	"atst/side_main_impact",//WP_ATST_SIDE
+	"",//WP_STUN_BATON
+	"bryar/flesh_impact",//WP_BRYAR_PISTOL
+	"eweb/flesh_impact",//WP_EMPLACED_GUN
+	"",//WP_BOT_LASER
+	"turret/wall_impact",//WP_TURRET
+	"",//WP_TIE_FIGHTER
+	"",//WP_RAPID_FIRE_CONC
+	"bryar/flesh_impact",//WP_JAWA
+	"tusken/hit" ,//WP_TUSKEN_RIFLE
+	"",//WP_TUSKEN_STAFF
+	"",//WP_SCEPTER
+	"noghri_stick/flesh_impact",//WP_NOGHRI_STICK
+	"blaster/flesh_impact",//WP_BATTLEDROID
+	"blaster/flesh_impact",//WP_THEFIRSTORDER
+	"clone/flesh_impact",//WP_CLONECARBINE
+	"blaster/flesh_impact",//WP_REBELBLASTER
+	"clone/flesh_impact",//WP_CLONERIFLE
+	"clone/flesh_impact",//WP_CLONECOMMANDO
+	"blaster/flesh_impact",//WP_REBELRIFLE
+	"bryar/flesh_impact",//WP_REY
+	"blaster/flesh_impact",//WP_JANGO
+	"blaster/flesh_impact",//WP_BOBA
+	"clone/flesh_impact",//WP_CLONEPISTOL
+	"blaster/flesh_impact",//WP_CIS_SNIPER
+	"blaster/flesh_impact",//WP_SBD
+	"blaster/flesh_impact",//WP_DROIDEKA
+};

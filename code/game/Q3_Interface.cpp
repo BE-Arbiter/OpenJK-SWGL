@@ -65,6 +65,7 @@ extern void G_PlayDoorLoopSound( gentity_t *ent );
 extern void G_PlayDoorSound( gentity_t *ent, int type );
 extern void NPC_SetLookTarget( gentity_t *self, int entNum, int clearTime );
 extern void NPC_ClearLookTarget( gentity_t *self );
+extern int WP_GetWeaponID(const char* weaponName);
 extern void WP_SaberSetColor( gentity_t *ent, int saberNum, int bladeNum, char *colorName );
 extern void WP_SetSaber( gentity_t *ent, int saberNum, const char *saberName );
 extern qboolean PM_HasAnimation( gentity_t *ent, int animation );
@@ -3442,7 +3443,7 @@ static void Q3_SetWeapon (int entID, const char *wp_name)
 		wp = GetIDForString(WPTable, "WP_BRYAR_PISTOL");
 	}
 	else
-		wp = GetIDForString( WPTable, wp_name );
+		wp = WP_GetWeaponID( wp_name );
 
 	if ( !self )
 	{
@@ -7730,6 +7731,7 @@ CQuake3GameInterface::CQuake3GameInterface() : IGameInterface()
 {
 	m_ScriptList.clear();
 	m_EntityList.clear();
+	m_cvars.clear();
 
 	m_numVariables = 0;
 
@@ -7766,6 +7768,7 @@ CQuake3GameInterface::~CQuake3GameInterface()
 
 	m_ScriptList.clear();
 	m_EntityList.clear();
+	m_cvars.clear();
 }
 
 // Initialize an Entity by ID.
@@ -8487,8 +8490,7 @@ void	CQuake3GameInterface::Set( int taskID, int entID, const char *type_name, co
 	vec3_t		vector_data;
 
 	// eezstreet: Add support for cvars getting modified thru ICARUS script
-	if(!Q_stricmpn(type_name, "cvar_", 5) &&
-		strlen(type_name) > 5)
+	if(strlen(type_name) > 5 && !Q_stricmpn(type_name, "cvar_", 5))
 	{
 		gi.cvar_set(type_name+5, data);
 		return;
@@ -9913,7 +9915,7 @@ extern cvar_t	*g_char_skin_legs;
 		// If this is a (fake) Player NPC or this IS the Player...
 		if ( entID == 0 || ( ent->NPC_type && Q_stricmp( ent->NPC_type, "player" ) == 0 ) )
 		{
-			char strSkin[MAX_QPATH];
+			char strSkin[MAX_CSPATH];
 			// Set the Winter Gear Skin if true, otherwise set back to normal configuration.
 			if( Q_stricmp( "true", ((char *)data) ) == 0 )
 			{
@@ -10414,8 +10416,7 @@ int		CQuake3GameInterface::GetFloat( int entID, const char *name, float *value )
 		return false;
 	}
 
-	if( !Q_stricmpn(name, "cvar_", 5) &&
-		strlen(name) > 5 )
+	if( strlen(name) > 5 && !Q_stricmpn(name, "cvar_", 5) )
 	{
 		*value = (float)gi.Cvar_VariableIntegerValue(name+5);
 		return true;
@@ -11123,10 +11124,16 @@ int		CQuake3GameInterface::GetString( int entID, const char *name, char **value 
 		return false;
 	}
 
-	if( !Q_stricmpn(name, "cvar_", 5) &&
-		strlen(name) > 5 )
+	if( strlen(name) > 5 && !Q_stricmpn(name, "cvar_", 5) )
 	{
-		gi.Cvar_VariableStringBuffer(name+5, *value, strlen(*value));
+		const char* cvar_name = name + 5;
+		// by allocating and then re-using the same sufficiently large buffer,
+		// we ensure that pointers to it never become invalid,
+		// so we can support expressions using the same cvar twice,
+		// e.g. if(get(cvar_x) == get(cvar_x))
+		std::array<char, MAX_STRING_CHARS>& buf = m_cvars[cvar_name];
+		gi.Cvar_VariableStringBuffer(cvar_name, buf.data(), buf.size());
+		*value = buf.data();
 		return true;
 	}
 

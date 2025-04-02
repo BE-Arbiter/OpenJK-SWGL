@@ -184,9 +184,9 @@ void CreateLaserTrap( gentity_t *laserTrap, vec3_t start, gentity_t *owner )
 		laserTrap->classname = "tripmine";
 	}
 
-	laserTrap->splashDamage = weaponData[WP_TRIP_MINE].splashDamage;
-	laserTrap->splashRadius = weaponData[WP_TRIP_MINE].splashRadius;
-	laserTrap->damage = weaponData[WP_TRIP_MINE].damage;
+	laserTrap->splashDamage = weaponData[WP_TRIP_MINE].attackData[0].splashDamage;
+	laserTrap->splashRadius = weaponData[WP_TRIP_MINE].attackData[0].splashRadius;
+	laserTrap->damage = weaponData[WP_TRIP_MINE].attackData[0].damage;
 	laserTrap->methodOfDeath = MOD_LASERTRIP;
 	laserTrap->splashMethodOfDeath = MOD_LASERTRIP;//? SPLASH;
 
@@ -211,7 +211,7 @@ void CreateLaserTrap( gentity_t *laserTrap, vec3_t start, gentity_t *owner )
 
 	laserTrap->s.radius = 60;
 	VectorSet( laserTrap->s.modelScale, 1.0f, 1.0f, 1.0f );
-	gi.G2API_InitGhoul2Model( laserTrap->ghoul2, weaponData[WP_TRIP_MINE].missileMdl, G_ModelIndex( weaponData[WP_TRIP_MINE].missileMdl ),
+	gi.G2API_InitGhoul2Model( laserTrap->ghoul2, weaponData[WP_TRIP_MINE].attackData[0].missileMdl, G_ModelIndex( weaponData[WP_TRIP_MINE].attackData[0].missileMdl ),
 		NULL_HANDLE, NULL_HANDLE, 0, 0);
 }
 

@@ -154,7 +154,7 @@ rotates around the upper right corner of the passed in point
 =================
 */
 void CG_DrawRotatePic( float x, float y, float width, float height,float angle, qhandle_t hShader ) {
-	trap->R_DrawRotatePic( x, y, width, height, 0, 0, 1, 1, angle, hShader );
+	trap->R_DrawRotatePic( x, y, width, height, 0, 0, 1, 1, angle, hShader, 1.0f );
 }
 
 /*
@@ -167,7 +167,7 @@ Actually rotates around the center point of the passed in coordinates
 =================
 */
 void CG_DrawRotatePic2( float x, float y, float width, float height,float angle, qhandle_t hShader ) {
-	trap->R_DrawRotatePic2( x, y, width, height, 0, 0, 1, 1, angle, hShader );
+	trap->R_DrawRotatePic2(x, y, width, height, 0, 0, 1, 1, angle, hShader, 1.0f );
 }
 
 /*

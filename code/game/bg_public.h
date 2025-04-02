@@ -33,7 +33,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define	GIB_HEALTH			-40
 #define	ARMOR_PROTECTION	0.40
 
-#define	MAX_ITEMS			128
+#define	MAX_ITEMS			MAX_WEAPONS+64
 
 #define	RANK_TIED_FLAG		0x4000
 
@@ -244,6 +244,7 @@ typedef enum {
 #define EF_FORCE_DRAINED		0x40000000	// Force drained effect
 #define EF_BLOCKED_MOVER		0x80000000	// for movers that are blocked - shared with previous
 
+#define PF_ZOOMING				0x00000001  //Define if player is zooming
 typedef enum {
 	PW_NONE,
 	PW_QUAD,// This can go away
@@ -319,6 +320,8 @@ typedef enum {
 	EV_CHANGE_WEAPON,
 	EV_FIRE_WEAPON,
 	EV_ALT_FIRE,
+	EV_SCOPED_FIRE,
+	EV_SCOPED_ALT_FIRE,
 	EV_POWERUP_SEEKER_FIRE,
 	EV_POWERUP_BATTLESUIT,
 	EV_USE,
@@ -352,6 +355,8 @@ typedef enum {
 
 	EV_CLONECOMMANDO_SNIPER_SHOT,
 	EV_CLONECOMMANDO_SNIPER_MISS,
+
+	EV_GENERIC_BEAM,
 
 	EV_PAIN,
 	EV_DEATH1,
@@ -715,6 +720,7 @@ typedef struct gitem_s {
 	itemType_t  giType;			// IT_* flags
 
 	int			giTag;
+	const char	*giTagName;
 
 	const char	*precaches;		// string of all models and images this item will use
 	const char	*sounds;		// string of all sounds this item will use
@@ -724,7 +730,7 @@ typedef struct gitem_s {
 
 // included in both the game dll and the client
 extern	gitem_t	bg_itemlist[];
-extern	const int		bg_numItems;
+extern	int		bg_numItems;
 
 
 //==============================================================================
@@ -740,17 +746,21 @@ typedef struct ginfoitem_s
 
 //==============================================================================
 
-extern weaponData_t weaponData[WP_NUM_WEAPONS];
+extern int weaponCount;
+extern int ammoCount;
+extern weaponIndexes_t weaponIndexes[MAX_WEAPONS];
+extern int weaponBuckets[MAX_WEAPONS - WB_OTHERS];
+extern weaponData_t weaponData[MAX_WEAPONS];
 
 //==============================================================================
-extern ammoData_t ammoData[AMMO_MAX];
+extern ammoData_t ammoData[MAX_AMMO];
 
 //==============================================================================
 
 
 
 gitem_t	*FindItem( const char *className );
-gitem_t	*FindItemForWeapon( weapon_t weapon );
+gitem_t	*FindItemForWeapon( int weapon );
 gitem_t	*FindItemForInventory( int inv );
 
 #define	ITEM_INDEX(x) ((x)-bg_itemlist)

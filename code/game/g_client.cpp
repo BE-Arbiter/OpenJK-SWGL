@@ -79,11 +79,11 @@ void SP_info_player_deathmatch(gentity_t *ent) {
 
 	if ( ent->spawnflags & 32 ) // STUN_BATON
 	{
-		RegisterItem( FindItemForWeapon( WP_STUN_BATON ));
+		RegisterItem( FindItemForWeapon((int) WP_STUN_BATON ));
 	}
 	else
 	{
-		RegisterItem( FindItemForWeapon( WP_SABER ) );	//these are given in ClientSpawn(), but we register them now before cgame starts
+		RegisterItem( FindItemForWeapon((int) WP_SABER ) );	//these are given in ClientSpawn(), but we register them now before cgame starts
 		saberInfo_t	saber;
 		WP_SaberParseParms( g_saber->string, &saber );//get saber sounds and models cached before client begins
 		if (saber.model) G_ModelIndex( saber.model );
@@ -688,7 +688,7 @@ void Player_CacheFromPrevLevel(void)
 				}
 				else
 				{
-					RegisterItem(FindItemForWeapon((weapon_t)i++));
+					RegisterItem(FindItemForWeapon(i++));
 				}
 			}
 			else
@@ -697,7 +697,7 @@ void Player_CacheFromPrevLevel(void)
 			}
 			var = strtok(NULL, " ");
 		}
-		assert(i == WP_NUM_WEAPONS);
+		assert(i == MAX_WEAPONS);
 	}
 }
 
@@ -841,8 +841,8 @@ static void Player_RestoreFromPrevLevel(gentity_t *ent, SavedGameJustLoaded_e eS
 				/* Get next token: */
 				var = strtok( NULL, " " );
 			}
-			assert (i==WP_NUM_WEAPONS);
-			
+			assert(i == MAX_WEAPONS);
+
 			//ammo
 			gi.Cvar_VariableStringBuffer( "playerammo", s, sizeof(s) );
 			i=0;
@@ -854,7 +854,7 @@ static void Player_RestoreFromPrevLevel(gentity_t *ent, SavedGameJustLoaded_e eS
 			  /* Get next token: */
 			  var = strtok( NULL, " " );
 			}
-			assert (i==AMMO_MAX);
+			assert (i==MAX_AMMO);
 
 			//inventory
 			gi.Cvar_VariableStringBuffer( "playerinv", s, sizeof(s) );
@@ -895,7 +895,7 @@ Ghoul2 Insert Start
 
 static void G_SetSkin( gentity_t *ent )
 {
-	char	skinName[MAX_QPATH];
+	char	skinName[MAX_CSPATH];
 	//ok, lets register the skin name, and then pass that name to the config strings so the client can get it too.
 	if (Q_stricmp( "hoth2", level.mapname ) == 0	//hack, is this the only map?
 		||
@@ -1459,7 +1459,7 @@ qboolean G_SetG2PlayerModelInfo( gentity_t *ent, const char *modelName, const ch
 				}
 
 			}
-			
+
 			if (ent->client->NPC_class == CLASS_BOBAFETT || ent->client->NPC_class == CLASS_MANDALORIAN || ent->client->NPC_class == CLASS_JANGO)
 			{//get the flamethrower bolt
 				ent->genericBolt3 = gi.G2API_AddBolt(&ent->ghoul2[ent->playerModel], "*flamethrower");
@@ -2076,7 +2076,7 @@ qboolean G_SetG2PlayerModelInfo( gentity_t *ent, const char *modelName, const ch
 
 void G_SetG2PlayerModel( gentity_t * const ent, const char *modelName, const char *customSkin, const char *surfOff, const char *surfOn )
 {
-	char	skinName[MAX_QPATH];
+	char	skinName[MAX_CSPATH];
 
 	//ok, lets register the skin name, and then pass that name to the config strings so the client can get it too.
 	if ( !customSkin )
@@ -2090,7 +2090,7 @@ void G_SetG2PlayerModel( gentity_t * const ent, const char *modelName, const cha
 			Com_sprintf( skinName, sizeof( skinName ), "models/players/%s/|%s", modelName, customSkin );
 			if (ent == player)
 			{
-				
+
 				char name[MAX_QPATH];
 				strcpy(name, customSkin);
 				char* p = strchr(name, '|');
@@ -2500,7 +2500,7 @@ void G_ChangePlayerModel( gentity_t *ent, const char *newModel )
 				gi.Printf( S_COLOR_RED"G_ChangePlayerModel: cannot find NPC %s\n", newModel );
 				G_ChangePlayerModel( ent, "stormtrooper" );	//need a better fallback?
 			}
-			
+
 		}
 	}
 }
@@ -2745,9 +2745,9 @@ qboolean ClientSpawn(gentity_t *ent, SavedGameJustLoaded_e eSavedGameJustLoaded 
 		// force the base weapon up
 		client->ps.weaponstate = WEAPON_READY;
 
-		for ( i = FIRST_WEAPON; i < WP_NUM_WEAPONS; i++ ) // don't give ammo for explosives
+		for ( i = FIRST_WEAPON; i < weaponCount; i++ ) // don't give ammo for explosives
 		{
-			if ( playerUsableWeapons[i] && (client->ps.weapons[i]) )
+			if ( weaponData[i].playerUsable && (client->ps.weapons[i]) )
 			{//if starting with this weapon, gimme max ammo for it
 				client->ps.ammo[weaponData[i].ammoIndex] = ammoData[weaponData[i].ammoIndex].max;
 			}
@@ -2994,7 +2994,7 @@ qboolean PlayingMission()
 						"vjun1", "vjun2", "vjun3", "yavin1", "yavin1b", "yavin2" };
 
 	// Not including cutscene-only maps (because the player isn't in control so it doesn't matter)
-	char* swglmaps[] = { 
+	char* swglmaps[] = {
 						 "ep1_dotf_obi",  "ep1_dotf_qui", "ep1_dotf_qui_3", "ep1_dotf_qui_4", "ep1_dotf_maul", "ep1_dotf_maul_3", "ep1_dotf_maul_7", "ep1_dotf_maul_8",
 						 "ep3_ok_anakin_2", "ep3_ok_anakin_3", "ep3_ok_anakin_4", "ep3_ok_anakin_5", "ep3_ok_anakin_r1", "ep3_ok_anakin_r2", "ep3_ok_anakin_r3", "ep3_ok_anakin_r4", "ep3_ok_anakin_r5", "ep3_ok_anakin_r6", "ep3_ok_anakin_r7", "ep3_ok_anakin_r8",
 						 "ep3_ok_drallig_1", "ep3_ok_drallig_2", "ep3_ok_drallig_3", "ep3_ok_drallig_4",

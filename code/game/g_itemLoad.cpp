@@ -200,6 +200,8 @@ static void IT_Name(const char **holdBuf)
 		itemNum = ITM_AMMO_BLASTER_PICKUP;
 	else if (!Q_stricmp(tokenStr,"ITM_AMMO_POWERCELL_PICKUP"))
 		itemNum = ITM_AMMO_POWERCELL_PICKUP;
+	else if (!Q_stricmp(tokenStr,"ITM_AMMO_FLAMER_PICKUP"))
+		itemNum = ITM_AMMO_FLAMER_PICKUP;
 	else if (!Q_stricmp(tokenStr,"ITM_AMMO_METAL_BOLTS_PICKUP"))
 		itemNum = ITM_AMMO_METAL_BOLTS_PICKUP;
 	else if (!Q_stricmp(tokenStr,"ITM_AMMO_ROCKETS_PICKUP"))
@@ -280,10 +282,14 @@ static void IT_Name(const char **holdBuf)
 		itemNum = ITM_GOODIE_KEY_PICKUP;
 	else if (!Q_stricmp(tokenStr,"ITM_SECURITY_KEY_PICKUP"))
 		itemNum = ITM_SECURITY_KEY_PICKUP;
-	else
-	{
-		itemNum = 0;
-		gi.Printf("WARNING: bad itemname in external item data '%s'\n", tokenStr);
+	else {
+		itemNum = bg_numItems;
+		if (itemNum == MAX_ITEMS) {
+			itemNum = 0;
+			gi.Printf(S_COLOR_YELLOW"WARNING: too many items in external items data(%d); Parsing '%s'\n", MAX_ITEMS, tokenStr);
+		}
+		bg_numItems++;
+
 	}
 
 	itemParms.itemNum = itemNum;
@@ -430,6 +436,8 @@ static void IT_Tag(const char **holdBuf)
 		tag = AMMO_BLASTER;
 	else if (!Q_stricmp(tokenStr,"AMMO_POWERCELL"))
 		tag = AMMO_POWERCELL;
+	else if (!Q_stricmp(tokenStr,"AMMO_FLAMER"))
+		tag = AMMO_FLAMER;
 	else if (!Q_stricmp(tokenStr,"AMMO_METAL_BOLTS"))
 		tag = AMMO_METAL_BOLTS;
 	else if (!Q_stricmp(tokenStr,"AMMO_ROCKETS"))
@@ -573,6 +581,13 @@ static void IT_Tag(const char **holdBuf)
 	else if (!Q_stricmp(tokenStr,"ITM_SHIELD_LRG_PICKUP"))
 	{
 		tag = ITM_SHIELD_LRG_PICKUP;
+	}
+	else if(!Q_stricmpn( tokenStr, "WEAPON_", 7 ) )
+	{
+		/* ITs a dynamic weapon*/
+		tag = -1;
+		bg_itemlist[itemParms.itemNum].giTagName = G_NewString(tokenStr);
+		gi.Printf(S_COLOR_CYAN"Found Dynamic Weapon Item: '%s'\n", tokenStr);
 	}
 	else
 	{
@@ -793,4 +808,40 @@ void IT_LoadItemParms (void)
 	IT_ParseParms(buffer);
 
 	gi.FS_FreeFile( buffer );	//let go of the buffer
+	
+
+	//Read files containing Dynamics Weapons
+	char* holdChar;
+	char	weaponFileList[2048];			//	The list of file names read in
+	int		fileCount;
+	int		fileNameSize;
+
+	//Read all the externals file
+	fileCount = gi.FS_GetFileList("ext_data/", ".itm", weaponFileList, sizeof(weaponFileList));
+
+	holdChar = weaponFileList;
+
+	Com_Printf("Found %d External files\n", fileCount);
+	for (int i = 0; i < fileCount; i++, holdChar += fileNameSize + 1)
+	{
+		fileNameSize = strlen(holdChar);
+
+		Com_Printf("Parsing %s\n", holdChar);
+		char* fileBuffer;
+		int fileLen;
+
+		fileLen = gi.FS_ReadFile(va("ext_data/%s", holdChar), (void**)&fileBuffer);
+
+		if (fileLen == -1)
+		{
+			Com_Printf("Error reading file\n");
+		}
+		else
+		{
+			IT_ParseParms(fileBuffer);
+
+			gi.FS_FreeFile(fileBuffer);	//let go of the buffer
+		}
+	}
+
 }

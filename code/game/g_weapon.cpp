@@ -34,7 +34,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "../cgame/cg_local.h"
 
 vec3_t	forwardVec, vrightVec, up;
-vec3_t	muzzle;
+vec3_t	muzzle,muzzle2;
 gentity_t *ent_list[MAX_GENTITIES];
 extern cvar_t	*g_debugMelee;
 
@@ -43,60 +43,15 @@ int g_rocketLockEntNum = ENTITYNUM_NONE;
 int g_rocketLockTime = 0;
 int	g_rocketSlackTime = 0;
 
-// Weapon Helper Functions
-float weaponSpeed[WP_NUM_WEAPONS][2] =
-{
-	{ 0,0 },//WP_NONE,
-	{ 0,0 },//WP_SABER,				 // NOTE: lots of code assumes this is the first weapon (... which is crap) so be careful -Ste.
-	{ BRYAR_PISTOL_VEL,BRYAR_PISTOL_VEL },//WP_BLASTER_PISTOL,
-	{ BLASTER_VELOCITY,BLASTER_VELOCITY },//WP_BLASTER,
-	{ Q3_INFINITE,Q3_INFINITE },//WP_DISRUPTOR,
-	{ BOWCASTER_VELOCITY,BOWCASTER_VELOCITY },//WP_BOWCASTER,
-	{ REPEATER_VELOCITY,REPEATER_ALT_VELOCITY },//WP_REPEATER,
-	{ DEMP2_VELOCITY,DEMP2_ALT_RANGE },//WP_DEMP2,
-	{ FLECHETTE_VEL,FLECHETTE_MINE_VEL },//WP_FLECHETTE,
-	{ ROCKET_VELOCITY,ROCKET_ALT_VELOCITY },//WP_ROCKET_LAUNCHER,
-	{ TD_VELOCITY,TD_ALT_VELOCITY },//WP_THERMAL,
-	{ 0,0 },//WP_TRIP_MINE,
-	{ 0,0 },//WP_DET_PACK,
-	{ CONC_VELOCITY,Q3_INFINITE },//WP_CONCUSSION,
-	{ 0,0 },//WP_MELEE,			// Any ol' melee attack
-	{ 0,0 },//WP_STUN_BATON,
-	{ BRYAR_PISTOL_VEL,BRYAR_PISTOL_VEL },//WP_BRYAR_PISTOL,
-	{ EMPLACED_VEL,EMPLACED_VEL },//WP_EMPLACED_GUN,
-	{ BRYAR_PISTOL_VEL,BRYAR_PISTOL_VEL },//WP_BOT_LASER,		// Probe droid	- Laser blast
-	{ 0,0 },//WP_TURRET,			// turret guns
-	{ ATST_MAIN_VEL,ATST_MAIN_VEL },//WP_ATST_MAIN,
-	{ ATST_SIDE_MAIN_VELOCITY,ATST_SIDE_ALT_NPC_VELOCITY },//WP_ATST_SIDE,
-	{ EMPLACED_VEL,EMPLACED_VEL },//WP_TIE_FIGHTER,
-	{ EMPLACED_VEL,REPEATER_ALT_VELOCITY },//WP_RAPID_FIRE_CONC,
-	{ 0,0 },//WP_JAWA,
-	{ TUSKEN_RIFLE_VEL,TUSKEN_RIFLE_VEL },//WP_TUSKEN_RIFLE,
-	{ 0,0 },//WP_TUSKEN_STAFF,
-	{ 0,0 },//WP_SCEPTER,
-	{ 0,0 },//WP_NOGHRI_STICK,
-	{ E5_VELOCITY, E5_VELOCITY }, // WP_BATTLEDROID,
-	{ F_11D_VELOCITY, F_11D_VELOCITY },// WP_THEFIRSTORDER,
-	{ CLONECARBINE_VELOCITY, CLONECARBINE_VELOCITY },// WP_CLONECARBINE,
-	{ CLONERIFLE_VELOCITY, CLONERIFLE_VELOCITY },// WP_CLONERIFLE
-	{ REBELBLASTER_VELOCITY, REBELBLASTER_VELOCITY },// WP_REBELBLASTER
-	{ CLONECOMMANDO_VELOCITY, CLONECOMMANDO_VELOCITY },// WP_CLONECOMMANDO
-	{ REBELRIFLE_VELOCITY, REBELRIFLE_VELOCITY },// WP_REBELRIFLE
-	{ REY_VEL,REY_VEL },//WP_REY,
-	{ JANGO_VELOCITY, JANGO_VELOCITY },// WP_JANGO
-	{ BOBA_VELOCITY, BOBA_VELOCITY },// WP_BOBA
-	{ CLONEPISTOL_VELOCITY, CLONEPISTOL_VELOCITY },// WP_CLONEPISTOL
-	{ SBD_VELOCITY, SBD_VELOCITY },// WP_SBD
-	{ SBD_VELOCITY, SBD_VELOCITY },// WP_DROIDEKA
-};
+
 
 float WP_SpeedOfMissileForWeapon( int wp, qboolean alt_fire )
 {
 	if ( alt_fire )
 	{
-		return weaponSpeed[wp][1];
+		return weaponData[wp].attackData[1].velocity;
 	}
-	return weaponSpeed[wp][0];
+	return weaponData[wp].attackData[0].velocity;
 }
 
 //-----------------------------------------------------------------------------
@@ -135,8 +90,7 @@ void WP_TraceSetStart( const gentity_t *ent, vec3_t start, const vec3_t mins, co
 
 extern Vehicle_t *G_IsRidingVehicle( gentity_t *ent );
 //-----------------------------------------------------------------------------
-gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, qboolean altFire )
-//-----------------------------------------------------------------------------
+gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t *owner, int attackIndex)
 {
 	gentity_t	*missile;
 
@@ -149,7 +103,8 @@ gentity_t *CreateMissile( vec3_t org, vec3_t dir, float vel, int life, gentity_t
 
 	Vehicle_t*	pVeh = G_IsRidingVehicle(owner);
 
-	missile->alt_fire = altFire;
+	missile->alt_fire = (qboolean)attackIndex;
+	missile->attack_index = (qboolean)attackIndex;
 
 	missile->s.pos.trType = TR_LINEAR;
 	missile->s.pos.trTime = level.time;// - 10;	// move a bit on the very first frame
@@ -192,6 +147,38 @@ void WP_Stick( gentity_t *missile, trace_t *trace, float fudge_distance )
 	gi.linkentity( missile );
 }
 
+extern stringID_table_t WPTable[];
+/*
+	int WP_GetWeaponID(const char* weaponName)
+	Return the weapon from the ID.
+	If old WP_XXXX is used, return from WPTable
+	If weapon_XXXX is used, return from weaponData;
+*/
+int WP_GetWeaponID(const char* weaponName) {
+	int id = GetIDForString(WPTable, weaponName);
+	if (id != -1) {
+		return id;
+	}
+	for (int i = 0;i < weaponCount; i++) {
+		if (!Q_stricmp(weaponData[i].classname, weaponName) ){
+			return i ;
+		}
+	}
+	return -1;
+}
+
+/*
+	void WP_SwitchPistolMuzzle(gentity_t* ent)
+	Switch the pistolMuzzle if dual wielding
+	If not dual wielding, this method does nothing.
+*/
+void WP_SwitchPistolMuzzle(gentity_t* ent)
+{
+	if (ent->weaponModel[1] > 0)
+	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
+		ent->count = (ent->count) ? 0 : 1;
+	}
+}
 // This version shares is in the thinkFunc format
 //-----------------------------------------------------------------------------
 void WP_Explode( gentity_t *self )
@@ -349,6 +336,11 @@ void ViewHeightFix(const gentity_t *const ent)
 
 qboolean W_AccuracyLoggableWeapon( int weapon, qboolean alt_fire, int mod )
 {
+	int weaponNum = weapon;
+	if (weaponData[weaponNum].baseWeaponNum) {
+		weaponNum = weaponData[weaponNum].baseWeaponNum;
+	}
+
 	if ( mod != MOD_UNKNOWN )
 	{
 		switch( mod )
@@ -398,16 +390,16 @@ qboolean W_AccuracyLoggableWeapon( int weapon, qboolean alt_fire, int mod )
 		//atst
 		case MOD_ENERGY:
 		case MOD_EXPLOSIVE:
-			if ( weapon == WP_ATST_MAIN || weapon == WP_ATST_SIDE )
+			if (weaponNum == WP_ATST_MAIN || weaponNum == WP_ATST_SIDE )
 			{
 				return qtrue;
 			}
 			break;
 		}
 	}
-	else if ( weapon != WP_NONE )
+	else if (weaponNum != WP_NONE )
 	{
-		switch( weapon )
+		switch(weaponNum)
 		{
 		case WP_BRYAR_PISTOL:
 		case WP_BLASTER_PISTOL:
@@ -488,8 +480,12 @@ qboolean LogAccuracyHit( gentity_t *target, gentity_t *attacker ) {
 	return qtrue;
 }
 
+void CalcMuzzlePoint_Configurable(gentity_t* const ent, vec3_t forwardVec, vec3_t right, vec3_t up, vec3_t muzzlePoint, float lead_in,qboolean secondOne);
+void CalcMuzzlePoint(gentity_t* const ent, vec3_t forwardVec, vec3_t right, vec3_t up, vec3_t muzzlePoint, float lead_in) {
+	return CalcMuzzlePoint_Configurable(ent, forwardVec, right, up, muzzlePoint, lead_in, qfalse);
+}
 //---------------------------------------------------------
-void CalcMuzzlePoint( gentity_t *const ent, vec3_t forwardVec, vec3_t right, vec3_t up, vec3_t muzzlePoint, float lead_in )
+void CalcMuzzlePoint_Configurable( gentity_t *const ent, vec3_t forwardVec, vec3_t right, vec3_t up, vec3_t muzzlePoint, float lead_in, qboolean secondOne)
 //---------------------------------------------------------
 {
 	vec3_t		org;
@@ -501,15 +497,24 @@ void CalcMuzzlePoint( gentity_t *const ent, vec3_t forwardVec, vec3_t right, vec
 		{
 			if ( ent->client->renderInfo.mPCalcTime >= level.time - FRAMETIME*2 )
 			{//Our muzz point was calced no more than 2 frames ago
-				VectorCopy(ent->client->renderInfo.muzzlePoint, muzzlePoint);
+				if (!secondOne) {
+					VectorCopy(ent->client->renderInfo.muzzlePoint, muzzlePoint);
+				}
+				else {
+					VectorCopy(ent->client->renderInfo.muzzlePoint2,muzzlePoint);
+				}
 				return;
 			}
 		}
 	}
 
 	VectorCopy( ent->currentOrigin, muzzlePoint );
+	int weaponNum = ent->s.weapon;
+	if (weaponData[weaponNum].baseWeaponNum) {
+		weaponNum = weaponData[weaponNum].baseWeaponNum;
+	}
 
-	switch( ent->s.weapon )
+	switch(weaponNum)
 	{
 	case WP_BRYAR_PISTOL:
 	case WP_BLASTER_PISTOL:
@@ -602,7 +607,7 @@ void CalcMuzzlePoint( gentity_t *const ent, vec3_t forwardVec, vec3_t right, vec
 }
 
 // Muzzle point table...
-vec3_t WP_MuzzlePoint[WP_NUM_WEAPONS] =
+vec3_t WP_MuzzlePoint[] =
 {//	Fwd,	right,	up.
 	{0,		0,		0	},	// WP_NONE,
 	{8	,	16,		0	},	// WP_SABER,
@@ -734,7 +739,7 @@ void WP_FireVehicleWeapon( gentity_t *ent, vec3_t start, vec3_t dir, vehWeaponIn
 		WP_TraceSetStart( ent, start, mins, maxs );
 
 		//QUERY: alt_fire true or not?  Does it matter?
-		missile = CreateMissile( start, dir, vehWeapon->fSpeed, 10000, ent, qfalse );
+		missile = CreateMissile( start, dir, vehWeapon->fSpeed, 10000, ent, 0 );
 		if ( vehWeapon->bHasGravity )
 		{//TESTME: is this all we need to do?
 			missile->s.pos.trType = TR_GRAVITY;
@@ -882,7 +887,7 @@ void WP_FireVehicleWeapon( gentity_t *ent, vec3_t start, vec3_t dir, vehWeaponIn
 							missile->disconnectDebounceTime = level.time + vehWeapon->iLifeTime;
 							missile->lockCount = (int)(vehWeapon->bExplodeOnExpire);
 						}
-						missile->e_ThinkFunc = thinkF_rocketThink;
+						missile->e_ThinkFunc = thinkF_WP_RocketThink;
 						missile->nextthink = level.time + VEH_HOMING_MISSILE_THINK_TIME;
 						//FIXME: implement radar in SP?
 						//missile->s.eFlags |= EF_RADAROBJECT;
@@ -1255,11 +1260,13 @@ void WP_FireScepter( gentity_t *ent, qboolean alt_fire )
 
 extern Vehicle_t *G_IsRidingVehicle( gentity_t *ent );
 //---------------------------------------------------------
-void FireWeapon( gentity_t *ent, qboolean alt_fire )
+void FireWeapon( gentity_t *ent, int attack_index)
 //---------------------------------------------------------
 {
+	qboolean alt_fire = (attack_index == 1 || attack_index == 3) ? qtrue : qfalse;
 	float alert = 256;
 	Vehicle_t *pVeh = NULL;
+	int weaponNum = ent->s.weapon;
 
 	// track shots taken for accuracy tracking.
 	ent->client->ps.persistant[PERS_ACCURACY_SHOTS]++;
@@ -1267,12 +1274,12 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 	// If this is a vehicle, fire it's weapon and we're done.
 	if ( ent && ent->client && ent->client->NPC_class == CLASS_VEHICLE )
 	{
-		FireVehicleWeapon( ent, alt_fire );
+		FireVehicleWeapon( ent, alt_fire);
 		return;
 	}
 
 	// set aiming directions
-	if ( (ent->s.weapon == WP_DISRUPTOR || ent->s.weapon == WP_CIS_SNIPER) && alt_fire )
+	if ( (ent->s.weapon == WP_DISRUPTOR || ent->s.weapon == WP_CIS_SNIPER) && (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode > ST_A280) )
 	{
 		if ( ent->NPC )
 		{
@@ -1295,7 +1302,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 
 			if ( ent->client->ps.weapon == WP_ATST_MAIN )
 			{//FIXME: alt_fire should fire both barrels, but slower?
-				if ( ent->alt_fire )
+				if ( ent->alt_fire)
 				{
 					bolt = ent->handRBolt;
 				}
@@ -1306,7 +1313,7 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 			}
 			else
 			{// ATST SIDE weapons
-				if ( ent->alt_fire )
+				if ( ent->alt_fire)
 				{
 					if ( gi.G2API_GetSurfaceRenderStatus( &ent->ghoul2[ent->playerModel], "head_light_blaster_cann" ) )
 					{//don't have it!
@@ -1448,236 +1455,88 @@ void FireWeapon( gentity_t *ent, qboolean alt_fire )
 		else
 		{
 			CalcMuzzlePoint ( ent, forwardVec, vrightVec, up, muzzle , 0);
+			if (weaponData[weaponNum].weaponCategory == WC_PISTOL && ent->weaponModel[1] > 0) {
+				CalcMuzzlePoint_Configurable(ent, forwardVec, vrightVec,up, muzzle2, 0, qtrue);
+			}
 		}
 	}
 
 	// fire the specific weapon
-	switch( ent->s.weapon )
-	{
-	// Player weapons
-	//-----------------
-	case WP_SABER:
-		return;
-		break;
+	int baseWeaponNum = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
+	weaponAttackData_t *attackData  = &weaponData[weaponNum].attackData[attack_index];
 
-	case WP_BRYAR_PISTOL:
-	case WP_BLASTER_PISTOL:
-		WP_FireBryarPistol( ent, alt_fire );
-		break;
-
-	case WP_BLASTER:
-		WP_FireBlaster( ent, alt_fire );
-		break;
-
-	case WP_TUSKEN_RIFLE:
-		if ( alt_fire )
-		{
-			WP_FireTuskenRifle( ent );
-		}
-		else
-		{
-			WP_Melee( ent );
-		}
-		break;
-
-	case WP_DISRUPTOR:
-		alert = 50; // if you want it to alert enemies, remove this
-		WP_FireDisruptor( ent, alt_fire );
-		break;
-
-	case WP_BOWCASTER:
-		WP_FireBowcaster( ent, alt_fire );
-		break;
-
-	case WP_REPEATER:
-		WP_FireRepeater( ent, alt_fire );
-		break;
-
-	case WP_DEMP2:
-		WP_FireDEMP2( ent, alt_fire );
-		break;
-
-	case WP_FLECHETTE:
-		WP_FireFlechette( ent, alt_fire );
-		break;
-
-	case WP_ROCKET_LAUNCHER:
-		WP_FireRocket( ent, alt_fire );
-		break;
-
-	case WP_CONCUSSION:
-		WP_Concussion( ent, alt_fire );
-		break;
-
-	case WP_THERMAL:
-		WP_FireThermalDetonator( ent, alt_fire );
-		break;
-
-	case WP_TRIP_MINE:
-		alert = 0; // if you want it to alert enemies, remove this
-		WP_PlaceLaserTrap( ent, alt_fire );
-		break;
-
-	case WP_DET_PACK:
-		alert = 0; // if you want it to alert enemies, remove this
-		WP_FireDetPack( ent, alt_fire );
-		break;
-
-	case WP_BOT_LASER:
-		WP_BotLaser( ent );
-		break;
-
-	case WP_EMPLACED_GUN:
-		// doesn't care about whether it's alt-fire or not.  We can do an alt-fire if needed
-		WP_EmplacedFire( ent );
-		break;
-
-	case WP_MELEE:
-		alert = 0; // if you want it to alert enemies, remove this
-		if ( !alt_fire || !g_debugMelee->integer )
-		{
-			WP_Melee( ent );
-		}
-		break;
-
-	case WP_ATST_MAIN:
-		WP_ATSTMainFire( ent );
-		break;
-
-	case WP_ATST_SIDE:
-
-		// TEMP
-		if ( alt_fire )
-		{
-//			WP_FireRocket( ent, qfalse );
-			WP_ATSTSideAltFire(ent);
-		}
-		else
-		{
-			// FIXME!
-		/*	if ( ent->s.number == 0
-				&& ent->client->NPC_class == CLASS_VEHICLE
-				&& vehicleData[((CVehicleNPC *)ent->NPC)->m_iVehicleTypeID].type == VH_FIGHTER )
-			{
-				WP_ATSTMainFire( ent );
+	switch (attackData->firingLogic) {
+		case FL_MELEE:
+			alert = 0;
+			if (baseWeaponNum != WP_MELEE || !alt_fire || !g_debugMelee->integer) {
+				WP_Melee(ent);
 			}
-			else*/
-			{
-				WP_ATSTSideFire(ent);
-			}
-		}
-		break;
-
-	case WP_TIE_FIGHTER:
-		// TEMP
-		WP_EmplacedFire( ent );
-		break;
-
-	case WP_RAPID_FIRE_CONC:
-		// TEMP
-		if ( alt_fire )
-		{
-			WP_FireRepeater( ent, alt_fire );
-		}
-		else
-		{
-			WP_EmplacedFire( ent );
-		}
-		break;
-
-	case WP_STUN_BATON:
-		WP_FireStunBaton( ent, alt_fire );
-		break;
-
-//	case WP_BLASTER_PISTOL:
-	case WP_JAWA:
-		WP_FireBryarPistol( ent, qfalse ); // never an alt-fire?
-		break;
-
-	case WP_SCEPTER:
-		WP_FireScepter( ent, alt_fire );
-		break;
-
-	case WP_NOGHRI_STICK:
-		if ( !alt_fire )
-		{
-			WP_FireNoghriStick( ent );
-		}
-		else
-		{
-			WP_Melee( ent );
-		}
-		break;
-
-	case WP_THEFIRSTORDER:
-		WP_FireFirstOrder(ent, alt_fire);
-		break;
-	
-	case WP_CLONECARBINE:
-		WP_FireCloneCarbine(ent, alt_fire);
-		break;
-
-	case WP_CLONECOMMANDO:
-		WP_FireCloneCommando(ent, alt_fire);
-		break;
-
-	case WP_REBELRIFLE:
-		WP_FireRebelRifle(ent, alt_fire);
-		break;
-
-	case WP_BOBA:
-		WP_FireBobaRifle(ent, alt_fire);
-		break;
-
-	case WP_SBD:
-		if (!(alt_fire))
-		{
-			WP_FireSBD(ent);
-		}
-		break;
-
-	case WP_DROIDEKA:
-		if (!(alt_fire))
-		{
-			WP_FireDroideka(ent);
-		}
-		break;
-	case WP_CIS_SNIPER:
-		WP_FireCISSniper(ent, alt_fire);
-		break;
-
-	case WP_BATTLEDROID:
-		WP_FireBattleDroid(ent, alt_fire);
-		break;
-	
-	case WP_CLONERIFLE:
-		WP_FireCloneRifle(ent, alt_fire);
-		break;
-
-	case WP_CLONEPISTOL:
-		WP_FireClonePistol(ent, alt_fire);
-		break;
-
-	case WP_REBELBLASTER:
-		WP_FireRebelBlaster(ent, alt_fire);
-		break;
-
-
-	case WP_REY:
-		WP_FireReyPistol(ent, alt_fire);
-		break;
-
-
-	case WP_JANGO:
-		WP_FireJangoPistol(ent, alt_fire);
-		break;
-
-	
-
-	case WP_TUSKEN_STAFF:
-	default:
-		return;
-		break;
+			break;
+		case FL_BLASTER:
+		case FL_NOGHRI:
+		case FL_MISSILE:
+		case FL_MISSILE_AIMED:
+		case FL_DEMP2:
+		case FL_BLASTER_CHARGED:
+		case FL_DEMP2_ALT:
+		case FL_GRENADE_LAUNCHER:
+			WP_FireGenericBlaster(ent, attack_index);
+			break;
+		case FL_SBD:
+			WP_FireDroidsTwinBlasters(ent, attack_index);
+			break;
+		case FL_BOWCASTER:
+			WP_FireGenericBowcaster(ent, attack_index);
+			break;
+		case FL_FLAMETHROWER:
+			WP_FireFlameThrower(ent, attack_index);
+			break;
+		case FL_BEAM:
+		case FL_FULL_BEAM:
+		case FL_BEAM_CHARGED:
+			alert = 50;
+			WP_FireGenericBeam(ent, attack_index);
+			break;
+		case FL_GRENADE:
+		case FL_IMPACT_GRENADE:
+			WP_FireGrenade(ent, attack_index);
+			break;
+		case FL_LASER_TRAP:
+			alert = 0;
+			WP_PlaceLaserTrap(ent,qfalse);
+			break;
+		case FL_PROXIMITY_TRAP:
+			alert = 0;
+			WP_PlaceLaserTrap(ent, qtrue);
+			break;
+		case FL_EXPLOSIVES:
+			alert = 0;
+			WP_FireDetPack(ent, attack_index);
+			break;
+		case FL_FLECHETTE:
+			WP_FireFlechette(ent, qfalse);
+			break;
+		case FL_FLECHETTE_ALT:
+			WP_FireFlechette(ent, qtrue);
+			break;
+		default:
+			//Legacy for NPC Weapons even if most of them will be blaster fire
+			switch (baseWeaponNum) {
+				case WP_TIE_FIGHTER:
+				case WP_EMPLACED_GUN:
+					// doesn't care about whether it's alt-fire or not.  We can do an alt-fire if needed
+					WP_EmplacedFire(ent);
+					break;
+				case WP_STUN_BATON:
+					WP_FireStunBaton(ent);
+					break;
+				case WP_SCEPTER:
+					WP_FireScepter(ent, alt_fire);
+					break;
+				default:
+					return;
+				}
+			break;
 	}
 
 	if ( !ent->s.number )
@@ -1798,7 +1657,6 @@ void misc_weapon_shooter_aim( gentity_t *self )
 	}
 }
 
-extern stringID_table_t WPTable[];
 void SP_misc_weapon_shooter( gentity_t *self )
 {
 	//alloc a client just for the weapon code to use
@@ -1808,7 +1666,7 @@ void SP_misc_weapon_shooter( gentity_t *self )
 	self->s.weapon = self->client->ps.weapon = WP_BLASTER;
 	if ( self->paintarget )
 	{//use a different weapon
-		self->s.weapon = self->client->ps.weapon = GetIDForString( WPTable, self->paintarget );
+		self->s.weapon = self->client->ps.weapon = WP_GetWeaponID(  self->paintarget );
 	}
 
 	//set where our muzzle is

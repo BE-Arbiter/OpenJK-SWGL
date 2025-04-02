@@ -95,12 +95,52 @@ typedef enum //# weapon_e
 	WP_DROIDEKA,
 
 	//# #eol
-	WP_NUM_WEAPONS
+	WP_HC_NUM_WEAPONS
 } weapon_t;
 
 #define FIRST_WEAPON		WP_SABER		// this is the first weapon for next and prev weapon switching
 
-extern qboolean playerUsableWeapons[WP_NUM_WEAPONS];
+
+typedef enum
+{
+	FL_NONE = 0,
+	FL_MELEE,
+	FL_BLASTER,
+	FL_BLASTER_CHARGED,
+	FL_BOWCASTER,
+	FL_BEAM,
+	FL_FULL_BEAM,
+	FL_BEAM_CHARGED,
+	FL_GRENADE_LAUNCHER,
+	FL_DEMP2,
+	FL_DEMP2_ALT,
+	FL_FLECHETTE,
+	FL_FLECHETTE_ALT,
+	FL_NOGHRI,
+	FL_MISSILE,
+	FL_MISSILE_AIMED,
+	FL_LASER_TRAP,
+	FL_PROXIMITY_TRAP,
+	FL_EXPLOSIVES,
+	FL_GRENADE,
+	FL_IMPACT_GRENADE,
+	FL_STUNBATON,
+	FL_SBD,
+	FL_FLAMETHROWER,
+	FL_OTHER, // For not yet done weapon
+}firingLogic_t;
+
+/*Weapon Bucket for Cycling*/
+typedef enum {
+	WB_MELEE = -1, //1 Saber, Melee, Stun_Baton
+	WB_PISTOLS = -2, //2 All One handed weapons
+	WB_BLASTERS = -3, //3 All Light Blasters
+	WB_SPECIALISTS = -4, //4 ALL Specialist Weapons (Flechette,Bowcaster,Disruptors)
+	WB_HEAVY_WEAPONS = -5, //5 Rocket Launcher, Concussion Rifle,...
+	WB_THROWABLES = -6, //6 Explosives & Grenades
+	WB_OTHERS = -7, //8 Weapon For Vehicle and npc which should not appears in others buckets
+	WB_UNSET = 0 // This No weapon should have this bucket...
+} weaponBucket_t;
 
 // AMMO_NONE must be first and AMMO_MAX must be last, cause weapon load validates based off of these vals
 typedef enum //# ammo_e
@@ -115,27 +155,29 @@ typedef enum //# ammo_e
 	AMMO_THERMAL,
 	AMMO_TRIPMINE,
 	AMMO_DETPACK,
-	AMMO_MAX
+	AMMO_FLAMER,	// FOR THE FLAMER,
+	AMMO_HC_MAX
 } ammo_t;
 
-
-enum firingType
+typedef enum firingType_s
 {
 	FT_AUTOMATIC = 1,
 	FT_SEMI,
 	FT_BURST,
 	FT_HIGH_POWERED
-};
+} firingType_t;
 
 
-enum scopeType
+typedef enum scopeType_s
 {
+	ST_NONE = 0,
+	ST_DISRUPTOR = 2,
 	ST_A280 = 4,
 	ST_DC17M,
 	ST_EE3,
 	ST_F11D,
 	ST_E5
-};
+} scopeType_t;
 
 
 enum firingOptions
@@ -145,75 +187,120 @@ enum firingOptions
 	BURST_FIRE_DELAY
 };
 
+typedef struct weaponIndexes_s
+{
+	char weaponClass[32];
+	int index;
+} weaponIndexes_t;
+
+typedef enum{
+	WC_NONE, //Only for weapon none else is "unset"
+	WC_MELEE, //Like melee
+	WC_STUN_BATON, //For this specific weapons. Is handled by "other case"
+	WC_MELEE_1H, //Like Tusken Staff
+	WC_PISTOL, // Like bryar
+	WC_LIGHT, // Like blaster
+	WC_SNIPER, // Like Disruptor
+	WC_HEAVY, //Like Bowcaster or rocket launcher
+	WC_GRENADE, //Like thermal
+	WC_EXPLOSIVE, //Like detpack
+	WC_MINIGUN //Like a Z6
+} weaponCategory_t;
+
+typedef struct weaponAttackData_s
+{
+	firingLogic_t firingLogic; //The method of fire for this attack
+
+	/* Base Data */
+	int		energyPerShot;		// Amount of energy used per shot
+	int		fireTime;			// Amount of time between firings
+	int		range;				// Range of weapon
+	float 	spread;				// Accuracy of shots
+	float 	npcSpread[3];		// Accuracy of shots for most npc
+	int		damage;				// Damage per shot
+	int		npcDamage[3];		// Damage per shot for most npc 
+	int		defaultDamage;		// Default damage per shot
+	float	velocity;			// Speed of missile
+	float	npcVelocity[3];		// Speed of missile for most npc
+	int 	fireOption[3];		// Option for the fire (Type, Projectile count,...)
+
+	/* Splash Damage */
+	int		splashDamage;		// Splash damage when shot explodes
+	float	splashRadius;		// Splash radius when shot explodes
+
+	/* Effects */
+	void* missileFunc;		// "FX for the missile"
+	char	projectileEffect[64]; // Effect to Override the base Projectile
+	char	hitWallEffect[64];  
+	char	hitWallEffect2[64]; 
+	char	hitWallEffect3[64];
+	char	hitDroidEffect[64];
+	char	hitFleshEffect[64];
+	char	muzzleEffect[64];  // Effect to Override the base muzzle
+	char	explosionEffect[64]; // For explosives
+	char    shockwaveEffect[64]; // For explosives
+
+
+	/* Beam Effects */
+	char	beamShader[64];
+	vec3_t  beamColor;
+	char	fullBeamShader[64];
+	vec3_t  fullBeamColor;
+	
+	/* Blaster Bounce Data */
+	qboolean bounceWall;		//BounceOnWalls;
+	int		bounceCount;		//BounceCounts
+
+	/* Charged Shot Data */
+	float	chargeUnitTime;		// Time to Charge one unit of power
+	int		maxChargeUnits;		// Max amount of charge you can have.
+	char	chargeSnd[64];		// sound to start when the weapon initiates the charging sequence
+	char	chargeMuzzleShader[64];
+
+
+	/* Physical Missile Data */
+	char	missileMdl[64];		// Missile Model
+	char	missileSound[64];	// Missile flight sound
+	float  	missileDlight;		// what is says
+	int		missileSize;		// Physical "size" of the missile (max & min)
+	int		missileMass;		// Physical "mass" of the missile
+	int		missileDFlags;		// Overwrite the default flags for some weapons.
+	vec3_t 	missileDlightColor;	// ditto
+	char	firingSnd[64];		// Sound made when fired
+	char	missileHitSound[64];	// Missile impact sound
+
+
+
+} weaponAttackData_t;
+
+#define MAX_WEAPON_ATTACKS 4
 
 typedef struct weaponData_s
 {
+	weaponAttackData_t attackData[MAX_WEAPON_ATTACKS];
+
 	char	classname[32];		// Spawning name
+	char	baseclass[32];		// Base Weapon
+	int		baseWeaponNum;		// Base WeaponNum;
 	char	weaponMdl[64];		// Weapon Model
-	char	firingSnd[64];		// Sound made when fired
-	char	altFiringSnd[64];	// Sound made when alt-fired
-//	char	flashSnd[64];		// Sound made by flash
-//	char	altFlashSnd[64];	// Sound made by an alt-flash
 	char	stopSnd[64];		// Sound made when weapon stops firing
-	char	chargeSnd[64];		// sound to start when the weapon initiates the charging sequence
-	char	altChargeSnd[64];	// alt sound to start when the weapon initiates the charging sequence
 	char	selectSnd[64];		// the sound to play when this weapon gets selected
+	char	readySnd[64];		// the sound to play when this weapon is Idle
 
 	int		ammoIndex;			// Index to proper ammo slot
 	int		ammoLow;			// Count when ammo is low
 
-	int		energyPerShot;		// Amount of energy used per shot
-	int		fireTime;			// Amount of time between firings
-	int		range;				// Range of weapon
-
-	int		altEnergyPerShot;	// Amount of energy used for alt-fire
-	int		altFireTime;		// Amount of time between alt-firings
-	int		altRange;			// Range of alt-fire
-
 	char	weaponIcon[64];		// Name of weapon icon file
 	int		numBarrels;			// how many barrels should we expect for this weapon?
 
-	char	missileMdl[64];		// Missile Model
-	char	missileSound[64];	// Missile flight sound
-	float  	missileDlight;		// what is says
-	vec3_t 	missileDlightColor;	// ditto
-
-	char	alt_missileMdl[64];		// Missile Model
-	char	alt_missileSound[64];	// Missile sound
-	float  	alt_missileDlight;		// what is says
-	vec3_t 	alt_missileDlightColor;	// ditto
-
-	char	missileHitSound[64];	// Missile impact sound
-	char	altmissileHitSound[64];	// alt Missile impact sound
-	void	*func;
-	void	*altfunc;
-
-	char	mMuzzleEffect[64];
-	int		mMuzzleEffectID;
-	char	mAltMuzzleEffect[64];
-	int		mAltMuzzleEffectID;
-	char	mTertiaryMuzzleEffect[64];
-	int		mTertiaryMuzzleEffectID;
-
-	int		damage;
-	int		altDamage;
-	int		splashDamage;
-	int		altSplashDamage;
-	float	splashRadius;
-	float	altSplashRadius;
-
-	int 	tertiaryEnergyPerShot;
-	int 	tertiaryFireTime;
-	int		tertiaryRange;
-
 	int 	scopeType;
-	
-	int 	mainFireOpt[3];
-	int		altFireOpt[3];
-	int 	tertiaryFireOpt[3];
+	float 	scopeFov;
 
 	char	weaponMdl2[64];
 	qboolean secondaryMdl;
+	qboolean playerUsable;
+	weaponCategory_t weaponCategory;
+	weaponBucket_t weaponBucket;
 
 } weaponData_t;
 
@@ -221,6 +308,7 @@ typedef struct weaponData_s
 typedef struct ammoData_s
 {
 	char	icon[64];	// Name of ammo icon file
+	int		giveWeaponIndex;
 	int		max;		// Max amount player can hold of ammo
 } ammoData_t;
 
@@ -233,74 +321,26 @@ typedef struct ammoData_s
 //--------
 #define MAIN_ATTACK 		1
 #define ALT_ATTACK			2
-#define TERTIARY_ATTACK 	4
+#define SCOPED_MAIN_ATTACK  3
+#define SCOPED_ALT_ATTACK   4
 
-// Bryar Pistol
-//--------
-#define BRYAR_PISTOL_VEL			1800
-#define BRYAR_PISTOL_DAMAGE			14
-#define BRYAR_CHARGE_UNIT			200.0f	// bryar charging gives us one more unit every 200ms--if you change this, you'll have to do the same in bg_pmove
-
-// E11 Blaster
-//---------
-#define BLASTER_MAIN_SPREAD			0.5f
-#define BLASTER_ALT_SPREAD			1.5f
+// Npc constants
+//-----------------
 #define BLASTER_NPC_SPREAD			0.5f
-#define BLASTER_VELOCITY			2300
 #define BLASTER_NPC_VEL_CUT			0.5f
 #define BLASTER_NPC_HARD_VEL_CUT	0.7f
-#define BLASTER_DAMAGE				20
-#define	BLASTER_NPC_DAMAGE_EASY		6
-#define	BLASTER_NPC_DAMAGE_NORMAL	12 // 14
-#define	BLASTER_NPC_DAMAGE_HARD		16 // 18
-
-// Tenloss Disruptor
-//----------
-#define DISRUPTOR_MAIN_DAMAGE			14
 #define DISRUPTOR_NPC_MAIN_DAMAGE_EASY	5
 #define DISRUPTOR_NPC_MAIN_DAMAGE_MEDIUM	10
 #define DISRUPTOR_NPC_MAIN_DAMAGE_HARD	15
-
-#define DISRUPTOR_ALT_DAMAGE			12
 #define DISRUPTOR_NPC_ALT_DAMAGE_EASY	15
 #define DISRUPTOR_NPC_ALT_DAMAGE_MEDIUM	25
 #define DISRUPTOR_NPC_ALT_DAMAGE_HARD	30
+#define CLONEPISTOL_NPC_SPREAD			0.5f
+#define E5_NPC_SPREAD			1.0f
+#define REBELBLASTER_NPC_SPREAD 			0.4f
+#define CLONERIFLE_NPC_SPREAD			1.0f
+#define F_11D_NPC_SPREAD			0.4f
 #define DISRUPTOR_ALT_TRACES			3		// can go through a max of 3 entities
-#define DISRUPTOR_CHARGE_UNIT			150.0f	// distruptor charging gives us one more unit every 150ms--if you change this, you'll have to do the same in bg_pmove
-
-// Wookie Bowcaster
-//----------
-#define	BOWCASTER_DAMAGE			45
-#define	BOWCASTER_VELOCITY			1300
-#define	BOWCASTER_NPC_DAMAGE_EASY	12
-#define	BOWCASTER_NPC_DAMAGE_NORMAL	24
-#define	BOWCASTER_NPC_DAMAGE_HARD	36
-#define BOWCASTER_SPLASH_DAMAGE		0
-#define BOWCASTER_SPLASH_RADIUS		0
-#define BOWCASTER_SIZE				2
-
-#define BOWCASTER_ALT_SPREAD		5.0f
-#define BOWCASTER_VEL_RANGE			0.3f
-#define BOWCASTER_CHARGE_UNIT		200.0f	// bowcaster charging gives us one more unit every 200ms--if you change this, you'll have to do the same in bg_pmove
-
-// Heavy Repeater
-//----------
-#define REPEATER_SPREAD				1.4f
-#define REPEATER_NPC_SPREAD			0.7f
-#define	REPEATER_DAMAGE				8
-#define	REPEATER_VELOCITY			1600
-#define	REPEATER_NPC_DAMAGE_EASY	2
-#define	REPEATER_NPC_DAMAGE_NORMAL	4
-#define	REPEATER_NPC_DAMAGE_HARD	6
-
-#define REPEATER_ALT_SIZE				3	// half of bbox size
-#define	REPEATER_ALT_DAMAGE				60
-#define REPEATER_ALT_SPLASH_DAMAGE		60
-#define REPEATER_ALT_SPLASH_RADIUS		128
-#define	REPEATER_ALT_VELOCITY			1100
-#define	REPEATER_ALT_NPC_DAMAGE_EASY	15
-#define	REPEATER_ALT_NPC_DAMAGE_NORMAL	30
-#define	REPEATER_ALT_NPC_DAMAGE_HARD	45
 
 // DEMP2
 //----------
@@ -325,8 +365,12 @@ typedef struct ammoData_s
 #define FLECHETTE_SIZE				1
 
 #define FLECHETTE_ALT_DAMAGE		20
+#define FLECHETTE_ALT_VEL			950
+#define FLECHETTE_ALT_MAX_VEL		1650
 #define FLECHETTE_ALT_SPLASH_DAM	20
 #define FLECHETTE_ALT_SPLASH_RAD	128
+#define FLECHETTE_ALT_MAX_SIZE		3
+#define FLECHETTE_ALT_MIN_SIZE		-3
 
 // NOT CURRENTLY USED
 #define FLECHETTE_MINE_RADIUS_CHECK		200
@@ -335,36 +379,6 @@ typedef struct ammoData_s
 #define FLECHETTE_MINE_SPLASH_DAMAGE	200
 #define FLECHETTE_MINE_SPLASH_RADIUS	200
 
-// Personal Rocket Launcher
-//---------
-#define	ROCKET_VELOCITY				900
-#define	ROCKET_DAMAGE				100
-#define	ROCKET_SPLASH_DAMAGE		100
-#define	ROCKET_SPLASH_RADIUS		160
-#define ROCKET_NPC_DAMAGE_EASY		20
-#define ROCKET_NPC_DAMAGE_NORMAL	40
-#define ROCKET_NPC_DAMAGE_HARD		60
-#define ROCKET_SIZE					3
-
-#define	ROCKET_ALT_VELOCITY			(ROCKET_VELOCITY*0.5)
-#define ROCKET_ALT_THINK_TIME		100
-
-// Concussion Rifle
-//---------
-//primary
-#define	CONC_VELOCITY				3000
-#define	CONC_DAMAGE					150
-#define CONC_NPC_SPREAD				0.7f
-#define	CONC_NPC_DAMAGE_EASY		15
-#define	CONC_NPC_DAMAGE_NORMAL		30
-#define	CONC_NPC_DAMAGE_HARD		50
-#define	CONC_SPLASH_DAMAGE			50
-#define	CONC_SPLASH_RADIUS			300
-//alt
-#define CONC_ALT_DAMAGE				225//100
-#define CONC_ALT_NPC_DAMAGE_EASY	10
-#define CONC_ALT_NPC_DAMAGE_MEDIUM	20
-#define CONC_ALT_NPC_DAMAGE_HARD	30
 
 // Emplaced Gun
 //--------------
@@ -444,190 +458,13 @@ typedef struct ammoData_s
 #define TD_ALT_MIN_CHARGE	0.15f
 #define TD_ALT_TIME			3000
 
-// Tusken Rifle Shot
+// SBD Offsets
 //--------------
-#define TUSKEN_RIFLE_VEL			3000	// fast
-#define TUSKEN_RIFLE_DAMAGE_EASY	20		// damaging
-#define TUSKEN_RIFLE_DAMAGE_MEDIUM	30		// very damaging
-#define TUSKEN_RIFLE_DAMAGE_HARD	50		// extremely damaging
-
-// F-11D Blaster
-//---------
-#define F_11D_MAIN_SPREAD			1.2f
-#define F_11D_ALT_SPREAD			0.2f
-#define F_11D_NPC_SPREAD			0.4f
-#define F_11D_VELOCITY				3000
-#define F_11D_NPC_VEL_CUT			0.5f
-#define F_11D_NPC_HARD_VEL_CUT		0.7f
-#define F_11D_DAMAGE				25
-#define F_11D_SCOPE_DAMAGE			20
-#define F_11D_NPC_DAMAGE_EASY		6
-#define F_11D_NPC_DAMAGE_NORMAL 	12
-#define F_11D_NPC_DAMAGE_HARD		16
-
-// DC-15S
-//---------
-#define CLONECARBINE_MAIN_SPREAD		0.5f
-#define CLONECARBINE_ALT_SPREAD 		1.0f
-#define CLONECARBINE_NPC_SPREAD 		0.5f
-#define CLONECARBINE_VELOCITY 			3000
-#define CLONECARBINE_NPC_VEL_CUT		0.5f
-#define CLONECARBINE_NPC_HARD_VEL_CUT 	0.7f
-#define CLONECARBINE_DAMAGE 			20
-#define CLONECARBINE_ALT_DAMAGE 		25
-#define CLONECARBINE_NPC_DAMAGE_EASY	6
-#define CLONECARBINE_NPC_DAMAGE_NORMAL	12
-#define CLONECARBINE_NPC_DAMAGE_HARD	16
-
-// DC-17
-//---------
-#define CLONECOMMANDO_MAIN_SPREAD			1.2f
-#define CLONECOMMANDO_NPC_SPREAD			0.5f
-#define CLONECOMMANDO_VELOCITY				3000
-#define CLONECOMMANDO_ALT_VELOCITY			1000
-#define CLONECOMMANDO_NPC_VEL_CUT			0.5f
-#define CLONECOMMANDO_NPC_HARD_VEL_CUT		0.7f
-#define CLONECOMMANDO_DAMAGE				25
-#define CLONECOMMANDO_ALT_DAMAGE			225
-#define CLONECOMMANDO_SCOPE_DAMAGE			20
-#define CLONECOMMANDO_ALT_SIZE				3
-#define CLONECOMMANDO_ALT_SPLASH_DAMAGE 	200
-#define CLONECOMMANDO_ALT_SPLASH_RADIUS 	225
-#define CLONECOMMANDO_NPC_DAMAGE_EASY		10
-#define CLONECOMMANDO_NPC_DAMAGE_NORMAL 	13
-#define CLONECOMMANDO_NPC_DAMAGE_HARD		15
-
-// A280
-//---------
-#define REBELRIFLE_MAIN_SPREAD			0.8f
-#define REBELRIFLE_ALT_SPREAD			0.2f
-#define REBELRIFLE_TERTIARY_SPREAD		0.5f
-#define REBELRIFLE_NPC_SPREAD			0.5f
-#define REBELRIFLE_VELOCITY 			3000
-#define REBELRIFLE_NPC_VEL_CUT			0.5f
-#define REBELRIFLE_NPC_HARD_VEL_CUT 	0.7f
-#define REBELRIFLE_DAMAGE				25
-#define REBELRIFLE_SCOPE_DAMAGE 		20
-#define REBELRIFLE_NPC_DAMAGE_EASY		6
-#define REBELRIFLE_NPC_DAMAGE_NORMAL	12
-#define REBELRIFLE_NPC_DAMAGE_HARD		16
-
-// EE-3 Carbine Rifle
-//---------
-#define BOBA_MAIN_SPREAD		0.8f
-#define BOBA_ALT_SPREAD 		0.2f
-#define BOBA_TERTIARY_SPREAD 	0.1f
-#define BOBA_NPC_SPREAD 		0.5f
-#define BOBA_VELOCITY			3000
-#define BOBA_NPC_VEL_CUT		0.5f
-#define BOBA_NPC_HARD_VEL_CUT	0.7f
-#define BOBA_DAMAGE 			25
-#define BOBA_SCOPE_DAMAGE 		20
-#define BOBA_NPC_DAMAGE_EASY	6
-#define BOBA_NPC_DAMAGE_NORMAL	12
-#define BOBA_NPC_DAMAGE_HARD	16
-
-// Super Battle Droid
-//---------
-#define SBD_VELOCITY			2300
-#define SBD_NPC_VEL_CUT			0.5f
-#define SBD_NPC_HARD_VEL_CUT	0.7f
-#define SBD_DAMAGE				12
-#define SBD_NPC_DAMAGE_EASY		3
-#define SBD_NPC_DAMAGE_NORMAL	6
-#define SBD_NPC_DAMAGE_HARD		8
 #define SBD_LEFT_SHOT			-3.0f
 #define SBD_RIGHT_SHOT			5.0f
 
-// E-5s Sniper Rifle
-//---------
-#define CIS_SNIPER_MAIN_SPREAD			0.8f
-#define CIS_SNIPER_ALT_SPREAD			0.2f
-#define CIS_SNIPER_NPC_SPREAD			0.5f
-#define CIS_SNIPER_VELOCITY 			4000
-#define CIS_SNIPER_NPC_VEL_CUT			0.5f
-#define CIS_SNIPER_NPC_HARD_VEL_CUT 	0.7f
-#define CIS_SNIPER_DAMAGE				15
-#define CIS_SNIPER_SCOPE_DAMAGE 		25
-#define CIS_SNIPER_NPC_DAMAGE_EASY		6
-#define CIS_SNIPER_NPC_DAMAGE_NORMAL	12
-#define CIS_SNIPER_NPC_DAMAGE_HARD		16
 
-// E5
-//---------
-#define E5_MAIN_SPREAD			1.2f
-#define E5_ALT_SPREAD			1.5f
-#define E5_NPC_SPREAD			1.0f
-#define E5_VELOCITY 			3000
-#define E5_NPC_VEL_CUT			0.5f
-#define E5_NPC_HARD_VEL_CUT 	0.7f
-#define E5_DAMAGE				25
-#define E5_ALT_DAMAGE			30
-#define	E5_NPC_DAMAGE_EASY		6
-#define	E5_NPC_DAMAGE_NORMAL	12
-#define	E5_NPC_DAMAGE_HARD		16
 
-// DH-17
-//---------
-#define REBELBLASTER_MAIN_SPREAD			1.2f
-#define REBELBLASTER_ALT_SPREAD 			0.2f
-#define REBELBLASTER_NPC_SPREAD 			0.4f
-#define REBELBLASTER_VELOCITY				3000
-#define REBELBLASTER_NPC_VEL_CUT			0.5f
-#define REBELBLASTER_NPC_HARD_VEL_CUT		0.7f
-#define REBELBLASTER_DAMAGE 				25
-#define REBELBLASTER_SCOPE_DAMAGE			20
-#define REBELBLASTER_NPC_DAMAGE_EASY		6
-#define REBELBLASTER_NPC_DAMAGE_NORMAL		12
-#define REBELBLASTER_NPC_DAMAGE_HARD		16
-
-// DC-15A
-//---------
-#define CLONERIFLE_MAIN_SPREAD			1.2f
-#define CLONERIFLE_ALT_SPREAD			0.4f
-#define CLONERIFLE_NPC_SPREAD			1.0f
-#define CLONERIFLE_VELOCITY 			3000
-#define CLONERIFLE_NPC_VEL_CUT			0.5f
-#define CLONERIFLE_NPC_HARD_VEL_CUT 	0.7f
-#define CLONERIFLE_DAMAGE				30
-#define CLONERIFLE_ALT_DAMAGE			25
-#define CLONERIFLE_NPC_DAMAGE_EASY		6
-#define CLONERIFLE_NPC_DAMAGE_NORMAL	12
-#define CLONERIFLE_NPC_DAMAGE_HARD		16
-
-// LPA NN-14
-//--------
-#define REY_VEL 			3000
-#define REY_DAMAGE			20
-#define REY_CHARGE_UNIT 	100.0f
-
-// Westar 34
-//--------
-#define JANGO_MAIN_SPREAD			0.4f
-#define JANGO_ALT_SPREAD			0.5f
-#define JANGO_NPC_SPREAD			0.4f
-#define JANGO_VELOCITY				3200
-#define JANGO_NPC_VEL_CUT			0.5f
-#define JANGO_NPC_HARD_VEL_CUT		0.7f
-#define JANGO_DAMAGE				25
-#define JANGO_ALT_DAMAGE			20
-#define JANGO_NPC_DAMAGE_EASY		6
-#define JANGO_NPC_DAMAGE_NORMAL 	8
-#define JANGO_NPC_DAMAGE_HARD		10
-
-// DC-17 Hand Pistol
-//---------
-#define CLONEPISTOL_MAIN_SPREAD 		0.5f
-#define CLONEPISTOL_ALT_SPREAD			1.0f
-#define CLONEPISTOL_NPC_SPREAD			0.5f
-#define CLONEPISTOL_VELOCITY			3000
-#define CLONEPISTOL_NPC_VEL_CUT 		0.5f
-#define CLONEPISTOL_NPC_HARD_VEL_CUT	0.7f
-#define CLONEPISTOL_DAMAGE				20
-#define CLONEPISTOL_ALT_DAMAGE			25
-#define CLONEPISTOL_NPC_DAMAGE_EASY 	6
-#define CLONEPISTOL_NPC_DAMAGE_NORMAL	12
-#define CLONEPISTOL_NPC_DAMAGE_HARD 	16
 
 
 

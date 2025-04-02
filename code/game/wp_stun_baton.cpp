@@ -27,7 +27,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "w_local.h"
 
 //---------------------------------------------------------
-void WP_FireStunBaton( gentity_t *ent, qboolean alt_fire )
+void WP_FireStunBaton( gentity_t *ent )
 {
 	gentity_t	*tr_ent;
 	trace_t		tr;
@@ -56,11 +56,9 @@ void WP_FireStunBaton( gentity_t *ent, qboolean alt_fire )
 	{
 		G_PlayEffect( "stunBaton/flesh_impact", tr.endpos, tr.plane.normal );
 
-		// TEMP!
-//		G_Sound( tr_ent, G_SoundIndex( va("sound/weapons/melee/punch%d", Q_irand(1, 4)) ) );
 		tr_ent->client->ps.powerups[PW_SHOCKED] = level.time + 1500;
 
-		G_Damage( tr_ent, ent, ent, forwardVec, tr.endpos, weaponData[WP_STUN_BATON].damage, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
+		G_Damage( tr_ent, ent, ent, forwardVec, tr.endpos, weaponData[WP_STUN_BATON].attackData[0].damage, DAMAGE_NO_KNOCKBACK, MOD_MELEE );
 	}
 	else if ( tr_ent->svFlags & SVF_GLASS_BRUSH || ( tr_ent->svFlags & SVF_BBRUSH && tr_ent->material == 12 )) // material grate...we are breaking a grate!
 	{
