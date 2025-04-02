@@ -6093,10 +6093,13 @@ void PM_TorsoAnimation( void )
 				case WP_REBELBLASTER:
 				case WP_REBELRIFLE:
 				case WP_BOBA:
-				case WP_SBD:
 				case WP_DROIDEKA:
 					PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONREADY3,SETANIM_FLAG_NORMAL);
 					//PM_SetAnim(pm,SETANIM_LEGS,BOTH_ATTACK2,SETANIM_FLAG_NORMAL);
+					break;
+
+				case WP_SBD:
+					PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONIDLE2, SETANIM_FLAG_NORMAL);
 					break;
 				case WP_DISRUPTOR:
 				case WP_CIS_SNIPER:
@@ -6256,6 +6259,10 @@ void PM_TorsoAnimation( void )
 		else if( pm->ps->legsAnim == BOTH_SWIM_IDLE1 )
 		{
 			PM_SetAnim(pm,SETANIM_TORSO,BOTH_SWIM_IDLE1,SETANIM_FLAG_NORMAL);
+		}
+		else if (pm->ps->legsAnim == BOTH_WALK1 && pm->ps->weapon == WP_SBD)
+		{
+			PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY2, SETANIM_FLAG_NORMAL);
 		}
 		else if( pm->ps->legsAnim == BOTH_SWIMFORWARD )
 		{
@@ -6429,7 +6436,7 @@ void PM_TorsoAnimation( void )
 					}
 					else
 					{
-						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONIDLE3,SETANIM_FLAG_NORMAL);
+						PM_SetAnim(pm,SETANIM_TORSO,TORSO_WEAPONIDLE2,SETANIM_FLAG_NORMAL);
 					}
 					break;
 
