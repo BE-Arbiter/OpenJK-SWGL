@@ -3769,6 +3769,7 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 			FX_StrikeHitWall(origin, dir);
 			break;
 		default:
+			break;
 		}
 		return;
 	}
@@ -3877,6 +3878,7 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 			FX_StrikeHitWall(origin, dir);
 			break;
 		default:
+			break;
 		}
 		return;
 	}

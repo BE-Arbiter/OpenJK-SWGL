@@ -107,17 +107,20 @@ int WP_GetVelocity(gentity_t* ent,weaponAttackData_t * attackData) {
 /*
 	Return the damage, taking into account Weapon Type, Entity Type & Class + Difficulty
 */
-int WP_GetWeaponDamage(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire = qfalse) {
+int WP_GetWeaponDamage(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire = qfalse) 
+{
 	int baseWeaponNum = weaponData[ent->s.weapon].baseWeaponNum ? weaponData[ent->s.weapon].baseWeaponNum : ent->s.weapon;
 	// Player and those NPC do Normal Damage
 	if (ent->s.number == 0
 		|| ent->client->NPC_class == CLASS_BOBAFETT
 		|| ent->client->NPC_class == CLASS_MANDALORIAN
-		|| ent->client->NPC_class == CLASS_JANGO) {
+		|| ent->client->NPC_class == CLASS_JANGO) 
+	{
 		return attackData->damage;
 	}
 	int diff = g_spskill->integer + 1;
-	if (attackData->npcDamage[diff]) {
+	if (attackData->npcDamage[diff]) 
+	{
 		return attackData->npcDamage[diff];
 	}
 	//Fallback Case Should not happen
@@ -127,22 +130,26 @@ int WP_GetWeaponDamage(gentity_t* ent, weaponAttackData_t* attackData, qboolean 
 /*
 	Return the spread for NPC if it is found, 0 otherwise
 */
-float WP_GetSpread(gentity_t* ent, weaponAttackData_t *attackData) {
+float WP_GetSpread(gentity_t* ent, weaponAttackData_t *attackData)
+{
 	//Player and those NPC use normal spread
 	if (ent->s.number == 0
 		|| ent->client->NPC_class == CLASS_BOBAFETT
 		|| ent->client->NPC_class == CLASS_MANDALORIAN
-		|| ent->client->NPC_class == CLASS_JANGO) {
+		|| ent->client->NPC_class == CLASS_JANGO) 
+	{
 		return attackData->spread;
 	}
 	int mod = g_spskill->integer + 1;
-	if (attackData->npcVelocity[mod] > 0) {
-		return attackData->npcVelocity[mod];
+	if (attackData->npcSpread[mod] > 0) 
+	{
+		return attackData->npcSpread[mod];
 	}
 	return attackData->spread;
 }
 
-void WP_ApplyLockDownOnMissile(gentity_t* ent, gentity_t* missile, qboolean alwaysLock = qfalse) {
+void WP_ApplyLockDownOnMissile(gentity_t* ent, gentity_t* missile, qboolean alwaysLock = qfalse) 
+{
 	int	lockEntNum, lockTime;
 	if (ent->NPC && ent->enemy)
 	{
@@ -323,6 +330,7 @@ void WP_FireGenericBlaster(gentity_t* ent, int attackIndex)
 {
 	weaponData_t* wpnData = &weaponData[ent->s.weapon];
 	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
+	float spread = WP_GetSpread(ent, attackData);
 	vec3_t	dir, angs;
 
 	
@@ -332,19 +340,18 @@ void WP_FireGenericBlaster(gentity_t* ent, int attackIndex)
 		|| !(ent->client->ps.forcePowersActive & (1 << FP_SEE))
 		|| ent->client->ps.forcePowerLevel[FP_SEE] < FORCE_LEVEL_2)
 	{
-		// Some NPCs can't aim
+		// Some NPCs really can't aim
 		if (ent->client && ent->NPC && ( ent->client->NPC_class == CLASS_STORMTROOPER 
 			|| ent->client->NPC_class == CLASS_SWAMPTROOPER  || ent->client->NPC_class == CLASS_IMPWORKER)
 		)
 		{
-			float npcSpread = WP_GetSpread(ent,attackData);
-			angs[PITCH] += (Q_flrand(-1.0f, 1.0f) * (npcSpread + (6 - ent->NPC->currentAim) * 0.25f));
-			angs[YAW] += (Q_flrand(-1.0f, 1.0f) * (npcSpread + (6 - ent->NPC->currentAim) * 0.25f));
+			angs[PITCH] += (Q_flrand(-1.0f, 1.0f) * (spread + (6 - ent->NPC->currentAim) * 0.25f));
+			angs[YAW] += (Q_flrand(-1.0f, 1.0f) * (spread + (6 - ent->NPC->currentAim) * 0.25f));
 		}
 		else
 		{
-			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * attackData->spread;
-			angs[YAW] += Q_flrand(-1.0f, 1.0f) * attackData->spread;
+			angs[PITCH] += Q_flrand(-1.0f, 1.0f) * spread;
+			angs[YAW] += Q_flrand(-1.0f, 1.0f) * spread;
 		}
 	}
 
@@ -469,6 +476,7 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	vec3_t	dir, angs, start;
 	gentity_t* missile;
+	float spread = WP_GetSpread(ent, attackData);
 	int vel,wpnCount = 1,count;
 
 	count = (level.time - ent->client->ps.weaponChargeTime) / attackData->chargeUnitTime;
@@ -515,8 +523,8 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 				angs[YAW] += ((i + 0.5f) * attackData->spread - count * 0.5f * attackData->spread);
 				if (ent->NPC)
 				{
-					angs[PITCH] += (Q_flrand(-1.0f, 1.0f) * (BLASTER_NPC_SPREAD + (6 - ent->NPC->currentAim) * 0.25f));
-					angs[YAW] += (Q_flrand(-1.0f, 1.0f) * (BLASTER_NPC_SPREAD + (6 - ent->NPC->currentAim) * 0.25f));
+					angs[PITCH] += (Q_flrand(-1.0f, 1.0f) * (spread + (6 - ent->NPC->currentAim) * 0.25f));
+					angs[YAW] += (Q_flrand(-1.0f, 1.0f) * (spread + (6 - ent->NPC->currentAim) * 0.25f));
 				}
 			}
 
