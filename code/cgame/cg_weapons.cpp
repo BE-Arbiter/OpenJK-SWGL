@@ -2326,7 +2326,7 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 {
 	int	usage_for_weap;
 
-	if (i >= weaponCount || !weaponData[i].playerUsable)
+	if (i >= weaponCount)
 	{
 #ifndef FINAL_BUILD
 		Com_Printf("CG_WeaponSelectable() passed illegal index of %d!\n",i);
@@ -2334,7 +2334,7 @@ qboolean CG_WeaponSelectable( int i, int original, qboolean dpMode )
 		return qfalse;
 	}
 
-	if ( cg.weaponSelectTime + 100 > cg.time )
+	if (!weaponData[i].playerUsable || cg.weaponSelectTime + 100 > cg.time )
 	{//TEMP standard weapon cycle debounce for E3 because G2 can't keep up with fast weapon changes
 		return qfalse;
 	}
@@ -3755,6 +3755,24 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 	weaponAttackData_t* attackData = &wpnData->attackData[cent->gent->attack_index];
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
+    //Force powers
+	if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE)) {
+		switch (baseWeapon)
+		{
+		case WP_ROCKET_LAUNCHER:
+			FX_BlastHitWall(origin, dir);
+			break;
+		case WP_CONCUSSION:
+			FX_DestructionHitWall(origin, dir);
+			break;
+		case WP_DISRUPTOR:
+			FX_StrikeHitWall(origin, dir);
+			break;
+		default:
+		}
+		return;
+	}
+
 	switch (attackData->firingLogic)
 	{
 		case FL_STUNBATON:
@@ -3808,12 +3826,6 @@ void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, 
 			break;
 		case FL_OTHER:
 		case FL_NONE:
-			if (baseWeapon == WP_ROCKET_LAUNCHER && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
-				FX_BlastHitWall(origin, dir);
-			}
-			else if (baseWeapon == WP_CONCUSSION && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
-				FX_DestructionHitWall(origin, dir);
-			}
 		    break;
 	}
 }
@@ -3851,6 +3863,23 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 	weaponAttackData_t* attackData = &wpnData->attackData[cent->gent->attack_index];
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
+    //Force powers
+	if (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE)) {
+		switch(baseWeapon)
+		{
+		case WP_ROCKET_LAUNCHER:
+			FX_BlastHitWall(origin, dir);
+			break;
+		case WP_CONCUSSION:
+			FX_DestructionHitPlayer(origin, dir, humanoid);
+			break;
+		case WP_DISRUPTOR:
+			FX_StrikeHitWall(origin, dir);
+			break;
+		default:
+		}
+		return;
+	}
 	switch (attackData->firingLogic)
 	{
 	case FL_STUNBATON:
@@ -3907,15 +3936,6 @@ void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir
 	case FL_FLAMETHROWER:
 	case FL_OTHER:
 	case FL_NONE:
-		if (baseWeapon == WP_ROCKET_LAUNCHER && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
-			FX_BlastHitWall(origin, dir);
-		}
-		else if (baseWeapon == WP_CONCUSSION && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
-			FX_DestructionHitPlayer(origin, dir, humanoid);
-		}
-		else if (baseWeapon == WP_DISRUPTOR && (cent->currentState.powerups & (1 << PW_FORCE_PROJECTILE))) {
-			FX_StrikeHitWall(origin, dir);
-		}
 		break;
 	}
 }
