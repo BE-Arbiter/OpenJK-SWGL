@@ -1149,6 +1149,25 @@ static void Key_CompleteBind( char *args, int argNum ) {
 }
 
 /*
+====================
+Key_SwglRebind
+====================
+*/
+void Key_SwglRebind(void)
+{
+	const char saberAttackCycleBindName[] = "saberAttackCycle";
+	const char pZoomBindName[] = "+zoom";
+	int pZoomKey = Key_GetKey(pZoomBindName);
+	if (pZoomKey != -1) {
+		//Show Already Bind and exit
+		Com_Printf(S_COLOR_YELLOW"\"+zoom\" already bound, nothing to do\n");
+		return;
+	}
+	int key = Key_GetKey(saberAttackCycleBindName);
+	Key_SetBinding(key, pZoomBindName);
+}
+
+/*
 ===================
 CL_InitKeyCommands
 ===================
@@ -1157,10 +1176,14 @@ void CL_InitKeyCommands( void ) {
 	// register our functions
 	Cmd_AddCommand( "bind", Key_Bind_f );
 	Cmd_SetCommandCompletionFunc( "bind", Key_CompleteBind );
+
 	Cmd_AddCommand( "unbind", Key_Unbind_f );
 	Cmd_SetCommandCompletionFunc( "unbind", Key_CompleteUnbind );
+
 	Cmd_AddCommand( "unbindall", Key_Unbindall_f );
 	Cmd_AddCommand( "bindlist", Key_Bindlist_f );
+
+	Cmd_AddCommand("saberAttackCycle", Key_SwglRebind);
 }
 
 /*
