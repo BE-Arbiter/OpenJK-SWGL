@@ -1160,11 +1160,12 @@ void Key_SwglRebind(void)
 	int pZoomKey = Key_GetKey(pZoomBindName);
 	if (pZoomKey != -1) {
 		//Show Already Bind and exit
-		Com_Printf(S_COLOR_YELLOW"\"+zoom\" already bound, nothing to do\n");
+		Com_Printf(S_COLOR_CYAN"\"+zoom\" already bound, nothing to do\n");
 		return;
 	}
 	int key = Key_GetKey(saberAttackCycleBindName);
 	Key_SetBinding(key, pZoomBindName);
+	Com_Printf(S_COLOR_CYAN"\"+zoom\" bound successfully\n");
 }
 
 /*
@@ -1184,6 +1185,7 @@ void CL_InitKeyCommands( void ) {
 	Cmd_AddCommand( "bindlist", Key_Bindlist_f );
 
 	Cmd_AddCommand("saberAttackCycle", Key_SwglRebind);
+	Cmd_AddCommand("rebindSWGLAttackCycle", Key_SwglRebind);
 }
 
 /*
