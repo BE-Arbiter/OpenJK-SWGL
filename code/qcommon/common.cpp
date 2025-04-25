@@ -1016,6 +1016,7 @@ void Com_ExecuteCfg(void)
 	Cbuf_ExecuteText(EXEC_NOW, "exec default.cfg\n");
 	Cbuf_Execute(); // Always execute after exec to prevent text buffer overflowing
 
+
 	if(!Com_SafeMode())
 	{
 		// skip the q3config.cfg and autoexec.cfg if "safe" is on the command line
@@ -1114,6 +1115,10 @@ void Com_Init( char *commandLine ) {
 		//re.R_InitWorldEffects();   // this doesn't do much but I want to be sure certain variables are intialized.
 
 		Com_ExecuteCfg();
+
+		//SWGL Rebind +zoom if not bound
+		Cbuf_ExecuteText(EXEC_NOW, "rebindSWGLAttackCycle\n");
+		Cbuf_Execute(); // Always execute after exec to prevent text buffer overflowing
 
 		// override anything from the config files with command line args
 		Com_StartupVariable( NULL );

@@ -521,7 +521,7 @@ void ATK_FiringLogic(const char** holdBuf)
 	}
 	else if(!Q_stricmp(tokenStr, "FL_SBD"))
 	{
-	    firingLogic = FL_STUNBATON;
+	    firingLogic = FL_SBD;
 	}
 	else if(!Q_stricmp(tokenStr, "FL_OTHER"))
 	{

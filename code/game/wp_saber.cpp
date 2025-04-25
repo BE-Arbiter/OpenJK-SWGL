@@ -6838,6 +6838,7 @@ qboolean WP_SaberLaunch( gentity_t *self, gentity_t *saber, qboolean thrown, qbo
 		saber->s.apos.trDelta[1] = 800;
 		break;
 	case FORCE_LEVEL_3:
+	case FORCE_LEVEL_4:
 		saber->s.apos.trDelta[1] = 1200;
 		break;
 	}
