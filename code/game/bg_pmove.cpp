@@ -14843,6 +14843,16 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
 	}
 
+	if (pm->gent->client->NPC_class == CLASS_DROIDEKA && (
+			pm->ps->legsAnim == BOTH_RUNBACK1
+			|| pm->ps->legsAnim == BOTH_RUN1STOP
+			|| pm->ps->legsAnim == BOTH_RUN1
+			|| pm->ps->legsAnim == BOTH_RUN1START)
+	){
+		pm->cmd.buttons &= ~BUTTON_ATTACK;
+		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
+	}
+
 	// This is to make sure that only the player can burst fire.
 	if (pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)))
 	{
