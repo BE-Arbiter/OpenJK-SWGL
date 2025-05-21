@@ -14868,10 +14868,30 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	// get ammo usage
 	amount = pm->ps->ammo[weaponData[ weapon ].ammoIndex] - weaponData[weapon].attackData[attackIndex].energyPerShot;
 	if ( weapon == WP_SABER && (!cg.zoomMode||pm->ps->clientNum) )
-	{//don't let the alt-attack be interpreted as an actual attack command
-		if (pm->cmd.buttons & BUTTON_ZOOM && !(pm->ps->pFlags & PF_ZOOMING) && pm->gent && (pm->gent->s.number < MAX_CLIENTS || G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING) {
-			PM_SaberAttackCycle_f(pm->gent);
+	{
+		//Switch saber style (first press)
+		if (pm->cmd.buttons & BUTTON_ZOOM && !(pm->ps->pFlags & PF_ZOOMING) && pm->gent 
+			&& (pm->gent->s.number < MAX_CLIENTS || G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING) 
+		{
+			cg.saberSwitchTime = cg.time;
 		}
+		//Switch Saber Style (Released)
+		else if (!(pm->cmd.buttons & BUTTON_ZOOM) && (pm->ps->pFlags & PF_ZOOMING) && pm->gent
+			&& (pm->gent->s.number < MAX_CLIENTS || G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING)
+		{
+			int cg_key_press_time = cg.time - cg.saberSwitchTime;
+			//In ms? 
+			if (cg_key_press_time <= 250) {
+				PM_SaberAttackCycle_f(pm->gent);
+			}
+			else {
+				//TODO Linken Task of long press....
+				CG_Printf(S_COLOR_CYAN"Long Zoom press detected, time : %d ms\n", cg_key_press_time);
+			}
+
+		}
+
+		//don't let the alt-attack be interpreted as an actual attack command
 		if ( pm->ps->saberInFlight )
 		{
 			pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;

@@ -375,6 +375,8 @@ typedef struct {
 	int			zoomTime;
 	qboolean	zoomLocked;
 
+	int			saberSwitchTime;
+
 	// gonk use
 	int			batteryChargeTime;
 
