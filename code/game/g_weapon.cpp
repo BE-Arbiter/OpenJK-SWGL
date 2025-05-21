@@ -174,7 +174,7 @@ int WP_GetWeaponID(const char* weaponName) {
 */
 void WP_SwitchPistolMuzzle(gentity_t* ent)
 {
-	if (ent->weaponModel[1] > 0)
+	if (ent->weaponModel[1] > 0 || ent->client->NPC_class == CLASS_DROIDEKA)
 	{//dual pistols, toggle the muzzle point back and forth between the two pistols each time he fires
 		ent->count = (ent->count) ? 0 : 1;
 	}
