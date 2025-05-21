@@ -300,7 +300,6 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 		case WP_CLONECARBINE:
 		case WP_REBELBLASTER:
 		case WP_CLONERIFLE:
-		case WP_CLONECOMMANDO:
 		case WP_REBELRIFLE:
 		case WP_JANGO:
 		case WP_BOBA:
@@ -317,6 +316,7 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 		case WP_BOWCASTER:
 			attDelay += Q_irand( 0, 500 );
 			break;
+		case WP_CLONECOMMANDO:
 		case WP_REPEATER:
 			if ( !altFire )
 			{//rapid-fire blasters
@@ -838,6 +838,7 @@ void ChangeWeapon(gentity_t *ent, int newWeapon)
 			ent->NPC->burstSpacing = 500;//attack debounce
 		break;
 
+	case WP_CLONECOMMANDO:
 	case WP_REPEATER:
 		if (ent->NPC->scriptFlags & SCF_ALT_FIRE)
 		{
@@ -935,7 +936,6 @@ void ChangeWeapon(gentity_t *ent, int newWeapon)
 	case WP_CLONECARBINE:
 	case WP_REBELBLASTER:
 	case WP_CLONERIFLE:
-	case WP_CLONECOMMANDO:
 	case WP_REBELRIFLE:
 	case WP_JANGO:
 	case WP_BOBA:
