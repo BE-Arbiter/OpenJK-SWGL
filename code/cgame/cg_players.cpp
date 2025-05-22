@@ -9724,8 +9724,10 @@ Ghoul2 Insert End
 				shader = cgi_R_RegisterShader( "gfx/misc/lightningFlash" );
 				scale = 1.75f;
 			}
-			//Default values for new weapons;
-			else {
+			//Default values for new weapons; But not for grenades cause it would be silly...
+			else if(weaponData[weapon].weaponCategory != WC_EXPLOSIVE  
+				&& weaponData[weapon].weaponCategory != WC_GRENADE)
+			{
 				// Hardcoded max charge time of 1 second
 				val = (cg.time - ps->weaponChargeTime) * 0.001f;
 				shader = cgi_R_RegisterShader("gfx/effects/bryarFrontFlash");
@@ -9752,10 +9754,12 @@ Ghoul2 Insert End
 			}
 
 			val += Q_flrand(0.0f, 1.0f) * 0.5f;
-
-			FX_AddSprite( cent->gent->client->renderInfo.muzzlePoint, NULL, NULL, 3.0f * val * scale, 0.0f, 0.7f, 0.7f, WHITE, WHITE, Q_flrand(0.0f, 1.0f) * 360, 0.0f, 1.0f, shader, FX_USE_ALPHA );
-			if (weaponData[cent->gent->s.weapon].weaponCategory == WC_PISTOL && cent->gent->weaponModel[1]) {
-				FX_AddSprite(cent->gent->client->renderInfo.muzzlePoint2, NULL, NULL, 3.0f * val * scale, 0.0f, 0.7f, 0.7f, WHITE, WHITE, Q_flrand(0.0f, 1.0f) * 360, 0.0f, 1.0f, shader, FX_USE_ALPHA);
+			if (shader) 
+			{
+				FX_AddSprite(cent->gent->client->renderInfo.muzzlePoint, NULL, NULL, 3.0f * val * scale, 0.0f, 0.7f, 0.7f, WHITE, WHITE, Q_flrand(0.0f, 1.0f) * 360, 0.0f, 1.0f, shader, FX_USE_ALPHA);
+				if (weaponData[cent->gent->s.weapon].weaponCategory == WC_PISTOL && cent->gent->weaponModel[1]) {
+					FX_AddSprite(cent->gent->client->renderInfo.muzzlePoint2, NULL, NULL, 3.0f * val * scale, 0.0f, 0.7f, 0.7f, WHITE, WHITE, Q_flrand(0.0f, 1.0f) * 360, 0.0f, 1.0f, shader, FX_USE_ALPHA);
+				}
 			}
 		}
 	}
