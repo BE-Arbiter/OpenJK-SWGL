@@ -5272,7 +5272,12 @@ void PM_TorsoAnimLightsaber()
 			if (!NoSaberTwirlCharacter(pm->gent))
 				PM_SetSaberMove(LS_PUTAWAY);
 			else
-				PM_SetSaberMove(LS_NONE);
+			{
+				// Should fix a problem where the character would drop their hands to their side when turning off a saber during another animation, like running.
+				if(PM_SaberStanceAnim(pm->ps->torsoAnim))
+					PM_SetSaberMove(LS_NONE);
+			}
+				
 		}
 		return;
 	}
