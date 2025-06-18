@@ -7963,40 +7963,111 @@ void NPC_BSJedi_Default( void )
 			|| !Q_stricmp(CAL_KESTIS_INQUISITOR, NPC->NPC_type)
 			|| !Q_stricmp(DAGAN, NPC->NPC_type)))
 	{
-		if (!Q_stricmp("cal_kestis_staff", NPC->client->ps.saber[0].name))
+		if (!Q_stricmp(JARO_STAFF, NPC->client->ps.saber[0].name))
 		{
 
 			saber_colors_t currentColor = NPC->client->ps.saber[0].blade[0].color;
 
-			WP_SetSaber(NPC, 0, "cal_kestis_single");
+			WP_SetSaber(NPC, 0, JARO_SINGLE);
 
 			NPC->client->ps.saber[0].blade[0].color = currentColor;
 		}
-		else if (!Q_stricmp("cal_kestis_single", NPC->client->ps.saber[0].name))
+		else if (!Q_stricmp(JARO_SINGLE, NPC->client->ps.saber[0].name))
 		{
 			saber_colors_t currentColor = NPC->client->ps.saber[0].blade[0].color;
-			WP_SetSaber(NPC, 0, "cal_kestis_staff");
+			WP_SetSaber(NPC, 0, JARO_STAFF);
 
 			NPC->client->ps.saber[0].blade[0].color = currentColor;
 			NPC->client->ps.saber[0].blade[1].color = currentColor;
 
 		}
-		else if (!Q_stricmp("dagan_gera_staff", NPC->client->ps.saber[0].name))
+		else if (!Q_stricmp(CAL_MAIN, NPC->client->ps.saber[0].name) || !Q_stricmp(CAL_STAFF, NPC->client->ps.saber[0].name))
 		{
 			saber_colors_t currentColor = NPC->client->ps.saber[0].blade[0].color;
 
-			WP_SetSaber(NPC, 0, "dagan_gera");
-			WP_SetSaber(NPC, 1, "dagan_gera_short");
+			// Just a pre-emptive thing to do
+			WP_SetSaber(NPC, 1, "none");
+
+
+			if (!Q_irand(0, 1))
+			{
+				WP_SetSaber(NPC, 0, CAL_STAFF);
+			}
+			else
+			{
+				WP_SetSaber(NPC, 0, CAL_MAIN);
+				if (!Q_irand(0, 1))
+				{
+					WP_SetSaber(NPC, 1, CAL_OFFHAND);
+				}
+			}
+			
+			int i, j;
+
+			for (i = 0; i < NPC->client->ps.saber[i].numBlades; i++)
+			{				
+				NPC->client->ps.saber[0].blade[i].color = currentColor;
+			}
+
+			if (NPC->client->ps.dualSabers)
+			{
+				NPC->client->ps.saber[1].blade[0].color = currentColor;
+			}
+		}
+		else if (!Q_stricmp(CAL_VENTED, NPC->client->ps.saber[0].name) || !Q_stricmp(CAL_STAFF_VENTED, NPC->client->ps.saber[0].name) || !Q_stricmp(CAL_CROSSGUARD, NPC->client->ps.saber[0].name))
+		{
+			saber_colors_t currentColor = NPC->client->ps.saber[0].blade[0].color;
+
+			// Just a pre-emptive thing to do
+			WP_SetSaber(NPC, 1, "none");
+
+			switch (Q_irand(0, 2))
+			{
+			case 0:
+				WP_SetSaber(NPC, 0, CAL_STAFF_VENTED);
+				break;
+			case 1:
+				WP_SetSaber(NPC, 0, CAL_CROSSGUARD);
+				break;
+			case 2:
+				WP_SetSaber(NPC, 0, CAL_VENTED);
+				if (!Q_irand(0, 1))
+				{
+					WP_SetSaber(NPC, 1, CAL_OFFHAND);
+				}
+				break;
+			default:
+				WP_SetSaber(NPC, 0, CAL_VENTED);
+			}
+
+			int i, j;
+
+			for (i = 0; i < NPC->client->ps.saber[i].numBlades; i++)
+			{
+				NPC->client->ps.saber[0].blade[i].color = currentColor;
+			}
+
+			if (NPC->client->ps.dualSabers)
+			{
+				NPC->client->ps.saber[1].blade[0].color = currentColor;
+			}
+		}
+		else if (!Q_stricmp(DAGAN_STAFF, NPC->client->ps.saber[0].name))
+		{
+			saber_colors_t currentColor = NPC->client->ps.saber[0].blade[0].color;
+
+			WP_SetSaber(NPC, 0, DAGAN_MAIN);
+			WP_SetSaber(NPC, 1, DAGAN_OFFHAND);
 
 			NPC->client->ps.saber[0].blade[0].color = currentColor;
 			NPC->client->ps.saber[1].blade[0].color = currentColor;
 
 		}
-		else if ((!Q_stricmp("dagan_gera", NPC->client->ps.saber[0].name) && !Q_stricmp("dagan_gera_short", NPC->client->ps.saber[1].name)) || (!Q_stricmp("dagan_gera_short", NPC->client->ps.saber[0].name) && !Q_stricmp("dagan_gera", NPC->client->ps.saber[1].name)))
+		else if ((!Q_stricmp(DAGAN_MAIN, NPC->client->ps.saber[0].name) && !Q_stricmp(DAGAN_OFFHAND, NPC->client->ps.saber[1].name)) || (!Q_stricmp(DAGAN_OFFHAND, NPC->client->ps.saber[0].name) && !Q_stricmp(DAGAN_MAIN, NPC->client->ps.saber[1].name)))
 		{
 			saber_colors_t currentColor = NPC->client->ps.saber[0].blade[0].color;
 
-			WP_SetSaber(NPC, 0, "dagan_gera_staff");
+			WP_SetSaber(NPC, 0, DAGAN_STAFF);
 			WP_SetSaber(NPC, 1, "none");
 
 			NPC->client->ps.saber[0].blade[0].color = currentColor;
@@ -8009,64 +8080,72 @@ void NPC_BSJedi_Default( void )
 		{
 			saber_colors_t currentColor = NPC->client->ps.saber[0].blade[0].color;
 
-			if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp("inquisitor", NPC->client->ps.saber[0].name))
+			if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp(GRANDINQ_SINGLE, NPC->client->ps.saber[0].name))
 			{
-				WP_SetSaber(NPC, 0, "inquisitor_staff");
+				WP_SetSaber(NPC, 0, GRANDINQ_STAFF);
 			}
-			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp("inquisitor_staff", NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
+			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp(GRANDINQ_STAFF, NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
 			{
-				WP_SetSaber(NPC, 0, "inquisitor");
+				WP_SetSaber(NPC, 0, GRANDINQ_SINGLE);
 			}
-			else if ((NPC->health <= (NPC->max_health * .75) && !Q_stricmp("2nd_sister", NPC->client->ps.saber[0].name)) || (NPC->health <= (NPC->max_health * .75) && !Q_stricmp("inq_starkiller", NPC->client->ps.saber[0].name)))
+			if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp(GRANDINQ_REB_SINGLE, NPC->client->ps.saber[0].name))
 			{
-				WP_SetSaber(NPC, 0, "2nd_sister_staff");
+				WP_SetSaber(NPC, 0, GRANDINQ_REB_STAFF);
 			}
-			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp("2nd_sister_staff", NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
+			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp(GRANDINQ_REB_STAFF, NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
+			{
+				WP_SetSaber(NPC, 0, GRANDINQ_REB_SINGLE);
+			}
+			else if ((NPC->health <= (NPC->max_health * .75) && !Q_stricmp(SECOND_SINGLE, NPC->client->ps.saber[0].name)) || (NPC->health <= (NPC->max_health * .75) && !Q_stricmp("inq_starkiller", NPC->client->ps.saber[0].name)))
+			{
+				WP_SetSaber(NPC, 0, SECOND_STAFF);
+			}
+			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp(SECOND_STAFF, NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
 			{
 				if (!Q_stricmp(INQ_STK, NPC->NPC_type))
 					WP_SetSaber(NPC, 0, "inq_starkiller");
 				else
-					WP_SetSaber(NPC, 0, "2nd_sister");
+					WP_SetSaber(NPC, 0, SECOND_SINGLE);
 			}
-			else if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp("3rd_sister", NPC->client->ps.saber[0].name))
+			else if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp(THIRD_SINGLE, NPC->client->ps.saber[0].name))
 			{
-				WP_SetSaber(NPC, 0, "3rd_sister_staff");
+				WP_SetSaber(NPC, 0, THIRD_STAFF);
 			}
-			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp("3rd_sister_staff", NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
+			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp(THIRD_STAFF, NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
 			{
-				WP_SetSaber(NPC, 0, "3rd_sister");
+				WP_SetSaber(NPC, 0, THIRD_SINGLE);
 			}
-			else if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp("4th_sister", NPC->client->ps.saber[0].name))
+			else if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp(FOURTH_SINGLE, NPC->client->ps.saber[0].name))
 			{
-				WP_SetSaber(NPC, 0, "4th_sister_staff");
+				WP_SetSaber(NPC, 0, FOURTH_STAFF);
 			}
-			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp("4th_sister_staff", NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
+			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp(FOURTH_STAFF, NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
 			{
-				WP_SetSaber(NPC, 0, "4th_sister");
+				WP_SetSaber(NPC, 0, FOURTH_SINGLE);
 			}
-			else if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp("5th_brother", NPC->client->ps.saber[0].name))
+			else if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp(FIFTH_SINGLE, NPC->client->ps.saber[0].name))
 			{
-				WP_SetSaber(NPC, 0, "5th_brother_staff");
+				WP_SetSaber(NPC, 0, FIFTH_STAFF);
 			}
-			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp("5th_brother_staff", NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
+			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp(FIFTH_STAFF, NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
 			{
-				WP_SetSaber(NPC, 0, "5th_brother");
+				WP_SetSaber(NPC, 0, FIFTH_SINGLE);
 			}
-			else if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp("7th_sister", NPC->client->ps.saber[0].name))
+			else if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp(SEVENTH_SINGLE, NPC->client->ps.saber[0].name))
 			{
-				WP_SetSaber(NPC, 0, "7th_sister_staff");
+				WP_SetSaber(NPC, 0, SEVENTH_STAFF);
 			}
-			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp("7th_sister_staff", NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
+			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp(SEVENTH_STAFF, NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
 			{
-				WP_SetSaber(NPC, 0, "7th_sister");
+				WP_SetSaber(NPC, 0, SEVENTH_SINGLE);
 			}
-			else if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp("9th_sister", NPC->client->ps.saber[0].name))
+			else if (NPC->health <= (NPC->max_health * .75) && !Q_stricmp(NINTH_SINGLE, NPC->client->ps.saber[0].name))
 			{
-				WP_SetSaber(NPC, 0, "9th_sister_staff");
+				WP_SetSaber(NPC, 0, NINTH_STAFF);
 			}
-			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp("9th_sister_staff", NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
+			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp(NINTH_STAFF, NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
 			{
-				WP_SetSaber(NPC, 0, "9th_sister");
+				WP_SetSaber(NPC, 0, NINTH_SINGLE);
 			}
 			NPC->client->ps.saber[0].blade[0].color = currentColor;
 			NPC->client->ps.saber[0].blade[1].color = currentColor;
