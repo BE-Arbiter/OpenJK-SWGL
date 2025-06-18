@@ -1110,6 +1110,23 @@ void WP_GrenadeThink(gentity_t* ent)
 }
 
 //---------------------------------------------------------
+//Make user quickly throw a specified grenade
+gentity_t* WP_QuickGrenadeThrowSpecific(gentity_t* ent,int grenadeWeaponIndex) {
+	if (grenadeWeaponIndex == 0) {
+		grenadeWeaponIndex = WP_THERMAL;
+	}
+	int currentEquippedWeapon = ent->s.weapon;
+	ent->s.weapon = grenadeWeaponIndex;
+	gentity_t* toReturn = WP_FireGrenade(ent, 1); //1 is explode on impact
+	ent->s.weapon = currentEquippedWeapon;
+	return toReturn;
+}
+//Make user quickly throw a thermal detonator
+gentity_t* WP_QuickGrenadeThrow(gentity_t* ent) {
+	return WP_QuickGrenadeThrowSpecific(ent, 0);
+}
+
+//---------------------------------------------------------
 gentity_t* WP_FireGrenade(gentity_t* ent, int attackIndex)
 //---------------------------------------------------------
 {

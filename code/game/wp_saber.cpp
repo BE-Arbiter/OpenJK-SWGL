@@ -188,7 +188,7 @@ vec3_t	g_saberFlashPos = {0,0,0};
 
 const char* CG_GetForceLightning(gentity_t* ent);
 
-extern gentity_t* WP_FireGrenade(gentity_t* ent, int attackIndex);
+extern gentity_t* WP_QuickGrenadeThrow(gentity_t* ent);
 
 int forcePowerDarkLight[NUM_FORCE_POWERS] = //0 == neutral
 { //nothing should be usable at rank 0..
@@ -15608,9 +15608,10 @@ else if (gripEnt->NPC
 	&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20))
 	&& gripEnt->health > 0)
 {
-	WP_FireGrenade(gripEnt, 1);
+	WP_QuickGrenadeThrow(gripEnt);
 	NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
 	WP_ForcePowerStop(self, FP_GRASP);
+
 }
 else if (PM_SaberInAttack(self->client->ps.saberMove)
 	|| PM_SaberInStart(self->client->ps.saberMove))
@@ -15994,7 +15995,7 @@ else
 				&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20))
 				&& gripEnt->health > 0)
 			{
-				WP_FireGrenade(gripEnt, 1);
+				WP_QuickGrenadeThrow(gripEnt);
 				NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
 				WP_ForcePowerStop(self, FP_GRIP);
 			}
