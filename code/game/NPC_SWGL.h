@@ -162,4 +162,54 @@
 #define VADER_INFINITIES "vader_infinities"
 #define WONKA "Wilbur_Wonka"
 
+/*-----------Saber codes for sabers with special properties-----------*/
+
+// Jaro Tapal
+#define JARO_STAFF "jaro_tapal"
+#define JARO_SINGLE "jaro_tapal_single"
+
+// Cal Kestis (without vents)
+#define CAL_MAIN "cal_kestis"
+#define CAL_OFFHAND "cal_kestis_offhand"
+#define CAL_STAFF "cal_kestis_staff"
+
+// Cal Kestis (with vents)
+#define CAL_VENTED "cal_kestis_vented"
+#define CAL_STAFF_VENTED "cal_kestis_staff_vented"
+#define CAL_CROSSGUARD "cal_kestis_crossguard"
+
+// Dagan Gera
+#define DAGAN_MAIN "dagan_gera"
+#define DAGAN_OFFHAND "dagan_gera_short"
+#define DAGAN_STAFF "dagan_gera_staff"
+
+// The Stranger
+#define STRANGER_FULL "the_stranger"
+#define STRANGER_MAIN "the_stranger_main"
+#define STRANGER_OFFHAND "the_stranger_offhand"
+
+// Inquisitors
+#define GRANDINQ_STAFF "inquisitor_staff"
+#define GRANDINQ_SINGLE "inquisitor"
+#define GRANDINQ_REB_STAFF "inquisitor_rebels_staff"
+#define GRANDINQ_REB_SINGLE "inquisitor_rebels"
+
+#define SECOND_STAFF "2nd_sister_staff"
+#define SECOND_SINGLE "2nd_sister"
+
+#define THIRD_STAFF "3rd_sister_staff"
+#define THIRD_SINGLE "3rd_sister"
+
+#define FOURTH_STAFF "4th_sister_staff"
+#define FOURTH_SINGLE "4th_sister"
+
+#define FIFTH_STAFF "5th_brother_staff"
+#define FIFTH_SINGLE "5th_brother"
+
+#define SEVENTH_STAFF "7th_sister_staff"
+#define SEVENTH_SINGLE "7th_sister"
+
+#define NINTH_STAFF "9th_sister_staff"
+#define NINTH_SINGLE "9th_sister"
+
 #endif /* NPC_SWGL_H */
