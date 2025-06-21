@@ -6225,7 +6225,7 @@ void PM_TorsoAnimation(void)
 		//running w/1-handed or light 2-handed weapon uses full-body anim if you're not using the weapon right now
 		else if (!weaponBusy && !(pm->ps->weaponstate == WEAPON_CHARGING_ALT)
 			&& (weaponData[weapon].weaponCategory == WC_PISTOL || weaponData[weapon].weaponCategory == WC_LIGHT || weaponData[weapon].weaponCategory == WC_MELEE_1H)
-			&& (PM_RunningAnim(pm->ps->legsAnim) || PM_WalkingAnim(pm->ps->legsAnim)
+			&& (PM_RunningAnim(pm->ps->legsAnim) || (PM_WalkingAnim(pm->ps->legsAnim) && (pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()))
 				|| PM_JumpingAnim(pm->ps->legsAnim) || PM_SwimmingAnim(pm->ps->legsAnim)))
 		{
 			PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
