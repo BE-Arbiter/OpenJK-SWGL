@@ -6731,45 +6731,51 @@ qboolean WP_SaberLaunch( gentity_t *self, gentity_t *saber, qboolean thrown, qbo
 				saber_colors_t currentColor = NPC->client->ps.saber[0].blade[0].color;
 
 				// Inquisitor sabers should switch to staff when thrown
-				if (!Q_stricmp("inquisitor", self->client->ps.saber[0].name))
+				if (!Q_stricmp(GRANDINQ_SINGLE, self->client->ps.saber[0].name))
 				{
-					WP_SetSaber(self, 0, "inquisitor_staff");
+					WP_SetSaber(self, 0, GRANDINQ_STAFF);
 					TIMER_Set(NPC, "saber_switch", Q_irand(3000, 5000));
 				}
 				// Inquisitor sabers should switch to staff when thrown
-				else if (!Q_stricmp("7th_sister", self->client->ps.saber[0].name))
+				else if (!Q_stricmp(GRANDINQ_REB_SINGLE, self->client->ps.saber[0].name))
 				{
-					WP_SetSaber(self, 0, "7th_sister_staff");
+					WP_SetSaber(self, 0, GRANDINQ_REB_STAFF);
 					TIMER_Set(NPC, "saber_switch", Q_irand(3000, 5000));
 				}
 				// Inquisitor sabers should switch to staff when thrown
-				else if (!Q_stricmp("5th_brother", self->client->ps.saber[0].name))
+				else if (!Q_stricmp(SEVENTH_SINGLE, self->client->ps.saber[0].name))
 				{
-					WP_SetSaber(self, 0, "5th_brother_staff");
+					WP_SetSaber(self, 0, SEVENTH_STAFF);
 					TIMER_Set(NPC, "saber_switch", Q_irand(3000, 5000));
 				}
 				// Inquisitor sabers should switch to staff when thrown
-				else if (!Q_stricmp("2nd_sister", self->client->ps.saber[0].name) || !Q_stricmp("inq_starkiller", self->client->ps.saber[0].name))
+				else if (!Q_stricmp(FIFTH_SINGLE, self->client->ps.saber[0].name))
 				{
-					WP_SetSaber(self, 0, "2nd_sister_staff");
+					WP_SetSaber(self, 0, FIFTH_STAFF);
 					TIMER_Set(NPC, "saber_switch", Q_irand(3000, 5000));
 				}
 				// Inquisitor sabers should switch to staff when thrown
-				else if (!Q_stricmp("3rd_sister", self->client->ps.saber[0].name))
+				else if (!Q_stricmp(SECOND_SINGLE, self->client->ps.saber[0].name) || !Q_stricmp("inq_starkiller", self->client->ps.saber[0].name))
 				{
-					WP_SetSaber(self, 0, "3rd_sister_staff");
+					WP_SetSaber(self, 0, SECOND_SINGLE);
 					TIMER_Set(NPC, "saber_switch", Q_irand(3000, 5000));
 				}
 				// Inquisitor sabers should switch to staff when thrown
-				else if (!Q_stricmp("4th_sister", self->client->ps.saber[0].name))
+				else if (!Q_stricmp(THIRD_SINGLE, self->client->ps.saber[0].name))
 				{
-					WP_SetSaber(self, 0, "4th_sister_staff");
+					WP_SetSaber(self, 0, THIRD_STAFF);
 					TIMER_Set(NPC, "saber_switch", Q_irand(3000, 5000));
 				}
 				// Inquisitor sabers should switch to staff when thrown
-				else if (!Q_stricmp("9th_sister", self->client->ps.saber[0].name))
+				else if (!Q_stricmp(FOURTH_SINGLE, self->client->ps.saber[0].name))
 				{
-					WP_SetSaber(self, 0, "9th_sister_staff");
+					WP_SetSaber(self, 0, FOURTH_STAFF);
+					TIMER_Set(NPC, "saber_switch", Q_irand(3000, 5000));
+				}
+				// Inquisitor sabers should switch to staff when thrown
+				else if (!Q_stricmp(NINTH_SINGLE, self->client->ps.saber[0].name))
+				{
+					WP_SetSaber(self, 0, NINTH_STAFF);
 					TIMER_Set(NPC, "saber_switch", Q_irand(3000, 5000));
 				}
 				if (NPC->client->ps.saber[0].numBlades > 1) // Should avoid an indexoutofbounds exception just in case.
@@ -15599,7 +15605,8 @@ else if (gripEnt->NPC
 else if (gripEnt->NPC
 	&& gripEnt->client
 	&& (gripEnt->attrFlags & ATTR_COMMANDO)
-	&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20)))
+	&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20))
+	&& gripEnt->health > 0)
 {
 	WP_QuickGrenadeThrow(gripEnt);
 	NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
@@ -15985,7 +15992,8 @@ else
 			else if (gripEnt->NPC
 				&& gripEnt->client
 				&& (gripEnt->attrFlags & ATTR_COMMANDO)
-				&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20)))
+				&& !Q_irand(0, 100 - (gripEnt->NPC->stats.evasion * 8) - (g_spskill->integer * 20))
+				&& gripEnt->health > 0)
 			{
 				WP_QuickGrenadeThrow(gripEnt);
 				NPC_SetAnim(gripEnt, SETANIM_TORSO, BOTH_FORCEPUSH, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
