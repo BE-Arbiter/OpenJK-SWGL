@@ -372,7 +372,7 @@ void NPC_BSTusken_Attack( void )
 
 				// If Not In Strike Range, Do Lunge, Or If We Don't Have The Staff, Just Shoot Normally
 				//--------------------------------------------------------------------------------------
-				if (enemyDist > strikeRange)
+				if (enemyDist < strikeRange)
 				{
 					ucmd.buttons |= BUTTON_ALT_ATTACK;
 				}
