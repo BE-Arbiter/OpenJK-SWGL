@@ -1180,7 +1180,7 @@ void FX_DisruptorMainShot( vec3_t start, vec3_t end );
 void FX_DisruptorAltShot( vec3_t start, vec3_t end, qboolean full );
 void FX_DisruptorAltMiss( vec3_t origin, vec3_t normal );
 
-void FX_DEMP2_AltDetonate( vec3_t org, float size );
+void FX_DEMP2_AltDetonate(vec3_t org, float size, gentity_t* gent);
 
 void FX_FlechetteProjectileThink( centity_t *cent, const struct weaponInfo_s *weapon );
 
