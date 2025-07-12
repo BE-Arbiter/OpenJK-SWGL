@@ -610,7 +610,7 @@ void CG_EntityEvent( centity_t *cent, vec3_t position ) {
 		break;
 
 	case EV_DEMP2_ALT_IMPACT:
-		FX_DEMP2_AltDetonate( cent->lerpOrigin, es->eventParm );
+		FX_DEMP2_AltDetonate( cent->lerpOrigin, es->eventParm, cent->gent);
 		break;
 
 	case EV_CONC_ALT_SHOT:

@@ -69,12 +69,41 @@ void FX_DEMP2_AltProjectileThink( centity_t *cent, const struct weaponInfo_s *we
 		forward[2] = 1.0f;
 	}
 
-	theFxScheduler.PlayEffect( "demp2/projectile", cent->lerpOrigin, forward );
+	if (weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect)
+	{
+		theFxScheduler.PlayEffect(weapon->weaponAttacksInfo[cent->gent->alt_fire].projectileEffect, cent->lerpOrigin, forward);
+	}
+	else
+	{
+		theFxScheduler.PlayEffect("demp2/projectile", cent->lerpOrigin, forward);
+	}
 }
 
 //---------------------------------------------
-void FX_DEMP2_AltDetonate( vec3_t org, float size )
+void FX_DEMP2_AltDetonate( vec3_t org, float size, gentity_t* gent)
 {
+	weaponData_t* wpnData = &weaponData[gent->s.weapon];
+	weaponAttackData_t* attackData = &wpnData->attackData[gent->attack_index];
+
+	qhandle_t detonate_shader;
+	qhandle_t detonate_model;
+
+	if(attackData->dempDetonateShader != 0 && attackData->dempDetonateShader[0] != 0)
+	{
+		detonate_shader = cgi_R_RegisterShader(attackData->dempDetonateShader);
+	}
+	else {
+		detonate_shader = cgi_R_RegisterShader("gfx/effects/demp2shell");
+	}
+
+	if(attackData->dempDetonateModel != 0 && attackData->dempDetonateModel[0] != 0)
+	{
+		detonate_model = cgi_R_RegisterModel(attackData->dempDetonateModel);
+	}
+	else {
+		detonate_model = cgi_R_RegisterModel("models/items/sphere.md3");
+	}
+
 	localEntity_t	*ex;
 
 	ex = CG_AllocLocalEntity();
@@ -87,9 +116,9 @@ void FX_DEMP2_AltDetonate( vec3_t org, float size )
 	ex->endTime = ex->startTime + 1300;
 
 	ex->radius = size;
-	ex->refEntity.customShader = cgi_R_RegisterShader( "gfx/effects/demp2shell" );
+	ex->refEntity.customShader = detonate_shader;
+	ex->refEntity.hModel = detonate_model;
 
-	ex->refEntity.hModel = cgi_R_RegisterModel( "models/items/sphere.md3" );
 	VectorCopy( org, ex->refEntity.origin );
 
 	ex->color[0] = ex->color[1] = ex->color[2] = 255.0f;

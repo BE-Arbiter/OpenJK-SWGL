@@ -204,6 +204,7 @@ void ATK_FireTime(const char** holdBuf);
 void ATK_FiringSound(const char** holdBuf);
 void ATK_MuzzleEffect(const char** holdBuf);
 void ATK_ChargeMuzzleEffect(const char** holdBuf);
+void ATK_ChargeMuzzleScale(const char** holdBuf);
 void ATK_Range(const char** holdBuf);
 void ATK_MissileName(const char** holdBuf);
 void ATK_MissileSound(const char** holdBuf);
@@ -215,6 +216,8 @@ void ATK_Damage(const char** holdBuf);
 void ATK_SplashDamage(const char** holdBuf);
 void ATK_SplashRadius(const char** holdBuf);
 void ATK_MissileHitSound(const char** holdBuf);
+void ATK_dempDetonateShader(const char** holdBuf);
+void ATK_dempDetonateModel(const char** holdBuf);
 void ATK_Velocity(const char** holdBuf);
 void ATK_Spread(const char** holdBuf);
 void ATK_ProjectileEffect(const char** holdBuf);
@@ -281,6 +284,7 @@ wpnParms_t AttackDataParms[] =
 	{ "fullBeamColor",	ATK_FullBeamColor },
 	{ "muzzleEffect",		ATK_MuzzleEffect },
 	{ "chargeMuzzleShader",	ATK_ChargeMuzzleEffect },
+	{ "chargeMuzzleScale",	ATK_ChargeMuzzleScale },
 	{ "projectileEffect",	ATK_ProjectileEffect },
 	{ "explosionEffect",	ATK_ExplosionEffect },
 	{ "shockwaveEffect",	ATK_ShockwaveEffect},
@@ -295,6 +299,8 @@ wpnParms_t AttackDataParms[] =
 	{ "npcSpread",			ATK_NpcSpread },
 	{ "splashDamage",		ATK_SplashDamage },
 	{ "splashRadius",		ATK_SplashRadius },
+	{ "dempDetonateShader",			ATK_dempDetonateShader },
+	{ "dempDetonateModel",			ATK_dempDetonateModel },
 	{ "velocity",			ATK_Velocity },
 	{ "spread",				ATK_Spread },
 	{ "fireOptions",		ATK_FireOptions},

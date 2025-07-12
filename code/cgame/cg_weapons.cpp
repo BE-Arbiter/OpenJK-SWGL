@@ -1606,7 +1606,7 @@ void CG_AddViewWeapon( playerState_t *ps )
 			// Hardcoded max charge time of 1 second
 			val = ( cg.time - ps->weaponChargeTime ) * 0.001f;
 			shader = cgi_R_RegisterShader( "gfx/misc/lightningFlash" );
-			scale = 1.75f;
+			scale = 6.5f;
 		}
 		//Default values for new weapons;
 		else {
@@ -1618,8 +1618,13 @@ void CG_AddViewWeapon( playerState_t *ps )
 		//Overwrite the muzzle effect if needed
 		qboolean altFire = (ps->weaponstate == WEAPON_CHARGING_ALT) ? qtrue : qfalse;
 		int attackIndex = CG_GetAttackIndex(cent->gent, altFire);
-		if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) {
+		if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) 
+		{
 			shader = cg_weapons[weapon].weaponAttacksInfo[attackIndex].chargeMuzzleShader;
+		}
+		if (weaponData[weapon].attackData[attackIndex].chargeMuzzleScale != -1)
+		{
+			scale = weaponData[weapon].attackData[attackIndex].chargeMuzzleScale;
 		}
 
 		if ( val < 0.0f )

@@ -950,6 +950,11 @@ void ATK_ChargeMuzzleEffect(const char **holdBuf)
 	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].chargeMuzzleShader );
 }
 
+void ATK_ChargeMuzzleScale(const char **holdBuf)
+{
+	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].chargeMuzzleScale);
+}
+
 //--------------------------------------------
 void ATK_Damage(const char **holdBuf)
 {
@@ -1019,6 +1024,19 @@ void ATK_FireOptions(const char **holdBuf)
 	}
 }
 
+//--------------------------------------------
+void ATK_dempDetonateShader(const char** holdBuf) 
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].dempDetonateShader, 64, "dempDetonateShader");
+	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].dempDetonateShader);
+}
+
+//--------------------------------------------
+void ATK_dempDetonateModel(const char** holdBuf) 
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].dempDetonateModel, 64, "dempDetonateModel");
+	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].dempDetonateModel);
+}
 
 //--------------------------------------------
 void ATK_Velocity(const char** holdBuf)
@@ -1188,6 +1206,7 @@ void WP_LoadWeaponParms (void)
 		for (int k = 0; k < MAX_WEAPON_ATTACKS; k++)
 		{
 			weaponData[i].attackData[k].bounceCount = -1;
+			weaponData[i].attackData[k].chargeMuzzleScale = -1;
 			weaponData[i].attackData[k].bounceWall = qunset;
 			weaponData[i].attackData[k].missileDFlags = -1;
 			weaponData[i].attackData[k].missileSize = -1;
@@ -1286,6 +1305,7 @@ void WP_LoadWeaponParms (void)
 					weaponData[i].attackData[k].spread = weaponData[i].attackData[k].spread == 0 ? weaponData[j].attackData[k].spread : weaponData[i].attackData[k].spread;
 
 					weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount == -1 ? weaponData[j].attackData[k].bounceCount : weaponData[i].attackData[k].bounceCount;
+					weaponData[i].attackData[k].chargeMuzzleScale = weaponData[i].attackData[k].chargeMuzzleScale == -1 ? weaponData[j].attackData[k].chargeMuzzleScale : weaponData[i].attackData[k].chargeMuzzleScale;
 					weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall == qunset ? weaponData[j].attackData[k].bounceWall : weaponData[i].attackData[k].bounceWall;
 					weaponData[i].attackData[k].missileDFlags = weaponData[i].attackData[k].missileDFlags == -1 ? weaponData[j].attackData[k].missileDFlags : weaponData[i].attackData[k].missileDFlags;
 					weaponData[i].attackData[k].missileSize = weaponData[i].attackData[k].missileSize == -1 ? weaponData[j].attackData[k].missileSize : weaponData[i].attackData[k].missileSize;
@@ -1337,6 +1357,13 @@ void WP_LoadWeaponParms (void)
 					}
 					if (weaponData[i].attackData[k].fullBeamShader[0] == 0) {
 						strcpy(weaponData[i].attackData[k].fullBeamShader, weaponData[j].attackData[k].fullBeamShader);
+					}
+
+					if (weaponData[i].attackData[k].dempDetonateModel[0] == 0) {
+						strcpy(weaponData[i].attackData[k].dempDetonateModel, weaponData[j].attackData[k].dempDetonateModel);
+					}
+					if (weaponData[i].attackData[k].dempDetonateShader[0] == 0) {
+						strcpy(weaponData[i].attackData[k].dempDetonateShader, weaponData[j].attackData[k].dempDetonateShader);
 					}
 
 					//copying weapon missile trail Function pointers

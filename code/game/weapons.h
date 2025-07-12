@@ -256,6 +256,7 @@ typedef struct weaponAttackData_s
 	int		maxChargeUnits;		// Max amount of charge you can have.
 	char	chargeSnd[64];		// sound to start when the weapon initiates the charging sequence
 	char	chargeMuzzleShader[64];
+	float	chargeMuzzleScale;
 
 
 	/* Physical Missile Data */
@@ -269,6 +270,9 @@ typedef struct weaponAttackData_s
 	char	firingSnd[64];		// Sound made when fired
 	char	missileHitSound[64];	// Missile impact sound
 
+	/* Demp 2 Detonate Case*/
+	char	dempDetonateShader[64]; //Shader for explosion
+	char	dempDetonateModel[64];  //Model for explosion
 
 
 } weaponAttackData_t;
