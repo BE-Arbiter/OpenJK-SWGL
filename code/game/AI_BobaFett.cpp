@@ -514,6 +514,9 @@ void Boba_StopFlameThrower( gentity_t *self )
 	{
 		self->client->ps.torsoAnimTimer  =	0;
 		G_StopEffect( G_EffectIndex("boba/fthrw"), self->playerModel, self->genericBolt3, self->s.number);
+		//Stop Sound
+		self->s.loopSound = 0;
+		G_SoundOnEnt(self, CHAN_WEAPON, "sound/null.wav");
 		return;
 	}
 	if ((NPCInfo->aiFlags&NPCAI_FLAMETHROW))
@@ -565,11 +568,19 @@ void Boba_DoFlameThrower( gentity_t *self )
 	{
 		if ( self->client )
 		{
-			if ( !self->client->ps.forcePowerDuration[FP_LIGHTNING] )
+			//If power inactive or if is player and animation almost ended.
+			if ( !self->client->ps.forcePowerDuration[FP_LIGHTNING] || (!self->s.number && self->client->ps.torsoAnimTimer <= 25) )
 			{
 				NPC_SetAnim( self, SETANIM_TORSO, BOTH_FORCELIGHTNING_HOLD, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 	 			self->client->ps.torsoAnimTimer  =	BOBA_FLAMEDURATION;
-				G_SoundOnEnt( self, CHAN_WEAPON, "sound/weapons/boba/bf_flame.mp3" );
+
+				if (self->client->ps.forcePowerDuration[FP_LIGHTNING]) {
+					self->s.loopSound = G_SoundIndex("sound/weapons/flame_thrower/fire_loop.mp3");
+					G_SoundOnEnt(self, CHAN_WEAPON, "sound/null.wav");
+				}
+				else {
+					G_SoundOnEnt(self, CHAN_WEAPON, "sound/weapons/boba/bf_flame.mp3");
+				}
 				G_PlayEffect( G_EffectIndex("boba/fthrw"), self->playerModel, self->genericBolt3, self->s.number, self->s.origin, 1 );
 				self->client->ps.forcePowerDuration[FP_LIGHTNING] = 1;
 			}

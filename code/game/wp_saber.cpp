@@ -16801,9 +16801,10 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 
 	if ( !self->s.number
 		&& (self->client->NPC_class == CLASS_BOBAFETT || self->client->NPC_class == CLASS_MANDALORIAN || self->client->NPC_class == CLASS_JANGO))
-	{//Boba Fett
+	{
+		//Is Player and Is Boba Fett 
 		if ( ucmd->buttons & BUTTON_FORCE_LIGHTNING )
-		{//start flamethrower
+		{ 
 			Boba_DoFlameThrower( self );
 			return;
 		}
