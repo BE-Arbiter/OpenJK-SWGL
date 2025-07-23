@@ -5627,7 +5627,7 @@ static void CG_StopWeaponSounds( centity_t *cent )
 	{
 		if ( weapon->weaponAttacksInfo[0].firingSound)
 		{
-			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[0].firingSound );
+			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[0].firingSound,CHAN_WEAPON );
 			cent->pe.lightningFiring = qtrue;
 		}
 
@@ -5636,22 +5636,31 @@ static void CG_StopWeaponSounds( centity_t *cent )
 	{
 		if ( weapon->weaponAttacksInfo[1].firingSound)
 		{
-			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[1].firingSound );
+			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[1].firingSound, CHAN_WEAPON);
 			cent->pe.lightningFiring = qtrue;
 		}
 
 	}
 	else if (weapon->readySound)
 	{
-		cgi_S_AddLoopingSound(cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->readySound);
+		//If a npc and is actually debouncing...
+		if (cent->gent->s.number >= MAX_CLIENTS && (cent->gent->NPC->shotTime + 100) > level.time) {
+			return;
+		}
+
+		cgi_S_AddLoopingSound(cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->readySound, CHAN_WEAPON);
 
 		cent->pe.lightningFiring = qfalse;
 		cent->pe.lightningReady = qtrue;
 	}
 	else
 	{
-		if (cent->pe.lightningFiring || cent->pe.lightningReady)
+		if (cent->pe.lightningFiring || cent->pe.lightningReady) 
 		{
+			//If a npc and is actually debouncing...
+			if (cent->gent->s.number >= MAX_CLIENTS && (cent->gent->NPC->shotTime + 100) > level.time) {
+				return;
+			}
 
 			if (weapon->stopSound)
 			{

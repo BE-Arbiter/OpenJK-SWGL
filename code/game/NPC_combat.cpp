@@ -193,11 +193,13 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 {
 	if ( enemy && self->client && self->NPC )
 	{//delay their attack based on how far away they're facing from enemy
-		vec3_t		fwd, dir;
-		int			attDelay;
+		vec3_t		fwd, aim,dir;
+		int			attDelay,dist;
 		qboolean altFire = (self->NPC->scriptFlags & SCF_ALT_FIRE) ? qtrue : qfalse;
 
 		VectorSubtract( self->client->renderInfo.eyePoint, enemy->currentOrigin, dir );//purposely backwards
+		dist = Distance(enemy->currentOrigin, self->client->renderInfo.eyePoint);//purposely backwards
+
 		VectorNormalize( dir );
 		AngleVectors( self->client->renderInfo.eyeAngles, fwd, NULL, NULL );
 		//dir[2] = fwd[2] = 0;//ignore z diff?
@@ -362,25 +364,6 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 		case WP_DROIDEKA:
 			attDelay += Q_irand( 0, 500 );
 			break;
-
-		/*
-		case WP_DEMP2:
-			break;
-		case WP_TRIP_MINE:
-			break;
-		case WP_DET_PACK:
-			break;
-		case WP_STUN_BATON:
-			break;
-		case WP_ATST_MAIN:
-			break;
-		case WP_ATST_SIDE:
-			break;
-		case WP_TIE_FIGHTER:
-			break;
-		case WP_RAPID_FIRE_CONC:
-			break;
-		*/
 		}
 
 		if ( self->client->playerTeam == TEAM_PLAYER )
@@ -396,9 +379,10 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 		{
 			attDelay = 4000+((2-g_spskill->integer)*3000);
 		}
-
+		
 		int minimumDelay = weaponData[self->s.weapon].attackData[altFire ? 1 : 0].fireTime;
-		if (minimumDelay > attDelay) {
+		if (minimumDelay > attDelay) 
+		{
 			attDelay = minimumDelay;
 		}
 		TIMER_Set( self, "attackDelay", attDelay );//Q_irand( 1500, 4500 ) );
@@ -413,7 +397,8 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 			attDelay -= Q_irand(500, 1500);
 		}
 
-		TIMER_Set( self, "roamTime", attDelay );//was Q_irand( 1000, 3500 );
+		TIMER_Set(self, "roamTime", attDelay);//was Q_irand( 1000, 3500 );
+		
 	}
 }
 /*
@@ -1076,7 +1061,6 @@ void ChangeWeapon(gentity_t *ent, int newWeapon)
 	}
 }
 
-extern int CG_GetDynWpnNum(int weaponNum, int dynWpnVal);
 void NPC_ChangeWeapon( int newWeapon )
 {
 	qboolean	changing = qfalse;
@@ -1170,9 +1154,21 @@ void ShootThink( void )
 {
 	int			delay;
 
+	weaponData_t *currentWeapon = &weaponData[client->ps.weapon];
+
 	ucmd.buttons |= BUTTON_ATTACK;
 
-	NPCInfo->currentAmmo = client->ps.ammo[weaponData[client->ps.weapon].ammoIndex];	// checkme
+	NPCInfo->currentAmmo = client->ps.ammo[currentWeapon->ammoIndex];	// checkme
+
+	qboolean altFire = (NPCInfo->scriptFlags & SCF_ALT_FIRE)? qtrue : qfalse;
+
+	if (currentWeapon->attackData[altFire ? 1 : 0].firingLogic == FL_FLAMETHROWER) {
+
+		NPCInfo->shotTime = level.time + currentWeapon->attackData[altFire ? 1 : 0].fireTime;
+		NPC->attackDebounceTime = NPCInfo->shotTime;
+		return;
+	}
+
 
 	NPC_ApplyWeaponFireDelay();
 
