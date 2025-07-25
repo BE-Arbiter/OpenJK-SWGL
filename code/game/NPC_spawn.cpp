@@ -363,9 +363,18 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 			ent->NPC->scriptFlags |= (SCF_NAV_CAN_FLY | SCF_FLY_WITH_JET | SCF_NAV_CAN_JUMP);//no groups, no combat points!
 
 
-			ent->behaviorSet[BSET_SPAWN] = NULL;
+			//ent->behaviorSet[BSET_SPAWN] = NULL;
 			ent->behaviorSet[BSET_FLEE] = NULL;
 			ent->behaviorSet[BSET_DEATH] = NULL;
+		}
+		// Copying this in case we have Clone Shadowtroopers or anything similar in the picture.
+		else if (ent->client->NPC_class == CLASS_SABOTEUR)
+		{//can cloak
+			ent->NPC->aiFlags |= NPCAI_SHIELDS;//give them the ability to cloak
+			if ((ent->spawnflags & 16))
+			{//start cloaked
+				Saboteur_Cloak(ent);
+			}
 		}
 	}
 	else if (!Q_stricmp(PURGE_COMMANDER, ent->NPC_type))
@@ -437,11 +446,11 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 		ent->NPC->scriptFlags |= (SCF_NAV_CAN_FLY | SCF_FLY_WITH_JET | SCF_NAV_CAN_JUMP);//no groups, no combat points!
 
 
-		ent->behaviorSet[BSET_SPAWN] = NULL;
+		//ent->behaviorSet[BSET_SPAWN] = NULL;
 		ent->behaviorSet[BSET_FLEE] = NULL;
 		ent->behaviorSet[BSET_DEATH] = NULL;
 
-		if (Q_stricmp("rockettrooper2Officer", ent->NPC_type) == 0)
+		if (Q_stricmp("rockettrooper2Officer", ent->NPC_type) == 0 || Q_stricmp(BLAZE_TROOPER, ent->NPC_type) == 0)
 		{//start in the air, use spotlight
 			//ent->NPC->scriptFlags |= SCF_NO_GROUPS;
 			ent->NPC->scriptFlags &= ~SCF_FLY_WITH_JET;
