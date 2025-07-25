@@ -35,6 +35,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "b_local.h"
 #include "../Ravl/CVec.h"
 #include "../cgame/cg_local.h"
+#include <NPC_SWGL.h>
 
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -103,6 +104,11 @@ extern void		G_Knockdown( gentity_t *self, gentity_t *attacker, const vec3_t pus
 
 extern void CG_DrawEdge( vec3_t start, vec3_t end, int type );
 extern int CG_GetDynWpnNum(int weaponNum, int dynWpnVal);
+
+extern void Kyle_TryGrab(void);
+extern qboolean Kyle_CanDoGrab(void);
+extern void Kyle_GrabEnemy(void);
+extern float NPC_EnemyRangeFromBolt(int boltIndex);
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // External Data
@@ -588,6 +594,46 @@ void Boba_DoFlameThrower( gentity_t *self )
 		}
 		return;
 	}
+	if (!Q_stricmp(self->NPC_type, COMMANDER_CODY_BOSS))
+	{
+		if (NPC->client->ps.torsoAnim == BOTH_KYLE_GRAB)
+		{//see if we grabbed enemy
+			if (NPC->client->ps.torsoAnimTimer <= 200)
+			{
+				if (Kyle_CanDoGrab()
+					&& NPC_EnemyRangeFromBolt(NPC->handRBolt) <= 72.0f)
+				{//grab him!
+					Kyle_GrabEnemy();
+					return;
+				}
+				else
+				{
+					NPC_SetAnim(NPC, SETANIM_BOTH, BOTH_KYLE_MISS, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
+					NPC->client->ps.weaponTime = NPC->client->ps.torsoAnimTimer;
+					return;
+				}
+			}
+			//else just sit here?
+			return;
+		}
+		if (Kyle_CanDoGrab())
+		{
+			Kyle_TryGrab();
+			TIMER_Set(self, "flameTime", BOBA_FLAMEDURATION);
+			TIMER_Set(self, "nextAttackDelay", BOBA_FLAMEDURATION);
+			TIMER_Set(self, "nextFlameDelay", BOBA_FLAMEDURATION * 2);
+			TIMER_Set(self, "Boba_TacticsSelect", BOBA_FLAMEDURATION);
+			return;
+		}
+		else
+		{
+			TIMER_Set(self, "flameTime", 0);
+			TIMER_Set(self, "nextAttackDelay", 0);
+			TIMER_Set(self, "nextFlameDelay", 0);
+			TIMER_Set(self, "Boba_TacticsSelect", 0);
+		}
+		return;
+	}
 	if (!(NPCInfo->aiFlags&NPCAI_FLAMETHROW) && TIMER_Done(self, "nextAttackDelay"))
 	{
 		Boba_StartFlameThrower( self );
@@ -701,6 +747,7 @@ void	Boba_Fire()
 		switch (NPC->s.weapon)
 		{
 		case WP_ROCKET_LAUNCHER:
+		case WP_THERMAL:
 			TIMER_Set( NPC, "nextAttackDelay", Q_irand(1000, 2000));
 
 			// Occasionally Shoot A Homing Missile
@@ -774,7 +821,7 @@ void	Boba_Fire()
 					{
 						Boba_Printf("ALT FIRE On");
 						NPCInfo->scriptFlags |= SCF_ALT_FIRE;
-						NPC_ChangeWeapon(WP_CLONECARBINE);			// Update Delay Timers
+						NPC_ChangeWeapon(NPC->s.weapon);			// Update Delay Timers
 					}
 				}
 				else
@@ -784,7 +831,7 @@ void	Boba_Fire()
 					{
 						Boba_Printf("ALT FIRE Off");
 						NPCInfo->scriptFlags &= ~SCF_ALT_FIRE;
-						NPC_ChangeWeapon(WP_CLONECARBINE);			// Update Delay Timers
+						NPC_ChangeWeapon(NPC->s.weapon);			// Update Delay Timers
 					}
 				}
 			}
@@ -830,6 +877,7 @@ void Boba_FireDecide( void )
 	switch (NPC->s.weapon)
 	{
 	case WP_ROCKET_LAUNCHER:
+	case WP_THERMAL:
 		if (Distance(NPC->currentOrigin, NPC->enemy->currentOrigin)>400.0f)
 		{
 			Boba_Fire();
@@ -846,6 +894,7 @@ void Boba_FireDecide( void )
 		Boba_Fire();
 		break;
 	case WP_CLONECARBINE:
+	case WP_CLONERIFLE:
 		// TODO: Add Conditions Here
 		Boba_Fire();
 		break;
@@ -992,13 +1041,19 @@ void	Boba_TacticsSelect()
 			}
 			else if (NPC->client->NPC_class == CLASS_MANDALORIAN)
 			{
-				Boba_ChangeWeapon(WP_CLONECARBINE);
+				if(!Q_stricmp(NPC->NPC_type, COMMANDER_CODY_BOSS)) // Special logic for Cody
+					Boba_ChangeWeapon(WP_CLONERIFLE);
+				else
+					Boba_ChangeWeapon(WP_CLONECARBINE);
 			}
 			break;
 
 		case BTS_MISSILE:
 			Boba_Printf("NEW TACTIC: Rocket Launcher");
-			Boba_ChangeWeapon(WP_ROCKET_LAUNCHER);
+			if (!Q_stricmp(NPC->NPC_type, COMMANDER_CODY_BOSS)) // Special logic for Cody
+				Boba_ChangeWeapon(WP_THERMAL);
+			else
+				Boba_ChangeWeapon(WP_ROCKET_LAUNCHER);
 			break;
 
 		case BTS_SNIPER:
@@ -1229,14 +1284,23 @@ void	Boba_Update()
 		Boba_StopFlameThrower(NPC);
 	}
 
-
-	// Occasionally A Jump Turns Into A Rocket Fly
-	//---------------------------------------------
-	if ( NPC->client->ps.groundEntityNum == ENTITYNUM_NONE
+	if(!Q_stricmp(NPC->NPC_type, COMMANDER_CODY_BOSS) && NPC->client->ps.groundEntityNum == ENTITYNUM_NONE
 		&& NPC->client->ps.forceJumpZStart
-		&& !Q_irand( 0, 10 ) )
+		&& Q_irand(0, 10))
 	{//take off
-		Boba_FlyStart( NPC );
+		Boba_FlyStart(NPC);
+	}
+	else
+	{
+
+		// Occasionally A Jump Turns Into A Rocket Fly
+		//---------------------------------------------
+		if (NPC->client->ps.groundEntityNum == ENTITYNUM_NONE
+			&& NPC->client->ps.forceJumpZStart
+			&& !Q_irand(0, 10))
+		{//take off
+			Boba_FlyStart(NPC);
+		}
 	}
 
 
