@@ -827,13 +827,39 @@ vmCvar_t	ui_npc_weapon_label;
 vmCvar_t	ui_npc_spawnscript;
 vmCvar_t	ui_npc_fleescript;
 vmCvar_t	ui_npc_deathscript;
-vmCvar_t	ui_npc_model;
+vmCvar_t	ui_npc_targetname;
 vmCvar_t	ui_npc_menu;
 vmCvar_t	ui_mission_topic;
 vmCvar_t	ui_mission;
 vmCvar_t	ui_mission_code;
 vmCvar_t	ui_mission_mapcode;
 
+// Force Power cvars (I literally don't know any other way to do this.....)
+vmCvar_t	ui_jump_level;
+vmCvar_t	ui_push_level;
+vmCvar_t	ui_pull_level;
+vmCvar_t	ui_speed_level;
+vmCvar_t	ui_seeing_level;
+
+vmCvar_t	ui_absorb_level;
+vmCvar_t	ui_heal_level;
+vmCvar_t	ui_protect_level;
+vmCvar_t	ui_telepathy_level;
+vmCvar_t	ui_stasis_level;
+vmCvar_t	ui_grasp_level;
+vmCvar_t	ui_blast_level;
+
+vmCvar_t	ui_grip_level;
+vmCvar_t	ui_lightning_level;
+vmCvar_t	ui_drain_level;
+vmCvar_t	ui_rage_level;
+vmCvar_t	ui_destruction_level;
+vmCvar_t	ui_fear_level;
+vmCvar_t	ui_strike_level;
+
+vmCvar_t	ui_saber_attack_level;
+vmCvar_t	ui_saber_defend_level;
+vmCvar_t	ui_saber_throw_level;
 
 vmCvar_t	ui_saber_edit;
 
@@ -950,7 +976,7 @@ static cvarTable_t cvarTable[] =
 	{ &ui_npc_spawnscript,		"ui_npc_spawnscript",	"spawnscripts/none", NULL, 0},
 	{ &ui_npc_fleescript,		"ui_npc_fleescript",	"fleescripts/none", NULL, 0},
 	{ &ui_npc_deathscript,		"ui_npc_deathscript",	"deathscripts/none", NULL, 0},
-	{ &ui_npc_model,			"ui_npc_model",			"stormtrooper", NULL, CVAR_ARCHIVE},
+	{ &ui_npc_targetname,		"ui_npc_targetname",	"", NULL, 0},
 	{ &ui_saber_edit,			"ui_saber_edit",		"0", NULL},
 	{ &ui_char_model_angle, "ui_char_model_angle", "180", NULL, 0},
 	{ &ui_npc_menu, "ui_npc_menu", "0", NULL, 0},
@@ -960,6 +986,32 @@ static cvarTable_t cvarTable[] =
 	{ &ui_mission_mapcode, "ui_mission_mapcode", "", NULL, CVAR_ARCHIVE},
 	{ &r_ratioFix, "r_ratioFix", "", UI_Set2DRatio, 0},
 
+
+	{ &ui_jump_level, "ui_jump_level", "0", NULL, 0 },
+	{ &ui_push_level, "ui_push_level", "0", NULL, 0 },
+	{ &ui_pull_level, "ui_pull_level", "0", NULL, 0 },
+	{ &ui_speed_level, "ui_speed_level", "0", NULL, 0 },
+	{ &ui_seeing_level, "ui_sense_level", "0", NULL, 0 },
+
+	{ &ui_absorb_level, "ui_absorb_level", "0", NULL, 0 },
+	{ &ui_heal_level, "ui_heal_level", "0", NULL, 0 },
+	{ &ui_protect_level, "ui_protect_level", "0", NULL, 0 },
+	{ &ui_telepathy_level, "ui_mindtrick_level", "0", NULL, 0 },
+	{ &ui_stasis_level, "ui_stasis_level", "0", NULL, 0 },
+	{ &ui_grasp_level, "ui_grasp_level", "0", NULL, 0 },
+	{ &ui_blast_level, "ui_blast_level", "0", NULL, 0 },
+
+	{ &ui_grip_level, "ui_grip_level", "0", NULL, 0 },
+	{ &ui_lightning_level, "ui_lightning_level", "0", NULL, 0 },
+	{ &ui_drain_level, "ui_drain_level", "0", NULL, 0 },
+	{ &ui_rage_level, "ui_rage_level", "0", NULL, 0 },
+	{ &ui_destruction_level, "ui_destruction_level", "0", NULL, 0 },
+	{ &ui_fear_level, "ui_fear_level", "0", NULL, 0 },
+	{ &ui_strike_level, "ui_strike_level", "0", NULL, 0 },
+
+	{ &ui_saber_attack_level, "ui_saber_attack_level", "0", NULL, 0 },
+	{ &ui_saber_defend_level, "ui_saber_defend_level", "0", NULL, 0 },
+	{ &ui_saber_throw_level, "ui_saber_throw_level", "0", NULL, 0 },
 
 };
 
@@ -1573,6 +1625,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 		}
 		else if (Q_stricmp(name, "uiNpcWeaponNext") == 0)
 		{
+			//if(key)
 			ui.Cmd_ExecuteText( EXEC_APPEND, "uiNpcWeaponNext\n");
 		}
 		else if (Q_stricmp(name, "uiNpcWeaponPrev") == 0)
@@ -1872,6 +1925,68 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			UI_RandomRGB();
 		}
+		else if (Q_stricmp(name, "applyplayerpowers") == 0)
+		{
+
+			const char* str = va("%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s", Cvar_VariableString("ui_heal_level"),
+				Cvar_VariableString("ui_jump_level"),
+				Cvar_VariableString("ui_speed_level"),
+				Cvar_VariableString("ui_push_level"),
+				Cvar_VariableString("ui_pull_level"),
+				Cvar_VariableString("ui_mindtrick_level"),
+				Cvar_VariableString("ui_grip_level"),
+				Cvar_VariableString("ui_lightning_level"),
+				Cvar_VariableString("ui_saber_throw_level"),
+				Cvar_VariableString("ui_saber_defend_level"),
+				Cvar_VariableString("ui_saber_attack_level"),
+				Cvar_VariableString("ui_rage_level"),
+				Cvar_VariableString("ui_protect_level"),
+				Cvar_VariableString("ui_absorb_level"),
+				Cvar_VariableString("ui_drain_level"),
+				Cvar_VariableString("ui_sense_level"),
+				Cvar_VariableString("ui_stasis_level"),
+				Cvar_VariableString("ui_blast_level"),
+				Cvar_VariableString("ui_grasp_level"),
+				Cvar_VariableString("ui_destruction_level"),
+				Cvar_VariableString("ui_strike_level"),
+				Cvar_VariableString("ui_fear_level"));
+
+			const char** powerArgs = &str;
+
+			UI_RecordForcePowers(powerArgs);
+			UI_ApplyForcePowers();
+		}
+		else if (Q_stricmp(name, "applynpcpowers") == 0)
+		{
+
+			const char* str = va("%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s", Cvar_VariableString("ui_heal_level"),
+				Cvar_VariableString("ui_jump_level"),
+				Cvar_VariableString("ui_speed_level"),
+				Cvar_VariableString("ui_push_level"),
+				Cvar_VariableString("ui_pull_level"),
+				Cvar_VariableString("ui_mindtrick_level"),
+				Cvar_VariableString("ui_grip_level"),
+				Cvar_VariableString("ui_lightning_level"),
+				Cvar_VariableString("ui_saber_throw_level"),
+				Cvar_VariableString("ui_saber_defend_level"),
+				Cvar_VariableString("ui_saber_attack_level"),
+				Cvar_VariableString("ui_rage_level"),
+				Cvar_VariableString("ui_protect_level"),
+				Cvar_VariableString("ui_absorb_level"),
+				Cvar_VariableString("ui_drain_level"),
+				Cvar_VariableString("ui_sense_level"),
+				Cvar_VariableString("ui_stasis_level"),
+				Cvar_VariableString("ui_blast_level"),
+				Cvar_VariableString("ui_grasp_level"),
+				Cvar_VariableString("ui_destruction_level"),
+				Cvar_VariableString("ui_strike_level"),
+				Cvar_VariableString("ui_fear_level"));
+
+				const char** powerArgs = &str;
+
+				UI_RecordForcePowers(powerArgs);
+				UI_ApplyForcePowers();
+			}
 		else if (Q_stricmp(name, "savePage") == 0)
 		{
 			const char* page;
@@ -5337,6 +5452,7 @@ static void UI_UpdateNPCCvars()
 	Cvar_Set("g_NPCteam", Cvar_VariableString("ui_npc_team"));
 	Cvar_Set("g_NPCweapon", Cvar_VariableString("ui_npc_weapon"));
 	Cvar_Set("g_NPCsaber", Cvar_VariableString("ui_saber"));
+	Cvar_Set("g_NPCtargetname", Cvar_VariableString("ui_npc_targetname"));
 	Cvar_Set("g_NPCsabercolor", Cvar_VariableString("ui_saber_color"));
 	Cvar_Set("g_NPCsabertwo", Cvar_VariableString("ui_saber2"));
 	Cvar_Set("g_NPCsabertwocolor", Cvar_VariableString("ui_saber2_color"));
@@ -5348,6 +5464,33 @@ static void UI_UpdateNPCCvars()
 	Cvar_Set("g_npc_color_red", Cvar_VariableString("ui_char_color_red"));
 	Cvar_Set("g_npc_color_green", Cvar_VariableString("ui_char_color_green"));
 	Cvar_Set("g_npc_color_blue", Cvar_VariableString("ui_char_color_blue"));
+
+	// Force Powers
+	Cvar_Set("g_npc_jump_level", Cvar_VariableString("ui_jump_level"));
+	Cvar_Set("g_npc_push_level", Cvar_VariableString("ui_push_level"));
+	Cvar_Set("g_npc_pull_level", Cvar_VariableString("ui_pull_level"));
+	Cvar_Set("g_npc_speed_level", Cvar_VariableString("ui_speed_level"));
+	Cvar_Set("g_npc_seeing_level", Cvar_VariableString("ui_seeing_level"));
+
+	Cvar_Set("g_npc_absorb_level", Cvar_VariableString("ui_absorb_level"));
+	Cvar_Set("g_npc_heal_level", Cvar_VariableString("ui_heal_level"));
+	Cvar_Set("g_npc_protect_level", Cvar_VariableString("ui_protect_level"));
+	Cvar_Set("g_npc_telepathy_level", Cvar_VariableString("ui_telepathy_level"));
+	Cvar_Set("g_npc_stasis_level", Cvar_VariableString("ui_stasis_level"));
+	Cvar_Set("g_npc_grasp_level", Cvar_VariableString("ui_grasp_level"));
+	Cvar_Set("g_npc_blast_level", Cvar_VariableString("ui_blast_level"));
+
+	Cvar_Set("g_npc_grip_level", Cvar_VariableString("ui_grip_level"));
+	Cvar_Set("g_npc_lightning_level", Cvar_VariableString("ui_lightning_level"));
+	Cvar_Set("g_npc_drain_level", Cvar_VariableString("ui_drain_level"));
+	Cvar_Set("g_npc_rage_level", Cvar_VariableString("ui_rage_level"));
+	Cvar_Set("g_npc_destruction_level", Cvar_VariableString("ui_destruction_level"));
+	Cvar_Set("g_npc_fear_level", Cvar_VariableString("ui_fear_level"));
+	Cvar_Set("g_npc_strike_level", Cvar_VariableString("ui_strike_level"));
+
+	Cvar_Set("g_npc_saber_attack_level", Cvar_VariableString("ui_saber_attack_level"));
+	Cvar_Set("g_npc_saber_defend_level", Cvar_VariableString("ui_saber_defend_level"));
+	Cvar_Set("g_npc_saber_throw_level", Cvar_VariableString("ui_saber_throw_level"));
 }
 
 static void UI_GetCharacterCvars ( void )
@@ -6752,6 +6895,32 @@ static void UI_RecordForcePowers(const char** args)
 	// Get player state
 	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
 
+	// I feel a great disturbance in the Force, as if millions of coders cried out in terror and were suddenly silenced. I fear I coded this horribly.
+	const char* str = va("%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s", "ui_heal_level",
+		"ui_jump_level",
+		"ui_speed_level",
+		"ui_push_level",
+		"ui_pull_level",
+		"ui_mindtrick_level",
+		"ui_grip_level",
+		"ui_lightning_level",
+		"ui_saber_throw_level",
+		"ui_saber_defend_level",
+		"ui_saber_attack_level",
+		"ui_rage_level",
+		"ui_protect_level",
+		"ui_absorb_level",
+		"ui_drain_level",
+		"ui_sense_level",
+		"ui_stasis_level",
+		"ui_blast_level",
+		"ui_grasp_level",
+		"ui_destruction_level",
+		"ui_strike_level",
+		"ui_fear_level");
+
+	const char** powerCvars = &str;
+
 	if (!cl)	// No client, get out
 	{
 		return;
@@ -6761,8 +6930,11 @@ static void UI_RecordForcePowers(const char** args)
 		for (int i = FP_HEAL; i < NUM_FORCE_POWERS; i++)
 		{
 			const char* power;
+			const char* powerCvar;
 			String_Parse(args, &power);
+			String_Parse(powerCvars, &powerCvar);
 			forcePowerRecord[i] = atoi(power);
+			Cvar_Set(powerCvar, power);
 		}
 	}
 
