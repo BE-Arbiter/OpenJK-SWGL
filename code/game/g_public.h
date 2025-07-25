@@ -155,6 +155,8 @@ typedef struct {
 	// Write a camera ref_tag to cameras.map
 	void	(*WriteCam)( const char *text );
 	void	(*FlushCamFile)();
+	void	(*WriteSpawner)(const char* text);
+	void	(*FlushSpawnerFile)();
 
 	// abort the game
 	NORETURN_PTR void	(*Error)( int, const char *fmt, ... );

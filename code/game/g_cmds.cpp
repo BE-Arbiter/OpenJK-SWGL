@@ -1104,6 +1104,11 @@ void Cmd_FlushCamFile_f(gentity_t *ent)
 	gi.FlushCamFile();
 }
 
+void Cmd_FlushSpawnerFile_f(gentity_t* ent)
+{
+	gi.FlushSpawnerFile();
+}
+
 void G_Taunt( gentity_t *ent )
 {
 	if ( ent->client )
@@ -1787,6 +1792,10 @@ void ClientCommand( int clientNum ) {
 	else if (Q_stricmp (cmd, "flushcam") == 0)
 	{
 		Cmd_FlushCamFile_f( ent );
+	}
+	else if (Q_stricmp(cmd, "flushspawner") == 0)
+	{
+		Cmd_FlushSpawnerFile_f(ent);
 	}
 	else if (Q_stricmp(cmd, "dropcurrentweapon") == 0) {
 		WP_DropWeapon_Configurable(ent, NULL,true,false,false);

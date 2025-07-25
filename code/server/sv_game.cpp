@@ -49,6 +49,8 @@ static void *gameLibrary;
 //prototypes
 extern void Com_WriteCam ( const char *text );
 extern void Com_FlushCamFile();
+extern void Com_WriteSpawner (const char* text);
+extern void Com_FlushSpawnerFile();
 
 extern int	s_entityWavVol[MAX_GENTITIES];
 
@@ -899,6 +901,8 @@ void SV_InitGameProgs (void) {
 	import.WriteCam = Com_WriteCam;
 	import.FlushCamFile = Com_FlushCamFile;
 	import.Error = Com_Error;
+	import.WriteSpawner = Com_WriteSpawner;
+	import.FlushSpawnerFile = Com_FlushSpawnerFile;
 
 	import.Milliseconds = Sys_Milliseconds2;
 

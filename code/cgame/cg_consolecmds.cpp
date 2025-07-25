@@ -88,6 +88,77 @@ void CG_WriteCam_f (void)
 	gi.WriteCam( text );
 }
 
+void CG_WriteSpawner_f(void)
+{
+	char	text[1024];
+	const char* targetname;
+	static	int	numSpawners;
+	int			n;
+
+	numSpawners++;
+
+	gentity_t* ent;
+
+	for (n = 1; n < ENTITYNUM_MAX_NORMAL; n++)
+	{
+		ent = &g_entities[n];
+		
+		if (ent->NPC)
+		{
+			char extras[1024] = ""; // Big enough buffer
+
+			// Helper macro to safely append a key-value pair
+			#define ADD_EXTRA(key, value) \
+			if (value && *value && !strstr(extras, key)) { \
+				Com_sprintf(extras + strlen(extras), sizeof(extras) - strlen(extras), "\n\"%s\" \"%s\"", key, value); \
+			}
+
+			ADD_EXTRA("NPC_model", (char*)ent->NPC_model);
+			ADD_EXTRA("NPC_skin", (char*)ent->NPC_skin);
+			ADD_EXTRA("NPC_team", (char*)ent->NPC_team);
+
+			if (ent->NPC_SaberOne && *ent->NPC_SaberOne && Q_stricmp((char*)ent->NPC_SaberOne, "empty"))
+				ADD_EXTRA("NPC_SaberOne", (char*)ent->NPC_SaberOne);
+
+			ADD_EXTRA("NPC_SaberOneColor", (char*)ent->NPC_SaberOneColor);
+
+			if (ent->NPC_SaberTwo && *ent->NPC_SaberTwo && Q_stricmp((char*)ent->NPC_SaberTwo, "empty"))
+				ADD_EXTRA("NPC_SaberTwo", (char*)ent->NPC_SaberTwo);
+
+			ADD_EXTRA("NPC_SaberTwoColor", (char*)ent->NPC_SaberTwoColor);
+			ADD_EXTRA("NPC_Weapon", (char*)ent->NPC_Weapon);
+
+
+			// Now use 'extras' inside your Com_sprintf call:
+			Com_sprintf(text, sizeof(text),
+				"{\n\"classname\" \"NPC_spawner\"\n"
+				"\"NPC_targetname\" \"%s\"\n"
+				"\"origin\" \"%i %i %i\"\n"
+				"\"angle\" \"%i\"\n"
+				"\"NPC_type\" \"%s\"%s\n"
+				"\"spawnflags\" \"32\"\n}\n",
+				(char*)ent->script_targetname,
+				(int)ent->currentOrigin[0], (int)ent->currentOrigin[1], (int)ent->currentOrigin[2],
+				(int)ent->currentAngles[YAW],
+				(char*)ent->NPC_type,
+				extras
+			);
+
+			gi.WriteSpawner(text);
+		}
+
+	}
+	/*
+	if (!targetname || !targetname[0])
+	{
+		targetname = "nameme!";
+	}
+
+	CG_Printf("Spawner #%d ('%s') written to: ", numCams, targetname);
+	Com_sprintf(text, sizeof(text), "//entity %d\n{\n\"classname\"	\"ref_tag\"\n\"targetname\"	\"%s\"\n\"origin\" \"%i %i %i\"\n\"angles\" \"%i %i %i\"\n\"fov\" \"%i\"\n}\n", numCams, targetname, (int)cg.refdef.vieworg[0], (int)cg.refdef.vieworg[1], (int)cg.refdef.vieworg[2], (int)cg.refdefViewAngles[0], (int)cg.refdefViewAngles[1], (int)cg.refdefViewAngles[2], cg_fov.integer);
+	gi.WriteSpawner(text);*/
+}
+
 void Lock_Disable ( void )
 {
 	player_locked = qfalse;
@@ -258,6 +329,7 @@ static consoleCommand_t	commands[] = {
 	{ "weapon",				CG_Weapon_f },
 	{ "weapprev",			CG_PrevWeapon_f },
 	{ "writecam",			CG_WriteCam_f },
+	{ "writespawner",		CG_WriteSpawner_f },
 	{ "zoom",				CG_ToggleBinoculars },
 };
 
