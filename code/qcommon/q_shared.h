@@ -998,6 +998,7 @@ typedef enum
 #define SFL_NO_KICKS				(1<<19)//if set, cannot do kicks (can't do kicks anyway if using a throwable saber/sword)
 #define SFL_NO_MIRROR_ATTACKS		(1<<20)//if set, cannot do the simultaneous attack left/right moves (only available in Dual Lightsaber Combat Style)
 #define SFL_NO_ROLL_STAB			(1<<21)//if set, cannot do roll-stab move at end of roll
+#define SFL_NO_DEFLECT				(1<<22)//if set, cannot deflect blasterfire (useful for swords)
 //SABER FLAGS2
 //Primary Blade Style
 #define SFL2_NO_WALL_MARKS			(1<<0)//if set, stops the saber from drawing marks on the world (good for real-sword type mods)
