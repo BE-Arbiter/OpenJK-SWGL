@@ -137,9 +137,13 @@ int Pickup_Holdable( gentity_t *ent, gentity_t *other )
 //======================================================================
 int Add_Ammo2 (gentity_t *ent, int ammoType, int count)
 {
-
 	if (ammoType != AMMO_FORCE)
 	{
+		if (ent->client->ps.ammo[ammoType] > ammoData[ammoType].max)
+		{
+			return qfalse;
+		}
+
 		ent->client->ps.ammo[ammoType] += count;
 
 		// since the ammo is the weapon in this case, picking up ammo should actually give you the weapon
