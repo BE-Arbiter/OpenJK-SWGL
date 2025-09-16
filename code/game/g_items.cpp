@@ -806,7 +806,7 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 
 	// the same pickup rules are used for client side and server side
 	// Don't care for npc
-	if (!(ent->s.number) && !BG_CanItemBeGrabbed(&ent->s, &other->client->ps)) {
+	if (!(other->s.number) && !BG_CanItemBeGrabbed(&ent->s, &other->client->ps)) {
 		return;
 	}
 
