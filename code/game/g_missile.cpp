@@ -834,7 +834,7 @@ extern bool WP_DoingMoronicForcedAnimationForForcePowers(gentity_t *ent);
 				|| (g_spskill->integer >= 2 && ent->s.weapon != WP_FLECHETTE && ent->s.weapon != WP_DEMP2 && ent->s.weapon != WP_BOWCASTER && ent->s.weapon != WP_REPEATER )//on hard it won't reflect flechette, demp, repeater or bowcaster shots
 			 )
 			&& (!ent->splashDamage || !ent->splashRadius) //this would be cool, though, to "bat" the thermal det away...
-			&& ent->s.weapon != WP_NOGHRI_STICK )//gas bomb, don't reflect
+			&& ent->s.weapon != WP_NOGHRI_STICK) //gas bomb, don't reflect
 		{
 			//FIXME: take other's owner's FP_SABER_DEFENSE into account here somehow?
 			if (  !other->owner || !other->owner->client || other->owner->client->ps.saberInFlight
@@ -854,6 +854,9 @@ extern bool WP_DoingMoronicForcedAnimationForForcePowers(gentity_t *ent);
 					blockChance = 1;
 					break;
 				}
+				if (!other->owner->client->ps.dualSabers && other->owner->client->ps.saber[0].saberFlags & SFL_NO_DEFLECT || (other->owner->client->ps.dualSabers && (other->owner->client->ps.saber[0].saberFlags & SFL_NO_DEFLECT && other->owner->client->ps.saber[1].saberFlags & SFL_NO_DEFLECT)))
+					blockChance = 0;
+
 				if ( blockChance && (other->owner->client->ps.forcePowersActive&(1<<FP_SPEED)) )
 				{//in in force speed, better chance of deflecting the shot
 					blockChance += other->owner->client->ps.forcePowerLevel[FP_SPEED]*2;

@@ -12186,6 +12186,13 @@ void Menu_HandleKey(menuDef_t *menu, int key, qboolean down)
 				{
 					if (Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory))
 					{
+						if (!Q_stricmp(item->window.name, "npcweapon"))
+						{
+							if(key == A_MOUSE2)
+								item->action = "\"play\" \"sound/interface/button1\" \"uiScript\" \"uiNpcWeaponPrev\" ";
+							else
+								item->action = "\"play\" \"sound/interface/button1\" \"uiScript\" \"uiNpcWeaponNext\" ";
+						}
 						Item_Action(item);
 					}
 				}

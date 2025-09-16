@@ -1912,6 +1912,15 @@ static void Saber_ParseNoClashFlare2( saberInfo_t *saber, const char **p ) {
 	if ( n )
 		saber->saberFlags2 |= SFL2_NO_CLASH_FLARE2;
 }
+static void Saber_ParseNoDeflect(saberInfo_t* saber, const char** p) {
+	int n;
+	if (COM_ParseInt(p, &n)) {
+		SkipRestOfLine(p);
+		return;
+	}
+	if (n == 1)
+		saber->saberFlags |= SFL_NO_DEFLECT;
+}
 
 /*
 ===============
@@ -2121,6 +2130,7 @@ static keywordHash_t saberParseKeywords[] = {
 	{ "bladeEffect2",			Saber_ParseBladeEffect2,		NULL	},
 	{ "noClashFlare",			Saber_ParseNoClashFlare,		NULL	},
 	{ "noClashFlare2",			Saber_ParseNoClashFlare2,		NULL	},
+	{ "noDeflect",				Saber_ParseNoDeflect,			NULL	},
 	{ NULL,						NULL,							NULL	}
 };
 static keywordHash_t *saberParseKeywordHash[KEYWORDHASH_SIZE];

@@ -4383,7 +4383,8 @@ void G_CheckClientIdle( gentity_t *ent, usercmd_t *ucmd )
 		return;
 	}
 	if((!Q_stricmp("am_vader", g_char_model->string)
-		|| !Q_stricmp("vader_infinities", g_char_model->string)
+		|| !Q_stricmp("vader_infinities", g_char_model->string) 
+		|| !Q_stricmp("anakin_suit", g_char_model->string)
 		|| !Q_stricmp("vader", g_char_model->string)
 		|| !Q_stricmp("vader2", g_char_model->string)
 		|| !Q_stricmp("cyber_recon", g_char_model->string)
@@ -4400,7 +4401,8 @@ void G_CheckClientIdle( gentity_t *ent, usercmd_t *ucmd )
 			if (!Q_stricmp("am_vader", g_char_model->string)
 				|| !Q_stricmp("vader_infinities", g_char_model->string)
 				|| !Q_stricmp("vader", g_char_model->string)
-				|| !Q_stricmp("vader2", g_char_model->string))
+				|| !Q_stricmp("vader2", g_char_model->string)
+				|| !Q_stricmp("anakin_suit", g_char_model->string))
 			{
 				if ((player->attrFlags & ATTR_HELD_BY_HATRED && player->max_health < 100) || (!(player->attrFlags & ATTR_HELD_BY_HATRED) && player->health <= (player->max_health * .20f)))
 				{

@@ -43,6 +43,7 @@ extern refexport_t re;
 static fileHandle_t	logfile;
 static fileHandle_t	speedslog;
 static fileHandle_t	camerafile;
+static fileHandle_t	spawnerfile;
 fileHandle_t	com_journalFile;
 fileHandle_t	com_journalDataFile;		// config files are written here
 
@@ -269,6 +270,45 @@ void Com_FlushCamFile()
 	extern	cvar_t	*sv_mapname;
 	Com_sprintf( flushedMapname, MAX_QPATH, "maps/%s_cam.map", sv_mapname->string );
 	Com_Printf("flushed all cams to %s\n", flushedMapname);
+}
+
+void Com_WriteSpawner(const char* text)
+{
+	static	char	mapname[MAX_QPATH];
+	// camerafile
+	if (!spawnerfile)
+	{
+		extern	cvar_t* sv_mapname;
+
+		//NOTE: always saves in working dir if using one...
+		Com_sprintf(mapname, MAX_QPATH, "maps/%s_spawner.map", sv_mapname->string);
+		spawnerfile = FS_FOpenFileWrite(mapname);
+	}
+
+	if (spawnerfile)
+	{
+		FS_Printf(spawnerfile, "%s", text);
+	}
+
+	Com_Printf("Writing Spawner in %s\n", mapname);
+}
+
+void Com_FlushSpawnerFile()
+{
+	if (!spawnerfile)
+	{
+		// nothing to flush, right?
+		Com_Printf("No cam file available\n");
+		return;
+	}
+	FS_ForceFlush(spawnerfile);
+	FS_FCloseFile(spawnerfile);
+	spawnerfile = 0;
+
+	static	char	flushedMapname[MAX_QPATH];
+	extern	cvar_t* sv_mapname;
+	Com_sprintf(flushedMapname, MAX_QPATH, "maps/%s_spawner.map", sv_mapname->string);
+	Com_Printf("flushed all spawners to %s\n", flushedMapname);
 }
 
 /*

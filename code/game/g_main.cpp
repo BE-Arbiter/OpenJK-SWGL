@@ -250,10 +250,37 @@ cvar_t *g_NPChead;
 cvar_t *g_NPCtorso;
 cvar_t* g_NPClegs;
 cvar_t* g_NPCmodel;
+cvar_t* g_NPCtargetname;
 
 cvar_t* g_darkkorriban;
 
 cvar_t *g_allowSaberTwirling;
+
+cvar_t* g_npc_jump_level;
+cvar_t* g_npc_push_level;
+cvar_t* g_npc_pull_level;
+cvar_t* g_npc_speed_level;
+cvar_t* g_npc_seeing_level;
+
+cvar_t* g_npc_absorb_level;
+cvar_t* g_npc_heal_level;
+cvar_t* g_npc_protect_level;
+cvar_t* g_npc_telepathy_level;
+cvar_t* g_npc_stasis_level;
+cvar_t* g_npc_grasp_level;
+cvar_t* g_npc_blast_level;
+
+cvar_t* g_npc_grip_level;
+cvar_t* g_npc_lightning_level;
+cvar_t* g_npc_drain_level;
+cvar_t* g_npc_rage_level;
+cvar_t* g_npc_destruction_level;
+cvar_t* g_npc_fear_level;
+cvar_t* g_npc_strike_level;
+
+cvar_t* g_npc_saber_attack_level;
+cvar_t* g_npc_saber_defend_level;
+cvar_t* g_npc_saber_throw_level;
 
 // kef -- used with DebugTraceForNPC
 cvar_t	*g_npcdebug;
@@ -783,6 +810,33 @@ void G_InitCvars( void ) {
 	g_NPCsabertwocolor = gi.cvar("g_NPCsabertwocolor", "red", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_NPCLightningColor = gi.cvar("g_NPCLightningColor", "blue", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_NPCmodel = gi.cvar("g_NPCmodel", "stormtrooper", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_NPCtargetname = gi.cvar("g_NPCtargetname", "", 0);
+
+	g_npc_jump_level = gi.cvar("g_npc_jump_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_push_level = gi.cvar("g_npc_push_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_pull_level = gi.cvar("g_npc_pull_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_speed_level = gi.cvar("g_npc_speed_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_seeing_level = gi.cvar("g_npc_seeing_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+
+	g_npc_absorb_level = gi.cvar("g_npc_absorb_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_heal_level = gi.cvar("g_npc_heal_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_protect_level = gi.cvar("g_npc_protect_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_telepathy_level = gi.cvar("g_npc_telepathy_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_stasis_level = gi.cvar("g_npc_stasis_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_grasp_level = gi.cvar("g_npc_grasp_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_blast_level = gi.cvar("g_npc_blast_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+
+	g_npc_grip_level = gi.cvar("g_npc_grip_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_lightning_level = gi.cvar("g_npc_lightning_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_drain_level = gi.cvar("g_npc_drain_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_rage_level = gi.cvar("g_npc_rage_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_destruction_level = gi.cvar("g_npc_destruction_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_fear_level = gi.cvar("g_npc_fear_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_strike_level = gi.cvar("g_npc_strike_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+
+	g_npc_saber_attack_level = gi.cvar("g_npc_saber_attack_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_saber_defend_level = gi.cvar("g_npc_saber_defend_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+	g_npc_saber_throw_level = gi.cvar("g_npc_saber_throw_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
 
 	g_allowSaberTwirling = gi.cvar("g_allowSaberTwirling", "1", CVAR_ARCHIVE | CVAR_NORESTART);
 

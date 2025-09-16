@@ -8688,14 +8688,14 @@ static void PM_Footsteps( void )
 					}
 					else if ( pm->ps->saberAnimLevel == SS_STAFF )
 					{
-						if (CasualWalker(pm))
+						/*if (CasualWalker(pm))
 						{
 							PM_SetAnim(pm, SETANIM_LEGS, BOTH_WALK1, setAnimFlags);
 						}
-						else
-						{
+						else*/
+						//{
 							PM_SetAnim(pm, SETANIM_LEGS, BOTH_WALK_STAFF, setAnimFlags);
-						}
+						//}
 					}
 					else
 					{

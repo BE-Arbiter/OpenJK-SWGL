@@ -36,8 +36,10 @@
 
 
 // Galactic Republic
+#define BLAZE_TROOPER "Blaze_Trooper"
 #define BULTAR_SWAN "Bultar_Swan"
 #define CIN_DRALLIG "Cin_Drallig"
+#define COMMANDER_CODY_BOSS "Commander_Cody_Boss"
 #define KELLERAN_BEQ "Kelleran_Beq"
 #define KOFFI_ARANA	"Koffi_Arana"
 #define EP3_VADER "ep3_vader"
