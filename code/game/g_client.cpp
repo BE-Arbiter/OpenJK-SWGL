@@ -485,7 +485,7 @@ void ClientUserinfoChanged( int clientNum ) {
 	maxHealth = 100;
 	health = Com_Clampi( 1, 100, atoi( Info_ValueForKey( userinfo, "handicap" ) ) );
 	client->pers.maxHealth = player->client->ps.stats[STAT_MAX_HEALTH];
-	if ( client->pers.maxHealth < 1 || client->pers.maxHealth > maxHealth )
+	if ( client->pers.maxHealth < 1 )// || client->pers.maxHealth > maxHealth )
 		client->pers.maxHealth = 100;
 	client->ps.stats[STAT_MAX_HEALTH] = client->pers.maxHealth;
 

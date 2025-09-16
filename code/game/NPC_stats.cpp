@@ -2586,7 +2586,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				continue;
 			}
-			if ((NPC->NPC_color_red >= 0 && NPC->NPC_color_green >= 0 && NPC->NPC_color_blue >= 0) && !Q_stricmp("noclass", NPC->classname)) // We only want NPCs spawned by the player to follow this. Not NPCs spawned in maps.
+			if (NPC->NPC_color_red >= 0 && NPC->NPC_color_green >= 0 && NPC->NPC_color_blue >= 0) // We only want NPCs spawned by the player to follow this.
 			{
 				ri->customRGBA[0] = NPC->NPC_color_red;
 				ri->customRGBA[1] = NPC->NPC_color_green;
@@ -3236,6 +3236,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					player->client->ps.stats[STAT_MAX_HEALTH] = n;
 
 					player->health = Com_Clampi(1, player->client->ps.stats[STAT_MAX_HEALTH], n);
+					player->max_health = Com_Clampi(1, player->client->ps.stats[STAT_MAX_HEALTH], n);
 
 					player->client->ps.stats[STAT_ARMOR] = n;
 				}

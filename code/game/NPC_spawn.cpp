@@ -350,7 +350,7 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 		ent->behaviorSet[BSET_FLEE] = NULL;
 		ent->behaviorSet[BSET_DEATH] = NULL;
 	}
-	else if (NPC->client->ps.weapon == WP_CLONECARBINE || NPC->client->ps.weapon == WP_CLONECOMMANDO
+	else if (NPC->client->ps.weapon == WP_CLONECARBINE// || NPC->client->ps.weapon == WP_CLONECOMMANDO
 				|| NPC->client->ps.weapon == WP_REBELRIFLE || NPC->client->ps.weapon == WP_CLONERIFLE)
 	{
 		ent->NPC->scriptFlags |= (SCF_ALT_FIRE | SCF_CHASE_ENEMIES);
@@ -1961,6 +1961,8 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 	}
 	newent->NPC_skin = G_NewString(ent->NPC_skin);
 
+
+
 	if(ent->NPC_Weapon)
 		newent->NPC_Weapon = G_NewString(ent->NPC_Weapon);
 
@@ -1993,13 +1995,17 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 	if (ent->attrFlags)
 		newent->attrFlags = ent->attrFlags;
 
-	if (ent->NPC_color_red)
+	newent->NPC_color_red = -1;
+	newent->NPC_color_green = -1;
+	newent->NPC_color_blue = -1;
+
+	if (ent->NPC_color_red >= 0)
 		newent->NPC_color_red = ent->NPC_color_red;
 
-	if (ent->NPC_color_green)
+	if (ent->NPC_color_green >= 0)
 		newent->NPC_color_green = ent->NPC_color_green;
 
-	if (ent->NPC_color_blue)
+	if (ent->NPC_color_blue >= 0)
 		newent->NPC_color_blue = ent->NPC_color_blue;
 
 	VectorCopy(ent->s.origin, newent->s.origin);
@@ -2406,6 +2412,9 @@ void SP_NPC_spawner(gentity_t *self)
 		}
 	}
 
+	self->NPC_color_red = -1;
+	self->NPC_color_green = -1;
+	self->NPC_color_blue = -1;
 
 	if (!self->wait)
 	{
@@ -5565,6 +5574,9 @@ static void NPC_Spawn_f(void)
 	// Variable to start arg checking
 	int spawnCommand = 0;
 
+	NPCspawner->NPC_color_red = -1;
+	NPCspawner->NPC_color_green = -1;
+	NPCspawner->NPC_color_blue = -1;
 
 	while (spawnCommand < gi.argc())
 	{
