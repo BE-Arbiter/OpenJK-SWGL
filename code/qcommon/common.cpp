@@ -1137,11 +1137,11 @@ void Com_Init( char *commandLine ) {
 		//Swap_Init ();
 		Cbuf_Init ();
 
-		Com_InitZoneMemoryVars();
-		Cmd_Init ();
-
 		// override anything from the config files with command line args
 		Com_StartupVariable( NULL );
+
+		Com_InitZoneMemoryVars();
+		Cmd_Init();
 
 		// done early so bind command exists
 		CL_InitKeyCommands();
@@ -1245,6 +1245,7 @@ void Com_Init( char *commandLine ) {
 				Cbuf_AddText ("cinematic openinglogos\n");
 			}
 		}
+		CL_StartHunkUsers();
 		com_fullyInitialized = qtrue;
 		Com_Printf ("--- Common Initialization Complete ---\n");
 
