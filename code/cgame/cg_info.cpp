@@ -882,6 +882,36 @@ void CG_DrawInformation( void ) {
 		int w = cgi_R_Font_StrLenPixels(text, cgs.media.qhFontMedium, 1.0f, cgs.widthRatioCoef);
 		cgi_R_Font_DrawString((320) - (w / 2), 140, text, colorTable[CT_ICON_BLUE], cgs.media.qhFontMedium, -1, 1.0f, cgs.widthRatioCoef);
 	}
+	else if (g_eSavedGameJustLoaded != eFULL && (!strcmp(s, "ep1_dotf_maul_5") || !strcmp(s, "ep1_dotf_qui_3")))
+	{
+		char	text[1024] = { 0 };
+
+		//
+		cgi_R_SetColor(colorTable[CT_BLACK]);
+		CG_DrawPic(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, cgs.media.whiteShader);
+
+		cgi_SP_GetStringTextString("BRIEFINGS_THIRTEEN", text, sizeof(text));
+
+		int w = cgi_R_Font_StrLenPixels(text, cgs.media.qhFontMedium, 1.0f, cgs.widthRatioCoef);
+		cgi_R_Font_DrawString((320) - (w / 2), 140, text, colorTable[CT_ICON_BLUE], cgs.media.qhFontMedium, -1, 1.0f, cgs.widthRatioCoef);
+	}
+	else if (g_eSavedGameJustLoaded != eFULL && (!strcmp(s, "gree5")))
+	{
+		char	text[1024] = { 0 };
+
+		//
+		cgi_R_SetColor(colorTable[CT_BLACK]);
+		CG_DrawPic(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, cgs.media.whiteShader);
+
+		cgi_SP_GetStringTextString("BRIEFINGS_TEN", text, sizeof(text));
+
+		int w = cgi_R_Font_StrLenPixels(text, cgs.media.qhFontMedium, 1.0f, cgs.widthRatioCoef);
+		cgi_R_Font_DrawString((320) - (w / 2), 140, text, colorTable[CT_ICON_BLUE], cgs.media.qhFontMedium, -1, 1.0f, cgs.widthRatioCoef);
+	}
+	else if (g_eSavedGameJustLoaded != eFULL && cgi_SP_GetStringTextString(va("BRIEFINGS_%s", s), NULL, 0) == 0)
+	{
+		CG_DrawPic(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, levelshot);
+	}
 	else
 	{
 		CG_DrawLoadingScreen(levelshot, s);
