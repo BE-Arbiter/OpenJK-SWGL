@@ -1720,8 +1720,8 @@ public:
 	int forceLowerAnim;
 	int forceUpperAnimTimer;
 	int forceLowerAnimTimer;
-	int forceUpperAnimSpeed;
-	int forceLowerAnimSpeed;
+	float forceUpperAnimSpeed;
+	float forceLowerAnimSpeed;
 
 #ifndef JK2_MODE
 	//FIXME: maybe allocate all these structures (saber, force powers, vehicles)
