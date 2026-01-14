@@ -750,6 +750,12 @@ void NPC_SetMiscDefaultData(gentity_t *ent)
 				break;
 			}
 		}
+		if (ent->client->ps.weapon != WP_NONE
+			&& ent->client->ps.weapon != WP_SABER //sabers done above
+			&& (!(ent->NPC->aiFlags & NPCAI_MATCHPLAYERWEAPON) || !ent->weaponModel[0]))//they do this themselves
+		{
+			G_CreateG2AttachedWeaponModel(ent, weaponData[ent->client->ps.weapon].weaponMdl, ent->handRBolt, 0);
+		}
 		break;
 
 	case TEAM_ENEMY:
