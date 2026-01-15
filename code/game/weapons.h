@@ -100,6 +100,14 @@ typedef enum //# weapon_e
 
 #define FIRST_WEAPON		WP_SABER		// this is the first weapon for next and prev weapon switching
 
+/* Blockability Enum /!\ : B_UNSET Should not exist in play*/
+typedef enum 
+{
+	B_UNSET = 0,
+	B_DEFLECTABLE = 1,
+	B_BLOCKABLE = 2,
+	B_PASSTHROUGH = 3
+} blockability_t;
 
 typedef enum
 {
@@ -139,7 +147,7 @@ typedef enum {
 	WB_HEAVY_WEAPONS = -5, //5 Rocket Launcher, Concussion Rifle,...
 	WB_THROWABLES = -6, //6 Explosives & Grenades
 	WB_OTHERS = -7, //8 Weapon For Vehicle and npc which should not appears in others buckets
-	WB_UNSET = 0 // This No weapon should have this bucket...
+	WB_UNSET = 0 // No weapon should have this bucket...
 } weaponBucket_t;
 
 // AMMO_NONE must be first and AMMO_MAX must be last, cause weapon load validates based off of these vals
@@ -240,6 +248,8 @@ typedef struct weaponAttackData_s
 	char	explosionEffect[64]; // For explosives
 	char    shockwaveEffect[64]; // For explosives
 
+	/* Indicate if the weapon can be blocked by a lightsaber (Deflaut BLOCK_DEFLECTABLE)*/
+	blockability_t blockability[3];
 
 	/* Beam Effects */
 	char	beamShader[64];

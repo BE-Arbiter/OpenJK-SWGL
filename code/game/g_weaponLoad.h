@@ -238,14 +238,13 @@ void ATK_ChargeUnitTime(const char** holdBuf);
 void ATK_MaxChargeUnits(const char** holdBuf);
 void ATK_BounceWall(const char** holdBuf);
 void ATK_BounceCount(const char** holdBuf);
-void ATK_FiringLogic(const char** holdBuf);
 void ATK_MissileMass(const char** holdBuf);
 void ATK_MissileDFlags(const char** holdBuf);
 void ATK_NpcDamage(const char** holdBuf);
 void ATK_NpcSpread(const char** holdBuf);
 void ATK_NpcVelocity(const char** holdBuf);
 void ATK_FiringLogic(const char** holdBuf);
-void ATK_FiringLogic(const char** holdBuf);
+void ATK_Blockability(const char** holdBuf);
 
 // Legacy weapons.dat force fields
 void WPN_FuncSkip(const char** holdBuf);
@@ -260,6 +259,7 @@ typedef struct
 wpnParms_t AttackDataParms[] =
 {
 	{ "attackType",			ATK_FiringLogic },
+	{ "blockability",		ATK_Blockability },
 	{ "chargeUnitTime",		ATK_ChargeUnitTime},
 	{ "maxChargeUnits",		ATK_MaxChargeUnits},
 	{ "bounceWall",			ATK_BounceWall},
@@ -278,10 +278,10 @@ wpnParms_t AttackDataParms[] =
 	{ "missileHitSound",	ATK_MissileHitSound },
 	{ "missileMass",		ATK_MissileMass },
 	{ "missileDFlags",		ATK_MissileDFlags},
-	{ "beamShader", ATK_BeamShader},
-	{ "beamColor",	ATK_BeamColor },
-	{ "fullBeamShader",	ATK_FullBeamShader },
-	{ "fullBeamColor",	ATK_FullBeamColor },
+	{ "beamShader",			ATK_BeamShader},
+	{ "beamColor",			ATK_BeamColor },
+	{ "fullBeamShader",		ATK_FullBeamShader },
+	{ "fullBeamColor",		ATK_FullBeamColor },
 	{ "muzzleEffect",		ATK_MuzzleEffect },
 	{ "chargeMuzzleShader",	ATK_ChargeMuzzleEffect },
 	{ "chargeMuzzleScale",	ATK_ChargeMuzzleScale },
@@ -299,8 +299,8 @@ wpnParms_t AttackDataParms[] =
 	{ "npcSpread",			ATK_NpcSpread },
 	{ "splashDamage",		ATK_SplashDamage },
 	{ "splashRadius",		ATK_SplashRadius },
-	{ "dempDetonateShader",			ATK_dempDetonateShader },
-	{ "dempDetonateModel",			ATK_dempDetonateModel },
+	{ "dempDetonateShader",	ATK_dempDetonateShader },
+	{ "dempDetonateModel",	ATK_dempDetonateModel },
 	{ "velocity",			ATK_Velocity },
 	{ "spread",				ATK_Spread },
 	{ "fireOptions",		ATK_FireOptions},
