@@ -353,6 +353,252 @@ void Cmd_Give_f( gentity_t *ent )
 	G_Give( ent, gi.argv(1), ConcatArgs( 2 ), gi.argc() );
 }
 
+/*
+================================================================================
+Cmd_WeaponStat_f
+
+Description:
+	Provides detailed information about a specific weapon and its attacks.
+
+Usage:
+	weaponStat <weapon_class> [attackIndex]
+
+Behavior:
+	- weaponStat <weapon_class>
+		Displays the properties of the weapon and all associated attackData
+		entries where firingLogic != FL_NONE (full/light overview of each attack).
+
+	- weaponStat <weapon_class> <attackIndex>
+		Displays only the properties of the specified attack (1-based index)
+		along with a light overview of the general weapon properties.
+
+Parameters:
+	<weapon_class> : The classname of the weapon to inspect (e.g., weapon_blaster)
+	[attackIndex]  : Optional, 1-based index of the attackData to display
+
+Notes:
+	- Requires cheats to be enabled (CheatsOk(ent) must return true).
+	- Output is sent to the server console via gi.SendServerCommand / gi.Printf.
+================================================================================
+*/
+extern int WP_GetWeaponID(const char* weaponName);
+const char* getStringValueForvec3(const vec3_t* v);
+static const char* IntArray3ToString(const int v[3]);
+static const char* FloatArray3ToString(const float v[3]);
+const char* getStringValueForqboolean(qboolean value);
+const char* getStringValueForfiringLogic(const firingLogic_t* logic);
+const char* getStringValueForblockability(const blockability_t* b);
+const char* getStringValueForweaponCategory(const weaponCategory_t* wc);
+const char* getStringValueForweaponBucket(const weaponBucket_t* wb);
+
+void PrintWeaponAttackData(const weaponAttackData_t* attack)
+{
+	if (!attack)
+	{
+		gi.Printf("\t\t(null)\n");
+		return;
+	}
+
+	gi.Printf("\t{\n");
+
+	gi.Printf("\t\t^6'firingLogic'^7 : ^5%s^7 (firingLogic_t)\n",
+		getStringValueForfiringLogic(&attack->firingLogic));
+
+	gi.Printf("\t\t^6'energyPerShot'^7 : ^5%d^7 (int)\n", attack->energyPerShot);
+	gi.Printf("\t\t^6'fireTime'^7 : ^5%d^7 (int)\n", attack->fireTime);
+	gi.Printf("\t\t^6'range'^7 : ^5%d^7 (int)\n", attack->range);
+	gi.Printf("\t\t^6'spread'^7 : ^5%f^7 (float)\n", attack->spread);
+
+	gi.Printf("\t\t^6'npcSpread'^7 : ^5%f, %f, %f^7 (float[3])\n",
+		attack->npcSpread[0], attack->npcSpread[1], attack->npcSpread[2]);
+
+	gi.Printf("\t\t^6'damage'^7 : ^5%d^7 (int)\n", attack->damage);
+	gi.Printf("\t\t^6'npcDamage'^7 : ^5%d, %d, %d^7 (int[3])\n",
+		attack->npcDamage[0], attack->npcDamage[1], attack->npcDamage[2]);
+
+	gi.Printf("\t\t^6'defaultDamage'^7 : ^5%d^7 (int)\n", attack->defaultDamage);
+	gi.Printf("\t\t^6'velocity'^7 : ^5%f^7 (float)\n", attack->velocity);
+
+	gi.Printf("\t\t^6'npcVelocity'^7 : ^5%f, %f, %f^7 (float[3])\n",
+		attack->npcVelocity[0], attack->npcVelocity[1], attack->npcVelocity[2]);
+
+	gi.Printf("\t\t^6'fireOption'^7 : ^5%d, %d, %d^7 (int[3])\n",
+		attack->fireOption[0], attack->fireOption[1], attack->fireOption[2]);
+
+	gi.Printf("\t\t^6'splashDamage'^7 : ^5%d^7 (int)\n", attack->splashDamage);
+	gi.Printf("\t\t^6'splashRadius'^7 : ^5%f^7 (float)\n", attack->splashRadius);
+
+	gi.Printf("\t\t^6'projectileEffect'^7 : ^5\"%s\"^7 (char[64])\n", attack->projectileEffect);
+	gi.Printf("\t\t^6'hitWallEffect'^7 : ^5\"%s\"^7 (char[64])\n", attack->hitWallEffect);
+	gi.Printf("\t\t^6'hitWallEffect2'^7 : ^5\"%s\"^7 (char[64])\n", attack->hitWallEffect2);
+	gi.Printf("\t\t^6'hitWallEffect3'^7 : ^5\"%s\"^7 (char[64])\n", attack->hitWallEffect3);
+	gi.Printf("\t\t^6'hitDroidEffect'^7 : ^5\"%s\"^7 (char[64])\n", attack->hitDroidEffect);
+	gi.Printf("\t\t^6'hitFleshEffect'^7 : ^5\"%s\"^7 (char[64])\n", attack->hitFleshEffect);
+	gi.Printf("\t\t^6'muzzleEffect'^7 : ^5\"%s\"^7 (char[64])\n", attack->muzzleEffect);
+	gi.Printf("\t\t^6'explosionEffect'^7 : ^5\"%s\"^7 (char[64])\n", attack->explosionEffect);
+	gi.Printf("\t\t^6'shockwaveEffect'^7 : ^5\"%s\"^7 (char[64])\n", attack->shockwaveEffect);
+
+	gi.Printf("\t\t^6'blockability'^7 : ^5%s, %s, %s^7 (blockability_t[3])\n",
+		getStringValueForblockability(&attack->blockability[0]),
+		getStringValueForblockability(&attack->blockability[1]),
+		getStringValueForblockability(&attack->blockability[2]));
+
+	gi.Printf("\t\t^6'beamShader'^7 : ^5\"%s\"^7 (char[64])\n", attack->beamShader);
+	gi.Printf("\t\t^6'beamColor'^7 : ^5%s^7 (vec3_t)\n", getStringValueForvec3(&attack->beamColor));
+	gi.Printf("\t\t^6'fullBeamShader'^7 : ^5\"%s\"^7 (char[64])\n", attack->fullBeamShader);
+	gi.Printf("\t\t^6'fullBeamColor'^7 : ^5%s^7 (vec3_t)\n", getStringValueForvec3(&attack->fullBeamColor));
+
+	gi.Printf("\t\t^6'bounceWall'^7 : ^5%s^7 (qboolean)\n", getStringValueForqboolean(attack->bounceWall));
+	gi.Printf("\t\t^6'bounceCount'^7 : ^5%d^7 (int)\n", attack->bounceCount);
+
+	gi.Printf("\t\t^6'chargeUnitTime'^7 : ^5%f^7 (float)\n", attack->chargeUnitTime);
+	gi.Printf("\t\t^6'maxChargeUnits'^7 : ^5%d^7 (int)\n", attack->maxChargeUnits);
+	gi.Printf("\t\t^6'chargeSnd'^7 : ^5\"%s\"^7 (char[64])\n", attack->chargeSnd);
+	gi.Printf("\t\t^6'chargeMuzzleShader'^7 : ^5\"%s\"^7 (char[64])\n", attack->chargeMuzzleShader);
+	gi.Printf("\t\t^6'chargeMuzzleScale'^7 : ^5%f^7 (float)\n", attack->chargeMuzzleScale);
+
+	gi.Printf("\t\t^6'missileMdl'^7 : ^5\"%s\"^7 (char[64])\n", attack->missileMdl);
+	gi.Printf("\t\t^6'missileSound'^7 : ^5\"%s\"^7 (char[64])\n", attack->missileSound);
+	gi.Printf("\t\t^6'missileDlight'^7 : ^5%f^7 (float)\n", attack->missileDlight);
+	gi.Printf("\t\t^6'missileSize'^7 : ^5%d^7 (int)\n", attack->missileSize);
+	gi.Printf("\t\t^6'missileMass'^7 : ^5%d^7 (int)\n", attack->missileMass);
+	gi.Printf("\t\t^6'missileDFlags'^7 : ^5%d^7 (int)\n", attack->missileDFlags);
+	gi.Printf("\t\t^6'missileDlightColor'^7 : ^5%s^7 (vec3_t)\n", getStringValueForvec3(&attack->missileDlightColor));
+
+	gi.Printf("\t\t^6'firingSnd'^7 : ^5\"%s\"^7 (char[64])\n", attack->firingSnd);
+	gi.Printf("\t\t^6'missileHitSound'^7 : ^5\"%s\"^7 (char[64])\n", attack->missileHitSound);
+
+	gi.Printf("\t\t^6'dempDetonateShader'^7 : ^5\"%s\"^7 (char[64])\n", attack->dempDetonateShader);
+	gi.Printf("\t\t^6'dempDetonateModel'^7 : ^5\"%s\"^7 (char[64])\n", attack->dempDetonateModel);
+
+	gi.Printf("\t}\n");
+}
+
+
+void PrintWeaponAttackData_Light(const weaponAttackData_t* attack)
+{
+	if (!attack)
+	{
+		gi.Printf("\t(null)\n");
+		return;
+	}
+
+	gi.Printf("\t{\n");
+
+
+	gi.Printf("\t\t^6'firingLogic'^7 : ^5%s^7 (firingLogic_t)\n",
+		getStringValueForfiringLogic(&attack->firingLogic));
+
+	gi.Printf("\t\t^6'energyPerShot'^7 : ^5%d^7 (int)\n", attack->energyPerShot);
+	gi.Printf("\t\t^6'fireTime'^7 : ^5%d^7 (int)\n", attack->fireTime);
+	gi.Printf("\t\t^6'range'^7 : ^5%d^7 (int)\n", attack->range);
+	gi.Printf("\t\t^6'spread'^7 : ^5%f^7 (float)\n", attack->spread);
+	gi.Printf("\t\t^6'damage'^7 : ^5%d^7 (int)\n", attack->damage);
+	gi.Printf("\t\t^6'velocity'^7 : ^5%f^7 (float)\n", attack->velocity);
+	gi.Printf("\t\t^6'fireOption'^7 : ^5%d, %d, %d^7 (int[3])\n",
+		attack->fireOption[0], attack->fireOption[1], attack->fireOption[2]);
+	gi.Printf("\t\t^6'splashDamage'^7 : ^5%d^7 (int)\n", attack->splashDamage);
+	gi.Printf("\t\t^6'splashRadius'^7 : ^5%f^7 (float)\n", attack->splashRadius);
+
+	gi.Printf("\t}\n");
+}
+void PrintWeaponData(const weaponData_t* weapon)
+{
+	int i;
+
+	if (!weapon)
+	{
+		gi.Printf("(null)\n");
+		return;
+	}
+
+	for (i = 0; i < MAX_WEAPON_ATTACKS; i++)
+	{
+		if (weapon->attackData[i].firingLogic == FL_NONE)
+		{
+			continue;
+		}
+		gi.Printf("\t^6'attackData[%d]'^7 : ", i);
+		PrintWeaponAttackData_Light(&weapon->attackData[i]);
+	}
+
+	gi.Printf("\t^6'classname'^7 : ^5\"%s\"^7 (char[32])\n", weapon->classname);
+	gi.Printf("\t^6'baseclass'^7 : ^5\"%s\"^7 (char[32])\n", weapon->baseclass);
+	gi.Printf("\t^6'baseWeaponNum'^7 : ^5%d^7 (int)\n", weapon->baseWeaponNum);
+
+	gi.Printf("\t^6'weaponMdl'^7 : ^5\"%s\"^7 (char[64])\n", weapon->weaponMdl);
+	gi.Printf("\t^6'stopSnd'^7 : ^5\"%s\"^7 (char[64])\n", weapon->stopSnd);
+	gi.Printf("\t^6'selectSnd'^7 : ^5\"%s\"^7 (char[64])\n", weapon->selectSnd);
+	gi.Printf("\t^6'readySnd'^7 : ^5\"%s\"^7 (char[64])\n", weapon->readySnd);
+
+	gi.Printf("\t^6'ammoIndex'^7 : ^5%d^7 (int)\n", weapon->ammoIndex);
+	gi.Printf("\t^6'ammoLow'^7 : ^5%d^7 (int)\n", weapon->ammoLow);
+
+	gi.Printf("\t^6'weaponIcon'^7 : ^5\"%s\"^7 (char[64])\n", weapon->weaponIcon);
+	gi.Printf("\t^6'numBarrels'^7 : ^5%d^7 (int)\n", weapon->numBarrels);
+
+	gi.Printf("\t^6'scopeType'^7 : ^5%d^7 (int)\n", weapon->scopeType);
+	gi.Printf("\t^6'scopeFov'^7 : ^5%f^7 (float)\n", weapon->scopeFov);
+
+	gi.Printf("\t^6'weaponMdl2'^7 : ^5\"%s\"^7 (char[64])\n", weapon->weaponMdl2);
+	gi.Printf("\t^6'secondaryMdl'^7 : ^5%s^7 (qboolean)\n", getStringValueForqboolean(weapon->secondaryMdl));
+	gi.Printf("\t^6'playerUsable'^7 : ^5%s^7 (qboolean)\n", getStringValueForqboolean(weapon->playerUsable));
+
+	gi.Printf("\t^6'weaponCategory'^7 : ^5%s^7 (weaponCategory_t)\n", getStringValueForweaponCategory(&weapon->weaponCategory));
+	gi.Printf("\t^6'weaponBucket'^7 : ^5%s^7 (weaponBucket_t)\n", getStringValueForweaponBucket(&weapon->weaponBucket));
+}
+
+
+
+void Cmd_WeaponStat_f(gentity_t* ent)
+{
+	if (!CheatsOk(ent))
+		return;
+
+	if (gi.argc() < 2)
+	{
+		gi.SendServerCommand(0, "print \"Usage: weaponStat <weapon_class> [attackIndex]\n\"");
+		return;
+	}
+
+	weapon_t weaponNum = (weapon_t)WP_GetWeaponID(gi.argv(1));
+	if (weaponNum < 0 || weaponNum >= weaponCount)
+	{
+		gi.SendServerCommand(0, "print \"Invalid weapon class : %s\nUsage: weaponStat <weapon_class> [attackIndex]\n\"", gi.argv(1));
+		return;
+	}
+
+	weaponData_t* weapon = &weaponData[weaponNum];
+
+	int attackIndex = -1; 
+	if (gi.argc() >= 3)
+	{
+		attackIndex = atoi(gi.argv(2)) - 1;
+		if (attackIndex < 0 || attackIndex >= MAX_WEAPON_ATTACKS)
+		{
+			gi.SendServerCommand(0, "print \"Invalid attack index: %s\n\"", gi.argv(2));
+			return;
+		}
+	}
+	gi.Printf("Data for ^5\"%s\"^7:\n{\n", weapon->classname);
+
+	if (attackIndex == -1)
+	{
+		PrintWeaponData(weapon);
+	}
+	else
+	{
+		gi.Printf("\t^6'attackData[%d]'^7 : ", attackIndex);
+		PrintWeaponAttackData(&weapon->attackData[attackIndex]);
+
+		gi.Printf("\t^6'classname'^7 : ^5\"%s\"^7 (char[32])\n", weapon->classname);
+		gi.Printf("\t^6'baseclass'^7 : ^5\"%s\"^7 (char[32])\n", weapon->baseclass);
+	}
+
+	gi.Printf("}\n");
+}
+
+
 void Cmd_ForceRegen_f( gentity_t* ent )
 {
 	if (!CheatsOk(ent))
@@ -1516,6 +1762,8 @@ void ClientCommand( int clientNum ) {
 
 	if (Q_stricmp(cmd, "give") == 0)
 		Cmd_Give_f(ent);
+	else if (Q_stricmp(cmd, "weaponStat") == 0)
+		Cmd_WeaponStat_f(ent);
 	else if (Q_stricmp(cmd, "god") == 0)
 		Cmd_God_f(ent);
 	else if (Q_stricmp(cmd, "noforce") == 0)
@@ -1843,5 +2091,126 @@ void ClientCommand( int clientNum ) {
 	else
 	{
 		gi.SendServerCommand( clientNum, va("print \"Unknown command %s\n\"", cmd ) );
+	}
+}
+
+
+/* WEAPON DEBUG UTILITY METHODS */
+
+const char* getStringValueForvec3(const vec3_t* v)
+{
+	if (!v)
+		return "(null)";
+
+	return va("(%f,%f,%f)", (*v)[0], (*v)[1], (*v)[2]);
+}
+static const char* IntArray3ToString(const int v[3])
+{
+	return va("%d, %d, %d", v[0], v[1], v[2]);
+}
+static const char* FloatArray3ToString(const float v[3])
+{
+	return va("%f, %f, %f", v[0], v[1], v[2]);
+}
+const char* getStringValueForqboolean(qboolean value)
+{
+	switch (value)
+	{
+	case qfalse:
+		return "qfalse";
+	case qtrue:
+		return "qtrue";
+	case qunset:
+		return "qunset";
+	default:
+		return "unknown";
+	}
+}
+const char* getStringValueForfiringLogic(const firingLogic_t* logic)
+{
+	if (!logic)
+		return "(null)";
+
+	switch (*logic)
+	{
+	case FL_NONE:            return "FL_NONE";
+	case FL_MELEE:           return "FL_MELEE";
+	case FL_BLASTER:         return "FL_BLASTER";
+	case FL_BLASTER_CHARGED: return "FL_BLASTER_CHARGED";
+	case FL_BOWCASTER:       return "FL_BOWCASTER";
+	case FL_BEAM:            return "FL_BEAM";
+	case FL_FULL_BEAM:       return "FL_FULL_BEAM";
+	case FL_BEAM_CHARGED:    return "FL_BEAM_CHARGED";
+	case FL_GRENADE_LAUNCHER:return "FL_GRENADE_LAUNCHER";
+	case FL_DEMP2:           return "FL_DEMP2";
+	case FL_DEMP2_ALT:       return "FL_DEMP2_ALT";
+	case FL_FLECHETTE:       return "FL_FLECHETTE";
+	case FL_FLECHETTE_ALT:   return "FL_FLECHETTE_ALT";
+	case FL_NOGHRI:          return "FL_NOGHRI";
+	case FL_MISSILE:         return "FL_MISSILE";
+	case FL_MISSILE_AIMED:   return "FL_MISSILE_AIMED";
+	case FL_LASER_TRAP:      return "FL_LASER_TRAP";
+	case FL_PROXIMITY_TRAP:  return "FL_PROXIMITY_TRAP";
+	case FL_EXPLOSIVES:      return "FL_EXPLOSIVES";
+	case FL_GRENADE:         return "FL_GRENADE";
+	case FL_IMPACT_GRENADE:  return "FL_IMPACT_GRENADE";
+	case FL_STUNBATON:       return "FL_STUNBATON";
+	case FL_SBD:             return "FL_SBD";
+	case FL_FLAMETHROWER:    return "FL_FLAMETHROWER";
+	case FL_OTHER:           return "FL_OTHER";
+	default:                 return "FL_UNKNOWN";
+	}
+}
+const char* getStringValueForblockability(const blockability_t* b)
+{
+	if (!b)
+		return "(null)";
+
+	switch (*b)
+	{
+	case B_UNSET:        return "B_UNSET";
+	case B_DEFLECTABLE:  return "B_DEFLECTABLE";
+	case B_BLOCKABLE:    return "B_BLOCKABLE";
+	case B_PASSTHROUGH:  return "B_PASSTHROUGH";
+	default:             return "B_UNKNOWN";
+	}
+}
+const char* getStringValueForweaponCategory(const weaponCategory_t* wc)
+{
+	if (!wc)
+		return "(null)";
+
+	switch (*wc)
+	{
+	case WC_NONE:       return "WC_NONE";
+	case WC_MELEE:      return "WC_MELEE";
+	case WC_STUN_BATON: return "WC_STUN_BATON";
+	case WC_MELEE_1H:   return "WC_MELEE_1H";
+	case WC_PISTOL:     return "WC_PISTOL";
+	case WC_LIGHT:      return "WC_LIGHT";
+	case WC_SNIPER:     return "WC_SNIPER";
+	case WC_HEAVY:      return "WC_HEAVY";
+	case WC_GRENADE:    return "WC_GRENADE";
+	case WC_EXPLOSIVE:  return "WC_EXPLOSIVE";
+	case WC_MINIGUN:    return "WC_MINIGUN";
+	default:            return "WC_UNKNOWN";
+	}
+}
+const char* getStringValueForweaponBucket(const weaponBucket_t* wb)
+{
+	if (!wb)
+		return "(null)";
+
+	switch (*wb)
+	{
+	case WB_MELEE:          return "WB_MELEE";
+	case WB_PISTOLS:        return "WB_PISTOLS";
+	case WB_BLASTERS:       return "WB_BLASTERS";
+	case WB_SPECIALISTS:    return "WB_SPECIALISTS";
+	case WB_HEAVY_WEAPONS:  return "WB_HEAVY_WEAPONS";
+	case WB_THROWABLES:     return "WB_THROWABLES";
+	case WB_OTHERS:         return "WB_OTHERS";
+	case WB_UNSET:          return "WB_UNSET";
+	default:                return "WB_UNKNOWN";
 	}
 }
