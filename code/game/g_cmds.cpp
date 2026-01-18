@@ -361,19 +361,27 @@ Description:
 	Provides detailed information about a specific weapon and its attacks.
 
 Usage:
-	weaponStat <weapon_class> [attackIndex]
+	weaponStat [weapon_class] [attackIndex]
 
 Behavior:
+	- weaponStat 
+		For currently equiped weapon : Displays the properties of weapon and all associated attackData
+		entries where firingLogic != FL_NONE (light overview of each attack).
+
+	- weaponStat <attackIndex>
+		For current weapon : Displays only the properties of the specified attack (1-based index)
+		along with a light overview of the general weapon properties.
+
 	- weaponStat <weapon_class>
 		Displays the properties of the weapon and all associated attackData
-		entries where firingLogic != FL_NONE (full/light overview of each attack).
+		entries where firingLogic != FL_NONE (light overview of each attack).
 
 	- weaponStat <weapon_class> <attackIndex>
 		Displays only the properties of the specified attack (1-based index)
 		along with a light overview of the general weapon properties.
 
 Parameters:
-	<weapon_class> : The classname of the weapon to inspect (e.g., weapon_blaster)
+	[weapon_class] : Optional, The classname of the weapon to inspect (e.g., weapon_blaster)
 	[attackIndex]  : Optional, 1-based index of the attackData to display
 
 Notes:
@@ -555,28 +563,36 @@ void Cmd_WeaponStat_f(gentity_t* ent)
 	if (!CheatsOk(ent))
 		return;
 
-	if (gi.argc() < 2)
+	if (gi.argc() > 3)
 	{
-		gi.SendServerCommand(0, "print \"Usage: weaponStat <weapon_class> [attackIndex]\n\"");
+		gi.SendServerCommand(0, "print \"Usage: \n\tweaponStat \n\tweaponStat [weapon_class]\n\tweaponStat [attackIndex]\nUsage: weaponStat [weapon_class] [attackIndex]\n\"");
 		return;
 	}
 
-	weapon_t weaponNum = (weapon_t)WP_GetWeaponID(gi.argv(1));
-	if (weaponNum < 0 || weaponNum >= weaponCount)
+	int weaponNum = player->client->ps.weapon;
+	int attackIndex = -1;
+	if (gi.argc() == 2)
 	{
-		gi.SendServerCommand(0, "print \"Invalid weapon class : %s\nUsage: weaponStat <weapon_class> [attackIndex]\n\"", gi.argv(1));
-		return;
+		attackIndex = atoi(gi.argv(1)) - 1;
+		if (attackIndex < 0 && attackIndex >= MAX_WEAPON_ATTACKS)
+		{
+			attackIndex = -1;
+			weaponNum = WP_GetWeaponID(gi.argv(1));
+			if (weaponNum < 0 || weaponNum >= weaponCount)
+			{
+				gi.SendServerCommand(0, "print \"Invalid weapon class : %s\nUsage: \n\tweaponStat \n\tweaponStat [weapon_class]\n\tweaponStat [attackIndex]\nUsage: weaponStat [weapon_class] [attackIndex]\n\"", gi.argv(1));
+				return;
+			}
+		}
 	}
-
 	weaponData_t* weapon = &weaponData[weaponNum];
 
-	int attackIndex = -1; 
-	if (gi.argc() >= 3)
+	if (gi.argc() == 3)
 	{
 		attackIndex = atoi(gi.argv(2)) - 1;
 		if (attackIndex < 0 || attackIndex >= MAX_WEAPON_ATTACKS)
 		{
-			gi.SendServerCommand(0, "print \"Invalid attack index: %s\n\"", gi.argv(2));
+			gi.SendServerCommand(0, "print \"Invalid attack index : %s ; Should be 1,2,3 or 4.\nUsage: \n\tweaponStat \n\tweaponStat [weapon_class]\n\tweaponStat [attackIndex]\nUsage: weaponStat [weapon_class] [attackIndex]\n\"", gi.argv(2));
 			return;
 		}
 	}
