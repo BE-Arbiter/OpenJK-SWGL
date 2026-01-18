@@ -538,8 +538,15 @@ void G_MissileImpacted( gentity_t *ent, gentity_t *other, vec3_t impactPos, vec3
 	qboolean altFire = ent->alt_fire;
 	int attackIndex = CG_GetAttackIndex(ent, altFire);
 	weaponAttackData_t* atkData = &wpnData->attackData[attackIndex];
+	blockability_t blockability = getAttackBlockability(atkData);
+	
+	//For a passthrough attack touching lightsaber, owner must be harmed.
+	if (blockability == B_PASSTHROUGH && other->contents & CONTENTS_LIGHTSABER)
+	{
+		other = other->owner;
+	}
 	// impact damage
-	if ( other->takedamage )
+	if ( other->takedamage)
 	{
 		// FIXME: wrong damage direction?
 		if ( ent->damage )
@@ -857,8 +864,8 @@ extern bool WP_DoingMoronicForcedAnimationForForcePowers(gentity_t *ent);
 			other->owner->client->sess.missionStats.saberBlocksCnt++;
 		}
 		
-		blockability_t blockability = getAttackBlockabilityByIndexes(ent->wpIndex, ent->attack_index);
-		if ( (blockability == B_DEFLECTABLE || blockability == B_BLOCKABLE)
+		blockability_t blockability = getAttackBlockabilityByIndexes(ent->s.weapon, ent->attack_index);
+		if ( blockability == B_DEFLECTABLE
 			&& (!ent->splashDamage || !ent->splashRadius) //this would be cool, though, to "bat" the thermal det away...
 			)
 		{
@@ -889,19 +896,17 @@ extern bool WP_DoingMoronicForcedAnimationForForcePowers(gentity_t *ent);
 				}
 				if ( Q_irand( 0, blockChance ) )
 				{
-					if (blockability == B_DEFLECTABLE)
+					VectorSubtract(ent->currentOrigin, other->currentOrigin, diff);
+					VectorNormalize(diff);
+					G_ReflectMissile(other, ent, diff);
+					if (other->owner && other->owner->client)
 					{
-						VectorSubtract(ent->currentOrigin, other->currentOrigin, diff);
-						VectorNormalize(diff);
-						G_ReflectMissile(other, ent, diff);
-						if (other->owner && other->owner->client)
-						{
-							other->owner->client->ps.saberEventFlags |= SEF_DEFLECTED;
-						}
-						//do the effect
-						VectorCopy(ent->s.pos.trDelta, diff);
-						VectorNormalize(diff);
+						other->owner->client->ps.saberEventFlags |= SEF_DEFLECTED;
 					}
+					//do the effect
+					VectorCopy(ent->s.pos.trDelta, diff);
+					VectorNormalize(diff);
+
 					G_MissileReflectEffect( ent, trace->endpos, trace->plane.normal );
 					return;
 				}

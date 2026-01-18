@@ -101,12 +101,12 @@ int WP_GetVelocity(gentity_t* ent,weaponAttackData_t * attackData) {
 	if (diff < 0)
 	{
 		//Very slow
-		return 1;
+		return 100;
 	}
 	if (diff > 2)
 	{
 		//Very Fast
-		return 100000;
+		return 1000000;
 	}
 	if (attackData->npcVelocity[diff] > 0) {
 		return attackData->npcVelocity[diff];
