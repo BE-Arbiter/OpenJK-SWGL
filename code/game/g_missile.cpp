@@ -42,6 +42,33 @@ extern qboolean PM_SaberInAttack( int move );
 extern qboolean PM_SaberInTransitionAny( int move );
 extern qboolean PM_SaberInSpecialAttack( int anim );
 
+blockability_t getAttackBlockability(weaponAttackData_t* attackData) {
+	int diff = g_spskill->integer;
+	if (diff < 0)
+	{
+		//You want easy?
+		return B_DEFLECTABLE;
+	}
+	if (diff > 2)
+	{
+		//Who bring a sword to a gunfight anyway?
+		return B_PASSTHROUGH;
+	}
+	return attackData->blockability[diff];
+}
+
+blockability_t getAttackBlockabilityByIndexes(int weaponIndex, int attackIndex)
+{
+	if (weaponIndex < 0 || weaponIndex > weaponCount
+		|| attackIndex < 0 || attackIndex >= 4)
+	{
+		return B_UNSET;
+	}
+
+	weaponData_t* weapon = &weaponData[weaponIndex];
+	return getAttackBlockability(&weapon->attackData[attackIndex]);
+}
+
 //-------------------------------------------------------------------------
 void G_MissileBounceEffect( gentity_t *ent, vec3_t org, vec3_t dir, qboolean hitWorld )
 {
@@ -761,16 +788,17 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 
 	// I would glom onto the EF_BOUNCE code section above, but don't feel like risking breaking something else
 	if ( (!other->takedamage && ( ent->s.eFlags&(EF_BOUNCE_SHRAPNEL) ) )
-		|| ((trace->surfaceFlags&SURF_FORCEFIELD)&&!ent->splashDamage&&!ent->splashRadius) )
+		|| ((trace->surfaceFlags&SURF_FORCEFIELD) && !ent->splashDamage&&!ent->splashRadius) )
 	{
-		//DWS-TODO : Need a parameter to specify at what difficulty level the weapon is saber reflected
+		//DWS-TODO ? Might be usefull to add yet another parameter for Shield bounce.
 		if ( !(other->contents&CONTENTS_LIGHTSABER)
 			|| g_spskill->integer <= 0//on easy, it reflects all shots
 			|| (g_spskill->integer == 1 && ent->s.weapon != WP_FLECHETTE && ent->s.weapon != WP_DEMP2 && ent->s.weapon != WP_CIS_SNIPER )//on medium it won't reflect flechette, E-5 sniper or demp shots
 			|| (g_spskill->integer >= 2 && ent->s.weapon != WP_FLECHETTE && ent->s.weapon != WP_DEMP2 && ent->s.weapon != WP_CIS_SNIPER && ent->s.weapon != WP_BOWCASTER && ent->s.weapon != WP_REPEATER )//on hard it won't reflect flechette, demp, repeater or bowcaster shots
+
 			)
 		{
-			G_BounceMissile( ent, trace );
+			 G_BounceMissile( ent, trace );
 
 			if ( --ent->bounceCount < 0 )
 			{
@@ -828,13 +856,11 @@ extern bool WP_DoingMoronicForcedAnimationForForcePowers(gentity_t *ent);
 		{
 			other->owner->client->sess.missionStats.saberBlocksCnt++;
 		}
-		//DWS-TODO : Need a parameter to specify at what difficulty level the weapon is saber reflected
-		if ( ( g_spskill->integer <= 0//on easy, it reflects all shots
-				|| (g_spskill->integer == 1 && ent->s.weapon != WP_FLECHETTE && ent->s.weapon != WP_DEMP2 )//on medium it won't reflect flechette or demp shots
-				|| (g_spskill->integer >= 2 && ent->s.weapon != WP_FLECHETTE && ent->s.weapon != WP_DEMP2 && ent->s.weapon != WP_BOWCASTER && ent->s.weapon != WP_REPEATER )//on hard it won't reflect flechette, demp, repeater or bowcaster shots
-			 )
+		
+		blockability_t blockability = getAttackBlockabilityByIndexes(ent->wpIndex, ent->attack_index);
+		if ( (blockability == B_DEFLECTABLE || blockability == B_BLOCKABLE)
 			&& (!ent->splashDamage || !ent->splashRadius) //this would be cool, though, to "bat" the thermal det away...
-			&& ent->s.weapon != WP_NOGHRI_STICK) //gas bomb, don't reflect
+			)
 		{
 			//FIXME: take other's owner's FP_SABER_DEFENSE into account here somehow?
 			if (  !other->owner || !other->owner->client || other->owner->client->ps.saberInFlight
@@ -863,16 +889,19 @@ extern bool WP_DoingMoronicForcedAnimationForForcePowers(gentity_t *ent);
 				}
 				if ( Q_irand( 0, blockChance ) )
 				{
-					VectorSubtract(ent->currentOrigin, other->currentOrigin, diff);
-					VectorNormalize(diff);
-					G_ReflectMissile( other, ent, diff);
-					if ( other->owner && other->owner->client )
+					if (blockability == B_DEFLECTABLE)
 					{
-						other->owner->client->ps.saberEventFlags |= SEF_DEFLECTED;
+						VectorSubtract(ent->currentOrigin, other->currentOrigin, diff);
+						VectorNormalize(diff);
+						G_ReflectMissile(other, ent, diff);
+						if (other->owner && other->owner->client)
+						{
+							other->owner->client->ps.saberEventFlags |= SEF_DEFLECTED;
+						}
+						//do the effect
+						VectorCopy(ent->s.pos.trDelta, diff);
+						VectorNormalize(diff);
 					}
-					//do the effect
-					VectorCopy( ent->s.pos.trDelta, diff );
-					VectorNormalize( diff );
 					G_MissileReflectEffect( ent, trace->endpos, trace->plane.normal );
 					return;
 				}

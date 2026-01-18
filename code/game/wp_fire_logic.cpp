@@ -103,7 +103,7 @@ int WP_GetVelocity(gentity_t* ent,weaponAttackData_t * attackData) {
 		//Very slow
 		return 1;
 	}
-	if (diff > 10)
+	if (diff > 2)
 	{
 		//Very Fast
 		return 100000;
@@ -139,7 +139,7 @@ int WP_GetWeaponDamage(gentity_t* ent, weaponAttackData_t* attackData, qboolean 
 		//Huge damage
 		return 100000;
 	}
-	if (attackData->npcDamage[diff]) 
+	if (attackData->npcDamage[diff] >= 0) 
 	{
 		return attackData->npcDamage[diff];
 	}
