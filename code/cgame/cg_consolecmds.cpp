@@ -411,6 +411,7 @@ static const char *gcmds[] = {
 	"use_seeker",
 	"use_sentry",
 	"viewobjective"
+	"weaponStat",
 };
 static const size_t numgcmds = ARRAY_LEN( gcmds );
 

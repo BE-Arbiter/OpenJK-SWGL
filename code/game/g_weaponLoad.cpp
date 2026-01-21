@@ -533,6 +533,42 @@ void ATK_FiringLogic(const char** holdBuf)
 	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].firingLogic = firingLogic;
 }
 
+//--------------------------------------------
+void ATK_Blockability(const char** holdBuf) {
+	int i;
+	const char* tokenStr;
+
+	for (i = 0;i < 3;++i)
+	{
+		blockability_t blockability = B_UNSET;
+
+		if (COM_ParseString(holdBuf, &tokenStr))
+		{
+			SkipRestOfLine(holdBuf);
+			return;
+		}
+
+		if (!Q_stricmp(tokenStr, "B_BLOCKABLE"))
+		{
+			blockability = B_BLOCKABLE;
+		}
+		else if (!Q_stricmp(tokenStr, "B_PASSTHROUGH"))
+		{
+			blockability = B_PASSTHROUGH;
+		}
+		else if (!Q_stricmp(tokenStr, "B_DEFLECTABLE"))
+		{
+			blockability = B_DEFLECTABLE;
+		}
+		else
+		{
+			gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for blockability[%d] in external WEAPONS.DAT\n", tokenStr,i);
+		}
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].blockability[i] = blockability;
+	}
+}
+
+//--------------------------------------------
 void ATK_FiringSound(const char **holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].firingSnd, 64, "firingSnd");
@@ -1216,6 +1252,9 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].attackData[k].npcVelocity[0] = -1;
 			weaponData[i].attackData[k].npcVelocity[1] = -1;
 			weaponData[i].attackData[k].npcVelocity[2] = -1;
+			weaponData[i].attackData[k].blockability[0] = B_UNSET;
+			weaponData[i].attackData[k].blockability[1] = B_UNSET;
+			weaponData[i].attackData[k].blockability[2] = B_UNSET;
 		}
 	}
 
@@ -1312,6 +1351,8 @@ void WP_LoadWeaponParms (void)
 					weaponData[i].attackData[k].chargeUnitTime = weaponData[i].attackData[k].chargeUnitTime == 0 ? weaponData[j].attackData[k].chargeUnitTime : weaponData[i].attackData[k].chargeUnitTime;
 					weaponData[i].attackData[k].maxChargeUnits = weaponData[i].attackData[k].maxChargeUnits == 0 ? weaponData[j].attackData[k].maxChargeUnits : weaponData[i].attackData[k].maxChargeUnits;
 
+
+					//Copy
 					if (weaponData[i].attackData[k].chargeMuzzleShader[0] == 0) {
 						strcpy(weaponData[i].attackData[k].chargeMuzzleShader, weaponData[j].attackData[k].chargeMuzzleShader);
 					}
@@ -1402,6 +1443,11 @@ void WP_LoadWeaponParms (void)
 						weaponData[i].attackData[k].npcSpread[1] = weaponData[j].attackData[k].npcSpread[1];
 						weaponData[i].attackData[k].npcSpread[2] = weaponData[j].attackData[k].npcSpread[2];
 					}
+					if (weaponData[i].attackData[k].blockability[0] == B_UNSET && weaponData[i].attackData[k].blockability[1] == B_UNSET && weaponData[i].attackData[k].blockability[2] == B_UNSET) {
+						weaponData[i].attackData[k].blockability[0] = weaponData[j].attackData[k].blockability[0];
+						weaponData[i].attackData[k].blockability[1] = weaponData[j].attackData[k].blockability[1];
+						weaponData[i].attackData[k].blockability[2] = weaponData[j].attackData[k].blockability[2];
+					}
 				}
 
 				weaponData[i].scopeType = weaponData[i].scopeType == 0 ? weaponData[j].scopeType : weaponData[i].scopeType;
@@ -1439,6 +1485,11 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount != -1 ? weaponData[i].attackData[k].bounceCount : 0;
 			weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall != qunset ? weaponData[i].attackData[k].bounceWall : qfalse;
 			weaponData[i].attackData[k].maxChargeUnits = weaponData[i].attackData[k].maxChargeUnits == 0 ? 1 : weaponData[i].attackData[k].maxChargeUnits;
+
+			//For blockability, if easy is unset then set it to DEFLECTABLE; For higher difficulty, copy the easier difficulty if unset.
+			weaponData[i].attackData[k].blockability[0] = weaponData[i].attackData[k].blockability[0] == B_UNSET ? B_DEFLECTABLE : weaponData[i].attackData[k].blockability[0];
+			weaponData[i].attackData[k].blockability[1] = weaponData[i].attackData[k].blockability[1] == B_UNSET ? weaponData[i].attackData[k].blockability[0] : weaponData[i].attackData[k].blockability[1];
+			weaponData[i].attackData[k].blockability[2] = weaponData[i].attackData[k].blockability[2] == B_UNSET ? weaponData[i].attackData[k].blockability[1] : weaponData[i].attackData[k].blockability[2];
 
 			if (weaponData[i].attackData[k].npcDamage[0] == -1 && weaponData[i].attackData[k].npcDamage[1] == -1 && weaponData[i].attackData[k].npcDamage[2] == -1) {
 				weaponData[i].attackData[k].npcDamage[0] = weaponData[i].attackData[k].damage * 0.3f;

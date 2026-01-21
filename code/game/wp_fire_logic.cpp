@@ -40,7 +40,7 @@ qboolean is_player_scoped(gentity_t* ent)
 	Set the method of death based on the weapon
 */
 
-//DWS-TDDO : Need to dehardcode this, allowing to override... Warning that sometimes there are several MOD for a same weapon...
+//DWS-TODO : Need to dehardcode this, allowing to override... Warning that sometimes there are several MOD for a same weapon...
 void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, qboolean altFire) 
 {
 	int baseWeapon = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
@@ -97,11 +97,21 @@ int WP_GetVelocity(gentity_t* ent,weaponAttackData_t * attackData) {
 		|| ent->client->NPC_class == CLASS_JANGO) {
 		return attackData->velocity;;
 	}
-	int diff = g_spskill->integer + 1;
+	int diff = g_spskill->integer;
+	if (diff < 0)
+	{
+		//Very slow
+		return 100;
+	}
+	if (diff > 2)
+	{
+		//Very Fast
+		return 1000000;
+	}
 	if (attackData->npcVelocity[diff] > 0) {
 		return attackData->npcVelocity[diff];
 	}
-	return attackData->velocity;;
+	return attackData->velocity;
 }
 
 /*
@@ -118,8 +128,18 @@ int WP_GetWeaponDamage(gentity_t* ent, weaponAttackData_t* attackData, qboolean 
 	{
 		return attackData->damage;
 	}
-	int diff = g_spskill->integer + 1;
-	if (attackData->npcDamage[diff]) 
+	int diff = g_spskill->integer;
+	if (diff < 0)
+	{
+		//Almost no damage
+		return 1; 
+	}
+	if (diff > 2)
+	{
+		//Huge damage
+		return 100000;
+	}
+	if (attackData->npcDamage[diff] >= 0) 
 	{
 		return attackData->npcDamage[diff];
 	}
@@ -128,7 +148,7 @@ int WP_GetWeaponDamage(gentity_t* ent, weaponAttackData_t* attackData, qboolean 
 }
 
 /*
-	Return the spread for NPC if it is found, 0 otherwise
+	Return the spread for NPC if it is found, pc spread otherwise
 */
 float WP_GetSpread(gentity_t* ent, weaponAttackData_t *attackData)
 {
@@ -140,12 +160,23 @@ float WP_GetSpread(gentity_t* ent, weaponAttackData_t *attackData)
 	{
 		return attackData->spread;
 	}
-	int mod = g_spskill->integer + 1;
-	if (attackData->npcSpread[mod] > 0) 
-	{
-		return attackData->npcSpread[mod];
+	int diff = g_spskill->integer;
+	float spread; 
+	if (diff < 0) {
+		//Very easy to avoid since spread is huge
+		spread = attackData->npcSpread[0] * (10*(-diff));
 	}
-	return attackData->spread;
+	else if (diff > 2)
+	{
+		//Ultra Precision
+		return 0;
+	}
+	spread = attackData->npcSpread[diff];
+	if (spread <= 0)
+	{
+		return attackData->spread;
+	}
+	return spread;
 }
 
 void WP_ApplyLockDownOnMissile(gentity_t* ent, gentity_t* missile, qboolean alwaysLock = qfalse) 
