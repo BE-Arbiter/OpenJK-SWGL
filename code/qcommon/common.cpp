@@ -103,6 +103,7 @@ void Com_WriteConfig_f( void );
 static char	*rd_buffer;
 static int	rd_buffersize;
 static void	(*rd_flush)( char *buffer );
+static int CheckForJKOAssets(void);
 
 void Com_BeginRedirect (char *buffer, int buffersize, void (*flush)( char *) )
 {
@@ -1180,7 +1181,9 @@ void Com_Init( char *commandLine ) {
 		com_logfile = Cvar_Get ("logfile", "0", CVAR_TEMP );
 		com_speedslog = Cvar_Get ("speedslog", "0", CVAR_TEMP );
 
-		g_validJKO = Cvar_Get("g_validJKO", "0", CVAR_ARCHIVE_ND|CVAR_NORESTART);
+		g_validJKO = Cvar_Get("g_validJKO", "0", CVAR_ARCHIVE_ND|CVAR_NORESTART);		
+		Cvar_Set("g_validJKO", (CheckForJKOAssets() ? "1" : "0"));
+			
 
 		com_timescale = Cvar_Get ("timescale", "1", CVAR_CHEAT );
 		com_fixedtime = Cvar_Get ("fixedtime", "0", CVAR_CHEAT);
@@ -1990,4 +1993,51 @@ uint32_t ConvertUTF8ToUTF32( char *utf8CurrentChar, char **utf8NextChar )
 	*utf8NextChar = c;
 
 	return utf32;
+}
+
+// Added function to check for required JKO asset files
+static int CheckForJKOAssets(void) 
+{
+	// Names to check (three slots, each can be one of two names)
+	const char *alternatives[3][2] = 
+	{
+		{ "0_JKO_Assets0.pk3", "0-assets0.pk3" },
+		{ "0_JKO_Assets1.pk3", "0-assets1.pk3" },
+		{ "0_JKO_Assets2.pk3", "0-assets2.pk3" }
+	};
+
+	const char *required_extra = "zzzzzzz_SWGL_JKJO.pk3";
+
+	fileHandle_t fh;
+	long len;
+
+	// Verify one of the two names exists for each asset slot
+	for (int i = 0; i < 3; ++i) 
+	{
+		bool found = false;
+		for (int j = 0; j < 2; ++j) 
+		{
+			len = FS_FOpenFileRead(alternatives[i][j], &fh, qtrue);
+			if (len > 0) 
+			{
+				FS_FCloseFile(fh);
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+		{
+			return 0; // missing one of the required pk3s
+		}
+	}
+
+	// Verify the extra required pk3 exists
+	len = FS_FOpenFileRead(required_extra, &fh, qtrue);
+	if (len > 0) 
+	{
+		FS_FCloseFile(fh);
+		return 1; // all required pk3 files present
+	}
+
+	return 0;
 }

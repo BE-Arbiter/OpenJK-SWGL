@@ -209,8 +209,6 @@ cvar_t	*g_saberPickuppableDroppedSabers;
 cvar_t	*g_dismemberProbabilities;
 cvar_t	*g_allowSaberLocking;
 
-cvar_t	*g_validJKO;
-
 cvar_t	*g_forceLightningColor;
 
 cvar_t	*g_charKey;
@@ -760,8 +758,6 @@ void G_InitCvars( void ) {
 	g_allowSaberLocking = gi.cvar("g_allowSaberLocking", "1", CVAR_ARCHIVE);// Lets you enable or disable saber locking while ingame.
 
 	g_adoptcharstats = gi.cvar("g_adoptcharstats", "1", CVAR_ARCHIVE);// Lets the player adopt the health and armor of characters they select while ingame (or disable it). Disabled by default in missions.
-
-	g_validJKO = gi.cvar("g_validJKO", "0", CVAR_INIT);
 
 	g_LegacyForceTiming = gi.cvar("g_LegacyForceTiming", "1", CVAR_ARCHIVE);
 
