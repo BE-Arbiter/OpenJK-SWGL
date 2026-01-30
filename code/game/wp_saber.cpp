@@ -12577,14 +12577,14 @@ static void WP_FireStrike(gentity_t* ent, int forceLevel)
 				ent->client->ps.persistant[PERS_ACCURACY_HITS]++;
 			}
 
-			int hitLoc = G_GetHitLocFromTrace(&tr, MOD_DISRUPTOR);
+			int hitLoc = G_GetHitLocFromTrace(&tr, MOD_STRIKE);
 			if (traceEnt && traceEnt->client && traceEnt->client->NPC_class == CLASS_GALAKMECH)
 			{//hehe
-				G_Damage(traceEnt, ent, ent, forward, tr.endpos, 3, DAMAGE_DEATH_KNOCKBACK, MOD_DISRUPTOR, hitLoc);
+				G_Damage(traceEnt, ent, ent, forward, tr.endpos, 3, DAMAGE_DEATH_KNOCKBACK, MOD_STRIKE, hitLoc);
 			}
 			else
 			{
-				G_Damage(traceEnt, ent, ent, forward, tr.endpos, damage, DAMAGE_DEATH_KNOCKBACK, MOD_DISRUPTOR, hitLoc);
+				G_Damage(traceEnt, ent, ent, forward, tr.endpos, damage, DAMAGE_DEATH_KNOCKBACK, MOD_STRIKE, hitLoc);
 			}
 		}
 		else
@@ -13423,8 +13423,18 @@ qboolean FP_ForceDrainableEnt( gentity_t *victim )
 	{
 		return qfalse;
 	}
-	if (victim->attrFlags & ATTR_DROID)
+	if (victim == player && player->flags & FL_NOFORCE)
+	{
 		return qfalse;
+	}
+	if (victim->NPC && victim->NPC->scriptFlags & SCF_NO_FORCE)
+	{
+		return qfalse;
+	}
+	if (victim->attrFlags & ATTR_DROID)
+	{
+		return qfalse;
+	}
 	switch ( victim->client->NPC_class )
 	{
 	case CLASS_SAND_CREATURE://??

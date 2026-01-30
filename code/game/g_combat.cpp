@@ -5715,6 +5715,13 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const
 	if (mod == MOD_WATER && (targ->attrFlags & ATTR_AQUATIC || targ->attrFlags & ATTR_DROID))
 		return;
 
+	if ( (mod == MOD_DESTRUCTION || mod == MOD_BLAST || mod == MOD_STRIKE) && 
+		((targ->NPC && targ->NPC->scriptFlags & SCF_NO_FORCE) || 
+			(targ == player && targ->flags & FL_NOFORCE)))
+	{
+		return;
+	}
+
 	// if we are the player and we are locked to an emplaced gun, we have to reroute damage to the gun....sigh.
 	if ( targ->s.eFlags & EF_LOCKED_TO_WEAPON
 		&& targ->s.number == 0
