@@ -2432,7 +2432,8 @@ static void Q3_SetHealth( int entID, int data )
 	{//clamp health to max
 		if ( ent->client->ps.stats[STAT_HEALTH] > ent->client->ps.stats[STAT_MAX_HEALTH] )
 		{
-			ent->health = ent->client->ps.stats[STAT_HEALTH] = ent->client->ps.stats[STAT_MAX_HEALTH];
+			// NOTE: If this causes issues, then switch these two back.
+			ent->health = ent->client->ps.stats[STAT_MAX_HEALTH] = ent->client->ps.stats[STAT_HEALTH];
 		}
 		if ( data == 0 )
 		{//artificially "killing" the player", don't let him respawn right away
@@ -9705,6 +9706,7 @@ extern void LockDoors(gentity_t *const ent);
 
 	case SET_SABER_STYLE:
 		ent->client->ps.saberAnimLevel = GetSaberStyle((char*)data);
+		ent->client->ps.saberStylesKnown |= (1 << GetSaberStyle((char*)data));
 		break;
 
 	case SET_CLEAN_DAMAGING_ENTS:
@@ -10084,9 +10086,9 @@ extern cvar_t	*g_char_skin_legs;
 			if (attr != -1)
 			{
 				if (!(ent->attrFlags & attr))
-					ent->attrFlags |= attr;
+					ent->attrFlags |= (1 << attr);
 				else
-					ent->attrFlags &= ~attr;
+					ent->attrFlags &= ~(1 << attr);
 			}
 		}
 		break;
