@@ -1724,47 +1724,52 @@ int CG_WeaponCheck( int weaponIndex )
 
 int cgi_UI_GetItemText(char *menuFile,char *itemName, char *text);
 
+/* Default Value for descriptions of the weapons */
+/* Can be overriden by a weapon_class.str file */
+/* Use weapon_number as index, should only be used for hardcoded weapons (those with a WP_XXXX enum)*/
 const char *weaponDesc[MAX_WEAPONS] =
 {
-"SABER_DESC",
-"NEW_BLASTER_PISTOL_DESC",
-"BLASTER_RIFLE_DESC",
-"DISRUPTOR_RIFLE_DESC",
-"BOWCASTER_DESC",
-"HEAVYREPEATER_DESC",
-"DEMP2_DESC",
-"FLECHETTE_DESC",
-"MERR_SONN_DESC",
-"THERMAL_DETONATOR_DESC",
-"TRIP_MINE_DESC",
-"DET_PACK_DESC",
-"CONCUSSION_DESC",
-"MELEE_DESC",
-"ATST_MAIN_DESC",
-"ATST_SIDE_DESC",
-"STUN_BATON_DESC",
-"BLASTER_PISTOL_DESC",
-"EMPLACED_GUN_DESC",
-"BOT_LASER_DESC",
-"TURRET_DESC",
-"TIE_FIGHTER_DESC",
-"RAPID_CONCUSSION_DESC",
-"JAWA_DESC",
-"TUSKEN_RIFLE_DESC",
-"TUSKEN_STAFF_DESC",
-"SCEPTER_DESC",
-"NOGHRI_STICK_DESC",
-"BATTLEDROID_DESC",
-"THEFIRSTORDER_DESC",
-"CLONECARBINE_DESC",
-"REBELBLASTER_DESC",
-"CLONERIFLE_DESC",
-"CLONECOMMANDO_DESC",
-"REBELRIFLE_DESC"
-"BOBA_DESC",
-"CIS_SNIPER_DESC",
-"SBD_DESC",
-"DROIDEKA_DESC"
+"SABER_DESC",				//WP_SABER
+"NEW_BLASTER_PISTOL_DESC",	//WP_BLASTER_PISTOL
+"BLASTER_RIFLE_DESC",		//WP_BLASTER_RIFLE
+"DISRUPTOR_RIFLE_DESC",		//WP DISRUPTOR
+"BOWCASTER_DESC",			//WP_BOWCASTER
+"HEAVYREPEATER_DESC",		//WP_REPEATER
+"DEMP2_DESC",				//WP_DEMP2
+"FLECHETTE_DESC",			//WP_FLECHETTE
+"MERR_SONN_DESC",			//WP_ROCKET_LAUNCHER
+"THERMAL_DETONATOR_DESC",	//WP_THERMAL
+"TRIP_MINE_DESC",			//WP_TRIP_MINE
+"DET_PACK_DESC",			//WP_DET_PACK
+"CONCUSSION_DESC",			//WP_CONCUSSION
+"MELEE_DESC",				//WP_MELEE
+"ATST_MAIN_DESC",			//WP_ATST_MAIN
+"ATST_SIDE_DESC",			//WP_ATST_SIDE
+"STUN_BATON_DESC",			//WP_STUN_BATON
+"BLASTER_PISTOL_DESC",		//WP_BRYAR_PISTOL
+"EMPLACED_GUN_DESC",		//WP_EMPLACED_GUN
+"BOT_LASER_DESC",			//WP_BOT_LASER (Probe Droid)
+"TURRET_DESC",				//WP_TURRET
+"TIE_FIGHTER_DESC",			//WP_TIE_FIGHTER
+"RAPID_CONCUSSION_DESC",	//WP_RAPID_FIRE_CONC
+"JAWA_DESC",				//WP_JAWA
+"TUSKEN_RIFLE_DESC",		//WP_TUSKEN_RIFLE
+"TUSKEN_STAFF_DESC",		//WP_TUSKEN_STAFF
+"SCEPTER_DESC",				//WP_SCEPTER
+"NOGHRI_STICK_DESC",		//WP_NOGHRI_STICK
+"BATTLEDROID_DESC",			//WP_BATTLEDROID
+"THEFIRSTORDER_DESC",		//WP_THEFIRSTORDER
+"CLONECARBINE_DESC",		//WP_CLONECARBINE
+"REBELBLASTER_DESC",		//WP_REBELBLASTER
+"CLONERIFLE_DESC",			//WP_CLONERIFLE
+"CLONECOMMANDO_DESC",		//WP_CLONECOMMANDO
+"REBELRIFLE_DESC",			//WP_REBELRIFLE
+"REY_DESC",					//WP_REY
+"JANGO_DESC",				//WP_JANGO
+"BOBA_DESC",				//WP_BOBA
+"CIS_SNIPER_DESC",			//WP_CIS_SNIPER
+"SBD_DESC",					//WP_SBD
+"DROIDEKA_DESC"				//WP_DROIDEKA
 };
 
 /*
@@ -1961,18 +1966,18 @@ void CG_DrawDataPadWeaponSelect( void )
 	}
 
 	// Print the weapon description
-	if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.DataPadWeaponSelect - 1]), text, sizeof(text)))
-	{
-		void;
-	}
-	else if (cgi_SP_GetStringTextString( va("SPMOD_INGAME_%s",weaponDesc[cg.DataPadWeaponSelect-1]), text, sizeof(text) ))
-	{
-		void;
-	}
 	//Dynamic Weapons
-	else if(!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.DataPadWeaponSelect].classname), text, sizeof(text)))
+	if (cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.DataPadWeaponSelect].classname), text, sizeof(text)))
 	{
-		Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
+		void;
+	}
+	else if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.DataPadWeaponSelect - 1]), text, sizeof(text)))
+	{
+		void;
+	}
+	else if (!cgi_SP_GetStringTextString( va("SPMOD_INGAME_%s",weaponDesc[cg.DataPadWeaponSelect-1]), text, sizeof(text) ))
+	{
+		Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found"); 
 	}
 
 	if (text[0])
@@ -2960,18 +2965,18 @@ void CG_LDO_DrawWeapons(void) {
 			char count[128];
 			if (cg.LoadoutBaseWeaponSelect == -1) Q_strncpyz(count, "50 Units", sizeof(count)); else Q_strncpyz(count,"1 unit",sizeof(count));
 			// Print the item Description
+			//Dynamic Weapons
+			if (cgi_SP_GetStringTextString(va("%s_NAME", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			{
+				void;
+			}
 			if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
 			{
 				void;
 			}
-			else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			else if (!cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
 			{
-				void;
-			}
-			//Dynamic Weapons
-			else if (!cgi_SP_GetStringTextString(va("%s_NAME", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
-			{
-				Com_sprintf(text, sizeof(text), "Unknown Item");
+				Com_sprintf(text, sizeof(text), "Unknown Item"); 
 			}
 			Com_sprintf(text, sizeof(text), va("%s\nPress this item to get %s of it.", text, count));
 		}
@@ -3021,16 +3026,16 @@ void CG_LDO_DrawWeapons(void) {
 
 		if (cg.LoadoutWeaponSelect > 0) {
 			// Print the weapon description
-			if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect-1]), text, sizeof(text)))
-			{
-				void;
-			}
-			else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect-1]), text, sizeof(text)))
-			{
-				void;
-			}
 			//Dynamic Weapons
-			else if (!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			if (cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			{
+				void;
+			}
+			else if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
+			{
+				void;
+			}
+			else if (!cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
 			{
 				Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
 			}
@@ -3089,16 +3094,15 @@ void CG_LDO_DrawWeapons(void) {
 
 		if (cg.LoadoutWeaponSelect > 0) {
 			// Print the weapon description
-			if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
+			if (cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
 			{
 				void;
 			}
-			else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
+			else if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
 			{
 				void;
 			}
-			//Dynamic Weapons
-			else if (!cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
+			else if (!cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
 			{
 				Com_sprintf(text, sizeof("No weapon description Found") + 1, "No weapon description Found");
 			}
