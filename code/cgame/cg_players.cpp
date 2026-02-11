@@ -5578,12 +5578,14 @@ static void CG_GetPlayerLightLevel( centity_t *cent )
 
 /*
 ===============
-CG_StopWeaponSounds
+CG_HandleWeaponSounds
 
-Stops any weapon sounds as needed
+Handle weapon sounds :
+ - Lightsaber hum
+ - weapon with a readySound
 ===============
 */
-static void CG_StopWeaponSounds( centity_t *cent )
+static void CG_HandleWeaponSounds( centity_t *cent )
 {
 	weaponInfo_t	*weapon = &cg_weapons[ cent->currentState.weapon ];
 
@@ -5610,16 +5612,6 @@ static void CG_StopWeaponSounds( centity_t *cent )
 			cgs.sound_precache[g_entities[cent->currentState.clientNum].client->ps.saber[0].soundLoop] );
 		return;
 	}
-
-	if ( cent->currentState.weapon == WP_STUN_BATON || cent->currentState.weapon == WP_CONCUSSION )
-	{	//idling sounds
-		cgi_S_AddLoopingSound( cent->currentState.number,
-			cent->lerpOrigin,
-			vec3_origin,
-			weapon->weaponAttacksInfo[cent->gent->alt_fire].firingSound );
-		return;
-	}
-
 
 
 	//Handle weapon Looping Sounds
@@ -8098,7 +8090,7 @@ Ghoul2 Insert Start
 		CG_SetGhoul2Info(&ent, cent);
 
 		// Weapon sounds may need to be stopped, so check now
-		CG_StopWeaponSounds( cent );
+		CG_HandleWeaponSounds( cent );
 
 		// add powerups floating behind the player
 		CG_PlayerPowerups( cent );
@@ -9325,7 +9317,7 @@ Ghoul2 Insert End
 	memset( &flashlight, 0, sizeof(flashlight) );
 
 	// Weapon sounds may need to be stopped, so check now
-	CG_StopWeaponSounds( cent );
+	CG_HandleWeaponSounds( cent );
 
 	//FIXME: pass in the axis/angles offset between the tag_torso and the tag_head?
 	// get the rotation information
