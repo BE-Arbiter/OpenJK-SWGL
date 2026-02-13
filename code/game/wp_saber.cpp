@@ -169,6 +169,8 @@ qboolean FP_ForceDrainGrippableEnt( gentity_t *victim );
 void Inquisitor_Spin(gentity_t* ent, qboolean increment = qtrue);
 void Inquisitor_Stop(gentity_t* ent, qboolean running = qfalse);
 
+qboolean validLockTarget(gentity_t* ent, gentity_t* hitOwner);
+
 qboolean IsPlayingOperationKnightfall(void);
 qboolean IsKnightfallBoss(gentity_t *ent);
 
@@ -5343,7 +5345,7 @@ void WP_SaberDamageTrace( gentity_t *ent, int saberNum, int bladeNum )
 				}
 				else if ( entAttacking
 					&& hitOwnerAttacking
-					&& (!Q_irand( 0, g_saberLockRandomNess->integer ) && (g_allowSaberLocking->integer) && (ent->NPC && ent->NPC->defaultBehavior != BS_CINEMATIC))
+					&& (!Q_irand( 0, g_saberLockRandomNess->integer ) && (g_allowSaberLocking->integer) && validLockTarget(ent, hitOwner))
 					&& ( g_debugSaberLock->integer || forceLock
 						|| entPowerLevel == hitOwnerPowerLevel
 						|| (entPowerLevel > FORCE_LEVEL_2 && hitOwnerPowerLevel > FORCE_LEVEL_2 )
@@ -5357,7 +5359,7 @@ void WP_SaberDamageTrace( gentity_t *ent, int saberNum, int bladeNum )
 				}
 				else if ( hitOwnerAttacking
 					&& entDefending
-					&& (!Q_irand( 0, g_saberLockRandomNess->integer*3 ) && (g_allowSaberLocking->integer) && (ent->NPC && ent->NPC->defaultBehavior != BS_CINEMATIC))
+					&& (!Q_irand( 0, g_saberLockRandomNess->integer*3 ) && (g_allowSaberLocking->integer) && validLockTarget(ent, hitOwner))
 					&& (g_debugSaberLock->integer || forceLock ||
 						((ent->client->ps.saberMove != LS_READY || (hitOwnerPowerLevel-ent->client->ps.forcePowerLevel[FP_SABER_DEFENSE]) < Q_irand( -6, 0 ) )
 							&& ((hitOwnerPowerLevel < FORCE_LEVEL_3 && ent->client->ps.forcePowerLevel[FP_SABER_DEFENSE] > FORCE_LEVEL_2 )||
@@ -5370,7 +5372,7 @@ void WP_SaberDamageTrace( gentity_t *ent, int saberNum, int bladeNum )
 				else if ( entAttacking && hitOwnerDefending )
 				{//I'm attacking hit, they're parrying
 					qboolean activeDefense = (qboolean)(hitOwner->s.number||g_saberAutoBlocking->integer||hitOwner->client->ps.saberBlockingTime > level.time);
-					if ( (!Q_irand( 0, g_saberLockRandomNess->integer*3 ) && (g_allowSaberLocking->integer) && (ent->NPC && ent->NPC->defaultBehavior != BS_CINEMATIC))
+					if ( (!Q_irand( 0, g_saberLockRandomNess->integer*3 ) && (g_allowSaberLocking->integer) && validLockTarget(ent, hitOwner))
 						&& activeDefense
 						&& (g_debugSaberLock->integer || forceLock ||
 							((hitOwner->client->ps.saberMove != LS_READY || (entPowerLevel-hitOwner->client->ps.forcePowerLevel[FP_SABER_DEFENSE]) < Q_irand( -6, 0 ) )
@@ -17105,4 +17107,14 @@ void Inquisitor_Stop(gentity_t* ent, qboolean running)
 		}
 
 	}
+}
+
+qboolean validLockTarget(gentity_t* ent, gentity_t* hitOwner)
+{
+	// Return true if and only if the following are true:
+	// 1. The entity is the player and the hit owner is an NPC in cinematic mode, OR
+	// 2. The entity is either the player OR an NPC not in cinematic mode, AND the hit owner is either the player OR an NPC not in cinematic mode.
+	// There may be a better way to write this, but I don't want to risk screwing it up by trying to be clever.
+
+	return (qboolean) ((ent == player && (hitOwner->NPC && hitOwner->NPC->behaviorState == BS_CINEMATIC)) || ((ent == player || (ent->NPC && ent->NPC->behaviorState != BS_CINEMATIC)) && (hitOwner == player || (hitOwner->NPC && hitOwner->NPC->behaviorState != BS_CINEMATIC))));
 }
