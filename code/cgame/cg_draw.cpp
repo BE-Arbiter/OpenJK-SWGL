@@ -2424,8 +2424,8 @@ static void CG_DrawZoomMask( void )
 				break;
 		}
 
-		CG_DrawPic( 0, 0, 640, 480, cgs.media.scopeTypeMask ); 
-		CG_DrawPic( 0, 0, 640, 480, cgs.media.scopeTypeInsert ); 
+		CG_DrawPic(SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH* cgs.widthRatioCoef, 480, cgs.media.scopeTypeMask);
+		CG_DrawPic(SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH * cgs.widthRatioCoef, 480, cgs.media.scopeTypeInsert );
 	}
 }
 

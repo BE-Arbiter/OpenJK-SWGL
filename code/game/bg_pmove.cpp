@@ -11372,7 +11372,7 @@ qboolean PM_SaberThrowable( void )
 
 qboolean PM_CheckAltKickAttack( void )
 {
-	if ( (pm->cmd.buttons&BUTTON_ALT_ATTACK)
+	if ( (pm->cmd.buttons&BUTTON_ALT_ATTACK && !(pm->cmd.buttons&BUTTON_ATTACK) )
 		&& (!(pm->ps->pm_flags&PMF_ALT_ATTACK_HELD) ||PM_SaberInReturn(pm->ps->saberMove))
 		&& (!PM_FlippingAnim(pm->ps->legsAnim)||pm->ps->legsAnimTimer<=250)
 		&& (!PM_SaberThrowable())
@@ -12701,17 +12701,25 @@ void PM_WeaponLightsaber(void)
 	if ( PM_CheckAltKickAttack() )
 	{//trying to do a kick
 		//FIXME: in-air kicks?
-		if (pm->ps->clientNum >= MAX_CLIENTS||PM_ControlledByPlayer())
-		{//NPCs spin the staff
+		//Player Do kick
+		if (pm->ps->clientNum == 0 && !PM_ControlledByPlayer())
+		{
+			PM_CheckKick();
+			return;
+		}
+		//NPCs spin the staff - Slight chance (10% that they do it with dual or single saber too)
+		if (pm->ps->saberAnimLevel == SS_STAFF || !(Q_irand(0,10)))
+		{
 			//NOTE: only NPCs can do it the easy way... they kick directly, not through ucmds...
 			PM_SetSaberMove( LS_SPINATTACK );
 			return;
 		}
-		else
+		//Slight chance that NPC do the kick (1 in 3)
+		if ( !(Q_irand(0, 3)) )
 		{
 			PM_CheckKick();
+			return;
 		}
-		return;
 	}
 	//this is never a valid regular saber attack button
 	//pm->cmd.buttons &= ~BUTTON_FORCE_FOCUS;
