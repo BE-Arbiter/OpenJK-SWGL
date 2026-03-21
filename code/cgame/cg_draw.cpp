@@ -2403,29 +2403,29 @@ static void CG_DrawZoomMask( void )
 		switch (weaponData[cent->currentState.weapon].scopeType)
 		{
 			case ST_A280:
-				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/a280mask");
-				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/emptyInsert");
+				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/base_mask");
+				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/a280_insert");
 				break;
 			case ST_DC17M:
-				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/dc-17mmask");
-				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/emptyInsert");
+				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/base_mask");
+				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/dc-17m_insert");
 				break;
 			case ST_EE3:
-				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/ee3mask");
-				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/emptyInsert");
+				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/base_mask");
+				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/ee3_insert");
 				break;
 			case ST_F11D:
-				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/f11dMask");
-				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/emptyInsert");
+				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/base_mask");
+				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/f11d_insert");
 				break;
 			case ST_E5:
-				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/cis_cropcircle2");
-				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/emptyInsert");
+				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/cis_mask");
+				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/cis_insert");
 				break;
 			case ST_CUSTOM:
 				if (weaponData[cent->currentState.weapon].scopeInsert == 0 || weaponData[cent->currentState.weapon].scopeInsert[0] == 0)
 				{
-					cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/emptyInsert");
+					cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/empty_insert");
 				}
 				else 
 				{
@@ -2433,7 +2433,7 @@ static void CG_DrawZoomMask( void )
 				}
 				if (weaponData[cent->currentState.weapon].scopeMask == 0 || weaponData[cent->currentState.weapon].scopeMask[0] == 0)
 				{
-					cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/gfx/cropcircle2");
+					cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/gfx/empty_insert");
 				}
 				else 
 				{
@@ -2443,14 +2443,16 @@ static void CG_DrawZoomMask( void )
 				break;
 		}
 
-		if (weaponData[cent->currentState.weapon].scopefullMask == qtrue)
+		//If the weapon has a black Overlay, we need to fill the gap on the side.
+		if (weaponData[cent->currentState.weapon].scopeType == ST_E5 || weaponData[cent->currentState.weapon].scopefullMask == qtrue)
 		{
 			CG_FillRect(0, 0, SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, SCREEN_HEIGHT, colorTable[CT_BLACK]);
 			CG_FillRect(SCREEN_WIDTH / 2 + (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, SCREEN_HEIGHT, colorTable[CT_BLACK]);
 		}
 
+		//Draw the insert then the mask, so that any overlay will be masked by the mask.
+		CG_DrawPic(SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH* cgs.widthRatioCoef, 480, cgs.media.scopeTypeInsert);
 		CG_DrawPic(SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH* cgs.widthRatioCoef, 480, cgs.media.scopeTypeMask);
-		CG_DrawPic(SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH * cgs.widthRatioCoef, 480, cgs.media.scopeTypeInsert );
 	}
 }
 
@@ -4120,7 +4122,11 @@ static void CG_Draw2D( void )
 
 		CG_DrawWeaponSelect();
 
-		if ( cg.zoomMode == 0 || cg.zoomMode >= ST_A280 )
+		if ( cg.zoomMode == 0 || (
+			cg.zoomMode >= ST_A280 
+			&& cg.zoomMode != ST_E5 
+			&& !weaponData[cent->currentState.weapon].scopefullMask)
+			)
 		{
 			CG_DrawStats();
 		}
