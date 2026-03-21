@@ -9,6 +9,7 @@ Star Wars: Galactic Legacy is a modification for Jedi Academy built on the OpenJ
 * Linken
 * The New Order
 * Awec
+* Arbiter
 
 # OpenJK
 
