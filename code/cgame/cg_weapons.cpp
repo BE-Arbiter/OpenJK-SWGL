@@ -1969,11 +1969,11 @@ void CG_DrawDataPadWeaponSelect( void )
 	//Dynamic Weapons
 	if (cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.DataPadWeaponSelect].classname), text, sizeof(text)))
 	{
-		void;
+		; //Nothing to do
 	}
 	else if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.DataPadWeaponSelect - 1]), text, sizeof(text)))
 	{
-		void;
+		; //Nothing to do
 	}
 	else if (!cgi_SP_GetStringTextString( va("SPMOD_INGAME_%s",weaponDesc[cg.DataPadWeaponSelect-1]), text, sizeof(text) ))
 	{
@@ -2871,11 +2871,11 @@ void CG_NPC_UpdateLabel(void) {
 	//Get Weapon Name */
 	if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
 	{
-		void;
+		; //Nothing to do
 	}
 	else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
 	{
-		void;
+		; //Nothing to do
 	}
 	//Dynamic Weapons
 	else if (!cgi_SP_GetStringTextString(va("%s_NAME", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
@@ -2968,11 +2968,11 @@ void CG_LDO_DrawWeapons(void) {
 			//Dynamic Weapons
 			if (cgi_SP_GetStringTextString(va("%s_NAME", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
 			{
-				void;
+				; //Nothing to do
 			}
 			if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
 			{
-				void;
+				; //Nothing to do
 			}
 			else if (!cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", bg_itemlist[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
 			{
@@ -3029,11 +3029,11 @@ void CG_LDO_DrawWeapons(void) {
 			//Dynamic Weapons
 			if (cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
 			{
-				void;
+				; //Nothing to do
 			}
 			else if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
 			{
-				void;
+				; //Nothing to do
 			}
 			else if (!cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
 			{
@@ -3096,11 +3096,11 @@ void CG_LDO_DrawWeapons(void) {
 			// Print the weapon description
 			if (cgi_SP_GetStringTextString(va("%s_DESC", weaponData[cg.LoadoutWeaponSelect].classname), text, sizeof(text)))
 			{
-				void;
+				; //Nothing to do
 			}
 			else if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
 			{
-				void;
+				; //Nothing to do
 			}
 			else if (!cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponDesc[cg.LoadoutWeaponSelect - 1]), text, sizeof(text)))
 			{

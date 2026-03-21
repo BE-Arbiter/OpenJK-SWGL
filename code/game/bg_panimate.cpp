@@ -6014,7 +6014,7 @@ void PM_TorsoAnimation(void)
 					}
 				}
 				else if (weaponData[weapon].weaponCategory == WC_NONE) {
-					void; //Do nothing
+					; //Nothing to do
 				}
 				else
 				{//single pistols
@@ -6158,7 +6158,7 @@ void PM_TorsoAnimation(void)
 				}
 			}
 			else if (weaponData[weapon].weaponCategory == WC_NONE) {
-				void; //Do nothing
+				; //Nothing to do
 			}
 			else
 			{
@@ -6365,7 +6365,7 @@ void PM_TorsoAnimation(void)
 			}
 		}
 		else if (weaponData[weapon].weaponCategory == WC_NONE) {
-			void; //Do nothing
+			; //Nothing to do
 		}
 		//WC_LIGHT,WC_HEAVY,Unknown Cases...
 		else {

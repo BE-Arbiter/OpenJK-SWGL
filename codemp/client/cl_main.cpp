@@ -930,7 +930,7 @@ void CL_RequestMotd( void ) {
 	Info_SetValueForKey( info, "challenge", cls.updateChallenge );
 	Info_SetValueForKey( info, "renderer", cls.glconfig.renderer_string );
 	Info_SetValueForKey( info, "rvendor", cls.glconfig.vendor_string );
-	Info_SetValueForKey( info, "version", JK_VERSION_OLD " " PLATFORM_STRING " " SOURCE_DATE );
+	Info_SetValueForKey( info, "version", JK_VERSION " " PLATFORM_STRING " " SOURCE_DATE );
 
 	//If raven starts filtering for this, add this code back in
 #if 0
