@@ -817,7 +817,7 @@ void R_FBOList_f(void)
 
 void FBO_FastBlitFromTexture(struct image_s *src, FBO_t *dst, vec4i_t dstBox, vec4_t inColor, int blend)
 {
-	if (!src)
+	if (!src || !dst)
 		return;
 
 	FBO_Bind(dst);
