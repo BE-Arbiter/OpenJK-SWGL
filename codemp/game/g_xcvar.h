@@ -170,8 +170,8 @@ XCVAR_DEF( g_voteDelay,					"3000",			NULL,				CVAR_NONE,										qfalse )
 XCVAR_DEF( g_warmup,					"20",			NULL,				CVAR_ARCHIVE,									qtrue )
 XCVAR_DEF( g_weaponDisable,				"0",			NULL,				CVAR_SERVERINFO|CVAR_ARCHIVE|CVAR_LATCH,		qtrue )
 XCVAR_DEF( g_weaponRespawn,				"5",			NULL,				CVAR_NONE,										qtrue )
-XCVAR_DEF( gamedate,					SOURCE_DATE,		NULL,				CVAR_ROM,										qfalse )
-XCVAR_DEF( gamename,					GAMEVERSION,	NULL,				CVAR_SERVERINFO|CVAR_ROM,						qfalse )
+XCVAR_DEF( gamedate,					SOURCE_DATE,	NULL,				CVAR_ROM,										qfalse )
+XCVAR_DEF( gamename,					JK_VERSION,		NULL,				CVAR_SERVERINFO|CVAR_ROM,						qfalse )
 XCVAR_DEF( pmove_fixed,					"0",			NULL,				CVAR_SYSTEMINFO|CVAR_ARCHIVE,					qtrue )
 XCVAR_DEF( pmove_float,					"0",			NULL,				CVAR_SYSTEMINFO|CVAR_ARCHIVE,					qtrue )
 XCVAR_DEF( pmove_msec,					"8",			NULL,				CVAR_SYSTEMINFO|CVAR_ARCHIVE,					qtrue )
@@ -182,4 +182,5 @@ XCVAR_DEF( sv_maxclients,				"8",			NULL,				CVAR_SERVERINFO|CVAR_LATCH|CVAR_ARC
 XCVAR_DEF( timelimit,					"0",			NULL,				CVAR_SERVERINFO|CVAR_ARCHIVE|CVAR_NORESTART,	qtrue )
 XCVAR_DEF(ui_loadout_base_weapon,				"weapon_none",			NULL,				CVAR_TEMP,  qtrue)
 XCVAR_DEF(ui_loadout_weapon,				"0",			NULL,				CVAR_TEMP,  qtrue)
+
 #undef XCVAR_DEF

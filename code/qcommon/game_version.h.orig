@@ -20,16 +20,36 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 ===========================================================================
 */
 
-// Current version of the single player game
-#include "../win32/AutoVersion.h"
+#include "qcommon/q_version.h"
 
+<<<<<<< HEAD:code/qcommon/stv_version.h
 #ifdef _DEBUG
 	#define	Q3_VERSION		"(debug)SWGL SP: v" VERSION_STRING_DOTTED
 #elif defined FINAL_BUILD
 	#define	Q3_VERSION		"SWGL SP: v" VERSION_STRING_DOTTED
 #else
 	#define	Q3_VERSION		"(internal)SWGL SP: v" VERSION_STRING_DOTTED
+=======
+#if !defined(STRING) && !defined(XSTRING)
+	// rather than including q_shared.h from win32 resource scripts (win32/*.rc)
+	#define STRING( a ) #a
+	#define XSTRING( a ) STRING( a )
+>>>>>>> 407a56fbca21310ff158fabbb3207410e381bfc8:code/qcommon/game_version.h
 #endif
-// end
 
+// Current version of the single player game
+#define VERSION_MAJOR_RELEASE		1
+#define VERSION_MINOR_RELEASE		0
+#define VERSION_EXTERNAL_BUILD		1
+#define VERSION_INTERNAL_BUILD		1
 
+#define VERSION_STRING XSTRING(VERSION_MAJOR_RELEASE) ", " XSTRING(VERSION_MINOR_RELEASE) ", " XSTRING(VERSION_EXTERNAL_BUILD) ", " XSTRING(VERSION_INTERNAL_BUILD) // "a, b, c, d"
+#define VERSION_STRING_DOTTED XSTRING(VERSION_MAJOR_RELEASE) "." XSTRING(VERSION_MINOR_RELEASE) "." XSTRING(VERSION_EXTERNAL_BUILD) "." XSTRING(VERSION_INTERNAL_BUILD) // "a.b.c.d"
+
+#if defined(_DEBUG)
+	#define	JK_VERSION		"(debug)OpenJK: " GIT_TAG
+	#define JK_VERSION_OLD	"(debug)JA: v" VERSION_STRING_DOTTED
+#else
+	#define	JK_VERSION		"OpenJK: " GIT_TAG
+	#define JK_VERSION_OLD	"JA: v" VERSION_STRING_DOTTED
+#endif

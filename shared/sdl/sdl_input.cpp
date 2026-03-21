@@ -360,6 +360,7 @@ static fakeAscii_t IN_TranslateSDLToJKKey(SDL_Keysym* keysym, qboolean down) {
 		case SDLK_KP_MINUS:     key = A_KP_MINUS;      break;
 		case SDLK_KP_DIVIDE:    key = A_FORWARD_SLASH; break;
 
+
 		case SDLK_SCROLLLOCK:   key = A_SCROLLLOCK;    break;
 		case SDLK_NUMLOCKCLEAR: key = A_NUMLOCK;       break;
 		case SDLK_CAPSLOCK:     key = A_CAPSLOCK;      break;
@@ -474,10 +475,13 @@ static void IN_ActivateMouse(void)
 	{
 		if (in_nograb->modified || !mouseActive)
 		{
-			if (in_nograb->integer)
-				SDL_SetWindowGrab(SDL_window, SDL_FALSE);
-			else
-				SDL_SetWindowGrab(SDL_window, SDL_TRUE);
+			if( in_nograb->integer ) {
+				SDL_SetRelativeMouseMode( SDL_FALSE );
+				SDL_SetWindowGrab( SDL_window, SDL_FALSE );
+			} else {
+				SDL_SetRelativeMouseMode( SDL_TRUE );
+				SDL_SetWindowGrab( SDL_window, SDL_TRUE );
+			}
 
 			in_nograb->modified = qfalse;
 		}

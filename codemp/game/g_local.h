@@ -43,6 +43,7 @@ extern vec3_t gPainPoint;
 
 //==================================================================
 
+
 // the "gameversion" client command will print this plus compile date
 #define	GAMEVERSION	"SWGL MP"
 
