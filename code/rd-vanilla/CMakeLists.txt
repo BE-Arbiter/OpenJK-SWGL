@@ -21,7 +21,7 @@ if(NOT InOpenJK)
 	message(FATAL_ERROR "Use the top-level cmake script!")
 endif(NOT InOpenJK)
 
-if(BuildSPRdVanilla OR BuildJK2SPRdVanilla)
+if(BuildSPRdVanilla)
 
 	set(SPRDVanillaRendererIncludeDirectories ${SPDir})
 	set(SPRDVanillaRendererIncludeDirectories
@@ -195,9 +195,5 @@ if(BuildSPRdVanilla OR BuildJK2SPRdVanilla)
 	if(BuildSPRdVanilla)
 		add_sp_renderer_project(${SPRDVanillaRenderer} "SP Vanilla Renderer" ${SPEngine} ${JKAInstallDir} ${JKASPClientComponent})
 	endif(BuildSPRdVanilla)
-	if(BuildJK2SPRdVanilla)
-		set(SPRDVanillaDefines ${SPRDVanillaDefines} "JK2_MODE")
-		add_sp_renderer_project(${JK2SPVanillaRenderer} "JK2 SP Vanilla Renderer" ${JK2SPEngine} ${JK2InstallDir} ${JK2SPClientComponent})
-	endif(BuildJK2SPRdVanilla)
 
-endif(BuildSPRdVanilla OR BuildJK2SPRdVanilla)
+endif(BuildSPRdVanilla)
