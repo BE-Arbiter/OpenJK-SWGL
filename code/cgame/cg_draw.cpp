@@ -2399,29 +2399,54 @@ static void CG_DrawZoomMask( void )
 	else if ( cg.zoomMode >= ST_A280 )
 	{
 		level = (float)(80.0f - cg_zoomFov) / 80.0f;
-
+		
 		switch (weaponData[cent->currentState.weapon].scopeType)
 		{
 			case ST_A280:
 				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/a280mask");
-				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/a280insert");
+				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/emptyInsert");
 				break;
 			case ST_DC17M:
 				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/dc-17mmask");
-				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/dc-17minsert");
+				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/emptyInsert");
 				break;
 			case ST_EE3:
-				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/ee3insert");
-				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/ee3mask");
+				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/ee3mask");
+				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/emptyInsert");
 				break;
 			case ST_F11D:
 				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/f11dMask");
-				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/f11dInsert");
+				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/emptyInsert");
 				break;
 			case ST_E5:
 				cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/cis_cropcircle2");
-				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/f11dInsert");
+				cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/emptyInsert");
 				break;
+			case ST_CUSTOM:
+				if (weaponData[cent->currentState.weapon].scopeInsert == 0 || weaponData[cent->currentState.weapon].scopeInsert[0] == 0)
+				{
+					cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/emptyInsert");
+				}
+				else 
+				{
+					cgs.media.scopeTypeInsert = cgi_R_RegisterShader(weaponData[cent->currentState.weapon].scopeInsert);
+				}
+				if (weaponData[cent->currentState.weapon].scopeMask == 0 || weaponData[cent->currentState.weapon].scopeMask[0] == 0)
+				{
+					cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/gfx/cropcircle2");
+				}
+				else 
+				{
+					cgs.media.scopeTypeMask = cgi_R_RegisterShader(weaponData[cent->currentState.weapon].scopeMask);
+				}
+				
+				break;
+		}
+
+		if (weaponData[cent->currentState.weapon].scopefullMask == qtrue)
+		{
+			CG_FillRect(0, 0, SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, SCREEN_HEIGHT, colorTable[CT_BLACK]);
+			CG_FillRect(SCREEN_WIDTH / 2 + (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, SCREEN_HEIGHT, colorTable[CT_BLACK]);
 		}
 
 		CG_DrawPic(SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH* cgs.widthRatioCoef, 480, cgs.media.scopeTypeMask);

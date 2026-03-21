@@ -184,7 +184,8 @@ typedef enum scopeType_s
 	ST_DC17M,
 	ST_EE3,
 	ST_F11D,
-	ST_E5
+	ST_E5,
+	ST_CUSTOM
 } scopeType_t;
 
 
@@ -307,8 +308,11 @@ typedef struct weaponData_s
 	char	weaponIcon[64];		// Name of weapon icon file
 	int		numBarrels;			// how many barrels should we expect for this weapon?
 
-	int 	scopeType;
-	float 	scopeFov;
+	int 	 scopeType;
+	char 	 scopeMask[64];
+	char 	 scopeInsert[64];
+	qboolean scopefullMask;
+	float 	 scopeFov;
 
 	char	weaponMdl2[64];
 	qboolean secondaryMdl;
