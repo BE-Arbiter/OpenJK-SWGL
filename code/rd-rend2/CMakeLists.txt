@@ -163,7 +163,7 @@ function(add_sp_renderer_project ProjectName Label EngineName InstallDir Compone
 			DESTINATION ${InstallDir}
 			COMPONENT ${Component})
 	else(WIN32)
-		if(MakeApplicationBundles AND (BuildSPEngine OR BuildJK2SPEngine))
+		if(MakeApplicationBundles AND BuildSPEngine)
 			install(TARGETS ${ProjectName}
 				LIBRARY
 				DESTINATION "${InstallDir}/${EngineName}.app/Contents/MacOS/"

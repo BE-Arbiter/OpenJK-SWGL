@@ -168,7 +168,7 @@ if(BuildSPRdVanilla OR BuildJK2SPRdVanilla)
 				DESTINATION ${InstallDir}
 				COMPONENT ${Component})
 		else(WIN32)
-			if(MakeApplicationBundles AND (BuildSPEngine OR BuildJK2SPEngine))
+			if(MakeApplicationBundles AND BuildSPEngine)
 				install(TARGETS ${ProjectName}
 					LIBRARY
 					DESTINATION "${InstallDir}/${EngineName}.app/Contents/MacOS/"

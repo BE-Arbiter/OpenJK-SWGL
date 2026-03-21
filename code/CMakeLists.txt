@@ -35,7 +35,7 @@ if(BuildSPRend2 OR BuildJK2SPRdRend2)
 endif(BuildSPRend2 OR BuildJK2SPRdRend2)
 
 #    Add Engine Project
-if(BuildSPEngine OR BuildJK2SPEngine)
+if(BuildSPEngine)
 	# Libraries
 	if(WIN32)
 		set(SPEngineLibraries "winmm")
@@ -461,9 +461,5 @@ if(BuildSPEngine OR BuildJK2SPEngine)
 	if(BuildSPEngine)
 		add_sp_project(${SPEngine} "SP Client" ${SPDir} ${JKAInstallDir} ${JKASPClientComponent})
 	endif(BuildSPEngine)
-	if(BuildJK2SPEngine)
-		set(SPEngineDefines ${SPEngineDefines} "JK2_MODE")
-		add_sp_project(${JK2SPEngine} "JK2 SP Client" ${JK2SPDir} ${JK2InstallDir} ${JK2SPClientComponent})
-	endif(BuildJK2SPEngine)
 
-endif(BuildSPEngine OR BuildJK2SPEngine)
+endif(BuildSPEngine)
