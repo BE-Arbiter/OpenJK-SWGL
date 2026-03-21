@@ -464,6 +464,11 @@ void G_SetEnemy( gentity_t *self, gentity_t *enemy )
 		{//Probably a damn script!
 			return;
 		}
+
+		if (self->client->playerTeam != TEAM_FREE && self->client->playerTeam != TEAM_SOLO)
+		{
+			return;
+		}
 	}
 
 	if ( self->NPC && self->client && self->client->ps.weapon == WP_SABER )
