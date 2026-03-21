@@ -1740,8 +1740,8 @@ Ghoul2 Insert End
 //
 void CG_FillRect( float x, float y, float width, float height, const float *color );
 void CG_DrawPic( float x, float y, float width, float height, qhandle_t hShader );
-void CG_DrawRotatePic( float x, float y, float width, float height,float angle, qhandle_t hShader );
-void CG_DrawRotatePic2( float x, float y, float width, float height,float angle, qhandle_t hShader );
+void CG_DrawRotatePic(float x, float y, float width, float height, float angle, qhandle_t hShader, float aspectCorrection);
+void CG_DrawRotatePic2(float x, float y, float width, float height, float angle, qhandle_t hShader, float aspectCorrection);
 void CG_DrawString( float x, float y, const char *string,
 				   float charWidth, float charHeight, const float *modulate );
 

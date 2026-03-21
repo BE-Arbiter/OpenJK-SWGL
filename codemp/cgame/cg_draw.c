@@ -327,7 +327,7 @@ static void CG_DrawZoomMask( void )
 		}
 
 		// Draw rotating insert
-		CG_DrawRotatePic2( 320, 240, 640, 480, -level, cgs.media.disruptorInsert );
+		CG_DrawRotatePic2( 320, 240, 640, 480, -level, cgs.media.disruptorInsert ,1.0f );
 
 		// Increase the light levels under the center of the target
 //		CG_DrawPic( 198, 118, 246, 246, cgs.media.disruptorLight );
@@ -399,7 +399,7 @@ static void CG_DrawZoomMask( void )
 			cx = 320 + sin( (fi+90.0f)/57.296f ) * 190;
 			cy = 240 + cos( (fi+90.0f)/57.296f ) * 190;
 
-			CG_DrawRotatePic2( cx, cy, 12, 24, 90 - fi, cgs.media.disruptorInsertTick );
+			CG_DrawRotatePic2( cx, cy, 12, 24, 90 - fi, cgs.media.disruptorInsertTick, 1.0f);
 		}
 
 		if ( cg.predictedPlayerState.weaponstate == WEAPON_CHARGING_ALT )
@@ -3811,7 +3811,7 @@ float CG_DrawRadar ( float y )
 				CG_DrawRotatePic2( RADAR_X + RADAR_RADIUS + sin (angle) * distance + xOffset,
 								   y + RADAR_RADIUS + cos (angle) * distance,
 								   arrow_w, arrow_h,
-								   (360 - cent->lerpAngles[YAW]) + cg.predictedPlayerState.viewangles[YAW], cgs.media.mAutomapPlayerIcon );
+								   (360 - cent->lerpAngles[YAW]) + cg.predictedPlayerState.viewangles[YAW], cgs.media.mAutomapPlayerIcon, 1.0f);
 				break;
 			}
 		}
@@ -3824,7 +3824,7 @@ float CG_DrawRadar ( float y )
 
 	trap->R_SetColor ( colorWhite );
 	CG_DrawRotatePic2( RADAR_X + RADAR_RADIUS + xOffset, y + RADAR_RADIUS, arrow_w, arrow_h,
-					   0, cgs.media.mAutomapPlayerIcon );
+					   0, cgs.media.mAutomapPlayerIcon, 1.0f);
 
 	return y+(RADAR_RADIUS*2);
 }
@@ -5983,7 +5983,7 @@ static void CG_DrawRocketLocking( int lockEntNum, int lockTime )
 			trap->R_SetColor( color );
 
 			// our slices are offset by about 45 degrees.
-			CG_DrawRotatePic( cx - sz, cy - sz, sz, sz, i * 45.0f, trap->R_RegisterShaderNoMip( "gfx/2d/wedge" ));
+			CG_DrawRotatePic( cx - sz, cy - sz, sz, sz, i * 45.0f, trap->R_RegisterShaderNoMip( "gfx/2d/wedge" ), 1.0f);
 		}
 
 		// we are locked and loaded baby
