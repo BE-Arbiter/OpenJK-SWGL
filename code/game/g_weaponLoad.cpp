@@ -1127,7 +1127,7 @@ static void WP_ParseAtkParms(const char** holdBuf)
 //--------------------------------------------
 // Parse An attack section in a weapon
 //--------------------------------------------
-static void WPN_ParseAttack(const char** holdBuf)
+void WPN_ParseAttack(const char** holdBuf)
 {
 	char* token;
 	token = COM_ParseExt(holdBuf, qtrue);
@@ -1156,9 +1156,9 @@ static void WPN_ParseAttack(const char** holdBuf)
 }
 
 //--------------------------------------------
-// Pasre the parameters of a given weapon
+// Parse the parameters of a given weapon
 //--------------------------------------------
-static void WP_ParseWeaponParms(const char** holdBuf)
+void WP_ParseWeaponParms(const char** holdBuf)
 {
 	const char* token;
 	size_t	i;
@@ -1190,7 +1190,7 @@ static void WP_ParseWeaponParms(const char** holdBuf)
 //--------------------------------------------
 // Parse each weapons
 //--------------------------------------------
-static void WP_ParseParms(const char *buffer)
+void WP_ParseParms(const char *buffer)
 {
 	const char	*holdBuf;
 	const char	*token;
@@ -1526,7 +1526,5 @@ void WP_LoadWeaponParms (void)
 			gi++;
 		}
 	}
-
-	int z = gi + 3;
 
 }
