@@ -17116,5 +17116,5 @@ qboolean validLockTarget(gentity_t* ent, gentity_t* hitOwner)
 	// 2. The entity is either the player OR an NPC not in cinematic mode, AND the hit owner is either the player OR an NPC not in cinematic mode.
 	// There may be a better way to write this, but I don't want to risk screwing it up by trying to be clever.
 
-	return (qboolean) ((ent == player && (hitOwner->NPC && hitOwner->NPC->behaviorState == BS_CINEMATIC)) || ((ent == player || (ent->NPC && ent->NPC->behaviorState != BS_CINEMATIC)) && (hitOwner == player || (hitOwner->NPC && hitOwner->NPC->behaviorState != BS_CINEMATIC))));
+	return (qboolean) ((ent == player && (hitOwner->NPC && hitOwner->NPC->behaviorState == BS_CINEMATIC)) || ((ent == player || (ent->NPC && ent->NPC->behaviorState != BS_CINEMATIC)) && (hitOwner == player || (hitOwner->NPC && hitOwner->NPC->behaviorState != BS_CINEMATIC))) && (!ent->client->ps.saber->inquisitor_spin && !hitOwner->client->ps.saber->inquisitor_spin));
 }
