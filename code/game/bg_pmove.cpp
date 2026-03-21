@@ -14002,7 +14002,7 @@ static void PM_Weapon( void )
 			}
 		}
 		else if (weaponData[weapon].weaponCategory == WC_NONE) {
-			void; //Do nothing
+			; //Nothing to do
 		}
 		else if (weaponData[weapon].weaponCategory == WC_EXPLOSIVE) {
 			PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK11, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);

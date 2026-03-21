@@ -45,7 +45,7 @@ R_DrawElements
 
 void R_DrawElementsVBO( int numIndexes, glIndex_t firstIndex, glIndex_t minIndex, glIndex_t maxIndex )
 {
-	int offset = firstIndex * sizeof(glIndex_t) +
+	size_t offset = firstIndex * sizeof(glIndex_t) +
 		(tess.useInternalVBO ? backEndData->currentFrame->dynamicIboCommitOffset : 0);
 
 	GL_DrawIndexed(GL_TRIANGLES, numIndexes, GL_INDEX_TYPE, offset, 1, 0);
@@ -139,22 +139,20 @@ because a surface may be forced to perform a RB_End due
 to overflow.
 ==============
 */
-void RB_BeginSurface( shader_t *shader, int fogNum, int cubemapIndex ) {
-
-	shader_t *state = (shader->remappedShader) ? shader->remappedShader : shader;
-
+void RB_BeginSurface( shader_t *shader, int fogNum, int cubemapIndex ) 
+{
 	tess.numIndexes = 0;
 	tess.firstIndex = 0;
 	tess.numVertexes = 0;
 	tess.multiDrawPrimitives = 0;
-	tess.shader = state;
+	tess.shader = shader;
 	tess.fogNum = fogNum;
 	tess.cubemapIndex = cubemapIndex;
 	tess.dlightBits = 0;		// will be OR'd in by surface functions
 	tess.pshadowBits = 0;       // will be OR'd in by surface functions
-	tess.xstages = state->stages;
-	tess.numPasses = state->numUnfoggedPasses;
-	tess.currentStageIteratorFunc = state->optimalStageIteratorFunc;
+	tess.xstages = shader->stages;
+	tess.numPasses = shader->numUnfoggedPasses;
+	tess.currentStageIteratorFunc = shader->optimalStageIteratorFunc;
 	tess.externalIBO = nullptr;
 	tess.useInternalVBO = qtrue;
 
@@ -548,7 +546,7 @@ static void CaptureDrawData(const shaderCommands_t *input, shaderStage_t *stage,
 				glState.currentVBO->vertexesVBO,
 				glState.currentIBO->indexesVBO,
 				numIndexes / 3);
-		ri.FS_Write(data, strlen(data), tr.debugFile);
+		ri.FS_Write(data, int(strlen(data)), tr.debugFile);
 	}
 	else
 	{
@@ -564,7 +562,7 @@ static void CaptureDrawData(const shaderCommands_t *input, shaderStage_t *stage,
 				glState.currentVBO->vertexesVBO,
 				glState.currentIBO->indexesVBO,
 				input->numIndexes / 3);
-		ri.FS_Write(data, strlen(data), tr.debugFile);
+		ri.FS_Write(data, int(strlen(data)), tr.debugFile);
 	}
 }
 
@@ -693,12 +691,12 @@ void RB_FillDrawCommand(
 	}
 	else
 	{
-		int offset = input->firstIndex * sizeof(glIndex_t) +
+		size_t offset = input->firstIndex * sizeof(glIndex_t) +
 			(input->useInternalVBO ? backEndData->currentFrame->dynamicIboCommitOffset : 0);
 
 		drawCmd.type = DRAW_COMMAND_INDEXED;
 		drawCmd.params.indexed.indexType = GL_INDEX_TYPE;
-		drawCmd.params.indexed.firstIndex = offset;
+		drawCmd.params.indexed.firstIndex = (glIndex_t)offset;
 		drawCmd.params.indexed.numIndices = input->numIndexes;
 		drawCmd.params.indexed.baseVertex = 0;
 	}
@@ -1389,7 +1387,8 @@ static shaderProgram_t *SelectShaderProgram( int stageIndex, shaderStage_t *stag
 				index |= VELOCITYDEF_USE_RGBAGEN;
 			if (backEnd.currentEntity->e.renderfx & RF_DISINTEGRATE2)
 				index |= VELOCITYDEF_USE_DEFORM_VERTEXES;
-			if (glslShaderGroup == tr.lightallShader &&
+			if (r_parallaxMapping->integer &&
+				glslShaderGroup == tr.lightallShader &&
 				stage->glslShaderIndex & LIGHTDEF_USE_PARALLAXMAP &&
 				stage->glslShaderIndex & LIGHTDEF_LIGHTTYPE_MASK && // TODO: remove light requirement
 				!(backEnd.viewParms.flags & VPF_DEPTHSHADOW)) // Don't use expensive parallax shaders in shadows
@@ -1430,8 +1429,10 @@ static shaderProgram_t *SelectShaderProgram( int stageIndex, shaderStage_t *stag
 				index |= LIGHTDEF_USE_TCGEN_AND_TCMOD;
 			
 			// TODO: remove light vertex def and fix parallax usage on unlit stages like glow stages
-			if (stage->glslShaderIndex & LIGHTDEF_USE_PARALLAXMAP &&
-				stage->glslShaderIndex & LIGHTDEF_LIGHTTYPE_MASK)
+			if (r_parallaxMapping->integer &&
+				stage->glslShaderIndex & LIGHTDEF_USE_PARALLAXMAP &&
+				stage->glslShaderIndex & LIGHTDEF_LIGHTTYPE_MASK && // TODO: remove light requirement
+				!(backEnd.viewParms.flags & VPF_DEPTHSHADOW)) // Don't use expensive parallax shaders in shadows
 				index |= LIGHTDEF_USE_PARALLAXMAP | LIGHTDEF_USE_LIGHT_VERTEX;
 
 			result = &stage->glslShaderGroup[index];
@@ -1480,6 +1481,12 @@ static shaderProgram_t *SelectShaderProgram( int stageIndex, shaderStage_t *stag
 	else if (stage->glslShaderGroup == tr.lightallShader)
 	{
 		index = stage->glslShaderIndex;
+
+		if (!r_parallaxMapping->integer &&
+			stage->glslShaderIndex & LIGHTDEF_USE_PARALLAXMAP)
+		{
+			index &= ~LIGHTDEF_USE_PARALLAXMAP;
+		}
 
 		if (r_lightmap->integer && (index & LIGHTDEF_USE_LIGHTMAP) && !(index & LIGHTDEF_USE_LIGHT_VERTEX))
 		{
@@ -1872,7 +1879,8 @@ static void RB_IterateStagesGeneric( shaderCommands_t *input, const VertexArrays
 				samplerBindingsWriter.AddAnimatedImage(&pStage->bundle[TB_COLORMAP], TB_COLORMAP);
 
 			// TODO: remove light requirement
-			if (pStage->glslShaderGroup == tr.lightallShader &&
+			if (r_parallaxMapping->integer &&
+				pStage->glslShaderGroup == tr.lightallShader &&
 				pStage->glslShaderIndex & LIGHTDEF_USE_PARALLAXMAP &&
 				pStage->glslShaderIndex & LIGHTDEF_LIGHTTYPE_MASK &&
 				!(backEnd.viewParms.flags & VPF_DEPTHSHADOW))

@@ -2204,11 +2204,7 @@ static void R_CreateWorldVBOs( world_t *worldData )
 
 				VectorCopy (bspSurf->verts[i].xyz, vert.position);
 				vert.normal = R_VboPackNormal (bspSurf->verts[i].normal);
-
-				if (VectorLengthSquared(bspSurf->verts[i].tangent) > 0.001f)
-					vert.tangent = R_VboPackTangent(bspSurf->verts[i].tangent);
-				else
-					vert.tangent = 0u;
+				vert.tangent = 0u;
 
 				VectorCopy2 (bspSurf->verts[i].st, vert.texcoords[0]);
 
@@ -4153,7 +4149,6 @@ static void R_GenerateSurfaceSprites( const world_t *world, int worldIndex )
 					if (j > 0 && (stage->stateBits & GLS_DEPTHFUNC_EQUAL))
 					{
 						ri.Printf(PRINT_WARNING, "depthFunc equal is not supported on surface sprites in rend2. Skipping stage\n");
-						surf->numSurfaceSprites -= 1;
 						continue;
 					}
 
@@ -4183,6 +4178,8 @@ static void R_GenerateSurfaceSprites( const world_t *world, int worldIndex )
 
 					++surfaceSpriteNum;
 				}
+				surf->numSurfaceSprites = surfaceSpriteNum;
+
 				break;
 			}
 

@@ -965,7 +965,7 @@ void set_mission_stats_cvars( void )
 		gitem_t	*wItem= FindItemForWeapon( (weapon_t)wpn);
 		if (!cgi_SP_GetStringTextString(va("SP_INGAME_%s", wItem->classname), text, sizeof(text)))
 		{
-			void;
+			; //Nothing to do
 		}
 		else if (!cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", wItem->classname), text, sizeof(text)))
 		{

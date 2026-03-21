@@ -288,7 +288,8 @@ void G_AttackDelay( gentity_t *self, gentity_t *enemy )
 			break;
 		}
 
-		switch ( self->s.weapon )
+		int baseWeapon = weaponData[self->s.weapon].baseWeaponNum ? weaponData[self->s.weapon].baseWeaponNum : self->s.weapon;
+		switch (baseWeapon)
 		{
 		case WP_NONE:
 		case WP_SABER:

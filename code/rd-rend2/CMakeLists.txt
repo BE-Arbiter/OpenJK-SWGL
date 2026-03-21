@@ -163,7 +163,7 @@ function(add_sp_renderer_project ProjectName Label EngineName InstallDir Compone
 			DESTINATION ${InstallDir}
 			COMPONENT ${Component})
 	else(WIN32)
-		if(MakeApplicationBundles AND (BuildSPEngine OR BuildJK2SPEngine))
+		if(MakeApplicationBundles AND BuildSPEngine)
 			install(TARGETS ${ProjectName}
 				LIBRARY
 				DESTINATION "${InstallDir}/${EngineName}.app/Contents/MacOS/"
@@ -194,10 +194,6 @@ set(SPRend2Defines ${SharedDefines} "RENDERER" "REND2_SP" "REND2_SP_GORE")
 if(BuildSPRend2)
 	add_sp_renderer_project(${SPRend2} "SP Rend2 Renderer" ${SPEngine} ${JKAInstallDir} ${JKASPClientComponent})
 endif(BuildSPRend2)
-if(BuildJK2SPRdRend2)
-	set(SPRend2Defines ${SPRend2Defines} "JK2_MODE")
-	add_sp_renderer_project(${JK2SPRend2Renderer} "JK2 SP Rend2 Renderer" ${JK2SPEngine} ${JK2InstallDir} ${JK2SPClientComponent})
-endif(BuildJK2SPRdRend2)
 
 # GLSL shader file generator
 add_executable(compact_glsl_sp
