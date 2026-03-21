@@ -35,8 +35,8 @@ extern void CG_LightningBolt( centity_t *cent, vec3_t origin );
 extern cvar_t *g_char_model;
 
 //Values at bottom of file
-char baseHitFleshEffects[][64];
-char baseHitWallEffects[][64];
+extern char baseHitFleshEffects[][64];
+extern char baseHitWallEffects[][64];
 
 #define	PHASER_HOLDFRAME	2
 #define LOADOUT_PAGESIZE	18
