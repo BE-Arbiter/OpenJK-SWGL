@@ -16977,12 +16977,6 @@ void Inquisitor_Spin(gentity_t *ent, qboolean increment)
 	if (!ent->client->ps.SaberActive())
 		return;
 
-	// Is this NPC an inquisitor? If not, no spinning.
-	if (!(ent->attrFlags & ATTR_INQUISITOR) && ent != player)
-	{
-		return;
-	}
-
 	// No saber? No spinning!
 	if (!ent->weaponModel[0] || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW))
 		return;
@@ -17043,12 +17037,6 @@ void Inquisitor_Stop(gentity_t* ent, qboolean running)
 	// No saber? No spinning!
 	if (!ent->weaponModel[0] || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW))
 		return;
-
-	// Is this NPC an inquisitor? If not, no spinning.
-	if (!(ent->attrFlags & ATTR_INQUISITOR) && ent != player)
-	{
-		return;
-	}
 
 	// Player has their own logic, but they'll have a few things
 	if (ent == player)
