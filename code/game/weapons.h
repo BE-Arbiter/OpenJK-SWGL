@@ -185,7 +185,8 @@ typedef enum scopeType_s
 	ST_EE3,
 	ST_F11D,
 	ST_E5,
-	ST_CUSTOM
+	ST_CUSTOM,
+	ST_PROGRESSIVE
 } scopeType_t;
 
 

@@ -375,6 +375,10 @@ void WPN_ScopeType(const char** holdBuf)
 	{
 		scopeType = ST_DISRUPTOR;
 	}
+	else if (!Q_stricmp(tokenStr, "ST_PROGRESSIVE"))
+	{
+		scopeType = ST_PROGRESSIVE;
+	}
 	else if (!Q_stricmp(tokenStr, "ST_A280"))
 	{
 		scopeType = ST_A280;

@@ -2229,7 +2229,7 @@ static void CG_DrawZoomMask( void )
 		}
 	}
 	//------------
-	// Disruptor
+	// Disruptor & Other Progressive Zooms
 	//--------------------------------
 	else if ( cg.zoomMode == 2 )
 	{
@@ -2248,85 +2248,119 @@ static void CG_DrawZoomMask( void )
 		// Using a magic number to convert the zoom level to a rotation amount that correlates more or less with the zoom artwork.
 		level *= 103.0f;
 
-		// Draw target mask
-		cgi_R_SetColor( colorTable[CT_WHITE] );
-		CG_DrawPic(SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH* cgs.widthRatioCoef, 480, cgs.media.disruptorMask);
 
-		CG_FillRect(0, 0, SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, SCREEN_HEIGHT, colorTable[CT_BLACK]);
-		CG_FillRect(SCREEN_WIDTH / 2 + (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, SCREEN_HEIGHT, colorTable[CT_BLACK]);
-
-		// apparently 99.0f is the full zoom level
-		if ( level >= 99 )
+		//Define the mask and insert to use
+		if (weaponData[cent->currentState.weapon].scopeInsert == 0 || weaponData[cent->currentState.weapon].scopeInsert[0] == 0)
 		{
-			// Fully zoomed, so make the rotating insert pulse
-			color1[0] = 1.0f;
-			color1[1] = 1.0f;
-			color1[2] = 1.0f;
-			color1[3] = 0.7f + sin( cg.time * 0.01f ) * 0.3f;
-
-			cgi_R_SetColor( color1 );
+			cgs.media.scopeTypeInsert = cgs.media.disruptorInsert;
+		}
+		else
+		{
+			cgs.media.scopeTypeInsert = cgi_R_RegisterShader(weaponData[cent->currentState.weapon].scopeInsert);
+		}
+		if (weaponData[cent->currentState.weapon].scopeMask == 0 || weaponData[cent->currentState.weapon].scopeMask[0] == 0)
+		{
+			cgs.media.scopeTypeMask = cgs.media.disruptorMask;
+		}
+		else
+		{
+			cgs.media.scopeTypeMask = cgi_R_RegisterShader(weaponData[cent->currentState.weapon].scopeMask);
 		}
 
-		// Draw rotating insert
-		CG_DrawRotatePic2(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT, -level, cgs.media.disruptorInsert, cgs.widthRatioCoef);
-
-		float cx, cy;
-		float max;
-
-		max = cg_entities[0].gent->client->ps.ammo[weaponData[cent->gent->s.weapon].ammoIndex] / (float)ammoData[weaponData[cent->gent->s.weapon].ammoIndex].max;
-
-		if ( max > 1.0f )
+		//If the weapon has a black Overlay, we need to fill the gap on the side.
+		if (weaponData[cent->currentState.weapon].scopeType == ST_DISRUPTOR || weaponData[cent->currentState.weapon].scopefullMask == qtrue)
 		{
-			max = 1.0f;
+			CG_FillRect(0, 0, SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, SCREEN_HEIGHT, colorTable[CT_BLACK]);
+			CG_FillRect(SCREEN_WIDTH / 2 + (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, SCREEN_HEIGHT, colorTable[CT_BLACK]);
 		}
 
-		color1[0] = (1.0f - max) * 2.0f;
-		color1[1] = max * 1.5f;
-		color1[2] = 0.0f;
-		color1[3] = 1.0f;
-
-		// If we are low on ammo, make us flash
-		if ( max < 0.15f && ( cg.time & 512 ))
+		//Custom Weapon
+		if (weaponData[cent->currentState.weapon].scopeType == ST_PROGRESSIVE)
 		{
-			VectorClear( color1 );
+			//Draw the insert then the mask, so that any overlay will be masked by the mask.
+			CG_DrawPic(SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH * cgs.widthRatioCoef, 480, cgs.media.scopeTypeInsert);
+			CG_DrawPic(SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH * cgs.widthRatioCoef, 480, cgs.media.scopeTypeMask);
 		}
-
-		if ( color1[0] > 1.0f )
+		else if (weaponData[cent->currentState.weapon].scopeType == ST_DISRUPTOR)
 		{
-			color1[0] = 1.0f;
-		}
+			// Draw target mask
+			cgi_R_SetColor(colorTable[CT_WHITE]);
+			CG_DrawPic(SCREEN_WIDTH / 2 - (SCREEN_WIDTH * cgs.widthRatioCoef) / 2, 0, SCREEN_WIDTH * cgs.widthRatioCoef, 480, cgs.media.scopeTypeMask);
 
-		if ( color1[1] > 1.0f )
-		{
-			color1[1] = 1.0f;
-		}
+			// apparently 99.0f is the full zoom level
+			if (level >= 99)
+			{
+				// Fully zoomed, so make the rotating insert pulse
+				color1[0] = 1.0f;
+				color1[1] = 1.0f;
+				color1[2] = 1.0f;
+				color1[3] = 0.7f + sin(cg.time * 0.01f) * 0.3f;
 
-		cgi_R_SetColor( color1 );
+				cgi_R_SetColor(color1);
+			}
 
-		max *= 58.0f;
+			// Draw rotating insert
+			CG_DrawRotatePic2(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT, -level, cgs.media.scopeTypeInsert, cgs.widthRatioCoef);
 
-		for ( float i = 18.5f; i <= 18.5f + max; i+= 3 ) // going from 15 to 45 degrees, with 5 degree increments
-		{
-			cx = 320 + sin((i + 90.0f) / 57.296f) * 190 * cgs.widthRatioCoef;
-			cy = 240 + cos( (i+90.0f)/57.296f ) * 190;
+			float cx, cy;
+			float max;
 
-			CG_DrawRotatePic2(cx, cy, 12, 24, 90 - i, cgs.media.disruptorInsertTick, cgs.widthRatioCoef);
-		}
+			max = cg_entities[0].gent->client->ps.ammo[weaponData[cent->gent->s.weapon].ammoIndex] / (float)ammoData[weaponData[cent->gent->s.weapon].ammoIndex].max;
 
-		// FIXME: doesn't know about ammo!! which is bad because it draws charge beyond what ammo you may have..
-		if ( cg_entities[0].gent->client->ps.weaponstate == WEAPON_CHARGING_ALT )
-		{
-			cgi_R_SetColor( colorTable[CT_WHITE] );
-
-			// draw the charge level
-			max = ( cg.time - cg_entities[0].gent->client->ps.weaponChargeTime ) / ( 150.0f * 10.0f ); // bad hardcodedness 150 is disruptor charge unit and 10 is max charge units allowed.
-
-			if ( max > 1.0f )
+			if (max > 1.0f)
 			{
 				max = 1.0f;
 			}
 
-			CG_DrawPic2( 257, 435, 134 * max, 34, 0,0,max,1,cgi_R_RegisterShaderNoMip( "gfx/2d/crop_charge" ));
+			color1[0] = (1.0f - max) * 2.0f;
+			color1[1] = max * 1.5f;
+			color1[2] = 0.0f;
+			color1[3] = 1.0f;
+
+			// If we are low on ammo, make us flash
+			if (max < 0.15f && (cg.time & 512))
+			{
+				VectorClear(color1);
+			}
+
+			if (color1[0] > 1.0f)
+			{
+				color1[0] = 1.0f;
+			}
+
+			if (color1[1] > 1.0f)
+			{
+				color1[1] = 1.0f;
+			}
+
+			cgi_R_SetColor(color1);
+
+			max *= 58.0f;
+
+			for (float i = 18.5f; i <= 18.5f + max; i += 3) // going from 15 to 45 degrees, with 5 degree increments
+			{
+				cx = 320 + sin((i + 90.0f) / 57.296f) * 190 * cgs.widthRatioCoef;
+				cy = 240 + cos((i + 90.0f) / 57.296f) * 190;
+
+				CG_DrawRotatePic2(cx, cy, 12, 24, 90 - i, cgs.media.disruptorInsertTick, cgs.widthRatioCoef);
+			}
+
+			// TODO: Take into Account WEAPON_CHARGING
+			// FIXME: doesn't know about ammo!! which is bad because it draws charge beyond what ammo you may have..
+			if (cg_entities[0].gent->client->ps.weaponstate == WEAPON_CHARGING_ALT || cg_entities[0].gent->client->ps.weaponstate == WEAPON_CHARGING)
+			{
+				cgi_R_SetColor(colorTable[CT_WHITE]);
+				int attackIndex = cg_entities[0].gent->client->ps.weaponstate == WEAPON_CHARGING_ALT ? 3 : 2;
+				// draw the charge level
+				max = (cg.time - cg_entities[0].gent->client->ps.weaponChargeTime) / (weaponData[cent->gent->s.weapon].attackData[3].maxChargeUnits * weaponData[cent->gent->s.weapon].attackData[3].chargeUnitTime);
+
+				if (max > 1.0f)
+				{
+					max = 1.0f;
+				}
+
+				CG_DrawPic2(257, 435, 134 * max, 34, 0, 0, max, 1, cgi_R_RegisterShaderNoMip("gfx/2d/crop_charge"));
+			}
 		}
 	}
 	//-----------
@@ -2425,7 +2459,7 @@ static void CG_DrawZoomMask( void )
 			case ST_CUSTOM:
 				if (weaponData[cent->currentState.weapon].scopeInsert == 0 || weaponData[cent->currentState.weapon].scopeInsert[0] == 0)
 				{
-					cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/empty_insert");
+					cgs.media.scopeTypeInsert = cgi_R_RegisterShader("gfx/2d/empty");
 				}
 				else 
 				{
@@ -2433,7 +2467,7 @@ static void CG_DrawZoomMask( void )
 				}
 				if (weaponData[cent->currentState.weapon].scopeMask == 0 || weaponData[cent->currentState.weapon].scopeMask[0] == 0)
 				{
-					cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/gfx/empty_insert");
+					cgs.media.scopeTypeMask = cgi_R_RegisterShader("gfx/2d/gfx/empty");
 				}
 				else 
 				{
