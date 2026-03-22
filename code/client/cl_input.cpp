@@ -360,6 +360,8 @@ void IN_Button15Down(void) {IN_KeyDown(&in_buttons[15]);}
 void IN_Button15Up(void) {IN_KeyUp(&in_buttons[15]);}
 void IN_ZoomDown(void) {IN_KeyDown(&in_buttons[16]);}
 void IN_ZoomUp(void) { IN_KeyUp(&in_buttons[16]); }
+void IN_KickDown(void) {IN_KeyDown(&in_buttons[17]);}
+void IN_KickUp(void) { IN_KeyUp(&in_buttons[17]); }
 
 
 void IN_CenterView (void) {
@@ -1114,6 +1116,8 @@ void CL_InitInput( void ) {
 	Cmd_AddCommand ("-button15", IN_Button15Up);
 	Cmd_AddCommand("+zoom", IN_ZoomDown);//zoom (Button 16)
 	Cmd_AddCommand("-zoom", IN_ZoomUp);
+	Cmd_AddCommand("+kick", IN_KickDown);//Kick(Button 17)
+	Cmd_AddCommand("-kick", IN_KickUp);
 
 	// can add up to button31 this just brings the number of available binds up to par with MP
 

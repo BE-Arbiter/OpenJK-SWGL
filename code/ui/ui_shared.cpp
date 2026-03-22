@@ -5574,6 +5574,7 @@ static const char *g_bindCommands[] = {
 	"+altattack",
 	"+attack",
 	"+zoom",
+	"+kick",
 	"+back",
 #ifndef JK2_MODE
 	"+force_drain",
@@ -5631,7 +5632,6 @@ static const char *g_bindCommands[] = {
 #else
 	"load quick",
 #endif
-	"+zoom",
 #ifdef JK2_MODE
 	"save quik*",
 #else

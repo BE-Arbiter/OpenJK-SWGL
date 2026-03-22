@@ -11335,10 +11335,11 @@ qboolean PM_PickAutoMultiKick( qboolean allowSingles )
 qboolean PM_SaberThrowable( void )
 {
 	//ugh, hard-coding this is bad...
-	if ( pm->ps->saberAnimLevel == SS_STAFF && pm->ps->forcePowerLevel[FP_SABERTHROW] <= FORCE_LEVEL_3)
+	//TODO, See with linken at what level we can throw the staff
+	/*if (pm->ps->saberAnimLevel == SS_STAFF && pm->ps->forcePowerLevel[FP_SABERTHROW] <= FORCE_LEVEL_3)
 	{
 		return qfalse;
-	}
+	}*/
 
 	if ( !(pm->ps->saber[0].saberFlags&SFL_NOT_THROWABLE)
 		&& pm->ps->forcePowerLevel[FP_SABERTHROW] >= FORCE_LEVEL_1)
@@ -11370,15 +11371,30 @@ qboolean PM_SaberThrowable( void )
 	return qfalse;
 }
 
-qboolean PM_CheckAltKickAttack( void )
+qboolean PM_CheckNPCKickAttack(void)
 {
-	if ( (pm->cmd.buttons&BUTTON_ALT_ATTACK && !(pm->cmd.buttons&BUTTON_ATTACK) )
-		&& (!(pm->ps->pm_flags&PMF_ALT_ATTACK_HELD) ||PM_SaberInReturn(pm->ps->saberMove))
-		&& (!PM_FlippingAnim(pm->ps->legsAnim)||pm->ps->legsAnimTimer<=250)
+	if ((pm->cmd.buttons & BUTTON_ALT_ATTACK && !(pm->cmd.buttons & BUTTON_ATTACK))
+		&& (pm->ps->clientNum >= MAX_CLIENTS && !PM_ControlledByPlayer())
+		&& (!(pm->ps->pm_flags & PMF_ALT_ATTACK_HELD) || PM_SaberInReturn(pm->ps->saberMove))
+		&& (!PM_FlippingAnim(pm->ps->legsAnim) || pm->ps->legsAnimTimer <= 250)
 		&& (!PM_SaberThrowable())
 		&& pm->ps->SaberActive()
 		/* && !(pm->ps->saber[0].saberFlags & SFL_NO_KICKS)//okay to do kicks with this saber
 		&& (!pm->ps->dualSabers || !(pm->ps->saber[1].saberFlags&SFL_NO_KICKS) )//okay to do kicks with this saber*/
+		)
+	{
+		return qtrue;
+	}
+	return qfalse;
+}
+
+qboolean PM_CheckPlayerKickAttack( void )
+{
+	if( pm->cmd.buttons & BUTTON_KICK
+		&& ( pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer() )
+		&& !(pm->cmd.buttons & BUTTON_ATTACK)
+		&& !(pm->cmd.buttons & BUTTON_ALT_ATTACK)
+		&& (!PM_FlippingAnim(pm->ps->legsAnim) || pm->ps->legsAnimTimer<=250)
 		)
 	{
 		return qtrue;
@@ -12481,7 +12497,7 @@ void PM_WeaponLightsaber(void)
 			&& !(pm->cmd.buttons&BUTTON_ATTACK)//not trying to swing the saber
 			&& (pm->cmd.forwardmove||pm->cmd.rightmove) )//trying to kick in a specific direction
 		{
-			if ( PM_CheckAltKickAttack() )//trying to do a kick
+			if ( PM_CheckPlayerKickAttack() )//trying to do a kick
 			{//allow them to do the kick now!
 				pm->ps->weaponTime = 0;
 				PM_CheckKick();
@@ -12494,15 +12510,6 @@ void PM_WeaponLightsaber(void)
 				&&!pm->cmd.forwardmove
 				&&(pm->cmd.buttons&BUTTON_ATTACK) )
 			{
-				/*
-				if ( PM_CheckDualSpinProtect() )
-				{//check to see if we're going to do the special dual push protect move
-					PM_SetSaberMove( LS_DUAL_SPIN_PROTECT );
-					pm->ps->weaponstate = WEAPON_FIRING;
-					return;
-				}
-				else
-				*/
 				if ( !g_saberNewControlScheme->integer )
 				{
 					saberMoveName_t pullAtk = PM_CheckPullAttack();
@@ -12698,15 +12705,15 @@ void PM_WeaponLightsaber(void)
 		}
 	}
 
-	if ( PM_CheckAltKickAttack() )
-	{//trying to do a kick
+	if (PM_CheckPlayerKickAttack())
+	{//Player Do kick
 		//FIXME: in-air kicks?
-		//Player Do kick
-		if (pm->ps->clientNum == 0 && !PM_ControlledByPlayer())
-		{
-			PM_CheckKick();
-			return;
-		}
+		PM_CheckKick();
+		return;
+	}
+	if ( PM_CheckNPCKickAttack() )
+	{//trying to do a kick
+
 		//NPCs spin the staff - Slight chance (10% that they do it with dual or single saber too)
 		if (pm->ps->saberAnimLevel == SS_STAFF || !(Q_irand(0,10)))
 		{
@@ -13474,6 +13481,14 @@ static void PM_Weapon( void )
 				pm->gent->client->ps.SaberActivateTrail( 150 );
 			}
 		}
+		return;
+	}
+
+	if (pm->ps->weapon != WP_SABER && PM_CheckPlayerKickAttack()
+		&&(cg.zoomMode == 3 || !cg.zoomMode || pm->ps->clientNum))//trying to do a kick
+	{//allow them to do the kick now!
+		pm->ps->weaponTime = 0;
+		PM_CheckKick();
 		return;
 	}
 
