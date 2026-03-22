@@ -375,6 +375,10 @@ void WPN_ScopeType(const char** holdBuf)
 	{
 		scopeType = ST_DISRUPTOR;
 	}
+	else if (!Q_stricmp(tokenStr, "ST_PROGRESSIVE"))
+	{
+		scopeType = ST_PROGRESSIVE;
+	}
 	else if (!Q_stricmp(tokenStr, "ST_A280"))
 	{
 		scopeType = ST_A280;
@@ -395,12 +399,42 @@ void WPN_ScopeType(const char** holdBuf)
 	{
 		scopeType = ST_F11D;
 	}
+	else if (!Q_stricmp(tokenStr, "ST_CUSTOM"))
+	{
+		scopeType = ST_CUSTOM;
+	}
 	else
 	{
 		gi.Printf(S_COLOR_YELLOW"WARNING: bad scopeType in external weapon data '%s'\n", tokenStr);
 		return;
 	}
 	weaponData[wpnParms.weaponNum].scopeType = scopeType;
+}
+
+//--------------------------------------------
+void WPN_ScopeMask(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].scopeMask, 64, "scopeMask");
+}
+
+//--------------------------------------------
+void WPN_ScopeFullMask(const char** holdBuf)
+{
+	int tokenInt;
+
+	if (COM_ParseInt(holdBuf, &tokenInt))
+	{
+		SkipRestOfLine(holdBuf);
+		return;
+	}
+
+	weaponData[wpnParms.weaponNum].scopefullMask = (qboolean)tokenInt;
+}
+
+//--------------------------------------------
+void WPN_ScopeInsert(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].scopeInsert, 64, "scopeInsert");
 }
 
 //--------------------------------------------
@@ -1239,6 +1273,7 @@ void WP_LoadWeaponParms (void)
 	//put in the qunset flag for playerUsable since 0 = false;
 	for (int i = 0; i < MAX_WEAPONS ; i++) {
 		weaponData[i].playerUsable = qunset;
+		weaponData[i].scopefullMask = qunset;
 		for (int k = 0; k < MAX_WEAPON_ATTACKS; k++)
 		{
 			weaponData[i].attackData[k].bounceCount = -1;
@@ -1454,6 +1489,7 @@ void WP_LoadWeaponParms (void)
 
 				weaponData[i].secondaryMdl = weaponData[i].secondaryMdl == 0 ? weaponData[j].secondaryMdl : weaponData[i].secondaryMdl;
 				weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[i].playerUsable;
+				weaponData[i].scopefullMask = weaponData[i].scopefullMask == qunset ? weaponData[j].scopefullMask : weaponData[i].scopefullMask;
 				weaponData[i].weaponCategory = weaponData[i].weaponCategory == WC_NONE ? weaponData[j].weaponCategory : weaponData[i].weaponCategory;
 				weaponData[i].weaponBucket = weaponData[i].weaponBucket == 0 ? weaponData[j].weaponBucket : weaponData[i].weaponBucket;
 				weaponData[i].baseWeaponNum = j;
@@ -1480,6 +1516,7 @@ void WP_LoadWeaponParms (void)
 		}
 		/* Replace unset Value with false or 0 */
 		weaponData[i].playerUsable = weaponData[i].playerUsable != qunset ? weaponData[i].playerUsable : qfalse;
+		weaponData[i].scopefullMask = weaponData[i].scopefullMask != qunset ? weaponData[i].scopefullMask : qfalse;
 		for (int k = 0; k < MAX_WEAPON_ATTACKS; k++)
 		{
 			weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount != -1 ? weaponData[i].attackData[k].bounceCount : 0;

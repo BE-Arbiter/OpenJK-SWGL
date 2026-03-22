@@ -14934,7 +14934,8 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	}
 #pragma region zoom_logic
 	// disruptor alt-fire should toggle the zoom mode, but only bother doing this for the player?
-	if (weaponData[weapon].scopeType == ST_DISRUPTOR && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING )
+	if ( (weaponData[weapon].scopeType == ST_DISRUPTOR || weaponData[weapon].scopeType == ST_PROGRESSIVE )
+		&& pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING )
 	{
 		// Activate Zoom if you are not firing and not moving.
 		if (pm->cmd.buttons & BUTTON_ZOOM && !(pm->ps->pFlags & PF_ZOOMING)
@@ -14970,7 +14971,7 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		}
 	}
 
-	if ( weaponData[weapon].scopeType >= ST_A280 && pm->gent && (pm->gent->s.number<MAX_CLIENTS||G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING && weaponData[weapon].scopeType >= ST_A280 )
+	if ( weaponData[weapon].scopeType >= ST_A280 && weaponData[weapon].scopeType != ST_PROGRESSIVE && pm->gent && (pm->gent->s.number<MAX_CLIENTS || G_ControlledByPlayer(pm->gent)) && pm->ps->weaponstate != WEAPON_DROPPING)
 	{
 		// Activate the zoom mode if you are not actually firing
 		if (!(pm->cmd.buttons & BUTTON_ATTACK) && !(pm->cmd.buttons & BUTTON_ALT_ATTACK)
