@@ -13483,14 +13483,25 @@ static void PM_Weapon( void )
 		}
 		return;
 	}
-
+#pragma region generic_kick
+	//TODO May be it's not the correct place to check this?
 	if (pm->ps->weapon != WP_SABER && PM_CheckPlayerKickAttack()
-		&&(cg.zoomMode == 3 || !cg.zoomMode || pm->ps->clientNum))//trying to do a kick
+		&&(cg.zoomMode == 3 || !cg.zoomMode)
+		)//trying to do a kick
 	{//allow them to do the kick now!
 		pm->ps->weaponTime = 0;
 		PM_CheckKick();
 		return;
 	}
+	if (pm->ps->weapon != WP_SABER && !(pm->cmd.buttons & BUTTON_KICK)
+		&& (pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer())
+		&& (cg.zoomMode == 3 || !cg.zoomMode)
+		&& PM_KickMove(pm->ps->saberMove)
+		)
+	{
+		pm->ps->saberMove = LS_NONE;
+	}
+#pragma endregion
 
 	if ( PM_InKnockDown( pm->ps ) || PM_InRoll( pm->ps ))
 	{//in knockdown
