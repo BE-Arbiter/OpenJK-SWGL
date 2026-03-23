@@ -16977,12 +16977,6 @@ void Inquisitor_Spin(gentity_t *ent, qboolean increment)
 	if (!ent->client->ps.SaberActive())
 		return;
 
-	// Is this NPC an inquisitor? If not, no spinning.
-	if (!(ent->attrFlags & ATTR_INQUISITOR) && ent != player)
-	{
-		return;
-	}
-
 	// No saber? No spinning!
 	if (!ent->weaponModel[0] || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW))
 		return;
@@ -17043,12 +17037,6 @@ void Inquisitor_Stop(gentity_t* ent, qboolean running)
 	// No saber? No spinning!
 	if (!ent->weaponModel[0] || ent->client->ps.forcePowersActive & (1 << FP_SABERTHROW))
 		return;
-
-	// Is this NPC an inquisitor? If not, no spinning.
-	if (!(ent->attrFlags & ATTR_INQUISITOR) && ent != player)
-	{
-		return;
-	}
 
 	// Player has their own logic, but they'll have a few things
 	if (ent == player)
@@ -17116,5 +17104,5 @@ qboolean validLockTarget(gentity_t* ent, gentity_t* hitOwner)
 	// 2. The entity is either the player OR an NPC not in cinematic mode, AND the hit owner is either the player OR an NPC not in cinematic mode.
 	// There may be a better way to write this, but I don't want to risk screwing it up by trying to be clever.
 
-	return (qboolean) ((ent == player && (hitOwner->NPC && hitOwner->NPC->behaviorState == BS_CINEMATIC)) || ((ent == player || (ent->NPC && ent->NPC->behaviorState != BS_CINEMATIC)) && (hitOwner == player || (hitOwner->NPC && hitOwner->NPC->behaviorState != BS_CINEMATIC))));
+	return (qboolean) ((ent == player && (hitOwner->NPC && hitOwner->NPC->behaviorState == BS_CINEMATIC)) || ((ent == player || (ent->NPC && ent->NPC->behaviorState != BS_CINEMATIC)) && (hitOwner == player || (hitOwner->NPC && hitOwner->NPC->behaviorState != BS_CINEMATIC))) && (!ent->client->ps.saber->inquisitor_spin && !hitOwner->client->ps.saber->inquisitor_spin));
 }

@@ -8127,7 +8127,7 @@ void NPC_BSJedi_Default( void )
 			{
 				WP_SetSaber(NPC, 0, FIFTH_STAFF);
 			}
-			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp(FIFTH_STAFF, NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch"))
+			else if (NPC->health > (NPC->max_health * .75) && !Q_stricmp(FIFTH_STAFF, NPC->client->ps.saber[0].name) && TIMER_Done(NPC, "saber_switch") && Q_stricmp("Fifth_Brother_Griev", NPC->targetname))
 			{
 				WP_SetSaber(NPC, 0, FIFTH_SINGLE);
 			}
