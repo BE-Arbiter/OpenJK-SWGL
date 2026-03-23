@@ -3543,6 +3543,30 @@ qboolean G_CheckClampUcmd( gentity_t *ent, usercmd_t *ucmd )
 					}
 				}
 				break;
+			case BOTH_TUSKENATTACK1:
+				//This is a kick only if the ent is the player and the sabermove is LS_BASH_F
+				if (ent && ent->client && ent->s.number == 0
+					&& ent->client->ps.saberMove == LS_BASH_F)
+				{
+					kickSoundOnWalls = qtrue;
+					//FIXME: push forward?
+					if (elapsedTime >= 250 && remainingTime >= 250)
+					{//front
+						doKick = qtrue;
+						if (ent->handLBolt != -1)
+						{//actually trace to a bolt
+							G_GetBoltPosition(ent, ent->handLBolt, kickEnd);
+							VectorSubtract(kickEnd, ent->currentOrigin, kickDir);
+							kickDir[2] = 0;//ah, flatten it, I guess...
+							VectorNormalize(kickDir);
+						}
+						else
+						{//guess
+							AngleVectors(fwdAngs, kickDir, NULL, NULL);
+						}
+					}
+				}
+				break;
 			case BOTH_A7_KICK_F:
 				kickSoundOnWalls = qtrue;
 				//FIXME: push forward?
