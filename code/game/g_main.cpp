@@ -204,6 +204,7 @@ cvar_t	*g_saberNewControlScheme;
 cvar_t	*g_debugSaberLock;
 cvar_t	*g_saberLockRandomNess;
 cvar_t	*g_debugMelee;
+cvar_t	*g_kickBehavior;
 cvar_t	*g_saberRestrictForce;
 cvar_t	*g_saberPickuppableDroppedSabers;
 cvar_t	*g_dismemberProbabilities;
@@ -752,6 +753,7 @@ void G_InitCvars( void ) {
 	g_debugSaberLock = gi.cvar( "g_debugSaberLock", "0", CVAR_CHEAT );//just for debugging/development, makes saberlocks happen all the time
 	g_saberLockRandomNess = gi.cvar( "g_saberLockRandomNess", "2", CVAR_ARCHIVE );//just for debugging/development, controls frequency of saberlocks
 	g_debugMelee = gi.cvar( "g_debugMelee", "1", CVAR_CHEAT );//just for debugging/development, test kicks and grabs
+	g_kickBehavior = gi.cvar( "g_kickBehavior", "1", CVAR_ARCHIVE);//0 : Kick disabled; 1 : Only melee & Lightsaber ;2 : All weapon kick ; 3 : Bash for Heavy Weapons ; 4 : All Ranged weapon Bash, Melee Kick
 	g_saberRestrictForce = gi.cvar( "g_saberRestrictForce", "0", CVAR_ARCHIVE );//restricts certain force powers when using a 2-handed saber or 2 sabers
 	g_saberPickuppableDroppedSabers = gi.cvar( "g_saberPickuppableDroppedSabers", "0", CVAR_ARCHIVE );//lets you pick up sabers that are dropped
 

@@ -180,6 +180,7 @@ saberMoveData_t	saberMoveData[LS_MOVE_MAX] = {//							NB:randomized
 	{"SwoopAtkL",	BOTH_VS_ATL_S,		Q_L,	Q_T,	AFLAG_ACTIVE,	100,	BLK_NO,		LS_READY,		LS_READY,		200	},	// LS_SWOOP_ATTACK_LEFT
 	{"TauntaunAtkR",BOTH_VT_ATR_S,		Q_R,	Q_T,	AFLAG_ACTIVE,	100,	BLK_TIGHT,	LS_READY,		LS_READY,		200	},	// LS_TAUNTAUN_ATTACK_RIGHT
 	{"TauntaunAtkL",BOTH_VT_ATL_S,		Q_L,	Q_T,	AFLAG_ACTIVE,	100,	BLK_TIGHT,	LS_READY,		LS_READY,		200	},	// LS_TAUNTAUN_ATTACK_LEFT
+	{"StfBashFwd",	BOTH_TUSKENATTACK1,	Q_R,	Q_R,	(SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART),	100,	BLK_TIGHT,	LS_READY,		LS_S_R2L,		200	},	// LS_BASH_F - Not really a saber anim, but to allow kick key to work with bash animation it is required
 	{"StfKickFwd",	BOTH_A7_KICK_F,		Q_R,	Q_R,	AFLAG_ACTIVE,	100,	BLK_TIGHT,	LS_READY,		LS_S_R2L,		200	},	// LS_KICK_F
 	{"StfKickBack",	BOTH_A7_KICK_B,		Q_R,	Q_R,	AFLAG_ACTIVE,	100,	BLK_TIGHT,	LS_READY,		LS_S_R2L,		200	},	// LS_KICK_B
 	{"StfKickRight",BOTH_A7_KICK_R,		Q_R,	Q_R,	AFLAG_ACTIVE,	100,	BLK_TIGHT,	LS_READY,		LS_S_R2L,		200	},	// LS_KICK_R
@@ -1097,6 +1098,7 @@ qboolean PM_InAnimForSaberMove( int anim, int saberMove )
 	case BOTH_VT_ATR_S:
 	case BOTH_VT_ATL_S:
 	case BOTH_FORCELONGLEAP_ATTACK:
+	case BOTH_TUSKENATTACK1:
 	case BOTH_A7_KICK_F:
 	case BOTH_A7_KICK_B:
 	case BOTH_A7_KICK_R:
@@ -1243,6 +1245,7 @@ qboolean PM_SaberInSpecialAttack( int anim )
 	case BOTH_VS_ATL_S:
 	case BOTH_VT_ATR_S:
 	case BOTH_VT_ATL_S:
+	case BOTH_TUSKENATTACK1:
 	case BOTH_A7_KICK_F:
 	case BOTH_A7_KICK_B:
 	case BOTH_A7_KICK_R:
@@ -1334,6 +1337,7 @@ qboolean PM_SaberInAttack( int move )
 	case LS_SWOOP_ATTACK_LEFT:
 	case LS_TAUNTAUN_ATTACK_RIGHT:
 	case LS_TAUNTAUN_ATTACK_LEFT:
+	case LS_BASH_F:
 	case LS_KICK_F:
 	case LS_KICK_B:
 	case LS_KICK_R:
@@ -1491,6 +1495,7 @@ qboolean PM_SaberInSpecial( int move )
 	case LS_SWOOP_ATTACK_LEFT:
 	case LS_TAUNTAUN_ATTACK_RIGHT:
 	case LS_TAUNTAUN_ATTACK_LEFT:
+	case LS_BASH_F:
 	case LS_KICK_F:
 	case LS_KICK_B:
 	case LS_KICK_R:
@@ -1526,6 +1531,7 @@ qboolean PM_KickMove( int move )
 {
 	switch( move )
 	{
+	case LS_BASH_F:
 	case LS_KICK_F:
 	case LS_KICK_B:
 	case LS_KICK_R:
@@ -6789,6 +6795,7 @@ qboolean PM_KickingAnim( int anim )
 	case BOTH_A7_KICK_BF:
 	case BOTH_A7_KICK_RL:
 	//NOT a kick, but acts like one:
+	case BOTH_TUSKENATTACK1:
 	case BOTH_A7_HILT:
 	//NOT kicks, but do kick traces anyway
 	case BOTH_GETUP_BROLL_B:
