@@ -1325,6 +1325,20 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 			}
 		}
 	}
+	else if (feederID == FEEDER_ATTR_DISABLED)
+	{
+		if (index >= 0 && index < uiInfo.disabledAttributeCount)
+		{
+			return uiInfo.disabledAttributeList[index];
+		}
+	}
+	else if (feederID == FEEDER_ATTR_ENABLED)
+	{
+		if (index >= 0 && index < uiInfo.enabledAttributeCount)
+		{
+			return uiInfo.enabledAttributeList[index];
+		}
+	}
 
 	return "";
 }
@@ -1475,20 +1489,54 @@ static qboolean UI_RunMenuScript ( const char **args )
 		if (Q_stricmp(name, "resetdefaults") == 0)
 		{
 			UI_ResetDefaults();
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "saveControls") == 0)
+		if (Q_stricmp(name, "saveControls") == 0)
 		{
 			Controls_SetConfig();
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "loadControls") == 0)
+		if (Q_stricmp(name, "loadAttributes") == 0)
+		{
+			Attributes_GetConfig();
+			return qtrue;
+		}
+		if (Q_stricmp(name, "saveAttributes") == 0)
+		{
+			Attributes_SaveConfig();
+			return qtrue;
+		}
+		if (Q_stricmp(name, "disableAllAttributes") == 0)
+		{
+			Attributes_DisableAll();
+			return qtrue;
+		}
+		if (Q_stricmp(name, "enableAllAttributes") == 0)
+		{
+			Attributes_EnableAll();
+			return qtrue;
+		}
+		if (Q_stricmp(name, "disableSelectedAttribute") == 0)
+		{
+			Attributes_DisableSelected();
+			return qtrue;
+		}
+		if (Q_stricmp(name, "enableSelectedAttribute") == 0)
+		{
+			Attributes_EnableSelected();
+			return qtrue;
+		}
+		if (Q_stricmp(name, "loadControls") == 0)
 		{
 			Controls_GetConfig();
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "clearError") == 0)
+		if (Q_stricmp(name, "clearError") == 0)
 		{
 			Cvar_Set("com_errorMessage", "");
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "ReadSaveDirectory") == 0)
+		if (Q_stricmp(name, "ReadSaveDirectory") == 0)
 		{
 			s_savegame.saveFileCnt = -1;	//force a refresh at drawtime
 //			ReadSaveDirectory();
@@ -2748,6 +2796,14 @@ static int UI_FeederCount(float feederID)
 	{
 		return uiInfo.modCount;
 	}
+	else if (feederID == FEEDER_ATTR_DISABLED)
+	{
+		return uiInfo.disabledAttributeCount;
+	}
+	else if (feederID == FEEDER_ATTR_ENABLED)
+	{
+		return uiInfo.enabledAttributeCount;
+	}
 	else if (feederID == FEEDER_LANGUAGES)
 	{
 		return uiInfo.languageCount;
@@ -2937,6 +2993,14 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 	else if (feederID == FEEDER_MODS)
 	{
 		uiInfo.modIndex = index;
+	}
+	else if (feederID == FEEDER_ATTR_DISABLED)
+	{
+		uiInfo.disabledAttributeIndex = index;
+	}
+	else if (feederID == FEEDER_ATTR_ENABLED)
+	{
+		uiInfo.enabledAttributeIndex = index;
 	}
 	else if (feederID == FEEDER_PLAYER_SPECIES)
 	{

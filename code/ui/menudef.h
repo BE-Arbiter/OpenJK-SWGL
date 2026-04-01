@@ -102,7 +102,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define FEEDER_MODEL_SKINS					0x18			// Skin files in species folder
 #define FEEDER_MISSION_TOPIC				0x19			// Mission Topic
 #define FEEDER_MISSION						0x1a			// Mission List
-
+#define FEEDER_ATTR_DISABLED				0x1b			// Disabled Npc Attributes
+#define FEEDER_ATTR_ENABLED 				0x1c			// Enabled Npc Attributes
 
 #define UI_VERSION				200
 #define UI_HANDICAP				200

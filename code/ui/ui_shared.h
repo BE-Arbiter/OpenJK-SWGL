@@ -51,6 +51,9 @@ enum {
 #define SLIDER_THUMB_HEIGHT 16.0
 #define SCROLLBAR_SIZE 16.0
 
+#define MAX_ATTRIBUTES 16
+#define ATTRIBUTES_SIZE 32
+
 // FIXME: combine flags into bitfields to save space
 // FIXME: consolidate all of the common stuff in one structure for menus and items
 // THINKABOUTME: is there any compelling reason not to have items contain items
@@ -471,6 +474,12 @@ typedef struct
 
 menuDef_t	*Menu_GetFocused(void);
 
+void		Attributes_GetConfig(void);
+void		Attributes_SaveConfig(void);
+void		Attributes_EnableAll(void);
+void		Attributes_EnableSelected(void);
+void		Attributes_DisableAll(void);
+void		Attributes_DisableSelected(void);
 void		Controls_GetConfig( void );
 void		Controls_SetConfig( void );
 void		Controls_SetDefaults( void );
