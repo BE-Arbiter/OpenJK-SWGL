@@ -5701,7 +5701,7 @@ static void Controls_GetKeyAssignment( const char *command, int *twokeys )
 Attributes_
 	GetConfig : Update uiInfo From Cvar
 	Setconfig : Update Cvar from uiInfo
-
+	allAttributes : MUST BE ORDERED THE SAME AS THE ENUM DEFINITION
 =================
 */
 char* allAttributes[MAX_ATTRIBUTES] = {
@@ -5722,29 +5722,23 @@ char* allAttributes[MAX_ATTRIBUTES] = {
 
 void Attributes_GetConfig(void)
 {
-	char* tmpDisabledAttributes = Cvar_VariableString("cg_disabledAttributes");
+	int intDisabledAttributes = Cvar_VariableIntegerValue("g_disabledAttributes");
 	//If we have disabled Attributes fill Them in uiInfo
-	if (tmpDisabledAttributes != 0 && tmpDisabledAttributes[0] != 0)
+	if (intDisabledAttributes != 0) //0 => All enabled
 	{
-		int baseIndex = 0; //Index in tmp char*
 		int wordIndex = 0; //Index in word tab
-		int wordCharIndex = 0; //Index in current word
-		while (tmpDisabledAttributes[baseIndex] != '\0')
+		for (int i = 0; i < MAX_ATTRIBUTES; i++)
 		{
-			if (tmpDisabledAttributes[baseIndex] == ';')
+			int isIndexDisabled = (intDisabledAttributes & (1u << i));
+			if (!isIndexDisabled)
 			{
-				uiInfo.disabledAttributeList[wordIndex][wordCharIndex] = '\0';
-				wordCharIndex = 0;
-				wordIndex++;
-				baseIndex++;
+				continue;
 			}
-			uiInfo.disabledAttributeList[wordIndex][wordCharIndex] = tmpDisabledAttributes[baseIndex];
-			baseIndex++;
-			wordCharIndex++;
+			Q_strncpyz(uiInfo.disabledAttributeList[wordIndex], allAttributes[i], ATTRIBUTES_SIZE);
+			wordIndex++;
 		}
-		uiInfo.disabledAttributeList[wordIndex][wordCharIndex];
 		uiInfo.disabledAttributeIndex = 0;
-		uiInfo.disabledAttributeCount = wordIndex + 1;
+		uiInfo.disabledAttributeCount = wordIndex;
 	}
 	else
 	{
@@ -5785,26 +5779,21 @@ void Attributes_GetConfig(void)
 
 void Attributes_SaveConfig(void)
 {
-	char buffer[MAX_ATTRIBUTES * ATTRIBUTES_SIZE];
-	int bufferIndex = 0;
+	int disabledAttributes = 0;
 	for (int i = 0; i < uiInfo.disabledAttributeCount; i++)
 	{
-		for (int j = 0; j < ATTRIBUTES_SIZE; j++)
+		for (int j = 0; j < MAX_ATTRIBUTES; j++)
 		{
-			if (uiInfo.disabledAttributeList[i][j] == '\0')
-			{
-				buffer[bufferIndex] = ';';
-				bufferIndex++;
-				break;
+			if (Q_stricmp(uiInfo.disabledAttributeList[i], allAttributes[j]) == 0) {
+				disabledAttributes |= (1u << j); //Set the corresponding bit
 			}
-			buffer[bufferIndex] = uiInfo.disabledAttributeList[i][j];
-			bufferIndex++;
 		}
-	}
-	//Replace last char (;) with end...
-	buffer[bufferIndex-1] = '\0';
-	Cvar_Set2("cg_disabledAttributes", buffer, qtrue);
 
+	}
+	//Save as an int for quick comparison later
+	char buffer[32];
+	Com_sprintf(buffer, sizeof(buffer), "%i", disabledAttributes);
+	Cvar_Set2("g_disabledAttributes", buffer, qtrue);
 }
 
 void Attributes_DisableAll(void)

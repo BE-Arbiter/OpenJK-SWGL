@@ -2660,81 +2660,81 @@ void NPC_BSST_Attack( void )
 
 	if ( NPC->enemy && NPC->enemy->enemy )
 	{
-		if ( Q_stricmp(HAVOC_MAJOR, NPC->NPC_type) && !(NPC->attrFlags & ATTR_UNCIVILIZED) && NPC->enemy->s.weapon == WP_SABER && NPC->enemy->enemy->s.weapon == WP_SABER)
+		if ( Q_stricmp(HAVOC_MAJOR, NPC->NPC_type) && !(GEntity_HasAttribute(NPC, ATTR_UNCIVILIZED)) && NPC->enemy->s.weapon == WP_SABER && NPC->enemy->enemy->s.weapon == WP_SABER)
 		{//don't shoot at an enemy jedi who is fighting another jedi, for fear of injuring one or causing rogue blaster deflections (a la Obi Wan/Vader duel at end of ANH)
 			shoot = qfalse;
 		}
 	}
 	//FIXME: don't shoot right away!
-	if ( NPC->client->fireDelay )
+	if (NPC->client->fireDelay)
 	{
-		if ( NPC->client->NPC_class == CLASS_SABOTEUR )
+		if (NPC->client->NPC_class == CLASS_SABOTEUR)
 		{
-			Saboteur_Decloak( NPC );
+			Saboteur_Decloak(NPC);
 		}
-		if ( NPC->s.weapon == WP_ROCKET_LAUNCHER
-			|| (NPC->s.weapon==WP_CONCUSSION&&!(NPCInfo->scriptFlags&SCF_ALT_FIRE)) )
+		if (NPC->s.weapon == WP_ROCKET_LAUNCHER
+			|| (NPC->s.weapon == WP_CONCUSSION && !(NPCInfo->scriptFlags & SCF_ALT_FIRE)))
 		{
-			if ( !enemyLOS || !enemyCS )
+			if (!enemyLOS || !enemyCS)
 			{//cancel it
 				NPC->client->fireDelay = 0;
 			}
 			else
 			{//delay our next attempt
-				TIMER_Set( NPC, "attackDelay", Q_irand( 3000, 5000 ) );
+				TIMER_Set(NPC, "attackDelay", Q_irand(3000, 5000));
 			}
 		}
 	}
-	else if ( shoot )
+	else if (shoot)
 	{//try to shoot if it's time
-		if ( NPC->client->NPC_class == CLASS_SABOTEUR )
+		if (NPC->client->NPC_class == CLASS_SABOTEUR)
 		{
-			Saboteur_Decloak( NPC );
+			Saboteur_Decloak(NPC);
 		}
-		if ( TIMER_Done( NPC, "attackDelay" ) )
+		if (TIMER_Done(NPC, "attackDelay"))
 		{
-			if( !(NPCInfo->scriptFlags & SCF_FIRE_WEAPON) ) // we've already fired, no need to do it again here
+			if (!(NPCInfo->scriptFlags & SCF_FIRE_WEAPON)) // we've already fired, no need to do it again here
 			{
-				WeaponThink( qtrue );
+				WeaponThink(qtrue);
 			}
 			//NASTY
-			if ( NPC->s.weapon == WP_ROCKET_LAUNCHER )
+			if (NPC->s.weapon == WP_ROCKET_LAUNCHER)
 			{
-				if ( (ucmd.buttons&BUTTON_ATTACK)
+				if ((ucmd.buttons & BUTTON_ATTACK)
 					&& !doMove
 					&& g_spskill->integer > 1
-					&& !Q_irand( 0, 3 ) )
+					&& !Q_irand(0, 3))
 				{//every now and then, shoot a homing rocket
 					ucmd.buttons &= ~BUTTON_ATTACK;
 					ucmd.buttons |= BUTTON_ALT_ATTACK;
-					NPC->client->fireDelay = Q_irand( 1000, 2500 );
+					NPC->client->fireDelay = Q_irand(1000, 2500);
 				}
 			}
-			else if ( NPC->s.weapon == WP_NOGHRI_STICK
-				&& enemyDist < (48*48) )//?
+			else if (NPC->s.weapon == WP_NOGHRI_STICK
+				&& enemyDist < (48 * 48))//?
 			{
 				ucmd.buttons &= ~BUTTON_ATTACK;
 				ucmd.buttons |= BUTTON_ALT_ATTACK;
-				NPC->client->fireDelay = Q_irand( 1500, 2000 );
+				NPC->client->fireDelay = Q_irand(1500, 2000);
 			}
 		}
 	}
 	else
 	{
-		if ( NPC->attackDebounceTime < level.time )
+		if (NPC->attackDebounceTime < level.time)
 		{
-			if ( NPC->client->NPC_class == CLASS_SABOTEUR )
+			if (NPC->client->NPC_class == CLASS_SABOTEUR)
 			{
-				Saboteur_Cloak( NPC );
+				Saboteur_Cloak(NPC);
 			}
 		}
 	}
 }
 
-extern qboolean G_TuskenAttackAnimDamage( gentity_t *self );
-void NPC_BSST_Default( void )
+extern qboolean G_TuskenAttackAnimDamage(gentity_t* self);
+void NPC_BSST_Default(void)
 {
-	if (NPC->attrFlags & ATTR_COMMANDO && NPC->s.weapon != WP_SABER && TIMER_Done(NPC, "fire_type_decide"))
+	if (GEntity_HasAttribute(NPC, ATTR_COMMANDO) && NPC->s.weapon != WP_SABER && TIMER_Done(NPC, "fire_type_decide"))
 	{
 		if (!Q_irand(0, 1))
 		{

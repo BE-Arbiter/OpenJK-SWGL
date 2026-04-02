@@ -665,8 +665,6 @@ extern	vmCvar_t		cg_scaleVehicleSensitivity;
 extern	vmCvar_t		cg_trueguns;
 extern	vmCvar_t		cg_fpls;
 
-extern	vmCvar_t		cg_disabledAttributes;
-
 extern	vmCvar_t		cg_trueroll;
 extern	vmCvar_t		cg_trueflip;
 extern	vmCvar_t		cg_truespin;

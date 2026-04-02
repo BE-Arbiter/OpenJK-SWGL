@@ -8881,7 +8881,7 @@ qboolean CasualWalker(pmove_t *pm)
 	gentity_t *ent = pm->gent;
 
 	// If they have the flag, this should always return true.
-	if (ent->attrFlags & ATTR_CASUAL_WALK)
+	if (GEntity_HasAttribute(ent , ATTR_CASUAL_WALK))
 		return qtrue;
 
 	// Only write conditions below this line IF there's a character that should only walk casually under specific circumstances (Which could be anything).

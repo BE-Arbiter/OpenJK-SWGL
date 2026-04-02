@@ -35,6 +35,24 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #undef painFunc_t
 #undef dieFunc_t
 
+// gentity Attributes
+typedef enum //# gent_attr_e
+{
+	ATTR_HELD_BY_HATRED = 0x00000001,// Too angry to die initially. Loses maximum health and heals to their full upon defeat. If maximum health is lower than 100, make them defeatable.
+	ATTR_HERO = 0x00000002,// Hero character. Can't be mind tricked, disarmed, takes reduced damage from everything, and deals increased damage.
+	ATTR_AQUATIC = 0x00000004,// Can't die from drowning
+	ATTR_PRECISE_LIGHTNING = 0x00000008,// Uses the lightning effects from levels 1 and 2 instead of wide lightning.
+	ATTR_INQUISITOR = 0x00000010,// Member of the Inquisitorious
+	ATTR_CASUAL_WALK = 0x00000020,// Walks normally (like Kyle Katarn in Jedi Outcast) instead of the other saber animations.
+	ATTR_NO_TWIRL = 0x00000040,// Doesn't saber twirl.
+	ATTR_COMMANDO = 0x00000080,// Commandos can pull a few tricks out of their sleeves
+	ATTR_BRAWLER = 0x00000100,// Uses Kyle's melee attacks while fighting
+	ATTR_DROID = 0x00000200,// They're a droid. Take increased damage from electrical attacks. Can't be mind tricked, drown, or suffocate.
+	ATTR_SADISTIC = 0x00000400,// Enjoys inflicting harm on others. Heals upon inflicting damage.
+	ATTR_BERSERKER = 0x00000800,// Increased attacking speed at certain health thresholds
+	ATTR_UNCIVILIZED = 0x00001000 // Will shoot at an enemy even if in a lightsaber duel
+} gent_attr_t;
+
 //	void		(*think)(gentity_t *self);
 typedef enum
 {
@@ -643,7 +661,7 @@ void GEntity_TouchFunc(gentity_t *self, gentity_t *other, trace_t *trace);
 void GEntity_UseFunc(gentity_t *self, gentity_t *other, gentity_t *activator);
 void GEntity_PainFunc(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, const vec3_t point, int damage, int mod,int hitLoc=HL_NONE);
 void GEntity_DieFunc(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod,int dFlags=0,int hitLoc=HL_NONE);
-
+qboolean GEntity_HasAttribute(gentity_t* entity, gent_attr_t attribute);
 // external functions that I now refer to...
 
 

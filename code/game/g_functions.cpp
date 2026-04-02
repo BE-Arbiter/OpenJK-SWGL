@@ -28,6 +28,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_local.h"
 #include "../cgame/cg_local.h"
 #include "g_functions.h"
+#include "NPC_SWGL.h"
 
 void GEntity_ThinkFunc(gentity_t *self)
 {
@@ -414,6 +415,25 @@ void GEntity_DieFunc(gentity_t *self, gentity_t *inflictor, gentity_t *attacker,
 		Com_Error(ERR_DROP, "GEntity_DieFunc: case %d not handled!\n",self->e_DieFunc);
 	}
 }
+
+extern stringID_table_t attrTable[];
+extern const char* GetStringForID(stringID_table_t* table, int id);
+extern cvar_t* g_disabledAttributes;
+qboolean GEntity_HasAttribute(gentity_t* entity, gent_attr_t attribute)
+{
+	//Check if attribute is disabled by player 
+	int disabledByPlayer = g_disabledAttributes->integer & attribute;
+	if (disabledByPlayer != 0)
+	{
+		return qfalse;
+	}
+	//Check if attribute is disabled by mission
+	//TODO Find how to implement this... FAAAAH
+
+	//Check if entity has attribute
+	return entity->attrFlags & attribute ? qtrue : qfalse;
+}
+
 
 //////////////////// eof /////////////////////
 

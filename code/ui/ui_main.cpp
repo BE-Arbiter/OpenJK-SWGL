@@ -862,7 +862,8 @@ vmCvar_t	ui_saber_defend_level;
 vmCvar_t	ui_saber_throw_level;
 
 vmCvar_t	ui_saber_edit;
-
+vmCvar_t    g_disabledAttributes;
+vmCvar_t    ui_selected_attribute;
 // Model angle slider
 
 vmCvar_t	ui_char_model_angle;
@@ -1013,6 +1014,8 @@ static cvarTable_t cvarTable[] =
 	{ &ui_saber_defend_level, "ui_saber_defend_level", "0", NULL, 0 },
 	{ &ui_saber_throw_level, "ui_saber_throw_level", "0", NULL, 0 },
 
+	{ &ui_selected_attribute, "ui_selected_attribute","",NULL,0},
+	{ &g_disabledAttributes, "g_disabledAttributes","0",NULL,CVAR_ARCHIVE},
 };
 
 #define FP_UPDATED_NONE -1
@@ -2996,10 +2999,16 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 	}
 	else if (feederID == FEEDER_ATTR_DISABLED)
 	{
+		char buffer[ATTRIBUTES_SIZE];
+		Q_strncpyz(buffer, uiInfo.disabledAttributeList[index], ATTRIBUTES_SIZE);
+		ui.Cvar_Set("ui_selected_attribute", buffer);
 		uiInfo.disabledAttributeIndex = index;
 	}
 	else if (feederID == FEEDER_ATTR_ENABLED)
 	{
+		char buffer[ATTRIBUTES_SIZE];
+		Q_strncpyz(buffer, uiInfo.enabledAttributeList[index], ATTRIBUTES_SIZE);
+		ui.Cvar_Set("ui_selected_attribute", buffer);
 		uiInfo.enabledAttributeIndex = index;
 	}
 	else if (feederID == FEEDER_PLAYER_SPECIES)
