@@ -26,6 +26,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "anims.h"
 #include "wp_saber.h"
 #include "g_vehicles.h"
+#include "g_functions.h"
 #include "NPC_SWGL.h"
 #include "../cgame/cg_local.h"
 #if !defined(RUFL_HSTRING_INC)
@@ -42,6 +43,7 @@ extern vec3_t playerMins;
 extern vec3_t playerMaxs;
 extern stringID_table_t WPTable[];
 extern stringID_table_t FPTable[];
+extern qboolean GEntity_HasAttribute(gentity_t* entity, gent_attr_t attribute);
 
 extern qboolean IsPlayingOperationKnightfall(void);
 
@@ -53,7 +55,6 @@ extern qboolean saberFound;
 
 extern cvar_t *g_allowAlignmentChange;
 extern cvar_t* g_adoptcharstats;
-extern cvar_t* g_allowAttributes;
 
 #define		MAX_MODELS_PER_LEVEL	60
 
@@ -3790,7 +3791,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 			}
 
 			// NPC attributes
-			if (!Q_stricmp(token, "attribute") && g_allowAttributes->integer)
+			if (!Q_stricmp(token, "attribute"))
 			{
 				if (COM_ParseString(&p, &value))
 				{
@@ -3801,7 +3802,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					NPC->attrFlags |= attr;
 
 				// People held by hatred cannot be dismembered until they die.
-				if (NPC->attrFlags & ATTR_HELD_BY_HATRED)
+				if (GEntity_HasAttribute(NPC, ATTR_HELD_BY_HATRED))
 				{
 					NPC->flags |= FL_UNDYING;
 					NPC->client->dismembered = qfalse;

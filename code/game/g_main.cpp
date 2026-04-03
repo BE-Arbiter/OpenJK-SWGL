@@ -297,8 +297,7 @@ cvar_t	*g_adoptcharstats;
 cvar_t	*g_LegacyForceTiming;
 
 qboolean	stop_icarus = qfalse;
-
-cvar_t	*g_allowAttributes;
+cvar_t	*g_disabledAttributes;
 
 cvar_t	*static_cam;
 
@@ -856,7 +855,7 @@ void G_InitCvars( void ) {
 
 	static_cam = gi.cvar("static_Cam", "0", CVAR_NORESTART);
 
-	g_allowAttributes = gi.cvar("g_allowAttributes", "1", CVAR_ARCHIVE);
+	g_disabledAttributes = gi.cvar("g_disabledAttributes", "0", CVAR_ARCHIVE);
 
 }
 /*
