@@ -5737,6 +5737,10 @@ void Attributes_GetConfig(void)
 			Q_strncpyz(uiInfo.disabledAttributeList[wordIndex], allAttributes[i], ATTRIBUTES_SIZE);
 			wordIndex++;
 		}
+		for (int i = wordIndex; i < MAX_ATTRIBUTES; i++)
+		{
+			uiInfo.disabledAttributeList[i][0] = '\0';
+		}
 		uiInfo.disabledAttributeIndex = 0;
 		uiInfo.disabledAttributeCount = wordIndex;
 	}
@@ -5754,7 +5758,7 @@ void Attributes_GetConfig(void)
 			continue;
 		}
 		qboolean found = qfalse;
-		for (int j = 0; j < MAX_ATTRIBUTES; j++)
+		for (int j = 0; j < uiInfo.disabledAttributeCount; j++)
 		{
 			if (uiInfo.disabledAttributeList[j] == 0 || uiInfo.disabledAttributeList[j][0] == 0)
 			{
@@ -5775,6 +5779,11 @@ void Attributes_GetConfig(void)
 	}
 	uiInfo.enabledAttributeCount = wordIndex;
 	uiInfo.enabledAttributeIndex = 0;
+
+	for (int i = wordIndex; i < MAX_ATTRIBUTES; i++)
+	{
+		uiInfo.enabledAttributeList[i][0] = '\0';
+	}
 }
 
 void Attributes_SaveConfig(void)
