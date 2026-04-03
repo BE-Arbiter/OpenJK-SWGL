@@ -862,7 +862,8 @@ vmCvar_t	ui_saber_defend_level;
 vmCvar_t	ui_saber_throw_level;
 
 vmCvar_t	ui_saber_edit;
-
+vmCvar_t    g_disabledAttributes;
+vmCvar_t    ui_selected_attribute;
 // Model angle slider
 
 vmCvar_t	ui_char_model_angle;
@@ -1013,6 +1014,8 @@ static cvarTable_t cvarTable[] =
 	{ &ui_saber_defend_level, "ui_saber_defend_level", "0", NULL, 0 },
 	{ &ui_saber_throw_level, "ui_saber_throw_level", "0", NULL, 0 },
 
+	{ &ui_selected_attribute, "ui_selected_attribute","",NULL,0},
+	{ &g_disabledAttributes, "g_disabledAttributes","0",NULL,CVAR_ARCHIVE},
 };
 
 #define FP_UPDATED_NONE -1
@@ -1325,6 +1328,20 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 			}
 		}
 	}
+	else if (feederID == FEEDER_ATTR_DISABLED)
+	{
+		if (index >= 0 && index < uiInfo.disabledAttributeCount)
+		{
+			return uiInfo.disabledAttributeList[index];
+		}
+	}
+	else if (feederID == FEEDER_ATTR_ENABLED)
+	{
+		if (index >= 0 && index < uiInfo.enabledAttributeCount)
+		{
+			return uiInfo.enabledAttributeList[index];
+		}
+	}
 
 	return "";
 }
@@ -1475,20 +1492,54 @@ static qboolean UI_RunMenuScript ( const char **args )
 		if (Q_stricmp(name, "resetdefaults") == 0)
 		{
 			UI_ResetDefaults();
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "saveControls") == 0)
+		if (Q_stricmp(name, "saveControls") == 0)
 		{
 			Controls_SetConfig();
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "loadControls") == 0)
+		if (Q_stricmp(name, "loadAttributes") == 0)
+		{
+			Attributes_GetConfig();
+			return qtrue;
+		}
+		if (Q_stricmp(name, "saveAttributes") == 0)
+		{
+			Attributes_SaveConfig();
+			return qtrue;
+		}
+		if (Q_stricmp(name, "disableAllAttributes") == 0)
+		{
+			Attributes_DisableAll();
+			return qtrue;
+		}
+		if (Q_stricmp(name, "enableAllAttributes") == 0)
+		{
+			Attributes_EnableAll();
+			return qtrue;
+		}
+		if (Q_stricmp(name, "disableSelectedAttribute") == 0)
+		{
+			Attributes_DisableSelected();
+			return qtrue;
+		}
+		if (Q_stricmp(name, "enableSelectedAttribute") == 0)
+		{
+			Attributes_EnableSelected();
+			return qtrue;
+		}
+		if (Q_stricmp(name, "loadControls") == 0)
 		{
 			Controls_GetConfig();
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "clearError") == 0)
+		if (Q_stricmp(name, "clearError") == 0)
 		{
 			Cvar_Set("com_errorMessage", "");
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "ReadSaveDirectory") == 0)
+		if (Q_stricmp(name, "ReadSaveDirectory") == 0)
 		{
 			s_savegame.saveFileCnt = -1;	//force a refresh at drawtime
 //			ReadSaveDirectory();
@@ -2748,6 +2799,14 @@ static int UI_FeederCount(float feederID)
 	{
 		return uiInfo.modCount;
 	}
+	else if (feederID == FEEDER_ATTR_DISABLED)
+	{
+		return uiInfo.disabledAttributeCount;
+	}
+	else if (feederID == FEEDER_ATTR_ENABLED)
+	{
+		return uiInfo.enabledAttributeCount;
+	}
 	else if (feederID == FEEDER_LANGUAGES)
 	{
 		return uiInfo.languageCount;
@@ -2937,6 +2996,20 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 	else if (feederID == FEEDER_MODS)
 	{
 		uiInfo.modIndex = index;
+	}
+	else if (feederID == FEEDER_ATTR_DISABLED)
+	{
+		char buffer[ATTRIBUTES_SIZE];
+		Q_strncpyz(buffer, uiInfo.disabledAttributeList[index], ATTRIBUTES_SIZE);
+		ui.Cvar_Set("ui_selected_attribute", buffer);
+		uiInfo.disabledAttributeIndex = index;
+	}
+	else if (feederID == FEEDER_ATTR_ENABLED)
+	{
+		char buffer[ATTRIBUTES_SIZE];
+		Q_strncpyz(buffer, uiInfo.enabledAttributeList[index], ATTRIBUTES_SIZE);
+		ui.Cvar_Set("ui_selected_attribute", buffer);
+		uiInfo.enabledAttributeIndex = index;
 	}
 	else if (feederID == FEEDER_PLAYER_SPECIES)
 	{

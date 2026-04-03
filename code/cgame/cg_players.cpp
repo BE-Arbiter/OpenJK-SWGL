@@ -9176,20 +9176,28 @@ SkipTrueView:
 				{//arc
 					vec3_t	fxAxis[3];
 					AnglesToAxis( tAng, fxAxis );
-					if (cent->gent->attrFlags & ATTR_PRECISE_LIGHTNING)
+					if (GEntity_HasAttribute(cent->gent, ATTR_PRECISE_LIGHTNING))
+					{
 						theFxScheduler.PlayEffect(CG_GetForceLightning(cent), cent->gent->client->renderInfo.handLPoint, fxAxis);
+					}
 					else
+					{
 						theFxScheduler.PlayEffect(CG_GetWideForceLightning(cent), cent->gent->client->renderInfo.handLPoint, fxAxis);
+					}
 
-					if ( cent->gent->client->ps.torsoAnim == BOTH_FORCE_2HANDEDLIGHTNING
+					if (cent->gent->client->ps.torsoAnim == BOTH_FORCE_2HANDEDLIGHTNING
 						|| cent->gent->client->ps.torsoAnim == BOTH_FORCE_2HANDEDLIGHTNING_START
 						|| cent->gent->client->ps.torsoAnim == BOTH_FORCE_2HANDEDLIGHTNING_HOLD
-						|| cent->gent->client->ps.torsoAnim == BOTH_FORCE_2HANDEDLIGHTNING_RELEASE )
+						|| cent->gent->client->ps.torsoAnim == BOTH_FORCE_2HANDEDLIGHTNING_RELEASE)
 					{//jackin' 'em up, Palpatine-style
-						if (cent->gent->attrFlags & ATTR_PRECISE_LIGHTNING)
+						if (GEntity_HasAttribute(cent->gent, ATTR_PRECISE_LIGHTNING))
+						{
 							theFxScheduler.PlayEffect(CG_GetForceLightning(cent), cent->gent->client->renderInfo.handRPoint, fxAxis);
+						}
 						else
+						{
 							theFxScheduler.PlayEffect(CG_GetWideForceLightning(cent), cent->gent->client->renderInfo.handRPoint, fxAxis);
+						}
 					}
 				}
 				else

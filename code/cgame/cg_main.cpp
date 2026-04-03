@@ -548,7 +548,7 @@ static cvarTable_t cvarTable[] = {
 	{ &ui_loadout_base_weapon , "ui_loadout_base_weapon","weapon_none", CVAR_TEMP},
 	{ &ui_loadout_weapon , "ui_loadout_weapon","0", CVAR_TEMP},
 	{ &ui_npc_weapon, "ui_npc_weapon",	"WP_BLASTER", CVAR_ARCHIVE },
-	{ &ui_npc_weapon_label, "ui_npc_weapon_label",	"Blaster", CVAR_ARCHIVE }
+	{ &ui_npc_weapon_label, "ui_npc_weapon_label",	"Blaster", CVAR_ARCHIVE },
 };
 
 static const size_t cvarTableSize = ARRAY_LEN( cvarTable );

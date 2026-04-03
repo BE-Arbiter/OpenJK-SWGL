@@ -4428,7 +4428,7 @@ void G_CheckClientIdle( gentity_t *ent, usercmd_t *ucmd )
 				|| !Q_stricmp("vader2", g_char_model->string)
 				|| !Q_stricmp("anakin_suit", g_char_model->string))
 			{
-				if ((player->attrFlags & ATTR_HELD_BY_HATRED && player->max_health < 100) || (!(player->attrFlags & ATTR_HELD_BY_HATRED) && player->health <= (player->max_health * .20f)))
+				if ((GEntity_HasAttribute(player,ATTR_HELD_BY_HATRED) && player->max_health < 100) || (!(GEntity_HasAttribute(player,ATTR_HELD_BY_HATRED)) && player->health <= (player->max_health * .20f)))
 				{
 					G_SoundOnEnt(player, CHAN_VOICE, va("sound/chars/am_darth_vader/vader_breathe_wheeze.wav"));
 					TIMER_Set(player, "breathing", Q_irand(3000, 5000));
@@ -4447,7 +4447,7 @@ void G_CheckClientIdle( gentity_t *ent, usercmd_t *ucmd )
 			}
 			else
 			{
-				if ((player->attrFlags & ATTR_HELD_BY_HATRED && player->max_health < 100))
+				if ((GEntity_HasAttribute(player,ATTR_HELD_BY_HATRED) && player->max_health < 100))
 				{
 					G_SoundOnEnt(player, CHAN_VOICE, va("sound/chars/lord_starkiller/starkiller_breathe_strained.wav"));
 					TIMER_Set(player, "breathing", Q_irand(2120, 4000));

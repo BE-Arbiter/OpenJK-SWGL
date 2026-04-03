@@ -4478,7 +4478,7 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 			{
 				*animSpeed *= gent->client->ps.saber[1].animSpeedScale;
 			}
-			if (gent->attrFlags & ATTR_BERSERKER)
+			if (GEntity_HasAttribute(gent, ATTR_BERSERKER))
 			{
 				if (gent->health <= (gent->max_health * 0.5f))
 					*animSpeed *= 2.0f;
@@ -4487,14 +4487,14 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 			}
 		}
 	}
-	if ( gent
+	if (gent
 		&& gent->client
 		&& gent->client->ps.weapons[WP_SCEPTER]
 		&& gent->client->ps.dualSabers
 		&& saberAnimLevel == SS_DUAL
-		&& gent->weaponModel[1] )
+		&& gent->weaponModel[1])
 	{//using a scepter and dual style, slow down anims
-		if ( anim >= BOTH_A1_T__B_ && anim <= BOTH_H7_S7_BR )
+		if (anim >= BOTH_A1_T__B_ && anim <= BOTH_H7_S7_BR)
 		{
 			if (gent
 				&& gent->client
@@ -4508,9 +4508,9 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 			}
 		}
 	}
-	if ( gent && gent->client && gent->client->ps.forceRageRecoveryTime > level.time )
+	if (gent && gent->client && gent->client->ps.forceRageRecoveryTime > level.time)
 	{//rage recovery
-		if ( anim >= BOTH_A1_T__B_ && anim <= BOTH_H1_S1_BR )
+		if (anim >= BOTH_A1_T__B_ && anim <= BOTH_H1_S1_BR)
 		{//animate slower
 			if (gent
 				&& gent->client
@@ -4524,11 +4524,11 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 			}
 		}
 	}
-	else if ( gent && gent->NPC && gent->NPC->rank == RANK_CIVILIAN )
+	else if (gent && gent->NPC && gent->NPC->rank == RANK_CIVILIAN)
 	{//grunt reborn
-		if ( anim >= BOTH_A1_T__B_ && anim <= BOTH_R1_TR_S1 )
+		if (anim >= BOTH_A1_T__B_ && anim <= BOTH_R1_TR_S1)
 		{//his fast attacks are slower
-			if ( !PM_SpinningSaberAnim( anim ) )
+			if (!PM_SpinningSaberAnim(anim))
 			{
 				if (gent
 					&& gent->client
@@ -4544,13 +4544,13 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 			return;
 		}
 	}
-	else if ( gent && gent->client )
+	else if (gent && gent->client)
 	{
-		if ( gent->client->ps.saber[0].type == SABER_LANCE || gent->client->ps.saber[0].type == SABER_TRIDENT )
+		if (gent->client->ps.saber[0].type == SABER_LANCE || gent->client->ps.saber[0].type == SABER_TRIDENT)
 		{//FIXME: hack for now - these use the fast anims, but slowed down.  Should have own style
-			if ( anim >= BOTH_A1_T__B_ && anim <= BOTH_R1_TR_S1 )
+			if (anim >= BOTH_A1_T__B_ && anim <= BOTH_R1_TR_S1)
 			{//his fast attacks are slower
-				if ( !PM_SpinningSaberAnim( anim ) )
+				if (!PM_SpinningSaberAnim(anim))
 				{
 					if (gent
 						&& gent->client
@@ -4568,14 +4568,14 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 		}
 	}
 
-	if ( ( anim >= BOTH_T1_BR__R &&
-		anim <= BOTH_T1_BL_TL ) ||
-		( anim >= BOTH_T3_BR__R &&
-		anim <= BOTH_T3_BL_TL ) ||
-		( anim >= BOTH_T5_BR__R &&
-		anim <= BOTH_T5_BL_TL ) )
+	if ((anim >= BOTH_T1_BR__R &&
+		anim <= BOTH_T1_BL_TL) ||
+		(anim >= BOTH_T3_BR__R &&
+			anim <= BOTH_T3_BL_TL) ||
+		(anim >= BOTH_T5_BR__R &&
+			anim <= BOTH_T5_BL_TL))
 	{
-		if ( saberAnimLevel == FORCE_LEVEL_1 || saberAnimLevel == FORCE_LEVEL_5 )
+		if (saberAnimLevel == FORCE_LEVEL_1 || saberAnimLevel == FORCE_LEVEL_5)
 		{//FIXME: should not be necc for FORCE_LEVEL_1's
 			if (gent
 				&& gent->client
@@ -4588,7 +4588,7 @@ void PM_SaberStartTransAnim( int saberAnimLevel, int anim, float *animSpeed, gen
 				*animSpeed *= 1.5;
 			}
 		}
-		else if ( saberAnimLevel == FORCE_LEVEL_3 )
+		else if (saberAnimLevel == FORCE_LEVEL_3)
 		{
 			if (gent
 				&& gent->client
@@ -4651,20 +4651,20 @@ void PM_SaberStartTransAnim( int anim, int entNum, int saberOffenseLevel, float 
 extern qboolean		player_locked;
 extern qboolean PlayerAffectedByStasis(void);
 extern qboolean		MatrixMode;
-float PM_GetTimeScaleMod( gentity_t *gent )
+float PM_GetTimeScaleMod(gentity_t* gent)
 {
-	if ( g_timescale->value )
+	if (g_timescale->value)
 	{
-		if ( !MatrixMode
+		if (!MatrixMode
 			&& gent->client->ps.legsAnim != BOTH_FORCELONGLEAP_START
 			&& gent->client->ps.legsAnim != BOTH_FORCELONGLEAP_ATTACK
-			&& gent->client->ps.legsAnim != BOTH_FORCELONGLEAP_LAND )
+			&& gent->client->ps.legsAnim != BOTH_FORCELONGLEAP_LAND)
 		{
-			if ( gent && gent->s.clientNum == 0 && !player_locked && !PlayerAffectedByStasis() && gent->client->ps.forcePowersActive&(1<<FP_SPEED) )
+			if (gent && gent->s.clientNum == 0 && !player_locked && !PlayerAffectedByStasis() && gent->client->ps.forcePowersActive & (1 << FP_SPEED))
 			{
 				return (1.0 / g_timescale->value);
 			}
-			else if ( gent && gent->client && gent->client->ps.forcePowersActive&(1<<FP_SPEED) )
+			else if (gent && gent->client && gent->client->ps.forcePowersActive & (1 << FP_SPEED))
 			{
 				return (1.0 / g_timescale->value);
 			}
@@ -4679,17 +4679,17 @@ PM_SetAnimFinal
 -------------------------
 */
 #define G2_DEBUG_TIMING (0)
-void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
-					 int setAnimParts,int anim,int setAnimFlags,
-					 int *torsoAnimTimer,int *legsAnimTimer,
-					 gentity_t *gent,int blendTime)		// default blendTime=350
+void PM_SetAnimFinal(int* torsoAnim, int* legsAnim,
+	int setAnimParts, int anim, int setAnimFlags,
+	int* torsoAnimTimer, int* legsAnimTimer,
+	gentity_t* gent, int blendTime)		// default blendTime=350
 {
 
-// BASIC SETUP AND SAFETY CHECKING
-//=================================
+	// BASIC SETUP AND SAFETY CHECKING
+	//=================================
 
-	// If It Is A Busted Entity, Don't Do Anything Here.
-	//---------------------------------------------------
+		// If It Is A Busted Entity, Don't Do Anything Here.
+		//---------------------------------------------------
 	if (!gent || !gent->client)
 	{
 		return;
@@ -4697,12 +4697,12 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 
 	// Make Sure This Character Has Such An Anim And A Model
 	//-------------------------------------------------------
-	if (anim<0 || anim>=MAX_ANIMATIONS || !ValidAnimFileIndex(gent->client->clientInfo.animFileIndex))
+	if (anim < 0 || anim >= MAX_ANIMATIONS || !ValidAnimFileIndex(gent->client->clientInfo.animFileIndex))
 	{
-		#ifndef FINAL_BUILD
- 		if (g_AnimWarning->integer)
+#ifndef FINAL_BUILD
+		if (g_AnimWarning->integer)
 		{
-			if (anim<0 || anim>=MAX_ANIMATIONS)
+			if (anim < 0 || anim >= MAX_ANIMATIONS)
 			{
 				gi.Printf(S_COLOR_RED"PM_SetAnimFinal: Invalid Anim Index (%d)!\n", anim);
 			}
@@ -4711,37 +4711,37 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 				gi.Printf(S_COLOR_RED"PM_SetAnimFinal: Invalid Anim File Index (%d)!\n", gent->client->clientInfo.animFileIndex);
 			}
 		}
-		#endif
+#endif
 		return;
 	}
 
 
 	// Get Global Time Properties
 	//----------------------------
-	float			timeScaleMod  = PM_GetTimeScaleMod( gent );
-	const int		actualTime	  = (cg.time?cg.time:level.time);
-	const animation_t*	animations	  = level.knownAnimFileSets[gent->client->clientInfo.animFileIndex].animations;
-	const animation_t&	curAnim		  = animations[anim];
+	float			timeScaleMod = PM_GetTimeScaleMod(gent);
+	const int		actualTime = (cg.time ? cg.time : level.time);
+	const animation_t* animations = level.knownAnimFileSets[gent->client->clientInfo.animFileIndex].animations;
+	const animation_t& curAnim = animations[anim];
 
 	// Make Sure This Character Has Such An Anim And A Model
 	//-------------------------------------------------------
-	if (animations[anim].numFrames==0)
+	if (animations[anim].numFrames == 0)
 	{
-	#ifndef FINAL_BUILD
-		static int	LastAnimWarningNum=0;
-		if (LastAnimWarningNum!=anim)
+#ifndef FINAL_BUILD
+		static int	LastAnimWarningNum = 0;
+		if (LastAnimWarningNum != anim)
 		{
-			if ((cg_debugAnim.integer==3)	||												// 3 = do everyone
- 				(cg_debugAnim.integer==1 && gent->s.number==0) ||							// 1 = only the player
-				(cg_debugAnim.integer==2 && gent->s.number!=0) ||							// 2 = only everyone else
-				(cg_debugAnim.integer==4 && gent->s.number!=cg_debugAnimTarget.integer) 	// 4 = specific entnum
+			if ((cg_debugAnim.integer == 3) ||												// 3 = do everyone
+				(cg_debugAnim.integer == 1 && gent->s.number == 0) ||							// 1 = only the player
+				(cg_debugAnim.integer == 2 && gent->s.number != 0) ||							// 2 = only everyone else
+				(cg_debugAnim.integer == 4 && gent->s.number != cg_debugAnimTarget.integer) 	// 4 = specific entnum
 				)
 			{
-				gi.Printf(S_COLOR_RED"PM_SetAnimFinal: Anim %s does not exist in this model (%s)!\n", animTable[anim].name, gent->NPC_type );
+				gi.Printf(S_COLOR_RED"PM_SetAnimFinal: Anim %s does not exist in this model (%s)!\n", animTable[anim].name, gent->NPC_type);
 			}
 		}
 		LastAnimWarningNum = anim;
-	#endif
+#endif
 		return;
 	}
 
@@ -4749,11 +4749,11 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 	//---------------------------------------------------------------------------------------------------------
 	if (!gi.G2API_HaveWeGhoul2Models(gent->ghoul2))
 	{
-		if (setAnimParts&SETANIM_TORSO)
+		if (setAnimParts & SETANIM_TORSO)
 		{
 			(*torsoAnim) = anim;
 		}
-		if (setAnimParts&SETANIM_LEGS)
+		if (setAnimParts & SETANIM_LEGS)
 		{
 			(*legsAnim) = anim;
 		}
@@ -4763,26 +4763,26 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 
 	// Lower Offensive Skill Slows Down The Saber Start Attack Animations
 	//--------------------------------------------------------------------
-	PM_SaberStartTransAnim( gent->client->ps.saberAnimLevel, anim, &timeScaleMod, gent );
+	PM_SaberStartTransAnim(gent->client->ps.saberAnimLevel, anim, &timeScaleMod, gent);
 
 
 
-// SETUP VALUES FOR INCOMMING ANIMATION
-//======================================
-	const bool	animFootMove  = (PM_WalkingAnim(anim) || PM_RunningAnim(anim) || anim==BOTH_CROUCH1WALK || anim==BOTH_CROUCH1WALKBACK);
-	const bool	animHoldless  = (setAnimFlags&SETANIM_FLAG_HOLDLESS)!=0;
-	const bool	animHold	  = (setAnimFlags&SETANIM_FLAG_HOLD)!=0;
-	const bool	animRestart	  = (setAnimFlags&SETANIM_FLAG_RESTART)!=0;
-	const bool	animOverride  = (setAnimFlags&SETANIM_FLAG_OVERRIDE)!=0;
-	const bool	animSync	  = (g_synchSplitAnims->integer!=0 && !animRestart);
-	float	animCurrent	  = (-1.0f);
-	float	animSpeed	  = (50.0f / curAnim.frameLerp * timeScaleMod); // animSpeed is 1.0 if the frameLerp (ms/frame) is 50 (20 fps).
-	const float	animFPS		  = (::abs(curAnim.frameLerp));
-	const int		animDurMSec	  = (int)(((curAnim.numFrames - 1) * animFPS) / timeScaleMod);
-	const int		animHoldMSec  = ((animHoldless && timeScaleMod==1.0f)?((animDurMSec>1)?(animDurMSec-1):(animFPS)):(animDurMSec));
-	int		animFlags	  = (curAnim.loopFrames!=-1)?(BONE_ANIM_OVERRIDE_LOOP):(BONE_ANIM_OVERRIDE_FREEZE);
-	int		animStart	  = (curAnim.firstFrame);
-	int		animEnd		  = (curAnim.firstFrame)+(animations[anim].numFrames);
+	// SETUP VALUES FOR INCOMMING ANIMATION
+	//======================================
+	const bool	animFootMove = (PM_WalkingAnim(anim) || PM_RunningAnim(anim) || anim == BOTH_CROUCH1WALK || anim == BOTH_CROUCH1WALKBACK);
+	const bool	animHoldless = (setAnimFlags & SETANIM_FLAG_HOLDLESS) != 0;
+	const bool	animHold = (setAnimFlags & SETANIM_FLAG_HOLD) != 0;
+	const bool	animRestart = (setAnimFlags & SETANIM_FLAG_RESTART) != 0;
+	const bool	animOverride = (setAnimFlags & SETANIM_FLAG_OVERRIDE) != 0;
+	const bool	animSync = (g_synchSplitAnims->integer != 0 && !animRestart);
+	float	animCurrent = (-1.0f);
+	float	animSpeed = (50.0f / curAnim.frameLerp * timeScaleMod); // animSpeed is 1.0 if the frameLerp (ms/frame) is 50 (20 fps).
+	const float	animFPS = (::abs(curAnim.frameLerp));
+	const int		animDurMSec = (int)(((curAnim.numFrames - 1) * animFPS) / timeScaleMod);
+	const int		animHoldMSec = ((animHoldless && timeScaleMod == 1.0f) ? ((animDurMSec > 1) ? (animDurMSec - 1) : (animFPS)) : (animDurMSec));
+	int		animFlags = (curAnim.loopFrames != -1) ? (BONE_ANIM_OVERRIDE_LOOP) : (BONE_ANIM_OVERRIDE_FREEZE);
+	int		animStart = (curAnim.firstFrame);
+	int		animEnd = (curAnim.firstFrame) + (animations[anim].numFrames);
 
 	// If We Have A Blend Timer, Add The Blend Flag
 	//----------------------------------------------
@@ -4793,30 +4793,30 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 
 	// If Animation Is Going Backwards, Swap Last And First Frames
 	//-------------------------------------------------------------
-	if (animSpeed<0.0f)
+	if (animSpeed < 0.0f)
 	{
-//	#ifndef FINAL_BUILD
-	#if 0
-		if (g_AnimWarning->integer==1)
+		//	#ifndef FINAL_BUILD
+#if 0
+		if (g_AnimWarning->integer == 1)
 		{
-			if (animFlags&BONE_ANIM_OVERRIDE_LOOP)
+			if (animFlags & BONE_ANIM_OVERRIDE_LOOP)
 			{
 				gi.Printf(S_COLOR_YELLOW"PM_SetAnimFinal: WARNING: Anim (%s) looping backwards!\n", animTable[anim].name);
 			}
 		}
-	#endif
+#endif
 
-		int temp	= animEnd;
-		animEnd		= animStart;
-		animStart	= temp;
-		blendTime	= 0;
+		int temp = animEnd;
+		animEnd = animStart;
+		animStart = temp;
+		blendTime = 0;
 	}
 
 	// If The Animation Is Walking Or Running, Attempt To Scale The Playback Speed To Match
 	//--------------------------------------------------------------------------------------
 	if (g_noFootSlide->integer
 		&& animFootMove
-		&& !(animSpeed<0.0f)
+		&& !(animSpeed < 0.0f)
 		//FIXME: either read speed from animation.cfg or only do this for NPCs
 		//			for whom we've specifically determined the proper numbers!
 		&& gent->client->NPC_class != CLASS_HOWLER
@@ -4831,11 +4831,11 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 		&& gent->client->NPC_class != CLASS_SEEKER)
 	{
 		bool	Walking = !!PM_WalkingAnim(anim);
-		bool	HasDual = (gent->client->ps.saberAnimLevel==SS_DUAL);
-		bool	HasStaff = (gent->client->ps.saberAnimLevel==SS_STAFF);
-		float	moveSpeedOfAnim  = 150.0f;//g_noFootSlideRunScale->value;
+		bool	HasDual = (gent->client->ps.saberAnimLevel == SS_DUAL);
+		bool	HasStaff = (gent->client->ps.saberAnimLevel == SS_STAFF);
+		float	moveSpeedOfAnim = 150.0f;//g_noFootSlideRunScale->value;
 
-		if (anim==BOTH_CROUCH1WALK || anim==BOTH_CROUCH1WALKBACK)
+		if (anim == BOTH_CROUCH1WALK || anim == BOTH_CROUCH1WALKBACK)
 		{
 			moveSpeedOfAnim = 75.0f;
 		}
@@ -4881,8 +4881,8 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 
 
 
-		animSpeed *= (gent->resultspeed/moveSpeedOfAnim);
-		if (animSpeed<0.01f)
+		animSpeed *= (gent->resultspeed / moveSpeedOfAnim);
+		if (animSpeed < 0.01f)
 		{
 			animSpeed = 0.01f;
 		}
@@ -4890,77 +4890,77 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 		// Make Sure Not To Play Too Fast An Anim
 		//----------------------------------------
 		float	maxPlaybackSpeed = (1.5f * timeScaleMod);
-		if (animSpeed>maxPlaybackSpeed)
+		if (animSpeed > maxPlaybackSpeed)
 		{
 			animSpeed = maxPlaybackSpeed;
 		}
 	}
 
 
-// GET VALUES FOR EXISTING BODY ANIMATION
-//==========================================
-	float	bodySpeed	  = 0.0f;
-	float	bodyCurrent	  = 0.0f;
-	int		bodyStart	  = 0;
-	int		bodyEnd		  = 0;
-	int		bodyFlags	  = 0;
-	int		bodyAnim	  = (*legsAnim);
-	int		bodyBone	  = (gent->rootBone);
-	bool	bodyTimerOn	  = ((*legsAnimTimer>0) || (*legsAnimTimer)==-1);
-	bool	bodyPlay	  = ((setAnimParts&SETANIM_LEGS) && (bodyBone!=-1) && (animOverride || !bodyTimerOn));
+	// GET VALUES FOR EXISTING BODY ANIMATION
+	//==========================================
+	float	bodySpeed = 0.0f;
+	float	bodyCurrent = 0.0f;
+	int		bodyStart = 0;
+	int		bodyEnd = 0;
+	int		bodyFlags = 0;
+	int		bodyAnim = (*legsAnim);
+	int		bodyBone = (gent->rootBone);
+	bool	bodyTimerOn = ((*legsAnimTimer > 0) || (*legsAnimTimer) == -1);
+	bool	bodyPlay = ((setAnimParts & SETANIM_LEGS) && (bodyBone != -1) && (animOverride || !bodyTimerOn));
 	bool	bodyAnimating = !!gi.G2API_GetBoneAnimIndex(&gent->ghoul2[gent->playerModel], bodyBone, actualTime, &bodyCurrent, &bodyStart, &bodyEnd, &bodyFlags, &bodySpeed, NULL);
-	bool	bodyOnAnimNow = (bodyAnimating && bodyAnim==anim && bodyStart==animStart && bodyEnd==animEnd);
+	bool	bodyOnAnimNow = (bodyAnimating && bodyAnim == anim && bodyStart == animStart && bodyEnd == animEnd);
 	bool	bodyMatchTorsFrame = false;
 
 
-// GET VALUES FOR EXISTING TORSO ANIMATION
-//===========================================
-	float	torsSpeed	  = 0.0f;
-	float	torsCurrent	  = 0.0f;
-	int		torsStart	  = 0;
-	int		torsEnd		  = 0;
-	int		torsFlags	  = 0;
-	int		torsAnim	  = (*torsoAnim);
-	int		torsBone	  = (gent->lowerLumbarBone);
-	bool	torsTimerOn	  = ((*torsoAnimTimer)>0 || (*torsoAnimTimer)==-1);
-	bool	torsPlay	  = (gent->client->NPC_class!=CLASS_RANCOR && (setAnimParts&SETANIM_TORSO) && (torsBone!=-1) && (animOverride || !torsTimerOn));
+	// GET VALUES FOR EXISTING TORSO ANIMATION
+	//===========================================
+	float	torsSpeed = 0.0f;
+	float	torsCurrent = 0.0f;
+	int		torsStart = 0;
+	int		torsEnd = 0;
+	int		torsFlags = 0;
+	int		torsAnim = (*torsoAnim);
+	int		torsBone = (gent->lowerLumbarBone);
+	bool	torsTimerOn = ((*torsoAnimTimer) > 0 || (*torsoAnimTimer) == -1);
+	bool	torsPlay = (gent->client->NPC_class != CLASS_RANCOR && (setAnimParts & SETANIM_TORSO) && (torsBone != -1) && (animOverride || !torsTimerOn));
 	bool	torsAnimating = !!gi.G2API_GetBoneAnimIndex(&gent->ghoul2[gent->playerModel], torsBone, actualTime, &torsCurrent, &torsStart, &torsEnd, &torsFlags, &torsSpeed, NULL);
-	bool	torsOnAnimNow = (torsAnimating && torsAnim==anim && torsStart==animStart && torsEnd==animEnd);
+	bool	torsOnAnimNow = (torsAnimating && torsAnim == anim && torsStart == animStart && torsEnd == animEnd);
 	bool	torsMatchBodyFrame = false;
 
 
-// APPLY SYNC TO TORSO
-//=====================
- 	if (animSync && torsPlay && !bodyPlay && bodyOnAnimNow && (!torsOnAnimNow || torsCurrent!=bodyCurrent))
+	// APPLY SYNC TO TORSO
+	//=====================
+	if (animSync && torsPlay && !bodyPlay && bodyOnAnimNow && (!torsOnAnimNow || torsCurrent != bodyCurrent))
 	{
 		torsMatchBodyFrame = true;
-		animCurrent		=  bodyCurrent;
+		animCurrent = bodyCurrent;
 	}
- 	if (animSync && bodyPlay && !torsPlay && torsOnAnimNow && (!bodyOnAnimNow || bodyCurrent!=torsCurrent))
+	if (animSync && bodyPlay && !torsPlay && torsOnAnimNow && (!bodyOnAnimNow || bodyCurrent != torsCurrent))
 	{
 		bodyMatchTorsFrame = true;
-		animCurrent		=  torsCurrent;
+		animCurrent = torsCurrent;
 	}
 
 	// If Already Doing These Exact Parameters, Then Don't Play
 	//----------------------------------------------------------
 	if (!animRestart)
 	{
-		torsPlay &= !(torsOnAnimNow && torsSpeed==animSpeed && !torsMatchBodyFrame);
-		bodyPlay &= !(bodyOnAnimNow && bodySpeed==animSpeed && !bodyMatchTorsFrame);
+		torsPlay &= !(torsOnAnimNow && torsSpeed == animSpeed && !torsMatchBodyFrame);
+		bodyPlay &= !(bodyOnAnimNow && bodySpeed == animSpeed && !bodyMatchTorsFrame);
 	}
 
 #ifndef FINAL_BUILD
-	if ((cg_debugAnim.integer==3)	||												// 3 = do everyone
-		(cg_debugAnim.integer==1 && gent->s.number==0) ||							// 1 = only the player
-		(cg_debugAnim.integer==2 && gent->s.number!=0) ||							// 2 = only everyone else
-		(cg_debugAnim.integer==4 && gent->s.number!=cg_debugAnimTarget.integer) 	// 4 = specific entnum
+	if ((cg_debugAnim.integer == 3) ||												// 3 = do everyone
+		(cg_debugAnim.integer == 1 && gent->s.number == 0) ||							// 1 = only the player
+		(cg_debugAnim.integer == 2 && gent->s.number != 0) ||							// 2 = only everyone else
+		(cg_debugAnim.integer == 4 && gent->s.number != cg_debugAnimTarget.integer) 	// 4 = specific entnum
 		)
 	{
 		if (bodyPlay || torsPlay)
 		{
-			char*	entName = gent->targetname;
-			char*	location;
+			char* entName = gent->targetname;
+			char* location;
 
 			// Select Entity Name
 			//--------------------
@@ -4998,25 +4998,25 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 
 			// Print It!
 			//-----------
-	 		Com_Printf("[%10d] ent[%3d-%18s] %s anim[%3d] - %s\n",
-	 			actualTime,
+			Com_Printf("[%10d] ent[%3d-%18s] %s anim[%3d] - %s\n",
+				actualTime,
 				gent->s.number,
 				entName,
 				location,
 				anim,
-				animTable[anim].name );
+				animTable[anim].name);
 		}
 	}
 #endif
 
 
-// PLAY ON THE TORSO
-//========================
+	// PLAY ON THE TORSO
+	//========================
 	if (torsPlay)
 	{
 		*torsoAnim = anim;
 		float oldAnimCurrent = animCurrent;
-		if (animCurrent!=bodyCurrent && torsOnAnimNow && !animRestart && !torsMatchBodyFrame)
+		if (animCurrent != bodyCurrent && torsOnAnimNow && !animRestart && !torsMatchBodyFrame)
 		{
 			animCurrent = torsCurrent;
 		}
@@ -5030,18 +5030,18 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 		gi.G2API_SetBoneAnimIndex(&gent->ghoul2[gent->playerModel], torsBone,
 			animStart,
 			animEnd,
-			(torsOnAnimNow && !animRestart)?(animFlags&~BONE_ANIM_BLEND):(animFlags),
+			(torsOnAnimNow && !animRestart) ? (animFlags & ~BONE_ANIM_BLEND) : (animFlags),
 			animSpeed,
 			actualTime,
 			animCurrent,
 			blendTime);
 
-		if (gent->motionBone!=-1)
+		if (gent->motionBone != -1)
 		{
 			gi.G2API_SetBoneAnimIndex(&gent->ghoul2[gent->playerModel], gent->motionBone,
 				animStart,
 				animEnd,
-				(torsOnAnimNow && !animRestart)?(animFlags&~BONE_ANIM_BLEND):(animFlags),
+				(torsOnAnimNow && !animRestart) ? (animFlags & ~BONE_ANIM_BLEND) : (animFlags),
 				animSpeed,
 				actualTime,
 				animCurrent,
@@ -5058,8 +5058,8 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 		}
 	}
 
-// PLAY ON THE WHOLE BODY
-//========================
+	// PLAY ON THE WHOLE BODY
+	//========================
 	if (bodyPlay)
 	{
 		*legsAnim = anim;
@@ -5078,7 +5078,7 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 		gi.G2API_SetBoneAnimIndex(&gent->ghoul2[gent->playerModel], bodyBone,
 			animStart,
 			animEnd,
-			(bodyOnAnimNow && !animRestart)?(animFlags&~BONE_ANIM_BLEND):(animFlags),
+			(bodyOnAnimNow && !animRestart) ? (animFlags & ~BONE_ANIM_BLEND) : (animFlags),
 			animSpeed,
 			actualTime,
 			animCurrent,
@@ -5096,14 +5096,14 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 
 
 
-// PRINT SOME DEBUG TEXT OF EXISTING VALUES
-//==========================================
+	// PRINT SOME DEBUG TEXT OF EXISTING VALUES
+	//==========================================
 	if (false)
 	{
 		gi.Printf("PLAYANIM: (%3d) Speed(%4.2f) ", anim, animSpeed);
 		if (bodyAnimating)
 		{
-			gi.Printf("BODY: (%4.2f) (%4.2f) ", bodyCurrent,  bodySpeed);
+			gi.Printf("BODY: (%4.2f) (%4.2f) ", bodyCurrent, bodySpeed);
 		}
 		else
 		{
@@ -5111,7 +5111,7 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 		}
 		if (torsAnimating)
 		{
-			gi.Printf("TORS: (%4.2f) (%4.2f)\n", torsCurrent,  torsSpeed);
+			gi.Printf("TORS: (%4.2f) (%4.2f)\n", torsCurrent, torsSpeed);
 		}
 		else
 		{
@@ -5122,16 +5122,16 @@ void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,
 
 
 
-void PM_SetAnim(pmove_t	*pm,int setAnimParts,int anim,int setAnimFlags, int blendTime)
+void PM_SetAnim(pmove_t* pm, int setAnimParts, int anim, int setAnimFlags, int blendTime)
 {	// FIXME : once torsoAnim and legsAnim are in the same structure for NPC and Players
 	// rename PM_SetAnimFinal to PM_SetAnim and have both NPC and Players call PM_SetAnim
 
-	if ( pm->ps->pm_type >= PM_DEAD )
+	if (pm->ps->pm_type >= PM_DEAD)
 	{//FIXME: sometimes we'll want to set anims when your dead... twitches, impacts, etc.
 		return;
 	}
 
-	if ( pm->gent == NULL )
+	if (pm->gent == NULL)
 	{
 		return;
 	}
@@ -5141,61 +5141,61 @@ void PM_SetAnim(pmove_t	*pm,int setAnimParts,int anim,int setAnimFlags, int blen
 		return;
 	}
 
-	if ( !pm->gent || pm->gent->health > 0 )
+	if (!pm->gent || pm->gent->health > 0)
 	{//don't lock anims if the guy is dead
-		if ( pm->ps->torsoAnimTimer
-			&& PM_LockedAnim( pm->ps->torsoAnim )
-			&& !PM_LockedAnim( anim ) )
+		if (pm->ps->torsoAnimTimer
+			&& PM_LockedAnim(pm->ps->torsoAnim)
+			&& !PM_LockedAnim(anim))
 		{//nothing can override these special anims
 			setAnimParts &= ~SETANIM_TORSO;
 		}
 
-		if ( pm->ps->legsAnimTimer
-			&& PM_LockedAnim( pm->ps->legsAnim )
-			&& !PM_LockedAnim( anim ) )
+		if (pm->ps->legsAnimTimer
+			&& PM_LockedAnim(pm->ps->legsAnim)
+			&& !PM_LockedAnim(anim))
 		{//nothing can override these special anims
 			setAnimParts &= ~SETANIM_LEGS;
 		}
 	}
 
-	if ( !setAnimParts )
+	if (!setAnimParts)
 	{
 		return;
 	}
 
-	if (setAnimFlags&SETANIM_FLAG_OVERRIDE)
+	if (setAnimFlags & SETANIM_FLAG_OVERRIDE)
 	{
-//		pm->ps->animationTimer = 0;
+		//		pm->ps->animationTimer = 0;
 
 		if (setAnimParts & SETANIM_TORSO)
 		{
-			if( (setAnimFlags & SETANIM_FLAG_RESTART) || pm->ps->torsoAnim != anim )
+			if ((setAnimFlags & SETANIM_FLAG_RESTART) || pm->ps->torsoAnim != anim)
 			{
-				PM_SetTorsoAnimTimer( pm->gent, &pm->ps->torsoAnimTimer, 0 );
+				PM_SetTorsoAnimTimer(pm->gent, &pm->ps->torsoAnimTimer, 0);
 			}
 		}
 		if (setAnimParts & SETANIM_LEGS)
 		{
-			if( (setAnimFlags & SETANIM_FLAG_RESTART) || pm->ps->legsAnim != anim )
+			if ((setAnimFlags & SETANIM_FLAG_RESTART) || pm->ps->legsAnim != anim)
 			{
-				PM_SetLegsAnimTimer( pm->gent, &pm->ps->legsAnimTimer, 0 );
+				PM_SetLegsAnimTimer(pm->gent, &pm->ps->legsAnimTimer, 0);
 			}
 		}
 	}
 
-	PM_SetAnimFinal(&pm->ps->torsoAnim,&pm->ps->legsAnim,setAnimParts,anim,setAnimFlags,&pm->ps->torsoAnimTimer,&pm->ps->legsAnimTimer,&g_entities[pm->ps->clientNum],blendTime);//was pm->gent
+	PM_SetAnimFinal(&pm->ps->torsoAnim, &pm->ps->legsAnim, setAnimParts, anim, setAnimFlags, &pm->ps->torsoAnimTimer, &pm->ps->legsAnimTimer, &g_entities[pm->ps->clientNum], blendTime);//was pm->gent
 }
 
-bool TorsoAgainstWindTest( gentity_t* ent )
+bool TorsoAgainstWindTest(gentity_t* ent)
 {
-	if (ent&&//valid ent
-		ent->client&&//a client
-		(ent->client->ps.weapon!=WP_SABER||ent->client->ps.saberMove==LS_READY)&&//either not holding a saber or the saber is in the ready pose
-		(ent->s.number<MAX_CLIENTS||G_ControlledByPlayer(ent)) &&
+	if (ent &&//valid ent
+		ent->client &&//a client
+		(ent->client->ps.weapon != WP_SABER || ent->client->ps.saberMove == LS_READY) &&//either not holding a saber or the saber is in the ready pose
+		(ent->s.number < MAX_CLIENTS || G_ControlledByPlayer(ent)) &&
 		gi.WE_GetWindGusting(ent->currentOrigin) &&
-		gi.WE_IsOutside(ent->currentOrigin) )
+		gi.WE_IsOutside(ent->currentOrigin))
 	{
-		if (Q_stricmp(level.mapname, "t2_wedge")!=0)
+		if (Q_stricmp(level.mapname, "t2_wedge") != 0)
 		{
 			vec3_t	fwd;
 			vec3_t	windDir;
@@ -5203,9 +5203,9 @@ bool TorsoAgainstWindTest( gentity_t* ent )
 			{
 				VectorScale(windDir, -1.0f, windDir);
 				AngleVectors(pm->gent->currentAngles, fwd, 0, 0);
-				if (DotProduct(fwd, windDir)>0.65f)
+				if (DotProduct(fwd, windDir) > 0.65f)
 				{
-					if (ent->client && ent->client->ps.torsoAnim!=BOTH_WIND)
+					if (ent->client && ent->client->ps.torsoAnim != BOTH_WIND)
 					{
 						NPC_SetAnim(ent, SETANIM_TORSO, BOTH_WIND, SETANIM_FLAG_NORMAL, 400);
 					}
@@ -5228,39 +5228,39 @@ PM_TorsoAnimLightsaber
 // only does idle-ish anims.  Anything that has a timer associated, such as attacks and blocks,
 // are set by PM_WeaponLightsaber()
 
-extern Vehicle_t *G_IsRidingVehicle( gentity_t *pEnt );
-extern qboolean PM_LandingAnim( int anim );
-extern qboolean PM_JumpingAnim( int anim );
-qboolean PM_InCartwheel( int anim );
+extern Vehicle_t* G_IsRidingVehicle(gentity_t* pEnt);
+extern qboolean PM_LandingAnim(int anim);
+extern qboolean PM_JumpingAnim(int anim);
+qboolean PM_InCartwheel(int anim);
 void PM_TorsoAnimLightsaber()
 {
 	// *********************************************************
 	// WEAPON_READY
 	// *********************************************************
-	if ( pm->ps->forcePowersActive&(1<<FP_GRIP) && pm->ps->forcePowerLevel[FP_GRIP] > FORCE_LEVEL_1 )
+	if (pm->ps->forcePowersActive & (1 << FP_GRIP) && pm->ps->forcePowerLevel[FP_GRIP] > FORCE_LEVEL_1)
 	{//holding an enemy aloft with force-grip
 		return;
 	}
 
-	if (pm->ps->forcePowersActive&(1 << FP_GRASP) && pm->ps->forcePowerLevel[FP_GRASP] > FORCE_LEVEL_1)
+	if (pm->ps->forcePowersActive & (1 << FP_GRASP) && pm->ps->forcePowerLevel[FP_GRASP] > FORCE_LEVEL_1)
 	{//holding an enemy aloft with force-grasp
 		return;
 	}
 
-	if ( pm->ps->forcePowersActive&(1<<FP_LIGHTNING) && pm->ps->forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_1 )
+	if (pm->ps->forcePowersActive & (1 << FP_LIGHTNING) && pm->ps->forcePowerLevel[FP_LIGHTNING] > FORCE_LEVEL_1)
 	{//lightning
 		return;
 	}
 
-	if ( pm->ps->forcePowersActive&(1<<FP_DRAIN) )
+	if (pm->ps->forcePowersActive & (1 << FP_DRAIN))
 	{//drain
 		return;
 	}
 
-	if ( pm->ps->saber[0].blade[0].active
+	if (pm->ps->saber[0].blade[0].active
 		&& pm->ps->saber[0].blade[0].length < 3
-		&& !(pm->ps->saberEventFlags&SEF_HITWALL)
-		&& pm->ps->weaponstate == WEAPON_RAISING )
+		&& !(pm->ps->saberEventFlags & SEF_HITWALL)
+		&& pm->ps->weaponstate == WEAPON_RAISING)
 	{
 		if (!G_IsRidingVehicle(pm->gent))
 		{
@@ -5271,7 +5271,7 @@ void PM_TorsoAnimLightsaber()
 		}
 		return;
 	}
-	else if ( !pm->ps->SaberActive() && pm->ps->SaberLength() )
+	else if (!pm->ps->SaberActive() && pm->ps->SaberLength())
 	{
 		if (!G_IsRidingVehicle(pm->gent))
 		{
@@ -5280,32 +5280,32 @@ void PM_TorsoAnimLightsaber()
 			else
 			{
 				// Should fix a problem where the character would drop their hands to their side when turning off a saber during another animation, like running.
-				if(PM_SaberStanceAnim(pm->ps->torsoAnim))
+				if (PM_SaberStanceAnim(pm->ps->torsoAnim))
 					PM_SetSaberMove(LS_NONE);
 			}
-				
+
 		}
 		return;
 	}
 
 	if (pm->ps->weaponTime > 0)
 	{	// weapon is already busy.
-		if ( pm->ps->torsoAnim == BOTH_TOSS1
-			|| pm->ps->torsoAnim == BOTH_TOSS2 )
+		if (pm->ps->torsoAnim == BOTH_TOSS1
+			|| pm->ps->torsoAnim == BOTH_TOSS2)
 		{//in toss
-			if ( !pm->ps->torsoAnimTimer )
+			if (!pm->ps->torsoAnimTimer)
 			{//weird, get out of it, I guess
-				PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
+				PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
 			}
 		}
 		return;
 	}
 
-	if (	pm->ps->weaponstate == WEAPON_READY ||
-			pm->ps->weaponstate == WEAPON_CHARGING ||
-			pm->ps->weaponstate == WEAPON_CHARGING_ALT )
+	if (pm->ps->weaponstate == WEAPON_READY ||
+		pm->ps->weaponstate == WEAPON_CHARGING ||
+		pm->ps->weaponstate == WEAPON_CHARGING_ALT)
 	{//ready
-		if ( pm->ps->weapon == WP_SABER && (pm->ps->SaberLength()) )
+		if (pm->ps->weapon == WP_SABER && (pm->ps->SaberLength()))
 		{//saber is on
 			// Select the proper idle Lightsaber attack move from the chart.
 			if (pm->ps->saberMove > LS_READY && pm->ps->saberMove < LS_MOVE_MAX)
@@ -5314,32 +5314,32 @@ void PM_TorsoAnimLightsaber()
 			}
 			else
 			{
-				if ( PM_JumpingAnim( pm->ps->legsAnim )
-					|| PM_LandingAnim( pm->ps->legsAnim )
-					|| PM_InCartwheel( pm->ps->legsAnim )
-					|| PM_FlippingAnim( pm->ps->legsAnim ))
+				if (PM_JumpingAnim(pm->ps->legsAnim)
+					|| PM_LandingAnim(pm->ps->legsAnim)
+					|| PM_InCartwheel(pm->ps->legsAnim)
+					|| PM_FlippingAnim(pm->ps->legsAnim))
 				{
-					PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
+					PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
 				}
 				else
 				{
-					if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) && pm->ps->torsoAnim == BOTH_BUTTON_HOLD )
+					if ((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()) && pm->ps->torsoAnim == BOTH_BUTTON_HOLD)
 					{//using something
-						if ( !pm->ps->useTime )
+						if (!pm->ps->useTime)
 						{//stopped holding it, release
-							PM_SetAnim( pm, SETANIM_TORSO, BOTH_BUTTON_RELEASE, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+							PM_SetAnim(pm, SETANIM_TORSO, BOTH_BUTTON_RELEASE, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
 						}//else still holding, leave it as it is
 					}
 					else
 					{
-						if ( (PM_RunningAnim( pm->ps->legsAnim )
-								|| pm->ps->legsAnim == BOTH_WALK_STAFF
-								|| pm->ps->legsAnim == BOTH_WALK_DUAL
-								|| pm->ps->legsAnim == BOTH_WALKBACK_STAFF
-								|| pm->ps->legsAnim == BOTH_WALKBACK_DUAL )
-							&& pm->ps->saberBlockingTime < cg.time )
+						if ((PM_RunningAnim(pm->ps->legsAnim)
+							|| pm->ps->legsAnim == BOTH_WALK_STAFF
+							|| pm->ps->legsAnim == BOTH_WALK_DUAL
+							|| pm->ps->legsAnim == BOTH_WALKBACK_STAFF
+							|| pm->ps->legsAnim == BOTH_WALKBACK_DUAL)
+							&& pm->ps->saberBlockingTime < cg.time)
 						{//running w/1-handed weapon uses full-body anim
-							PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
+							PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
 						}
 						else
 						{
@@ -5365,55 +5365,55 @@ void PM_TorsoAnimLightsaber()
 		else if (TorsoAgainstWindTest(pm->gent))
 		{
 		}
-		else if( pm->ps->legsAnim == BOTH_RUN1 )
+		else if (pm->ps->legsAnim == BOTH_RUN1)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_RUN1,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_RUN1, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_RUN2 )//&& pm->ps->saberAnimLevel != SS_STAFF )
+		else if (pm->ps->legsAnim == BOTH_RUN2)//&& pm->ps->saberAnimLevel != SS_STAFF )
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_RUN2,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_RUN2, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_RUN_STAFF )
+		else if (pm->ps->legsAnim == BOTH_RUN_STAFF)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_RUN_STAFF,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_RUN_STAFF, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_RUN_DUAL )
+		else if (pm->ps->legsAnim == BOTH_RUN_DUAL)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_RUN_DUAL,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_RUN_DUAL, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_WALK1 )
+		else if (pm->ps->legsAnim == BOTH_WALK1)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_WALK1,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_WALK1, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_WALK2 )
+		else if (pm->ps->legsAnim == BOTH_WALK2)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_WALK2,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_WALK2, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_WALK_STAFF )
+		else if (pm->ps->legsAnim == BOTH_WALK_STAFF)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_WALK_STAFF,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_WALK_STAFF, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_WALK_DUAL )
+		else if (pm->ps->legsAnim == BOTH_WALK_DUAL)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_WALK_DUAL,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_WALK_DUAL, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_CROUCH1IDLE && pm->ps->clientNum != 0 )//player falls through
+		else if (pm->ps->legsAnim == BOTH_CROUCH1IDLE && pm->ps->clientNum != 0)//player falls through
 		{
 			//??? Why nothing?  What if you were running???
 			//PM_SetAnim(pm,SETANIM_TORSO,BOTH_CROUCH1IDLE,SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_JUMP1 )
+		else if (pm->ps->legsAnim == BOTH_JUMP1)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_JUMP1,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_JUMP1, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
 		else
@@ -5426,20 +5426,20 @@ void PM_TorsoAnimLightsaber()
 			}
 			else
 			{
-				if ( PM_JumpingAnim( pm->ps->legsAnim )
-					|| PM_LandingAnim( pm->ps->legsAnim )
-					|| PM_InCartwheel( pm->ps->legsAnim )
-					|| PM_FlippingAnim( pm->ps->legsAnim ))
+				if (PM_JumpingAnim(pm->ps->legsAnim)
+					|| PM_LandingAnim(pm->ps->legsAnim)
+					|| PM_InCartwheel(pm->ps->legsAnim)
+					|| PM_FlippingAnim(pm->ps->legsAnim))
 				{
-					PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
+					PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
 				}
 				else
 				{
-					if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) && pm->ps->torsoAnim == BOTH_BUTTON_HOLD )
+					if ((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()) && pm->ps->torsoAnim == BOTH_BUTTON_HOLD)
 					{//using something
-						if ( !pm->ps->useTime )
+						if (!pm->ps->useTime)
 						{//stopped holding it, release
-							PM_SetAnim( pm, SETANIM_TORSO, BOTH_BUTTON_RELEASE, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+							PM_SetAnim(pm, SETANIM_TORSO, BOTH_BUTTON_RELEASE, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
 						}//else still holding, leave it as it is
 					}
 					else
@@ -5455,91 +5455,91 @@ void PM_TorsoAnimLightsaber()
 	// WEAPON_IDLE
 	// *********************************************************
 
-	else if ( pm->ps->weaponstate == WEAPON_IDLE )
+	else if (pm->ps->weaponstate == WEAPON_IDLE)
 	{
 		if (TorsoAgainstWindTest(pm->gent))
 		{
 		}
-		else if( pm->ps->legsAnim == BOTH_GUARD_LOOKAROUND1 )
+		else if (pm->ps->legsAnim == BOTH_GUARD_LOOKAROUND1)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_GUARD_LOOKAROUND1,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUARD_LOOKAROUND1, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_GUARD_IDLE1 )
+		else if (pm->ps->legsAnim == BOTH_GUARD_IDLE1)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_GUARD_IDLE1,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_GUARD_IDLE1, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_STAND1IDLE1
+		else if (pm->ps->legsAnim == BOTH_STAND1IDLE1
 			|| pm->ps->legsAnim == BOTH_STAND2IDLE1
 			|| pm->ps->legsAnim == BOTH_STAND2IDLE2
 			|| pm->ps->legsAnim == BOTH_STAND3IDLE1
-			|| pm->ps->legsAnim == BOTH_STAND5IDLE1 )
+			|| pm->ps->legsAnim == BOTH_STAND5IDLE1)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_STAND2TO4 )
+		else if (pm->ps->legsAnim == BOTH_STAND2TO4)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND2TO4,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND2TO4, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_STAND4TO2 )
+		else if (pm->ps->legsAnim == BOTH_STAND4TO2)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND4TO2,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND4TO2, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
-		else if( pm->ps->legsAnim == BOTH_STAND4 )
+		else if (pm->ps->legsAnim == BOTH_STAND4)
 		{
-			PM_SetAnim(pm,SETANIM_TORSO,BOTH_STAND4,SETANIM_FLAG_NORMAL);
+			PM_SetAnim(pm, SETANIM_TORSO, BOTH_STAND4, SETANIM_FLAG_NORMAL);
 			pm->ps->saberMove = LS_READY;
 		}
 		else
 		{
-// This is now set in SetSaberMove.
-			// Idle for Lightsaber
-			if ( pm->gent && pm->gent->client )
+			// This is now set in SetSaberMove.
+						// Idle for Lightsaber
+			if (pm->gent && pm->gent->client)
 			{
-//				pm->gent->client->saberTrail.inAction = qfalse;
+				//				pm->gent->client->saberTrail.inAction = qfalse;
 			}
 
 			qboolean saberInAir = qtrue;
-			if ( pm->ps->saberInFlight )
+			if (pm->ps->saberInFlight)
 			{//guiding saber
-				if ( PM_SaberInBrokenParry( pm->ps->saberMove ) || pm->ps->saberBlocked == BLOCKED_PARRY_BROKEN || PM_DodgeAnim( pm->ps->torsoAnim ) )
+				if (PM_SaberInBrokenParry(pm->ps->saberMove) || pm->ps->saberBlocked == BLOCKED_PARRY_BROKEN || PM_DodgeAnim(pm->ps->torsoAnim))
 				{//we're stuck in a broken parry
 					saberInAir = qfalse;
 				}
-				if ( pm->ps->saberEntityNum < ENTITYNUM_NONE && pm->ps->saberEntityNum > 0 )//player is 0
+				if (pm->ps->saberEntityNum < ENTITYNUM_NONE && pm->ps->saberEntityNum > 0)//player is 0
 				{//
-					if ( &g_entities[pm->ps->saberEntityNum] != NULL && g_entities[pm->ps->saberEntityNum].s.pos.trType == TR_STATIONARY )
+					if (&g_entities[pm->ps->saberEntityNum] != NULL && g_entities[pm->ps->saberEntityNum].s.pos.trType == TR_STATIONARY)
 					{//fell to the ground and we're not trying to pull it back
 						saberInAir = qfalse;
 					}
 				}
 			}
-			if ( pm->ps->saberInFlight
+			if (pm->ps->saberInFlight
 				&& saberInAir
 				&& (!pm->ps->dualSabers || !pm->ps->saber[1].Active()))
 			{
-				if ( !PM_ForceAnim( pm->ps->torsoAnim )
-					|| pm->ps->torsoAnimTimer < 300 )
+				if (!PM_ForceAnim(pm->ps->torsoAnim)
+					|| pm->ps->torsoAnimTimer < 300)
 				{//don't interrupt a force power anim
-					if ( pm->ps->torsoAnim != BOTH_LOSE_SABER
-						|| !pm->ps->torsoAnimTimer )
+					if (pm->ps->torsoAnim != BOTH_LOSE_SABER
+						|| !pm->ps->torsoAnimTimer)
 					{
-						PM_SetAnim( pm, SETANIM_TORSO,BOTH_SABERPULL,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+						PM_SetAnim(pm, SETANIM_TORSO, BOTH_SABERPULL, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
 					}
 				}
 			}
 			else
 			{//saber is on
 				// Idle for Lightsaber
-				if ( pm->gent && pm->gent->client )
+				if (pm->gent && pm->gent->client)
 				{
-					if ( !G_InCinematicSaberAnim( pm->gent ) )
+					if (!G_InCinematicSaberAnim(pm->gent))
 					{
-						pm->gent->client->ps.SaberDeactivateTrail( 0 );
+						pm->gent->client->ps.SaberDeactivateTrail(0);
 					}
 				}
 				// Idle for idle/ready Lightsaber
@@ -5551,37 +5551,37 @@ void PM_TorsoAnimLightsaber()
 				}
 				else
 				{
-					if ( PM_JumpingAnim( pm->ps->legsAnim )
-						|| PM_LandingAnim( pm->ps->legsAnim )
-						|| PM_InCartwheel( pm->ps->legsAnim )
-						|| PM_FlippingAnim( pm->ps->legsAnim ))
+					if (PM_JumpingAnim(pm->ps->legsAnim)
+						|| PM_LandingAnim(pm->ps->legsAnim)
+						|| PM_InCartwheel(pm->ps->legsAnim)
+						|| PM_FlippingAnim(pm->ps->legsAnim))
 					{
-						PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,SETANIM_FLAG_NORMAL);
+						PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, SETANIM_FLAG_NORMAL);
 					}
 					else
 					{
-						if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer()) && pm->ps->torsoAnim == BOTH_BUTTON_HOLD )
+						if ((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()) && pm->ps->torsoAnim == BOTH_BUTTON_HOLD)
 						{//using something
-							if ( !pm->ps->useTime )
+							if (!pm->ps->useTime)
 							{//stopped holding it, release
-								PM_SetAnim( pm, SETANIM_TORSO, BOTH_BUTTON_RELEASE, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+								PM_SetAnim(pm, SETANIM_TORSO, BOTH_BUTTON_RELEASE, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
 							}//else still holding, leave it as it is
 						}
 						else
 						{
-							if ( (PM_RunningAnim( pm->ps->legsAnim )
+							if ((PM_RunningAnim(pm->ps->legsAnim)
 								|| pm->ps->legsAnim == BOTH_WALK_STAFF
 								|| pm->ps->legsAnim == BOTH_WALK_DUAL
 								|| pm->ps->legsAnim == BOTH_WALKBACK_STAFF
-								|| pm->ps->legsAnim == BOTH_WALKBACK_DUAL )
-								&& pm->ps->saberBlockingTime < cg.time )
+								|| pm->ps->legsAnim == BOTH_WALKBACK_DUAL)
+								&& pm->ps->saberBlockingTime < cg.time)
 							{//running w/1-handed weapon uses full-body anim
 								int setFlags = SETANIM_FLAG_NORMAL;
-								if ( PM_LandingAnim( pm->ps->torsoAnim ) )
+								if (PM_LandingAnim(pm->ps->torsoAnim))
 								{
 									setFlags = SETANIM_FLAG_OVERRIDE;
 								}
-								PM_SetAnim(pm,SETANIM_TORSO,pm->ps->legsAnim,setFlags);
+								PM_SetAnim(pm, SETANIM_TORSO, pm->ps->legsAnim, setFlags);
 							}
 							else
 							{
@@ -5602,7 +5602,7 @@ qboolean NoSaberTwirlCharacter(gentity_t* ent)
 		return qtrue;
 
 	// Main deciding point now
-	if (ent->attrFlags & ATTR_NO_TWIRL)
+	if (GEntity_HasAttribute(ent, ATTR_NO_TWIRL))
 		return qtrue;
 
 	return qfalse;

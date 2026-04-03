@@ -5516,7 +5516,6 @@ NPC_Spawn_f
 */
 bool isInteger(const std::string& s);
 
-extern cvar_t* g_allowAttributes;
 static void NPC_Spawn_f(void)
 {
 	gentity_t		*NPCspawner = G_Spawn();
@@ -5670,11 +5669,10 @@ static void NPC_Spawn_f(void)
 			int fp = GetIDForString(FPTable, gi.argv(spawnCommand));
 			if (fp < 0)
 			{
-				if (g_allowAttributes->integer)
+				int attr = GetIDForString(attrTable, gi.argv(spawnCommand));
+				if (attr >= 0)
 				{
-					int attr = GetIDForString(attrTable, gi.argv(spawnCommand));
-					if (attr >= 0)
-						NPCspawner->attrFlags |= attr;
+					NPCspawner->attrFlags |= attr;
 				}
 			}
 			int		n;

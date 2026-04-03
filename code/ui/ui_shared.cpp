@@ -5698,6 +5698,279 @@ static void Controls_GetKeyAssignment( const char *command, int *twokeys )
 
 /*
 =================
+Attributes_
+	GetConfig : Update uiInfo From Cvar
+	Setconfig : Update Cvar from uiInfo
+	allAttributes : MUST BE ORDERED THE SAME AS THE ENUM DEFINITION
+=================
+*/
+char* allAttributes[MAX_ATTRIBUTES] = {
+	"ATTR_HELD_BY_HATRED",
+	"ATTR_HERO",
+	"ATTR_AQUATIC",
+	"ATTR_PRECISE_LIGHTNING",
+	"ATTR_INQUISITOR",
+	"ATTR_CASUAL_WALK",
+	"ATTR_NO_TWIRL",
+	"ATTR_COMMANDO",
+	"ATTR_BRAWLER",
+	"ATTR_DROID",
+	"ATTR_SADISTIC",
+	"ATTR_BERSERKER",
+	"ATTR_UNCIVILIZED"
+};
+
+void Attributes_GetConfig(void)
+{
+	int intDisabledAttributes = Cvar_VariableIntegerValue("g_disabledAttributes");
+	//If we have disabled Attributes fill Them in uiInfo
+	if (intDisabledAttributes != 0) //0 => All enabled
+	{
+		int wordIndex = 0; //Index in word tab
+		for (int i = 0; i < MAX_ATTRIBUTES; i++)
+		{
+			int isIndexDisabled = (intDisabledAttributes & (1u << i));
+			if (!isIndexDisabled)
+			{
+				continue;
+			}
+			Q_strncpyz(uiInfo.disabledAttributeList[wordIndex], allAttributes[i], ATTRIBUTES_SIZE);
+			wordIndex++;
+		}
+		for (int i = wordIndex; i < MAX_ATTRIBUTES; i++)
+		{
+			uiInfo.disabledAttributeList[i][0] = '\0';
+		}
+		uiInfo.disabledAttributeIndex = 0;
+		uiInfo.disabledAttributeCount = wordIndex;
+	}
+	else
+	{
+		uiInfo.disabledAttributeIndex = 0;
+		uiInfo.disabledAttributeCount = 0;
+	}
+	//Now deduce the enabled ones
+	int wordIndex = 0;
+	for (int i = 0; i < MAX_ATTRIBUTES; i++)
+	{
+		if (allAttributes[i] == 0 || allAttributes[i][0] == 0)
+		{
+			continue;
+		}
+		qboolean found = qfalse;
+		for (int j = 0; j < uiInfo.disabledAttributeCount; j++)
+		{
+			if (uiInfo.disabledAttributeList[j] == 0 || uiInfo.disabledAttributeList[j][0] == 0)
+			{
+				break;
+			}
+			if (Q_stricmp(uiInfo.disabledAttributeList[j], allAttributes[i]) == 0)
+			{
+				found = qtrue;
+				break;
+			}
+		}
+		//Add the new Word to Enabled Attributes
+		if (found == qfalse)
+		{
+			Q_strncpyz(uiInfo.enabledAttributeList[wordIndex], allAttributes[i], ATTRIBUTES_SIZE);
+			wordIndex++;
+		}
+	}
+	uiInfo.enabledAttributeCount = wordIndex;
+	uiInfo.enabledAttributeIndex = 0;
+
+	for (int i = wordIndex; i < MAX_ATTRIBUTES; i++)
+	{
+		uiInfo.enabledAttributeList[i][0] = '\0';
+	}
+}
+
+void Attributes_SaveConfig(void)
+{
+	int disabledAttributes = 0;
+	for (int i = 0; i < uiInfo.disabledAttributeCount; i++)
+	{
+		for (int j = 0; j < MAX_ATTRIBUTES; j++)
+		{
+			if (Q_stricmp(uiInfo.disabledAttributeList[i], allAttributes[j]) == 0) {
+				disabledAttributes |= (1u << j); //Set the corresponding bit
+			}
+		}
+
+	}
+	//Save as an int for quick comparison later
+	char buffer[32];
+	Com_sprintf(buffer, sizeof(buffer), "%i", disabledAttributes);
+	Cvar_Set2("g_disabledAttributes", buffer, qtrue);
+}
+
+void Attributes_DisableAll(void)
+{
+	int i = 0;
+	for (i = 0; i < MAX_ATTRIBUTES; i++)
+	{
+		uiInfo.enabledAttributeList[i][0] = '\0';
+	}
+	uiInfo.enabledAttributeIndex = 0;
+	uiInfo.enabledAttributeCount = 0;
+
+	for (i = 0; i < MAX_ATTRIBUTES; i++)
+	{
+		if (allAttributes[i] == 0 || allAttributes[i][0] == 0)
+		{
+			break;
+		}
+		Q_strncpyz(uiInfo.disabledAttributeList[i], allAttributes[i], ATTRIBUTES_SIZE);
+	}
+	//Empty the rest of the list
+	for (int j = i; j < MAX_ATTRIBUTES; j++)
+	{
+		uiInfo.disabledAttributeList[j][0] = '\0';
+	}
+	uiInfo.disabledAttributeCount = i + 1;
+	uiInfo.disabledAttributeIndex = 0;
+}
+
+void Attributes_DisableSelected(void)
+{
+	int index = uiInfo.enabledAttributeIndex;
+	if (index < 0 || index >= uiInfo.enabledAttributeCount)
+	{
+		uiInfo.enabledAttributeIndex = 0;
+		return;
+	}
+
+	//Remove the selected Attribute from the enabled list
+	for (int i = index; i < 15; i++)
+	{
+		Q_strncpyz(uiInfo.enabledAttributeList[i], uiInfo.enabledAttributeList[i + 1], ATTRIBUTES_SIZE);
+	}
+	uiInfo.enabledAttributeList[15][0] = '\0'; //Add empty one;
+	uiInfo.enabledAttributeCount--;
+	uiInfo.enabledAttributeIndex = 0;
+
+	//Now deduce the disabled ones
+	int wordIndex = 0;
+	for (int i = 0; i < MAX_ATTRIBUTES; i++)
+	{
+		if (allAttributes[i] == 0 || allAttributes[i][0] == 0)
+		{
+			break;
+		}
+		qboolean found = qfalse;
+		for (int j = 0; j < MAX_ATTRIBUTES; j++)
+		{
+			if (uiInfo.enabledAttributeList[j] == 0 || uiInfo.enabledAttributeList[j][0] == 0)
+			{
+				break;
+			}
+			if (Q_stricmp(uiInfo.enabledAttributeList[j], allAttributes[i]) == 0)
+			{
+				found = qtrue;
+				break;
+			}
+		}
+		//Add the new Word to Enabled Attributes
+		if (found == qfalse)
+		{
+			Q_strncpyz(uiInfo.disabledAttributeList[wordIndex], allAttributes[i], ATTRIBUTES_SIZE);
+			wordIndex++;
+		}
+	}
+	//Empty the rest of the list
+	for (int i = wordIndex; i < MAX_ATTRIBUTES; i++)
+	{
+		uiInfo.disabledAttributeList[i][0] = '\0';
+	}
+	uiInfo.disabledAttributeCount = wordIndex;
+	uiInfo.disabledAttributeIndex = 0;
+}
+
+void Attributes_EnableAll(void)
+{
+	int i = 0;
+	for (i = 0; i < MAX_ATTRIBUTES; i++)
+	{
+		uiInfo.disabledAttributeList[i][0] = '\0';
+	}
+	uiInfo.disabledAttributeIndex = 0;
+	uiInfo.disabledAttributeCount = 0;
+
+	for (i = 0; i < MAX_ATTRIBUTES; i++)
+	{
+		if (allAttributes[i] == 0 || allAttributes[i][0] == 0)
+		{
+			break;
+		}
+		Q_strncpyz(uiInfo.enabledAttributeList[i], allAttributes[i], ATTRIBUTES_SIZE);
+	}
+	//Empty the rest of the list
+	for (int j = i; j < MAX_ATTRIBUTES; j++)
+	{
+		uiInfo.enabledAttributeList[j][0] = '\0';
+	}
+	uiInfo.enabledAttributeCount = i;
+	uiInfo.enabledAttributeIndex = 0;
+}
+
+void Attributes_EnableSelected(void)
+{
+	int index = uiInfo.disabledAttributeIndex;
+	if (index < 0 || index >= uiInfo.disabledAttributeCount)
+	{
+		uiInfo.disabledAttributeIndex = 0;
+		return;
+	}
+
+	//Remove the selected Attribute from the disabled List
+	for (int i = index; i < (MAX_ATTRIBUTES-1); i++)
+	{
+		Q_strncpyz(uiInfo.disabledAttributeList[i], uiInfo.disabledAttributeList[i + 1], ATTRIBUTES_SIZE);
+	}
+	uiInfo.disabledAttributeList[MAX_ATTRIBUTES-1][0] = '\0'; //Add empty one;
+	uiInfo.disabledAttributeCount--;
+	uiInfo.disabledAttributeIndex = 0;
+
+	//Now deduce the enabled ones
+	int wordIndex = 0;
+	for (int i = 0; i < MAX_ATTRIBUTES; i++)
+	{
+		if (allAttributes[i] == 0 || allAttributes[i][0] == 0)
+		{
+			continue;
+		}
+		qboolean found = qfalse;
+		for (int j = 0; j < MAX_ATTRIBUTES; j++)
+		{
+			if (uiInfo.disabledAttributeList[j] == 0 || uiInfo.disabledAttributeList[j][0] == 0)
+			{
+				break;
+			}
+			if (Q_stricmp(uiInfo.disabledAttributeList[j], allAttributes[i]) == 0)
+			{
+				found = qtrue;
+				break;
+			}
+		}
+		//Add the new Word to Enabled Attributes
+		if (found == qfalse)
+		{
+			Q_strncpyz(uiInfo.enabledAttributeList[wordIndex], allAttributes[i], ATTRIBUTES_SIZE);
+			wordIndex++;
+		}
+	}
+	//Empty the rest of the list
+	for (int i = wordIndex; i < MAX_ATTRIBUTES; i++)
+	{
+		uiInfo.enabledAttributeList[i][0] = '\0';
+	}
+	uiInfo.enabledAttributeCount = wordIndex;
+	uiInfo.enabledAttributeIndex = 0;
+}
+
+/*
+=================
 Controls_GetConfig
 =================
 */

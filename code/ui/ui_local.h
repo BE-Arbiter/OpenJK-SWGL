@@ -165,6 +165,15 @@ typedef struct {
 	int modIndex;
 	int modCount;
 
+	//NPC Attributes
+	char disabledAttributeList[MAX_ATTRIBUTES][ATTRIBUTES_SIZE];
+	int disabledAttributeIndex;
+	int disabledAttributeCount;
+
+	char enabledAttributeList[MAX_ATTRIBUTES][ATTRIBUTES_SIZE];
+	int enabledAttributeIndex;
+	int enabledAttributeCount;
+
 	int					playerSpeciesMax;
 	int					playerSpeciesCount;
 	playerSpeciesInfo_t	*playerSpecies;
