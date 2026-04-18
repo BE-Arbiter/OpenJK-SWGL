@@ -8904,7 +8904,7 @@ SkipTrueView:
 					}
 					else//repeater
 					{
-						if (cent->gent->alt_fire)
+						if (cent->gent->alt_fire && cent->gent->client->ps.weapon != WP_SBD && cent->gent->client->ps.weapon != WP_DROIDEKA)
 						{//fire from the lower barrel (not that anyone will ever notice this, but...)
 							bolt = cent->gent->genericBolt3;
 						}

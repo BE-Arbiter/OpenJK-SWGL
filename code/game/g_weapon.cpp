@@ -1315,19 +1315,19 @@ void FireWeapon( gentity_t *ent, int attack_index)
 			{// ATST SIDE weapons
 				if ( ent->alt_fire)
 				{
-					if ( gi.G2API_GetSurfaceRenderStatus( &ent->ghoul2[ent->playerModel], "head_light_blaster_cann" ) )
-					{//don't have it!
-						return;
+					bolt = ent->handRBolt;
+					if ( !gi.G2API_GetSurfaceRenderStatus( &ent->ghoul2[ent->playerModel], "head_light_blaster_cann" ) )
+					{//have it!
+						bolt = ent->genericBolt2;
 					}
-					bolt = ent->genericBolt2;
 				}
 				else
 				{
-					if ( gi.G2API_GetSurfaceRenderStatus( &ent->ghoul2[ent->playerModel], "head_concussion_charger" ) )
-					{//don't have it!
-						return;
+					bolt = ent->handLBolt;
+					if ( !gi.G2API_GetSurfaceRenderStatus( &ent->ghoul2[ent->playerModel], "head_concussion_charger" ) )
+					{//have it!
+						bolt = ent->genericBolt1;
 					}
-					bolt = ent->genericBolt1;
 				}
 			}
 
