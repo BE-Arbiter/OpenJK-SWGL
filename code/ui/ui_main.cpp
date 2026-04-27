@@ -201,7 +201,12 @@ static void UI_ApplySaberStyles(void);
 
 static void UI_ShowMissionInfo(void);
 
-static void UI_CharacterDefaultSkin(void);
+static void UI_CharacterDefaultSkin(const char* otherSkin);
+
+static void UI_SaveCharacterPowers(void);
+static void UI_LoadCharacterCfg(void);
+static void Com_FlushCharacterFile(void);
+static void UI_LoadCharacterDefaultCfg(void);
 
 // Movedata Sounds
 enum
@@ -739,6 +744,8 @@ static int gamecodetoui[] = {4,2,3,0,5,1,6};
 
 uiInfo_t uiInfo;
 
+static fileHandle_t	characterfile;
+
 qboolean openedAngles;
 
 const char* npcCode;
@@ -816,8 +823,6 @@ vmCvar_t	ui_npc_custom;
 
 vmCvar_t	ui_npc_type;
 vmCvar_t	ui_npc_skin;
-vmCvar_t	ui_npc_team;
-vmCvar_t	ui_npc_health;
 vmCvar_t	ui_npc_saberone;
 vmCvar_t	ui_npc_saberonecolor;
 vmCvar_t	ui_npc_sabertwo;
@@ -833,6 +838,10 @@ vmCvar_t	ui_mission_topic;
 vmCvar_t	ui_mission;
 vmCvar_t	ui_mission_code;
 vmCvar_t	ui_mission_mapcode;
+
+vmCvar_t	ui_variant_code;
+vmCvar_t	ui_team;
+vmCvar_t	ui_health;
 
 // Force Power cvars (I literally don't know any other way to do this.....)
 vmCvar_t	ui_jump_level;
@@ -864,8 +873,22 @@ vmCvar_t	ui_saber_throw_level;
 vmCvar_t	ui_saber_edit;
 vmCvar_t    g_disabledAttributes;
 vmCvar_t    ui_selected_attribute;
-// Model angle slider
 
+// New per-slot weapon cvars
+vmCvar_t	ui_weaponone;
+vmCvar_t	ui_weapontwo;
+vmCvar_t	ui_weaponthree;
+vmCvar_t	ui_weaponfour;
+vmCvar_t	ui_weaponfive;
+vmCvar_t	ui_weaponsix;
+vmCvar_t	ui_weaponone_label;
+vmCvar_t	ui_weapontwo_label;
+vmCvar_t	ui_weaponthree_label;
+vmCvar_t	ui_weaponfour_label;
+vmCvar_t	ui_weaponfive_label;
+vmCvar_t	ui_weaponsix_label;
+
+// Model angle slider
 vmCvar_t	ui_char_model_angle;
 
 static void UI_UpdateScreenshot( void )
@@ -964,9 +987,6 @@ static cvarTable_t cvarTable[] =
 	{ &ui_SFXSabersGlowSize,	"cg_SFXSabersGlowSize",	"1.0", NULL, CVAR_ARCHIVE },
 	{ &ui_SFXSabersCoreSize,	"cg_SFXSabersCoreSize",	"1.0", NULL, CVAR_ARCHIVE },
 	{ &ui_npc_type,				"ui_npc_type",	"stormtrooper", NULL, CVAR_ARCHIVE},
-	{ &ui_npc_skin,				"ui_npc_skin",	"default", NULL, CVAR_ARCHIVE},
-	{ &ui_npc_team,				"ui_npc_team",	"enemy", NULL, CVAR_ARCHIVE},
-	{ &ui_npc_health,			"ui_npc_health",	"100", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_saberone,			"ui_npc_saberone",	"single_1", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_saberonecolor,	"ui_npc_saberonecolor",	"red", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_sabertwo,			"ui_npc_sabertwo",	"single_1", NULL, CVAR_ARCHIVE},
@@ -1013,6 +1033,22 @@ static cvarTable_t cvarTable[] =
 	{ &ui_saber_attack_level, "ui_saber_attack_level", "0", NULL, 0 },
 	{ &ui_saber_defend_level, "ui_saber_defend_level", "0", NULL, 0 },
 	{ &ui_saber_throw_level, "ui_saber_throw_level", "0", NULL, 0 },
+	{ &ui_variant_code,			"ui_variant_code",		"default", NULL, 0},
+	{ &ui_team,					"ui_team",	"enemy", NULL, CVAR_ARCHIVE},
+	{ &ui_health,				"ui_health",	"100", NULL, CVAR_ARCHIVE},
+
+	{ &ui_weaponone, "ui_weaponone",   "WP_NONE", NULL, 0 },
+	{ &ui_weapontwo, "ui_weapontwo",   "WP_NONE", NULL, 0 },
+	{ &ui_weaponthree, "ui_weaponthree",   "WP_NONE", NULL, 0 },
+	{ &ui_weaponfour, "ui_weaponfour",   "WP_NONE", NULL, 0 },
+	{ &ui_weaponfive, "ui_weaponfive",   "WP_NONE", NULL, 0 },
+	{ &ui_weaponsix, "ui_weaponsix",   "WP_NONE", NULL, 0 },
+	{ &ui_weaponone_label, "ui_weaponone_label",   "None", NULL, 0 },
+	{ &ui_weapontwo_label, "ui_weapontwo_label",   "None", NULL, 0 },
+	{ &ui_weaponthree_label, "ui_weaponthree_label",   "None", NULL, 0 },
+	{ &ui_weaponfour_label, "ui_weaponfour_label",   "None", NULL, 0 },
+	{ &ui_weaponfive_label, "ui_weaponfive_label",   "None", NULL, 0 },
+	{ &ui_weaponsix_label, "ui_weaponsix_label",   "None", NULL, 0 },
 
 	{ &ui_selected_attribute, "ui_selected_attribute","",NULL,0},
 	{ &g_disabledAttributes, "g_disabledAttributes","0",NULL,CVAR_ARCHIVE},
@@ -1928,7 +1964,21 @@ static qboolean UI_RunMenuScript ( const char **args )
 		}
 		else if (Q_stricmp(name, "char_default_skin") == 0)
 		{
-			UI_CharacterDefaultSkin();
+			const char* otherSkin;
+			String_Parse(args, &otherSkin);
+			UI_CharacterDefaultSkin(otherSkin);
+		}
+		else if (Q_stricmp(name, "saveCharacter") == 0)
+		{
+			UI_SaveCharacterPowers();
+		}
+		else if (Q_stricmp(name, "loadCharacter") == 0)
+		{
+			UI_LoadCharacterCfg();
+		}
+		else if (Q_stricmp(name, "resetCharacter") == 0)
+		{
+			UI_LoadCharacterDefaultCfg();
 		}
 		else if (Q_stricmp(name, "saber_type") == 0)
 		{
@@ -1944,18 +1994,18 @@ static qboolean UI_RunMenuScript ( const char **args )
 			String_Parse(args, &num);
 			UI_HiltChange(atoi(num));
 		}
-		else if (Q_stricmp(name, "saber_color") == 0)
+		/*else if (Q_stricmp(name, "saber_color") == 0)
 		{
 //			UI_UpdateSaberColor( qfalse );
-		}
+		}*/
 		else if (Q_stricmp(name, "saber2_hilt") == 0)
 		{
 			UI_UpdateSaberHilt( qtrue );
 		}
-		else if (Q_stricmp(name, "saber2_color") == 0)
+		/*else if (Q_stricmp(name, "saber2_color") == 0)
 		{
 //			UI_UpdateSaberColor( qtrue );
-		}
+		}*/
 		else if (Q_stricmp(name, "updatecharcvars") == 0)
 		{
 			UI_UpdateCharacterCvars();
@@ -3502,7 +3552,7 @@ PlayerModel_BuildList
 */
 static void UI_BuildPlayerModel_List(qboolean inGameLoad)
 {
-	static const size_t DIR_LIST_SIZE = 16384;
+	static const size_t DIR_LIST_SIZE = 32768;
 
 	int		numdirs;
 	size_t	dirListSize = DIR_LIST_SIZE;
@@ -3671,7 +3721,7 @@ static void UI_BuildPlayerModel_List(qboolean inGameLoad)
 				continue;
 			}
 			uiInfo.playerSpeciesCount++;
-			/*if (!inGameLoad && ui_PrecacheModels.integer)
+			if (!inGameLoad && ui_PrecacheModels.integer)
 			{
 				CGhoul2Info_v ghoul2;
 				Com_sprintf(fpath, sizeof(fpath), "models/players/%s/model.glm", dirptr);
@@ -3680,7 +3730,7 @@ static void UI_BuildPlayerModel_List(qboolean inGameLoad)
 				{
 					DC->g2_RemoveGhoul2Model(ghoul2, 0);
 				}
-			}*/
+			}
 
 			ui.FS_FCloseFile(f);
 		}
@@ -5522,7 +5572,7 @@ static void UI_UpdateNPCCvars()
 	Cvar_Set("g_NPChead", Cvar_VariableString("ui_char_skin_head"));
 	Cvar_Set("g_NPCtorso", Cvar_VariableString("ui_char_skin_torso"));
 	Cvar_Set("g_NPClegs", Cvar_VariableString("ui_char_skin_legs"));
-	Cvar_Set("g_NPCteam", Cvar_VariableString("ui_npc_team"));
+	Cvar_Set("g_NPCteam", Cvar_VariableString("ui_team"));
 	Cvar_Set("g_NPCweapon", Cvar_VariableString("ui_npc_weapon"));
 	Cvar_Set("g_NPCsaber", Cvar_VariableString("ui_saber"));
 	Cvar_Set("g_NPCtargetname", Cvar_VariableString("ui_npc_targetname"));
@@ -5533,7 +5583,7 @@ static void UI_UpdateNPCCvars()
 	Cvar_Set("g_NPCspawnscript", Cvar_VariableString("ui_npc_spawnscript"));
 	Cvar_Set("g_NPCfleescript", Cvar_VariableString("ui_npc_fleescript"));
 	Cvar_Set("g_NPCdeathscript", Cvar_VariableString("ui_npc_deathscript"));
-	Cvar_Set("g_NPChealth", Cvar_VariableString("ui_npc_health"));
+	Cvar_Set("g_NPChealth", Cvar_VariableString("ui_health"));
 	Cvar_Set("g_npc_color_red", Cvar_VariableString("ui_char_color_red"));
 	Cvar_Set("g_npc_color_green", Cvar_VariableString("ui_char_color_green"));
 	Cvar_Set("g_npc_color_blue", Cvar_VariableString("ui_char_color_blue"));
@@ -5655,7 +5705,7 @@ static void UI_UpdateSaberCvars ( void )
 		Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber_red"),
 					(Cvar_VariableIntegerValue("ui_rgb_saber_green")),
 					(Cvar_VariableIntegerValue("ui_rgb_saber_blue")));
-		if (!Cvar_VariableIntegerValue("ui_npc_saber"))
+		if (!Cvar_VariableIntegerValue("ui_npc_menu"))
 		{
 			Cvar_Set("g_saber_color", rgbColor);
 		}
@@ -5678,7 +5728,7 @@ static void UI_UpdateSaberCvars ( void )
 		Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber2_red"),
 					(Cvar_VariableIntegerValue("ui_rgb_saber2_green")),
 					(Cvar_VariableIntegerValue("ui_rgb_saber2_blue")));
-		if (!Cvar_VariableIntegerValue("ui_npc_saber"))
+		if (!Cvar_VariableIntegerValue("ui_npc_menu"))
 		{
 			Cvar_Set( "g_saber2_color", rgbColor );
 		}
@@ -8071,90 +8121,178 @@ static void UI_UpdateCharacterSkin( void )
 	ItemParse_model_g2skin_go( item, skin );
 }
 
-static void UI_CharacterDefaultSkin(void)
+static void UI_CharacterDefaultSkin(const char* otherSkin)
 {
-	menuDef_t* menu;
-	itemDef_t* item;
-	char skin[MAX_CSPATH];
-
-	menu = Menu_GetFocused();	// Get current menu
-
+	menuDef_t* menu = Menu_GetFocused();
 	if (!menu)
+		return;
+
+	itemDef_t* item = (itemDef_t*)Menu_FindItemByName(menu, "character");
+	if (!item)
 	{
+		Com_Error(ERR_FATAL,
+			"UI_CharacterDefaultSkin: Could not find item (character) in menu (%s)",
+			menu->window.name);
 		return;
 	}
 
-	item = (itemDef_s*)Menu_FindItemByName(menu, "character");
+	const char* modelName = Cvar_VariableString("ui_char_model");
+	bool validSkinArg = false;
 
-	if (!item)
+	auto ShowCustomizationUI = [&](bool hasCustomParts)
+		{
+			Menu_ShowItemByName(menu, "heads", hasCustomParts ? qtrue : qfalse);
+			Menu_ShowItemByName(menu, "torso", hasCustomParts ? qtrue : qfalse);
+			Menu_ShowItemByName(menu, "lower", hasCustomParts ? qtrue : qfalse);
+			Menu_ShowItemByName(menu, "Customization", hasCustomParts ? qtrue : qfalse);
+			Menu_ShowItemByName(menu, "Presets", hasCustomParts ? qtrue : qfalse);
+			Menu_ShowItemByName(menu, "SkinTitle", hasCustomParts ? qfalse : qtrue);
+			Menu_ShowItemByName(menu, "SkinList", hasCustomParts ? qfalse : qtrue);
+			Menu_ShowItemByName(menu, "Skins", qfalse);
+		};
+
+	// Parse head|torso|lower
+	char headSkin[64] = { 0 }, torsoSkin[64] = { 0 }, lowerSkin[64] = { 0 };
+	bool isDefaultRequest = otherSkin && !Q_stricmp(otherSkin, "model_default");
+
+	if (otherSkin && !isDefaultRequest)
 	{
-		Com_Error(ERR_FATAL, "UI_CharacterDefaultSkin: Could not find item (character) in menu (%s)", menu->window.name);
+		char skinCopy[MAX_CSPATH];
+		Q_strncpyz(skinCopy, otherSkin, sizeof(skinCopy));
+
+		char* token = strtok(skinCopy, "|");
+		while (token)
+		{
+			if (!Q_strncmp(token, "head_", 5))
+				Q_strncpyz(headSkin, token, sizeof(headSkin));
+			else if (!Q_strncmp(token, "torso_", 6))
+				Q_strncpyz(torsoSkin, token, sizeof(torsoSkin));
+			else if (!Q_strncmp(token, "lower_", 6))
+				Q_strncpyz(lowerSkin, token, sizeof(lowerSkin));
+
+			token = strtok(NULL, "|");
+		}
 	}
 
-	// Two possibilities for characters. Either they have custom skins or they don't.
-	for (int i = 0; i < uiInfo.playerSpeciesCount; i++)
+	// Find species
+	for (int i = 0; i < uiInfo.playerSpeciesCount; ++i)
 	{
-		if (!Q_stricmp(Cvar_VariableString("ui_char_model"), uiInfo.playerSpecies[i].Name))
+		auto& species = uiInfo.playerSpecies[i];
+
+		if (Q_stricmp(modelName, species.Name))
+			continue;
+
+		uiInfo.playerSpeciesIndex = i;
+
+		bool hasCustomParts =
+			species.SkinHeadCount > 0 &&
+			species.SkinTorsoCount > 0 &&
+			species.SkinLegCount > 0;
+
+		//
+		// CASE 1 — Default request, custom parts available
+		//
+		if (isDefaultRequest && hasCustomParts)
 		{
-			uiInfo.playerSpeciesIndex = i;
-			if (uiInfo.playerSpecies[i].SkinHeadCount > 0
-				&& uiInfo.playerSpecies[i].SkinTorsoCount > 0
-				&& uiInfo.playerSpecies[i].SkinLegCount > 0)
+			UI_FeederSelection(FEEDER_PLAYER_SKIN_HEAD, 0, item);
+			UI_FeederSelection(FEEDER_PLAYER_SKIN_TORSO, 0, item);
+			UI_FeederSelection(FEEDER_PLAYER_SKIN_LEGS, 0, item);
+
+			ShowCustomizationUI(true);
+			validSkinArg = true;
+			break;
+		}
+
+		//
+		// CASE 2 — Explicit head|torso|lower provided
+		//
+		if (hasCustomParts && headSkin[0] && torsoSkin[0] && lowerSkin[0])
+		{
+			// Select first model skin
+			UI_FeederSelection(FEEDER_MODEL_SKINS, 0, item);
+
+			// Head
+			for (int h = 0; h < species.SkinHeadCount; ++h)
 			{
-				// Just have the head, torso, and legs set to the first possible selection to make things easier.
+				if (!Q_stricmp(headSkin, species.SkinHead[h].name))
+				{
+					UI_FeederSelection(FEEDER_PLAYER_SKIN_HEAD, h, item);
+					validSkinArg = true;
+					break;
+				}
+			}
+
+			// Torso
+			for (int t = 0; t < species.SkinTorsoCount; ++t)
+			{
+				if (!Q_stricmp(torsoSkin, species.SkinTorso[t].name))
+				{
+					UI_FeederSelection(FEEDER_PLAYER_SKIN_TORSO, t, item);
+					break;
+				}
+			}
+
+			// Legs
+			for (int l = 0; l < species.SkinLegCount; ++l)
+			{
+				if (!Q_stricmp(lowerSkin, species.SkinLeg[l].name))
+				{
+					UI_FeederSelection(FEEDER_PLAYER_SKIN_LEGS, l, item);
+					break;
+				}
+			}
+
+			ShowCustomizationUI(true);
+			break;
+		}
+
+		//
+		// CASE 3 — Fallback behavior
+		//
+		if (!validSkinArg)
+		{
+			if (hasCustomParts)
+			{
 				UI_FeederSelection(FEEDER_PLAYER_SKIN_HEAD, 0, item);
 				UI_FeederSelection(FEEDER_PLAYER_SKIN_TORSO, 0, item);
 				UI_FeederSelection(FEEDER_PLAYER_SKIN_LEGS, 0, item);
-
-				// Show and Hide certain items
-				Menu_ShowItemByName(menu, "heads", qtrue);
-				Menu_ShowItemByName(menu, "torso", qfalse);
-				Menu_ShowItemByName(menu, "lower", qfalse);
-				Menu_ShowItemByName(menu, "Customization", qtrue);
-				Menu_ShowItemByName(menu, "Presets", qtrue);
-				Menu_ShowItemByName(menu, "SkinTitle", qfalse);
-				Menu_ShowItemByName(menu, "SkinList", qfalse);
-				Menu_ShowItemByName(menu, "Skins", qfalse);
-				break;
+				ShowCustomizationUI(true);
 			}
 			else
 			{
-				// Just in case a model doesn't have a "default" skin, we still pick the 1st element anyway.
 				UI_FeederSelection(FEEDER_MODEL_SKINS, 0, item);
 
-				for (int j = 0; j < uiInfo.playerSpecies[i].SkinCount; j++)
+				for (int j = 0; j < species.SkinCount; ++j)
 				{
-					if (!Q_stricmp(uiInfo.playerSpecies[i].Skin[j].name, "model_default"))
+					if (!Q_stricmp(species.Skin[j].name, otherSkin))
 					{
 						UI_FeederSelection(FEEDER_MODEL_SKINS, j, item);
 						break;
 					}
 				}
-				// Show and Hide certain items
-				Menu_ShowItemByName(menu, "heads", qfalse);
-				Menu_ShowItemByName(menu, "torso", qfalse);
-				Menu_ShowItemByName(menu, "lower", qfalse);
-				Menu_ShowItemByName(menu, "Customization", qfalse);
-				Menu_ShowItemByName(menu, "Presets", qfalse);
-				Menu_ShowItemByName(menu, "SkinTitle", qtrue);
-				Menu_ShowItemByName(menu, "SkinList", qtrue);
-				Menu_ShowItemByName(menu, "Skins", qfalse);
+
+				ShowCustomizationUI(false);
 			}
-			break;
-
-
 		}
+
+		break;
 	}
 
-	Com_sprintf(skin, sizeof(skin), "models/players/%s/|%s|%s|%s",
-		Cvar_VariableString("ui_char_model"),
+	// Build final skin string
+	/*char skin[MAX_CSPATH];
+	Com_sprintf(
+		skin, sizeof(skin),
+		"models/players/%s/%s|%s|%s",
+		modelName,
 		Cvar_VariableString("ui_char_skin_head"),
 		Cvar_VariableString("ui_char_skin_torso"),
 		Cvar_VariableString("ui_char_skin_legs")
-	);
+	);*/
 
-	ItemParse_model_g2skin_go(item, skin);
+	//ItemParse_model_g2skin_go(item, skin);
 }
+
+
 
 static void UI_UpdateCharacter( qboolean changedModel )
 {
@@ -8493,4 +8631,513 @@ void ReadSaveDirectory (void)
 
 	qsort( s_savedata, s_savegame.saveFileCnt, sizeof(savedata_t), UI_SortSaveGames );
 
+}
+
+static void UI_SaveCharacterPowers(void)
+{
+	static char characterName[MAX_QPATH];
+	char faction[64];
+	char code[64];
+	char variant[64];
+
+	strncpy(faction, UI_Cvar_VariableString("ui_char_faction"), sizeof(faction));
+	strncpy(code, UI_Cvar_VariableString("g_charKey"), sizeof(code));
+	strncpy(variant, UI_Cvar_VariableString("ui_variant_code"), sizeof(variant));
+
+	// characterfile
+	if (!characterfile)
+	{
+		// NOTE: always saves in working dir if using one...
+		if (Cvar_VariableIntegerValue("ui_npc_menu"))
+			Com_sprintf(characterName, MAX_QPATH, "ext_data/characters/%s_%s_%s_NPC.cfg", faction, code, variant);
+		else
+			Com_sprintf(characterName, MAX_QPATH, "ext_data/characters/%s_%s_%s.cfg", faction, code, variant);
+		characterfile = FS_FOpenFileWrite(characterName);
+	}
+
+	if (characterfile)
+	{
+		// list of UI power cvars to write
+		const char* cvars[] =
+		{
+			"ui_jump_level",
+			"ui_push_level",
+			"ui_pull_level",
+			"ui_speed_level",
+			"ui_sense_level",
+
+			"ui_absorb_level",
+			"ui_heal_level",
+			"ui_protect_level",
+			"ui_mindtrick_level",
+			"ui_stasis_level",
+			"ui_grasp_level",
+			"ui_blast_level",
+
+			"ui_grip_level",
+			"ui_lightning_level",
+			"ui_drain_level",
+			"ui_rage_level",
+			"ui_destruction_level",
+			"ui_fear_level",
+			"ui_strike_level",
+
+			"ui_saber_attack_level",
+			"ui_saber_defend_level",
+			"ui_saber_throw_level",
+
+
+			"ui_npc_weapon",
+			"ui_weaponOne",
+			"ui_weaponTwo",
+			"ui_weaponThree",
+			"ui_weaponFour",
+			"ui_weaponFive",
+			"ui_weaponSix",
+
+			"ui_saber",
+			"ui_saber_color",
+			"ui_saber2",
+			"ui_saber2_color",
+
+			"ui_lightning_color",
+			"ui_char_color_red",
+			"ui_char_color_green",
+			"ui_char_color_blue",
+
+			"ui_health",
+			"ui_team",
+			"ui_npc_type"
+		};
+
+		const size_t count = sizeof(cvars) / sizeof(cvars[0]);
+
+		// write header so file is easier to read
+		FS_Printf(characterfile, "// character abilities saved by UI\n");
+
+		for (size_t i = 0; i < count; ++i)
+		{
+			const char* value = Cvar_VariableString(cvars[i]);
+
+			// Don't write secondary saber cvars if they are empty (or set to the placeholder "empty")
+			if ((Q_stricmp(cvars[i], "ui_saber2") == 0 || Q_stricmp(cvars[i], "ui_saber2_color") == 0))
+			{
+				if (!value || value[0] == '\0' || !Q_stricmp(value, "empty"))
+				{
+					if ((Q_stricmp(cvars[i], "ui_saber2") == 0))
+					{
+						value = "empty";
+						Cvar_Set("ui_saber2_color", "blue");
+					}
+					else
+					{
+						value = "blue";
+					}
+				}
+			}
+
+			if (Q_stricmp(cvars[i], "ui_saber_color") == 0)
+			{
+				if (TranslateSaberColor(Cvar_VariableString("ui_saber_color")) >= SABER_RGB)
+				{
+					char rgbColor[8];
+
+					if (Cvar_VariableIntegerValue("ui_rgb_saber_red") < 0)
+						Cvar_Set("ui_rgb_saber_red", 0);
+					if (Cvar_VariableIntegerValue("ui_rgb_saber_green") < 0)
+						Cvar_Set("ui_rgb_saber_green", 0);
+					if (Cvar_VariableIntegerValue("ui_rgb_saber_blue") < 0)
+						Cvar_Set("ui_rgb_saber_blue", 0);
+
+					Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber_red"),
+						(Cvar_VariableIntegerValue("ui_rgb_saber_green")),
+						(Cvar_VariableIntegerValue("ui_rgb_saber_blue")));
+
+					value = rgbColor;
+				}
+			}
+
+			if (Q_stricmp(cvars[i], "ui_saber2_color") == 0)
+			{
+				if (TranslateSaberColor(Cvar_VariableString("ui_saber2_color")) >= SABER_RGB)
+				{
+					char rgbColor[8];
+
+					if (Cvar_VariableIntegerValue("ui_rgb_saber2_red") < 0)
+						Cvar_Set("ui_rgb_saber2_red", 0);
+					if (Cvar_VariableIntegerValue("ui_rgb_saber2_green") < 0)
+						Cvar_Set("ui_rgb_saber2_green", 0);
+					if (Cvar_VariableIntegerValue("ui_rgb_saber2_blue") < 0)
+						Cvar_Set("ui_rgb_saber2_blue", 0);
+
+					Com_sprintf(rgbColor, 8, "x%02x%02x%02x", Cvar_VariableIntegerValue("ui_rgb_saber2_red"),
+						(Cvar_VariableIntegerValue("ui_rgb_saber2_green")),
+						(Cvar_VariableIntegerValue("ui_rgb_saber2_blue")));
+
+					value = rgbColor;
+				}
+			}
+
+
+			// write as: <cvar> <value>\n
+			FS_Printf(characterfile, "%s %s\n", cvars[i], value);
+		}
+	}
+
+	Com_Printf("Writing Character Stats in %s\n", characterName);
+	Com_FlushCharacterFile();
+}
+
+void Com_FlushCharacterFile()
+{
+	char faction[64];
+	char code[64];
+	char variant[64];
+
+	strncpy(faction, UI_Cvar_VariableString("ui_char_faction"), sizeof(faction));
+	strncpy(code, UI_Cvar_VariableString("g_charKey"), sizeof(code));
+	strncpy(variant, UI_Cvar_VariableString("ui_variant_code"), sizeof(variant));
+	if (!characterfile)
+	{
+		// nothing to flush, right?
+		Com_Printf("No cam file available\n");
+		return;
+	}
+	FS_ForceFlush(characterfile);
+	FS_FCloseFile(characterfile);
+	characterfile = 0;
+
+	static	char	flushedCharactername[MAX_QPATH];
+	if (Cvar_VariableIntegerValue("ui_npc_menu"))
+		Com_sprintf(flushedCharactername, MAX_QPATH, "ext_data/characters/%s_%s_%s_NPC.cfg", faction, code, variant);
+	else
+		Com_sprintf(flushedCharactername, MAX_QPATH, "ext_data/characters/%s_%s_%s.cfg", faction, code, variant);
+	Com_Printf("saved Character stats to %s\n", flushedCharactername);
+}
+
+void UI_LoadCharacterCfg(void)
+{
+	char filename[MAX_QPATH];
+	char* buf = NULL;
+	int len = 0;
+
+	char faction[64];
+	char code[64];
+	char variant[64];
+
+	Q_strncpyz(faction, UI_Cvar_VariableString("ui_char_faction"), sizeof(faction));
+	Q_strncpyz(code, UI_Cvar_VariableString("g_charKey"), sizeof(code));
+	Q_strncpyz(variant, UI_Cvar_VariableString("ui_variant_code"), sizeof(variant));
+
+	//
+	// Build the three candidate filenames explicitly and safely
+	//
+	static char file1[MAX_QPATH];
+	static char file2[MAX_QPATH];
+
+	// 1. faction_code_variant.cfg
+	if (Cvar_VariableIntegerValue("ui_npc_menu"))
+		Com_sprintf(file1, sizeof(file1),
+			"ext_data/characters/%s_%s_%s_NPC.cfg",
+			faction, code, variant);
+	else
+		Com_sprintf(file1, sizeof(file1),
+			"ext_data/characters/%s_%s_%s.cfg",
+			faction, code, variant);
+
+	// 2. faction_code_variant_default.cfg
+	Com_sprintf(file2, sizeof(file2),
+		"ext_data/characters/%s_%s_%s_def.cfg",
+		faction, code, variant);
+
+	const char* candidates[3] = {
+		file1,
+		file2,
+		"ext_data/characters/default.cfg"
+	};
+
+	//
+	// Try each file in priority order
+	//
+	for (int i = 0; i < 3; i++)
+	{
+		const char* tryFile = candidates[i];
+
+		buf = NULL;
+		len = ui.FS_ReadFile(tryFile, (void**)&buf);
+
+		if (len > 0 && buf)
+		{
+			// Convert file contents to std::string
+			std::string content(buf, len);
+			ui.FS_FreeFile(buf);
+			buf = NULL;
+
+			//
+			// Parse file line-by-line and execute commands synchronously
+			//
+			size_t pos = 0;
+			while (pos < content.size())
+			{
+				size_t lineEnd = content.find_first_of("\r\n", pos);
+				std::string line;
+
+				if (lineEnd == std::string::npos)
+				{
+					line = content.substr(pos);
+					pos = content.size();
+				}
+				else
+				{
+					line = content.substr(pos, lineEnd - pos);
+					pos = lineEnd;
+					while (pos < content.size() && (content[pos] == '\r' || content[pos] == '\n'))
+						pos++;
+				}
+
+				// Trim whitespace
+				size_t start = 0;
+				while (start < line.size() && (line[start] == ' ' || line[start] == '\t'))
+					start++;
+
+				size_t end = line.size();
+				while (end > start && (line[end - 1] == ' ' || line[end - 1] == '\t'))
+					end--;
+
+				if (end <= start)
+					continue;
+
+				std::string cmd = line.substr(start, end - start);
+
+				// Skip // comments
+				if (cmd.size() >= 2 && cmd[0] == '/' && cmd[1] == '/')
+					continue;
+
+				// Skip empty/semicolon-only lines
+				bool allWhitespaceOrSemicolon = true;
+				for (char c : cmd)
+				{
+					if (c != ' ' && c != '\t' && c != ';')
+					{
+						allWhitespaceOrSemicolon = false;
+						break;
+					}
+				}
+				if (allWhitespaceOrSemicolon)
+					continue;
+
+				ui.Cmd_ExecuteText(EXEC_NOW, va("%s\n", cmd.c_str()));
+			}
+
+			Com_Printf("UI_LoadCharacterCfg: executed %s\n", tryFile);
+
+			//
+			// Update saber/hilt UI
+			//
+			UI_UpdateSaberHilt(qfalse);
+			UI_UpdateSaberHilt(qtrue);
+
+			itemDef_t* item;
+			menuDef_t* menu;
+			modelDef_t* modelPtr;
+			char skin[128];
+
+			uiInfo.movesTitleIndex = 0;
+			uiInfo.movesBaseAnim = "BOTH_STAND1IDLE1";
+
+			menu = Menus_FindByName("IngameSWGLChars");
+
+			if (menu)
+			{
+				item = (itemDef_s*)Menu_FindItemByName((menuDef_t*)menu, "character");
+				if (item)
+				{
+					modelPtr = (modelDef_t*)item->typeData;
+					if (modelPtr)
+					{
+						ItemParse_model_g2anim_go(item, uiInfo.movesBaseAnim);
+						uiInfo.moveAnimTime = 2000;
+
+						Com_sprintf(skin, sizeof(skin), "models/players/%s/|%s|%s|%s",
+							Cvar_VariableString("ui_char_model"),
+							Cvar_VariableString("ui_char_skin_head"),
+							Cvar_VariableString("ui_char_skin_torso"),
+							Cvar_VariableString("ui_char_skin_legs")
+						);
+
+						UI_SaberAttachToChar(item);
+					}
+				}
+			}
+
+			return;
+		}
+
+		if (buf)
+		{
+			ui.FS_FreeFile(buf);
+			buf = NULL;
+		}
+	}
+
+	Com_Printf("UI_LoadCharacterCfg: no character cfg found for faction '%s' code '%s'\n",
+		faction, code);
+}
+
+void UI_LoadCharacterDefaultCfg(void)
+{
+	char filename[MAX_QPATH];
+	char* buf = NULL;
+	int len = 0;
+
+	char faction[64];
+	char code[64];
+	char variant[64];
+
+	Q_strncpyz(faction, UI_Cvar_VariableString("ui_char_faction"), sizeof(faction));
+	Q_strncpyz(code, UI_Cvar_VariableString("g_charKey"), sizeof(code));
+	Q_strncpyz(variant, UI_Cvar_VariableString("ui_variant_code"), sizeof(variant));
+
+	//
+	// Build the three candidate filenames explicitly and safely
+	//
+	static char file[MAX_QPATH];
+
+	// 2. faction_code_variant_default.cfg
+	Com_sprintf(file, sizeof(file),
+		"ext_data/characters/%s_%s_%s_def.cfg",
+		faction, code, variant);
+
+	const char* candidates[2] = {
+		file,
+		"ext_data/characters/default.cfg"
+	};
+
+	//
+	// Try each file in priority order
+	//
+	for (int i = 0; i < 2; i++)
+	{
+		const char* tryFile = candidates[i];
+
+		buf = NULL;
+		len = ui.FS_ReadFile(tryFile, (void**)&buf);
+
+		if (len > 0 && buf)
+		{
+			// Convert file contents to std::string
+			std::string content(buf, len);
+			ui.FS_FreeFile(buf);
+			buf = NULL;
+
+			//
+			// Parse file line-by-line and execute commands synchronously
+			//
+			size_t pos = 0;
+			while (pos < content.size())
+			{
+				size_t lineEnd = content.find_first_of("\r\n", pos);
+				std::string line;
+
+				if (lineEnd == std::string::npos)
+				{
+					line = content.substr(pos);
+					pos = content.size();
+				}
+				else
+				{
+					line = content.substr(pos, lineEnd - pos);
+					pos = lineEnd;
+					while (pos < content.size() && (content[pos] == '\r' || content[pos] == '\n'))
+						pos++;
+				}
+
+				// Trim whitespace
+				size_t start = 0;
+				while (start < line.size() && (line[start] == ' ' || line[start] == '\t'))
+					start++;
+
+				size_t end = line.size();
+				while (end > start && (line[end - 1] == ' ' || line[end - 1] == '\t'))
+					end--;
+
+				if (end <= start)
+					continue;
+
+				std::string cmd = line.substr(start, end - start);
+
+				// Skip // comments
+				if (cmd.size() >= 2 && cmd[0] == '/' && cmd[1] == '/')
+					continue;
+
+				// Skip empty/semicolon-only lines
+				bool allWhitespaceOrSemicolon = true;
+				for (char c : cmd)
+				{
+					if (c != ' ' && c != '\t' && c != ';')
+					{
+						allWhitespaceOrSemicolon = false;
+						break;
+					}
+				}
+				if (allWhitespaceOrSemicolon)
+					continue;
+
+				ui.Cmd_ExecuteText(EXEC_NOW, va("%s\n", cmd.c_str()));
+			}
+
+			Com_Printf("UI_LoadCharacterCfg: executed %s\n", tryFile);
+
+			//
+			// Update saber/hilt UI
+			//
+			UI_UpdateSaberHilt(qfalse);
+			UI_UpdateSaberHilt(qtrue);
+
+			itemDef_t* item;
+			menuDef_t* menu;
+			modelDef_t* modelPtr;
+			char skin[128];
+
+			uiInfo.movesTitleIndex = 0;
+			uiInfo.movesBaseAnim = "BOTH_STAND1IDLE1";
+
+			menu = Menus_FindByName("IngameSWGLChars");
+
+			if (menu)
+			{
+				item = (itemDef_s*)Menu_FindItemByName((menuDef_t*)menu, "character");
+				if (item)
+				{
+					modelPtr = (modelDef_t*)item->typeData;
+					if (modelPtr)
+					{
+						ItemParse_model_g2anim_go(item, uiInfo.movesBaseAnim);
+						uiInfo.moveAnimTime = 2000;
+
+						Com_sprintf(skin, sizeof(skin), "models/players/%s/|%s|%s|%s",
+							Cvar_VariableString("ui_char_model"),
+							Cvar_VariableString("ui_char_skin_head"),
+							Cvar_VariableString("ui_char_skin_torso"),
+							Cvar_VariableString("ui_char_skin_legs")
+						);
+
+						UI_SaberAttachToChar(item);
+					}
+				}
+			}
+
+			UI_SaveCharacterPowers();
+			return;
+		}
+
+		if (buf)
+		{
+			ui.FS_FreeFile(buf);
+			buf = NULL;
+		}
+	}
+
+	Com_Printf("UI_LoadCharacterCfg: no character cfg found for faction '%s' code '%s'\n",
+		faction, code);
 }
