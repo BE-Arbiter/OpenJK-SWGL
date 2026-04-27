@@ -4016,7 +4016,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 
 			//have a sabers.cfg and just name your saber in your NPCs.cfg/ICARUS script
 			//saber name
-			if ( !Q_stricmp( token, "saber" ) || NPC->NPC_SaberOne)
+			if ( !Q_stricmp( token, "saber" ))
 			{
 				saberFound = qtrue;
 				if ( COM_ParseString( &p, &value ) )
@@ -4055,7 +4055,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 			}
 
 			//second saber name
-			if ( !Q_stricmp( token, "saber2" ) || NPC->NPC_SaberTwo)
+			if ( !Q_stricmp( token, "saber2" ))
 			{
 				if ( COM_ParseString( &p, &value ) )
 				{
