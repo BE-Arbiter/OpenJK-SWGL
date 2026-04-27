@@ -181,9 +181,7 @@ void			UI_AdjustSaveGameListBox( int currentLine );
 
 void			Menus_CloseByName(const char *p);
 
-static void UI_ApplyCharWeapons(void);
-
-static void UI_RecordCharWeapons(const char** args);
+//static void UI_ApplyCharWeapons(void);
 
 static void UI_UpdateNPCCvars(void);
 
@@ -192,8 +190,6 @@ static void UI_HiltChange(int i);
 static void UI_RecordForcePowers(const char** args);
 
 static void UI_ApplyForcePowers(void);
-
-static void UI_RecordSaberStyles(const char** args);
 
 static void UI_CharacterSelect(const char** args);
 
@@ -870,6 +866,8 @@ vmCvar_t	ui_saber_attack_level;
 vmCvar_t	ui_saber_defend_level;
 vmCvar_t	ui_saber_throw_level;
 
+vmCvar_t	ui_saber_styles;
+
 vmCvar_t	ui_saber_edit;
 vmCvar_t    g_disabledAttributes;
 vmCvar_t    ui_selected_attribute;
@@ -1036,6 +1034,7 @@ static cvarTable_t cvarTable[] =
 	{ &ui_variant_code,			"ui_variant_code",		"default", NULL, 0},
 	{ &ui_team,					"ui_team",	"enemy", NULL, CVAR_ARCHIVE},
 	{ &ui_health,				"ui_health",	"100", NULL, CVAR_ARCHIVE},
+	{ &ui_saber_styles,		"ui_saber_styles", "0", NULL, 0 },
 
 	{ &ui_weaponone, "ui_weaponone",   "WP_NONE", NULL, 0 },
 	{ &ui_weapontwo, "ui_weapontwo",   "WP_NONE", NULL, 0 },
@@ -2167,7 +2166,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 		}
 		else if (Q_stricmp(name, "applycharacter") == 0)
 		{
-			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s\n", npcCode));
+			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s\n", Cvar_VariableString("ui_npc_type")));
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s %s %s %s\n", Cvar_VariableString("ui_char_model"), Cvar_VariableString("ui_char_skin_head"), Cvar_VariableString("ui_char_skin_torso"), Cvar_VariableString("ui_char_skin_legs")));
 		}
 		else if (Q_stricmp(name, "anglesesc") == 0)
@@ -2235,17 +2234,9 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			UI_ClearWeapons();
 		}
-		else if (Q_stricmp(name, "recordcharweapons") == 0)
-		{
-			UI_RecordCharWeapons(args);
-		}
 		else if (Q_stricmp(name, "recordforcepowers") == 0)
 		{
 			UI_RecordForcePowers(args);
-		}
-		else if (Q_stricmp(name, "recordsaberstyles") == 0)
-		{
-			UI_RecordSaberStyles(args);
 		}
 		else if (Q_stricmp(name, "applysaberstyles") == 0)
 		{
@@ -2253,7 +2244,8 @@ static qboolean UI_RunMenuScript ( const char **args )
 		}
 		else if (Q_stricmp(name, "applycharweapons") == 0)
 		{
-			UI_ApplyCharWeapons();
+			//UI_ApplyCharWeapons();
+			ui.Cmd_ExecuteText(EXEC_NOW, va("applycharweapons\n"));
 		}
 		else if (Q_stricmp(name, "applyforcepowers") == 0)
 		{
@@ -5551,18 +5543,24 @@ static void UI_SetSexandSoundForModel(const char* char_model)
 		Cvar_Set ( "sex", "m");
 	}
 }
-static void UI_UpdateCharacterCvars ( void )
+static void UI_UpdateCharacterCvars(void)
 {
-	const char *char_model = Cvar_VariableString ( "ui_char_model" );
+	const char* char_model = Cvar_VariableString("ui_char_model");
 	UI_SetSexandSoundForModel(char_model);
-	Cvar_Set ( "g_char_model", char_model );
-	Cvar_Set ( "g_char_skin_head", Cvar_VariableString ( "ui_char_skin_head" ) );
-	Cvar_Set ( "g_char_skin_torso", Cvar_VariableString ( "ui_char_skin_torso" ) );
-	Cvar_Set ( "g_char_skin_legs", Cvar_VariableString ( "ui_char_skin_legs" ) );
-	Cvar_Set ( "g_char_color_red", Cvar_VariableString ( "ui_char_color_red" ) );
-	Cvar_Set ( "g_char_color_green", Cvar_VariableString ( "ui_char_color_green" ) );
+	Cvar_Set("g_char_model", char_model);
+	Cvar_Set("g_char_skin_head", Cvar_VariableString("ui_char_skin_head"));
+	Cvar_Set("g_char_skin_torso", Cvar_VariableString("ui_char_skin_torso"));
+	Cvar_Set("g_char_skin_legs", Cvar_VariableString("ui_char_skin_legs"));
+	Cvar_Set("g_char_color_red", Cvar_VariableString("ui_char_color_red"));
+	Cvar_Set("g_char_color_green", Cvar_VariableString("ui_char_color_green"));
 	Cvar_Set("g_char_color_blue", Cvar_VariableString("ui_char_color_blue"));
 	Cvar_Set("g_forceLightningColor", Cvar_VariableString("ui_lightning_color"));
+	Cvar_Set("g_weaponOne", Cvar_VariableString("ui_weaponOne"));
+	Cvar_Set("g_weaponTwo", Cvar_VariableString("ui_weaponTwo"));
+	Cvar_Set("g_weaponThree", Cvar_VariableString("ui_weaponThree"));
+	Cvar_Set("g_weaponFour", Cvar_VariableString("ui_weaponFour"));
+	Cvar_Set("g_weaponFive", Cvar_VariableString("ui_weaponFive"));
+	Cvar_Set("g_weaponSix", Cvar_VariableString("ui_weaponSix"));
 }
 
 static void UI_UpdateNPCCvars()
@@ -6977,42 +6975,6 @@ static void UI_ResetCharacterListBoxes( void )
 	}
 }
 
-static void UI_RecordCharWeapons(const char **args)
-{
-	// Let's clear the weapons first
-	weaponOne = 0;
-	weaponTwo = 0;
-	weaponThree = 0;
-	weaponFour = 0;
-	weaponFive = 0;
-
-	// Record 4 weapons (lightsaber is given in the menu if the character has one already, and every character gets melee regardless)
-	// This is a really ugly way of doing this...
-	const char* firstWeapon;
-	String_Parse(args, &firstWeapon);
-	weaponOne = atoi(firstWeapon);
-
-	const char*secondWeapon;
-	String_Parse(args, &secondWeapon);
-	weaponTwo = atoi(secondWeapon);
-
-	const char* thirdWeapon;
-	String_Parse(args, &thirdWeapon);
-	weaponThree = atoi(thirdWeapon);
-
-	const char* fourthWeapon;
-	String_Parse(args, &fourthWeapon);
-	weaponFour = atoi(fourthWeapon);
-
-	const char* fifthWeapon;
-	String_Parse(args, &fifthWeapon);
-	weaponFive = atoi(fifthWeapon);
-
-	// Clear weapons, just in case
-	args = 0;
-
-}
-
 static void UI_RecordForcePowers(const char** args)
 {
 	// Get player state
@@ -7063,13 +7025,6 @@ static void UI_RecordForcePowers(const char** args)
 
 }
 
-static void UI_RecordSaberStyles(const char** args)
-{
-	const char* styles;
-	String_Parse(args, &styles);
-	saberStyles = atoi(styles);
-}
-
 static void UI_CharacterSelect(const char** args)
 {
 	const char* level;
@@ -7095,7 +7050,7 @@ static void UI_CharacterSelect(const char** args)
 	}
 
 }
-
+/*extern int WP_GetWeaponID(const char* weaponName);
 static void UI_ApplyCharWeapons()
 {
 	// Get player state
@@ -7109,9 +7064,16 @@ static void UI_ApplyCharWeapons()
 	if (cl->gentity && cl->gentity->client)
 	{
 		playerState_t* pState = cl->gentity->client;
+		int weaponOne = WP_GetWeaponID(Cvar_VariableString("ui_weaponOne"));
+		int weaponTwo = WP_GetWeaponID(Cvar_VariableString("ui_weaponTwo"));
+		int weaponThree = WP_GetWeaponID(Cvar_VariableString("ui_weaponThree"));
+		int weaponFour = WP_GetWeaponID(Cvar_VariableString("ui_weaponFour"));
+		int weaponFive = WP_GetWeaponID(Cvar_VariableString("ui_weaponFive"));
+		int weaponSix = WP_GetWeaponID(Cvar_VariableString("ui_weaponSix"));
 
 		// Every character gets melee, no matter what
 		pState->weapons[WP_MELEE] = 1;
+		
 
 		// Again, super ugly, wish I could do it less horribly
 		if (weaponOne)
@@ -7124,6 +7086,8 @@ static void UI_ApplyCharWeapons()
 			pState->weapons[weaponFour] = 1;
 		if (weaponFive)
 			pState->weapons[weaponFive] = 1;
+		if (weaponSix)
+			pState->weapons[weaponSix] = 1;
 
 		if (pState->weapons[WP_SABER] != 1 && Q_stricmp(Cvar_VariableString("ui_saber"), "") && Q_stricmp(Cvar_VariableString("ui_saber"), "empty") && Q_stricmp(Cvar_VariableString("ui_saber"), "none"))
 		{
@@ -7133,27 +7097,27 @@ static void UI_ApplyCharWeapons()
 		// Reset the secondary saber, just in case
 		Cvar_Set("ui_saber2", "");
 
+		weaponOne = 0;
+		weaponTwo = 0;
+		weaponThree = 0;
+		weaponFour = 0;
+		weaponFive = 0;
+		weaponSix = 0;
 	}
-
-	weaponOne = 0;
-	weaponTwo = 0;
-	weaponThree = 0;
-	weaponFour = 0;
-	weaponFive = 0;
-	//for(int i = 2; i < )
-	//weapons & (1 << FP_PUSH)
-}
+}*/
 
 static void UI_ApplySaberStyles()
 {
 	// Get player state
 	client_t* cl = &svs.clients[0];	// 0 because only ever us as a player
 
+	int saberStyles = Cvar_VariableIntegerValue("ui_saber_styles");
+
 	if (!cl)	// No client, get out
 	{
 		return;
 	}
-	if (saberStyles <= 0)
+	if (saberStyles < 0)
 	{
 		return;
 	}

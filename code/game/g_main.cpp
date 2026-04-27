@@ -251,6 +251,13 @@ cvar_t* g_NPClegs;
 cvar_t* g_NPCmodel;
 cvar_t* g_NPCtargetname;
 
+cvar_t* g_weaponOne;
+cvar_t* g_weaponTwo;
+cvar_t* g_weaponThree;
+cvar_t* g_weaponFour;
+cvar_t* g_weaponFive;
+cvar_t* g_weaponSix;
+
 cvar_t* g_darkkorriban;
 
 cvar_t *g_allowSaberTwirling;
@@ -834,6 +841,13 @@ void G_InitCvars( void ) {
 	g_npc_saber_attack_level = gi.cvar("g_npc_saber_attack_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_npc_saber_defend_level = gi.cvar("g_npc_saber_defend_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_npc_saber_throw_level = gi.cvar("g_npc_saber_throw_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+
+	g_weaponOne = gi.cvar("g_weaponOne", "WP_NONE", 0);
+	g_weaponTwo = gi.cvar("g_weaponTwo", "WP_NONE", 0);
+	g_weaponThree = gi.cvar("g_weaponThree", "WP_NONE", 0);
+	g_weaponFour = gi.cvar("g_weaponFour", "WP_NONE", 0);
+	g_weaponFive = gi.cvar("g_weaponFive", "WP_NONE", 0);
+	g_weaponSix = gi.cvar("g_weaponSix", "WP_NONE", 0);	
 
 	g_allowSaberTwirling = gi.cvar("g_allowSaberTwirling", "1", CVAR_ARCHIVE | CVAR_NORESTART);
 

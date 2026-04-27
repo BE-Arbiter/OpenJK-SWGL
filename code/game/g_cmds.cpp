@@ -34,6 +34,13 @@ extern stringID_table_t SaberStyleTable[];
 
 extern cvar_t *static_cam;
 
+extern cvar_t* g_weaponOne;
+extern cvar_t* g_weaponTwo;
+extern cvar_t* g_weaponThree;
+extern cvar_t* g_weaponFour;
+extern cvar_t* g_weaponFive;
+extern cvar_t* g_weaponSix;
+
 extern void ForceHeal( gentity_t *self );
 extern void ForceGrip( gentity_t *self );
 extern void ForceTelepathy( gentity_t *self );
@@ -2104,6 +2111,17 @@ void ClientCommand( int clientNum ) {
 			static_cam->value = 0;
 		}
 	}
+	else if (Q_stricmp(cmd, "applycharweapons") == 0)
+	{
+		ent = G_GetSelfForPlayerCmd();
+
+		ent->client->ps.weapons[WP_GetWeaponID(g_weaponOne->string)] = 1;
+		ent->client->ps.weapons[WP_GetWeaponID(g_weaponTwo->string)] = 1;
+		ent->client->ps.weapons[WP_GetWeaponID(g_weaponThree->string)] = 1;
+		ent->client->ps.weapons[WP_GetWeaponID(g_weaponFour->string)] = 1;
+		ent->client->ps.weapons[WP_GetWeaponID(g_weaponFive->string)] = 1;
+		ent->client->ps.weapons[WP_GetWeaponID(g_weaponSix->string)] = 1;;
+		}
 	else
 	{
 		gi.SendServerCommand( clientNum, va("print \"Unknown command %s\n\"", cmd ) );
