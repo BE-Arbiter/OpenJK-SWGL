@@ -14105,14 +14105,7 @@ static void PM_Weapon( void )
 
 #pragma endregion
 
-	if (pm->cmd.buttons & BUTTON_ALT_ATTACK)
-	{
-		amount = weaponData[pm->ps->weapon].attackData[1].energyPerShot;
-	}
-	else
-	{
-		amount = weaponData[pm->ps->weapon].attackData[attackIndex].energyPerShot;
-	}
+	amount = weaponData[pm->ps->weapon].attackData[attackIndex].energyPerShot;
 
 	if ( (pm->ps->weaponstate == WEAPON_CHARGING) || (pm->ps->weaponstate == WEAPON_CHARGING_ALT) )
 	{
