@@ -1230,10 +1230,6 @@ static void CG_DoMuzzleFlash( centity_t *cent, vec3_t org, vec3_t dir, weaponDat
 				theFxScheduler.PlayEffect( effect, cent->currentState.clientNum );
 			}
 		}
-		else
-		{
-			Com_Printf(S_COLOR_YELLOW"Warning : Muzzle for %s for weapon '%s', didn't found any effect to play\n", cent->altFire ? "main fire" : "alt fire", wData->classname);
-		}
 	}
 }
 
