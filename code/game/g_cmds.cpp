@@ -2120,7 +2120,7 @@ void ClientCommand( int clientNum ) {
 		ent->client->ps.weapons[WP_GetWeaponID(g_weaponThree->string)] = 1;
 		ent->client->ps.weapons[WP_GetWeaponID(g_weaponFour->string)] = 1;
 		ent->client->ps.weapons[WP_GetWeaponID(g_weaponFive->string)] = 1;
-		ent->client->ps.weapons[WP_GetWeaponID(g_weaponSix->string)] = 1;;
+		ent->client->ps.weapons[WP_GetWeaponID(g_weaponSix->string)] = 1;
 		}
 	else
 	{
