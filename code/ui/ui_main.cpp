@@ -838,6 +838,7 @@ vmCvar_t	ui_mission_mapcode;
 vmCvar_t	ui_variant_code;
 vmCvar_t	ui_team;
 vmCvar_t	ui_health;
+vmCvar_t	ui_force;
 
 // Force Power cvars (I literally don't know any other way to do this.....)
 vmCvar_t	ui_jump_level;
@@ -1034,6 +1035,7 @@ static cvarTable_t cvarTable[] =
 	{ &ui_variant_code,			"ui_variant_code",		"default", NULL, 0},
 	{ &ui_team,					"ui_team",	"enemy", NULL, CVAR_ARCHIVE},
 	{ &ui_health,				"ui_health",	"100", NULL, CVAR_ARCHIVE},
+	{ &ui_force,				"ui_force",	"100", NULL, CVAR_ARCHIVE},
 	{ &ui_saber_styles,		"ui_saber_styles", "0", NULL, 0 },
 
 	{ &ui_weaponone, "ui_weaponone",   "WP_NONE", NULL, 0 },
@@ -2168,6 +2170,10 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s\n", Cvar_VariableString("ui_npc_type")));
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s %s %s %s\n", Cvar_VariableString("ui_char_model"), Cvar_VariableString("ui_char_skin_head"), Cvar_VariableString("ui_char_skin_torso"), Cvar_VariableString("ui_char_skin_legs")));
+			ui.Cmd_ExecuteText(EXEC_NOW, va("playerteam %s\n", Cvar_VariableString("ui_team")));
+			ui.Cmd_ExecuteText(EXEC_NOW, va("give health %s\n", Cvar_VariableString("ui_health")));
+			ui.Cmd_ExecuteText(EXEC_NOW, va("give shield %s\n", Cvar_VariableString("ui_health")));
+			ui.Cmd_ExecuteText(EXEC_NOW, va("give force %s\n", Cvar_VariableString("ui_force")));
 		}
 		else if (Q_stricmp(name, "anglesesc") == 0)
 		{
@@ -5565,6 +5571,24 @@ static void UI_UpdateCharacterCvars(void)
 
 static void UI_UpdateNPCCvars()
 {
+	if(!Q_stricmp(Cvar_VariableString("ui_npc_weapon"), "weapon_clone_random"))
+	{
+		if (!Q_irand(0, 10))
+		{
+			Cvar_Set("ui_npc_weapon", "weapon_z6");
+		}
+		else
+		{
+			if (!Q_irand(0, 1))
+			{
+				Cvar_Set("ui_npc_weapon", "weapon_clonerifle");
+			}
+			else
+			{
+				Cvar_Set("ui_npc_weapon", "weapon_carbine");
+			}
+		}
+	}
 	Cvar_Set("g_NPCtype", Cvar_VariableString("ui_npc_type"));
 	Cvar_Set("g_NPCmodel", Cvar_VariableString("ui_char_model"));
 	Cvar_Set("g_NPChead", Cvar_VariableString("ui_char_skin_head"));
@@ -8670,6 +8694,7 @@ static void UI_SaveCharacterPowers(void)
 			"ui_char_color_blue",
 
 			"ui_health",
+			"ui_force",
 			"ui_team",
 			"ui_npc_type"
 		};
