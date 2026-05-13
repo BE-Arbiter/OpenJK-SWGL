@@ -3827,17 +3827,39 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				if (NPC->NPC_Weapon)
 				{
-					value = NPC->NPC_Weapon;
+					if(!Q_stricmp(value, "weapon_clone_random"))
+					{ 
+						if (!Q_irand(0, 10))
+						{
+							value = "weapon_z6";
+						}
+						else
+						{
+							if (!Q_irand(0, 1))
+								value = "weapon_clonecarbine";
+							else
+								value = "weapon_clonerifle";
+						}
+					}
+					else
+						value = NPC->NPC_Weapon;
 				}
 				//FIXME: need to precache the weapon, too?  (in above func)
 				int weap = WP_GetWeaponID( value );
 
 				if (!Q_stricmp(value, "WP_CLONERANDOM"))
 				{
-					if (!Q_irand(0, 1))
-						weap = WP_CLONECARBINE;
+					if (!Q_irand(0, 10))
+					{
+						weap = WP_GetWeaponID("weapon_z6");
+					}
 					else
-						weap = WP_CLONERIFLE;
+					{
+						if (!Q_irand(0, 1))
+							weap = WP_CLONECARBINE;
+						else
+							weap = WP_CLONERIFLE;
+					}
 
 				}
 				if ( weap >= WP_NONE && weap < weaponCount )
