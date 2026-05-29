@@ -5002,6 +5002,30 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 			ui.Draw_DataPad(DP_NPC_WEAPON_LABEL);
 			break;
 
+		case UI_PLAYER_WEAPON_LABEL_1:
+			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_1);
+			break;
+
+		case UI_PLAYER_WEAPON_LABEL_2:
+			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_2);
+			break;
+
+		case UI_PLAYER_WEAPON_LABEL_3:
+			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_3);
+			break;
+
+		case UI_PLAYER_WEAPON_LABEL_4:
+			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_4);
+			break;
+
+		case UI_PLAYER_WEAPON_LABEL_6:
+			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_6);
+			break;
+
+		case UI_PLAYER_WEAPON_LABEL_5:
+			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_5);
+			break;
+
 		case UI_ALLMAPS_SELECTION://saved game thumbnail
 
 			int levelshot;

@@ -168,6 +168,48 @@ Ghoul2 Insert End
 		}
 		return 0;
 
+	case CG_DRAW_PLAYER_WEAPON_LABEL_1:
+		if (cg.snap)
+		{
+			CG_DrawPlayerWeaponLabel(1);
+		}
+		return 0;
+
+	case CG_DRAW_PLAYER_WEAPON_LABEL_2:
+		if (cg.snap)
+		{
+			CG_DrawPlayerWeaponLabel(2);
+		}
+		return 0;
+
+	case CG_DRAW_PLAYER_WEAPON_LABEL_3:
+		if (cg.snap)
+		{
+			CG_DrawPlayerWeaponLabel(3);
+		}
+		return 0;
+
+	case CG_DRAW_PLAYER_WEAPON_LABEL_4:
+		if (cg.snap)
+		{
+			CG_DrawPlayerWeaponLabel(4);
+		}
+		return 0;
+
+	case CG_DRAW_PLAYER_WEAPON_LABEL_5:
+		if (cg.snap)
+		{
+			CG_DrawPlayerWeaponLabel(5);
+		}
+		return 0;
+
+	case CG_DRAW_PLAYER_WEAPON_LABEL_6:
+		if (cg.snap)
+		{
+			CG_DrawPlayerWeaponLabel(6);
+		}
+		return 0;
+
 	case CG_DRAW_DATAPAD_OBJECTIVES:
 		if (cg.snap)
 		{
@@ -400,6 +442,21 @@ vmCvar_t		ui_loadout_weapon;
 vmCvar_t		ui_npc_weapon;
 vmCvar_t		ui_npc_weapon_label;
 
+vmCvar_t		ui_weaponOne;
+vmCvar_t		ui_weaponOne_label;
+vmCvar_t		ui_weaponTwo;
+vmCvar_t		ui_weaponTwo_label;
+vmCvar_t		ui_weaponThree;
+vmCvar_t		ui_weaponThree_label;
+vmCvar_t		ui_weaponFour;
+vmCvar_t		ui_weaponFour_label;
+vmCvar_t		ui_weaponFive;
+vmCvar_t		ui_weaponFive_label;
+vmCvar_t		ui_weaponSix;
+vmCvar_t		ui_weaponSix_label;
+
+
+
 
 typedef struct {
 	vmCvar_t	*vmCvar;
@@ -549,6 +606,19 @@ static cvarTable_t cvarTable[] = {
 	{ &ui_loadout_weapon , "ui_loadout_weapon","0", CVAR_TEMP},
 	{ &ui_npc_weapon, "ui_npc_weapon",	"WP_BLASTER", CVAR_ARCHIVE },
 	{ &ui_npc_weapon_label, "ui_npc_weapon_label",	"Blaster", CVAR_ARCHIVE },
+	//For PC
+	{ &ui_weaponOne, "ui_weaponOne","WP_NONE",CVAR_ARCHIVE},
+	{ &ui_weaponOne_label, "ui_weaponOne_label","None",CVAR_ARCHIVE},
+	{ &ui_weaponTwo, "ui_weaponTwo","WP_NONE",CVAR_ARCHIVE},
+	{ &ui_weaponTwo_label, "ui_weaponTwo_label","None",CVAR_ARCHIVE},
+	{ &ui_weaponThree, "ui_weaponThree","WP_NONE",CVAR_ARCHIVE},
+	{ &ui_weaponThree_label, "ui_weaponThree_label","None",CVAR_ARCHIVE},
+	{ &ui_weaponFour, "ui_weaponFour","WP_NONE",CVAR_ARCHIVE},
+	{ &ui_weaponFour_label, "ui_weaponFour_label","None",CVAR_ARCHIVE},
+	{ &ui_weaponFive, "ui_weaponFive","WP_NONE",CVAR_ARCHIVE},
+	{ &ui_weaponFive_label, "ui_weaponFive_label","None",CVAR_ARCHIVE},
+	{ &ui_weaponSix, "ui_weaponSix","WP_NONE",CVAR_ARCHIVE},
+	{ &ui_weaponSix_label, "ui_weaponSix_label","None",CVAR_ARCHIVE},
 };
 
 static const size_t cvarTableSize = ARRAY_LEN( cvarTable );
