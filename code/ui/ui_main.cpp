@@ -185,6 +185,8 @@ void			Menus_CloseByName(const char *p);
 
 static void UI_UpdateNPCCvars(void);
 
+static void UI_UpdateTeamSelect(void);
+
 static void UI_HiltChange(int i);
 
 static void UI_RecordForcePowers(const char** args);
@@ -422,7 +424,7 @@ static missionTopicData_t missionTopicData[1][MAX_MISSION_TOPIC] =
 	{ "@SWGLMISSIONS_MISSIONS_KOTOR",					"5"},
 	{ "@SWGLMISSIONS_MISSIONS_JKJO",					"6"},
 	{ "@SWGLMISSIONS_MISSIONS_JKJA",					"7"},
-	{ NULL,	NULL},
+	{ "@SWGLMISSIONS_MISSIONS_CHALLENGES",				"8"},
 	{ NULL,	NULL},
 	{ NULL,	NULL},
 }
@@ -708,6 +710,41 @@ static missionData_t missionData[MAX_MISSION_TOPIC][MAX_MISSION] =
 	{ "@SWGLMISSIONS_T3_TASPIR2_TITLE",		"23",		"levelshots/taspir2", "taspir2", "@SWGLMISSIONS_T3_TASPIR2_DESC"},
 	{ "@SWGLMISSIONS_T3_KOR1_TITLE",		"24",			"levelshots/kor1", "kor1", "@SWGLMISSIONS_T3_KOR1_DESC"},
 	{ "@SWGLMISSIONS_T3_KOR2_TITLE",		"25",			"levelshots/kor2", "kor2", "@SWGLMISSIONS_T3_KOR2_DESC"},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+},
+// Challenges
+{
+	{ "@SWGLMISSIONS_CHALLENGES_EP1_HANGAR",		"0",			"SV_EP1_HANGAR", "sv_ep1_hangar", "@SWGLMISSIONS_CHALLENGES_EP1_HANGAR_DESC"},
+	{ "@SWGLMISSIONS_CHALLENGES_EP2_TUSKENCAMP",		"1",			"SV_EP2_TUSKENCAMP", "sv_ep2_tuskencamp", "@SWGLMISSIONS_CHALLENGES_EP2_TUSKENCAMP_DESC"},
+	{ "@SWGLMISSIONS_CHALLENGES_EP4_DS_HANGAR",		"2",			"SV_EP4_DS_HANGAR", "sv_ep4_ds_hangar", "@SWGLMISSIONS_CHALLENGES_EP4_DS_HANGAR_DESC"},
+	{ "@SWGLMISSIONS_CHALLENGES_EP5_ECHO_BASE",		"3",			"SV_EP5_ECHO_BASE", "sv_ep5_echo_base", "@SWGLMISSIONS_CHALLENGES_EP5_ECHO_BASE_DESC"},
+	{ "@SWGLMISSIONS_CHALLENGES_EP6_DS2_HANGAR",		"4",			"SV_EP6_DS2_HANGAR", "sv_ep6_ds2_hangar", "@SWGLMISSIONS_CHALLENGES_EP6_DS2_HANGAR_DESC"},
+	{ "@SWGLMISSIONS_CHALLENGES_JKA_VJUN",		"5",			"SV_JKA_VJUN", "sv_jka_vjun", "@SWGLMISSIONS_CHALLENGES_JKA_VJUN_DESC"},
+	{ "@SWGLMISSIONS_CHALLENGES_JKO_VOTJ",		"6",			"SV_JKO_VOTJ", "sv_jko_votj", "@SWGLMISSIONS_CHALLENGES_JKO_VOTJ_DESC"},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
@@ -2015,6 +2052,10 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			UI_UpdateNPCCvars();
 		}
+		else if (Q_stricmp(name, "toggleTeamAvailability") == 0)
+		{
+			UI_UpdateTeamSelect();
+		}
 		else if (Q_stricmp(name, "getcharcvars") == 0)
 		{
 			UI_GetCharacterCvars();
@@ -2058,37 +2099,6 @@ static qboolean UI_RunMenuScript ( const char **args )
 			UI_RecordForcePowers(powerArgs);
 			UI_ApplyForcePowers();
 		}
-		else if (Q_stricmp(name, "applynpcpowers") == 0)
-		{
-
-			const char* str = va("%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s", Cvar_VariableString("ui_heal_level"),
-				Cvar_VariableString("ui_jump_level"),
-				Cvar_VariableString("ui_speed_level"),
-				Cvar_VariableString("ui_push_level"),
-				Cvar_VariableString("ui_pull_level"),
-				Cvar_VariableString("ui_mindtrick_level"),
-				Cvar_VariableString("ui_grip_level"),
-				Cvar_VariableString("ui_lightning_level"),
-				Cvar_VariableString("ui_saber_throw_level"),
-				Cvar_VariableString("ui_saber_defend_level"),
-				Cvar_VariableString("ui_saber_attack_level"),
-				Cvar_VariableString("ui_rage_level"),
-				Cvar_VariableString("ui_protect_level"),
-				Cvar_VariableString("ui_absorb_level"),
-				Cvar_VariableString("ui_drain_level"),
-				Cvar_VariableString("ui_sense_level"),
-				Cvar_VariableString("ui_stasis_level"),
-				Cvar_VariableString("ui_blast_level"),
-				Cvar_VariableString("ui_grasp_level"),
-				Cvar_VariableString("ui_destruction_level"),
-				Cvar_VariableString("ui_strike_level"),
-				Cvar_VariableString("ui_fear_level"));
-
-				const char** powerArgs = &str;
-
-				UI_RecordForcePowers(powerArgs);
-				UI_ApplyForcePowers();
-			}
 		else if (Q_stricmp(name, "savePage") == 0)
 		{
 			const char* page;
@@ -2239,10 +2249,6 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if (Q_stricmp(name, "clearweapons") == 0)
 		{
 			UI_ClearWeapons();
-		}
-		else if (Q_stricmp(name, "recordforcepowers") == 0)
-		{
-			UI_RecordForcePowers(args);
 		}
 		else if (Q_stricmp(name, "applysaberstyles") == 0)
 		{
@@ -5682,6 +5688,36 @@ static void UI_RandomSkin(void)
 	}
 }
 
+static void UI_UpdateTeamSelect(void)
+{
+	// Usual menu and item variables
+	menuDef_t* menu;
+	itemDef_t* enabled;
+	itemDef_t* disabled;
+	menu = Menu_GetFocused();
+	enabled = (itemDef_s*)Menu_FindItemByName(menu, "teamsToggle");
+	disabled = (itemDef_s*)Menu_FindItemByName(menu, "teamsDisabled");
+
+	if (Cvar_VariableIntegerValue("ui_npc_menu") >= 1)
+	{
+		Menu_ShowItemByName(menu, "teamsToggle", qtrue);
+		Menu_ShowItemByName(menu, "teamsDisabled", qfalse);
+	}
+	else
+	{
+		if (Cvar_VariableIntegerValue("g_allowAlignmentChange"))
+		{
+			Menu_ShowItemByName(menu, "teamsToggle", qtrue);
+			Menu_ShowItemByName(menu, "teamsDisabled", qfalse);
+		}
+		else
+		{
+			Menu_ShowItemByName(menu, "teamsToggle", qfalse);
+			Menu_ShowItemByName(menu, "teamsDisabled", qtrue);
+		}
+	}
+}
+
 static void UI_RandomRGB(void)
 {
 	Cvar_Set("ui_char_color_red", va("%i", Q_irand(0, 255)));
@@ -7235,8 +7271,10 @@ static void UI_ShowMissionInfo()
 
 		if (!strncmp(missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode, "levelshots/", 11))
 			Menu_SetItemBackground(menu, "MissionPic", missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode);
-		else
+		else if (ui.R_RegisterShaderNoMip(va("gfx/menus/missions/%s/background", missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode)) != 0)
 			Menu_SetItemBackground(menu, "MissionPic", va("gfx/menus/missions/%s/background", missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode));
+		else
+			Menu_SetItemBackground(menu, "MissionPic", va("levelshots/%s", missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].mapCode));
 
 		Menu_SetItemText(menu, "MissionDesc", missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].descCode);
 		Menu_ShowItemByName(menu, "MissionDesc", qtrue);
@@ -7246,8 +7284,6 @@ static void UI_ShowMissionInfo()
 	{
 		Menu_ShowItemByName(menu, "missionInfo", qfalse);
 		Menu_ShowItemByName(menu, "MissionDesc", qfalse);
-
-
 	}
 
 	menu = NULL;
