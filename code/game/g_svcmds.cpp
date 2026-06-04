@@ -713,11 +713,14 @@ static void Svcmd_Spawn_f(void)
 	if(Q_stricmp(g_NPCtargetname->string, ""))
 		NPCspawner->NPC_targetname = g_NPCtargetname->string;
 
-	NPCspawner->behaviorSet[BSET_SPAWN] = g_NPCspawnscript->string;
+	if (Q_stricmp(g_NPCspawnscript->string, "none"))
+		NPCspawner->behaviorSet[BSET_SPAWN] = g_NPCspawnscript->string;
 
-	NPCspawner->behaviorSet[BSET_FLEE] = g_NPCfleescript->string;
+	if (Q_stricmp(g_NPCfleescript->string, "none"))
+		NPCspawner->behaviorSet[BSET_FLEE] = g_NPCfleescript->string;
 
-	NPCspawner->behaviorSet[BSET_DEATH] = g_NPCdeathscript->string;
+	if (Q_stricmp(g_NPCdeathscript->string, "none"))
+		NPCspawner->behaviorSet[BSET_DEATH] = g_NPCdeathscript->string;
 
 	NPCspawner->NPC_color_red = g_npc_color_red->integer;
 	NPCspawner->NPC_color_green = g_npc_color_green->integer;

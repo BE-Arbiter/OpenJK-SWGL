@@ -801,9 +801,9 @@ void G_InitCvars( void ) {
 	g_NPCtype = gi.cvar("g_NPCtype", "stormtrooper", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_NPCteam = gi.cvar("g_NPCteam", "enemy", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_NPChealth = gi.cvar("g_NPChealth", "100", CVAR_ARCHIVE | CVAR_NORESTART);
-	g_NPCspawnscript = gi.cvar("g_NPCspawnscript", "spawnscripts/none", 0);
-	g_NPCfleescript = gi.cvar("g_NPCfleescript", "fleescripts/none", 0);
-	g_NPCdeathscript = gi.cvar("g_NPCdeathscript", "deathscripts/none", 0);
+	g_NPCspawnscript = gi.cvar("g_NPCspawnscript", "none", 0);
+	g_NPCfleescript = gi.cvar("g_NPCfleescript", "none", 0);
+	g_NPCdeathscript = gi.cvar("g_NPCdeathscript", "none", 0);
 	g_NPChead = gi.cvar("g_NPChead", "model_default", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_NPCtorso = gi.cvar("g_NPCtorso", "model_default", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_NPClegs = gi.cvar("g_NPClegs", "model_default", CVAR_ARCHIVE | CVAR_NORESTART);	
