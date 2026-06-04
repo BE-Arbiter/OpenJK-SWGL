@@ -1471,7 +1471,7 @@ void NPC_Begin(gentity_t *ent)
 
 	client->ps.friction = 6;
 
-	if (ent->client->ps.weapon == WP_NONE)
+	if (ent->client->ps.weapon == WP_NONE && !ent->NPC_Weapon)
 	{//not set by the NPCs.cfg
 		NPC_SetWeapons(ent);
 	}
