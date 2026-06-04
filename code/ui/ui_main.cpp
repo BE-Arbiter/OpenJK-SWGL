@@ -1748,6 +1748,30 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSwitchSelectWeapon\n");
 		}
+		else if (Q_stricmpn(name, "uiPcWeaponNext", 14) == 0)
+		{
+			int weaponNumber = atoi(name + 15);
+			if (weaponNumber <= 0 || weaponNumber >= 7)
+			{
+				Com_Printf("Invalid parameter for %s\n", name);
+			}
+			else
+			{
+				ui.Cmd_ExecuteText(EXEC_APPEND, name);
+			}
+		}
+		else if (Q_stricmpn(name, "uiPcWeaponPrev", 14) == 0)
+		{
+			int weaponNumber = atoi(name + 15);
+			if (weaponNumber <= 0 || weaponNumber >= 7)
+			{
+				Com_Printf("Invalid parameter for %s\n", name);
+			}
+			else
+			{
+				ui.Cmd_ExecuteText(EXEC_APPEND, name);
+			}
+		}
 		else if (Q_stricmp(name, "uiNpcWeaponNext") == 0)
 		{
 			//if(key)
@@ -5054,6 +5078,30 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 
 		case UI_NPC_WEAPON_LABEL:
 			ui.Draw_DataPad(DP_NPC_WEAPON_LABEL);
+			break;
+
+		case UI_PLAYER_WEAPON_LABEL_1:
+			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_1);
+			break;
+
+		case UI_PLAYER_WEAPON_LABEL_2:
+			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_2);
+			break;
+
+		case UI_PLAYER_WEAPON_LABEL_3:
+			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_3);
+			break;
+
+		case UI_PLAYER_WEAPON_LABEL_4:
+			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_4);
+			break;
+
+		case UI_PLAYER_WEAPON_LABEL_6:
+			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_6);
+			break;
+
+		case UI_PLAYER_WEAPON_LABEL_5:
+			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_5);
 			break;
 
 		case UI_ALLMAPS_SELECTION://saved game thumbnail

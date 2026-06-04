@@ -165,3 +165,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define UI_MAPS_SELECTION		256
 #define UI_DATAPAD_LOADOUT		257
 #define UI_NPC_WEAPON_LABEL		258
+#define UI_PLAYER_WEAPON_LABEL_1 259
+#define UI_PLAYER_WEAPON_LABEL_2 260
+#define UI_PLAYER_WEAPON_LABEL_3 261
+#define UI_PLAYER_WEAPON_LABEL_4 262
+#define UI_PLAYER_WEAPON_LABEL_5 263
+#define UI_PLAYER_WEAPON_LABEL_6 264

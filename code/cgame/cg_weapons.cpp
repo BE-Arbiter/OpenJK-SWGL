@@ -2826,8 +2826,10 @@ void CG_LDO_NextPage_f(void) {
 	Next weapon for charName
 */
 extern int WP_GetWeaponID(const char* weaponName);
+
 extern vmCvar_t		ui_npc_weapon;
 extern vmCvar_t		ui_npc_weapon_label;
+
 void CG_NPC_NextWeapon_f(void) {
 	cgi_Cvar_Update(&ui_npc_weapon);
 	int currentWeaponIndex = WP_GetWeaponID(ui_npc_weapon.string);
@@ -2898,6 +2900,181 @@ void CG_DrawNpcWeaponLabel(void) {
 		colorTable[CT_WHITE]
 	);
 }
+
+/*For the SIX player cyclers*/
+//vmCvar for use and utility method
+extern vmCvar_t		ui_weaponOne;
+extern vmCvar_t		ui_weaponTwo;
+extern vmCvar_t		ui_weaponThree;
+extern vmCvar_t		ui_weaponFour;
+extern vmCvar_t		ui_weaponFive;
+extern vmCvar_t		ui_weaponSix;
+
+vmCvar_t* CG_GetUiWeaponCvar(int index)
+{
+	switch (index)
+	{
+	case 1:
+		return &ui_weaponOne;
+	case 2:
+		return &ui_weaponTwo;
+	case 3:
+		return &ui_weaponThree;
+	case 4:
+		return &ui_weaponFour;
+	case 5:
+		return &ui_weaponFive;
+	case 6:
+		return &ui_weaponSix;
+	default:
+		return 0;
+	}
+}
+
+//Weapon cvar names & utility method
+char* uiWeaponOneName = "ui_weaponOne";
+char* uiWeaponTwoName = "ui_weaponTwo";
+char* uiWeaponThreeName = "ui_weaponThree";
+char* uiWeaponFourName = "ui_weaponFour";
+char* uiWeaponFiveName = "ui_weaponFive";
+char* uiWeaponSixName = "ui_weaponSix";
+char* CG_GetUiWeaponName(int index)
+{
+	switch (index)
+	{
+	case 1:
+		return uiWeaponOneName;
+	case 2:
+		return uiWeaponTwoName;
+	case 3:
+		return uiWeaponThreeName;
+	case 4:
+		return uiWeaponFourName;
+	case 5:
+		return uiWeaponFiveName;
+	case 6:
+		return uiWeaponSixName;
+	default:
+		return 0;
+	}
+}
+
+//label cvar name & utility method
+char* uiWeaponOne_labelName = "ui_weaponOne_label";
+char* uiWeaponTwo_labelName = "ui_weaponTwo_label";
+char* uiWeaponThree_labelName = "ui_weaponThree_label";
+char* uiWeaponFour_labelName = "ui_weaponFour_label";
+char* uiWeaponFive_labelName = "ui_weaponFive_label";
+char* uiWeaponSix_labelName = "ui_weaponSix_label";
+char* CG_GetUiWeapon_labelName(int index)
+{
+	switch (index)
+	{
+	case 1:
+		return uiWeaponOne_labelName;
+	case 2:
+		return uiWeaponTwo_labelName;
+	case 3:
+		return uiWeaponThree_labelName;
+	case 4:
+		return uiWeaponFour_labelName;
+	case 5:
+		return uiWeaponFive_labelName;
+	case 6:
+		return uiWeaponSix_labelName;
+	default:
+		return 0;
+	}
+}
+
+void CG_PC_UpdateLabel(int index) {
+	vmCvar_t* ui_player_weapon = CG_GetUiWeaponCvar(index);
+	cgi_Cvar_Update(ui_player_weapon);
+	int currentWeaponIndex = WP_GetWeaponID(ui_player_weapon->string);
+	//Get Weapon Name */
+	if (cgi_SP_GetStringTextString(va("SP_INGAME_%s", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
+	{
+		; //Nothing to do
+	}
+	else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
+	{
+		; //Nothing to do
+	} 
+	//Dynamic Weapons
+	else if (!cgi_SP_GetStringTextString(va("%s_NAME", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
+	{
+		Com_sprintf(label, sizeof(label), weaponData[currentWeaponIndex].classname);
+	}
+	cgi_Cvar_Set(CG_GetUiWeapon_labelName(index), label);
+}
+
+const short offsetFromPlayerLabel = 61;
+const short offsetPerIndex = 15;
+void CG_DrawPCWeaponLabel(int index) {
+	if (index <= 0 || index >= 7)
+	{
+		return;
+	}
+	CG_PC_UpdateLabel(index);
+	const short textboxXPos = 508;
+	const short textboxYPos = 57+ offsetFromPlayerLabel + ((index-1)*offsetPerIndex);
+	const int	textboxWidth = 106;
+	const int	textboxHeight = 16;
+	const float	textScale = 0.75f;
+
+	CG_DisplayBoxedText(
+		textboxXPos, textboxYPos,
+		textboxWidth, textboxHeight,
+		label,
+		CG_MagicFontToReal(4),
+		textScale,
+		colorTable[CT_WHITE]
+	);
+}
+
+
+void CG_PC_NextWeapon_f(int index) {
+	if (index <= 0 || index >= 7)
+	{
+		return;
+	}
+	vmCvar_t* ui_player_weapon = CG_GetUiWeaponCvar(index);
+	cgi_Cvar_Update(ui_player_weapon);
+	int currentWeaponIndex = WP_GetWeaponID(ui_player_weapon->string);
+	if (currentWeaponIndex == -1) {
+		currentWeaponIndex = 0; // 0 is WP_NONE
+	}
+	int nextWeaponIndex = currentWeaponIndex;
+	do {
+		nextWeaponIndex = (nextWeaponIndex == weaponCount - 1) ? 0 : nextWeaponIndex + 1;
+	} while (!weaponData[nextWeaponIndex].classname
+		|| !weaponData[nextWeaponIndex].classname[0]
+		|| !weaponData[nextWeaponIndex].playerUsable);
+	cgi_Cvar_Set(CG_GetUiWeaponName(index), weaponData[nextWeaponIndex].classname);
+	CG_PC_UpdateLabel(index);
+}
+
+void CG_PC_PrevWeapon_f(int index) {
+	if (index <= 0 || index >= 7)
+	{
+		return;
+	}
+	vmCvar_t* ui_player_weapon = CG_GetUiWeaponCvar(index);
+	cgi_Cvar_Update(ui_player_weapon);
+	int currentWeaponIndex = WP_GetWeaponID(ui_npc_weapon.string);
+	if (currentWeaponIndex == -1) {
+		currentWeaponIndex = 0; // 0 is WP_NONE
+	}
+	int prevWeaponIndex = currentWeaponIndex;
+	do {
+		prevWeaponIndex = (prevWeaponIndex == 1) ? weaponCount - 1 : prevWeaponIndex - 1;
+	} while (!weaponData[prevWeaponIndex].classname
+		|| !weaponData[prevWeaponIndex].classname[0]
+		|| !weaponData[prevWeaponIndex].playerUsable);
+	cgi_Cvar_Set(CG_GetUiWeaponName(index), weaponData[prevWeaponIndex].classname);
+	CG_PC_UpdateLabel(index);
+}
+
 /*
 ===============
 CG_UI_DrawListWeaponCategory_f

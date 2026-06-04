@@ -302,7 +302,7 @@ static consoleCommand_t	commands[] = {
 	{ "loadoutPreviousPage",		CG_LDO_PreviousPage_f},
 	{ "uiNpcWeaponNext",		CG_NPC_NextWeapon_f},
 	{ "uiNpcWeaponPrev",		CG_NPC_PrevWeapon_f},
-	{ "uiNpcWeaponLabelUpd",		CG_NPC_UpdateLabel},
+	{ "uiNpcWeaponLabelUpd",		CG_NPC_UpdateLabel}, 
 	{ "dualwield",			CG_Dualwield_f},
 	{ "forcenext",			CG_NextForcePower_f },
 	{ "forceprev",			CG_PrevForcePower_f },
@@ -346,7 +346,43 @@ Cmd_Argc() / Cmd_Argv()
 qboolean CG_ConsoleCommand( void ) {
 	consoleCommand_t	*command = NULL;
 
-	command = (consoleCommand_t *)Q_LinearSearch( CG_Argv( 0 ), commands, numCommands, sizeof( commands[0] ), cmdcmp );
+	const char* commandName = CG_Argv(0);
+	/* Check argv commands */
+	if (Q_stricmp(commandName, "uiPcWeaponNext") == 0)
+	{
+		const char* commandArg = CG_Argv(1);
+		int index;
+		if (sscanf(commandArg, "%d", &index) != 1 || index <= 0 || index > 6) 
+		{
+			return qfalse;
+		}
+		CG_PC_NextWeapon_f(index);
+		return qtrue;
+	}
+	if (Q_stricmp(commandName, "uiPcWeaponPrev") == 0)
+	{
+		const char* commandArg = CG_Argv(1);
+		int index;
+		if (sscanf(commandArg, "%d", &index) != 1 || index <= 0 || index > 6) 
+		{
+			return qfalse;
+		}
+		CG_PC_PrevWeapon_f(index);
+		return qtrue;
+	}
+	if (Q_stricmp(commandName, "uiPcWeaponLabelUpd") == 0)
+	{
+		const char* commandArg = CG_Argv(1);
+		int index;
+		if (sscanf(commandArg, "%d", &index) != 1 || index <= 0 || index > 6) 
+		{
+			return qfalse;
+		}
+		CG_PC_PrevWeapon_f(index);
+		return qtrue;
+	}
+
+	command = (consoleCommand_t *)Q_LinearSearch( commandName, commands, numCommands, sizeof( commands[0] ), cmdcmp );
 
 	if ( !command )
 		return qfalse;

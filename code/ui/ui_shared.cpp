@@ -12466,6 +12466,20 @@ void Menu_HandleKey(menuDef_t *menu, int key, qboolean down)
 							else
 								item->action = "\"play\" \"sound/interface/button1\" \"uiScript\" \"uiNpcWeaponNext\" ";
 						}
+						else if (!Q_stricmpn(item->window.name, "pcweapon_",9))
+						{
+							int weaponNumber = atoi(item->window.name + 9);
+							char commandBuf[128];
+							if (key == A_MOUSE2)
+							{
+								Com_sprintf(commandBuf, sizeof(commandBuf), "\"play\" \"sound/interface/button1\" \"uiScript\" \"uiPcWeaponPrev %d\" ", weaponNumber);
+							}
+							else
+							{
+								Com_sprintf(commandBuf, sizeof(commandBuf), "\"play\" \"sound/interface/button1\" \"uiScript\" \"uiPcWeaponNext %d\" ", weaponNumber);
+							}
+							item->action = commandBuf;
+						}
 						Item_Action(item);
 					}
 				}

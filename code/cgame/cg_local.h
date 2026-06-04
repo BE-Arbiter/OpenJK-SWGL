@@ -848,6 +848,10 @@ void CG_NPC_NextWeapon_f(void);
 void CG_NPC_PrevWeapon_f(void);
 void CG_NPC_UpdateLabel(void);
 void CG_DrawNpcWeaponLabel();
+void CG_PC_NextWeapon_f(int index);
+void CG_PC_PrevWeapon_f(int index);
+void CG_PC_UpdateLabel(int index);
+void CG_DrawPCWeaponLabel(int index);
 void CG_Dualwield_f(void);
 
 void CG_DPNextInventory_f( void );
