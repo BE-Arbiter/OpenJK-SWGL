@@ -2999,7 +2999,7 @@ void CG_PC_UpdateLabel(int index) {
 	else if (cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
 	{
 		; //Nothing to do
-	}
+	} 
 	//Dynamic Weapons
 	else if (!cgi_SP_GetStringTextString(va("%s_NAME", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
 	{
@@ -3051,7 +3051,7 @@ void CG_PC_NextWeapon_f(int index) {
 		|| !weaponData[nextWeaponIndex].classname[0]
 		|| !weaponData[nextWeaponIndex].playerUsable);
 	cgi_Cvar_Set(CG_GetUiWeaponName(index), weaponData[nextWeaponIndex].classname);
-	CG_NPC_UpdateLabel();
+	CG_PC_UpdateLabel(index);
 }
 
 void CG_PC_PrevWeapon_f(int index) {
@@ -3072,7 +3072,7 @@ void CG_PC_PrevWeapon_f(int index) {
 		|| !weaponData[prevWeaponIndex].classname[0]
 		|| !weaponData[prevWeaponIndex].playerUsable);
 	cgi_Cvar_Set(CG_GetUiWeaponName(index), weaponData[prevWeaponIndex].classname);
-	CG_NPC_UpdateLabel();
+	CG_PC_UpdateLabel(index);
 }
 
 /*

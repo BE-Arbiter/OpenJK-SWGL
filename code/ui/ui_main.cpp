@@ -1674,6 +1674,30 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSwitchSelectWeapon\n");
 		}
+		else if (Q_stricmpn(name, "uiPcWeaponNext", 14) == 0)
+		{
+			int weaponNumber = atoi(name + 15);
+			if (weaponNumber <= 0 || weaponNumber >= 7)
+			{
+				Com_Printf("Invalid parameter for %s\n", name);
+			}
+			else
+			{
+				ui.Cmd_ExecuteText(EXEC_APPEND, name);
+			}
+		}
+		else if (Q_stricmpn(name, "uiPcWeaponPrev", 14) == 0)
+		{
+			int weaponNumber = atoi(name + 15);
+			if (weaponNumber <= 0 || weaponNumber >= 7)
+			{
+				Com_Printf("Invalid parameter for %s\n", name);
+			}
+			else
+			{
+				ui.Cmd_ExecuteText(EXEC_APPEND, name);
+			}
+		}
 		else if (Q_stricmp(name, "uiNpcWeaponNext") == 0)
 		{
 			//if(key)

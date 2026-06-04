@@ -171,42 +171,42 @@ Ghoul2 Insert End
 	case CG_DRAW_PLAYER_WEAPON_LABEL_1:
 		if (cg.snap)
 		{
-			CG_DrawPlayerWeaponLabel(1);
+			CG_DrawPCWeaponLabel(1);
 		}
 		return 0;
 
 	case CG_DRAW_PLAYER_WEAPON_LABEL_2:
 		if (cg.snap)
 		{
-			CG_DrawPlayerWeaponLabel(2);
+			CG_DrawPCWeaponLabel(2);
 		}
 		return 0;
 
 	case CG_DRAW_PLAYER_WEAPON_LABEL_3:
 		if (cg.snap)
 		{
-			CG_DrawPlayerWeaponLabel(3);
+			CG_DrawPCWeaponLabel(3);
 		}
 		return 0;
 
 	case CG_DRAW_PLAYER_WEAPON_LABEL_4:
 		if (cg.snap)
 		{
-			CG_DrawPlayerWeaponLabel(4);
+			CG_DrawPCWeaponLabel(4);
 		}
 		return 0;
 
 	case CG_DRAW_PLAYER_WEAPON_LABEL_5:
 		if (cg.snap)
 		{
-			CG_DrawPlayerWeaponLabel(5);
+			CG_DrawPCWeaponLabel(5);
 		}
 		return 0;
 
 	case CG_DRAW_PLAYER_WEAPON_LABEL_6:
 		if (cg.snap)
 		{
-			CG_DrawPlayerWeaponLabel(6);
+			CG_DrawPCWeaponLabel(6);
 		}
 		return 0;
 
