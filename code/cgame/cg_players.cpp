@@ -49,8 +49,6 @@ extern vmCvar_t	cg_SFXSabersCoreSize;
 
 extern vmCvar_t cg_ignitionSpeed;
 
-extern cvar_t *g_forceLightningColor;
-
 //True View Camera Position Check Function
 extern void CheckCameraLocation( vec3_t OldeyeOrigin );
 
@@ -4455,41 +4453,35 @@ static void CG_ForceElectrocution( centity_t *cent, const vec3_t origin, vec3_t 
 
 	CG_Trace( &tr, fxOrg, NULL, NULL, fxOrg2, -1, CONTENTS_SOLID );
 
-	if (cent->gent->client && cent->gent->NPC_LightningVictim && forceLightning && cent->gent->client->ps.powerups[PW_FORCE_SHOCKED] > cg.time)
+	if (cent->gent && cent->gent->client && forceLightning && cent->gent->client->ps.powerups[PW_FORCE_SHOCKED] > cg.time)
 	{
-		if (!Q_stricmp(cent->gent->NPC_LightningVictim, "red"))
+		switch(cent->gent->forceLightningVictim)
 		{
-			shader = cgs.media.redBoltShader;
+			case LIGHTNING_RED:
+				shader = cgs.media.redBoltShader;
+				break;
+			case LIGHTNING_ORANGE:
+				shader = cgs.media.orangeBoltShader;
+				break;
+			case LIGHTNING_YELLOW:
+				shader = cgs.media.yellowBoltShader;
+				break;
+			case LIGHTNING_GREEN:
+				shader = cgs.media.greenBoltShader;
+				break;
+			case LIGHTNING_PURPLE:
+				shader = cgs.media.purpleBoltShader;
+				break;
+			case LIGHTNING_WHITE:
+				shader = cgs.media.whiteBoltShader;
+				break;
+			case LIGHTNING_BLACK:
+				shader = cgs.media.blackBoltShader;
+				break;
+			default:
+				shader = cgs.media.boltShader;
+				break;
 		}
-		if (!Q_stricmp(cent->gent->NPC_LightningVictim, "orange"))
-		{
-			shader = cgs.media.orangeBoltShader;
-		}
-		if (!Q_stricmp(cent->gent->NPC_LightningVictim, "yellow"))
-		{
-			shader = cgs.media.yellowBoltShader;
-		}
-		if (!Q_stricmp(cent->gent->NPC_LightningVictim, "green"))
-		{
-			shader = cgs.media.greenBoltShader;
-		}
-		if (!Q_stricmp(cent->gent->NPC_LightningVictim, "blue"))
-		{
-			shader = cgs.media.boltShader;
-		}
-		if (!Q_stricmp(cent->gent->NPC_LightningVictim, "purple"))
-		{
-			shader = cgs.media.purpleBoltShader;
-		}
-		if (!Q_stricmp(cent->gent->NPC_LightningVictim, "white"))
-		{
-			shader = cgs.media.whiteBoltShader;
-		}
-		if (!Q_stricmp(cent->gent->NPC_LightningVictim, "black"))
-		{
-			shader = cgs.media.blackBoltShader;
-		}
-
 	}
 
 	if ( tr.fraction < 1.0f || Q_flrand(0.0f, 1.0f) > 0.94f || alwaysDo )
@@ -4898,6 +4890,64 @@ void CG_AddRefEntityWithPowerups( refEntity_t *ent, int powerups, centity_t *cen
 
 			if ( Q_flrand(0.0f, 1.0f) > 0.9f )
 				cgi_S_StartSound ( ent->origin, gent->s.number, CHAN_AUTO, cgi_S_RegisterSound( "sound/effects/energy_crackle.wav" ) );
+		}
+	}
+
+	// Force Lightning
+	//------------------------------------------------
+	if ((powerups & (1 << PW_FORCE_SHOCKED)))
+	{
+		int	dif = gent->client->ps.powerups[PW_FORCE_SHOCKED] - cg.time;
+
+		if (dif > 0 && Q_flrand(0.0f, 1.0f) > 0.4f)
+		{
+			// fade out over the last 500 ms
+			int brightness = 255;
+
+			if (dif < 500)
+			{
+				brightness = floor((dif - 500.0f) / 500.0f * 255.0f);
+			}
+
+			ent->renderfx |= RF_RGB_TINT;
+			ent->shaderRGBA[0] = ent->shaderRGBA[1] = ent->shaderRGBA[2] = brightness;
+			ent->shaderRGBA[3] = 255;
+
+			if (gent->client && gent->forceLightningVictim)
+			{
+				switch (gent->forceLightningVictim)
+				{
+				case LIGHTNING_RED:
+					ent->customShader = rand() ? cgs.media.redElectricBodyShader : cgs.media.redElectricBody2Shader;
+					break;
+				case LIGHTNING_ORANGE:
+					ent->customShader = rand() ? cgs.media.orangeElectricBodyShader : cgs.media.orangeElectricBody2Shader;
+					break;
+				case LIGHTNING_YELLOW:
+					ent->customShader = rand() ? cgs.media.yellowElectricBodyShader : cgs.media.yellowElectricBody2Shader;
+					break;
+				case LIGHTNING_GREEN:
+					ent->customShader = rand() ? cgs.media.greenElectricBodyShader : cgs.media.greenElectricBody2Shader;
+					break;
+				case LIGHTNING_PURPLE:
+					ent->customShader = rand() ? cgs.media.purpleElectricBodyShader : cgs.media.purpleElectricBody2Shader;
+					break;
+				case LIGHTNING_WHITE:
+					ent->customShader = rand() ? cgs.media.whiteElectricBodyShader : cgs.media.whiteElectricBody2Shader;
+					break;
+				case LIGHTNING_BLACK:
+					ent->customShader = rand() ? cgs.media.blackElectricBodyShader : cgs.media.blackElectricBody2Shader;
+					break;
+				default:
+					ent->customShader = rand() ? cgs.media.electricBodyShader : cgs.media.electricBody2Shader;
+					break;
+				}
+			}
+
+			cgi_R_AddRefEntityToScene(ent);
+
+			if (Q_flrand(0.0f, 1.0f) > 0.9f)
+				cgi_S_StartSound(ent->origin, gent->s.number, CHAN_AUTO, cgi_S_RegisterSound("sound/effects/energy_crackle.wav"));
 		}
 	}
 
@@ -9164,7 +9214,7 @@ SkipTrueView:
 				|| (cent->currentState.powerups&(1<<PW_DRAINED)) )
 			{//being drained
 				//do red electricity lines off them and red drain shell on them
-				CG_ForceElectrocution( cent, ent.origin, tempAngles, cgs.media.drainShader, qfalse);
+				CG_ForceElectrocution( cent, ent.origin, tempAngles, cgs.media.drainShader, qfalse, qtrue);
 			}
 
 			if ( cent->gent->client->ps.forcePowersActive&(1<<FP_LIGHTNING) )
@@ -9781,98 +9831,52 @@ Ghoul2 Insert End
 
 fxHandle_t CG_GetWideForceLightning(centity_t* const cent)
 {
-	if (cent->gent == player)
+	switch (cent->gent->forceLightningColor)
 	{
-		cent->gent->NPC_LightningColor = g_forceLightningColor->string;
-	}
-
-	if (cent->gent->NPC_LightningColor)
-	{
-		if (!Q_stricmp(cent->gent->NPC_LightningColor, "red"))
-		{
-			return cgs.effects.redForceLightningWide;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "orange"))
-		{
-			return cgs.effects.orangeForceLightningWide;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "yellow"))
-		{
-			return cgs.effects.yellowForceLightningWide;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "green"))
-		{
-			return cgs.effects.greenForceLightningWide;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "purple"))
-		{
-			return cgs.effects.purpleForceLightningWide;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "indigo"))
-		{
-			return cgs.effects.indigoForceLightningWide;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "white"))
-		{
-			return cgs.effects.whiteForceLightningWide;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "black"))
-		{
-			return cgs.effects.blackForceLightningWide;
-		}
-
+	case LIGHTNING_RED:
+		return cgs.effects.redForceLightningWide;
+	case LIGHTNING_ORANGE:
+		return cgs.effects.orangeForceLightningWide;
+	case LIGHTNING_YELLOW:
+		return cgs.effects.yellowForceLightningWide;
+	case LIGHTNING_GREEN:
+		return cgs.effects.greenForceLightningWide;
+	case LIGHTNING_PURPLE:
+		return cgs.effects.purpleForceLightningWide;
+	case LIGHTNING_WHITE:
+		return cgs.effects.whiteForceLightningWide;
+	case LIGHTNING_BLACK:
+		return cgs.effects.blackForceLightningWide;
+	default:
 		return cgs.effects.forceLightningWide;
 	}
-	else
-	{
-		return cgs.effects.forceLightningWide;
-	}
+		
+	return cgs.effects.forceLightningWide; // Just in case, but should never hit this
 }
 
 fxHandle_t CG_GetForceLightning(centity_t* const cent)
 {
-	if (cent->gent == player)
+	switch (cent->gent->forceLightningColor)
 	{
-		cent->gent->NPC_LightningColor = g_forceLightningColor->string;
-	}
-
-	if (cent->gent->NPC_LightningColor)
-	{
-		if (!Q_stricmp(cent->gent->NPC_LightningColor, "red"))
-		{
+		case LIGHTNING_RED:
 			return cgs.effects.redForceLightning;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "orange"))
-		{
+		case LIGHTNING_ORANGE:
 			return cgs.effects.orangeForceLightning;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "yellow"))
-		{
+		case LIGHTNING_YELLOW:
 			return cgs.effects.yellowForceLightning;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "green"))
-		{
+		case LIGHTNING_GREEN:
 			return cgs.effects.greenForceLightning;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "purple"))
-		{
+		case LIGHTNING_PURPLE:
 			return cgs.effects.purpleForceLightning;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "white"))
-		{
+		case LIGHTNING_WHITE:
 			return cgs.effects.whiteForceLightning;
-		}
-		else if (!Q_stricmp(cent->gent->NPC_LightningColor, "black"))
-		{
+		case LIGHTNING_BLACK:
 			return cgs.effects.blackForceLightning;
-		}
+		default:
+			return cgs.effects.forceLightning;		
+	}
 
-		return cgs.effects.forceLightning;
-	}
-	else
-	{
-		return cgs.effects.forceLightning;
-	}
+	return cgs.effects.forceLightning; // Just in case, but should never hit this
 
 }
 

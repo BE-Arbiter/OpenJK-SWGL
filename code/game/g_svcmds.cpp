@@ -41,6 +41,7 @@ extern void SP_NPC_SWGL_Jedi(gentity_t *self);
 extern void WP_SetSaber( gentity_t *ent, int saberNum, const char *saberName );
 extern void WP_RemoveSaber( gentity_t *ent, int saberNum );
 extern saber_colors_t TranslateSaberColor( const char *name );
+extern lightningColor_t TranslateLightningColor( const char *name );
 extern qboolean WP_SaberBladeUseSecondBladeStyle( saberInfo_t *saber, int bladeNum );
 extern qboolean WP_UseFirstValidSaberStyle( gentity_t *ent, int *saberAnimLevel );
 
@@ -325,9 +326,7 @@ static void Svcmd_LightningColor_f()
 
 	gentity_t* self = G_GetSelfForPlayerCmd();
 
-	gi.cvar_set("g_forcelightningcolor", color);
-
-	self->NPC_LightningColor = color;
+	self->forceLightningColor = TranslateLightningColor(color);
 }
 
 static void Svcmd_SaberColor_f()
@@ -704,7 +703,7 @@ static void Svcmd_Spawn_f(void)
 
 	NPCspawner->NPC_SaberOneColor = g_NPCsabercolor->string;
 
-	NPCspawner->NPC_LightningColor = g_NPCLightningColor->string;
+	NPCspawner->forceLightningColor = TranslateLightningColor(g_NPCLightningColor->string);
 
 	NPCspawner->NPC_SaberTwoColor = g_NPCsabertwocolor->string;
 

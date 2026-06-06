@@ -341,8 +341,8 @@ field_t fields[] = {
 	{ "NPC_SaberTwo", FOFS(NPC_SaberTwo), F_LSTRING },
 	{ "NPC_SaberOneColor", FOFS(NPC_SaberOneColor), F_LSTRING },
 	{ "NPC_SaberTwoColor", FOFS(NPC_SaberTwoColor), F_LSTRING },
-	{ "NPC_LightningColor", FOFS(NPC_LightningColor), F_LSTRING },
-	{ "NPC_LightningVictim", FOFS(NPC_LightningVictim), F_LSTRING },
+	{ "forceLightningColor", FOFS(forceLightningColor), F_LSTRING },
+	{ "forceLightningVictim", FOFS(forceLightningVictim), F_LSTRING },
 	{ "NPC_model", FOFS(NPC_model), F_LSTRING },
 	{"ownername", FOFS(ownername), F_LSTRING},
 	//for weapon_saber

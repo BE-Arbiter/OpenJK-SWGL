@@ -133,7 +133,8 @@ typedef enum
 
 typedef	enum
 {
-	LIGHTNING_BLUE = 0,
+	LIGHTNING_NONE = 0, // I hate I had to do it like this....
+	LIGHTNING_BLUE,
 	LIGHTNING_RED,
 	LIGHTNING_ORANGE,
 	LIGHTNING_YELLOW,

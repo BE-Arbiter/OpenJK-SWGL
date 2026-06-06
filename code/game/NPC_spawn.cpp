@@ -53,6 +53,7 @@ extern void Howler_ClearTimers(gentity_t *self);
 extern void NPC_GalakMech_Init(gentity_t* ent);
 
 extern saber_colors_t TranslateSaberColor(const char* name);
+extern lightningColor_t TranslateLightningColor(const char* name);
 
 extern int WP_GetWeaponID(const char* weaponName);
 extern stringID_table_t WPTable[];
@@ -1266,7 +1267,6 @@ void NPC_SetFX_SpawnStates(gentity_t *ent)
 
 //--------------------------------------------------------------
 extern qboolean	stop_icarus;
-char* NPC_GetLightning(gentity_t* NPC);
 void NPC_Begin(gentity_t *ent)
 {
 	vec3_t	spawn_origin, spawn_angles;
@@ -1413,9 +1413,9 @@ void NPC_Begin(gentity_t *ent)
 		}
 	}
 
-	if (!ent->NPC_LightningColor)
+	if (!ent->forceLightningColor)
 	{
-		ent->NPC_LightningColor = NPC_GetLightning(ent);
+		ent->forceLightningColor = LIGHTNING_BLUE;
 	}
 
 	ent->s.groundEntityNum = ENTITYNUM_NONE;
@@ -1612,31 +1612,6 @@ void NPC_Begin(gentity_t *ent)
 			}
 		}
 	}
-}
-
-char* NPC_GetLightning(gentity_t* NPC)
-{
-	switch (NPC->NPC->stats.lightningColor)
-	{
-	case LIGHTNING_RED:
-		return "red";
-	case LIGHTNING_ORANGE:
-		return "orange";
-	case LIGHTNING_YELLOW:
-		return "yellow";
-	case LIGHTNING_GREEN:
-		return "green";
-	case LIGHTNING_BLUE:
-		return "blue";
-	case LIGHTNING_PURPLE:
-		return "purple";
-	case LIGHTNING_WHITE:
-		return "white";
-	case LIGHTNING_BLACK:
-		return "black";
-	}
-
-	return "blue";
 }
 
 /*
@@ -1984,8 +1959,8 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 	if (ent->NPC_SaberTwoColor)
 		newent->NPC_SaberTwoColor = G_NewString(ent->NPC_SaberTwoColor);
 
-	if (ent->NPC_LightningColor)
-		newent->NPC_LightningColor = G_NewString(ent->NPC_LightningColor);
+	if (ent->forceLightningColor)
+		newent->forceLightningColor = ent->forceLightningColor;
 
 	if(ent->NPC_team)
 		newent->NPC_team = G_NewString(ent->NPC_team);
@@ -5644,7 +5619,7 @@ static void NPC_Spawn_f(void)
 		}
 		else if (!Q_stricmp("lightningcolor", gi.argv(spawnCommand)) && gi.argv(spawnCommand + 1))
 		{
-			NPCspawner->NPC_LightningColor = gi.argv(++spawnCommand);
+			NPCspawner->forceLightningColor = TranslateLightningColor(gi.argv(++spawnCommand));
 		}
 		else if ((!Q_stricmp("playermodel", gi.argv(spawnCommand)) || !Q_stricmp("model", gi.argv(spawnCommand))) && gi.argv(spawnCommand + 1))
 		{

@@ -1030,14 +1030,6 @@ void G_FreeEntity(gentity_t *ed) {
 	{
 		gi.Free(ed->NPC_SaberTwoColor);
 	}
-	if (ed->NPC_LightningColor && gi.bIsFromZone(ed->NPC_LightningColor, TAG_G_ALLOC))
-	{
-		gi.Free(ed->NPC_LightningColor);
-	}
-	if (ed->NPC_LightningVictim && gi.bIsFromZone(ed->NPC_LightningVictim, TAG_G_ALLOC))
-	{
-		gi.Free(ed->NPC_LightningVictim);
-	}
 	if (ed->NPC_model && gi.bIsFromZone(ed->NPC_model, TAG_G_ALLOC))
 	{
 		gi.Free(ed->NPC_model);

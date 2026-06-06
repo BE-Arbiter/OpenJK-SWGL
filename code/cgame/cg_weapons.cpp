@@ -456,8 +456,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 		cgs.effects.yellowForceLightningWide = theFxScheduler.RegisterEffect("force/yellowlightningwide");
 		cgs.effects.greenForceLightning = theFxScheduler.RegisterEffect("force/greenlightning");
 		cgs.effects.greenForceLightningWide = theFxScheduler.RegisterEffect("force/greenlightningwide");
-		cgs.effects.indigoForceLightning = theFxScheduler.RegisterEffect("force/indigolightning");
-		cgs.effects.indigoForceLightningWide = theFxScheduler.RegisterEffect("force/indigolightningwide");
 		cgs.effects.purpleForceLightning = theFxScheduler.RegisterEffect("force/purplelightning");
 		cgs.effects.purpleForceLightningWide = theFxScheduler.RegisterEffect("force/purplelightningwide");
 		cgs.effects.whiteForceLightning = theFxScheduler.RegisterEffect("force/whitelightning");

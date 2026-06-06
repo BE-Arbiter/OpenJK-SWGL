@@ -769,7 +769,7 @@ void G_InitCvars( void ) {
 
 	g_LegacyForceTiming = gi.cvar("g_LegacyForceTiming", "1", CVAR_ARCHIVE);
 
-	g_forceLightningColor = gi.cvar("g_forceLightningColor", "0", CVAR_ARCHIVE);
+	g_forceLightningColor = gi.cvar("g_forceLightningColor", "blue", CVAR_ARCHIVE);
 
 	g_charKey = gi.cvar("g_charKey", "stormtrooper", CVAR_ARCHIVE);
 
