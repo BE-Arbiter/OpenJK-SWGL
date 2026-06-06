@@ -5625,7 +5625,7 @@ static void UI_UpdateCharacterCvars(void)
 
 static void UI_UpdateNPCCvars()
 {
-	if(!Q_stricmp(Cvar_VariableString("ui_npc_weapon"), "weapon_clone_random"))
+	if(!Q_stricmp(Cvar_VariableString("ui_npc_weapon"), "weapon_clonerandom"))
 	{
 		if (!Q_irand(0, 10))
 		{

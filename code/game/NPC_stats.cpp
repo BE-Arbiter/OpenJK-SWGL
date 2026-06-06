@@ -3827,7 +3827,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				if (NPC->NPC_Weapon)
 				{
-					if(!Q_stricmp(value, "weapon_clone_random"))
+					if(!Q_stricmp(value, "weapon_clonerandom"))
 					{ 
 						if (!Q_irand(0, 10))
 						{
