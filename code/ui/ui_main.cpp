@@ -5625,24 +5625,6 @@ static void UI_UpdateCharacterCvars(void)
 
 static void UI_UpdateNPCCvars()
 {
-	if(!Q_stricmp(Cvar_VariableString("ui_npc_weapon"), "weapon_clonerandom"))
-	{
-		if (!Q_irand(0, 10))
-		{
-			Cvar_Set("ui_npc_weapon", "weapon_z6");
-		}
-		else
-		{
-			if (!Q_irand(0, 1))
-			{
-				Cvar_Set("ui_npc_weapon", "weapon_clonerifle");
-			}
-			else
-			{
-				Cvar_Set("ui_npc_weapon", "weapon_carbine");
-			}
-		}
-	}
 	Cvar_Set("g_NPCtype", Cvar_VariableString("ui_npc_type"));
 	Cvar_Set("g_NPCmodel", Cvar_VariableString("ui_char_model"));
 	Cvar_Set("g_NPChead", Cvar_VariableString("ui_char_skin_head"));
