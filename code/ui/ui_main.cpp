@@ -2208,6 +2208,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 			ui.Cmd_ExecuteText(EXEC_NOW, va("give health %s\n", Cvar_VariableString("ui_health")));
 			ui.Cmd_ExecuteText(EXEC_NOW, va("give shield %s\n", Cvar_VariableString("ui_health")));
 			ui.Cmd_ExecuteText(EXEC_NOW, va("give force %s\n", Cvar_VariableString("ui_force")));
+			ui.Cmd_ExecuteText(EXEC_NOW, va("lightningColor %s\n", Cvar_VariableString("ui_lightning_color")));
 		}
 		else if (Q_stricmp(name, "anglesesc") == 0)
 		{

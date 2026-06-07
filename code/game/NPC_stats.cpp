@@ -2150,7 +2150,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 	Q_strncpyz( ci->name, NPCName, sizeof( ci->name ) );
 
 	NPC->playerModel = -1;
-	NPC->forceLightningColor = LIGHTNING_NONE;
+	NPC->forceLightningColor = (NPC->forceLightningColor ? NPC->forceLightningColor : LIGHTNING_NONE);
 
 	if (parsingPlayer)
 	{
