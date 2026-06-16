@@ -926,6 +926,7 @@ void Boba_FireDecide( void )
 //	WP_DISRUPTOR
 //
 ////////////////////////////////////////////////////////////////////////////////////////
+extern int WP_GetWeaponID(const char* weaponName);
 void	Boba_TacticsSelect()
 {
 	// Don't Change Tactics For A Little While
@@ -1030,14 +1031,17 @@ void	Boba_TacticsSelect()
 
 		case BTS_RIFLE:
 			Boba_Printf("NEW TACTIC: Rifle");
-			if (NPC->client->NPC_class == CLASS_BOBAFETT)
+			if (NPC->NPC_Weapon)
+			{
+				Boba_ChangeWeapon(WP_GetWeaponID(NPC->NPC_Weapon));
+			}
+			else if (NPC->client->NPC_class == CLASS_BOBAFETT)
 			{
 				Boba_ChangeWeapon(WP_BOBA);
 			}
 			else if (NPC->client->NPC_class == CLASS_JANGO)
 			{
-				// This is for DYN_WP_JANGO.
-				Boba_ChangeWeapon(WP_BLASTER);
+				Boba_ChangeWeapon(WP_JANGO);
 			}
 			else if (NPC->client->NPC_class == CLASS_MANDALORIAN)
 			{
