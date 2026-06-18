@@ -336,7 +336,6 @@ extern qboolean NPC_FaceEnemy( qboolean doPitch = qtrue );
 
 //Skill level cvar
 extern cvar_t	*g_spskill;
-extern cvar_t	*g_newgameplus;
 extern cvar_t	*g_newforcepowers;
 
 extern cvar_t	*g_allowForceAbsorb;

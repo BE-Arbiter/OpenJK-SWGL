@@ -716,7 +716,7 @@ void G_InitCvars( void ) {
 	g_stepSlideFix = gi.cvar( "g_stepSlideFix", "1", CVAR_ARCHIVE );
 	g_sex = gi.cvar ("sex", "f", CVAR_USERINFO | CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
 	g_spskill = gi.cvar ("g_spskill", "0", CVAR_ARCHIVE | CVAR_SAVEGAME|CVAR_NORESTART);
-	g_newgameplus = gi.cvar("g_newgameplus", "0", CVAR_ARCHIVE | CVAR_SAVEGAME);
+	g_newgameplus = gi.cvar("g_newgameplus", "0", CVAR_ARCHIVE );
 	g_knockback = gi.cvar( "g_knockback", "1000", CVAR_CHEAT );
 	g_dismemberment = gi.cvar ( "g_dismemberment", "3", CVAR_ARCHIVE );//0 = none, 1 = arms and hands, 2 = legs, 3 = waist and head
 	// for now I'm making default 10 seconds

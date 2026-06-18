@@ -58,6 +58,7 @@ extern lightningColor_t TranslateLightningColor(const char* name);
 extern int WP_GetWeaponID(const char* weaponName);
 extern stringID_table_t WPTable[];
 extern stringID_table_t attrTable[];
+extern cvar_t* g_newgameplus;
 
 #define	NSF_DROP_TO_FLOOR	16
 
@@ -4261,7 +4262,7 @@ void SP_NPC_Imperial(gentity_t *self)
 					self->NPC_type = "impofficer";
 					break;
 				case 1:
-					if (self->spawnflags & 16)
+					if (~self->spawnflags & 16)
 					{
 						self->NPC_type = "reborn";
 						break;
