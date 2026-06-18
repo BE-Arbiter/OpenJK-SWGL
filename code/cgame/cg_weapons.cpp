@@ -2839,7 +2839,7 @@ void CG_NPC_NextWeapon_f(void) {
 		nextWeaponIndex = (nextWeaponIndex == weaponCount - 1) ? 1 : nextWeaponIndex + 1;
 	} while (!weaponData[nextWeaponIndex].classname 
 		|| !weaponData[nextWeaponIndex].classname[0]
-		|| (!weaponData[nextWeaponIndex].playerUsable && strcmp(weaponData[nextWeaponIndex].classname, "weapon_clone_random") )
+		|| (!weaponData[nextWeaponIndex].playerUsable && strcmp(weaponData[nextWeaponIndex].classname, "weapon_clonerandom") )
 	);
 	cgi_Cvar_Set("ui_npc_weapon", weaponData[nextWeaponIndex].classname);
 	CG_NPC_UpdateLabel();
@@ -2856,7 +2856,7 @@ void CG_NPC_PrevWeapon_f(void) {
 		prevWeaponIndex = (prevWeaponIndex == 1) ? weaponCount - 1 : prevWeaponIndex - 1;
 	} while (!weaponData[prevWeaponIndex].classname
 		|| !weaponData[prevWeaponIndex].classname[0]
-		|| (!weaponData[prevWeaponIndex].playerUsable && strcmp(weaponData[prevWeaponIndex].classname, "weapon_clone_random"))
+		|| (!weaponData[prevWeaponIndex].playerUsable && strcmp(weaponData[prevWeaponIndex].classname, "weapon_clonerandom"))
 		);
 	cgi_Cvar_Set("ui_npc_weapon",weaponData[prevWeaponIndex].classname);
 	CG_NPC_UpdateLabel();
@@ -2878,14 +2878,7 @@ void CG_NPC_UpdateLabel(void) {
 	//Dynamic Weapons
 	else if (!cgi_SP_GetStringTextString(va("%s_NAME", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
 	{
-		if (!Q_stricmp("weapon_clonerandom", ui_npc_weapon.string) || !Q_stricmp("WP_CLONERANDOM", ui_npc_weapon.string))
-		{
-			Com_sprintf(label, sizeof(label), "Random Clone Trooper Weapon");
-		}
-		else
-		{
-			Com_sprintf(label, sizeof(label), weaponData[currentWeaponIndex].classname);
-		}
+		Com_sprintf(label, sizeof(label), weaponData[currentWeaponIndex].classname);		
 	}
 	cgi_Cvar_Set("ui_npc_weapon_label", label);
 }
