@@ -908,6 +908,19 @@ void CG_DrawInformation( void ) {
 		int w = cgi_R_Font_StrLenPixels(text, cgs.media.qhFontMedium, 1.0f, cgs.widthRatioCoef);
 		cgi_R_Font_DrawString((320) - (w / 2), 140, text, colorTable[CT_ICON_BLUE], cgs.media.qhFontMedium, -1, 1.0f, cgs.widthRatioCoef);
 	}
+	else if (JediOutcastMap(s))
+	{
+		if(g_eSavedGameJustLoaded != eFULL)
+		{
+			CG_DrawPic(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, levelshot);
+		}
+		else
+		{
+			levelshot = cgi_R_RegisterShaderNoMip(va("levelshots_sav/%s", s + 5));
+			CG_DrawLoadingScreen(levelshot, s);
+			cgi_UI_Menu_Paint(cgi_UI_GetMenuByName("loadscreen"), qtrue);
+		}
+	}
 	else if (g_eSavedGameJustLoaded != eFULL && cgi_SP_GetStringTextString(va("BRIEFINGS_%s", s), NULL, 0) == 0)
 	{
 		CG_DrawPic(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, levelshot);
@@ -954,4 +967,24 @@ void CG_DrawInformation( void ) {
 		}
 		y += 20;
 	}
+}
+
+static qboolean JediOutcastMap(const char* mapName)
+{
+	char* jk2maps[] = { "kejim_post", "kejim_base", "artus_mine", "artus_detention", "artus_topside",
+		"valley", "yavin_temple", "yavin_trial", "ns_streets", "ns_hideout", "ns_starpad",
+		"bespin_undercity", "bespin_streets", "bespin_platform", "cairn_bay", "cairn_assembly",
+		"cairn_reactor", "cairn_dock1", "doom_comm", "doom_detention", "doom_shields", "yavin_swamp",
+		"yavin_canyon", "yavin_courtyard", "yavin_final" };
+	int jk2Maps = sizeof(jk2maps) / sizeof(jk2maps[0]);
+	int i = 0;
+
+	for (i = 0; i < jk2Maps; i++)
+	{
+		if (strcmp(mapName, jk2maps[i]) == 0)
+			return qtrue;
+	}
+
+	return qfalse;
+
 }
