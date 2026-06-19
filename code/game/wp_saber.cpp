@@ -12952,11 +12952,17 @@ void ForceLightningDamage(gentity_t* self, gentity_t* traceEnt, vec3_t dir, floa
 					npc_class == CLASS_MARK2 || npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST) ||
 					npc_class == CLASS_SENTRY || GEntity_HasAttribute(traceEnt, ATTR_DROID))
 				{
-					traceEnt->client->ps.powerups[PW_FORCE_SHOCKED] = level.time + 4000;
+					if (dmg)
+					{
+						traceEnt->client->ps.powerups[PW_FORCE_SHOCKED] = level.time + 4000;
+					}
 				}
 				else //short version
 				{
-					traceEnt->client->ps.powerups[PW_FORCE_SHOCKED] = level.time + 500;
+					if (dmg)
+					{
+						traceEnt->client->ps.powerups[PW_FORCE_SHOCKED] = level.time + 500;
+					}
 				}
 			}
 		}
@@ -16923,8 +16929,8 @@ void WP_InitForcePowers( gentity_t *ent )
 		}
 		else
 		{
-			ent->client->ps.forcePowersKnown = ( 1 << FP_HEAL )|( 1 << FP_LEVITATION )|( 1 << FP_SPEED )|( 1 << FP_PUSH )|( 1 << FP_PULL )|( 1 << FP_TELEPATHY )|( 1 << FP_GRIP )|( 1 << FP_LIGHTNING)|( 1 << FP_SABERTHROW)|( 1 << FP_SABER_DEFENSE )|( 1 << FP_SABER_OFFENSE )|( 1<< FP_RAGE )|( 1<< FP_DRAIN )|( 1<< FP_PROTECT )|( 1<< FP_ABSORB )|( 1<< FP_SEE )
-				|(1 << FP_STASIS) | (1 << FP_DESTRUCTION | (1 << FP_GRASP) | (1 << FP_FEAR) | (1 << FP_LIGHTNING_STRIKE) | (1 << FP_BLAST));
+			ent->client->ps.forcePowersKnown = (1 << FP_HEAL) | (1 << FP_LEVITATION) | (1 << FP_SPEED) | (1 << FP_PUSH) | (1 << FP_PULL) | (1 << FP_TELEPATHY) | (1 << FP_GRIP) | (1 << FP_LIGHTNING) | (1 << FP_SABERTHROW) | (1 << FP_SABER_DEFENSE) | (1 << FP_SABER_OFFENSE) | (1 << FP_RAGE) | (1 << FP_DRAIN) | (1 << FP_PROTECT) | (1 << FP_ABSORB) | (1 << FP_SEE);
+				//|(1 << FP_STASIS) | (1 << FP_DESTRUCTION | (1 << FP_GRASP) | (1 << FP_FEAR) | (1 << FP_LIGHTNING_STRIKE) | (1 << FP_BLAST));
 
 			ent->client->ps.forcePowerLevel[FP_HEAL] = //FORCE_LEVEL_2;
 			ent->client->ps.forcePowerLevel[FP_LEVITATION] = FORCE_LEVEL_2;
