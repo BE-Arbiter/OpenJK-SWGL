@@ -3013,7 +3013,7 @@ void SP_NPC_SWGL_Jedi(gentity_t *self)
 {
 	if (!self->NPC_type)
 	{
-		int npc_pick = Q_irand(0, 30);
+		int npc_pick = Q_irand(0, 37);
 		if (self->spawnflags & 1)
 		{//random!
 			int sanityCheck = 20;	//just in case
@@ -3112,6 +3112,29 @@ void SP_NPC_SWGL_Jedi(gentity_t *self)
 					self->NPC_type = "prequel_jedi30";
 					break;
 				case 30:
+					self->NPC_type = "prequel_jedi31";
+					break;
+				case 31:
+					self->NPC_type = "prequel_jedi32";
+					break;
+				case 32:
+					self->NPC_type = "prequel_jedi33";
+					break;
+				case 33:
+					self->NPC_type = "prequel_jedi34";
+					break;
+				case 34:
+					self->NPC_type = "prequel_jedi35";
+					break;
+				case 35:
+					self->NPC_type = "prequel_jedi36";
+					break;
+				case 36:
+					self->NPC_type = "prequel_jedi37";
+					break;
+				case 37:
+					self->NPC_type = "prequel_jedi38";
+					break;				
 				default://just in case
 					self->NPC_type = "prequel_jedi1";
 					break;
@@ -3372,6 +3395,7 @@ void SP_NPC_SWGL_Jedi(gentity_t *self)
 				{//bah, we're using this one, try again
 					continue;
 				}
+				self->NPC_skin = "random";
 				break;	//get out of the while
 			}
 		}
@@ -3410,7 +3434,7 @@ void SP_NPC_SWGL_Jedi(gentity_t *self)
 			}
 		}
 	}
-	self->NPC_skin = "random";
+	//self->NPC_skin = "random";
 	SP_NPC_spawner(self);
 }
 /*QUAKED NPC_Prisoner(1 0 0) (-16 -16 -24) (16 16 40) ELDER x x x DROPTOFLOOR CINEMATIC NOTSOLID STARTINSOLID SHY
