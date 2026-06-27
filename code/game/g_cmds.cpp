@@ -1920,13 +1920,13 @@ void ClientCommand( int clientNum ) {
 		}
 	}
 	/* For UI -> CG Synchronisation */
-	else if (Q_stricmp(cmd, "syncsaberstyle") == 0)
+	/*else if (Q_stricmp(cmd, "syncsaberstyle") == 0)
 	{
 		ent = G_GetSelfForPlayerCmd();
 		if (ent->client->ps.saberAnimLevel != cg.saberAnimLevelPending) {
 			cg.saberAnimLevelPending = ent->client->ps.saberAnimLevel;
 		}
-	}
+	}*/
 	else if (Q_stricmp (cmd, "removesaberstyle") == 0)
 	{
 		ent = G_GetSelfForPlayerCmd();

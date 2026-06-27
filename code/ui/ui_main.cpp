@@ -887,7 +887,7 @@ vmCvar_t	ui_seeing_level;
 vmCvar_t	ui_absorb_level;
 vmCvar_t	ui_heal_level;
 vmCvar_t	ui_protect_level;
-vmCvar_t	ui_telepathy_level;
+vmCvar_t	ui_mindtrick_level;
 vmCvar_t	ui_stasis_level;
 vmCvar_t	ui_grasp_level;
 vmCvar_t	ui_blast_level;
@@ -900,9 +900,9 @@ vmCvar_t	ui_destruction_level;
 vmCvar_t	ui_fear_level;
 vmCvar_t	ui_strike_level;
 
-vmCvar_t	ui_saber_attack_level;
-vmCvar_t	ui_saber_defend_level;
-vmCvar_t	ui_saber_throw_level;
+vmCvar_t	ui_saboff_level;
+vmCvar_t	ui_sabdef_level;
+vmCvar_t	ui_sabthrow_level;
 
 vmCvar_t	ui_saber_styles;
 
@@ -1053,7 +1053,7 @@ static cvarTable_t cvarTable[] =
 	{ &ui_absorb_level, "ui_absorb_level", "0", NULL, 0 },
 	{ &ui_heal_level, "ui_heal_level", "0", NULL, 0 },
 	{ &ui_protect_level, "ui_protect_level", "0", NULL, 0 },
-	{ &ui_telepathy_level, "ui_mindtrick_level", "0", NULL, 0 },
+	{ &ui_mindtrick_level, "ui_mindtrick_level", "0", NULL, 0 },
 	{ &ui_stasis_level, "ui_stasis_level", "0", NULL, 0 },
 	{ &ui_grasp_level, "ui_grasp_level", "0", NULL, 0 },
 	{ &ui_blast_level, "ui_blast_level", "0", NULL, 0 },
@@ -1066,9 +1066,9 @@ static cvarTable_t cvarTable[] =
 	{ &ui_fear_level, "ui_fear_level", "0", NULL, 0 },
 	{ &ui_strike_level, "ui_strike_level", "0", NULL, 0 },
 
-	{ &ui_saber_attack_level, "ui_saber_attack_level", "0", NULL, 0 },
-	{ &ui_saber_defend_level, "ui_saber_defend_level", "0", NULL, 0 },
-	{ &ui_saber_throw_level, "ui_saber_throw_level", "0", NULL, 0 },
+	{ &ui_saboff_level, "ui_saboff_level", "0", NULL, 0 },
+	{ &ui_sabdef_level, "ui_sabdef_level", "0", NULL, 0 },
+	{ &ui_sabthrow_level, "ui_sabthrow_level", "0", NULL, 0 },
 	{ &ui_variant_code,			"ui_variant_code",		"default", NULL, 0},
 	{ &ui_team,					"ui_team",	"enemy", NULL, CVAR_ARCHIVE},
 	{ &ui_health,				"ui_health",	"100", NULL, CVAR_ARCHIVE},
@@ -2103,9 +2103,9 @@ static qboolean UI_RunMenuScript ( const char **args )
 				Cvar_VariableString("ui_mindtrick_level"),
 				Cvar_VariableString("ui_grip_level"),
 				Cvar_VariableString("ui_lightning_level"),
-				Cvar_VariableString("ui_saber_throw_level"),
-				Cvar_VariableString("ui_saber_defend_level"),
-				Cvar_VariableString("ui_saber_attack_level"),
+				Cvar_VariableString("ui_sabthrow_level"),
+				Cvar_VariableString("ui_sabdef_level"),
+				Cvar_VariableString("ui_saboff_level"),
 				Cvar_VariableString("ui_rage_level"),
 				Cvar_VariableString("ui_protect_level"),
 				Cvar_VariableString("ui_absorb_level"),
@@ -5670,9 +5670,9 @@ static void UI_UpdateNPCCvars()
 	Cvar_Set("g_npc_fear_level", Cvar_VariableString("ui_fear_level"));
 	Cvar_Set("g_npc_strike_level", Cvar_VariableString("ui_strike_level"));
 
-	Cvar_Set("g_npc_saber_attack_level", Cvar_VariableString("ui_saber_attack_level"));
-	Cvar_Set("g_npc_saber_defend_level", Cvar_VariableString("ui_saber_defend_level"));
-	Cvar_Set("g_npc_saber_throw_level", Cvar_VariableString("ui_saber_throw_level"));
+	Cvar_Set("g_npc_saber_attack_level", Cvar_VariableString("ui_saboff_level"));
+	Cvar_Set("g_npc_saber_defend_level", Cvar_VariableString("ui_sabdef_level"));
+	Cvar_Set("g_npc_saber_throw_level", Cvar_VariableString("ui_sabthrow_level"));
 }
 
 static void UI_GetCharacterCvars ( void )
@@ -6078,12 +6078,47 @@ static void UI_InitAllocSaberStyle(const char* saberStyle) {
 		item->disabled = isSingleSaber? qfalse : qtrue;
 		item->disabledHidden = qfalse;
 	}
+
+	int stanceValue = 0;
+	switch (stanceIndex)
+	{
+		case SS_FAST:
+			stanceValue = 1;
+			break;
+		case SS_MEDIUM:
+			stanceValue = 2;
+			break;
+		case SS_STRONG:
+			stanceValue = 4;
+			break;
+		case SS_DESANN:
+			stanceValue = 8;
+			break;
+		case SS_TAVION:
+			stanceValue = 16;
+			break;
+		case SS_DUAL:
+			stanceValue = 32;
+			break;
+		case SS_STAFF:
+			stanceValue = 64;
+			break;
+		default:
+			break;
+	}
+
+	if (Cvar_VariableIntegerValue("ui_saber_styles") & stanceValue)
+	{
+		int newValue = Cvar_VariableIntegerValue("ui_saber_styles") + stanceValue;
+		ui.Cvar_Set("ui_saber_styles", va("%i", newValue));
+	}
 }
 
 // Switch the value of a Saber Style then call update method to update UI(Used by Force Power Allocation screen)
 static void UI_SwitchSaberStyle(const char* saberStyle) {
 
 	menuDef_t* menu;
+	itemDef_t* item;
 	short	stanceIndex = GetIDForString(SaberStyleTable, saberStyle);
 	menu = Menu_GetFocused();
 
@@ -6108,7 +6143,60 @@ static void UI_SwitchSaberStyle(const char* saberStyle) {
 		return;
 	}
 
-	playerState_t* pState = cl->gentity->client;
+	int stanceValue = 0;
+	switch (stanceIndex)
+	{
+	case SS_FAST:
+		stanceValue = 1;
+		break;
+	case SS_MEDIUM:
+		stanceValue = 2;
+		break;
+	case SS_STRONG:
+		stanceValue = 4;
+		break;
+	case SS_DESANN:
+		stanceValue = 8;
+		break;
+	case SS_TAVION:
+		stanceValue = 16;
+		break;
+	case SS_DUAL:
+		stanceValue = 32;
+		break;
+	case SS_STAFF:
+		stanceValue = 64;
+		break;
+	default:
+		break;
+	}
+
+	if (Cvar_VariableIntegerValue("ui_saber_styles") & stanceValue)
+	{
+		int newValue = Cvar_VariableIntegerValue("ui_saber_styles") - stanceValue;
+		ui.Cvar_Set("ui_saber_styles", va("%i", newValue));
+	}
+	else
+	{
+		int newValue = Cvar_VariableIntegerValue("ui_saber_styles") + stanceValue;
+		ui.Cvar_Set("ui_saber_styles", va("%i", newValue));
+	}
+
+	char itemName[128];
+	Com_sprintf(itemName, sizeof(itemName), "%s_switch", saberStyle);
+	item = (itemDef_s*)Menu_FindItemByName(menu, itemName);
+	bool isSingleSaber = !Q_stricmp(Cvar_VariableString("g_saber_type"), "single");
+
+	if (item)
+	{
+		char itemGraphic[128];
+		Com_sprintf(itemGraphic, sizeof(itemGraphic), "gfx/menus/stance_switch_%s", (Cvar_VariableIntegerValue("ui_saber_styles") & stanceValue) ? "on" : "off");
+		item->window.background = ui.R_RegisterShaderNoMip(itemGraphic);
+		item->disabled = isSingleSaber ? qfalse : qtrue;
+		item->disabledHidden = qfalse;
+	}
+
+	/*playerState_t* pState = cl->gentity->client;
 	bool hasStance = (pState->saberStylesKnown & (1 << stanceIndex) ) != 0;
 	//Add or remove the stance
 	if (hasStance) {
@@ -6125,9 +6213,9 @@ static void UI_SwitchSaberStyle(const char* saberStyle) {
 	}
 	else {
 		pState->saberStylesKnown |= (1 << stanceIndex);
-	}
+	}*/
 
-	return UI_InitAllocSaberStyle(saberStyle);
+	//return UI_InitAllocSaberStyle(saberStyle);
 }
 
 // Set the fields for the allocation of force powers (Used by Force Power Allocation screen)
@@ -6172,6 +6260,7 @@ static void UI_InitAllocForcePowers ( const char *forceName )
 	{
 		char itemGraphic[128];
 		Com_sprintf (itemGraphic, sizeof(itemGraphic), "gfx/menus/hex_pattern_%d",forcelevel >= 6 ? 5 : forcelevel);
+		ui.Cvar_Set(va("ui_%s_level", powerEnums[forcePowerI].title), va("%d", forcelevel));
 		item->window.background = ui.R_RegisterShaderNoMip(itemGraphic);
 
 		// If maxed out on power - don't allow update
@@ -7080,9 +7169,9 @@ static void UI_RecordForcePowers(const char** args)
 		"ui_mindtrick_level",
 		"ui_grip_level",
 		"ui_lightning_level",
-		"ui_saber_throw_level",
-		"ui_saber_defend_level",
-		"ui_saber_attack_level",
+		"ui_saboff_level",
+		"ui_sabdef_level",
+		"ui_sabthrow_level",
 		"ui_rage_level",
 		"ui_protect_level",
 		"ui_absorb_level",
@@ -8737,9 +8826,9 @@ static void UI_SaveCharacterPowers(void)
 			"ui_fear_level",
 			"ui_strike_level",
 
-			"ui_saber_attack_level",
-			"ui_saber_defend_level",
-			"ui_saber_throw_level",
+			"ui_saboff_level",
+			"ui_sabdef_level",
+			"ui_sabthrow_level",
 
 
 			"ui_npc_weapon",
