@@ -308,6 +308,9 @@ cvar_t	*g_disabledAttributes;
 
 cvar_t	*static_cam;
 
+cvar_t *g_allowHealthRegen;
+cvar_t *g_healthRegenRate;
+
 extern char *G_GetLocationForEnt( gentity_t *ent );
 extern void CP_FindCombatPointWaypoints( void );
 extern qboolean InFront( vec3_t spot, vec3_t from, vec3_t fromAngles, float threshHold = 0.0f );
@@ -870,6 +873,9 @@ void G_InitCvars( void ) {
 	static_cam = gi.cvar("static_Cam", "0", CVAR_NORESTART);
 
 	g_disabledAttributes = gi.cvar("g_disabledAttributes", "0", CVAR_ARCHIVE);
+
+	g_allowHealthRegen = gi.cvar("g_allowHealthRegen", "0", CVAR_ARCHIVE);
+	g_healthRegenRate = gi.cvar("g_healthRegenRate", "1.0", CVAR_ARCHIVE);
 
 }
 /*

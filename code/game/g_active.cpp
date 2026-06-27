@@ -125,7 +125,10 @@ extern cvar_t	*g_debugMelee;
 extern vmCvar_t	cg_thirdPersonAlpha;
 extern vmCvar_t	cg_thirdPersonAutoAlpha;
 
-extern cvar_t* g_char_model;
+extern cvar_t	*g_allowHealthRegen;
+extern cvar_t	*g_healthRegenRate;
+
+extern cvar_t	*g_char_model;
 
 void ClientEndPowerUps( gentity_t *ent );
 
@@ -1763,18 +1766,6 @@ void ClientTimerActions( gentity_t *ent, int msec ) {
 				tent->s.eventParm = ent->s.number;
 			}
 		}*/
-
-		// Passive health regen for player
-		if ((player->client->ps.stats[STAT_HEALTH] < player->client->ps.stats[STAT_MAX_HEALTH]))
-		{
-			// Player gets the first 25 points for free, only on Padawan difficulty mode though
-			if ((player->health < 25 && !Q_irand(0, 1)) && !g_spskill->integer && player->health >= 1)
-			{
-				player->health++;
-				player->client->ps.stats[STAT_HEALTH] = player->health;
-			}
-		}
-
 
 		if ( (ent->flags&FL_OVERCHARGED_HEALTH) )
 		{//need to gradually reduce health back to max
@@ -5727,6 +5718,17 @@ extern cvar_t	*g_skippingcin;
 
 	// perform once-a-second actions
 	ClientTimerActions( ent, msec );
+
+	// Passive health regen for player
+	if ((player->client->ps.stats[STAT_HEALTH] < player->client->ps.stats[STAT_MAX_HEALTH]) && g_allowHealthRegen->integer)
+	{
+		if (TIMER_Done(player, "healthRegenTimer") && player->health > 0)
+		{
+			player->health++;
+			player->client->ps.stats[STAT_HEALTH] = player->health;
+			TIMER_Set(player, "healthRegenTimer", g_healthRegenRate->value * 1000);
+		}
+	}
 
 	ClientEndPowerUps( ent );
 	//try some idle anims on ent if getting no input and not moving for some time
