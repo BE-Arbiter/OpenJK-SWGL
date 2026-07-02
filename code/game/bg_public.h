@@ -605,11 +605,11 @@ typedef enum
 } footstepType_t;
 
 // means of death
-typedef enum {
+typedef enum meansOfDeath_s {
 
 	MOD_UNKNOWN,
 
-// weapons
+	// weapons
 	MOD_SABER,
 	MOD_BRYAR,
 	MOD_BRYAR_ALT,
@@ -627,10 +627,10 @@ typedef enum {
 	MOD_FLECHETTE_ALT,
 	MOD_ROCKET,
 	MOD_ROCKET_ALT,
-//NEW for JKA weapons:
+	//NEW for JKA weapons:
 	MOD_CONC,
 	MOD_CONC_ALT,
-//END JKA weapons.
+	//END JKA weapons.
 	MOD_THERMAL,
 	MOD_THERMAL_ALT,
 	MOD_DETPACK,
@@ -664,7 +664,7 @@ typedef enum {
 	MOD_SBD,
 	MOD_DROIDEKA,
 
-// world / generic
+	// world / generic
 	MOD_ELECTROCUTE,
 	MOD_EXPLOSIVE,
 	MOD_EXPLOSIVE_SPLASH,
@@ -687,6 +687,7 @@ typedef enum {
 	MOD_STRIKE,
 
 	NUM_MODS,
+	MOD_UNSET = -1,
 
 } meansOfDeath_t;
 

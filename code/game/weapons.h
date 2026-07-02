@@ -31,6 +31,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "../qcommon/q_shared.h"
 
+enum meansOfDeath_s;
+typedef enum meansOfDeath_s meansOfDeath_t; // On recrée le raccourci typedef
+
 typedef enum //# weapon_e
 {
 	WP_NONE,
@@ -217,22 +220,25 @@ typedef enum{
 	WC_MINIGUN //Like a Z6
 } weaponCategory_t;
 
+
 typedef struct weaponAttackData_s
 {
 	firingLogic_t firingLogic; //The method of fire for this attack
 
 	/* Base Data */
-	int		energyPerShot;		// Amount of energy used per shot
-	int		fireTime;			// Amount of time between firings
-	int		range;				// Range of weapon
-	float 	spread;				// Accuracy of shots
-	float 	npcSpread[3];		// Accuracy of shots for most npc
-	int		damage;				// Damage per shot
-	int		npcDamage[3];		// Damage per shot for most npc 
-	int		defaultDamage;		// Default damage per shot
-	float	velocity;			// Speed of missile
-	float	npcVelocity[3];		// Speed of missile for most npc
-	int 	fireOption[3];		// Option for the fire (Type, Projectile count,...)
+	int		energyPerShot;				// Amount of energy used per shot
+	int		fireTime;					// Amount of time between firings
+	int		range;						// Range of weapon
+	float 	spread;						// Accuracy of shots
+	float 	npcSpread[3];				// Accuracy of shots for most npc
+	int		damage;						// Damage per shot
+	int		npcDamage[3];				// Damage per shot for most npc 
+	int		defaultDamage;				// Default damage per shot
+	float	velocity;					// Speed of missile
+	float	npcVelocity[3];				// Speed of missile for most npc
+	int 	fireOption[3];				// Option for the fire (Type, Projectile count,...)
+	meansOfDeath_t methodOfDeath;		// Means of death for this attack
+	meansOfDeath_t splashMethodOfDeath; // Means of death for this attack
 
 	/* Splash Damage */
 	int		splashDamage;		// Splash damage when shot explodes

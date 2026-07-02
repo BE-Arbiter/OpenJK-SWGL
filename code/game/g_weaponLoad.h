@@ -209,6 +209,8 @@ void ATK_MuzzleEffect(const char** holdBuf);
 void ATK_ChargeMuzzleEffect(const char** holdBuf);
 void ATK_ChargeMuzzleScale(const char** holdBuf);
 void ATK_Range(const char** holdBuf);
+void ATK_MethodOfDeath(const char** holdBuf);
+void ATK_SplashMethodOfDeath(const char** holdBuf);
 void ATK_MissileName(const char** holdBuf);
 void ATK_MissileSound(const char** holdBuf);
 void ATK_MissileSize(const char** holdBuf);
@@ -269,6 +271,8 @@ wpnParms_t AttackDataParms[] =
 	{ "bounceCount",		ATK_BounceCount},
 	{ "energypershot",		ATK_EnergyPerShot},
 	{ "fireTime",			ATK_FireTime },
+	{ "methodOfDeath",		ATK_MethodOfDeath },
+	{ "splashMethodOfDeath",ATK_SplashMethodOfDeath },
 	{ "firingsound",		ATK_FiringSound },
 	{ "chargesound",		ATK_ChargeSnd },
 	{ "range",				ATK_Range },

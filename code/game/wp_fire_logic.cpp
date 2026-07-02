@@ -39,10 +39,18 @@ qboolean is_player_scoped(gentity_t* ent)
 /*
 	Set the method of death based on the weapon
 */
-
-//DWS-TODO : Need to dehardcode this, allowing to override... Warning that sometimes there are several MOD for a same weapon...
-void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, qboolean altFire) 
+void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, int attackIndex) 
 {
+	qboolean altFire = (qboolean)(attackIndex == 1 || attackIndex == 3);
+	weaponData_t weapon = weaponData[weaponNum];
+	weaponAttackData_t attack = weapon.attackData[attackIndex];
+	if (attack.methodOfDeath != MOD_UNKNOWN)
+	{
+		missile->methodOfDeath = attack.methodOfDeath;
+		missile->splashMethodOfDeath = (attack.splashMethodOfDeath != MOD_UNKNOWN) ? attack.splashMethodOfDeath : attack.methodOfDeath;
+		return;
+	}
+
 	int baseWeapon = weaponData[weaponNum].baseWeaponNum ? weaponData[weaponNum].baseWeaponNum : weaponNum;
 	switch (baseWeapon) {
 		case WP_BRYAR_PISTOL:
@@ -63,6 +71,10 @@ void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, qboolean altFire)
 			missile->methodOfDeath = altFire ? MOD_REPEATER_ALT: MOD_REPEATER;
 			missile->splashMethodOfDeath = altFire ? MOD_REPEATER_ALT: MOD_REPEATER;
 			return;
+		case WP_FLECHETTE:
+			missile->methodOfDeath = altFire ? MOD_FLECHETTE_ALT : MOD_FLECHETTE;
+			missile->splashMethodOfDeath = altFire ? MOD_FLECHETTE_ALT : MOD_FLECHETTE;
+			return;
 		case WP_NOGHRI_STICK:
 			missile->methodOfDeath = MOD_BLASTER ;
 			missile->splashMethodOfDeath = MOD_GAS;
@@ -78,6 +90,62 @@ void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, qboolean altFire)
 		case WP_ROCKET_LAUNCHER:
 			missile->methodOfDeath = altFire ? MOD_ROCKET_ALT : MOD_ROCKET;
 			missile->splashMethodOfDeath = altFire ? MOD_ROCKET_ALT : MOD_ROCKET;
+			return;
+		case WP_THERMAL:
+			missile->methodOfDeath = altFire ? MOD_THERMAL_ALT : MOD_THERMAL;
+			missile->splashMethodOfDeath = altFire ? MOD_THERMAL_ALT : MOD_THERMAL;
+			return;
+		case WP_DET_PACK:
+			missile->methodOfDeath = MOD_DETPACK;
+			missile->splashMethodOfDeath = MOD_DETPACK;
+			return;
+		case WP_TRIP_MINE:
+			missile->methodOfDeath = altFire ? MOD_LASERTRIP_ALT: MOD_LASERTRIP;
+			missile->splashMethodOfDeath = altFire ? MOD_LASERTRIP_ALT : MOD_LASERTRIP;
+			return;
+		case WP_CLONERIFLE:
+			missile->methodOfDeath = altFire ? MOD_CLONERIFLE_ALT : MOD_CLONERIFLE;
+			missile->splashMethodOfDeath = altFire ? MOD_CLONERIFLE_ALT : MOD_CLONERIFLE;
+			return;
+		case WP_REBELBLASTER:
+			missile->methodOfDeath = altFire ? MOD_REBELBLASTER_ALT : MOD_REBELBLASTER;
+			missile->splashMethodOfDeath = altFire ? MOD_REBELBLASTER_ALT : MOD_REBELBLASTER;
+			return;
+		case WP_CLONECOMMANDO:
+			missile->methodOfDeath = altFire ? MOD_CLONECOMMANDO_ALT : MOD_CLONECOMMANDO;
+			missile->splashMethodOfDeath = altFire ? MOD_CLONECOMMANDO_ALT : MOD_CLONECOMMANDO;
+			return;
+		case WP_REBELRIFLE:
+			missile->methodOfDeath = altFire ? MOD_REBELRIFLE_ALT : MOD_REBELRIFLE;
+			missile->splashMethodOfDeath = altFire ? MOD_REBELRIFLE_ALT : MOD_REBELRIFLE;
+			return;
+		case WP_REY:
+			missile->methodOfDeath = altFire ? MOD_REY_ALT : MOD_REY;
+			missile->splashMethodOfDeath = altFire ? MOD_REY_ALT : MOD_REY;
+			return;
+		case WP_JANGO:
+			missile->methodOfDeath = altFire ? MOD_JANGO_ALT : MOD_JANGO;
+			missile->splashMethodOfDeath = altFire ? MOD_JANGO_ALT : MOD_JANGO;
+			return;
+		case WP_BOBA:
+			missile->methodOfDeath = altFire ? MOD_BOBA_ALT : MOD_BOBA;
+			missile->splashMethodOfDeath = altFire ? MOD_BOBA_ALT : MOD_BOBA;
+			return;
+		case WP_CLONEPISTOL:
+			missile->methodOfDeath = altFire ? MOD_CLONEPISTOL_ALT : MOD_CLONEPISTOL;
+			missile->splashMethodOfDeath = altFire ? MOD_CLONEPISTOL_ALT : MOD_CLONEPISTOL;
+			return;
+		case WP_CIS_SNIPER:
+			missile->methodOfDeath = altFire ? MOD_CIS_SNIPER_ALT : MOD_CIS_SNIPER;
+			missile->splashMethodOfDeath = altFire ? MOD_CIS_SNIPER_ALT : MOD_CIS_SNIPER;
+			return;
+		case WP_SBD:
+			missile->methodOfDeath = MOD_SBD;
+			missile->splashMethodOfDeath = MOD_SBD;
+			return;
+		case WP_DROIDEKA:
+			missile->methodOfDeath = MOD_DROIDEKA;
+			missile->splashMethodOfDeath = MOD_DROIDEKA;
 			return;
 		case WP_BLASTER : 
 		default:
@@ -342,6 +410,7 @@ void WP_FireGenericBlasterMissile(gentity_t* ent, vec3_t start, vec3_t dir,int a
 		missile->dflags |= DAMAGE_DEATH_KNOCKBACK;
 	}
 
+	WP_SetMethodOfDeath(missile, ent->s.weapon, attackIndex);
 	missile->damage = damage;
 	missile->splashDamage = attackData->splashDamage;
 	missile->splashRadius = attackData->splashRadius;
@@ -573,8 +642,8 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 				VectorScale(missile->maxs, -1, missile->mins);
 			}
 
-			WP_SetMethodOfDeath(missile, ent->s.weapon,(qboolean)attackIndex);
 
+			WP_SetMethodOfDeath(missile, ent->s.weapon, attackIndex);
 			missile->damage = attackData->damage;
 			missile->dflags = DAMAGE_DEATH_KNOCKBACK;
 			missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
@@ -853,6 +922,7 @@ void WP_FireDroidsTwinBlasters(gentity_t* ent, int attackIndex)
 		missile->classname = "blaster_proj";
 		missile->s.weapon = ent->s.weapon;
 
+		WP_SetMethodOfDeath(missile, ent->s.weapon, attackIndex);
 		missile->damage = damage;
 		missile->dflags = DAMAGE_DEATH_KNOCKBACK;
 		missile->methodOfDeath = MOD_SBD;
