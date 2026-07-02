@@ -31,7 +31,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "../qcommon/q_shared.h"
 
-enum meansOfDeath_s;
+enum meansOfDeath_s : int;
 typedef enum meansOfDeath_s meansOfDeath_t; // On recrée le raccourci typedef
 
 typedef enum //# weapon_e
