@@ -403,6 +403,7 @@ static const char* FloatArray3ToString(const float v[3]);
 const char* getStringValueForqboolean(qboolean value);
 const char* getStringValueForfiringLogic(const firingLogic_t* logic);
 const char* getStringValueForblockability(const blockability_t* b);
+const char* getStringValueForMethodOfDeath(const meansOfDeath_t* methodOfDeath);
 const char* getStringValueForweaponCategory(const weaponCategory_t* wc);
 const char* getStringValueForweaponBucket(const weaponBucket_t* wb);
 
@@ -439,6 +440,12 @@ void PrintWeaponAttackData(const weaponAttackData_t* attack)
 
 	gi.Printf("\t\t^6'fireOption'^7 : ^5%d, %d, %d^7 (int[3])\n",
 		attack->fireOption[0], attack->fireOption[1], attack->fireOption[2]);
+
+	gi.Printf("\t\t^6'methodOfDeath'^7 : ^5\"%s\"^7 (methodOfDeath_t)\n",
+		getStringValueForMethodOfDeath(&attack->methodOfDeath));
+
+	gi.Printf("\t\t^6'splashMethodOfDeath'^7 : ^5\"%s\"^7 (methodOfDeath_t)\n",
+		getStringValueForMethodOfDeath(&attack->splashMethodOfDeath));
 
 	gi.Printf("\t\t^6'splashDamage'^7 : ^5%d^7 (int)\n", attack->splashDamage);
 	gi.Printf("\t\t^6'splashRadius'^7 : ^5%f^7 (float)\n", attack->splashRadius);
@@ -2158,6 +2165,85 @@ const char* getStringValueForqboolean(qboolean value)
 		return "qunset";
 	default:
 		return "unknown";
+	}
+}
+const char* getStringValueForMethodOfDeath(const meansOfDeath_t* means)
+{
+	if (!means)
+		return "(null)";
+
+	switch (*means)
+	{
+	case MOD_SABER: return "MOD_SABER";
+	case MOD_BRYAR: return "MOD_BRYAR";
+	case MOD_BRYAR_ALT: return "MOD_BRYAR_ALT";
+	case MOD_BLASTER: return "MOD_BLASTER";
+	case MOD_BLASTER_ALT: return "MOD_BLASTER_ALT";
+	case MOD_DISRUPTOR: return "MOD_DISRUPTOR";
+	case MOD_SNIPER: return "MOD_SNIPER";
+	case MOD_BOWCASTER: return "MOD_BOWCASTER";
+	case MOD_BOWCASTER_ALT: return "MOD_BOWCASTER_ALT";
+	case MOD_REPEATER: return "MOD_REPEATER";
+	case MOD_REPEATER_ALT: return "MOD_REPEATER_ALT";
+	case MOD_DEMP2: return "MOD_DEMP2";
+	case MOD_DEMP2_ALT: return "MOD_DEMP2_ALT";
+	case MOD_FLECHETTE: return "MOD_FLECHETTE";
+	case MOD_FLECHETTE_ALT: return "MOD_FLECHETTE_ALT";
+	case MOD_ROCKET: return "MOD_ROCKET";
+	case MOD_ROCKET_ALT: return "MOD_ROCKET_ALT";
+	case MOD_CONC: return "MOD_CONC";
+	case MOD_CONC_ALT: return "MOD_CONC_ALT";
+	case MOD_THERMAL: return "MOD_THERMAL";
+	case MOD_THERMAL_ALT: return "MOD_THERMAL_ALT";
+	case MOD_DETPACK: return "MOD_DETPACK";
+	case MOD_LASERTRIP: return "MOD_LASERTRIP";
+	case MOD_LASERTRIP_ALT: return "MOD_LASERTRIP_ALT";
+	case MOD_MELEE: return "MOD_MELEE";
+	case MOD_SEEKER: return "MOD_SEEKER";
+	case MOD_FORCE_GRIP: return "MOD_FORCE_GRIP";
+	case MOD_FORCE_LIGHTNING: return "MOD_FORCE_LIGHTNING";
+	case MOD_FORCE_DRAIN: return "MOD_FORCE_DRAIN";
+	case MOD_EMPLACED: return "MOD_EMPLACED";
+	case MOD_CLONERIFLE: return "MOD_CLONERIFLE";
+	case MOD_CLONERIFLE_ALT: return "MOD_CLONERIFLE_ALT";
+	case MOD_REBELBLASTER: return "MOD_REBELBLASTER";
+	case MOD_REBELBLASTER_ALT: return "MOD_REBELBLASTER_ALT";
+	case MOD_CLONECOMMANDO: return "MOD_CLONECOMMANDO";
+	case MOD_CLONECOMMANDO_ALT: return "MOD_CLONECOMMANDO_ALT";
+	case MOD_REBELRIFLE: return "MOD_REBELRIFLE";
+	case MOD_REBELRIFLE_ALT: return "MOD_REBELRIFLE_ALT";
+	case MOD_REY: return "MOD_REY";
+	case MOD_REY_ALT: return "MOD_REY_ALT";
+	case MOD_JANGO: return "MOD_JANGO";
+	case MOD_JANGO_ALT: return "MOD_JANGO_ALT";
+	case MOD_BOBA: return "MOD_BOBA";
+	case MOD_BOBA_ALT: return "MOD_BOBA_ALT";
+	case MOD_CLONEPISTOL: return "MOD_CLONEPISTOL";
+	case MOD_CLONEPISTOL_ALT: return "MOD_CLONEPISTOL_ALT";
+	case MOD_CIS_SNIPER: return "MOD_CIS_SNIPER";
+	case MOD_CIS_SNIPER_ALT: return "MOD_CIS_SNIPER_ALT";
+	case MOD_SBD: return "MOD_SBD";
+	case MOD_DROIDEKA: return "MOD_DROIDEKA";
+	case MOD_ELECTROCUTE: return "MOD_ELECTROCUTE";
+	case MOD_EXPLOSIVE: return "MOD_EXPLOSIVE";
+	case MOD_EXPLOSIVE_SPLASH: return "MOD_EXPLOSIVE_SPLASH";
+	case MOD_KNOCKOUT: return "MOD_KNOCKOUT";
+	case MOD_ENERGY: return "MOD_ENERGY";
+	case MOD_ENERGY_SPLASH: return "MOD_ENERGY_SPLASH";
+	case MOD_WATER: return "MOD_WATER";
+	case MOD_SLIME: return "MOD_SLIME";
+	case MOD_LAVA: return "MOD_LAVA";
+	case MOD_CRUSH: return "MOD_CRUSH";
+	case MOD_IMPACT: return "MOD_IMPACT";
+	case MOD_FALLING: return "MOD_FALLING";
+	case MOD_SUICIDE: return "MOD_SUICIDE";
+	case MOD_TRIGGER_HURT: return "MOD_TRIGGER_HURT";
+	case MOD_GAS: return "MOD_GAS";
+	case MOD_HIGH_POWERED_SHOT: return "MOD_HIGH_POWERED_SHOT";
+	case MOD_DESTRUCTION: return "MOD_DESTRUCTION";
+	case MOD_BLAST: return "MOD_BLAST";
+	case MOD_STRIKE: return "MOD_STRIKE";
+	default: return "MOD_UNKNOWN";
 	}
 }
 const char* getStringValueForfiringLogic(const firingLogic_t* logic)

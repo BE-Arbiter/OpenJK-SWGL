@@ -53,17 +53,17 @@ static void ParseInt(const char** holdBuf, int* dest)
 	*dest = tokenInt;
 }
 
-static void ParseIntWithLims(const char **holdBuf, int* dest, int min, int max, char* identifier)
+static void ParseIntWithLims(const char** holdBuf, int* dest, int min, int max, char* identifier)
 {
 	int		tokenInt;
 
-	if ( COM_ParseInt(holdBuf,&tokenInt))
+	if (COM_ParseInt(holdBuf, &tokenInt))
 	{
 		SkipRestOfLine(holdBuf);
 		return;
 	}
 
-	if ((tokenInt < min ) || (tokenInt > max ))
+	if ((tokenInt < min) || (tokenInt > max))
 	{
 		gi.Printf(S_COLOR_YELLOW"WARNING: bad %s in external weapon data '%d'\n", identifier, tokenInt);
 		return;
@@ -86,12 +86,12 @@ static void ParseFlt(const char** holdBuf, float* dest)
 }
 
 //--------------------------------------------
-void ParseStr(const char **holdBuf, char* dest, int maxLen, char* identifier)
+void ParseStr(const char** holdBuf, char* dest, int maxLen, char* identifier)
 {
 	int len;
-	const char*tokenStr;
+	const char* tokenStr;
 
-	if ( COM_ParseString(holdBuf,&tokenStr))
+	if (COM_ParseString(holdBuf, &tokenStr))
 	{
 		return;
 	}
@@ -104,7 +104,7 @@ void ParseStr(const char **holdBuf, char* dest, int maxLen, char* identifier)
 		gi.Printf(S_COLOR_YELLOW"WARNING: %s too long in external WEAPONS.DAT '%s'\n", identifier, tokenStr);
 	}
 
-	Q_strncpyz(dest,tokenStr,len);
+	Q_strncpyz(dest, tokenStr, len);
 }
 
 //--------------------------------------------
@@ -119,7 +119,7 @@ void WPN_FuncSkip(const char** holdBuf)
 	Weapon Functions
 ----------------------------------------------------------
 */
-void WPN_WeaponClass(const char **holdBuf)
+void WPN_WeaponClass(const char** holdBuf)
 {
 	int i;
 	char weaponClass[32];
@@ -127,7 +127,7 @@ void WPN_WeaponClass(const char **holdBuf)
 
 	ParseStr(holdBuf, weaponClass, 32, "weaponclass");
 
-	for (i = 0;i < numHcWeaponIndexes;i++)
+	for (i = 0; i < numHcWeaponIndexes; i++)
 	{
 		if (!Q_stricmp(weaponClass, _weaponIndexes[i].weaponClass))
 		{
@@ -153,25 +153,25 @@ void WPN_WeaponClass(const char **holdBuf)
 }
 
 //--------------------------------------------
-void WPN_WeaponModel(const char **holdBuf)
+void WPN_WeaponModel(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].weaponMdl, 64, "weaponMdl");
 }
 
 //--------------------------------------------
-void WPN_WeaponIcon(const char **holdBuf)
+void WPN_WeaponIcon(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].weaponIcon, 64, "weaponIcon");
 }
 
 //--------------------------------------------
-void WPN_AmmoType(const char **holdBuf)
+void WPN_AmmoType(const char** holdBuf)
 {
 	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].ammoIndex, AMMO_NONE, MAX_AMMO - 1, "Ammotype");
 }
 
 //--------------------------------------------
-void WPN_AmmoLowCnt(const char **holdBuf)
+void WPN_AmmoLowCnt(const char** holdBuf)
 {
 	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].ammoLow, 0, 200, "Ammolowcount");
 	// FIXME :What are the right values?
@@ -465,101 +465,101 @@ void ATK_FiringLogic(const char** holdBuf)
 		return;
 	}
 
-    if(!Q_stricmp(tokenStr, "FL_MELEE"))
+	if (!Q_stricmp(tokenStr, "FL_MELEE"))
 	{
-        firingLogic = FL_MELEE;
-    }
-	else if(!Q_stricmp(tokenStr, "FL_BLASTER"))
-	{
-	    firingLogic = FL_BLASTER;
+		firingLogic = FL_MELEE;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_FLAMETHROWER"))
+	else if (!Q_stricmp(tokenStr, "FL_BLASTER"))
 	{
-	    firingLogic = FL_FLAMETHROWER;
+		firingLogic = FL_BLASTER;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_BLASTER_CHARGED"))
+	else if (!Q_stricmp(tokenStr, "FL_FLAMETHROWER"))
 	{
-	    firingLogic = FL_BLASTER_CHARGED;
+		firingLogic = FL_FLAMETHROWER;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_BOWCASTER"))
+	else if (!Q_stricmp(tokenStr, "FL_BLASTER_CHARGED"))
 	{
-	    firingLogic = FL_BOWCASTER;
+		firingLogic = FL_BLASTER_CHARGED;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_BEAM"))
+	else if (!Q_stricmp(tokenStr, "FL_BOWCASTER"))
 	{
-	    firingLogic = FL_BEAM;
+		firingLogic = FL_BOWCASTER;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_FULL_BEAM"))
+	else if (!Q_stricmp(tokenStr, "FL_BEAM"))
 	{
-	    firingLogic = FL_FULL_BEAM;
+		firingLogic = FL_BEAM;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_BEAM_CHARGED"))
+	else if (!Q_stricmp(tokenStr, "FL_FULL_BEAM"))
 	{
-	    firingLogic = FL_BEAM_CHARGED;
+		firingLogic = FL_FULL_BEAM;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_GRENADE_LAUNCHER"))
+	else if (!Q_stricmp(tokenStr, "FL_BEAM_CHARGED"))
 	{
-	    firingLogic = FL_GRENADE_LAUNCHER;
+		firingLogic = FL_BEAM_CHARGED;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_DEMP2"))
+	else if (!Q_stricmp(tokenStr, "FL_GRENADE_LAUNCHER"))
 	{
-	    firingLogic = FL_DEMP2;
+		firingLogic = FL_GRENADE_LAUNCHER;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_DEMP2_ALT"))
+	else if (!Q_stricmp(tokenStr, "FL_DEMP2"))
 	{
-	    firingLogic = FL_DEMP2_ALT;
+		firingLogic = FL_DEMP2;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_FLECHETTE"))
+	else if (!Q_stricmp(tokenStr, "FL_DEMP2_ALT"))
 	{
-	    firingLogic = FL_FLECHETTE;
+		firingLogic = FL_DEMP2_ALT;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_FLECHETTE_ALT"))
+	else if (!Q_stricmp(tokenStr, "FL_FLECHETTE"))
 	{
-	    firingLogic = FL_FLECHETTE_ALT;
+		firingLogic = FL_FLECHETTE;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_NOGHRI"))
+	else if (!Q_stricmp(tokenStr, "FL_FLECHETTE_ALT"))
 	{
-	    firingLogic = FL_NOGHRI;
+		firingLogic = FL_FLECHETTE_ALT;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_MISSILE"))
+	else if (!Q_stricmp(tokenStr, "FL_NOGHRI"))
 	{
-	    firingLogic = FL_MISSILE;
+		firingLogic = FL_NOGHRI;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_MISSILE_AIMED"))
+	else if (!Q_stricmp(tokenStr, "FL_MISSILE"))
 	{
-	    firingLogic = FL_MISSILE_AIMED;
+		firingLogic = FL_MISSILE;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_LASER_TRAP"))
+	else if (!Q_stricmp(tokenStr, "FL_MISSILE_AIMED"))
 	{
-	    firingLogic = FL_LASER_TRAP;
+		firingLogic = FL_MISSILE_AIMED;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_PROXIMITY_TRAP"))
+	else if (!Q_stricmp(tokenStr, "FL_LASER_TRAP"))
 	{
-	    firingLogic = FL_PROXIMITY_TRAP;
+		firingLogic = FL_LASER_TRAP;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_EXPLOSIVES"))
+	else if (!Q_stricmp(tokenStr, "FL_PROXIMITY_TRAP"))
 	{
-	    firingLogic = FL_EXPLOSIVES;
+		firingLogic = FL_PROXIMITY_TRAP;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_GRENADE"))
+	else if (!Q_stricmp(tokenStr, "FL_EXPLOSIVES"))
 	{
-	    firingLogic = FL_GRENADE;
+		firingLogic = FL_EXPLOSIVES;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_IMPACT_GRENADE"))
+	else if (!Q_stricmp(tokenStr, "FL_GRENADE"))
 	{
-	    firingLogic = FL_IMPACT_GRENADE;
+		firingLogic = FL_GRENADE;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_STUNBATON"))
+	else if (!Q_stricmp(tokenStr, "FL_IMPACT_GRENADE"))
 	{
-	    firingLogic = FL_STUNBATON;
+		firingLogic = FL_IMPACT_GRENADE;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_SBD"))
+	else if (!Q_stricmp(tokenStr, "FL_STUNBATON"))
 	{
-	    firingLogic = FL_SBD;
+		firingLogic = FL_STUNBATON;
 	}
-	else if(!Q_stricmp(tokenStr, "FL_OTHER"))
+	else if (!Q_stricmp(tokenStr, "FL_SBD"))
 	{
-	    firingLogic = FL_OTHER;
+		firingLogic = FL_SBD;
+	}
+	else if (!Q_stricmp(tokenStr, "FL_OTHER"))
+	{
+		firingLogic = FL_OTHER;
 	}
 	else {
 		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for FiringLogic in external WEAPONS.DAT\n", tokenStr);
@@ -572,7 +572,7 @@ void ATK_Blockability(const char** holdBuf) {
 	int i;
 	const char* tokenStr;
 
-	for (i = 0;i < 3;++i)
+	for (i = 0; i < 3; ++i)
 	{
 		blockability_t blockability = B_UNSET;
 
@@ -596,57 +596,362 @@ void ATK_Blockability(const char** holdBuf) {
 		}
 		else
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for blockability[%d] in external WEAPONS.DAT\n", tokenStr,i);
+			gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for blockability[%d] in external WEAPONS.DAT\n", tokenStr, i);
 		}
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].blockability[i] = blockability;
 	}
 }
 
 //--------------------------------------------
-void ATK_FiringSound(const char **holdBuf)
+void ATK_FiringSound(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].firingSnd, 64, "firingSnd");
 }
 
 //--------------------------------------------
-void ATK_ChargeSnd(const char **holdBuf)
+void ATK_ChargeSnd(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].chargeSnd, 64, "chargeSnd");
 }
 
 
 //--------------------------------------------
-void ATK_FireTime(const char **holdBuf)
+void ATK_FireTime(const char** holdBuf)
 {
 	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fireTime, 0, MAX_FIRETIME, "Firetime");
 }
 
 //--------------------------------------------
-void ATK_Range(const char **holdBuf)
+void ATK_Range(const char** holdBuf)
 {
 	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].range, 0, MAX_RANGE, "Range");
 }
 
 //--------------------------------------------
-void ATK_EnergyPerShot(const char **holdBuf)
+void ATK_MethodOfDeathInternal(const char** holdBuf, qboolean splashDamage ) {
+	const char* tokenStr;
+	if (COM_ParseString(holdBuf, &tokenStr))
+	{
+		return;
+	}
+	meansOfDeath_t methodOfDeath = MOD_UNKNOWN;
+	if (!Q_stricmp(tokenStr, "MOD_SABER"))
+	{
+		methodOfDeath = MOD_SABER;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_BRYAR"))
+	{
+		methodOfDeath = MOD_BRYAR;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_BRYAR_ALT"))
+	{
+		methodOfDeath = MOD_BRYAR_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_BLASTER"))
+	{
+		methodOfDeath = MOD_BLASTER;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_BLASTER_ALT"))
+	{
+		methodOfDeath = MOD_BLASTER_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_DISRUPTOR"))
+	{
+		methodOfDeath = MOD_DISRUPTOR;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_SNIPER"))
+	{
+		methodOfDeath = MOD_SNIPER;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_BOWCASTER"))
+	{
+		methodOfDeath = MOD_BOWCASTER;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_BOWCASTER_ALT"))
+	{
+		methodOfDeath = MOD_BOWCASTER_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_REPEATER"))
+	{
+		methodOfDeath = MOD_REPEATER;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_REPEATER_ALT"))
+	{
+		methodOfDeath = MOD_REPEATER_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_DEMP2"))
+	{
+		methodOfDeath = MOD_DEMP2;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_DEMP2_ALT"))
+	{
+		methodOfDeath = MOD_DEMP2_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_FLECHETTE"))
+	{
+		methodOfDeath = MOD_FLECHETTE;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_FLECHETTE_ALT"))
+	{
+		methodOfDeath = MOD_FLECHETTE_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_ROCKET"))
+	{
+		methodOfDeath = MOD_ROCKET;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_ROCKET_ALT"))
+	{
+		methodOfDeath = MOD_ROCKET_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_CONC"))
+	{
+		methodOfDeath = MOD_CONC;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_CONC_ALT"))
+	{
+		methodOfDeath = MOD_CONC_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_THERMAL"))
+	{
+		methodOfDeath = MOD_THERMAL;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_THERMAL_ALT"))
+	{
+		methodOfDeath = MOD_THERMAL_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_DETPACK"))
+	{
+		methodOfDeath = MOD_DETPACK;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_LASERTRIP"))
+	{
+		methodOfDeath = MOD_LASERTRIP;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_LASERTRIP_ALT"))
+	{
+		methodOfDeath = MOD_LASERTRIP_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_MELEE"))
+	{
+		methodOfDeath = MOD_MELEE;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_SEEKER"))
+	{
+		methodOfDeath = MOD_SEEKER;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_FORCE_GRIP"))
+	{
+		methodOfDeath = MOD_FORCE_GRIP;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_FORCE_LIGHTNING"))
+	{
+		methodOfDeath = MOD_FORCE_LIGHTNING;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_FORCE_DRAIN"))
+	{
+		methodOfDeath = MOD_FORCE_DRAIN;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_EMPLACED"))
+	{
+		methodOfDeath = MOD_EMPLACED;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_CLONERIFLE"))
+	{
+		methodOfDeath = MOD_CLONERIFLE;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_CLONERIFLE_ALT"))
+	{
+		methodOfDeath = MOD_CLONERIFLE_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_REBELBLASTER"))
+	{
+		methodOfDeath = MOD_REBELBLASTER;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_REBELBLASTER_ALT"))
+	{
+		methodOfDeath = MOD_REBELBLASTER_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_CLONECOMMANDO"))
+	{
+		methodOfDeath = MOD_CLONECOMMANDO;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_CLONECOMMANDO_ALT"))
+	{
+		methodOfDeath = MOD_CLONECOMMANDO_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_REBELRIFLE"))
+	{
+		methodOfDeath = MOD_REBELRIFLE;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_REBELRIFLE_ALT"))
+	{
+		methodOfDeath = MOD_REBELRIFLE_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_REY"))
+	{
+		methodOfDeath = MOD_REY;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_REY_ALT"))
+	{
+		methodOfDeath = MOD_REY_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_JANGO"))
+	{
+		methodOfDeath = MOD_JANGO;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_JANGO_ALT"))
+	{
+		methodOfDeath = MOD_JANGO_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_BOBA"))
+	{
+		methodOfDeath = MOD_BOBA;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_BOBA_ALT"))
+	{
+		methodOfDeath = MOD_BOBA_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_CLONEPISTOL"))
+	{
+		methodOfDeath = MOD_CLONEPISTOL;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_CLONEPISTOL_ALT"))
+	{
+		methodOfDeath = MOD_CLONEPISTOL_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_CIS_SNIPER"))
+	{
+		methodOfDeath = MOD_CIS_SNIPER;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_CIS_SNIPER_ALT"))
+	{
+		methodOfDeath = MOD_CIS_SNIPER_ALT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_SBD"))
+	{
+		methodOfDeath = MOD_SBD;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_DROIDEKA"))
+	{
+		methodOfDeath = MOD_DROIDEKA;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_ELECTROCUTE"))
+	{
+		methodOfDeath = MOD_ELECTROCUTE;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_EXPLOSIVE"))
+	{
+		methodOfDeath = MOD_EXPLOSIVE;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_EXPLOSIVE_SPLASH"))
+	{
+		methodOfDeath = MOD_EXPLOSIVE_SPLASH;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_KNOCKOUT"))
+	{
+		methodOfDeath = MOD_KNOCKOUT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_ENERGY"))
+	{
+		methodOfDeath = MOD_ENERGY;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_ENERGY_SPLASH"))
+	{
+		methodOfDeath = MOD_ENERGY_SPLASH;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_WATER"))
+	{
+		methodOfDeath = MOD_WATER;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_SLIME"))
+	{
+		methodOfDeath = MOD_SLIME;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_LAVA"))
+	{
+		methodOfDeath = MOD_LAVA;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_CRUSH"))
+	{
+		methodOfDeath = MOD_CRUSH;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_IMPACT"))
+	{
+		methodOfDeath = MOD_IMPACT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_FALLING"))
+	{
+		methodOfDeath = MOD_FALLING;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_SUICIDE"))
+	{
+		methodOfDeath = MOD_SUICIDE;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_TRIGGER_HURT"))
+	{
+		methodOfDeath = MOD_TRIGGER_HURT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_GAS"))
+	{
+		methodOfDeath = MOD_GAS;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_HIGH_POWERED_SHOT"))
+	{
+		methodOfDeath = MOD_HIGH_POWERED_SHOT;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_DESTRUCTION"))
+	{
+		methodOfDeath = MOD_DESTRUCTION;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_BLAST"))
+	{
+		methodOfDeath = MOD_BLAST;
+	}
+	else if (!Q_stricmp(tokenStr, "MOD_STRIKE"))
+	{
+		methodOfDeath = MOD_STRIKE;
+	}
+	else
+	{
+		gi.Printf(S_COLOR_YELLOW"WARNING: bad methodofdeath in external weapon data '%s'\n", tokenStr);
+	}
+
+	if (splashDamage)
+	{
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].splashMethodOfDeath = methodOfDeath;
+	}
+	else
+	{
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].methodOfDeath = methodOfDeath;
+	}
+}
+
+void ATK_MethodOfDeath(const char** holdBuf) {
+	ATK_MethodOfDeathInternal(holdBuf, qfalse);
+}
+void ATK_SplashMethodOfDeath(const char** holdBuf) {
+	ATK_MethodOfDeathInternal(holdBuf, qtrue);
+}
+//--------------------------------------------
+void ATK_EnergyPerShot(const char** holdBuf)
 {
 	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].energyPerShot, 0, MAX_AMMO_STORAGE, "EnergyPerShot");
 }
 
 //--------------------------------------------
-void ATK_MissileName(const char **holdBuf)
+void ATK_MissileName(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileMdl, 64, "MissileName");
 }
 
 //--------------------------------------------
-void ATK_MissileHitSound(const char **holdBuf)
+void ATK_MissileHitSound(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileHitSound, 64, "MissileHitSound");
 }
 
 //--------------------------------------------
-void ATK_MissileSound(const char **holdBuf)
+void ATK_MissileSound(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileSound, 64, "MissileSound");
 }
@@ -684,22 +989,22 @@ void ATK_BounceCount(const char** holdBuf)
 }
 
 //--------------------------------------------
-void ATK_MissileLightColor(const char **holdBuf)
+void ATK_MissileLightColor(const char** holdBuf)
 {
 	int i;
 	float	tokenFlt;
 
-	for (i=0;i<3;++i)
+	for (i = 0; i < 3; ++i)
 	{
-		if ( COM_ParseFloat(holdBuf,&tokenFlt))
+		if (COM_ParseFloat(holdBuf, &tokenFlt))
 		{
 			SkipRestOfLine(holdBuf);
 			continue;
 		}
 
-		if ((tokenFlt < 0) || (tokenFlt > 1 ))
+		if ((tokenFlt < 0) || (tokenFlt > 1))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelightcolor[%d] in external weapon data '%f'\n",i, tokenFlt);
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelightcolor[%d] in external weapon data '%f'\n", i, tokenFlt);
 			continue;
 		}
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileDlightColor[i] = tokenFlt;
@@ -708,14 +1013,14 @@ void ATK_MissileLightColor(const char **holdBuf)
 }
 
 //--------------------------------------------
-void ATK_NpcDamage(const char **holdBuf)
+void ATK_NpcDamage(const char** holdBuf)
 {
 	int i;
 	int	tokenInt;
 
-	for (i=0;i<3;++i)
+	for (i = 0; i < 3; ++i)
 	{
-		if ( COM_ParseInt(holdBuf,&tokenInt))
+		if (COM_ParseInt(holdBuf, &tokenInt))
 		{
 			SkipRestOfLine(holdBuf);
 			continue;
@@ -723,7 +1028,7 @@ void ATK_NpcDamage(const char **holdBuf)
 
 		if ((tokenInt < 0))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad npcDamage[%d] in external weapon data '%f'\n",i, tokenInt);
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad npcDamage[%d] in external weapon data '%f'\n", i, tokenInt);
 			continue;
 		}
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcDamage[i] = tokenInt;
@@ -732,14 +1037,14 @@ void ATK_NpcDamage(const char **holdBuf)
 }
 
 //--------------------------------------------
-void ATK_NpcSpread(const char **holdBuf)
+void ATK_NpcSpread(const char** holdBuf)
 {
 	int i;
 	int	tokenInt;
 
-	for (i=0;i<3;++i)
+	for (i = 0; i < 3; ++i)
 	{
-		if ( COM_ParseInt(holdBuf,&tokenInt))
+		if (COM_ParseInt(holdBuf, &tokenInt))
 		{
 			SkipRestOfLine(holdBuf);
 			continue;
@@ -747,7 +1052,7 @@ void ATK_NpcSpread(const char **holdBuf)
 
 		if ((tokenInt < 0))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad npcSpread[%d] in external weapon data '%f'\n",i, tokenInt);
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad npcSpread[%d] in external weapon data '%f'\n", i, tokenInt);
 			weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcSpread[i] = 0;
 			continue;
 		}
@@ -757,14 +1062,14 @@ void ATK_NpcSpread(const char **holdBuf)
 }
 
 //--------------------------------------------
-void ATK_NpcVelocity(const char **holdBuf)
+void ATK_NpcVelocity(const char** holdBuf)
 {
 	int i;
 	int	tokenInt;
 
-	for (i=0;i<3;++i)
+	for (i = 0; i < 3; ++i)
 	{
-		if ( COM_ParseInt(holdBuf,&tokenInt))
+		if (COM_ParseInt(holdBuf, &tokenInt))
 		{
 			SkipRestOfLine(holdBuf);
 			continue;
@@ -772,7 +1077,7 @@ void ATK_NpcVelocity(const char **holdBuf)
 
 		if ((tokenInt < 0))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad npcVelocity[%d] in external weapon data '%f'\n",i, tokenInt);
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad npcVelocity[%d] in external weapon data '%f'\n", i, tokenInt);
 			continue;
 		}
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcVelocity[i] = tokenInt;
@@ -781,7 +1086,7 @@ void ATK_NpcVelocity(const char **holdBuf)
 }
 
 //--------------------------------------------
-void ATK_MissileSize(const char **holdBuf)
+void ATK_MissileSize(const char** holdBuf)
 {
 
 	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileSize);
@@ -792,7 +1097,7 @@ void ATK_MissileDFlags(const char** holdBuf)
 {
 	const char* tokenStr;
 	int dFlags = 0;
-	
+
 	do {
 		COM_ParseString(holdBuf, &tokenStr);
 		if (!Q_stricmp(tokenStr, "DAMAGE_RADIUS")) {
@@ -834,29 +1139,28 @@ void ATK_MissileDFlags(const char** holdBuf)
 		else if (Q_stricmp(tokenStr, ";")) {
 			gi.Printf(S_COLOR_YELLOW"WARNING: bad Damage Flag in external weapon data '%s'\n", tokenStr);
 		}
-	}
-	while (Q_stricmp(tokenStr, ";"));
+	} while (Q_stricmp(tokenStr, ";"));
 
 	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileDFlags = dFlags;
 }
 //--------------------------------------------
-void ATK_MissileMass(const char **holdBuf)
+void ATK_MissileMass(const char** holdBuf)
 {
 
 	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileMass);
 }
 
 //--------------------------------------------
-void ATK_MissileLight(const char **holdBuf)
+void ATK_MissileLight(const char** holdBuf)
 {
 	float	tokenFlt;
 
-	if ( COM_ParseFloat(holdBuf,&tokenFlt))
+	if (COM_ParseFloat(holdBuf, &tokenFlt))
 	{
 		SkipRestOfLine(holdBuf);
 	}
 
-	if ((tokenFlt < 0) || (tokenFlt > 255 )) // FIXME :What are the right values?
+	if ((tokenFlt < 0) || (tokenFlt > 255)) // FIXME :What are the right values?
 	{
 		gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelight in external weapon data '%f'\n", tokenFlt);
 	}
@@ -865,11 +1169,11 @@ void ATK_MissileLight(const char **holdBuf)
 
 
 //--------------------------------------------
-void ATK_FuncName(const char **holdBuf)
+void ATK_FuncName(const char** holdBuf)
 {
-	const char	*tokenStr;
+	const char* tokenStr;
 
-	if ( COM_ParseString(holdBuf,&tokenStr))
+	if (COM_ParseString(holdBuf, &tokenStr))
 	{
 		return;
 	}
@@ -882,8 +1186,8 @@ void ATK_FuncName(const char **holdBuf)
 		gi.Printf(S_COLOR_YELLOW"WARNING: FuncName '%s' too long in external WEAPONS.DAT\n", tokenStr);
 	}
 
-	for ( func_t* s=funcs ; s->name ; s++ ) {
-		if ( !Q_stricmp(s->name, tokenStr) ) {
+	for (func_t* s = funcs; s->name; s++) {
+		if (!Q_stricmp(s->name, tokenStr)) {
 			// found it
 			weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileFunc = (void*)s->func;
 			return;
@@ -893,24 +1197,24 @@ void ATK_FuncName(const char **holdBuf)
 }
 
 //--------------------------------------------
-void ATK_MuzzleEffect(const char **holdBuf)
+void ATK_MuzzleEffect(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].muzzleEffect, 64, "MuzzleEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].muzzleEffect );
+	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].muzzleEffect);
 }
 
 //--------------------------------------------
-void ATK_ProjectileEffect(const char **holdBuf)
+void ATK_ProjectileEffect(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].projectileEffect, 64, "projectileEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].projectileEffect );
+	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].projectileEffect);
 }
 
 //--------------------------------------------
 void ATK_ExplosionEffect(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].explosionEffect, 64, "explosionEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].explosionEffect );
+	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].explosionEffect);
 }
 
 //--------------------------------------------
@@ -952,7 +1256,7 @@ void ATK_BeamColor(const char** holdBuf)
 	int i;
 	float	tokenFlt;
 
-	for (i = 0;i < 3;++i)
+	for (i = 0; i < 3; ++i)
 	{
 		if (COM_ParseFloat(holdBuf, &tokenFlt))
 		{
@@ -962,7 +1266,7 @@ void ATK_BeamColor(const char** holdBuf)
 
 		if ((tokenFlt < 0) || (tokenFlt > 1))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad beamColor[%d] in external weapon data '%f'\n",i, tokenFlt);
+			gi.Printf(S_COLOR_YELLOW"WARNING: bad beamColor[%d] in external weapon data '%f'\n", i, tokenFlt);
 			continue;
 		}
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].beamColor[i] = tokenFlt;
@@ -981,7 +1285,7 @@ void ATK_FullBeamColor(const char** holdBuf)
 	int i;
 	float	tokenFlt;
 
-	for (i = 0;i < 3;++i)
+	for (i = 0; i < 3; ++i)
 	{
 		if (COM_ParseFloat(holdBuf, &tokenFlt))
 		{
@@ -1010,42 +1314,42 @@ void ATK_HitDroidEffect(const char** holdBuf)
 void ATK_ShockwaveEffect(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].shockwaveEffect, 64, "shockWaveEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].shockwaveEffect );
+	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].shockwaveEffect);
 }
 
 //--------------------------------------------
-void ATK_ChargeMuzzleEffect(const char **holdBuf)
+void ATK_ChargeMuzzleEffect(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].chargeMuzzleShader, 64, "chargeMuzzleEffect");
-	G_EffectIndex( weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].chargeMuzzleShader );
+	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].chargeMuzzleShader);
 }
 
-void ATK_ChargeMuzzleScale(const char **holdBuf)
+void ATK_ChargeMuzzleScale(const char** holdBuf)
 {
 	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].chargeMuzzleScale);
 }
 
 //--------------------------------------------
-void ATK_Damage(const char **holdBuf)
+void ATK_Damage(const char** holdBuf)
 {
 	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].damage);
 	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].defaultDamage = weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].damage;
 }
 
 //--------------------------------------------
-void ATK_SplashDamage(const char **holdBuf)
+void ATK_SplashDamage(const char** holdBuf)
 {
 	ParseInt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].splashDamage);
 }
 
 //--------------------------------------------
-void ATK_SplashRadius(const char **holdBuf)
+void ATK_SplashRadius(const char** holdBuf)
 {
 	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].splashRadius);
 }
 
 //--------------------------------------------
-void ATK_FireOptions(const char **holdBuf)
+void ATK_FireOptions(const char** holdBuf)
 {
 	int i;
 	int tokenInt;
@@ -1064,11 +1368,11 @@ void ATK_FireOptions(const char **holdBuf)
 	{
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fireOption[0] = FT_SEMI;
 	}
-	else if (!Q_stricmp(tokenStr, "FT_BURST")) 
+	else if (!Q_stricmp(tokenStr, "FT_BURST"))
 	{
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fireOption[0] = FT_BURST;
 	}
-	else if (!Q_stricmp(tokenStr, "FT_HIGH_POWERED")) 
+	else if (!Q_stricmp(tokenStr, "FT_HIGH_POWERED"))
 	{
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fireOption[0] = FT_HIGH_POWERED;
 	}
@@ -1084,7 +1388,7 @@ void ATK_FireOptions(const char **holdBuf)
 			continue;
 		}
 
-		if ((tokenInt < 0) || (tokenInt > 10000 ))
+		if ((tokenInt < 0) || (tokenInt > 10000))
 		{
 			gi.Printf(S_COLOR_YELLOW"WARNING: bad Fireoptions[%d] in external weapon data '%d'\n", i, tokenInt);
 			continue;
@@ -1095,14 +1399,14 @@ void ATK_FireOptions(const char **holdBuf)
 }
 
 //--------------------------------------------
-void ATK_dempDetonateShader(const char** holdBuf) 
+void ATK_dempDetonateShader(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].dempDetonateShader, 64, "dempDetonateShader");
 	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].dempDetonateShader);
 }
 
 //--------------------------------------------
-void ATK_dempDetonateModel(const char** holdBuf) 
+void ATK_dempDetonateModel(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].dempDetonateModel, 64, "dempDetonateModel");
 	G_EffectIndex(weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].dempDetonateModel);
@@ -1141,7 +1445,7 @@ static void WP_ParseAtkParms(const char** holdBuf)
 		if (!Q_stricmp(token, "}"))	// End of data for this attack
 			break;
 		// Loop through possible parameters
-		for (i = 0;i < numAtkParms;++i)
+		for (i = 0; i < numAtkParms; ++i)
 		{
 			if (!Q_stricmp(token, AttackDataParms[i].parmName))
 			{
@@ -1204,7 +1508,7 @@ void WP_ParseWeaponParms(const char** holdBuf)
 		if (!Q_stricmp(token, "}"))	// End of data for this weapon
 			break;
 		// Loop through possible parameters
-		for (i = 0;i < numWpnParms;++i)
+		for (i = 0; i < numWpnParms; ++i)
 		{
 			if (!Q_stricmp(token, WpnParms[i].parmName))
 			{
@@ -1224,42 +1528,42 @@ void WP_ParseWeaponParms(const char** holdBuf)
 //--------------------------------------------
 // Parse each weapons
 //--------------------------------------------
-void WP_ParseParms(const char *buffer)
+void WP_ParseParms(const char* buffer)
 {
-	const char	*holdBuf;
-	const char	*token;
+	const char* holdBuf;
+	const char* token;
 
 	holdBuf = buffer;
 	COM_BeginParseSession();
 
-	while ( holdBuf )
+	while (holdBuf)
 	{
-		token = COM_ParseExt( &holdBuf, qtrue );
+		token = COM_ParseExt(&holdBuf, qtrue);
 
-		if ( !Q_stricmp( token, "{" ) )
+		if (!Q_stricmp(token, "{"))
 		{
 			WP_ParseWeaponParms(&holdBuf);
 		}
 
 	}
 
-	COM_EndParseSession(  );
+	COM_EndParseSession();
 
 }
 
 //--------------------------------------------
 // Main Load Function
 //--------------------------------------------
-void WP_LoadWeaponParms (void)
+void WP_LoadWeaponParms(void)
 {
-	char *buffer;
+	char* buffer;
 	int len;
 
-	len = gi.FS_ReadFile("ext_data/weapons.dat",(void **) &buffer);
+	len = gi.FS_ReadFile("ext_data/weapons.dat", (void**)&buffer);
 
 	if (len == -1)
 	{
-		Com_Error(ERR_FATAL,"Cannot find ext_data/weapons.dat!\n");
+		Com_Error(ERR_FATAL, "Cannot find ext_data/weapons.dat!\n");
 	}
 
 	// initialise the data area
@@ -1271,7 +1575,7 @@ void WP_LoadWeaponParms (void)
 
 
 	//put in the qunset flag for playerUsable since 0 = false;
-	for (int i = 0; i < MAX_WEAPONS ; i++) {
+	for (int i = 0; i < MAX_WEAPONS; i++) {
 		weaponData[i].playerUsable = qunset;
 		weaponData[i].scopefullMask = qunset;
 		for (int k = 0; k < MAX_WEAPON_ATTACKS; k++)
@@ -1290,15 +1594,17 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].attackData[k].blockability[0] = B_UNSET;
 			weaponData[i].attackData[k].blockability[1] = B_UNSET;
 			weaponData[i].attackData[k].blockability[2] = B_UNSET;
+			weaponData[i].attackData[k].methodOfDeath = MOD_UNSET;
+			weaponData[i].attackData[k].splashMethodOfDeath = MOD_UNSET;
 		}
 	}
 
 	WP_ParseParms(buffer);
 
-	gi.FS_FreeFile( buffer );	//let go of the buffer
+	gi.FS_FreeFile(buffer);	//let go of the buffer
 
 	//Read files containing Dynamics Weapons
-	char*	holdChar;
+	char* holdChar;
 	char	weaponFileList[2048];			//	The list of file names read in
 	int		fileCount;
 	int		fileNameSize;
@@ -1313,11 +1619,11 @@ void WP_LoadWeaponParms (void)
 	{
 		fileNameSize = strlen(holdChar);
 
-		Com_Printf( "Parsing %s\n", holdChar );
+		Com_Printf("Parsing %s\n", holdChar);
 		char* fileBuffer;
 		int fileLen;
 
-		fileLen = gi.FS_ReadFile(va("ext_data/%s",holdChar), (void**)&fileBuffer);
+		fileLen = gi.FS_ReadFile(va("ext_data/%s", holdChar), (void**)&fileBuffer);
 
 		if (fileLen == -1)
 		{
@@ -1385,6 +1691,9 @@ void WP_LoadWeaponParms (void)
 					weaponData[i].attackData[k].missileSize = weaponData[i].attackData[k].missileSize == -1 ? weaponData[j].attackData[k].missileSize : weaponData[i].attackData[k].missileSize;
 					weaponData[i].attackData[k].chargeUnitTime = weaponData[i].attackData[k].chargeUnitTime == 0 ? weaponData[j].attackData[k].chargeUnitTime : weaponData[i].attackData[k].chargeUnitTime;
 					weaponData[i].attackData[k].maxChargeUnits = weaponData[i].attackData[k].maxChargeUnits == 0 ? weaponData[j].attackData[k].maxChargeUnits : weaponData[i].attackData[k].maxChargeUnits;
+
+					weaponData[i].attackData[k].methodOfDeath = weaponData[i].attackData[k].methodOfDeath == MOD_UNSET ? weaponData[j].attackData[k].methodOfDeath : weaponData[i].attackData[k].methodOfDeath;
+					weaponData[i].attackData[k].splashMethodOfDeath = weaponData[i].attackData[k].splashMethodOfDeath == MOD_UNSET ? weaponData[j].attackData[k].splashMethodOfDeath : weaponData[i].attackData[k].splashMethodOfDeath;
 
 
 					//Copy
@@ -1523,6 +1832,9 @@ void WP_LoadWeaponParms (void)
 			weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall != qunset ? weaponData[i].attackData[k].bounceWall : qfalse;
 			weaponData[i].attackData[k].maxChargeUnits = weaponData[i].attackData[k].maxChargeUnits == 0 ? 1 : weaponData[i].attackData[k].maxChargeUnits;
 
+			weaponData[i].attackData[k].methodOfDeath = weaponData[i].attackData[k].methodOfDeath == MOD_UNSET ? MOD_UNKNOWN: weaponData[i].attackData[k].methodOfDeath;
+			weaponData[i].attackData[k].splashMethodOfDeath = weaponData[i].attackData[k].splashMethodOfDeath == MOD_UNSET ? MOD_UNKNOWN : weaponData[i].attackData[k].splashMethodOfDeath;
+
 			//For blockability, if easy is unset then set it to DEFLECTABLE; For higher difficulty, copy the easier difficulty if unset.
 			weaponData[i].attackData[k].blockability[0] = weaponData[i].attackData[k].blockability[0] == B_UNSET ? B_DEFLECTABLE : weaponData[i].attackData[k].blockability[0];
 			weaponData[i].attackData[k].blockability[1] = weaponData[i].attackData[k].blockability[1] == B_UNSET ? weaponData[i].attackData[k].blockability[0] : weaponData[i].attackData[k].blockability[1];
@@ -1541,7 +1853,7 @@ void WP_LoadWeaponParms (void)
 	memset(&buckets, -1, sizeof(buckets));
 	memset(&weaponBuckets, -1, sizeof(weaponBuckets));
 	//Naive initialisation of the buckets
-	for (int i = 0; i < weaponCount;i++)
+	for (int i = 0; i < weaponCount; i++)
 	{
 		int bucketIndex = (-weaponData[i].weaponBucket) - 1;
 		int weaponIndex = 0;
@@ -1553,7 +1865,7 @@ void WP_LoadWeaponParms (void)
 	}
 	//Now merge the buckets in one array
 	int gi = 0;
-	for (int i = 0; i < (-WB_OTHERS);i++)
+	for (int i = 0; i < (-WB_OTHERS); i++)
 	{
 		weaponBuckets[gi] = (-i - 1);
 		gi++;

@@ -31,6 +31,93 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "../qcommon/q_shared.h"
 
+// means of death
+typedef enum meansOfDeath_s {
+
+	MOD_UNKNOWN,
+
+	// weapons
+	MOD_SABER,
+	MOD_BRYAR,
+	MOD_BRYAR_ALT,
+	MOD_BLASTER,
+	MOD_BLASTER_ALT,
+	MOD_DISRUPTOR,
+	MOD_SNIPER,
+	MOD_BOWCASTER,
+	MOD_BOWCASTER_ALT,
+	MOD_REPEATER,
+	MOD_REPEATER_ALT,
+	MOD_DEMP2,
+	MOD_DEMP2_ALT,
+	MOD_FLECHETTE,
+	MOD_FLECHETTE_ALT,
+	MOD_ROCKET,
+	MOD_ROCKET_ALT,
+	//NEW for JKA weapons:
+	MOD_CONC,
+	MOD_CONC_ALT,
+	//END JKA weapons.
+	MOD_THERMAL,
+	MOD_THERMAL_ALT,
+	MOD_DETPACK,
+	MOD_LASERTRIP,
+	MOD_LASERTRIP_ALT,
+	MOD_MELEE,
+	MOD_SEEKER,
+	MOD_FORCE_GRIP,
+	MOD_FORCE_LIGHTNING,
+	MOD_FORCE_DRAIN,
+	MOD_EMPLACED,
+
+	MOD_CLONERIFLE,
+	MOD_CLONERIFLE_ALT,
+	MOD_REBELBLASTER,
+	MOD_REBELBLASTER_ALT,
+	MOD_CLONECOMMANDO,
+	MOD_CLONECOMMANDO_ALT,
+	MOD_REBELRIFLE,
+	MOD_REBELRIFLE_ALT,
+	MOD_REY,
+	MOD_REY_ALT,
+	MOD_JANGO,
+	MOD_JANGO_ALT,
+	MOD_BOBA,
+	MOD_BOBA_ALT,
+	MOD_CLONEPISTOL,
+	MOD_CLONEPISTOL_ALT,
+	MOD_CIS_SNIPER,
+	MOD_CIS_SNIPER_ALT,
+	MOD_SBD,
+	MOD_DROIDEKA,
+
+	// world / generic
+	MOD_ELECTROCUTE,
+	MOD_EXPLOSIVE,
+	MOD_EXPLOSIVE_SPLASH,
+	MOD_KNOCKOUT,
+	MOD_ENERGY,
+	MOD_ENERGY_SPLASH,
+	MOD_WATER,
+	MOD_SLIME,
+	MOD_LAVA,
+	MOD_CRUSH,
+	MOD_IMPACT,
+	MOD_FALLING,
+	MOD_SUICIDE,
+	MOD_TRIGGER_HURT,
+	MOD_GAS,
+	MOD_HIGH_POWERED_SHOT,
+
+	MOD_DESTRUCTION,
+	MOD_BLAST,
+	MOD_STRIKE,
+
+	NUM_MODS,
+	MOD_UNSET = -1,
+
+} meansOfDeath_t;
+
 typedef enum //# weapon_e
 {
 	WP_NONE,
@@ -217,22 +304,25 @@ typedef enum{
 	WC_MINIGUN //Like a Z6
 } weaponCategory_t;
 
+
 typedef struct weaponAttackData_s
 {
 	firingLogic_t firingLogic; //The method of fire for this attack
 
 	/* Base Data */
-	int		energyPerShot;		// Amount of energy used per shot
-	int		fireTime;			// Amount of time between firings
-	int		range;				// Range of weapon
-	float 	spread;				// Accuracy of shots
-	float 	npcSpread[3];		// Accuracy of shots for most npc
-	int		damage;				// Damage per shot
-	int		npcDamage[3];		// Damage per shot for most npc 
-	int		defaultDamage;		// Default damage per shot
-	float	velocity;			// Speed of missile
-	float	npcVelocity[3];		// Speed of missile for most npc
-	int 	fireOption[3];		// Option for the fire (Type, Projectile count,...)
+	int		energyPerShot;				// Amount of energy used per shot
+	int		fireTime;					// Amount of time between firings
+	int		range;						// Range of weapon
+	float 	spread;						// Accuracy of shots
+	float 	npcSpread[3];				// Accuracy of shots for most npc
+	int		damage;						// Damage per shot
+	int		npcDamage[3];				// Damage per shot for most npc 
+	int		defaultDamage;				// Default damage per shot
+	float	velocity;					// Speed of missile
+	float	npcVelocity[3];				// Speed of missile for most npc
+	int 	fireOption[3];				// Option for the fire (Type, Projectile count,...)
+	meansOfDeath_t methodOfDeath;		// Means of death for this attack
+	meansOfDeath_t splashMethodOfDeath; // Means of death for this attack
 
 	/* Splash Damage */
 	int		splashDamage;		// Splash damage when shot explodes
