@@ -2302,6 +2302,31 @@ Called when DLL loads (after subsystem restart, but before gamestate is received
 void CG_PreInit() {
 	CG_Init_CG();
 
+
+	memset(&cgs.gameState, 0, sizeof(cgs.gameState));
+	memset(&cgs.glconfig, 0, sizeof(cgs.glconfig));
+
+	memset(&cgs.serverCommandSequence, 0, sizeof(cgs.serverCommandSequence));
+	memset(&cgs.dmflags, 0, sizeof(cgs.dmflags));
+	memset(&cgs.teamflags, 0, sizeof(cgs.teamflags));
+	memset(&cgs.timelimit, 0, sizeof(cgs.timelimit));
+	memset(&cgs.maxclients, 0, sizeof(cgs.maxclients));
+	memset(&cgs.mapname, 0, sizeof(cgs.mapname));
+	memset(&cgs.stripLevelName, 0, sizeof(cgs.stripLevelName));
+
+	memset(&cgs.model_draw, 0, sizeof(cgs.model_draw));
+	memset(&cgs.sound_precache, 0, sizeof(cgs.sound_precache));
+	memset(&cgs.skins, 0, sizeof(cgs.skins));
+
+	memset(&cgs.numInlineModels, 0, sizeof(cgs.numInlineModels));
+	memset(&cgs.inlineDrawModel, 0, sizeof(cgs.inlineDrawModel));
+	memset(&cgs.inlineModelMidpoints, 0, sizeof(cgs.inlineModelMidpoints));
+
+	memset(&cgs.clientinfo, 0, sizeof(cgs.clientinfo));
+	memset(&cgs.media, 0, sizeof(cgs.media));
+	memset(&cgs.effects, 0, sizeof(cgs.effects));
+
+	memset(&cgs.widthRatioCoef, 0, sizeof(cgs.widthRatioCoef));
 	memset( &cgs, 0, sizeof( cgs ) );
 	iCGResetCount = 0;
 
