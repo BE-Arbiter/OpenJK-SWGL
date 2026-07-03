@@ -308,6 +308,9 @@ cvar_t	*g_disabledAttributes;
 
 cvar_t	*static_cam;
 
+cvar_t *g_allowHealthRegen;
+cvar_t *g_healthRegenRate;
+
 extern char *G_GetLocationForEnt( gentity_t *ent );
 extern void CP_FindCombatPointWaypoints( void );
 extern qboolean InFront( vec3_t spot, vec3_t from, vec3_t fromAngles, float threshHold = 0.0f );
@@ -716,7 +719,7 @@ void G_InitCvars( void ) {
 	g_stepSlideFix = gi.cvar( "g_stepSlideFix", "1", CVAR_ARCHIVE );
 	g_sex = gi.cvar ("sex", "f", CVAR_USERINFO | CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
 	g_spskill = gi.cvar ("g_spskill", "0", CVAR_ARCHIVE | CVAR_SAVEGAME|CVAR_NORESTART);
-	g_newgameplus = gi.cvar("g_newgameplus", "0", CVAR_ARCHIVE | CVAR_SAVEGAME);
+	g_newgameplus = gi.cvar("g_newgameplus", "0", CVAR_ARCHIVE );
 	g_knockback = gi.cvar( "g_knockback", "1000", CVAR_CHEAT );
 	g_dismemberment = gi.cvar ( "g_dismemberment", "3", CVAR_ARCHIVE );//0 = none, 1 = arms and hands, 2 = legs, 3 = waist and head
 	// for now I'm making default 10 seconds
@@ -769,7 +772,7 @@ void G_InitCvars( void ) {
 
 	g_LegacyForceTiming = gi.cvar("g_LegacyForceTiming", "1", CVAR_ARCHIVE);
 
-	g_forceLightningColor = gi.cvar("g_forceLightningColor", "0", CVAR_ARCHIVE);
+	g_forceLightningColor = gi.cvar("g_forceLightningColor", "blue", CVAR_ARCHIVE);
 
 	g_charKey = gi.cvar("g_charKey", "stormtrooper", CVAR_ARCHIVE);
 
@@ -801,9 +804,9 @@ void G_InitCvars( void ) {
 	g_NPCtype = gi.cvar("g_NPCtype", "stormtrooper", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_NPCteam = gi.cvar("g_NPCteam", "enemy", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_NPChealth = gi.cvar("g_NPChealth", "100", CVAR_ARCHIVE | CVAR_NORESTART);
-	g_NPCspawnscript = gi.cvar("g_NPCspawnscript", "spawnscripts/none", 0);
-	g_NPCfleescript = gi.cvar("g_NPCfleescript", "fleescripts/none", 0);
-	g_NPCdeathscript = gi.cvar("g_NPCdeathscript", "deathscripts/none", 0);
+	g_NPCspawnscript = gi.cvar("g_NPCspawnscript", "none", 0);
+	g_NPCfleescript = gi.cvar("g_NPCfleescript", "none", 0);
+	g_NPCdeathscript = gi.cvar("g_NPCdeathscript", "none", 0);
 	g_NPChead = gi.cvar("g_NPChead", "model_default", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_NPCtorso = gi.cvar("g_NPCtorso", "model_default", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_NPClegs = gi.cvar("g_NPClegs", "model_default", CVAR_ARCHIVE | CVAR_NORESTART);	
@@ -870,6 +873,9 @@ void G_InitCvars( void ) {
 	static_cam = gi.cvar("static_Cam", "0", CVAR_NORESTART);
 
 	g_disabledAttributes = gi.cvar("g_disabledAttributes", "0", CVAR_ARCHIVE);
+
+	g_allowHealthRegen = gi.cvar("g_allowHealthRegen", "0", CVAR_ARCHIVE);
+	g_healthRegenRate = gi.cvar("g_healthRegenRate", "1.0", CVAR_ARCHIVE);
 
 }
 /*

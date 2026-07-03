@@ -719,13 +719,13 @@ static missionData_t missionData[MAX_MISSION_TOPIC][MAX_MISSION] =
 {
 	{ "@SWGLMISSIONS_CHALLENGES_EP1_HANGAR",		"0",			"SV_EP1_HANGAR", "sv_ep1_hangar", "@SWGLMISSIONS_CHALLENGES_EP1_HANGAR_DESC"},
 	{ "@SWGLMISSIONS_CHALLENGES_EP2_TUSKENCAMP",		"1",			"SV_EP2_TUSKENCAMP", "sv_ep2_tuskencamp", "@SWGLMISSIONS_CHALLENGES_EP2_TUSKENCAMP_DESC"},
-	{ "@SWGLMISSIONS_CHALLENGES_EP4_DS_HANGAR",		"2",			"SV_EP4_DS_HANGAR", "sv_ep4_ds_hangar", "@SWGLMISSIONS_CHALLENGES_EP4_DS_HANGAR_DESC"},
-	{ "@SWGLMISSIONS_CHALLENGES_EP5_ECHO_BASE",		"3",			"SV_EP5_ECHO_BASE", "sv_ep5_echo_base", "@SWGLMISSIONS_CHALLENGES_EP5_ECHO_BASE_DESC"},
-	{ "@SWGLMISSIONS_CHALLENGES_EP6_DS2_HANGAR",		"4",			"SV_EP6_DS2_HANGAR", "sv_ep6_ds2_hangar", "@SWGLMISSIONS_CHALLENGES_EP6_DS2_HANGAR_DESC"},
-	{ "@SWGLMISSIONS_CHALLENGES_JKA_VJUN",		"5",			"SV_JKA_VJUN", "sv_jka_vjun", "@SWGLMISSIONS_CHALLENGES_JKA_VJUN_DESC"},
-	{ "@SWGLMISSIONS_CHALLENGES_JKO_VOTJ",		"6",			"SV_JKO_VOTJ", "sv_jko_votj", "@SWGLMISSIONS_CHALLENGES_JKO_VOTJ_DESC"},
-	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
-	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ "@SWGLMISSIONS_CHALLENGES_EP3_DUEL_ROOM",		"2",			"SV_EP3_DUEL_ROOM", "sv_ep3_duel_room", "@SWGLMISSIONS_CHALLENGES_EP3_DUEL_ROOM_DESC"},
+	{ "@SWGLMISSIONS_CHALLENGES_EP3_MYGEETO",		"3",			"SV_EP3_MYGEETO", "sv_ep3_mygeeto", "@SWGLMISSIONS_CHALLENGES_EP3_MYGEETO_DESC"},
+	{ "@SWGLMISSIONS_CHALLENGES_EP4_DS_HANGAR",		"4",			"SV_EP4_DS_HANGAR", "sv_ep4_ds_hangar", "@SWGLMISSIONS_CHALLENGES_EP4_DS_HANGAR_DESC"},
+	{ "@SWGLMISSIONS_CHALLENGES_EP5_ECHO_BASE",		"5",			"SV_EP5_ECHO_BASE", "sv_ep5_echo_base", "@SWGLMISSIONS_CHALLENGES_EP5_ECHO_BASE_DESC"},
+	{ "@SWGLMISSIONS_CHALLENGES_EP6_DS2_HANGAR",		"6",			"SV_EP6_DS2_HANGAR", "sv_ep6_ds2_hangar", "@SWGLMISSIONS_CHALLENGES_EP6_DS2_HANGAR_DESC"},
+	{ "@SWGLMISSIONS_CHALLENGES_JKA_VJUN",		"7",			"SV_JKA_VJUN", "sv_jka_vjun", "@SWGLMISSIONS_CHALLENGES_JKA_VJUN_DESC"},
+	{ "@SWGLMISSIONS_CHALLENGES_JKO_VOTJ",		"8",			"SV_JKO_VOTJ", "sv_jko_votj", "@SWGLMISSIONS_CHALLENGES_JKO_VOTJ_DESC"},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
@@ -887,7 +887,7 @@ vmCvar_t	ui_seeing_level;
 vmCvar_t	ui_absorb_level;
 vmCvar_t	ui_heal_level;
 vmCvar_t	ui_protect_level;
-vmCvar_t	ui_telepathy_level;
+vmCvar_t	ui_mindtrick_level;
 vmCvar_t	ui_stasis_level;
 vmCvar_t	ui_grasp_level;
 vmCvar_t	ui_blast_level;
@@ -900,9 +900,9 @@ vmCvar_t	ui_destruction_level;
 vmCvar_t	ui_fear_level;
 vmCvar_t	ui_strike_level;
 
-vmCvar_t	ui_saber_attack_level;
-vmCvar_t	ui_saber_defend_level;
-vmCvar_t	ui_saber_throw_level;
+vmCvar_t	ui_saboff_level;
+vmCvar_t	ui_sabdef_level;
+vmCvar_t	ui_sabthrow_level;
 
 vmCvar_t	ui_saber_styles;
 
@@ -1030,9 +1030,9 @@ static cvarTable_t cvarTable[] =
 	{ &ui_npc_weapon,			"ui_npc_weapon",	"WP_BLASTER", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_weapon_label,			"ui_npc_weapon_label",	"Blaster", NULL, CVAR_ARCHIVE},
 	{ &ui_lightning_color,		"ui_lightning_color",	"blue", NULL, CVAR_ARCHIVE},
-	{ &ui_npc_spawnscript,		"ui_npc_spawnscript",	"spawnscripts/none", NULL, 0},
-	{ &ui_npc_fleescript,		"ui_npc_fleescript",	"fleescripts/none", NULL, 0},
-	{ &ui_npc_deathscript,		"ui_npc_deathscript",	"deathscripts/none", NULL, 0},
+	{ &ui_npc_spawnscript,		"ui_npc_spawnscript",	"none", NULL, 0},
+	{ &ui_npc_fleescript,		"ui_npc_fleescript",	"none", NULL, 0},
+	{ &ui_npc_deathscript,		"ui_npc_deathscript",	"none", NULL, 0},
 	{ &ui_npc_targetname,		"ui_npc_targetname",	"", NULL, 0},
 	{ &ui_saber_edit,			"ui_saber_edit",		"0", NULL},
 	{ &ui_char_model_angle, "ui_char_model_angle", "180", NULL, 0},
@@ -1053,7 +1053,7 @@ static cvarTable_t cvarTable[] =
 	{ &ui_absorb_level, "ui_absorb_level", "0", NULL, 0 },
 	{ &ui_heal_level, "ui_heal_level", "0", NULL, 0 },
 	{ &ui_protect_level, "ui_protect_level", "0", NULL, 0 },
-	{ &ui_telepathy_level, "ui_mindtrick_level", "0", NULL, 0 },
+	{ &ui_mindtrick_level, "ui_mindtrick_level", "0", NULL, 0 },
 	{ &ui_stasis_level, "ui_stasis_level", "0", NULL, 0 },
 	{ &ui_grasp_level, "ui_grasp_level", "0", NULL, 0 },
 	{ &ui_blast_level, "ui_blast_level", "0", NULL, 0 },
@@ -1066,9 +1066,9 @@ static cvarTable_t cvarTable[] =
 	{ &ui_fear_level, "ui_fear_level", "0", NULL, 0 },
 	{ &ui_strike_level, "ui_strike_level", "0", NULL, 0 },
 
-	{ &ui_saber_attack_level, "ui_saber_attack_level", "0", NULL, 0 },
-	{ &ui_saber_defend_level, "ui_saber_defend_level", "0", NULL, 0 },
-	{ &ui_saber_throw_level, "ui_saber_throw_level", "0", NULL, 0 },
+	{ &ui_saboff_level, "ui_saboff_level", "0", NULL, 0 },
+	{ &ui_sabdef_level, "ui_sabdef_level", "0", NULL, 0 },
+	{ &ui_sabthrow_level, "ui_sabthrow_level", "0", NULL, 0 },
 	{ &ui_variant_code,			"ui_variant_code",		"default", NULL, 0},
 	{ &ui_team,					"ui_team",	"enemy", NULL, CVAR_ARCHIVE},
 	{ &ui_health,				"ui_health",	"100", NULL, CVAR_ARCHIVE},
@@ -2103,9 +2103,9 @@ static qboolean UI_RunMenuScript ( const char **args )
 				Cvar_VariableString("ui_mindtrick_level"),
 				Cvar_VariableString("ui_grip_level"),
 				Cvar_VariableString("ui_lightning_level"),
-				Cvar_VariableString("ui_saber_throw_level"),
-				Cvar_VariableString("ui_saber_defend_level"),
-				Cvar_VariableString("ui_saber_attack_level"),
+				Cvar_VariableString("ui_sabthrow_level"),
+				Cvar_VariableString("ui_sabdef_level"),
+				Cvar_VariableString("ui_saboff_level"),
 				Cvar_VariableString("ui_rage_level"),
 				Cvar_VariableString("ui_protect_level"),
 				Cvar_VariableString("ui_absorb_level"),
@@ -2208,6 +2208,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 			ui.Cmd_ExecuteText(EXEC_NOW, va("give health %s\n", Cvar_VariableString("ui_health")));
 			ui.Cmd_ExecuteText(EXEC_NOW, va("give shield %s\n", Cvar_VariableString("ui_health")));
 			ui.Cmd_ExecuteText(EXEC_NOW, va("give force %s\n", Cvar_VariableString("ui_force")));
+			ui.Cmd_ExecuteText(EXEC_NOW, va("lightningColor %s\n", Cvar_VariableString("ui_lightning_color")));
 		}
 		else if (Q_stricmp(name, "anglesesc") == 0)
 		{
@@ -5625,24 +5626,6 @@ static void UI_UpdateCharacterCvars(void)
 
 static void UI_UpdateNPCCvars()
 {
-	if(!Q_stricmp(Cvar_VariableString("ui_npc_weapon"), "weapon_clone_random"))
-	{
-		if (!Q_irand(0, 10))
-		{
-			Cvar_Set("ui_npc_weapon", "weapon_z6");
-		}
-		else
-		{
-			if (!Q_irand(0, 1))
-			{
-				Cvar_Set("ui_npc_weapon", "weapon_clonerifle");
-			}
-			else
-			{
-				Cvar_Set("ui_npc_weapon", "weapon_carbine");
-			}
-		}
-	}
 	Cvar_Set("g_NPCtype", Cvar_VariableString("ui_npc_type"));
 	Cvar_Set("g_NPCmodel", Cvar_VariableString("ui_char_model"));
 	Cvar_Set("g_NPChead", Cvar_VariableString("ui_char_skin_head"));
@@ -5687,9 +5670,9 @@ static void UI_UpdateNPCCvars()
 	Cvar_Set("g_npc_fear_level", Cvar_VariableString("ui_fear_level"));
 	Cvar_Set("g_npc_strike_level", Cvar_VariableString("ui_strike_level"));
 
-	Cvar_Set("g_npc_saber_attack_level", Cvar_VariableString("ui_saber_attack_level"));
-	Cvar_Set("g_npc_saber_defend_level", Cvar_VariableString("ui_saber_defend_level"));
-	Cvar_Set("g_npc_saber_throw_level", Cvar_VariableString("ui_saber_throw_level"));
+	Cvar_Set("g_npc_saber_attack_level", Cvar_VariableString("ui_saboff_level"));
+	Cvar_Set("g_npc_saber_defend_level", Cvar_VariableString("ui_sabdef_level"));
+	Cvar_Set("g_npc_saber_throw_level", Cvar_VariableString("ui_sabthrow_level"));
 }
 
 static void UI_GetCharacterCvars ( void )
@@ -6095,12 +6078,47 @@ static void UI_InitAllocSaberStyle(const char* saberStyle) {
 		item->disabled = isSingleSaber? qfalse : qtrue;
 		item->disabledHidden = qfalse;
 	}
+
+	int stanceValue = 0;
+	switch (stanceIndex)
+	{
+		case SS_FAST:
+			stanceValue = 1;
+			break;
+		case SS_MEDIUM:
+			stanceValue = 2;
+			break;
+		case SS_STRONG:
+			stanceValue = 4;
+			break;
+		case SS_DESANN:
+			stanceValue = 8;
+			break;
+		case SS_TAVION:
+			stanceValue = 16;
+			break;
+		case SS_DUAL:
+			stanceValue = 32;
+			break;
+		case SS_STAFF:
+			stanceValue = 64;
+			break;
+		default:
+			break;
+	}
+
+	if (Cvar_VariableIntegerValue("ui_saber_styles") & stanceValue)
+	{
+		int newValue = Cvar_VariableIntegerValue("ui_saber_styles") + stanceValue;
+		ui.Cvar_Set("ui_saber_styles", va("%i", newValue));
+	}
 }
 
 // Switch the value of a Saber Style then call update method to update UI(Used by Force Power Allocation screen)
 static void UI_SwitchSaberStyle(const char* saberStyle) {
 
 	menuDef_t* menu;
+	itemDef_t* item;
 	short	stanceIndex = GetIDForString(SaberStyleTable, saberStyle);
 	menu = Menu_GetFocused();
 
@@ -6125,7 +6143,60 @@ static void UI_SwitchSaberStyle(const char* saberStyle) {
 		return;
 	}
 
-	playerState_t* pState = cl->gentity->client;
+	int stanceValue = 0;
+	switch (stanceIndex)
+	{
+	case SS_FAST:
+		stanceValue = 1;
+		break;
+	case SS_MEDIUM:
+		stanceValue = 2;
+		break;
+	case SS_STRONG:
+		stanceValue = 4;
+		break;
+	case SS_DESANN:
+		stanceValue = 8;
+		break;
+	case SS_TAVION:
+		stanceValue = 16;
+		break;
+	case SS_DUAL:
+		stanceValue = 32;
+		break;
+	case SS_STAFF:
+		stanceValue = 64;
+		break;
+	default:
+		break;
+	}
+
+	if (Cvar_VariableIntegerValue("ui_saber_styles") & stanceValue)
+	{
+		int newValue = Cvar_VariableIntegerValue("ui_saber_styles") - stanceValue;
+		ui.Cvar_Set("ui_saber_styles", va("%i", newValue));
+	}
+	else
+	{
+		int newValue = Cvar_VariableIntegerValue("ui_saber_styles") + stanceValue;
+		ui.Cvar_Set("ui_saber_styles", va("%i", newValue));
+	}
+
+	char itemName[128];
+	Com_sprintf(itemName, sizeof(itemName), "%s_switch", saberStyle);
+	item = (itemDef_s*)Menu_FindItemByName(menu, itemName);
+	bool isSingleSaber = !Q_stricmp(Cvar_VariableString("g_saber_type"), "single");
+
+	if (item)
+	{
+		char itemGraphic[128];
+		Com_sprintf(itemGraphic, sizeof(itemGraphic), "gfx/menus/stance_switch_%s", (Cvar_VariableIntegerValue("ui_saber_styles") & stanceValue) ? "on" : "off");
+		item->window.background = ui.R_RegisterShaderNoMip(itemGraphic);
+		item->disabled = isSingleSaber ? qfalse : qtrue;
+		item->disabledHidden = qfalse;
+	}
+
+	/*playerState_t* pState = cl->gentity->client;
 	bool hasStance = (pState->saberStylesKnown & (1 << stanceIndex) ) != 0;
 	//Add or remove the stance
 	if (hasStance) {
@@ -6142,9 +6213,9 @@ static void UI_SwitchSaberStyle(const char* saberStyle) {
 	}
 	else {
 		pState->saberStylesKnown |= (1 << stanceIndex);
-	}
+	}*/
 
-	return UI_InitAllocSaberStyle(saberStyle);
+	//return UI_InitAllocSaberStyle(saberStyle);
 }
 
 // Set the fields for the allocation of force powers (Used by Force Power Allocation screen)
@@ -6189,6 +6260,7 @@ static void UI_InitAllocForcePowers ( const char *forceName )
 	{
 		char itemGraphic[128];
 		Com_sprintf (itemGraphic, sizeof(itemGraphic), "gfx/menus/hex_pattern_%d",forcelevel >= 6 ? 5 : forcelevel);
+		ui.Cvar_Set(va("ui_%s_level", powerEnums[forcePowerI].title), va("%d", forcelevel));
 		item->window.background = ui.R_RegisterShaderNoMip(itemGraphic);
 
 		// If maxed out on power - don't allow update
@@ -7097,9 +7169,9 @@ static void UI_RecordForcePowers(const char** args)
 		"ui_mindtrick_level",
 		"ui_grip_level",
 		"ui_lightning_level",
-		"ui_saber_throw_level",
-		"ui_saber_defend_level",
-		"ui_saber_attack_level",
+		"ui_saboff_level",
+		"ui_sabdef_level",
+		"ui_sabthrow_level",
 		"ui_rage_level",
 		"ui_protect_level",
 		"ui_absorb_level",
@@ -8754,9 +8826,9 @@ static void UI_SaveCharacterPowers(void)
 			"ui_fear_level",
 			"ui_strike_level",
 
-			"ui_saber_attack_level",
-			"ui_saber_defend_level",
-			"ui_saber_throw_level",
+			"ui_saboff_level",
+			"ui_sabdef_level",
+			"ui_sabthrow_level",
 
 
 			"ui_npc_weapon",

@@ -1096,7 +1096,6 @@ Ghoul2 Insert End
 //Health and damage fields
 	int			health;
 	int			max_health;
-	lightningColor_t			lightningColor;
 	qboolean	takedamage;
 	material_t	material;
 	int			damage;
@@ -1259,8 +1258,6 @@ Ghoul2 Insert End
 	char		*NPC_SaberTwo;
 	char		*NPC_SaberTwoColor;
 	char		*NPC_Weapon;
-	char		*NPC_LightningColor;
-	char		*NPC_LightningVictim;
 	char		*NPC_model;
 	int			NPC_FPLevel[NUM_FORCE_POWERS];
 	int			NPC_color_red;
@@ -1317,6 +1314,9 @@ Ghoul2 Insert End
 	//Force effects
 	int			forcePushTime;
 	int			forcePuller;	//who force-pulled me (so we don't damage them if we hit them)
+
+	lightningColor_t	forceLightningColor;
+	lightningColor_t	forceLightningVictim;
 
 
 	void sg_export(
@@ -1483,8 +1483,8 @@ Ghoul2 Insert End
 		saved_game.write<int32_t>(NPC_targetname);
 		saved_game.write<int32_t>(NPC_target);
 		saved_game.write<int32_t>(NPC_skin);
-		saved_game.write<int32_t>(NPC_LightningColor);
-		saved_game.write<int32_t>(NPC_LightningVictim);
+		saved_game.write<int32_t>(forceLightningColor);
+		saved_game.write<int32_t>(forceLightningVictim);
 		saved_game.write<int32_t>(NPC_team);
 		saved_game.write<int32_t>(NPC_Weapon);
 		saved_game.write<int32_t>(NPC_SaberOne);
@@ -1684,8 +1684,8 @@ Ghoul2 Insert End
 		saved_game.read<int32_t>(NPC_targetname);
 		saved_game.read<int32_t>(NPC_target);
 		saved_game.read<int32_t>(NPC_skin);
-		saved_game.read<int32_t>(NPC_LightningColor);
-		saved_game.read<int32_t>(NPC_LightningVictim);
+		saved_game.read<int32_t>(forceLightningColor);
+		saved_game.read<int32_t>(forceLightningVictim);
 		saved_game.read<int32_t>(NPC_team);
 		saved_game.read<int32_t>(NPC_Weapon);
 		saved_game.read<int32_t>(NPC_SaberOne);

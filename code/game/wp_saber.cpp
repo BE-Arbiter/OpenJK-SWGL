@@ -169,6 +169,8 @@ qboolean FP_ForceDrainGrippableEnt( gentity_t *victim );
 void Inquisitor_Spin(gentity_t* ent, qboolean increment = qtrue);
 void Inquisitor_Stop(gentity_t* ent, qboolean running = qfalse);
 
+extern lightningColor_t TranslateLightningColor(const char* name);
+
 qboolean validLockTarget(gentity_t* ent, gentity_t* hitOwner);
 
 qboolean IsPlayingOperationKnightfall(void);
@@ -178,8 +180,6 @@ extern cvar_t	*g_saberAutoBlocking;
 extern cvar_t	*g_saberRealisticCombat;
 extern cvar_t	*g_saberDamageCapping;
 extern cvar_t	*g_saberNewControlScheme;
-
-extern cvar_t   *g_forceLightningColor;
 
 extern int g_crosshairEntNum;
 
@@ -12409,24 +12409,32 @@ void ForceLightningStrike(gentity_t* self)
 
 	if (self->handLBolt != -1)
 	{
-		if (self->NPC_LightningColor)
+		switch (self->forceLightningColor)
 		{
-			if (!Q_stricmp(self->NPC_LightningColor, "red"))
+			case LIGHTNING_RED:
 				G_PlayEffect(G_EffectIndex("force/redlightning"), self->playerModel, self->handLBolt, self->s.number, self->currentOrigin, 200, qtrue);
-			else if (!Q_stricmp(self->NPC_LightningColor, "orange"))
+				break;
+			case LIGHTNING_ORANGE:
 				G_PlayEffect(G_EffectIndex("force/orangelightning"), self->playerModel, self->handLBolt, self->s.number, self->currentOrigin, 200, qtrue);
-			else if (!Q_stricmp(self->NPC_LightningColor, "yellow"))
+				break;
+			case LIGHTNING_YELLOW:
 				G_PlayEffect(G_EffectIndex("force/yellowlightning"), self->playerModel, self->handLBolt, self->s.number, self->currentOrigin, 200, qtrue);
-			else if (!Q_stricmp(self->NPC_LightningColor, "green"))
+				break;
+			case LIGHTNING_GREEN:
 				G_PlayEffect(G_EffectIndex("force/greenlightning"), self->playerModel, self->handLBolt, self->s.number, self->currentOrigin, 200, qtrue);
-			else if (!Q_stricmp(self->NPC_LightningColor, "purple"))
+				break;
+			case LIGHTNING_PURPLE:
 				G_PlayEffect(G_EffectIndex("force/purplelightning"), self->playerModel, self->handLBolt, self->s.number, self->currentOrigin, 200, qtrue);
-			else if (!Q_stricmp(self->NPC_LightningColor, "white"))
+				break;
+			case LIGHTNING_WHITE:
 				G_PlayEffect(G_EffectIndex("force/whitelightning"), self->playerModel, self->handLBolt, self->s.number, self->currentOrigin, 200, qtrue);
-			else if (!Q_stricmp(self->NPC_LightningColor, "black"))
+				break;
+			case LIGHTNING_BLACK:
 				G_PlayEffect(G_EffectIndex("force/blacklightning"), self->playerModel, self->handLBolt, self->s.number, self->currentOrigin, 200, qtrue);
-			else if (!Q_stricmp(self->NPC_LightningColor, "blue"))
+				break;
+			default:
 				G_PlayEffect(G_EffectIndex("force/lightning"), self->playerModel, self->handLBolt, self->s.number, self->currentOrigin, 200, qtrue);
+				break;
 		}
 	}
 
@@ -12544,24 +12552,34 @@ static void WP_FireStrike(gentity_t* ent, int forceLevel)
 
 	// always render a shot beam, doing this the old way because I don't much feel like overriding the effect.
 	tent = G_TempEntity(tr.endpos, EV_LIGHTNING_STRIKE);
-	if (ent->NPC_LightningColor)
+	if (ent->forceLightningColor)
 	{
-		if (!Q_stricmp(ent->NPC_LightningColor, "red"))
+		switch (ent->forceLightningColor)
+		{
+		case LIGHTNING_RED:
 			tent = G_TempEntity(tr.endpos, EV_RED_LIGHTNING_STRIKE);
-		else if (!Q_stricmp(ent->NPC_LightningColor, "orange"))
+			break;
+		case LIGHTNING_ORANGE:
 			tent = G_TempEntity(tr.endpos, EV_ORANGE_LIGHTNING_STRIKE);
-		else if (!Q_stricmp(ent->NPC_LightningColor, "yellow"))
+			break;
+		case LIGHTNING_YELLOW:
 			tent = G_TempEntity(tr.endpos, EV_YELLOW_LIGHTNING_STRIKE);
-		else if (!Q_stricmp(ent->NPC_LightningColor, "green"))
+			break;
+		case LIGHTNING_GREEN:
 			tent = G_TempEntity(tr.endpos, EV_GREEN_LIGHTNING_STRIKE);
-		else if (!Q_stricmp(ent->NPC_LightningColor, "purple"))
+			break;
+		case LIGHTNING_PURPLE:
 			tent = G_TempEntity(tr.endpos, EV_PURPLE_LIGHTNING_STRIKE);
-		else if (!Q_stricmp(ent->NPC_LightningColor, "white"))
+			break;
+		case LIGHTNING_WHITE:
 			tent = G_TempEntity(tr.endpos, EV_WHITE_LIGHTNING_STRIKE);
-		else if (!Q_stricmp(ent->NPC_LightningColor, "black"))
+			break;
+		case LIGHTNING_BLACK:
 			tent = G_TempEntity(tr.endpos, EV_BLACK_LIGHTNING_STRIKE);
-		else
+		default:
 			tent = G_TempEntity(tr.endpos, EV_LIGHTNING_STRIKE);
+			break;
+		}
 	}
 
 
@@ -12612,47 +12630,24 @@ static void WP_FireStrike(gentity_t* ent, int forceLevel)
 
 const char* CG_GetForceLightning(gentity_t* ent)
 {
-	if (ent == player)
+	switch (ent->forceLightningColor)
 	{
-		ent->NPC_LightningColor = g_forceLightningColor->string;
-	}
-
-	if (ent->NPC_LightningColor)
-	{
-		if (!Q_stricmp(ent->NPC_LightningColor, "red"))
-		{
+		case LIGHTNING_RED:
 			return "force/redlightning";
-		}
-		else if (!Q_stricmp(ent->NPC_LightningColor, "orange"))
-		{
+		case LIGHTNING_ORANGE:
 			return "force/orangelightning";
-		}
-		else if (!Q_stricmp(ent->NPC_LightningColor, "yellow"))
-		{
+		case LIGHTNING_YELLOW:		
 			return "force/yellowlightning";
-		}
-		else if (!Q_stricmp(ent->NPC_LightningColor, "green"))
-		{
+		case LIGHTNING_GREEN:
 			return "force/greenlightning";
-		}
-		else if (!Q_stricmp(ent->NPC_LightningColor, "purple"))
-		{
+		case LIGHTNING_PURPLE:
 			return "force/purplelightning";
-		}
-		else if (!Q_stricmp(ent->NPC_LightningColor, "white"))
-		{
+		case LIGHTNING_WHITE:
 			return "force/whitelightning";
-		}
-		else if (!Q_stricmp(ent->NPC_LightningColor, "black"))
-		{
+		case LIGHTNING_BLACK:
 			return "force/blacklightning";
-		}
-
-		return "force/lightning";
-	}
-	else
-	{
-		return "force/lightning";
+		default:
+			return "force/lightning";
 	}
 
 }
@@ -12746,13 +12741,13 @@ void ForceLightningDamage(gentity_t* self, gentity_t* traceEnt, vec3_t dir, floa
 
 	if (traceEnt && traceEnt->takedamage)
 	{
-		if (self->NPC_LightningColor)
+		if (self->forceLightningColor)
 		{
-			traceEnt->NPC_LightningVictim = self->NPC_LightningColor;
+			traceEnt->forceLightningVictim = self->forceLightningColor;
 		}
 		else
 		{
-			traceEnt->NPC_LightningVictim = "blue";
+			traceEnt->forceLightningVictim = LIGHTNING_BLUE;
 		}
 
 		if (!traceEnt->client || traceEnt->client->playerTeam != self->client->playerTeam || self->enemy == traceEnt || traceEnt->enemy == self || traceEnt->client->playerTeam == TEAM_SOLO || self->client->playerTeam == TEAM_SOLO)
@@ -12957,11 +12952,17 @@ void ForceLightningDamage(gentity_t* self, gentity_t* traceEnt, vec3_t dir, floa
 					npc_class == CLASS_MARK2 || npc_class == CLASS_INTERROGATOR || npc_class == CLASS_ATST) ||
 					npc_class == CLASS_SENTRY || GEntity_HasAttribute(traceEnt, ATTR_DROID))
 				{
-					traceEnt->client->ps.powerups[PW_FORCE_SHOCKED] = level.time + 4000;
+					if (dmg)
+					{
+						traceEnt->client->ps.powerups[PW_FORCE_SHOCKED] = level.time + 4000;
+					}
 				}
 				else //short version
 				{
-					traceEnt->client->ps.powerups[PW_FORCE_SHOCKED] = level.time + 500;
+					if (dmg)
+					{
+						traceEnt->client->ps.powerups[PW_FORCE_SHOCKED] = level.time + 500;
+					}
 				}
 			}
 		}
@@ -16928,8 +16929,8 @@ void WP_InitForcePowers( gentity_t *ent )
 		}
 		else
 		{
-			ent->client->ps.forcePowersKnown = ( 1 << FP_HEAL )|( 1 << FP_LEVITATION )|( 1 << FP_SPEED )|( 1 << FP_PUSH )|( 1 << FP_PULL )|( 1 << FP_TELEPATHY )|( 1 << FP_GRIP )|( 1 << FP_LIGHTNING)|( 1 << FP_SABERTHROW)|( 1 << FP_SABER_DEFENSE )|( 1 << FP_SABER_OFFENSE )|( 1<< FP_RAGE )|( 1<< FP_DRAIN )|( 1<< FP_PROTECT )|( 1<< FP_ABSORB )|( 1<< FP_SEE )
-				|(1 << FP_STASIS) | (1 << FP_DESTRUCTION | (1 << FP_GRASP) | (1 << FP_FEAR) | (1 << FP_LIGHTNING_STRIKE) | (1 << FP_BLAST));
+			ent->client->ps.forcePowersKnown = (1 << FP_HEAL) | (1 << FP_LEVITATION) | (1 << FP_SPEED) | (1 << FP_PUSH) | (1 << FP_PULL) | (1 << FP_TELEPATHY) | (1 << FP_GRIP) | (1 << FP_LIGHTNING) | (1 << FP_SABERTHROW) | (1 << FP_SABER_DEFENSE) | (1 << FP_SABER_OFFENSE) | (1 << FP_RAGE) | (1 << FP_DRAIN) | (1 << FP_PROTECT) | (1 << FP_ABSORB) | (1 << FP_SEE);
+				//|(1 << FP_STASIS) | (1 << FP_DESTRUCTION | (1 << FP_GRASP) | (1 << FP_FEAR) | (1 << FP_LIGHTNING_STRIKE) | (1 << FP_BLAST));
 
 			ent->client->ps.forcePowerLevel[FP_HEAL] = //FORCE_LEVEL_2;
 			ent->client->ps.forcePowerLevel[FP_LEVITATION] = FORCE_LEVEL_2;

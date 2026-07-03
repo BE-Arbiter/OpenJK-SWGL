@@ -133,7 +133,8 @@ typedef enum
 
 typedef	enum
 {
-	LIGHTNING_BLUE = 0,
+	LIGHTNING_NONE = 0, // I hate I had to do it like this....
+	LIGHTNING_BLUE,
 	LIGHTNING_RED,
 	LIGHTNING_ORANGE,
 	LIGHTNING_YELLOW,
@@ -168,7 +169,6 @@ public:
 	int		acceleration;
 	//sex
 	sexType_t	sex;			//male, female, etc.
-	lightningColor_t lightningColor;
 
 
 	void sg_export(
@@ -192,7 +192,6 @@ public:
 		saved_game.write<int32_t>(health);
 		saved_game.write<int32_t>(acceleration);
 		saved_game.write<int32_t>(sex);
-		saved_game.write<int32_t>(lightningColor);
 	}
 
 	void sg_import(
@@ -216,7 +215,6 @@ public:
 		saved_game.read<int32_t>(health);
 		saved_game.read<int32_t>(acceleration);
 		saved_game.read<int32_t>(sex);
-		saved_game.read<int32_t>(lightningColor);
 	}
 }; // gNPCstats_t
 

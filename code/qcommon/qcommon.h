@@ -151,8 +151,9 @@ qboolean	Sys_StringToAdr( const char *s, netadr_t *a );
 qboolean	Sys_IsLANAddress (netadr_t adr);
 void		Sys_ShowIP(void);
 
-
-#define	MAX_MSGLEN				(1*17408)		// max length of a message, which may
+#define		MAX_MSGLEN				65536			// max length of a message, which may
+// be fragmented into multiple packets
+//#define	MAX_MSGLEN				(1*17408)		// max length of a message, which may
 //#define	MAX_MSGLEN				(3*16384)		// max length of a message, which may
 											// be fragmented into multiple packets
 

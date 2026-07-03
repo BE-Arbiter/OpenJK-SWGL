@@ -1543,7 +1543,7 @@ static void CG_RegisterGraphics( void ) {
 											cgi_R_RegisterShader( "gfx/misc/ion_shield" );
 
 	cgs.media.boltShader = cgi_R_RegisterShader("gfx/misc/blueLine");
-	cgs.media.redBoltShader = cgi_R_RegisterShader("gfx/misc/redLine");
+	cgs.media.redBoltShader = cgi_R_RegisterShader("gfx/misc/redLightningLine");
 	cgs.media.orangeBoltShader = cgi_R_RegisterShader("gfx/misc/orangeLine");
 	cgs.media.yellowBoltShader = cgi_R_RegisterShader("gfx/misc/yellowLine");
 	cgs.media.greenBoltShader = cgi_R_RegisterShader("gfx/misc/greenLine");
@@ -1726,8 +1726,22 @@ static void CG_RegisterGraphics( void ) {
 	cgs.media.rivetMarkShader				= cgi_R_RegisterShader( "gfx/damage/rivetmark" );
 
 	// doing one shader just makes it look like a shell.  By using two shaders with different bulge offsets and different texture scales, it has a much more chaotic look
-	cgs.media.electricBodyShader			= cgi_R_RegisterShader( "gfx/misc/electric" );
-	cgs.media.electricBody2Shader			= cgi_R_RegisterShader( "gfx/misc/fullbodyelectric2" );
+	cgs.media.electricBodyShader = cgi_R_RegisterShader("gfx/misc/electric");
+	cgs.media.electricBody2Shader = cgi_R_RegisterShader("gfx/misc/fullbodyelectric2");
+	cgs.media.redElectricBodyShader = cgi_R_RegisterShader("gfx/misc/redelectric");
+	cgs.media.redElectricBody2Shader = cgi_R_RegisterShader("gfx/misc/fullbodyredelectric2");
+	cgs.media.orangeElectricBodyShader = cgi_R_RegisterShader("gfx/misc/orangeelectric");
+	cgs.media.orangeElectricBody2Shader = cgi_R_RegisterShader("gfx/misc/fullbodyorangeelectric2");
+	cgs.media.yellowElectricBodyShader = cgi_R_RegisterShader("gfx/misc/yellowelectric");
+	cgs.media.yellowElectricBody2Shader = cgi_R_RegisterShader("gfx/misc/fullbodyyellowelectric2");
+	cgs.media.greenElectricBodyShader = cgi_R_RegisterShader("gfx/misc/greenelectric");
+	cgs.media.greenElectricBody2Shader = cgi_R_RegisterShader("gfx/misc/fullbodygreenelectric2");
+	cgs.media.purpleElectricBodyShader = cgi_R_RegisterShader("gfx/misc/purpleelectric");
+	cgs.media.purpleElectricBody2Shader = cgi_R_RegisterShader("gfx/misc/fullbodypurpleelectric2");
+	cgs.media.whiteElectricBodyShader = cgi_R_RegisterShader("gfx/misc/whiteelectric");
+	cgs.media.whiteElectricBody2Shader = cgi_R_RegisterShader("gfx/misc/fullbodywhiteelectric2");
+	cgs.media.blackElectricBodyShader = cgi_R_RegisterShader("gfx/misc/blackelectric");
+	cgs.media.blackElectricBody2Shader = cgi_R_RegisterShader("gfx/misc/fullbodyblackelectric2");
 
 	cgs.media.shadowMarkShader	= cgi_R_RegisterShader( "markShadow" );
 	cgs.media.wakeMarkShader	= cgi_R_RegisterShader( "wake" );

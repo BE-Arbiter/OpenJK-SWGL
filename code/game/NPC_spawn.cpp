@@ -53,10 +53,12 @@ extern void Howler_ClearTimers(gentity_t *self);
 extern void NPC_GalakMech_Init(gentity_t* ent);
 
 extern saber_colors_t TranslateSaberColor(const char* name);
+extern lightningColor_t TranslateLightningColor(const char* name);
 
 extern int WP_GetWeaponID(const char* weaponName);
 extern stringID_table_t WPTable[];
 extern stringID_table_t attrTable[];
+extern cvar_t* g_newgameplus;
 
 #define	NSF_DROP_TO_FLOOR	16
 
@@ -1266,7 +1268,6 @@ void NPC_SetFX_SpawnStates(gentity_t *ent)
 
 //--------------------------------------------------------------
 extern qboolean	stop_icarus;
-char* NPC_GetLightning(gentity_t* NPC);
 void NPC_Begin(gentity_t *ent)
 {
 	vec3_t	spawn_origin, spawn_angles;
@@ -1413,9 +1414,9 @@ void NPC_Begin(gentity_t *ent)
 		}
 	}
 
-	if (!ent->NPC_LightningColor)
+	if (!ent->forceLightningColor)
 	{
-		ent->NPC_LightningColor = NPC_GetLightning(ent);
+		ent->forceLightningColor = LIGHTNING_BLUE;
 	}
 
 	ent->s.groundEntityNum = ENTITYNUM_NONE;
@@ -1612,31 +1613,6 @@ void NPC_Begin(gentity_t *ent)
 			}
 		}
 	}
-}
-
-char* NPC_GetLightning(gentity_t* NPC)
-{
-	switch (NPC->NPC->stats.lightningColor)
-	{
-	case LIGHTNING_RED:
-		return "red";
-	case LIGHTNING_ORANGE:
-		return "orange";
-	case LIGHTNING_YELLOW:
-		return "yellow";
-	case LIGHTNING_GREEN:
-		return "green";
-	case LIGHTNING_BLUE:
-		return "blue";
-	case LIGHTNING_PURPLE:
-		return "purple";
-	case LIGHTNING_WHITE:
-		return "white";
-	case LIGHTNING_BLACK:
-		return "black";
-	}
-
-	return "blue";
 }
 
 /*
@@ -1984,8 +1960,8 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 	if (ent->NPC_SaberTwoColor)
 		newent->NPC_SaberTwoColor = G_NewString(ent->NPC_SaberTwoColor);
 
-	if (ent->NPC_LightningColor)
-		newent->NPC_LightningColor = G_NewString(ent->NPC_LightningColor);
+	if (ent->forceLightningColor)
+		newent->forceLightningColor = ent->forceLightningColor;
 
 	if(ent->NPC_team)
 		newent->NPC_team = G_NewString(ent->NPC_team);
@@ -3037,7 +3013,7 @@ void SP_NPC_SWGL_Jedi(gentity_t *self)
 {
 	if (!self->NPC_type)
 	{
-		int npc_pick = Q_irand(0, 30);
+		int npc_pick = Q_irand(0, 37);
 		if (self->spawnflags & 1)
 		{//random!
 			int sanityCheck = 20;	//just in case
@@ -3136,6 +3112,29 @@ void SP_NPC_SWGL_Jedi(gentity_t *self)
 					self->NPC_type = "prequel_jedi30";
 					break;
 				case 30:
+					self->NPC_type = "prequel_jedi31";
+					break;
+				case 31:
+					self->NPC_type = "prequel_jedi32";
+					break;
+				case 32:
+					self->NPC_type = "prequel_jedi33";
+					break;
+				case 33:
+					self->NPC_type = "prequel_jedi34";
+					break;
+				case 34:
+					self->NPC_type = "prequel_jedi35";
+					break;
+				case 35:
+					self->NPC_type = "prequel_jedi36";
+					break;
+				case 36:
+					self->NPC_type = "prequel_jedi37";
+					break;
+				case 37:
+					self->NPC_type = "prequel_jedi38";
+					break;				
 				default://just in case
 					self->NPC_type = "prequel_jedi1";
 					break;
@@ -3396,6 +3395,7 @@ void SP_NPC_SWGL_Jedi(gentity_t *self)
 				{//bah, we're using this one, try again
 					continue;
 				}
+				self->NPC_skin = "random";
 				break;	//get out of the while
 			}
 		}
@@ -3434,7 +3434,7 @@ void SP_NPC_SWGL_Jedi(gentity_t *self)
 			}
 		}
 	}
-	self->NPC_skin = "random";
+	//self->NPC_skin = "random";
 	SP_NPC_spawner(self);
 }
 /*QUAKED NPC_Prisoner(1 0 0) (-16 -16 -24) (16 16 40) ELDER x x x DROPTOFLOOR CINEMATIC NOTSOLID STARTINSOLID SHY
@@ -4286,7 +4286,7 @@ void SP_NPC_Imperial(gentity_t *self)
 					self->NPC_type = "impofficer";
 					break;
 				case 1:
-					if (self->spawnflags & 16)
+					if (~self->spawnflags & 16)
 					{
 						self->NPC_type = "reborn";
 						break;
@@ -5644,7 +5644,7 @@ static void NPC_Spawn_f(void)
 		}
 		else if (!Q_stricmp("lightningcolor", gi.argv(spawnCommand)) && gi.argv(spawnCommand + 1))
 		{
-			NPCspawner->NPC_LightningColor = gi.argv(++spawnCommand);
+			NPCspawner->forceLightningColor = TranslateLightningColor(gi.argv(++spawnCommand));
 		}
 		else if ((!Q_stricmp("playermodel", gi.argv(spawnCommand)) || !Q_stricmp("model", gi.argv(spawnCommand))) && gi.argv(spawnCommand + 1))
 		{

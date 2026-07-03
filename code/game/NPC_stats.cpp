@@ -312,6 +312,43 @@ static rank_t TranslateRankName( const char *name )
 	return RANK_CIVILIAN;
 }
 
+lightningColor_t TranslateLightningColor(const char* name)
+{
+	if (!Q_stricmp(name, "red"))
+	{
+		return LIGHTNING_RED;
+	}
+	if (!Q_stricmp(name, "orange"))
+	{
+		return LIGHTNING_ORANGE;
+	}
+	if (!Q_stricmp(name, "yellow"))
+	{
+		return LIGHTNING_YELLOW;
+	}
+	if (!Q_stricmp(name, "green"))
+	{
+		return LIGHTNING_GREEN;
+	}
+	if (!Q_stricmp(name, "blue"))
+	{
+		return LIGHTNING_BLUE;
+	}
+	if (!Q_stricmp(name, "purple"))
+	{
+		return LIGHTNING_PURPLE;
+	}
+	if (!Q_stricmp(name, "white"))
+	{
+		return LIGHTNING_WHITE;
+	}
+	if (!Q_stricmp(name, "black"))
+	{
+		return LIGHTNING_BLACK;
+	}
+	return LIGHTNING_BLUE;
+}
+
 saber_colors_t TranslateSaberColor(const char *name)
 {
 	if (!Q_stricmp(name, "red"))
@@ -2052,7 +2089,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 	char	surfOff[1024]={0};
 	char	surfOn[1024]={0};
 	qboolean parsingPlayer = qfalse;
-	qboolean lightningColor = qfalse;
 
 	
 	qboolean forcedRGBSaberColours[MAX_SABERS][MAX_BLADES] = {{qfalse, qfalse, qfalse, qfalse, qfalse, qfalse, qfalse, qfalse},
@@ -2084,7 +2120,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 */
 		// fill in defaults
 		stats->sex			= SEX_MALE;
-		stats->lightningColor = LIGHTNING_BLUE;
 		stats->aggression	= 3;
 		stats->aim			= 3;
 		stats->earshot		= 1024;
@@ -2115,6 +2150,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 	Q_strncpyz( ci->name, NPCName, sizeof( ci->name ) );
 
 	NPC->playerModel = -1;
+	NPC->forceLightningColor = (NPC->forceLightningColor ? NPC->forceLightningColor : LIGHTNING_NONE);
 
 	if (parsingPlayer)
 	{
@@ -3481,27 +3517,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				continue;
 			}
 
-			//Lightning Color
-			if (!Q_stricmp(token, "lightningColor") && parsingPlayer)
-			{
-				if (COM_ParseString(&p, &value))
-				{
-					SkipRestOfLine(&p);
-					continue;
-				}
-				
-				
-				gi.cvar_set("g_forcelightningcolor", value);
-				lightningColor = qtrue;
-
-				continue;
-			}
-			else
-			{
-				if (!lightningColor && parsingPlayer)
-					gi.cvar_set("g_forcelightningcolor", "blue");
-			}
-
 			if ( !parsingPlayer )
 			{
 				if ( !Q_stricmp( token, "movetype" ) )
@@ -3631,45 +3646,6 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					continue;
 				}
 
-				//Lightning Color
-				if (!Q_stricmp(token, "lightningColor") && !NPC->NPC_LightningColor)
-				{
-					if (COM_ParseString(&p, &value))
-					{
-						SkipRestOfLine(&p);
-						continue;
-					}
-					if (!Q_stricmp(value, "red"))
-					{
-						stats->lightningColor = LIGHTNING_RED;
-					}
-					else if (!Q_stricmp(value, "orange"))
-					{
-						stats->lightningColor = LIGHTNING_ORANGE;
-					}
-					else if (!Q_stricmp(value, "yellow"))
-					{
-						stats->lightningColor = LIGHTNING_YELLOW;
-					}
-					else if (!Q_stricmp(value, "green"))
-					{
-						stats->lightningColor = LIGHTNING_GREEN;
-					}
-					else if (!Q_stricmp(value, "purple"))
-					{
-						stats->lightningColor = LIGHTNING_PURPLE;
-					}
-					else if (!Q_stricmp(value, "white"))
-					{
-						stats->lightningColor = LIGHTNING_WHITE;
-					}
-					else if (!Q_stricmp(value, "black"))
-					{
-						stats->lightningColor = LIGHTNING_BLACK;
-					}
-
-					continue;
-				}
 //===MISC===============================================================================
 				// default behavior
 				if ( !Q_stricmp( token, "behavior" ) )
@@ -3816,6 +3792,19 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				continue;
 			}
 
+			//Lightning Color
+			if (!Q_stricmp(token, "lightningColor") && !NPC->forceLightningColor)
+			{
+				if (COM_ParseString(&p, &value))
+				{
+					SkipRestOfLine(&p);
+					continue;
+				}
+				NPC->forceLightningColor = TranslateLightningColor(value);
+
+				continue;
+			}
+
 			//New NPC/jedi stats:
 			//starting weapon
 			if ( !Q_stricmp( token, "weapon" ) )
@@ -3827,7 +3816,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				}
 				if (NPC->NPC_Weapon)
 				{
-					if(!Q_stricmp(value, "weapon_clone_random"))
+					if(!Q_stricmp(NPC->NPC_Weapon, "weapon_clonerandom"))
 					{ 
 						if (!Q_irand(0, 10))
 						{

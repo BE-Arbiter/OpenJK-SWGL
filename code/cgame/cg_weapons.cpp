@@ -456,8 +456,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 		cgs.effects.yellowForceLightningWide = theFxScheduler.RegisterEffect("force/yellowlightningwide");
 		cgs.effects.greenForceLightning = theFxScheduler.RegisterEffect("force/greenlightning");
 		cgs.effects.greenForceLightningWide = theFxScheduler.RegisterEffect("force/greenlightningwide");
-		cgs.effects.indigoForceLightning = theFxScheduler.RegisterEffect("force/indigolightning");
-		cgs.effects.indigoForceLightningWide = theFxScheduler.RegisterEffect("force/indigolightningwide");
 		cgs.effects.purpleForceLightning = theFxScheduler.RegisterEffect("force/purplelightning");
 		cgs.effects.purpleForceLightningWide = theFxScheduler.RegisterEffect("force/purplelightningwide");
 		cgs.effects.whiteForceLightning = theFxScheduler.RegisterEffect("force/whitelightning");
@@ -2841,7 +2839,7 @@ void CG_NPC_NextWeapon_f(void) {
 		nextWeaponIndex = (nextWeaponIndex == weaponCount - 1) ? 1 : nextWeaponIndex + 1;
 	} while (!weaponData[nextWeaponIndex].classname 
 		|| !weaponData[nextWeaponIndex].classname[0]
-		|| (!weaponData[nextWeaponIndex].playerUsable && strcmp(weaponData[nextWeaponIndex].classname, "weapon_clone_random") )
+		|| (!weaponData[nextWeaponIndex].playerUsable && strcmp(weaponData[nextWeaponIndex].classname, "weapon_clonerandom") )
 	);
 	cgi_Cvar_Set("ui_npc_weapon", weaponData[nextWeaponIndex].classname);
 	CG_NPC_UpdateLabel();
@@ -2858,7 +2856,7 @@ void CG_NPC_PrevWeapon_f(void) {
 		prevWeaponIndex = (prevWeaponIndex == 1) ? weaponCount - 1 : prevWeaponIndex - 1;
 	} while (!weaponData[prevWeaponIndex].classname
 		|| !weaponData[prevWeaponIndex].classname[0]
-		|| (!weaponData[prevWeaponIndex].playerUsable && strcmp(weaponData[prevWeaponIndex].classname, "weapon_clone_random"))
+		|| (!weaponData[prevWeaponIndex].playerUsable && strcmp(weaponData[prevWeaponIndex].classname, "weapon_clonerandom"))
 		);
 	cgi_Cvar_Set("ui_npc_weapon",weaponData[prevWeaponIndex].classname);
 	CG_NPC_UpdateLabel();
@@ -2880,7 +2878,7 @@ void CG_NPC_UpdateLabel(void) {
 	//Dynamic Weapons
 	else if (!cgi_SP_GetStringTextString(va("%s_NAME", weaponData[currentWeaponIndex].classname), label, sizeof(label)))
 	{
-		Com_sprintf(label, sizeof(label), weaponData[currentWeaponIndex].classname);
+		Com_sprintf(label, sizeof(label), weaponData[currentWeaponIndex].classname);		
 	}
 	cgi_Cvar_Set("ui_npc_weapon_label", label);
 }
@@ -2888,7 +2886,7 @@ void CG_NPC_UpdateLabel(void) {
 void CG_DrawNpcWeaponLabel(void) {
 	CG_NPC_UpdateLabel();
 	const short textboxXPos = 508;
-	const short textboxYPos = 57;
+	const short textboxYPos = 118;
 	const int	textboxWidth = 106;
 	const int	textboxHeight = 16;
 	const float	textScale = 0.75f;
@@ -3063,13 +3061,13 @@ void CG_PC_PrevWeapon_f(int index) {
 	}
 	vmCvar_t* ui_player_weapon = CG_GetUiWeaponCvar(index);
 	cgi_Cvar_Update(ui_player_weapon);
-	int currentWeaponIndex = WP_GetWeaponID(ui_npc_weapon.string);
+	int currentWeaponIndex = WP_GetWeaponID(ui_player_weapon->string);
 	if (currentWeaponIndex == -1) {
 		currentWeaponIndex = 0; // 0 is WP_NONE
 	}
 	int prevWeaponIndex = currentWeaponIndex;
 	do {
-		prevWeaponIndex = (prevWeaponIndex == 1) ? weaponCount - 1 : prevWeaponIndex - 1;
+		prevWeaponIndex = (prevWeaponIndex <= 0) ? weaponCount - 1 : prevWeaponIndex - 1;
 	} while (!weaponData[prevWeaponIndex].classname
 		|| !weaponData[prevWeaponIndex].classname[0]
 		|| !weaponData[prevWeaponIndex].playerUsable);

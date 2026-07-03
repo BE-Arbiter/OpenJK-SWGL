@@ -922,6 +922,7 @@ void CG_ProcessSnapshots( void );
 // cg_info.c
 //
 void CG_DrawInformation( void );
+qboolean JediOutcastMap( const char* mapName );
 
 //
 // cg_scoreboard.c

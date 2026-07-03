@@ -41,6 +41,7 @@ extern void SP_NPC_SWGL_Jedi(gentity_t *self);
 extern void WP_SetSaber( gentity_t *ent, int saberNum, const char *saberName );
 extern void WP_RemoveSaber( gentity_t *ent, int saberNum );
 extern saber_colors_t TranslateSaberColor( const char *name );
+extern lightningColor_t TranslateLightningColor( const char *name );
 extern qboolean WP_SaberBladeUseSecondBladeStyle( saberInfo_t *saber, int bladeNum );
 extern qboolean WP_UseFirstValidSaberStyle( gentity_t *ent, int *saberAnimLevel );
 
@@ -325,9 +326,7 @@ static void Svcmd_LightningColor_f()
 
 	gentity_t* self = G_GetSelfForPlayerCmd();
 
-	gi.cvar_set("g_forcelightningcolor", color);
-
-	self->NPC_LightningColor = color;
+	self->forceLightningColor = TranslateLightningColor(color);
 }
 
 static void Svcmd_SaberColor_f()
@@ -704,7 +703,7 @@ static void Svcmd_Spawn_f(void)
 
 	NPCspawner->NPC_SaberOneColor = g_NPCsabercolor->string;
 
-	NPCspawner->NPC_LightningColor = g_NPCLightningColor->string;
+	NPCspawner->forceLightningColor = TranslateLightningColor(g_NPCLightningColor->string);
 
 	NPCspawner->NPC_SaberTwoColor = g_NPCsabertwocolor->string;
 
@@ -713,11 +712,14 @@ static void Svcmd_Spawn_f(void)
 	if(Q_stricmp(g_NPCtargetname->string, ""))
 		NPCspawner->NPC_targetname = g_NPCtargetname->string;
 
-	NPCspawner->behaviorSet[BSET_SPAWN] = g_NPCspawnscript->string;
+	if (Q_stricmp(g_NPCspawnscript->string, "none"))
+		NPCspawner->behaviorSet[BSET_SPAWN] = g_NPCspawnscript->string;
 
-	NPCspawner->behaviorSet[BSET_FLEE] = g_NPCfleescript->string;
+	if (Q_stricmp(g_NPCfleescript->string, "none"))
+		NPCspawner->behaviorSet[BSET_FLEE] = g_NPCfleescript->string;
 
-	NPCspawner->behaviorSet[BSET_DEATH] = g_NPCdeathscript->string;
+	if (Q_stricmp(g_NPCdeathscript->string, "none"))
+		NPCspawner->behaviorSet[BSET_DEATH] = g_NPCdeathscript->string;
 
 	NPCspawner->NPC_color_red = g_npc_color_red->integer;
 	NPCspawner->NPC_color_green = g_npc_color_green->integer;

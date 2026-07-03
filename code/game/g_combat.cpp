@@ -6093,6 +6093,9 @@ void G_Damage(gentity_t* targ, gentity_t* inflictor, gentity_t* attacker, const 
 	// Calculate damage for Knightfall
 	damage = KnightfallDamage(damage, attacker, targ, mod);
 
+	if(targ == player || attacker == player)
+		TIMER_Set(player, "healthRegenTimer", 3000 * (g_spskill->integer+1));
+
 
 	if (targ
 		&& targ->client
