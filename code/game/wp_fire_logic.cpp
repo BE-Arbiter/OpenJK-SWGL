@@ -66,7 +66,7 @@ void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, int attackIndex)
 		case WP_DEMP2:
 			missile->methodOfDeath = altFire ? MOD_DEMP2_ALT : MOD_DEMP2;
 			missile->splashMethodOfDeath = altFire ? MOD_DEMP2_ALT : MOD_DEMP2;
-			
+			return;			
 		case WP_REPEATER:
 			missile->methodOfDeath = altFire ? MOD_REPEATER_ALT: MOD_REPEATER;
 			missile->splashMethodOfDeath = altFire ? MOD_REPEATER_ALT: MOD_REPEATER;

@@ -723,7 +723,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace, int hitLoc=HL_NONE )
 	}
 	// check for bounce
 	//OR: if the surfaceParm is has a reflect property (magnetic shielding) and the missile isn't an exploding missile
-	qboolean bounce = (qboolean)( (!other->takedamage && (ent->s.eFlags&(EF_BOUNCE|EF_BOUNCE_HALF))) || (((trace->surfaceFlags&SURF_FORCEFIELD)||(other->flags&FL_SHIELDED))&&!ent->splashDamage&&!ent->splashRadius&&ent->s.weapon != WP_NOGHRI_STICK) );
+	qboolean bounce = (qboolean)( (!other->takedamage && (ent->s.eFlags&(EF_BOUNCE|EF_BOUNCE_HALF))) || (((trace->surfaceFlags&SURF_FORCEFIELD)||(other->flags&FL_SHIELDED))&&!ent->splashDamage&&!ent->splashRadius&&ent->s.weapon!=WP_NOGHRI_STICK&&ent->methodOfDeath!=MOD_DEMP2&&ent->methodOfDeath!=MOD_DEMP2_ALT));
 
 	if ( ent->dflags & DAMAGE_HEAVY_WEAP_CLASS )
 	{
