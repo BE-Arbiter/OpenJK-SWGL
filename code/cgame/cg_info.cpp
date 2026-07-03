@@ -969,7 +969,7 @@ void CG_DrawInformation( void ) {
 	}
 }
 
-static qboolean JediOutcastMap(const char* mapName)
+qboolean JediOutcastMap(const char* mapName)
 {
 	char* jk2maps[] = { "kejim_post", "kejim_base", "artus_mine", "artus_detention", "artus_topside",
 		"valley", "yavin_temple", "yavin_trial", "ns_streets", "ns_hideout", "ns_starpad",
