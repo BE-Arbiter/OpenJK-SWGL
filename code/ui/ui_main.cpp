@@ -122,6 +122,7 @@ static void		UI_ResetSaberCvars ( void );
 static void		UI_InitAllocForcePowers ( const char *forceName );
 static void		UI_InitAllocSaberStyle( const char *saberStyle );
 static void		UI_SwitchSaberStyle( const char * saberStyle);
+static void		UI_GetSaberStyle(void);
 static void		UI_AffectForcePowerLevel ( const char *forceName );
 static void		UI_ShowForceLevelDesc ( const char *forceName );
 static void		UI_ResetForceLevels ( void );
@@ -436,8 +437,8 @@ static missionData_t missionData[MAX_MISSION_TOPIC][MAX_MISSION] =
 	// Phantom Menace
 
 {
-	{ "@SWGLMISSIONS_EPI_DOTF",			"0",		"Ep1_DotF", NULL, "@SWGLMISSIONS_EP1_DOTF_DESC", qtrue},
-	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ "@SWGLMISSIONS_EPI_TRAINING",			"0",		"Ep1_Training", "ep1_training", "@SWGLMISSIONS_EP1_TRAINING_DESC", qfalse},
+	{ "@SWGLMISSIONS_EPI_DOTF",			"1",		"Ep1_DotF", NULL, "@SWGLMISSIONS_EP1_DOTF_DESC", qtrue},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
@@ -2193,6 +2194,10 @@ static qboolean UI_RunMenuScript ( const char **args )
 			String_Parse(args, &saberStyle);
 
 			UI_SwitchSaberStyle(saberStyle);
+		}
+		else if (Q_stricmp(name, "getsaberstyle") == 0)
+		{
+			UI_GetSaberStyle();
 		}
 		else if (Q_stricmp(name, "getNPCcode") == 0)
 		{
@@ -5738,13 +5743,19 @@ static void UI_UpdateTeamSelect(void)
 	{
 		if (Cvar_VariableIntegerValue("g_allowAlignmentChange"))
 		{
-			Menu_ShowItemByName(menu, "teamsToggle", qtrue);
-			Menu_ShowItemByName(menu, "teamsDisabled", qfalse);
+			if (enabled->window.flags & WINDOW_VISIBLE || disabled->window.flags & WINDOW_VISIBLE)
+			{
+				Menu_ShowItemByName(menu, "teamsToggle", qtrue);
+				Menu_ShowItemByName(menu, "teamsDisabled", qfalse);
+			}
 		}
 		else
 		{
-			Menu_ShowItemByName(menu, "teamsToggle", qfalse);
-			Menu_ShowItemByName(menu, "teamsDisabled", qtrue);
+			if (enabled->window.flags & WINDOW_VISIBLE || disabled->window.flags & WINDOW_VISIBLE)
+			{
+				Menu_ShowItemByName(menu, "teamsToggle", qfalse);
+				Menu_ShowItemByName(menu, "teamsDisabled", qtrue);
+			}
 		}
 	}
 }
@@ -6111,6 +6122,69 @@ static void UI_InitAllocSaberStyle(const char* saberStyle) {
 	{
 		int newValue = Cvar_VariableIntegerValue("ui_saber_styles") + stanceValue;
 		ui.Cvar_Set("ui_saber_styles", va("%i", newValue));
+	}
+}
+
+static void UI_GetSaberStyle()
+{
+	menuDef_t* menu;
+	itemDef_t* item;
+
+	menu = Menu_GetFocused();	// Get current menu
+
+	if (!menu)
+	{
+		return;
+	}
+
+	int i;
+
+	for (i = 0; i < SS_NUM_SABER_STYLES; i++)
+	{
+		if (i == SS_DUAL)
+			continue;
+
+		const char* saberStyle = GetStringForID(SaberStyleTable, i);
+		char itemName[128];
+		Com_sprintf(itemName, sizeof(itemName), "%s_switch", saberStyle);
+		item = (itemDef_s*)Menu_FindItemByName(menu, itemName);
+		int stanceValue = 0;
+
+		switch (i)
+		{
+			case SS_FAST:
+				stanceValue = 1;
+				break;
+			case SS_MEDIUM:
+				stanceValue = 2;
+				break;
+			case SS_STRONG:
+				stanceValue = 4;
+				break;
+			case SS_DESANN:
+				stanceValue = 8;
+				break;
+			case SS_TAVION:
+				stanceValue = 16;
+				break;
+			case SS_STAFF:
+				stanceValue = 64;
+				break;
+			default:
+				stanceValue = 0;
+				break;
+		}
+
+		bool hasStance = (Cvar_VariableIntegerValue("ui_saber_styles") & stanceValue);
+
+		if (item)
+		{
+			char itemGraphic[128];
+			Com_sprintf(itemGraphic, sizeof(itemGraphic), "gfx/menus/stance_switch_%s", hasStance ? "on" : "off");
+			item->window.background = ui.R_RegisterShaderNoMip(itemGraphic);
+		}
+		
+
 	}
 }
 
