@@ -3767,14 +3767,17 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 			}
 
 			// NPC attributes
-			if (!Q_stricmp(token, "attribute"))
+			if (!Q_stricmp(token, "attribute")) // We don't want to use the attributes if we're spawning in a mission.
 			{
 				if (COM_ParseString(&p, &value))
 				{
 					continue;
 				}
 				int attr = GetIDForString(attrTable, value);
-				if(attr != -1 && (!PlayingMission() || (attr == ATTR_AQUATIC || attr == ATTR_CASUAL_WALK || attr == ATTR_NO_TWIRL || attr == ATTR_INQUISITOR)))
+				if(attr != -1 && (attr == ATTR_AQUATIC || attr == ATTR_CASUAL_WALK || attr == ATTR_NO_TWIRL || attr == ATTR_INQUISITOR))
+					NPC->attrFlags |= attr;
+
+				if (attr != -1 && (!PlayingMission() && (NPC->allowAttributes >= 1 || NPC == player)))
 					NPC->attrFlags |= attr;
 
 				// People held by hatred cannot be dismembered until they die.

@@ -1981,6 +1981,9 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 	newent->NPC_color_green = -1;
 	newent->NPC_color_blue = -1;
 
+	if (ent->allowAttributes)
+		newent->allowAttributes = ent->allowAttributes;
+
 	if (ent->NPC_color_red >= 0)
 		newent->NPC_color_red = ent->NPC_color_red;
 
@@ -2372,7 +2375,7 @@ void SP_NPC_spawner(gentity_t *self)
 
 	//NOTE: bounceCount is transferred to the spawned NPC's NPC->aiFlags
 	self->bounceCount = 0;
-
+	self->allowAttributes = 0;
 	{
 		static	int	garbage;
 		//Stop loading of certain extra sounds
@@ -2391,6 +2394,10 @@ void SP_NPC_spawner(gentity_t *self)
 		if (G_SpawnInt("nodelay", "0", &garbage))
 		{
 			self->bounceCount |= NPCAI_NO_JEDI_DELAY;
+		}
+		if (G_SpawnInt("allowAttributes", "0", &garbage))
+		{
+			self->allowAttributes = 1;
 		}
 	}
 
@@ -5582,6 +5589,7 @@ static void NPC_Spawn_f(void)
 	NPCspawner->NPC_color_red = -1;
 	NPCspawner->NPC_color_green = -1;
 	NPCspawner->NPC_color_blue = -1;
+	NPCspawner->allowAttributes = 1;
 
 	while (spawnCommand < gi.argc())
 	{

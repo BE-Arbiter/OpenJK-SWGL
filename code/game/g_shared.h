@@ -1030,6 +1030,7 @@ Ghoul2 Insert End
 
 	int			flags;				// FL_* variables
 	int			attrFlags;			//ATTR_* variables
+	int			allowAttributes;		//ATTR_* variables
 
 	char		*model;				// Normal model, or legs model on tri-models
 	char		*model2;			// Torso model
@@ -1342,6 +1343,7 @@ Ghoul2 Insert End
 		saved_game.write<int32_t>(spawnflags);
 		saved_game.write<int32_t>(flags);
 		saved_game.write<int32_t>(attrFlags);
+		saved_game.write<int32_t>(allowAttributes);
 		saved_game.write<int32_t>(model);
 		saved_game.write<int32_t>(model2);
 		saved_game.write<int32_t>(freetime);
@@ -1543,6 +1545,7 @@ Ghoul2 Insert End
 		saved_game.read<int32_t>(spawnflags);
 		saved_game.read<int32_t>(flags);
 		saved_game.read<int32_t>(attrFlags);
+		saved_game.read<int32_t>(allowAttributes);
 		saved_game.read<int32_t>(model);
 		saved_game.read<int32_t>(model2);
 		saved_game.read<int32_t>(freetime);
