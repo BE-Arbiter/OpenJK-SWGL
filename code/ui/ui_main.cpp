@@ -188,6 +188,8 @@ static void UI_UpdateNPCCvars(void);
 
 static void UI_UpdateTeamSelect(void);
 
+static void UI_UpdateSaberVisibility(void);
+
 static void UI_HiltChange(int i);
 
 static void UI_RecordForcePowers(const char** args);
@@ -5084,10 +5086,12 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 
 		case UI_NPC_WEAPON_LABEL:
 			ui.Draw_DataPad(DP_NPC_WEAPON_LABEL);
+			UI_UpdateSaberVisibility();
 			break;
 
 		case UI_PLAYER_WEAPON_LABEL_1:
 			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_1);
+			UI_UpdateSaberVisibility();
 			break;
 
 		case UI_PLAYER_WEAPON_LABEL_2:
@@ -5734,6 +5738,11 @@ static void UI_UpdateTeamSelect(void)
 	enabled = (itemDef_s*)Menu_FindItemByName(menu, "teamsToggle");
 	disabled = (itemDef_s*)Menu_FindItemByName(menu, "teamsDisabled");
 
+	if (!enabled || !disabled)
+	{
+		return;
+	}
+
 	if (Cvar_VariableIntegerValue("ui_npc_menu") >= 1)
 	{
 		Menu_ShowItemByName(menu, "teamsToggle", qtrue);
@@ -5758,6 +5767,47 @@ static void UI_UpdateTeamSelect(void)
 			}
 		}
 	}
+}
+
+static void UI_UpdateSaberVisibility(void)
+{
+	menuDef_t* menu = Menu_GetFocused();
+
+	auto SetSaberVisibility = [&](qboolean visible) {
+		Menu_ShowItemByName(menu, "saber", visible);
+		Menu_ShowItemByName(menu, "saber2", visible);
+		Menu_ShowItemByName(menu, "SaberEdit", visible);
+		};
+
+	qboolean showSabers = qfalse;
+
+	if (Cvar_VariableIntegerValue("ui_npc_menu") >= 1)
+	{
+		// NPC menu mode: single weapon cvar
+		if (!Q_stricmp(Cvar_VariableString("ui_npc_weapon"), "weapon_saber") || !Q_stricmp(Cvar_VariableString("ui_npc_weapon"), "WP_SABER"))
+		{
+			showSabers = qtrue;
+		}
+	}
+	else
+	{
+		// Player menu mode: multiple weapon slots
+		const char* weapons[] = {
+			"ui_weaponOne", "ui_weaponTwo", "ui_weaponThree",
+			"ui_weaponFour", "ui_weaponFive", "ui_weaponSix"
+		};
+
+		for (int i = 0; i < 6; i++)
+		{
+			if (!Q_stricmp(Cvar_VariableString(weapons[i]), "weapon_saber") || !Q_stricmp(Cvar_VariableString(weapons[i]), "WP_SABER"))
+			{
+				showSabers = qtrue;
+				break;
+			}
+		}
+	}
+
+	SetSaberVisibility(showSabers);
 }
 
 static void UI_RandomRGB(void)
