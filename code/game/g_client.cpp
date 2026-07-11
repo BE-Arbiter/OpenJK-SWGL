@@ -2983,7 +2983,7 @@ qboolean PlayingMission()
 		"valley", "yavin_temple", "yavin_trial", "ns_streets", "ns_hideout", "ns_starpad",
 		"bespin_undercity", "bespin_streets", "bespin_platform", "cairn_bay", "cairn_assembly",
 		"cairn_reactor", "cairn_dock1", "doom_comm", "doom_detention", "doom_shields", "yavin_swamp",
-		"yavin_canyon", "yavin_courtyard", "yavin_final" };
+		"yavin_canyon", "yavin_courtyard", "yavin_final", "jodemo" };
 
 	char* jkamaps[] = { "academy1", "academy2", "academy3", "academy4", "academy5", "academy6",
 						"hoth2", "hoth3", "kor1", "kor2", "t1_danger", "t1_fatal", "t1_inter",

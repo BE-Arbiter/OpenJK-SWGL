@@ -55,7 +55,7 @@ static bool SV_Map_( ForceReload_e eForceReload )
 		"valley", "yavin_temple", "yavin_trial", "ns_streets", "ns_hideout", "ns_starpad",
 		"bespin_undercity", "bespin_streets", "bespin_platform", "cairn_bay", "cairn_assembly",
 		"cairn_reactor", "cairn_dock1", "doom_comm", "doom_detention", "doom_shields", "yavin_swamp",
-		"yavin_canyon", "yavin_courtyard", "yavin_final" };
+		"yavin_canyon", "yavin_courtyard", "yavin_final", "jodemo" };
 
 	char* jkamaps[] = { "academy1", "academy2", "academy3", "academy4", "academy5", "academy6", 
 						"hoth2", "hoth3", "kor1", "kor2", "t1_danger", "t1_fatal", "t1_inter", 
@@ -118,6 +118,7 @@ static bool SV_Map_( ForceReload_e eForceReload )
 				Cvar_Set("g_char_skin_legs", "model_default");
 				Cvar_Set("g_saber", "kyle");
 				Cvar_Set("g_saber_color", "blue");
+				Cvar_Set("g_saber2", "empty");
 				Cvar_Set("snd", "kyle");
 				Cvar_Set("sex", "m");
 
