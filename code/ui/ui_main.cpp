@@ -2212,9 +2212,12 @@ static qboolean UI_RunMenuScript ( const char **args )
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s\n", Cvar_VariableString("ui_npc_type")));
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s %s %s %s\n", Cvar_VariableString("ui_char_model"), Cvar_VariableString("ui_char_skin_head"), Cvar_VariableString("ui_char_skin_torso"), Cvar_VariableString("ui_char_skin_legs")));
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playerteam %s\n", Cvar_VariableString("ui_team")));
-			ui.Cmd_ExecuteText(EXEC_NOW, va("give health %s\n", Cvar_VariableString("ui_health")));
-			ui.Cmd_ExecuteText(EXEC_NOW, va("give shield %s\n", Cvar_VariableString("ui_health")));
-			ui.Cmd_ExecuteText(EXEC_NOW, va("give force %s\n", Cvar_VariableString("ui_force")));
+			if (Cvar_VariableIntegerValue("g_adoptcharstats") >= 1)
+			{
+				ui.Cmd_ExecuteText(EXEC_NOW, va("give health %s\n", Cvar_VariableString("ui_health")));
+				ui.Cmd_ExecuteText(EXEC_NOW, va("give shield %s\n", Cvar_VariableString("ui_health")));
+				ui.Cmd_ExecuteText(EXEC_NOW, va("give force %s\n", Cvar_VariableString("ui_force")));
+			}			
 			ui.Cmd_ExecuteText(EXEC_NOW, va("lightningColor %s\n", Cvar_VariableString("ui_lightning_color")));
 		}
 		else if (Q_stricmp(name, "anglesesc") == 0)
