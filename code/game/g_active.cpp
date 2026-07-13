@@ -5720,13 +5720,13 @@ extern cvar_t	*g_skippingcin;
 	ClientTimerActions( ent, msec );
 
 	// Passive health regen for player
-	if ((player->client->ps.stats[STAT_HEALTH] < player->client->ps.stats[STAT_MAX_HEALTH]) && g_allowHealthRegen->integer)
+	if ((ent->s.number == 0 && ent->client->ps.stats[STAT_HEALTH] < ent->client->ps.stats[STAT_MAX_HEALTH]) && g_allowHealthRegen->integer)
 	{
-		if (TIMER_Done(player, "healthRegenTimer") && player->health > 0)
+		if (TIMER_Done(ent, "healthRegenTimer") && ent->health > 0)
 		{
-			player->health++;
-			player->client->ps.stats[STAT_HEALTH] = player->health;
-			TIMER_Set(player, "healthRegenTimer", g_healthRegenRate->value * 1000);
+			ent->health++;
+			ent->client->ps.stats[STAT_HEALTH] = ent->health;
+			TIMER_Set(ent, "healthRegenTimer", g_healthRegenRate->value * 1000);
 		}
 	}
 
