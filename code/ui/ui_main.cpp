@@ -6171,7 +6171,7 @@ static void UI_InitAllocSaberStyle(const char* saberStyle) {
 			break;
 	}
 
-	if (Cvar_VariableIntegerValue("ui_saber_styles") & stanceValue)
+	if (hasStance)
 	{
 		int newValue = Cvar_VariableIntegerValue("ui_saber_styles") + stanceValue;
 		ui.Cvar_Set("ui_saber_styles", va("%i", newValue));
