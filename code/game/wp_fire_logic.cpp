@@ -522,14 +522,11 @@ void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 		vec3_t target_dir;
 		VectorSubtract(hitloc, start, target_dir);
 
-		int dist = VectorLength(target_dir);
-		if (dist == 0) {
-			continue; // Just in case
-		}
+		float dist = VectorLength(target_dir);
 
 		VectorNormalizeFast(target_dir);
-		if (DotProduct(target_dir, dir) < 0.80f) {
-			continue; // We are not "in front" of the muzzle
+		if (DotProduct(target_dir, dir) < 0.80f && dist > 40.0f) {
+			continue; // We are not "in front" of the muzzle, We also are not directly next to the muzzle.
 		}
 
 		gi.trace(&tr, start, vec3_origin, vec3_origin, hitloc, ent->s.number, MASK_FORCE_PUSH, (EG2_Collision)0, 0);//was MASK_SHOT, but changed to match above trace and crosshair trace
