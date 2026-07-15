@@ -72,6 +72,8 @@ set(SPGameGameFiles
 	"${SPDir}/game/g_client.cpp"
 	"${SPDir}/game/g_cmds.cpp"
 	"${SPDir}/game/g_combat.cpp"
+	"${SPDir}/game/g_effects.h"
+	"${SPDir}/game/g_effects.cpp"
 	"${SPDir}/game/g_emplaced.cpp"
 	"${SPDir}/game/g_functions.cpp"
 	"${SPDir}/game/g_fx.cpp"

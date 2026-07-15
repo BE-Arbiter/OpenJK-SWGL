@@ -525,7 +525,7 @@ void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 		float dist = VectorLength(target_dir);
 
 		VectorNormalizeFast(target_dir);
-		if (DotProduct(target_dir, dir) < 0.80f && dist > 40.0f) {
+		if (DotProduct(target_dir, dir) < 0.80f && dist > 20.0f) {
 			continue; // We are not "in front" of the muzzle, We also are not directly next to the muzzle.
 		}
 
