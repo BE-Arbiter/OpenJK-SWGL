@@ -5633,6 +5633,7 @@ CG_HandleWeaponSounds
 Handle weapon sounds :
  - Lightsaber hum
  - weapon with a readySound
+ DWS-TODO : See if we can handle the attackIndex Somewhere like with "is zoomed"... I don't really see a practical usecase however
 ===============
 */
 static void CG_HandleWeaponSounds( centity_t *cent )
@@ -5665,8 +5666,13 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 
 
 	//Handle weapon Looping Sounds
+	//We are Main Firing
 	if ( (cent->currentState.eFlags & EF_FIRING) && !(cent->currentState.eFlags & EF_ALT_FIRING))
 	{
+		if (cent->pe.lightningFiring == qfalse && weapon->weaponAttacksInfo[0].startSound)
+		{
+			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->weaponAttacksInfo[0].startSound);
+		}
 		if ( weapon->weaponAttacksInfo[0].firingSound)
 		{
 			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[0].firingSound,CHAN_WEAPON );
@@ -5674,8 +5680,13 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 		}
 
 	}
+	//We are alt Firing (or pressing both buttons)
 	else if ( cent->currentState.eFlags & EF_ALT_FIRING )
 	{
+		if (cent->pe.lightningFiring == qfalse && weapon->weaponAttacksInfo[1].startSound)
+		{
+			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->weaponAttacksInfo[1].startSound);
+		}
 		if ( weapon->weaponAttacksInfo[1].firingSound)
 		{
 			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[1].firingSound, CHAN_WEAPON);
@@ -5683,6 +5694,7 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 		}
 
 	}
+	//We are not firing, but we have a readySound
 	else if (weapon->readySound)
 	{
 		//If a npc and is actually debouncing...
@@ -5690,31 +5702,35 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 			return;
 		}
 
+		//Play the stop sound if we were firing and have a stop sound
+		if (cent->pe.lightningFiring && weapon->stopSound)
+		{
+			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound);
+		}
+
 		cgi_S_AddLoopingSound(cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->readySound, CHAN_WEAPON);
 
 		cent->pe.lightningFiring = qfalse;
 		cent->pe.lightningReady = qtrue;
 	}
-	else
+	//Cleanup case
+	else if (cent->pe.lightningFiring || cent->pe.lightningReady) 
 	{
-		if (cent->pe.lightningFiring || cent->pe.lightningReady) 
-		{
-			//If a npc and is actually debouncing...
-			if (cent->gent->s.number >= MAX_CLIENTS && (cent->gent->NPC->shotTime + 100) > level.time) {
-				return;
-			}
-
-			if (weapon->stopSound)
-			{
-				cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound);
-			}
-			else {
-				cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, cgi_S_RegisterSound("sound/null.wav"));
-			}
-
-			cent->pe.lightningFiring = qfalse;
-			cent->pe.lightningReady = qfalse;
+		//If a npc and is actually debouncing...
+		if (cent->gent->s.number >= MAX_CLIENTS && (cent->gent->NPC->shotTime + 100) > level.time) {
+			return;
 		}
+
+		if (weapon->stopSound)
+		{
+			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound);
+		}
+		else {
+			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, cgi_S_RegisterSound("sound/null.wav"));
+		}
+
+		cent->pe.lightningFiring = qfalse;
+		cent->pe.lightningReady = qfalse;
 	}
 }
 

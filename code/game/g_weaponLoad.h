@@ -205,6 +205,7 @@ void WPN_ParseAttack(const char** holdBuf);
 void ATK_EnergyPerShot(const char** holdBuf);
 void ATK_FireTime(const char** holdBuf);
 void ATK_FiringSound(const char** holdBuf);
+void ATK_StartSound(const char** holdBuf);
 void ATK_MuzzleEffect(const char** holdBuf);
 void ATK_ChargeMuzzleEffect(const char** holdBuf);
 void ATK_ChargeMuzzleScale(const char** holdBuf);
@@ -274,6 +275,7 @@ wpnParms_t AttackDataParms[] =
 	{ "methodOfDeath",		ATK_MethodOfDeath },
 	{ "splashMethodOfDeath",ATK_SplashMethodOfDeath },
 	{ "firingsound",		ATK_FiringSound },
+	{ "startsound",			ATK_StartSound },
 	{ "chargesound",		ATK_ChargeSnd },
 	{ "range",				ATK_Range },
 	{ "missileModel",		ATK_MissileName },
