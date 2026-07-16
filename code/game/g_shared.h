@@ -1749,6 +1749,7 @@ typedef struct weaponAttackInfo_s {
 	qhandle_t		chargeMuzzleShader;
 
 	sfxHandle_t		firingSound;
+	sfxHandle_t		startSound;
 	sfxHandle_t		missileHitSound;
 
 	sfxHandle_t		chargeSound;
