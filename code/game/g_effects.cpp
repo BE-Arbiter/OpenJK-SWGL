@@ -23,9 +23,17 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_effects.h"
 #include "g_shared.h"
 
-void reinitializeEffect(activeEffect_t* effect) {
+/* Effect Ending */
+void endEffect(activeEffect_t* effect) {
 	if (!effect) {
 		return;
+	}
+	switch (effect->effectType) {
+		case ET_FIRE:
+			// Handle fire effect cleanup
+			break;
+		default:
+			break;
 	}
 	effect->effectType = ET_DEFAULT;
 	effect->parameter = 0;
@@ -41,13 +49,15 @@ qboolean isEffectEnded(activeEffect_t* effect) {
 
 	//Reinitialize the effect if it has ended
 	if (level.time >= effect->endTime) {
-		reinitializeEffect(effect);
+		endEffect(effect);
 		return qtrue;
 	}
 
 	return qfalse;
 }
 
+
+/* Effect ongoing */
 /* G_ApplyFire
  * @brief Applies the fire effect to the given entity.
  * @param ent The entity to apply the fire effect to.
@@ -93,11 +103,43 @@ void G_applyEffects(gentity_t* ent) {
 		}
 		switch (effect->effectType) {
 		case ET_FIRE:
-			// Apply fire effect logic here
+			G_applyFire(ent, effect);
 			break;
 		default:
-			reinitializeEffect(effect);
+			endEffect(effect);
 		}
 
+	}
+}
+
+void G_startEffect(gentity_t* ent, activeEffect_t* effect) {
+	if (!ent || !effect) {
+		return;
+	}
+	for (int i = 0; i < MAX_ACTIVE_EFFECTS; i++) {
+		if (ent->s.activeEffects[i].effectType == effect->effectType) {
+			//TODO UPDATE EFFECT
+			return;
+		}
+	}
+
+
+	switch (effect->effectType) {
+		case ET_FIRE:
+			// Handle fire effect initialization
+			break;
+		case ET_DEFAULT:
+		default:
+			return; //Invalid Effect
+	}
+	for (int i = 0; i < MAX_ACTIVE_EFFECTS; i++) {
+		if (isEffectEnded(&ent->s.activeEffects[i])) {
+			ent->s.activeEffects[i].effectType = effect->effectType;
+			ent->s.activeEffects[i].parameter = effect->parameter;
+			ent->s.activeEffects[i].endTime = effect->endTime;
+			ent->s.activeEffects[i].inflictorIndex = effect->inflictorIndex;
+			ent->s.activeEffects[i].lastApplied = effect->lastApplied;
+			return;
+		}
 	}
 }

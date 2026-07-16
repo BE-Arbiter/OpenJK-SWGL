@@ -25,6 +25,10 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #ifndef G_ACTIVE_EFFECTS_H
 #define G_ACTIVE_EFFECTS_H
 
+/*Start an effect on an entity*/
+void G_startEffect(gentity_t* ent, activeEffect_t* effect);
+
+/*Apply active effects to an entity*/
 void G_applyEffects(gentity_t* ent);
 
 
