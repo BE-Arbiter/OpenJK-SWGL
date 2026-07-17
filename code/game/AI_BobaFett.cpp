@@ -804,9 +804,7 @@ void	Boba_Fire()
 				}
 				break;
 
-			case WP_CLONECARBINE:
-			case WP_CLONERIFLE:
-			case WP_CLONEPISTOL:
+			default:
 
 				if (TIMER_Done(NPC, "nextBlasterAltFireDecide"))
 				{
