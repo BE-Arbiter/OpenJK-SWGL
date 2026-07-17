@@ -863,7 +863,7 @@ void CG_DPPrevForcePower_f( void );
 void CG_InitItemForWeapon(gitem_t* item, int weaponNum);
 void CG_InitItemForAmmo(gitem_t* item, int weaponNum);
 qboolean CG_IsChargedAttack(centity_t* cent);
-char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData);
+const char* CG_GetMuzzleEffect(const centity_t* cent, const weaponData_t* wData);
 void CG_RegisterWeapon( int weaponNum );
 int CG_GetAttackIndex(gentity_t *gent,qboolean alt_fire);
 void CG_RegisterItemVisuals( int itemNum );

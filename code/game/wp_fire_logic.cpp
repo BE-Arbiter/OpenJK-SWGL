@@ -483,8 +483,7 @@ void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	vec3_t	dir, start,end;
 	float range = attackData->range;
-
-	/* Calculate the damage, it's a little bit random */
+	int duration = attackData->effectDuration > 0 ? attackData->effectDuration: 1000; // Default to 1 second if not specified
 	int	damage = attackData->damage;
 	
 	//Get normalized direction in dir
@@ -541,37 +540,20 @@ void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 			//G_Damage(target, ent, ent, target_dir, hitloc, damage, DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC | DAMAGE_IGNORE_TEAM, MOD_LAVA, HL_NONE);
 			activeEffect_t effect;
 			effect.effectType= ET_FIRE;
-			effect.endTime = level.time + 5000; // 5s debug purpose
+			effect.endTime = level.time + duration;
 			effect.lastApplied = level.time;
-			effect.parameter = damage;
+			effect.parameter = (float)damage;
 			effect.inflictorIndex = ent->s.number;
-
-			G_startEffect(target, &effect);
-
-			// HeEeHuHahEHoHo
-			if (target->health > 0)
+			if (attackData->hitFleshEffect[0])
 			{
-				if (attackData->hitFleshEffect[0]) 
-				{
-					G_PlayEffect(G_EffectIndex(attackData->hitFleshEffect), target->currentOrigin);
-				}
-				else
-				{
-					G_PlayEffect(G_EffectIndex("env/fire.efx"), target->currentOrigin);
-					G_PlayEffect(G_EffectIndex("env/small_fire.efx"), hitloc);
-				}
+				effect.effectIndex = G_EffectIndex(attackData->hitFleshEffect);
 			}
 			else
 			{
-				if (attackData->hitFleshEffect[0])
-				{
-					G_PlayEffect(G_EffectIndex(attackData->hitFleshEffect), target->currentOrigin);
-				}
-				else
-				{
-					G_PlayEffect(G_EffectIndex("env/small_fire.efx"), target->currentOrigin);
-				}
+				effect.effectIndex = -1;
 			}
+
+			G_startEffect(target, &effect);
 		}
 	}
 }

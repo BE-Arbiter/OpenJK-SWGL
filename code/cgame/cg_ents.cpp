@@ -506,23 +506,9 @@ const weaponData_t  *wData = NULL;
 			// HACK: adding in muzzle flashes
 			if ( cc->muzzleFlashTime > 0 && wData )
 			{
-				const char *effect = NULL;
+				const char *effect = CG_GetMuzzleEffect(cc, wData);
+
 				cc->muzzleFlashTime = 0;
-
-				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->attackData[0].muzzleEffect[0] )
-				{
-					effect = &wData->attackData[0].muzzleEffect[0];
-				}
-
-				if ( cc->currentState.eFlags & EF_ALT_FIRING )
-				{
-					// We're alt-firing, so see if we need to override with a custom alt-fire effect
-					if ( wData->attackData[1].muzzleEffect[0] )
-					{
-						effect = &wData->attackData[1].muzzleEffect[0];
-					}
-				}
 
 				if ( cc->currentState.eFlags & EF_FIRING || cc->currentState.eFlags & EF_ALT_FIRING )
 				{
