@@ -603,6 +603,12 @@ void ATK_Blockability(const char** holdBuf) {
 }
 
 //--------------------------------------------
+void ATK_StartSound(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].startSnd, 64, "startSnd");
+}
+
+//--------------------------------------------
 void ATK_FiringSound(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].firingSnd, 64, "firingSnd");

@@ -5115,7 +5115,8 @@ static void Jedi_CombatTimersUpdate(int enemy_dist)
 		//okay, now mess with agression
 		if (NPC->enemy && NPC->enemy->client)
 		{
-			switch (NPC->enemy->client->ps.weapon)
+			int baseWeapon = weaponData[NPC->enemy->client->ps.weapon].baseWeaponNum > 0 ? weaponData[NPC->enemy->client->ps.weapon].baseWeaponNum : NPC->enemy->client->ps.weapon;
+			switch (baseWeapon)
 			{
 				//FIXME: add new weapons
 			case WP_SABER:

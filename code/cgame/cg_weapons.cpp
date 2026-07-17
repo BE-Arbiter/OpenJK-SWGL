@@ -340,6 +340,9 @@ void CG_RegisterWeapon( int weaponNum ) {
 			theFxScheduler.RegisterEffect("env/small_fire.efx");
 		}
 		// register the sounds for the weapon
+		if (weaponData[weaponNum].attackData[i].startSnd[0]) {
+			weaponInfo->weaponAttacksInfo[i].startSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].startSnd);
+		}
 		if (weaponData[weaponNum].attackData[i].firingSnd[0]) {
 			weaponInfo->weaponAttacksInfo[i].firingSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].firingSnd);
 		}
