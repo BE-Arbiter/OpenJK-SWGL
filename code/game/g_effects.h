@@ -28,6 +28,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 /*Start an effect on an entity*/
 void G_startEffect(gentity_t* ent, activeEffect_t* effect);
 
+/*End an effect type on an entity*/
+void G_endEffectType(gentity_t* ent, effectType_t type);
+
 /*Apply active effects to an entity*/
 void G_applyEffects(gentity_t* ent);
 

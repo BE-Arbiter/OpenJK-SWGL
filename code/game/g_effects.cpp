@@ -41,6 +41,18 @@ void endEffect(activeEffect_t* effect) {
 	effect->inflictorIndex = -1;
 	effect->lastApplied = 0;
 }
+void endEffectType(gentity_t* ent, effectType_t type) {
+	if (!ent) {
+		return;
+	}
+	for (int i = 0; i < MAX_ACTIVE_EFFECTS; i++) {
+		activeEffect_t* effect = &ent->s.activeEffects[i];
+		if (effect->effectType == type) {
+			endEffect(effect);
+			return;
+		}
+	}
+}
 
 qboolean isEffectEnded(activeEffect_t* effect) {
 	if (!effect || effect->effectType == ET_DEFAULT) {
@@ -101,12 +113,18 @@ void G_applyEffects(gentity_t* ent) {
 		{
 			continue;
 		}
+		const int contents = gi.pointcontents(ent->currentOrigin, ent->s.clientNum);
 		switch (effect->effectType) {
-		case ET_FIRE:
-			G_applyFire(ent, effect);
-			break;
-		default:
-			endEffect(effect);
+			case ET_FIRE:
+				if (contents & (CONTENTS_WATER | CONTENTS_SLIME))
+				{
+					endEffect(effect);
+					return;
+				}
+				G_applyFire(ent, effect);
+				break;
+			default:
+				endEffect(effect);
 		}
 
 	}
