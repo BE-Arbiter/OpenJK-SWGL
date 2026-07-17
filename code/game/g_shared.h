@@ -1124,6 +1124,7 @@ Ghoul2 Insert End
 	qboolean	alt_fire;		
 	int			attack_index; // for projectiles, so that we know where to find the effects
 	int			count;
+	int			bobaCounter;
 	int			bounceCount;
 	int			fly_sound_debounce_time;	// wind tunnel
 	int			painDebounceTime;
@@ -1407,6 +1408,7 @@ Ghoul2 Insert End
 		saved_game.write<int32_t>(alt_fire);
 		saved_game.write<int32_t>(attack_index);
 		saved_game.write<int32_t>(count);
+		saved_game.write<int32_t>(bobaCounter);
 		saved_game.write<int32_t>(bounceCount);
 		saved_game.write<int32_t>(fly_sound_debounce_time);
 		saved_game.write<int32_t>(painDebounceTime);
@@ -1609,6 +1611,7 @@ Ghoul2 Insert End
 		saved_game.read<int32_t>(alt_fire);
 		saved_game.read<int32_t>(attack_index);
 		saved_game.read<int32_t>(count);
+		saved_game.read<int32_t>(bobaCounter);
 		saved_game.read<int32_t>(bounceCount);
 		saved_game.read<int32_t>(fly_sound_debounce_time);
 		saved_game.read<int32_t>(painDebounceTime);
