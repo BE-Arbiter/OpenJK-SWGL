@@ -29,6 +29,7 @@ File for default fire behavior
 #include "wp_saber.h"
 #include "w_local.h"
 #include "../cgame/cg_local.h"
+#include "g_effects.h"
 
 
 qboolean is_player_scoped(gentity_t* ent)
@@ -525,7 +526,7 @@ void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 		float dist = VectorLength(target_dir);
 
 		VectorNormalizeFast(target_dir);
-		if (DotProduct(target_dir, dir) < 0.80f && dist > 40.0f) {
+		if (DotProduct(target_dir, dir) < 0.80f && dist > 20.0f) {
 			continue; // We are not "in front" of the muzzle, We also are not directly next to the muzzle.
 		}
 
@@ -537,7 +538,16 @@ void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 
 		if (target->takedamage)
 		{
-			G_Damage(target, ent, ent, target_dir, hitloc, damage, DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC | DAMAGE_IGNORE_TEAM, MOD_LAVA, HL_NONE);
+			//G_Damage(target, ent, ent, target_dir, hitloc, damage, DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC | DAMAGE_IGNORE_TEAM, MOD_LAVA, HL_NONE);
+			activeEffect_t effect;
+			effect.effectType= ET_FIRE;
+			effect.endTime = level.time + 5000; // 5s debug purpose
+			effect.lastApplied = level.time;
+			effect.parameter = damage;
+			effect.inflictorIndex = ent->s.number;
+
+			G_startEffect(target, &effect);
+
 			// HeEeHuHahEHoHo
 			if (target->health > 0)
 			{

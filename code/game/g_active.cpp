@@ -30,6 +30,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_vehicles.h"
 #include "b_local.h"
 #include "g_navigator.h"
+#include "g_effects.h"
 
 #ifdef _DEBUG
 	#include <float.h>
@@ -4939,6 +4940,8 @@ usually be a couple times for each server frame on fast clients.
 extern int		G_FindLocalInterestPoint( gentity_t *self );
 extern float	G_CanJumpToEnemyVeh(Vehicle_t *pVeh, const usercmd_t *pUmcd );
 
+extern cvar_t* g_skippingcin;
+
 void ClientThink_real( gentity_t *ent, usercmd_t *ucmd )
 {
 	gclient_t	*client;
@@ -4965,7 +4968,7 @@ void ClientThink_real( gentity_t *ent, usercmd_t *ucmd )
 
 	if ( ent->s.number == 0 )
 	{
-extern cvar_t	*g_skippingcin;
+		G_applyEffects(ent);
 
 		if ( ent->s.eFlags & EF_LOCKED_TO_WEAPON )
 		{
@@ -5107,6 +5110,8 @@ extern cvar_t	*g_skippingcin;
 	}
 	else
 	{
+		G_applyEffects(ent);
+
 		if ( ent->s.eFlags & EF_LOCKED_TO_WEAPON )
 		{
 			G_UpdateEmplacedWeaponData( ent );
