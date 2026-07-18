@@ -1489,7 +1489,7 @@ void FireWeapon( gentity_t *ent, int attack_index)
 			WP_FireGenericBowcaster(ent, attack_index);
 			break;
 		case FL_FLAMETHROWER:
-			if(WP_checkWaterFire(ent, attackData))
+			if(!WP_checkWaterFire(ent, attackData))
 			{ 
 				break;
 			}

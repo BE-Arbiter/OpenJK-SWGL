@@ -5667,7 +5667,8 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 
 
 	//Handle weapon Looping Sounds
-	qboolean playEffect = CG_GetMuzzleEffect(cent, wpnData)[0] ? qtrue : qfalse;
+	const char* muzzleEffect = CG_GetMuzzleEffect(cent, wpnData);
+	qboolean playEffect = muzzleEffect ? qtrue : qfalse;
 	//We are Main Firing
 	if ( (cent->currentState.eFlags & EF_FIRING) && !(cent->currentState.eFlags & EF_ALT_FIRING) && playEffect)
 	{
