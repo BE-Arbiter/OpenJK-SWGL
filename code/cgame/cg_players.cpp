@@ -5706,9 +5706,13 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 		}
 
 		//Play the stop sound if we were firing and have a stop sound
-		if (cent->pe.lightningFiring && weapon->stopSound)
+		if (cent->pe.lightningFiring)
 		{
-			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound);
+			cgi_S_ClearLoopingSoundsForEntityAndChannel(cent->currentState.number, CHAN_WEAPON);
+			if (weapon->stopSound)
+			{
+				cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound);
+			}
 		}
 
 		cgi_S_AddLoopingSound(cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->readySound, CHAN_WEAPON);
@@ -5729,6 +5733,7 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound);
 		}
 		else {
+			cgi_S_ClearLoopingSoundsForEntityAndChannel(cent->currentState.number, CHAN_WEAPON);
 			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, cgi_S_RegisterSound("sound/null.wav"));
 		}
 

@@ -934,6 +934,12 @@ intptr_t CL_CgameSystemCalls( intptr_t *args ) {
 	case CG_S_CLEARLOOPINGSOUNDS:
 		S_ClearLoopingSounds();
 		return 0;
+	case CG_S_CLEARLOOPINGSOUNDSFORENT:
+		S_ClearLoopingSoundsForEntity(args[1]);
+		return 0;
+	case CG_S_CLEARLOOPINGSOUNDSFORENTANDCHAN:
+		S_ClearLoopingSoundsForEntityAndChannel(args[1], (soundChannel_t)args[2]);
+		return 0;
 	case CG_S_ADDLOOPINGSOUND:
 		// stops an ERR_DROP internally if called illegally from game side, but note that it also gets here
 		//	legally during level start where normally the internal s_soundStarted check would return. So ok to hit this.
