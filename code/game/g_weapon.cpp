@@ -1489,6 +1489,10 @@ void FireWeapon( gentity_t *ent, int attack_index)
 			WP_FireGenericBowcaster(ent, attack_index);
 			break;
 		case FL_FLAMETHROWER:
+			if(!WP_checkWaterFire(ent, attackData))
+			{ 
+				break;
+			}
 			WP_FireFlameThrower(ent, attack_index);
 			break;
 		case FL_BEAM:
@@ -1620,6 +1624,25 @@ void misc_weapon_shooter_fire( gentity_t *self )
 			self->nextthink = level.time + self->wait;
 		}
 	}
+}
+/* WP_checkWaterFire
+ * Checks if the weapon is a flamethrower and if the entity is in water or slime.
+ * Returns qfalse if the weapon is a flamethrower and the entity is in water or slime, otherwise returns qtrue.
+ */
+qboolean WP_checkWaterFire(const gentity_t *ent, const weaponAttackData_t *attackData) {
+	if(attackData->firingLogic != FL_FLAMETHROWER) {
+		return qtrue;
+	}
+
+	if (gi.totalMapContents() & (CONTENTS_WATER | CONTENTS_SLIME))
+	{
+		//If in water
+		const int contents = gi.pointcontents(ent->currentOrigin, ent->s.clientNum);
+		if (contents & (CONTENTS_WATER | CONTENTS_SLIME)) {
+			return qfalse;
+		}
+	}
+	return qtrue;
 }
 
 void misc_weapon_shooter_use ( gentity_t *self, gentity_t *other, gentity_t *activator )

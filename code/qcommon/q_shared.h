@@ -1612,23 +1612,26 @@ typedef enum
 typedef struct activeEffect_s
 {
 	effectType_t	effectType; // Cf enum on top 
-	int				parameter; // Main exemple is Damage
+	float				parameter; // Main exemple is Damage
 	int				endTime; // When does the effect end
 	int				inflictorIndex; // Entity number of the inflictor (if any)
 	int				lastApplied; // time of last application, for effects that are applied over time (like fire)
+	int				effectIndex; // Index of the FX to use (if override)
 
 	void sg_export(ojk::SavedGameHelper& saved_game) const {
 		saved_game.write<int32_t>(effectType);
-		saved_game.write<int32_t>(parameter);
+		saved_game.write<float>(parameter);
 		saved_game.write<int32_t>(endTime);
 		saved_game.write<int32_t>(lastApplied);
+		saved_game.write<int32_t>(effectIndex);
 	}
 
 	void sg_import(ojk::SavedGameHelper& saved_game) {
 		saved_game.read<int32_t>(effectType);
-		saved_game.read<int32_t>(parameter);
+		saved_game.read<float>(parameter);
 		saved_game.read<int32_t>(endTime);
 		saved_game.read<int32_t>(lastApplied);
+		saved_game.read<int32_t>(effectIndex);
 	}
 } activeEffect_t;
 

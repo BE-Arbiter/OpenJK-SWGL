@@ -863,7 +863,7 @@ void CG_DPPrevForcePower_f( void );
 void CG_InitItemForWeapon(gitem_t* item, int weaponNum);
 void CG_InitItemForAmmo(gitem_t* item, int weaponNum);
 qboolean CG_IsChargedAttack(centity_t* cent);
-char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData);
+const char* CG_GetMuzzleEffect(const centity_t* cent, const weaponData_t* wData);
 void CG_RegisterWeapon( int weaponNum );
 int CG_GetAttackIndex(gentity_t *gent,qboolean alt_fire);
 void CG_RegisterItemVisuals( int itemNum );
@@ -1040,6 +1040,7 @@ void	cgi_S_StopSounds( void );
 // a local sound is always played full volume
 void	cgi_S_StartLocalSound( sfxHandle_t sfx, int channelNum );
 void	cgi_S_ClearLoopingSounds( void );
+void	cgi_S_ClearLoopingSoundsForEntity( int entityNum );
 void	cgi_S_AddLoopingSound(int entityNum, const vec3_t origin, const vec3_t velocity, sfxHandle_t sfx, soundChannel_t chan = CHAN_AUTO );
 void	cgi_S_UpdateEntityPosition( int entityNum, const vec3_t origin );
 

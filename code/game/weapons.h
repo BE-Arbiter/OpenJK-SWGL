@@ -312,6 +312,7 @@ typedef struct weaponAttackData_s
 	/* Base Data */
 	int		energyPerShot;				// Amount of energy used per shot
 	int		fireTime;					// Amount of time between firings
+	int		effectDuration;				// Amount of time the effect lasts (For flamer)
 	int		range;						// Range of weapon
 	float 	spread;						// Accuracy of shots
 	float 	npcSpread[3];				// Accuracy of shots for most npc

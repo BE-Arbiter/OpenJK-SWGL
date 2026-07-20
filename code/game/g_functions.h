@@ -662,6 +662,7 @@ void GEntity_UseFunc(gentity_t *self, gentity_t *other, gentity_t *activator);
 void GEntity_PainFunc(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, const vec3_t point, int damage, int mod,int hitLoc=HL_NONE);
 void GEntity_DieFunc(gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod,int dFlags=0,int hitLoc=HL_NONE);
 qboolean GEntity_HasAttribute(gentity_t* entity, gent_attr_t attribute);
+qboolean WP_checkWaterFire(const gentity_t *ent, const weaponAttackData_t *attackData);
 // external functions that I now refer to...
 
 
