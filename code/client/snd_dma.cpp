@@ -1869,6 +1869,29 @@ void S_ClearLoopingSounds( void )
 	numLoopSounds = 0;
 }
 
+void S_ClearLoopingSoundsForEntity(int entityNum)
+{
+	for (int i = 0; i < numLoopSounds; i++) {
+		if (loopSounds[i].entnum == entityNum) {
+			for (int j = i; j < numLoopSounds - 1; j++) {
+				loopSounds[j] = loopSounds[j + 1];
+			}
+			numLoopSounds--;
+		}
+	}
+}
+
+void S_ClearLoopingSoundsForEntityAndChannel(int entityNum, soundChannel_t chan)
+{
+	for (int i = 0; i < numLoopSounds; i++) {
+		if (loopSounds[i].entnum == entityNum && loopSounds[i].entchan == chan) {
+			for (int j = i; j < numLoopSounds - 1; j++) {
+				loopSounds[j] = loopSounds[j + 1];
+			}
+			numLoopSounds--;
+		}
+	}
+}
 /*
 ==================
 S_AddLoopingSound

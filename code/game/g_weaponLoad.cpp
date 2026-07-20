@@ -628,6 +628,12 @@ void ATK_FireTime(const char** holdBuf)
 }
 
 //--------------------------------------------
+void ATK_EffectDuration(const char** holdBuf)
+{
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].effectDuration, 0, INT_MAX, "EffectDuration");
+}
+
+//--------------------------------------------
 void ATK_Range(const char** holdBuf)
 {
 	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].range, 0, MAX_RANGE, "Range");

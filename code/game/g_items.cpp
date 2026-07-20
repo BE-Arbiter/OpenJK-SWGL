@@ -774,7 +774,7 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	}
 
 	// NPCs can pick it up
-	if (!(ent->spawnflags & ITMSF_ALLOWNPC) && (other->s.number))
+	if (!(ent->spawnflags &  ITMSF_ALLOWNPC) && (other->s.number))
 	{
 		return;
 	}

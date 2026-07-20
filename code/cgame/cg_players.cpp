@@ -5639,6 +5639,7 @@ Handle weapon sounds :
 static void CG_HandleWeaponSounds( centity_t *cent )
 {
 	weaponInfo_t	*weapon = &cg_weapons[ cent->currentState.weapon ];
+	weaponData_t* wpnData = &weaponData[cent->currentState.weapon];
 
 	if ( cent->currentState.weapon == WP_SABER )
 	{
@@ -5666,8 +5667,10 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 
 
 	//Handle weapon Looping Sounds
+	const char* muzzleEffect = CG_GetMuzzleEffect(cent, wpnData);
+	qboolean playEffect = muzzleEffect ? qtrue : qfalse;
 	//We are Main Firing
-	if ( (cent->currentState.eFlags & EF_FIRING) && !(cent->currentState.eFlags & EF_ALT_FIRING))
+	if ( (cent->currentState.eFlags & EF_FIRING) && !(cent->currentState.eFlags & EF_ALT_FIRING) && playEffect)
 	{
 		if (cent->pe.lightningFiring == qfalse && weapon->weaponAttacksInfo[0].startSound)
 		{
@@ -5681,7 +5684,7 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 
 	}
 	//We are alt Firing (or pressing both buttons)
-	else if ( cent->currentState.eFlags & EF_ALT_FIRING )
+	else if ( cent->currentState.eFlags & EF_ALT_FIRING && playEffect)
 	{
 		if (cent->pe.lightningFiring == qfalse && weapon->weaponAttacksInfo[1].startSound)
 		{
@@ -5695,7 +5698,7 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 
 	}
 	//We are not firing, but we have a readySound
-	else if (weapon->readySound)
+	else if (weapon->readySound && playEffect)
 	{
 		//If a npc and is actually debouncing...
 		if (cent->gent->s.number >= MAX_CLIENTS && (cent->gent->NPC->shotTime + 100) > level.time) {
@@ -5703,9 +5706,13 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 		}
 
 		//Play the stop sound if we were firing and have a stop sound
-		if (cent->pe.lightningFiring && weapon->stopSound)
+		if (cent->pe.lightningFiring)
 		{
-			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound);
+			cgi_S_ClearLoopingSoundsForEntityAndChannel(cent->currentState.number, CHAN_WEAPON);
+			if (weapon->stopSound)
+			{
+				cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound);
+			}
 		}
 
 		cgi_S_AddLoopingSound(cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->readySound, CHAN_WEAPON);
@@ -5726,6 +5733,7 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->stopSound);
 		}
 		else {
+			cgi_S_ClearLoopingSoundsForEntityAndChannel(cent->currentState.number, CHAN_WEAPON);
 			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, cgi_S_RegisterSound("sound/null.wav"));
 		}
 
@@ -9700,21 +9708,16 @@ Ghoul2 Insert End
 			// impulse flash
 			if ( cent->muzzleFlashTime > 0 && wData && !(cent->currentState.eFlags & EF_LOCKED_TO_WEAPON ))
 			{
+
 				int effect = 0;
+				const char* muzzleEffect = CG_GetMuzzleEffect(cent, wData);
 
 				cent->muzzleFlashTime  = 0;
 
 				CG_PositionEntityOnTag( &flash, &gun, gun.hModel, "tag_flash");
-				int attackIndex = CG_GetAttackIndex(cent->gent, (cent->currentState.eFlags & EF_ALT_FIRING) ? qtrue : qfalse);
-				// Try and get a default muzzle so we have one to fall back on
-				if ( wData->attackData[attackIndex].muzzleEffect[0])
+				if (muzzleEffect[0])
 				{
-					effect = wInfo->weaponAttacksInfo[attackIndex].muzzleEffect;
-				}
-				//Default fallback
-				else if ( wData->attackData[0].muzzleEffect[0])
-				{
-					effect = wInfo->weaponAttacksInfo[0].muzzleEffect;
+					effect = theFxScheduler.RegisterEffect(muzzleEffect);
 				}
 
 

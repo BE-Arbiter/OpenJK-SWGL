@@ -422,6 +422,7 @@ void PrintWeaponAttackData(const weaponAttackData_t* attack)
 
 	gi.Printf("\t\t^6'energyPerShot'^7 : ^5%d^7 (int)\n", attack->energyPerShot);
 	gi.Printf("\t\t^6'fireTime'^7 : ^5%d^7 (int)\n", attack->fireTime);
+	gi.Printf("\t\t^6'effectDuration'^7 : ^5%d^7 (int)\n", attack->effectDuration);
 	gi.Printf("\t\t^6'range'^7 : ^5%d^7 (int)\n", attack->range);
 	gi.Printf("\t\t^6'spread'^7 : ^5%f^7 (float)\n", attack->spread);
 
@@ -488,6 +489,7 @@ void PrintWeaponAttackData(const weaponAttackData_t* attack)
 	gi.Printf("\t\t^6'missileDlightColor'^7 : ^5%s^7 (vec3_t)\n", getStringValueForvec3(&attack->missileDlightColor));
 
 	gi.Printf("\t\t^6'firingSnd'^7 : ^5\"%s\"^7 (char[64])\n", attack->firingSnd);
+	gi.Printf("\t\t^6'startSound'^7 : ^5\"%s\"^7 (char[64])\n", attack->startSnd);
 	gi.Printf("\t\t^6'missileHitSound'^7 : ^5\"%s\"^7 (char[64])\n", attack->missileHitSound);
 
 	gi.Printf("\t\t^6'dempDetonateShader'^7 : ^5\"%s\"^7 (char[64])\n", attack->dempDetonateShader);
@@ -513,6 +515,7 @@ void PrintWeaponAttackData_Light(const weaponAttackData_t* attack)
 
 	gi.Printf("\t\t^6'energyPerShot'^7 : ^5%d^7 (int)\n", attack->energyPerShot);
 	gi.Printf("\t\t^6'fireTime'^7 : ^5%d^7 (int)\n", attack->fireTime);
+	gi.Printf("\t\t^6'effectDuration'^7 : ^5%d^7 (int)\n", attack->effectDuration);
 	gi.Printf("\t\t^6'range'^7 : ^5%d^7 (int)\n", attack->range);
 	gi.Printf("\t\t^6'spread'^7 : ^5%f^7 (float)\n", attack->spread);
 	gi.Printf("\t\t^6'damage'^7 : ^5%d^7 (int)\n", attack->damage);

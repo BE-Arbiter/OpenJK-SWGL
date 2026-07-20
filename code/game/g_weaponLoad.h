@@ -251,6 +251,7 @@ void ATK_NpcSpread(const char** holdBuf);
 void ATK_NpcVelocity(const char** holdBuf);
 void ATK_FiringLogic(const char** holdBuf);
 void ATK_Blockability(const char** holdBuf);
+void ATK_EffectDuration(const char** holdBuf);
 
 // Legacy weapons.dat force fields
 void WPN_FuncSkip(const char** holdBuf);
@@ -313,6 +314,7 @@ wpnParms_t AttackDataParms[] =
 	{ "velocity",			ATK_Velocity },
 	{ "spread",				ATK_Spread },
 	{ "fireOptions",		ATK_FireOptions},
+	{ "effectDuration",		ATK_EffectDuration},
 };
 
 wpnParms_t WpnParms[] =
