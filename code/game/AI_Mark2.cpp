@@ -241,11 +241,17 @@ void Mark2_AttackDecision( void )
 	if (NPCInfo->localState == LSTATE_RISINGUP)
 	{
 		NPC->flags &= ~FL_SHIELDED;
-		NPC_SetAnim( NPC, SETANIM_BOTH, BOTH_RUN1START, SETANIM_FLAG_HOLD|SETANIM_FLAG_OVERRIDE );
-		if ((NPC->client->ps.legsAnimTimer==0) &&
-			NPC->client->ps.torsoAnim == BOTH_RUN1START )
+		// Removed while we can't restore the animations
+		// NPC_SetAnim( NPC, SETANIM_BOTH, BOTH_RUN1START, SETANIM_FLAG_HOLD|SETANIM_FLAG_OVERRIDE );
+		if (!TIMER_Exists(NPC, "risingTime"))
+		{
+			TIMER_Set(NPC, "risingTime", Q_irand(300, 800));
+		}
+		if ( TIMER_Done(NPC,"risingTime") )/* (NPC->client->ps.legsAnimTimer == 0) && NPC->client->ps.torsoAnim == BOTH_RUN1START */
 		{
 			NPCInfo->localState = LSTATE_NONE;	// He's up again.
+		}
+		else {
 		}
 		return;
 	}
@@ -259,7 +265,8 @@ void Mark2_AttackDecision( void )
 			if ( TIMER_Done( NPC, "downTime" ) )	// Down being down?? (The delay is so he doesn't pop up and down when the player goes in and out of range)
 			{
 				NPCInfo->localState = LSTATE_RISINGUP;
-				NPC_SetAnim( NPC, SETANIM_BOTH, BOTH_RUN1STOP, SETANIM_FLAG_HOLD|SETANIM_FLAG_OVERRIDE );
+				// Removed while we can't restore the animations
+				// NPC_SetAnim( NPC, SETANIM_BOTH, BOTH_RUN1STOP, SETANIM_FLAG_HOLD|SETANIM_FLAG_OVERRIDE );
 				TIMER_Set( NPC, "runTime", Q_irand( 3000, 8000) );	// So he runs for a while before testing to see if he should drop down.
 			}
 		}
@@ -274,7 +281,8 @@ void Mark2_AttackDecision( void )
 	if ((advance) && (TIMER_Done( NPC, "downTime" )) && (NPCInfo->localState == LSTATE_DOWN))
 	{
 		NPCInfo->localState = LSTATE_RISINGUP;
-		NPC_SetAnim( NPC, SETANIM_BOTH, BOTH_RUN1STOP, SETANIM_FLAG_HOLD|SETANIM_FLAG_OVERRIDE );
+		// Removed while we can't restore the animations
+		// NPC_SetAnim( NPC, SETANIM_BOTH, BOTH_RUN1STOP, SETANIM_FLAG_HOLD|SETANIM_FLAG_OVERRIDE );
 		TIMER_Set( NPC, "runTime", Q_irand( 3000, 8000) );	// So he runs for a while before testing to see if he should drop down.
 	}
 
@@ -283,20 +291,23 @@ void Mark2_AttackDecision( void )
 	// Dropping down to shoot
 	if (NPCInfo->localState == LSTATE_DROPPINGDOWN)
 	{
-		NPC_SetAnim( NPC, SETANIM_BOTH, BOTH_RUN1STOP, SETANIM_FLAG_HOLD|SETANIM_FLAG_OVERRIDE );
-		TIMER_Set( NPC, "downTime", Q_irand( 3000, 9000) );
+		// Removed while we can't restore the animations
+		//NPC_SetAnim( NPC, SETANIM_BOTH, BOTH_RUN1STOP, SETANIM_FLAG_HOLD|SETANIM_FLAG_OVERRIDE );
 
-		if ((NPC->client->ps.legsAnimTimer==0) && NPC->client->ps.torsoAnim == BOTH_RUN1STOP )
+		if (!TIMER_Exists(NPC, "downingTime"))
+		{
+			TIMER_Set(NPC, "downingTime", Q_irand(300, 800));
+		}
+		if ( TIMER_Done(NPC, "downingTime") ) /*(NPC->client->ps.legsAnimTimer==0) && NPC->client->ps.torsoAnim == BOTH_RUN1STOP*/
 		{
 			NPC->flags |= FL_SHIELDED;
+			TIMER_Set(NPC, "downTime", Q_irand(3000, 9000));
 			NPCInfo->localState = LSTATE_DOWN;
 		}
 	}
 	// He's down and shooting
 	else if (NPCInfo->localState == LSTATE_DOWN)
 	{
-//		NPC->flags |= FL_SHIELDED;//only damagable by lightsabers and missiles
-
 		Mark2_BlasterAttack(qfalse);
 	}
 	else if (TIMER_Done( NPC, "runTime" ))	// Lowering down to attack. But only if he's done running at you.
