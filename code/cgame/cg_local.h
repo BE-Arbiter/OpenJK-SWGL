@@ -1041,6 +1041,7 @@ void	cgi_S_StopSounds( void );
 void	cgi_S_StartLocalSound( sfxHandle_t sfx, int channelNum );
 void	cgi_S_ClearLoopingSounds( void );
 void	cgi_S_ClearLoopingSoundsForEntity( int entityNum );
+void	cgi_S_ClearLoopingSoundsForEntityAndChannel( int entityNum, soundChannel_t chan );
 void	cgi_S_AddLoopingSound(int entityNum, const vec3_t origin, const vec3_t velocity, sfxHandle_t sfx, soundChannel_t chan = CHAN_AUTO );
 void	cgi_S_UpdateEntityPosition( int entityNum, const vec3_t origin );
 
