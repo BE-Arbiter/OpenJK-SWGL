@@ -123,6 +123,7 @@ static void		UI_InitAllocForcePowers ( const char *forceName );
 static void		UI_InitAllocSaberStyle( const char *saberStyle );
 static void		UI_SwitchSaberStyle( const char * saberStyle);
 static void		UI_GetSaberStyle(void);
+static void		UI_Cheats(const char* cheatName);
 static void		UI_AffectForcePowerLevel ( const char *forceName );
 static void		UI_ShowForceLevelDesc ( const char *forceName );
 static void		UI_ResetForceLevels ( void );
@@ -914,7 +915,15 @@ vmCvar_t	ui_mission_mapcode;
 vmCvar_t	ui_variant_code;
 vmCvar_t	ui_team;
 vmCvar_t	ui_health;
+vmCvar_t	ui_shield;
 vmCvar_t	ui_force;
+
+// New cvars for the cheats affichage
+vmCvar_t ui_cheats_godMode;
+vmCvar_t ui_cheats_noForce;
+vmCvar_t ui_cheats_undying;
+vmCvar_t ui_cheats_noTarget;
+vmCvar_t ui_cheats_noClip;
 
 // Force Power cvars (I literally don't know any other way to do this.....)
 vmCvar_t	ui_jump_level;
@@ -1111,8 +1120,15 @@ static cvarTable_t cvarTable[] =
 	{ &ui_variant_code,			"ui_variant_code",		"default", NULL, 0},
 	{ &ui_team,					"ui_team",	"enemy", NULL, CVAR_ARCHIVE},
 	{ &ui_health,				"ui_health",	"100", NULL, CVAR_ARCHIVE},
+	{ &ui_shield,				"ui_shield",	"100", NULL, CVAR_ARCHIVE},
 	{ &ui_force,				"ui_force",	"100", NULL, CVAR_ARCHIVE},
 	{ &ui_saber_styles,		"ui_saber_styles", "0", NULL, 0 },
+
+	{ &ui_cheats_godMode,		"ui_cheats_godMode", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_noForce,		"ui_cheats_noForce", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_undying,		"ui_cheats_undying", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_noTarget,		"ui_cheats_noTarget", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_noClip,		"ui_cheats_noClip", "0", NULL, CVAR_CHEAT },
 
 	{ &ui_weaponone, "ui_weaponone",   "WP_NONE", NULL, 0 },
 	{ &ui_weapontwo, "ui_weapontwo",   "WP_NONE", NULL, 0 },
@@ -1657,12 +1673,13 @@ static qboolean UI_RunMenuScript ( const char **args )
 			s_savegame.saveFileCnt = -1;	//force a refresh at drawtime
 //			ReadSaveDirectory();
 		}
-		else if (Q_stricmp(name, "loadAuto") == 0)
+		if (Q_stricmp(name, "loadAuto") == 0)
 		{
 			Menus_CloseAll();
 			ui.Cmd_ExecuteText( EXEC_APPEND, "load auto\n");	//load game menu
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "loadgame") == 0)
+		if (Q_stricmp(name, "loadgame") == 0)
 		{
 			if (s_savedata[s_savegame.currentLine].currentSaveFileName)// && (*s_file_desc_field.field.buffer))
 			{
@@ -1671,9 +1688,9 @@ static qboolean UI_RunMenuScript ( const char **args )
 			}
 			// after loading a game, the list box (and it's highlight) get's reset back to 0, but currentLine sticks around, so set it to 0 here
 			s_savegame.currentLine = 0;
-
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "deletegame") == 0)
+		if (Q_stricmp(name, "deletegame") == 0)
 		{
 			if (s_savedata[s_savegame.currentLine].currentSaveFileName)	// A line was chosen
 			{
@@ -1695,8 +1712,9 @@ static qboolean UI_RunMenuScript ( const char **args )
 				s_savegame.saveFileCnt = -1;	//force a refresh at drawtime
 
 			}
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "savegame") == 0)
+		if (Q_stricmp(name, "savegame") == 0)
 		{
 			char fileName[MAX_SAVELOADNAME];
 			char description[64];
@@ -1722,12 +1740,14 @@ static qboolean UI_RunMenuScript ( const char **args )
 
 			ui.Cmd_ExecuteText( EXEC_APPEND, va("save %s\n", fileName));
 			s_savegame.saveFileCnt = -1;	//force a refresh the next time around
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "LoadMods") == 0)
+		if (Q_stricmp(name, "LoadMods") == 0)
 		{
 			UI_LoadMods();
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "RunMod") == 0)
+		if (Q_stricmp(name, "RunMod") == 0)
 		{
 			if (uiInfo.modList[uiInfo.modIndex].modName)
 			{
@@ -1736,17 +1756,20 @@ static qboolean UI_RunMenuScript ( const char **args )
 				FS_Restart();
 				Cbuf_ExecuteText( EXEC_APPEND, "vid_restart;" );
 			}
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "Quit") == 0)
+		if (Q_stricmp(name, "Quit") == 0)
 		{
 			Cbuf_ExecuteText( EXEC_NOW, "quit");
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "Controls") == 0)
+		if (Q_stricmp(name, "Controls") == 0)
 		{
 			Cvar_Set( "cl_paused", "1" );
 			trap_Key_SetCatcher( KEYCATCH_UI );
 			Menus_CloseAll();
 			Menus_ActivateByName("setup_menu2");
+			return qtrue;
 		}
 		else if (Q_stricmp(name, "Leave") == 0)
 		{
@@ -2232,6 +2255,26 @@ static qboolean UI_RunMenuScript ( const char **args )
 			String_Parse(args, &saberStyle);
 
 			UI_SwitchSaberStyle(saberStyle);
+		}
+		else if (Q_stricmp(name, "cmd_god") == 0)
+		{
+			UI_Cheats("god");
+		}
+		else if (Q_stricmp(name, "cmd_noclip") == 0)
+		{
+			UI_Cheats("noclip");
+		}
+		else if (Q_stricmp(name, "cmd_notarget") == 0)
+		{
+			UI_Cheats("notarget");
+		}
+		else if (Q_stricmp(name, "cmd_undying") == 0)
+		{
+			UI_Cheats("undying");
+		}
+		else if (Q_stricmp(name, "cmd_noforce") == 0)
+		{
+			UI_Cheats("noforce");
 		}
 		else if (Q_stricmp(name, "getsaberstyle") == 0)
 		{
@@ -6275,6 +6318,38 @@ static void UI_GetSaberStyle()
 		
 
 	}
+}
+
+//Change cheats flags to update at the end of the menu.
+static void UI_Cheats(const char* cheatName)
+{
+	UI_UpdateCvars();
+	if (!Q_stricmp(cheatName, "god"))
+	{
+		ui_cheats_godMode.integer ^= 1;
+		Cvar_Set("ui_cheats_godMode", va("%d",ui_cheats_godMode.integer) );
+	}
+	else if (!Q_stricmp(cheatName, "noclip"))
+	{
+		ui_cheats_noClip.integer ^= 1;
+		Cvar_Set("ui_cheats_noClip", va("%d", ui_cheats_noClip.integer));
+	}
+	else if (!Q_stricmp(cheatName, "notarget"))
+	{
+		ui_cheats_noTarget.integer ^= 1;
+		Cvar_Set("ui_cheats_noTarget", va("%d", ui_cheats_noTarget.integer));
+	}
+	else if (!Q_stricmp(cheatName, "noForce"))
+	{
+		ui_cheats_noForce.integer ^= 1;
+		Cvar_Set("ui_cheats_noForce", va("%d", ui_cheats_noForce.integer));
+	}
+	else if (!Q_stricmp(cheatName, "undying"))
+	{
+		ui_cheats_undying.integer ^= 1;
+		Cvar_Set("ui_cheats_undying", va("%d", ui_cheats_undying.integer));
+	}
+	ui.Cmd_ExecuteText(EXEC_NOW, "updateCheatsFlags\n");
 }
 
 // Switch the value of a Saber Style then call update method to update UI(Used by Force Power Allocation screen)

@@ -790,6 +790,51 @@ extern void SP_fx_runner( gentity_t *ent );
 
 /*
 ==================
+Cmd_Update_CF
+
+Updates client Flags
+==================
+*/
+void Cmd_Update_CF(gentity_t* ent)
+{
+	if (gi.Cvar_VariableIntegerValue("ui_cheats_godMode"))
+	{
+		ent->flags |= FL_GODMODE;
+	}
+	else {
+		ent->flags &= ~FL_GODMODE;
+	}
+	if (gi.Cvar_VariableIntegerValue("ui_cheats_noForce"))
+	{
+		ent->flags |= FL_NOFORCE;
+	}
+	else {
+		ent->flags &= ~FL_NOFORCE;
+	}
+	if (gi.Cvar_VariableIntegerValue("ui_cheats_undying"))
+	{
+		ent->flags |= FL_UNDYING;
+	}
+	else {
+		ent->flags &= ~FL_UNDYING;
+	}
+	if (gi.Cvar_VariableIntegerValue("ui_cheats_noTarget"))
+	{
+		ent->flags |= FL_NOTARGET;
+	}
+	else {
+		ent->flags &= ~FL_NOTARGET;
+	}
+	if (gi.Cvar_VariableIntegerValue("ui_cheats_noClip"))
+	{
+		ent->client->noclip = 1;
+	}
+	else {
+		ent->client->noclip = 0;;
+	}
+}
+/*
+==================
 Cmd_God_f
 
 Sets client to godmode
@@ -806,10 +851,16 @@ void Cmd_God_f (gentity_t *ent)
 	}
 
 	ent->flags ^= FL_GODMODE;
-	if (!(ent->flags & FL_GODMODE) )
+	if (!(ent->flags & FL_GODMODE))
+	{
 		msg = "godmode OFF\n";
+		gi.cvar_set("ui_cheats_godMode", "0");
+	}
 	else
+	{
 		msg = "godmode ON\n";
+		gi.cvar_set("ui_cheats_godMode", "1");
+	}
 
 	gi.SendServerCommand( ent-g_entities, "print \"%s\"", msg);
 }
@@ -833,9 +884,15 @@ void Cmd_Noforce_f(gentity_t *ent)
 
 	ent->flags ^= FL_NOFORCE;
 	if (!(ent->flags & FL_NOFORCE))
+	{
 		msg = "No Force OFF\n";
+		gi.cvar_set("ui_cheats_noForce", "0");
+	}
 	else
+	{
 		msg = "No Force ON\n";
+		gi.cvar_set("ui_cheats_noForce", "1");
+	}
 
 	gi.SendServerCommand(ent - g_entities, "print \"%s\"", msg);
 }
@@ -863,6 +920,7 @@ void Cmd_Undying_f (gentity_t *ent)
 	if (!(ent->flags & FL_UNDYING) )
 	{
 		msg = "undead mode OFF\n";
+		gi.cvar_set("ui_cheats_undying", "0");
 	}
 	else
 	{
@@ -882,6 +940,7 @@ void Cmd_Undying_f (gentity_t *ent)
 		ent->health = ent->max_health = max;
 
 		msg = "undead mode ON\n";
+		gi.cvar_set("ui_cheats_undying", "1");
 
 		if ( ent->client )
 		{
@@ -909,10 +968,16 @@ void Cmd_Notarget_f( gentity_t *ent ) {
 	}
 
 	ent->flags ^= FL_NOTARGET;
-	if (!(ent->flags & FL_NOTARGET) )
+	if (!(ent->flags & FL_NOTARGET))
+	{
 		msg = "notarget OFF\n";
+		gi.cvar_set("ui_cheats_noTarget", "0");
+	}
 	else
+	{
 		msg = "notarget ON\n";
+		gi.cvar_set("ui_cheats_noTarget", "1");
+	}
 
 	gi.SendServerCommand( ent-g_entities, "print \"%s\"", msg);
 }
@@ -933,10 +998,14 @@ void Cmd_Noclip_f( gentity_t *ent ) {
 		return;
 	}
 
-	if ( ent->client->noclip ) {
+	if ( ent->client->noclip ) 
+	{
 		msg = "noclip OFF\n";
-	} else {
+		gi.cvar_set("ui_cheats_noClip", "0");
+	} else 
+	{
 		msg = "noclip ON\n";
+		gi.cvar_set("ui_cheats_noClip", "1");
 	}
 	ent->client->noclip = !ent->client->noclip;
 	ent->flags ^= FL_NOFORCE;
@@ -1801,6 +1870,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_God_f(ent);
 	else if (Q_stricmp(cmd, "noforce") == 0)
 		Cmd_Noforce_f(ent);
+	else if (Q_stricmp(cmd, "updateCheatsFlags") == 0)
+		Cmd_Update_CF(ent);
 	else if (Q_stricmp (cmd, "undying") == 0)
 		Cmd_Undying_f (ent);
 	else if (Q_stricmp (cmd, "notarget") == 0)
