@@ -735,7 +735,7 @@ static void Svcmd_Spawn_f(void)
 
 	NPCspawner->NPC_FPLevel[FP_ABSORB] = g_npc_absorb_level->integer;
 	NPCspawner->NPC_FPLevel[FP_HEAL] = g_npc_heal_level->integer;
-	NPCspawner->NPC_FPLevel[FP_PROTECT] = g_npc_jump_level->integer;
+	NPCspawner->NPC_FPLevel[FP_PROTECT] = g_npc_protect_level->integer;
 	NPCspawner->NPC_FPLevel[FP_TELEPATHY] = g_npc_telepathy_level->integer;
 	NPCspawner->NPC_FPLevel[FP_STASIS] = g_npc_stasis_level->integer;
 	NPCspawner->NPC_FPLevel[FP_BLAST] = g_npc_blast_level->integer;
