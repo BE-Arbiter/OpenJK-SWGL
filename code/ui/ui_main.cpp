@@ -3784,9 +3784,9 @@ static void UI_BuildPlayerModel_List(qboolean inGameLoad)
 							species->Skin = (skinName_t*)realloc(species->Skin, species->SkinMax * sizeof(skinName_t));
 						}
 						Q_strncpyz(species->Skin[species->SkinCount++].name, skinname, SKIN_LENGTH);
+						iSkinParts |= 1 << 3;
 
-						if (Q_stricmpn(skinname, "model_default", 13) == 0)
-							iSkinParts |= 1 << 3;
+						//if (Q_stricmpn(skinname, "model_default", 13) == 0)
 					}
 				}
 			}
@@ -3860,9 +3860,8 @@ static void UI_BuildPlayerModel_List(qboolean inGameLoad)
 							species->Skin = (skinName_t*)realloc(species->Skin, species->SkinMax * sizeof(skinName_t));
 						}
 						Q_strncpyz(species->Skin[species->SkinCount++].name, skinname, SKIN_LENGTH);
-
-						if (Q_stricmpn(skinname, "model_default", 13) == 0)
-							iSkinParts |= 1 << 3;
+						iSkinParts |= 1 << 3;
+						//if (Q_stricmpn(skinname, "model_default", 13) == 0)
 					}
 				}
 			}
@@ -8564,6 +8563,17 @@ static void UI_CharacterDefaultSkin(const char* otherSkin)
 				UI_FeederSelection(FEEDER_PLAYER_SKIN_TORSO, 0, item);
 				UI_FeederSelection(FEEDER_PLAYER_SKIN_LEGS, 0, item);
 				ShowCustomizationUI(true);
+				if (Q_stricmp("model_default", otherSkin))
+				{
+					for (int j = 0; j < species.SkinCount; ++j)
+					{
+						if (!Q_stricmp(species.Skin[j].name, otherSkin))
+						{
+							UI_FeederSelection(FEEDER_MODEL_SKINS, j, item);
+							break;
+						}
+					}
+				}
 			}
 			else
 			{
