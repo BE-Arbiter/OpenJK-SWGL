@@ -397,7 +397,7 @@ saber_colors_t TranslateSaberColor(const char *name)
 	}
 	if (!Q_stricmp(name, "swtor_sith_random"))
 	{
-		switch (Q_irand(0, 2))
+		switch (Q_irand(0, 10))
 		{
 		case 0:
 			return SABER_RED;
@@ -3796,14 +3796,17 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 			}
 
 			//Lightning Color
-			if (!Q_stricmp(token, "lightningColor") && !NPC->forceLightningColor)
+			if (!Q_stricmp(token, "lightningColor"))
 			{
 				if (COM_ParseString(&p, &value))
 				{
 					SkipRestOfLine(&p);
 					continue;
 				}
-				NPC->forceLightningColor = TranslateLightningColor(value);
+				if (!NPC->forceLightningColor)
+				{
+					NPC->forceLightningColor = TranslateLightningColor(value);
+				}
 
 				continue;
 			}
@@ -4117,7 +4120,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 			}
 
 			// saberColor
-			if ( !Q_stricmpn( token, "saberColor", 10) || NPC->NPC_SaberOneColor)
+			if ( !Q_stricmpn( token, "saberColor", 10))
 			{
 				if ( !NPC->client )
 				{
@@ -4176,7 +4179,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 			}
 
 
-			if ( !Q_stricmpn( token, "saber2Color", 11 ) || NPC->NPC_SaberTwoColor)
+			if ( !Q_stricmpn( token, "saber2Color", 11 ))
 			{
 				if ( !NPC->client )
 				{
