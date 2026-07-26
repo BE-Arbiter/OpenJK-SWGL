@@ -535,6 +535,7 @@ void G_RemoveWeaponModels( gentity_t *ent );
 // g_svcmds.c
 //
 qboolean	ConsoleCommand( void );
+static void GetRandomNPCSaber(gentity_t* NPCspawner, qboolean nrJedi = qfalse);
 
 //
 // g_weapon.c
