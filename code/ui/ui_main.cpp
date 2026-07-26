@@ -5811,6 +5811,11 @@ static void UI_UpdateSaberVisibility(void)
 {
 	menuDef_t* menu = Menu_GetFocused();
 
+	if(Q_stricmp(menu->window.name, "IngameSWGLChars"))
+	{
+		return;
+	}
+
 	auto SetSaberVisibility = [&](qboolean visible) {
 		Menu_ShowItemByName(menu, "saber", visible);
 		Menu_ShowItemByName(menu, "saber2", visible);
