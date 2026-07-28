@@ -787,6 +787,45 @@ extern void SP_fx_runner( gentity_t *ent );
 	gi.Printf( S_COLOR_CYAN"fx origin <#><#><#>    fx origin 10 20 30\n" );
 	gi.Printf( S_COLOR_CYAN"fx dir <#><#><#>       fx dir 0 0 -1\n\n" );
 }
+/*
+==================
+	Cmd_Update_CheatStatsHealth
+	Cmd_Update_CheatStatsShield
+	Cmd_Update_CheatStatsForce
+	Update Client statistics from cheat cvar
+==================
+*/
+void Cmd_Update_CheatStatsHealth(gentity_t* ent)
+{
+	int health = Com_Clampi(0,999,gi.Cvar_VariableIntegerValue("ui_cheats_health"));
+	ent->client->ps.stats[STAT_MAX_HEALTH] = health;
+	ent->health = health;
+}
+
+void Cmd_Update_CheatStatsShield(gentity_t* ent)
+{
+	int shield = gi.Cvar_VariableIntegerValue("ui_cheats_shield");
+	ent->client->ps.stats[STAT_ARMOR] = Com_Clampi(0, ent->client->ps.stats[STAT_MAX_HEALTH], shield);
+}
+
+void Cmd_Update_CheatStatsForce(gentity_t* ent)
+{
+	int force = Com_Clampi(0, 999, gi.Cvar_VariableIntegerValue("ui_cheats_force"));
+	ent->client->ps.forcePowerMax = force;
+	ent->client->ps.forcePower = force;
+}
+
+void Cmd_Update_CheatStatsForceRegenRate(gentity_t* ent)
+{
+	int regenRate = Com_Clampi(1, 5000, gi.Cvar_VariableIntegerValue("ui_cheats_force_regen_rate"));
+	ent->client->ps.forcePowerRegenRate= regenRate;
+}
+
+void Cmd_Update_CheatStatsForceRegenAmount(gentity_t* ent)
+{
+	int regenAmount = Com_Clampi(1, 999, gi.Cvar_VariableIntegerValue("ui_cheats_force_regen_amount"));
+	ent->client->ps.forcePowerRegenAmount = regenAmount;
+}
 
 /*
 ==================
@@ -1859,6 +1898,31 @@ void ClientCommand( int clientNum ) {
 	if (Q_stricmp (cmd, "spawn") == 0)
 	{
 		Cmd_Spawn( ent );
+		return;
+	}
+	if ( !Q_stricmp(cmd, "updateCheatStatsHealth") )
+	{
+		Cmd_Update_CheatStatsHealth( ent );
+		return;
+	}
+	if ( !Q_stricmp(cmd, "updateCheatStatsShield") )
+	{
+		Cmd_Update_CheatStatsShield( ent );
+		return;
+	}
+	if ( !Q_stricmp(cmd, "updateCheatStatsForce") )
+	{
+		Cmd_Update_CheatStatsForce( ent );
+		return;
+	}
+	if ( !Q_stricmp(cmd, "updateCheatStatsForceRegenRate") )
+	{
+		Cmd_Update_CheatStatsForceRegenRate( ent );
+		return;
+	}
+	if ( !Q_stricmp(cmd, "updateCheatStatsForceRegenAmount") )
+	{
+		Cmd_Update_CheatStatsForceRegenAmount( ent );
 		return;
 	}
 

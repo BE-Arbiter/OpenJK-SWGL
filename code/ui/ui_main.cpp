@@ -924,6 +924,13 @@ vmCvar_t ui_cheats_noForce;
 vmCvar_t ui_cheats_undying;
 vmCvar_t ui_cheats_noTarget;
 vmCvar_t ui_cheats_noClip;
+vmCvar_t ui_cheats_health;
+vmCvar_t ui_cheats_shield;
+vmCvar_t ui_cheats_force;
+vmCvar_t ui_cheats_force_regen_rate;
+vmCvar_t ui_cheats_force_regen_amount;
+
+
 
 // Force Power cvars (I literally don't know any other way to do this.....)
 vmCvar_t	ui_jump_level;
@@ -1129,6 +1136,11 @@ static cvarTable_t cvarTable[] =
 	{ &ui_cheats_undying,		"ui_cheats_undying", "0", NULL, CVAR_CHEAT },
 	{ &ui_cheats_noTarget,		"ui_cheats_noTarget", "0", NULL, CVAR_CHEAT },
 	{ &ui_cheats_noClip,		"ui_cheats_noClip", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_health,		"ui_cheats_health", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_shield,		"ui_cheats_shield", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_force,			"ui_cheats_force", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_force_regen_rate,"ui_cheats_force_regen_rate", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_force_regen_amount,"ui_cheats_force_regen_amount", "0", NULL, CVAR_CHEAT },
 
 	{ &ui_weaponone, "ui_weaponone",   "WP_NONE", NULL, 0 },
 	{ &ui_weapontwo, "ui_weapontwo",   "WP_NONE", NULL, 0 },
