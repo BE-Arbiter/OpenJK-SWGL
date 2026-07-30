@@ -2399,18 +2399,27 @@ static qboolean UI_RunMenuScript ( const char **args )
 			if (!missionData[Cvar_VariableIntegerValue("ui_mission_topic")][0].title)
 			{
 				Menu_ShowItemByName(menu, "emptyBox", qtrue);
-				Menu_ShowItemByName(menu, "missionList", qtrue);
+				Menu_ShowItemByName(menu, "missionList", qfalse);
+				Menu_ShowItemByName(menu, "noJKO", qfalse);
+				Menu_ShowItemByName(menu, "noJKOHelp", qfalse);
+				Menu_ShowItemByName(menu, "HowtoJKO", qfalse);
 			}
-			else if (!Q_stricmp(missionTopicData[0][Cvar_VariableIntegerValue("ui_mission_topic")].title, "Jedi Outcast")
+			else if (!Q_stricmp(missionTopicData[0][Cvar_VariableIntegerValue("ui_mission_topic")].title, "@SWGLMISSIONS_MISSIONS_JKJO")
 				&& Cvar_VariableIntegerValue("g_validJKO") < 1)
 			{
 				Menu_ShowItemByName(menu, "noJKO", qtrue);
+				Menu_ShowItemByName(menu, "noJKOHelp", qtrue);
 				Menu_ShowItemByName(menu, "missionList", qfalse);
+				Menu_ShowItemByName(menu, "emptyBox", qfalse);
+				Menu_ShowItemByName(menu, "HowtoJKO", qfalse);
 			}
 			else
 			{
 				Menu_ShowItemByName(menu, "emptyBox", qfalse);
 				Menu_ShowItemByName(menu, "missionList", qtrue);
+				Menu_ShowItemByName(menu, "noJKO", qfalse);
+				Menu_ShowItemByName(menu, "noJKOHelp", qfalse);
+				Menu_ShowItemByName(menu, "HowtoJKO", qfalse);
 			}
 
 			menu = NULL;
