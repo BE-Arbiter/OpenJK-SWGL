@@ -797,7 +797,7 @@ extern void SP_fx_runner( gentity_t *ent );
 */
 void Cmd_Update_CheatStatsHealth(gentity_t* ent)
 {
-	int health = Com_Clampi(0,999,gi.Cvar_VariableIntegerValue("ui_cheats_health"));
+	int health = Com_Clampi(1,999,gi.Cvar_VariableIntegerValue("ui_cheats_health"));
 	ent->client->ps.stats[STAT_MAX_HEALTH] = health;
 	ent->health = health;
 }

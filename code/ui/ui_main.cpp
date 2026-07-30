@@ -1136,9 +1136,9 @@ static cvarTable_t cvarTable[] =
 	{ &ui_cheats_undying,		"ui_cheats_undying", "0", NULL, CVAR_CHEAT },
 	{ &ui_cheats_noTarget,		"ui_cheats_noTarget", "0", NULL, CVAR_CHEAT },
 	{ &ui_cheats_noClip,		"ui_cheats_noClip", "0", NULL, CVAR_CHEAT },
-	{ &ui_cheats_health,		"ui_cheats_health", "0", NULL, CVAR_CHEAT },
-	{ &ui_cheats_shield,		"ui_cheats_shield", "0", NULL, CVAR_CHEAT },
-	{ &ui_cheats_force,			"ui_cheats_force", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_health,		"ui_cheats_health", "100", NULL, CVAR_CHEAT },
+	{ &ui_cheats_shield,		"ui_cheats_shield", "100", NULL, CVAR_CHEAT },
+	{ &ui_cheats_force,			"ui_cheats_force", "100", NULL, CVAR_CHEAT },
 	{ &ui_cheats_force_regen_rate,"ui_cheats_force_regen_rate", "0", NULL, CVAR_CHEAT },
 	{ &ui_cheats_force_regen_amount,"ui_cheats_force_regen_amount", "0", NULL, CVAR_CHEAT },
 
