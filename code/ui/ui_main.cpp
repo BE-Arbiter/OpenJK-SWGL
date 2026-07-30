@@ -9203,7 +9203,9 @@ static void UI_SaveCharacterPowers(void)
 		}
 	}
 
+#ifdef DEBUG
 	Com_Printf("Writing Character Stats in %s\n", characterName);
+#endif
 	Com_FlushCharacterFile();
 }
 
@@ -9219,7 +9221,7 @@ void Com_FlushCharacterFile()
 	if (!characterfile)
 	{
 		// nothing to flush, right?
-		Com_Printf("No cam file available\n");
+		Com_Printf("No character file available\n");
 		return;
 	}
 	FS_ForceFlush(characterfile);
@@ -9231,7 +9233,10 @@ void Com_FlushCharacterFile()
 		Com_sprintf(flushedCharactername, MAX_QPATH, "ext_data/characters/%s_%s_%s_NPC.cfg", faction, code, variant);
 	else
 		Com_sprintf(flushedCharactername, MAX_QPATH, "ext_data/characters/%s_%s_%s.cfg", faction, code, variant);
+
+#ifdef DEBUG
 	Com_Printf("saved Character stats to %s\n", flushedCharactername);
+#endif
 }
 
 void UI_LoadCharacterCfg(void)
@@ -9347,8 +9352,11 @@ void UI_LoadCharacterCfg(void)
 
 				ui.Cmd_ExecuteText(EXEC_NOW, va("%s\n", cmd.c_str()));
 			}
+#ifdef DEBUG
+		Com_Printf("UI_LoadCharacterCfg: executed %s\n", tryFile);
+#endif
 
-			Com_Printf("UI_LoadCharacterCfg: executed %s\n", tryFile);
+			
 
 			//
 			// Update saber/hilt UI
@@ -9505,7 +9513,9 @@ void UI_LoadCharacterDefaultCfg(void)
 				ui.Cmd_ExecuteText(EXEC_NOW, va("%s\n", cmd.c_str()));
 			}
 
+#ifdef DEBUG
 			Com_Printf("UI_LoadCharacterCfg: executed %s\n", tryFile);
+#endif 			
 
 			//
 			// Update saber/hilt UI
