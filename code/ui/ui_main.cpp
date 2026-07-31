@@ -6324,6 +6324,9 @@ static void UI_GetSaberStyle()
 			case SS_TAVION:
 				stanceValue = 16;
 				break;
+			case SS_DUAL:
+				stanceValue = 32;
+				break;
 			case SS_STAFF:
 				stanceValue = 64;
 				break;
@@ -9126,7 +9129,8 @@ static void UI_SaveCharacterPowers(void)
 			"ui_health",
 			"ui_force",
 			"ui_team",
-			"ui_npc_type"
+			"ui_npc_type",
+			"ui_saber_styles",
 		};
 
 		const size_t count = sizeof(cvars) / sizeof(cvars[0]);
@@ -9234,9 +9238,7 @@ void Com_FlushCharacterFile()
 	else
 		Com_sprintf(flushedCharactername, MAX_QPATH, "ext_data/characters/%s_%s_%s.cfg", faction, code, variant);
 
-#ifdef DEBUG
 	Com_Printf("saved Character stats to %s\n", flushedCharactername);
-#endif
 }
 
 void UI_LoadCharacterCfg(void)
