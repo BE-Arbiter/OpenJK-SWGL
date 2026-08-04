@@ -28,6 +28,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_functions.h"
 #include "../cgame/cg_local.h"
 #include "b_local.h"
+#include "g_characters.h"
 
 extern	bool		in_camera;
 extern stringID_table_t SaberStyleTable[];
@@ -359,7 +360,131 @@ void Cmd_Give_f( gentity_t *ent )
 
 	G_Give( ent, gi.argv(1), ConcatArgs( 2 ), gi.argc() );
 }
+/*
+================================================================================
+Cmd_CharacterStat_f
 
+Description : 
+	Provides detailed information about a specific character, specific variant or basic information for all characters.
+
+Usage:
+	weaponStat [characterName] [variantName]
+
+
+Behavior:
+	- characterStat
+		Print each Character Name in the log, no data about variants or stats nor structure;
+
+	- characterStat [characterName]
+		Print the Character data and the list of variants for that character, no data about the variants;
+
+	- characterStat [characterName] [variantName]
+		Print the Character data and the Variant data for that specific variant of that character.
+*/
+
+void PrintCharacter(int characterIndex, int variantIndex)
+{
+	gi.Printf("^7CharacterData:\n{\n");
+	gi.Printf("\t^3name:^5\"%s\"^7;\n", charactersData[characterIndex].name);
+	gi.Printf("\t^3icon:^5\"%s\"^7;\n", charactersData[characterIndex].icon);
+	gi.Printf("\t^3faction:^5\"%s\"^7;\n", charactersData[characterIndex].factions);
+	gi.Printf("\t^3tags:^5\"%s\"^7;\n", charactersData[characterIndex].tags);
+	if(variantIndex >= 0)
+	{
+		gi.Printf("^7\tSelectedVariant:\n\t{\n");
+		gi.Printf("\t\t^3name:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].name);
+		gi.Printf("\t\t^3icon:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].icon);
+		gi.Printf("\t\t^3npcName:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].npcName);
+		gi.Printf("\t\t^3model:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].model);
+		gi.Printf("\t\t^3descriptionKey:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].descriptionKey);
+		gi.Printf("\t\t^3weapons:^5\"%s\"^7;\n", "TODO SORRY");
+		gi.Printf("\t\t^3forcePower:^5\"%s\"^7;\n", "TODO SORRY");
+
+		for (int i = 0; (i < charactersData[characterIndex].variantList[variantIndex].presetCount) && !Q_IsStringEmpty(charactersData[characterIndex].variantList[variantIndex].presetList[i].skin); i++)
+		{
+			gi.Printf("\t\t^7Preset:\n{\n");
+			gi.Printf("\t\t\t^3skin:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].presetList[i].skin);
+			gi.Printf("\t\t\t^3icon:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].presetList[i].icon);
+			gi.Printf("\t\t^7}\n");
+		}
+		for (int i = 0; (i < charactersData[characterIndex].variantList[variantIndex].headSkinCount) && !Q_IsStringEmpty(charactersData[characterIndex].variantList[variantIndex].headSkinList[i].skin); i++)
+		{
+			gi.Printf("\t\t^7Head:\n{\n");
+			gi.Printf("\t\t\t^3skin:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].headSkinList[i].skin);
+			gi.Printf("\t\t\t^3icon:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].headSkinList[i].icon);
+			gi.Printf("\t\t^7}\n");
+		}
+		for (int i = 0; (i < charactersData[characterIndex].variantList[variantIndex].torsoSkinCount) && !Q_IsStringEmpty(charactersData[characterIndex].variantList[variantIndex].torsoSkinList[i].skin); i++)
+		{
+			gi.Printf("\t\t^7Torso:\n{\n");
+			gi.Printf("\t\t\t^3skin:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].torsoSkinList[i].skin);
+			gi.Printf("\t\t\t^3icon:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].torsoSkinList[i].icon);
+			gi.Printf("\t\t^7}\n");
+		}
+		for (int i = 0; (i < charactersData[characterIndex].variantList[variantIndex].lowerSkinCount) && !Q_IsStringEmpty(charactersData[characterIndex].variantList[variantIndex].lowerSkinList[i].skin); i++)
+		{
+			gi.Printf("\t\t^7Lower:\n{\n");
+			gi.Printf("\t\t\t^3skin:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].lowerSkinList[i].skin);
+			gi.Printf("\t\t\t^3icon:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].lowerSkinList[i].icon);
+			gi.Printf("\t\t^7}\n");
+		}
+		gi.Printf("\t^7}\n");
+	}
+	else {
+		for (int i = 0; (i < charactersData[characterIndex].variantCount) && !Q_IsStringEmpty(charactersData[characterIndex].variantList[i].name); i++)
+		{
+			gi.Printf("\t^3Variant:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[i].name);
+
+		}
+	}
+	gi.Printf("^7}\n");
+
+}
+
+void Cmd_CharacterStat_f(gentity_t* ent)
+{
+	if (!CheatsOk(ent))
+		return;
+
+	if (gi.argc() > 3)
+	{
+		gi.SendServerCommand(0, "print \"Usage: \n\tcharacterStat \n\tcharacterStat [characterName]\n\tcharacterStat [characterName] [variantName]\n\"");
+		return;
+	}
+	//Case specific character
+	if (gi.argc() == 3 || gi.argc() == 2)
+	{
+		for (int i = 0; (i < MAX_CHARACTERS) || charactersData[i].name == NULL; i++)
+		{
+			if (!Q_stricmp(charactersData[i].name, gi.argv(1)))
+			{
+				//No specific variant, print all variants
+				if (gi.argc() == 2)
+				{
+					PrintCharacter(i, -1);
+					return;
+				}
+				//Specific variant, search and print print that variant
+				for (int j = 0; (j < charactersData[i].variantCount) || charactersData[i].variantList[j].name == NULL ; j++)
+				{
+					if (!Q_stricmp(charactersData[i].variantList[j].name, gi.argv(2)))
+					{
+						PrintCharacter(i, j);
+						return;
+					}
+				}
+				gi.SendServerCommand(0, va("print \"Variant %s not found for character %s\n\"", gi.argv(2), gi.argv(1)));
+				return;
+			}
+			gi.SendServerCommand(0, va("print \"Character %s not found\n\"", gi.argv(1)));
+		}
+		return;
+	}
+	for (int i = 0; (i < MAX_CHARACTERS) && !Q_IsStringEmpty(charactersData[i].name); i++)
+	{
+		gi.Printf("%s,", charactersData[i].name);
+	}
+}
 /*
 ================================================================================
 Cmd_WeaponStat_f
@@ -572,8 +697,6 @@ void PrintWeaponData(const weaponData_t* weapon)
 	gi.Printf("\t^6'weaponCategory'^7 : ^5%s^7 (weaponCategory_t)\n", getStringValueForweaponCategory(&weapon->weaponCategory));
 	gi.Printf("\t^6'weaponBucket'^7 : ^5%s^7 (weaponBucket_t)\n", getStringValueForweaponBucket(&weapon->weaponBucket));
 }
-
-
 
 void Cmd_WeaponStat_f(gentity_t* ent)
 {
@@ -1923,6 +2046,12 @@ void ClientCommand( int clientNum ) {
 	if ( !Q_stricmp(cmd, "updateCheatStatsForceRegenAmount") )
 	{
 		Cmd_Update_CheatStatsForceRegenAmount( ent );
+		return;
+	}
+
+	if (!Q_stricmp(cmd, "characterStat"))
+	{
+		Cmd_CharacterStat_f(ent);
 		return;
 	}
 

@@ -25,6 +25,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 // this is excluded from PCH usage 'cos it looks kinda scary to me, being game and ui.... -Ste
 #include "g_local.h"
+#include "g_parseUtils.h"
 #include "g_weaponLoad.h"
 
 // FIXME :What are the right values?
@@ -35,77 +36,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 weaponAttackData_t* currentAttackData = NULL;
 
-/*
-----------------------------------------------------------
-	Utility Functions
-----------------------------------------------------------
-*/
-static void ParseInt(const char** holdBuf, int* dest)
-{
-	int		tokenInt;
-
-	if (COM_ParseInt(holdBuf, &tokenInt))
-	{
-		SkipRestOfLine(holdBuf);
-		return;
-	}
-
-	*dest = tokenInt;
-}
-
-static void ParseIntWithLims(const char** holdBuf, int* dest, int min, int max, char* identifier)
-{
-	int		tokenInt;
-
-	if (COM_ParseInt(holdBuf, &tokenInt))
-	{
-		SkipRestOfLine(holdBuf);
-		return;
-	}
-
-	if ((tokenInt < min) || (tokenInt > max))
-	{
-		gi.Printf(S_COLOR_YELLOW"WARNING: bad %s in external weapon data '%d'\n", identifier, tokenInt);
-		return;
-	}
-
-	*dest = tokenInt;
-}
-
-static void ParseFlt(const char** holdBuf, float* dest)
-{
-	float	tokenFlt;
-
-	if (COM_ParseFloat(holdBuf, &tokenFlt))
-	{
-		SkipRestOfLine(holdBuf);
-		return;
-	}
-
-	*dest = tokenFlt;
-}
-
-//--------------------------------------------
-void ParseStr(const char** holdBuf, char* dest, int maxLen, char* identifier)
-{
-	int len;
-	const char* tokenStr;
-
-	if (COM_ParseString(holdBuf, &tokenStr))
-	{
-		return;
-	}
-
-	len = strlen(tokenStr);
-	len++;
-	if (len > maxLen)
-	{
-		len = maxLen;
-		gi.Printf(S_COLOR_YELLOW"WARNING: %s too long in external WEAPONS.DAT '%s'\n", identifier, tokenStr);
-	}
-
-	Q_strncpyz(dest, tokenStr, len);
-}
 
 //--------------------------------------------
 
