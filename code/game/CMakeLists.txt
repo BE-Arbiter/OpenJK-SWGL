@@ -191,6 +191,8 @@ set(SPGameCGameFiles
 	"${SPDir}/cgame/cg_camera.cpp"
 	"${SPDir}/cgame/cg_consolecmds.cpp"
 	"${SPDir}/cgame/cg_credits.cpp"
+	"${SPDir}/cgame/cg_characters.cpp"
+	"${SPDir}/cgame/cg_characters.h"
 	"${SPDir}/cgame/cg_draw.cpp"
 	"${SPDir}/cgame/cg_drawtools.cpp"
 	"${SPDir}/cgame/cg_effects.cpp"

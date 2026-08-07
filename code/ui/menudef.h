@@ -171,3 +171,5 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define UI_PLAYER_WEAPON_LABEL_4 262
 #define UI_PLAYER_WEAPON_LABEL_5 263
 #define UI_PLAYER_WEAPON_LABEL_6 264
+#define UI_DATAPAD_FACTIONS		 266
+#define UI_DATAPAD_CHARACTER	 265

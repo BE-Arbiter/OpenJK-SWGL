@@ -2003,51 +2003,6 @@ void CG_DrawDataPadWeaponSelect( void )
 	cgi_R_SetColor( NULL );
 }
 
-/*
-===================
-CG_DrawDataPadIconBackground
-
-Draw the proper background graphic for the icons being displayed on the datapad
-===================
-*/
-void CG_DrawDataPadIconBackground(const int backgroundType)
-{
-//	const int		graphicXPos = 40;
-//	const int		graphicYPos = 340;
-//	const short		graphicHeight = 60;
-//	const short		graphicWidth = 560;
-//	qhandle_t		background;
-
-/*
-	if (backgroundType == ICON_INVENTORY)	// Display inventory background?
-	{
-		background = cgs.media.inventoryIconBackground;
-	}
-	else if (backgroundType == ICON_WEAPONS)	// Display weapon background?
-	{
-		background = cgs.media.weaponIconBackground;
-	}
-	else 	// Display force background?
-	{
-		background = cgs.media.forceIconBackground;
-	}
-
-	cgi_R_SetColor( colorTable[CT_WHITE] );	// Let the graphic set the color
-
-	CG_DrawPic( graphicXPos,
-		graphicYPos+(graphicHeight/2),
-		graphicWidth,
-		-graphicHeight,
-		background);	// Top half
-
-	CG_DrawPic( graphicXPos,
-		graphicYPos+(graphicHeight/2),
-		graphicWidth,
-		graphicHeight,
-		background);	// Bottom half
-
-*/
-}
 
 /*
 ===============

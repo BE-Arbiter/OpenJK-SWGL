@@ -26,6 +26,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "../client/vmachine.h"
 #include "g_local.h"
+#include "cg_characters.h"
 
 #include "../qcommon/sstring.h"
 #include "qcommon/ojk_saved_game_helper.h"
@@ -89,7 +90,6 @@ int	force_icons[NUM_FORCE_POWERS];
 void CG_DrawDataPadHUD( centity_t *cent );
 void CG_DrawDataPadLoadoutFrame( centity_t *cent );
 void CG_DrawDataPadObjectives(const centity_t *cent );
-void CG_DrawDataPadIconBackground(const int backgroundType);
 void CG_DrawDataPadWeaponSelect( void );
 void CG_LDO_DrawWeapons( void );
 void CG_DrawDataPadForceSelect( void );
@@ -221,29 +221,37 @@ Ghoul2 Insert End
 	case CG_DRAW_DATAPAD_WEAPONS:
 		if (cg.snap)
 		{
-			CG_DrawDataPadIconBackground(ICON_WEAPONS);
 			CG_DrawDataPadWeaponSelect();
 		}
 		return 0;
 	case CG_DRAW_DATAPAD_LOADOUT:
 		if (cg.snap)
 		{
-			CG_DrawDataPadIconBackground(ICON_INVENTORY);
 			CG_LDO_DrawWeapons();
 		}
 		return 0;
 	case CG_DRAW_DATAPAD_INVENTORY:
 		if (cg.snap)
 		{
-			CG_DrawDataPadIconBackground(ICON_INVENTORY);
 			CG_DrawDataPadInventorySelect();
 		}
 		return 0;
 	case CG_DRAW_DATAPAD_FORCEPOWERS:
 		if (cg.snap)
 		{
-			CG_DrawDataPadIconBackground(ICON_FORCE);
 			CG_DrawDataPadForceSelect();
+		}
+		return 0;
+	case CG_DRAW_FACTIONS:
+		if (cg.snap)
+		{
+			CG_DrawFactions();
+		}
+		return 0;
+	case CG_DRAW_CHARACTERS:
+		if (cg.snap)
+		{
+			CG_DrawCharacters();
 		}
 		return 0;
 	}

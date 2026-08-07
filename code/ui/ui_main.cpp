@@ -5216,6 +5216,14 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_5);
 			break;
 
+		case UI_DATAPAD_FACTIONS:
+			ui.Draw_DataPad(DP_FACTIONS);
+			break;
+
+		case UI_DATAPAD_CHARACTER:
+			ui.Draw_DataPad(DP_CHARACTERS);
+			break;
+
 		case UI_ALLMAPS_SELECTION://saved game thumbnail
 
 			int levelshot;
