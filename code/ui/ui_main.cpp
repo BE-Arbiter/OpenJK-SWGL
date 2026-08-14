@@ -2169,8 +2169,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if (Q_stricmp(name, "applyplayerpowers") == 0)
 		{
 
-			const char* str = va("%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s", 
-				Cvar_VariableString("ui_heal_level"),
+			const char* str = va("%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s", Cvar_VariableString("ui_heal_level"),
 				Cvar_VariableString("ui_jump_level"),
 				Cvar_VariableString("ui_speed_level"),
 				Cvar_VariableString("ui_push_level"),
@@ -2178,9 +2177,9 @@ static qboolean UI_RunMenuScript ( const char **args )
 				Cvar_VariableString("ui_mindtrick_level"),
 				Cvar_VariableString("ui_grip_level"),
 				Cvar_VariableString("ui_lightning_level"),
-				Cvar_VariableString("ui_saber_throw_level"),
-				Cvar_VariableString("ui_saber_defend_level"),
-				Cvar_VariableString("ui_saber_attack_level"),
+				Cvar_VariableString("ui_sabthrow_level"),
+				Cvar_VariableString("ui_sabdef_level"),
+				Cvar_VariableString("ui_saboff_level"),
 				Cvar_VariableString("ui_rage_level"),
 				Cvar_VariableString("ui_protect_level"),
 				Cvar_VariableString("ui_absorb_level"),
