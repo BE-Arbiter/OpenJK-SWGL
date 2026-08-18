@@ -4534,6 +4534,19 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 			//starting saber style
 			if ( !Q_stricmp( token, "saberStyle" ) )
 			{
+				if (NPC->NPC_SaberStyles >= 0)
+				{
+					NPC->client->ps.saberStylesKnown = NPC->NPC_SaberStyles;
+					int i;
+					for (i = SS_NONE; i < SS_STAFF; i++)
+					{
+						if (NPC->NPC_SaberStyles & i)
+						{
+							NPC->client->ps.saberAnimLevel = i;
+						}
+					}
+					continue;
+				}
 				if ( COM_ParseInt( &p, &n ) )
 				{
 					SkipRestOfLine( &p );
@@ -4569,6 +4582,20 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				gi.Printf( "WARNING: unknown keyword '%s' while parsing '%s'\n", token, NPCName );
 			}
 			SkipRestOfLine( &p );
+		}
+
+		if (NPC->NPC_SaberStyles >= 0)
+		{
+			NPC->client->ps.saberStylesKnown = NPC->NPC_SaberStyles;
+			int i;
+
+			for (i = SS_NONE; i < SS_STAFF; i++)
+			{
+				if (NPC->NPC_SaberStyles & i)
+				{
+					NPC->client->ps.saberAnimLevel = i;
+				}
+			}
 		}
 #ifdef _WIN32
 #pragma endregion

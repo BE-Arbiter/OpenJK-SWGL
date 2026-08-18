@@ -112,6 +112,7 @@ extern cvar_t* g_npc_saber_attack_level;
 extern cvar_t* g_npc_saber_defend_level;
 extern cvar_t* g_npc_saber_throw_level;
 
+extern cvar_t* g_npc_saber_styles;
 /*
 ===================
 Svcmd_EntityList_f
@@ -752,6 +753,8 @@ static void Svcmd_Spawn_f(void)
 	NPCspawner->NPC_FPLevel[FP_SABER_OFFENSE] = g_npc_saber_attack_level->integer + 1;
 	NPCspawner->NPC_FPLevel[FP_SABER_DEFENSE] = g_npc_saber_defend_level->integer + 1;
 	NPCspawner->NPC_FPLevel[FP_SABERTHROW] = g_npc_saber_throw_level->integer + 1;
+
+	NPCspawner->NPC_SaberStyles = g_npc_saber_styles->integer;
 
 	NPCspawner->count = 1;
 
