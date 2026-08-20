@@ -112,6 +112,7 @@ extern cvar_t* g_npc_saber_attack_level;
 extern cvar_t* g_npc_saber_defend_level;
 extern cvar_t* g_npc_saber_throw_level;
 
+extern cvar_t* g_npc_saber_styles;
 /*
 ===================
 Svcmd_EntityList_f
@@ -727,31 +728,33 @@ static void Svcmd_Spawn_f(void)
 
 	// I hate myself for writing it like this, I really really hate myself for this....
 	// If anyone in the future sees this code and has suggestions, I'm all ears.
-	NPCspawner->NPC_FPLevel[FP_LEVITATION] = g_npc_jump_level->integer;
-	NPCspawner->NPC_FPLevel[FP_PUSH] = g_npc_push_level->integer;
-	NPCspawner->NPC_FPLevel[FP_PULL] = g_npc_pull_level->integer;
-	NPCspawner->NPC_FPLevel[FP_SPEED] = g_npc_speed_level->integer;
-	NPCspawner->NPC_FPLevel[FP_SEE] = g_npc_seeing_level->integer;
+	NPCspawner->NPC_FPLevel[FP_LEVITATION] = g_npc_jump_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_PUSH] = g_npc_push_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_PULL] = g_npc_pull_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_SPEED] = g_npc_speed_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_SEE] = g_npc_seeing_level->integer + 1;
 
-	NPCspawner->NPC_FPLevel[FP_ABSORB] = g_npc_absorb_level->integer;
-	NPCspawner->NPC_FPLevel[FP_HEAL] = g_npc_heal_level->integer;
-	NPCspawner->NPC_FPLevel[FP_PROTECT] = g_npc_protect_level->integer;
-	NPCspawner->NPC_FPLevel[FP_TELEPATHY] = g_npc_telepathy_level->integer;
-	NPCspawner->NPC_FPLevel[FP_STASIS] = g_npc_stasis_level->integer;
-	NPCspawner->NPC_FPLevel[FP_BLAST] = g_npc_blast_level->integer;
-	NPCspawner->NPC_FPLevel[FP_GRASP] = g_npc_grasp_level->integer;
+	NPCspawner->NPC_FPLevel[FP_ABSORB] = g_npc_absorb_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_HEAL] = g_npc_heal_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_PROTECT] = g_npc_protect_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_TELEPATHY] = g_npc_telepathy_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_STASIS] = g_npc_stasis_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_BLAST] = g_npc_blast_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_GRASP] = g_npc_grasp_level->integer + 1;
 
-	NPCspawner->NPC_FPLevel[FP_GRIP] = g_npc_grip_level->integer;
-	NPCspawner->NPC_FPLevel[FP_LIGHTNING] = g_npc_lightning_level->integer;
-	NPCspawner->NPC_FPLevel[FP_DRAIN] = g_npc_drain_level->integer;
-	NPCspawner->NPC_FPLevel[FP_RAGE] = g_npc_rage_level->integer;
-	NPCspawner->NPC_FPLevel[FP_DESTRUCTION] = g_npc_destruction_level->integer;
-	NPCspawner->NPC_FPLevel[FP_FEAR] = g_npc_fear_level->integer;
-	NPCspawner->NPC_FPLevel[FP_LIGHTNING_STRIKE] = g_npc_strike_level->integer;
+	NPCspawner->NPC_FPLevel[FP_GRIP] = g_npc_grip_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_LIGHTNING] = g_npc_lightning_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_DRAIN] = g_npc_drain_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_RAGE] = g_npc_rage_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_DESTRUCTION] = g_npc_destruction_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_FEAR] = g_npc_fear_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_LIGHTNING_STRIKE] = g_npc_strike_level->integer + 1;
 
-	NPCspawner->NPC_FPLevel[FP_SABER_OFFENSE] = g_npc_saber_attack_level->integer;
-	NPCspawner->NPC_FPLevel[FP_SABER_DEFENSE] = g_npc_saber_defend_level->integer;
-	NPCspawner->NPC_FPLevel[FP_SABERTHROW] = g_npc_saber_throw_level->integer;
+	NPCspawner->NPC_FPLevel[FP_SABER_OFFENSE] = g_npc_saber_attack_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_SABER_DEFENSE] = g_npc_saber_defend_level->integer + 1;
+	NPCspawner->NPC_FPLevel[FP_SABERTHROW] = g_npc_saber_throw_level->integer + 1;
+
+	NPCspawner->NPC_SaberStyles = g_npc_saber_styles->integer;
 
 	NPCspawner->count = 1;
 

@@ -1265,6 +1265,7 @@ Ghoul2 Insert End
 	int			NPC_color_red;
 	int			NPC_color_green;
 	int			NPC_color_blue;
+	int			NPC_SaberStyles;
 
 //Variables used by movers (most likely exclusively by them)
 	moverState_t moverState;
