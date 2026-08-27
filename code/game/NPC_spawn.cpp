@@ -1980,6 +1980,7 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 	newent->NPC_color_red = -1;
 	newent->NPC_color_green = -1;
 	newent->NPC_color_blue = -1;
+	newent->NPC_SaberStyles = -1;
 
 	if (ent->allowAttributes)
 		newent->allowAttributes = ent->allowAttributes;
@@ -1992,6 +1993,9 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 
 	if (ent->NPC_color_blue >= 0)
 		newent->NPC_color_blue = ent->NPC_color_blue;
+
+	if (ent->NPC_SaberStyles >= 0)
+		newent->NPC_SaberStyles = ent->NPC_SaberStyles;
 
 	VectorCopy(ent->s.origin, newent->s.origin);
 	VectorCopy(ent->s.origin, newent->client->ps.origin);
@@ -2404,6 +2408,8 @@ void SP_NPC_spawner(gentity_t *self)
 	self->NPC_color_red = -1;
 	self->NPC_color_green = -1;
 	self->NPC_color_blue = -1;
+
+	self->NPC_SaberStyles = -1;
 
 	if (!self->wait)
 	{

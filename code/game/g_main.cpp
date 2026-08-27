@@ -288,6 +288,8 @@ cvar_t* g_npc_saber_attack_level;
 cvar_t* g_npc_saber_defend_level;
 cvar_t* g_npc_saber_throw_level;
 
+cvar_t* g_npc_saber_styles;
+
 // kef -- used with DebugTraceForNPC
 cvar_t	*g_npcdebug;
 
@@ -844,6 +846,8 @@ void G_InitCvars( void ) {
 	g_npc_saber_attack_level = gi.cvar("g_npc_saber_attack_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_npc_saber_defend_level = gi.cvar("g_npc_saber_defend_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_npc_saber_throw_level = gi.cvar("g_npc_saber_throw_level", "0", CVAR_ARCHIVE | CVAR_NORESTART);
+
+	g_npc_saber_styles = gi.cvar("g_npc_saber_styles", "0", CVAR_ARCHIVE | CVAR_NORESTART);
 
 	g_weaponOne = gi.cvar("g_weaponOne", "WP_NONE", 0);
 	g_weaponTwo = gi.cvar("g_weaponTwo", "WP_NONE", 0);

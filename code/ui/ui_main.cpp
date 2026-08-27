@@ -5784,6 +5784,9 @@ static void UI_UpdateNPCCvars()
 	Cvar_Set("g_npc_saber_attack_level", Cvar_VariableString("ui_saboff_level"));
 	Cvar_Set("g_npc_saber_defend_level", Cvar_VariableString("ui_sabdef_level"));
 	Cvar_Set("g_npc_saber_throw_level", Cvar_VariableString("ui_sabthrow_level"));
+
+	// Saber Styles
+	Cvar_Set("g_npc_saber_styles", Cvar_VariableString("ui_saber_styles"));
 }
 
 static void UI_GetCharacterCvars ( void )

@@ -6207,11 +6207,6 @@ void PM_TorsoAnimation(void)
 		{
 			PM_SetAnim(pm, SETANIM_TORSO, BOTH_SWIM_IDLE1, SETANIM_FLAG_NORMAL);
 		}
-
-		else if (pm->ps->legsAnim == BOTH_WALK1 && pm->ps->weapon == WP_SBD)
-		{
-			PM_SetAnim(pm, SETANIM_TORSO, TORSO_WEAPONREADY2, SETANIM_FLAG_NORMAL);
-		}
 		else if( pm->ps->legsAnim == BOTH_SWIMFORWARD )
 		{
 			PM_SetAnim(pm, SETANIM_TORSO, BOTH_SWIMFORWARD, SETANIM_FLAG_NORMAL);
