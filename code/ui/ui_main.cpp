@@ -122,6 +122,8 @@ static void		UI_ResetSaberCvars ( void );
 static void		UI_InitAllocForcePowers ( const char *forceName );
 static void		UI_InitAllocSaberStyle( const char *saberStyle );
 static void		UI_SwitchSaberStyle( const char * saberStyle);
+static void		UI_GetSaberStyle(void);
+static void		UI_Cheats(const char* cheatName);
 static void		UI_AffectForcePowerLevel ( const char *forceName );
 static void		UI_ShowForceLevelDesc ( const char *forceName );
 static void		UI_ResetForceLevels ( void );
@@ -186,6 +188,8 @@ void			Menus_CloseByName(const char *p);
 static void UI_UpdateNPCCvars(void);
 
 static void UI_UpdateTeamSelect(void);
+
+static void UI_UpdateSaberVisibility(void);
 
 static void UI_HiltChange(int i);
 
@@ -425,7 +429,7 @@ static missionTopicData_t missionTopicData[1][MAX_MISSION_TOPIC] =
 	{ "@SWGLMISSIONS_MISSIONS_JKJO",					"6"},
 	{ "@SWGLMISSIONS_MISSIONS_JKJA",					"7"},
 	{ "@SWGLMISSIONS_MISSIONS_CHALLENGES",				"8"},
-	{ NULL,	NULL},
+	{ "@SWGLMISSIONS_MISSIONS_EXTRAS",					"9"},
 	{ NULL,	NULL},
 }
 };
@@ -436,8 +440,8 @@ static missionData_t missionData[MAX_MISSION_TOPIC][MAX_MISSION] =
 	// Phantom Menace
 
 {
-	{ "@SWGLMISSIONS_EPI_DOTF",			"0",		"Ep1_DotF", NULL, "@SWGLMISSIONS_EP1_DOTF_DESC", qtrue},
-	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ "@SWGLMISSIONS_EPI_TRAINING",			"0",		"Ep1_Training", "ep1_training", "@SWGLMISSIONS_EP1_TRAINING_DESC", qfalse},
+	{ "@SWGLMISSIONS_EPI_DOTF",			"1",		"Ep1_DotF", NULL, "@SWGLMISSIONS_EP1_DOTF_DESC", qtrue},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
@@ -649,32 +653,32 @@ static missionData_t missionData[MAX_MISSION_TOPIC][MAX_MISSION] =
 },
 // Jedi Outcast
 {
-	{ "@SWGLMISSIONS_KEJIM_POST",		"0",			"levelshots/kejim_post", "kejim_post", "@SWGLMISSIONS_KEJIM_POST_DESC"},
-	{ "@SWGLMISSIONS_KEJIM_BASE",		"1",			"levelshots/kejim_base", "kejim_base", "@SWGLMISSIONS_KEJIM_BASE_DESC"},
-	{ "@SWGLMISSIONS_ARTUS_MINE",		"2",			"levelshots/artus_mine", "artus_mine", "@SWGLMISSIONS_ARTUS_MINE_DESC"},
-	{ "@SWGLMISSIONS_ARTUS_DETENTION",	"3",				"levelshots/artus_detention", "artus_detention", "@SWGLMISSIONS_ARTUS_DETENTION_DESC"},
-	{ "@SWGLMISSIONS_ARTUS_TOPSIDE",	"4",				"levelshots/artus_topside", "artus_topside", "@SWGLMISSIONS_ARTUS_TOPSIDE_DESC"},
-	{ "@SWGLMISSIONS_VALLEY",		"5",			"levelshots/valley", "valley", "@SWGLMISSIONS_VALLEY_DESC"},
-	{ "@SWGLMISSIONS_YAVIN_TEMPLE",	"6",				"levelshots/yavin_temple", "yavin_temple", "@SWGLMISSIONS_YAVIN_TEMPLE_DESC"},
-	{ "@SWGLMISSIONS_YAVIN_TRIAL",		"7",			"levelshots/yavin_trial", "yavin_trial", "@SWGLMISSIONS_YAVIN_TRIAL_DESC"},
-	{ "@SWGLMISSIONS_NS_STREETS",	"8",				"levelshots/ns_streets", "ns_streets", "@SWGLMISSIONS_NS_STREETS_DESC"},
-	{ "@SWGLMISSIONS_NS_HIDEOUT",	"9",				"levelshots/ns_hideout", "ns_hideout", "@SWGLMISSIONS_NS_HIDEOUT_DESC"},
-	{ "@SWGLMISSIONS_NS_STARPAD",		"10",			"levelshots/ns_starpad", "ns_starpad", "@SWGLMISSIONS_NS_STARPAD_DESC"},
-	{ "@SWGLMISSIONS_BESPIN_UNDERCITY",	"11",				"levelshots/bespin_undercity", "bespin_undercity", "@SWGLMISSIONS_BESPIN_UNDERCITY_DESC"},
-	{ "@SWGLMISSIONS_BESPIN_STREETS",		"12",			"levelshots/bespin_streets", "bespin_streets", "@SWGLMISSIONS_BESPIN_STREETS_DESC"},
-	{ "@SWGLMISSIONS_BESPIN_PLATFORM",		"13",			"levelshots/bespin_platform", "bespin_platform", "@SWGLMISSIONS_BESPIN_PLATFORM_DESC"},
-	{ "@SWGLMISSIONS_CAIRN_BAY",		"14",			"levelshots/cairn_bay", "cairn_bay", "@SWGLMISSIONS_CAIRN_BAY_DESC"},
-	{ "@SWGLMISSIONS_CAIRN_ASSEMBLY",		"15",			"levelshots/cairn_assembly", "cairn_assembly", "@SWGLMISSIONS_CAIRN_ASSEMBLY_DESC"},
-	{ "@SWGLMISSIONS_CAIRN_REACTOR",	"16",				"levelshots/cairn_reactor", "cairn_reactor", "@SWGLMISSIONS_CAIRN_REACTOR_DESC"},
-	{ "@SWGLMISSIONS_CAIRN_DOCK1",		"17",			"levelshots/cairn_dock1", "cairn_dock1", "@SWGLMISSIONS_CAIRN_DOCK1_DESC"},
-	{ "@SWGLMISSIONS_DOOM_COMM",		"18",			"levelshots/doom_comm", "doom_comm", "@SWGLMISSIONS_DOOM_COMM_DESC"},
-	{ "@SWGLMISSIONS_DOOM_DETENTION",	"19",				"levelshots/doom_detention", "doom_detention", "@SWGLMISSIONS_DOOM_DETENTION_DESC"},
-	{ "@SWGLMISSIONS_DOOM_SHIELDS",		"20",			"levelshots/doom_shields", "doom_shields", "@SWGLMISSIONS_DOOM_SHIELDS_DESC"},
-	{ "@SWGLMISSIONS_YAVIN_SWAMP",		"21",			"levelshots/yavin_swamp", "yavin_swamp", "@SWGLMISSIONS_YAVIN_SWAMP_DESC"},
-	{ "@SWGLMISSIONS_YAVIN_CANYON",			"22",		"levelshots/yavin_canyon", "yavin_canyon", "@SWGLMISSIONS_YAVIN_CANYON_DESC"},
-	{ "@SWGLMISSIONS_YAVIN_COURTYARD",	"23",				"levelshots/yavin_courtyard", "yavin_courtyard", "@SWGLMISSIONS_YAVIN_COURTYARD_DESC"},
-	{ "@SWGLMISSIONS_YAVIN_FINAL",		"24",			"levelshots/yavin_final", "yavin_final", "@SWGLMISSIONS_YAVIN_FINAL_DESC"},
-	{ "@SWGLMISSIONS_JODEMO",			"25",		"levelshots/jodemo", "jodemo", "@SWGLMISSIONS_JODEMO_DESC"},
+	{ "@SWGLMISSIONS_KEJIM_POST",		"0",			"levelshots_sav/kejim_post", "kejim_post", "@SWGLMISSIONS_KEJIM_POST_DESC"},
+	{ "@SWGLMISSIONS_KEJIM_BASE",		"1",			"levelshots_sav/kejim_base", "kejim_base", "@SWGLMISSIONS_KEJIM_BASE_DESC"},
+	{ "@SWGLMISSIONS_ARTUS_MINE",		"2",			"levelshots_sav/artus_mine", "artus_mine", "@SWGLMISSIONS_ARTUS_MINE_DESC"},
+	{ "@SWGLMISSIONS_ARTUS_DETENTION",	"3",				"levelshots_sav/artus_detention", "artus_detention", "@SWGLMISSIONS_ARTUS_DETENTION_DESC"},
+	{ "@SWGLMISSIONS_ARTUS_TOPSIDE",	"4",				"levelshots_sav/artus_topside", "artus_topside", "@SWGLMISSIONS_ARTUS_TOPSIDE_DESC"},
+	{ "@SWGLMISSIONS_VALLEY",		"5",			"levelshots_sav/valley", "valley", "@SWGLMISSIONS_VALLEY_DESC"},
+	{ "@SWGLMISSIONS_YAVIN_TEMPLE",	"6",				"levelshots_sav/yavin_temple", "yavin_temple", "@SWGLMISSIONS_YAVIN_TEMPLE_DESC"},
+	{ "@SWGLMISSIONS_YAVIN_TRIAL",		"7",			"levelshots_sav/yavin_trial", "yavin_trial", "@SWGLMISSIONS_YAVIN_TRIAL_DESC"},
+	{ "@SWGLMISSIONS_NS_STREETS",	"8",				"levelshots_sav/ns_streets", "ns_streets", "@SWGLMISSIONS_NS_STREETS_DESC"},
+	{ "@SWGLMISSIONS_NS_HIDEOUT",	"9",				"levelshots_sav/ns_hideout", "ns_hideout", "@SWGLMISSIONS_NS_HIDEOUT_DESC"},
+	{ "@SWGLMISSIONS_NS_STARPAD",		"10",			"levelshots_sav/ns_starpad", "ns_starpad", "@SWGLMISSIONS_NS_STARPAD_DESC"},
+	{ "@SWGLMISSIONS_BESPIN_UNDERCITY",	"11",				"levelshots_sav/bespin_undercity", "bespin_undercity", "@SWGLMISSIONS_BESPIN_UNDERCITY_DESC"},
+	{ "@SWGLMISSIONS_BESPIN_STREETS",		"12",			"levelshots_sav/bespin_streets", "bespin_streets", "@SWGLMISSIONS_BESPIN_STREETS_DESC"},
+	{ "@SWGLMISSIONS_BESPIN_PLATFORM",		"13",			"levelshots_sav/bespin_platform", "bespin_platform", "@SWGLMISSIONS_BESPIN_PLATFORM_DESC"},
+	{ "@SWGLMISSIONS_CAIRN_BAY",		"14",			"levelshots_sav/cairn_bay", "cairn_bay", "@SWGLMISSIONS_CAIRN_BAY_DESC"},
+	{ "@SWGLMISSIONS_CAIRN_ASSEMBLY",		"15",			"levelshots_sav/cairn_assembly", "cairn_assembly", "@SWGLMISSIONS_CAIRN_ASSEMBLY_DESC"},
+	{ "@SWGLMISSIONS_CAIRN_REACTOR",	"16",				"levelshots_sav/cairn_reactor", "cairn_reactor", "@SWGLMISSIONS_CAIRN_REACTOR_DESC"},
+	{ "@SWGLMISSIONS_CAIRN_DOCK1",		"17",			"levelshots_sav/cairn_dock1", "cairn_dock1", "@SWGLMISSIONS_CAIRN_DOCK1_DESC"},
+	{ "@SWGLMISSIONS_DOOM_COMM",		"18",			"levelshots_sav/doom_comm", "doom_comm", "@SWGLMISSIONS_DOOM_COMM_DESC"},
+	{ "@SWGLMISSIONS_DOOM_DETENTION",	"19",				"levelshots_sav/doom_detention", "doom_detention", "@SWGLMISSIONS_DOOM_DETENTION_DESC"},
+	{ "@SWGLMISSIONS_DOOM_SHIELDS",		"20",			"levelshots_sav/doom_shields", "doom_shields", "@SWGLMISSIONS_DOOM_SHIELDS_DESC"},
+	{ "@SWGLMISSIONS_YAVIN_SWAMP",		"21",			"levelshots_sav/yavin_swamp", "yavin_swamp", "@SWGLMISSIONS_YAVIN_SWAMP_DESC"},
+	{ "@SWGLMISSIONS_YAVIN_CANYON",			"22",		"levelshots_sav/yavin_canyon", "yavin_canyon", "@SWGLMISSIONS_YAVIN_CANYON_DESC"},
+	{ "@SWGLMISSIONS_YAVIN_COURTYARD",	"23",				"levelshots_sav/yavin_courtyard", "yavin_courtyard", "@SWGLMISSIONS_YAVIN_COURTYARD_DESC"},
+	{ "@SWGLMISSIONS_YAVIN_FINAL",		"24",			"levelshots_sav/yavin_final", "yavin_final", "@SWGLMISSIONS_YAVIN_FINAL_DESC"},
+	{ "@SWGLMISSIONS_JODEMO",			"25",		"levelshots_sav/jodemo", "jodemo", "@SWGLMISSIONS_JODEMO_DESC"},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
@@ -726,6 +730,42 @@ static missionData_t missionData[MAX_MISSION_TOPIC][MAX_MISSION] =
 	{ "@SWGLMISSIONS_CHALLENGES_EP6_DS2_HANGAR",		"6",			"SV_EP6_DS2_HANGAR", "sv_ep6_ds2_hangar", "@SWGLMISSIONS_CHALLENGES_EP6_DS2_HANGAR_DESC"},
 	{ "@SWGLMISSIONS_CHALLENGES_JKA_VJUN",		"7",			"SV_JKA_VJUN", "sv_jka_vjun", "@SWGLMISSIONS_CHALLENGES_JKA_VJUN_DESC"},
 	{ "@SWGLMISSIONS_CHALLENGES_JKO_VOTJ",		"8",			"SV_JKO_VOTJ", "sv_jko_votj", "@SWGLMISSIONS_CHALLENGES_JKO_VOTJ_DESC"},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+},
+
+// Extras
+{
+	{ "@SWGLMISSIONS_EXTRAS_EP3_OK",		"0",			"EP3_ORK", "ep3_ok_anakin_1", "@SWGLMISSIONS_EXTRAS_EP3_OK_DESC"},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
+	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
 	{ NULL,			NULL,		NULL, NULL, NULL, qfalse},
@@ -875,7 +915,22 @@ vmCvar_t	ui_mission_mapcode;
 vmCvar_t	ui_variant_code;
 vmCvar_t	ui_team;
 vmCvar_t	ui_health;
+vmCvar_t	ui_shield;
 vmCvar_t	ui_force;
+
+// New cvars for the cheats affichage
+vmCvar_t ui_cheats_godMode;
+vmCvar_t ui_cheats_noForce;
+vmCvar_t ui_cheats_undying;
+vmCvar_t ui_cheats_noTarget;
+vmCvar_t ui_cheats_noClip;
+vmCvar_t ui_cheats_health;
+vmCvar_t ui_cheats_shield;
+vmCvar_t ui_cheats_force;
+vmCvar_t ui_cheats_force_regen_rate;
+vmCvar_t ui_cheats_force_regen_amount;
+
+
 
 // Force Power cvars (I literally don't know any other way to do this.....)
 vmCvar_t	ui_jump_level;
@@ -1072,8 +1127,20 @@ static cvarTable_t cvarTable[] =
 	{ &ui_variant_code,			"ui_variant_code",		"default", NULL, 0},
 	{ &ui_team,					"ui_team",	"enemy", NULL, CVAR_ARCHIVE},
 	{ &ui_health,				"ui_health",	"100", NULL, CVAR_ARCHIVE},
+	{ &ui_shield,				"ui_shield",	"100", NULL, CVAR_ARCHIVE},
 	{ &ui_force,				"ui_force",	"100", NULL, CVAR_ARCHIVE},
 	{ &ui_saber_styles,		"ui_saber_styles", "0", NULL, 0 },
+
+	{ &ui_cheats_godMode,		"ui_cheats_godMode", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_noForce,		"ui_cheats_noForce", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_undying,		"ui_cheats_undying", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_noTarget,		"ui_cheats_noTarget", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_noClip,		"ui_cheats_noClip", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_health,		"ui_cheats_health", "100", NULL, CVAR_CHEAT },
+	{ &ui_cheats_shield,		"ui_cheats_shield", "100", NULL, CVAR_CHEAT },
+	{ &ui_cheats_force,			"ui_cheats_force", "100", NULL, CVAR_CHEAT },
+	{ &ui_cheats_force_regen_rate,"ui_cheats_force_regen_rate", "0", NULL, CVAR_CHEAT },
+	{ &ui_cheats_force_regen_amount,"ui_cheats_force_regen_amount", "0", NULL, CVAR_CHEAT },
 
 	{ &ui_weaponone, "ui_weaponone",   "WP_NONE", NULL, 0 },
 	{ &ui_weapontwo, "ui_weapontwo",   "WP_NONE", NULL, 0 },
@@ -1618,12 +1685,13 @@ static qboolean UI_RunMenuScript ( const char **args )
 			s_savegame.saveFileCnt = -1;	//force a refresh at drawtime
 //			ReadSaveDirectory();
 		}
-		else if (Q_stricmp(name, "loadAuto") == 0)
+		if (Q_stricmp(name, "loadAuto") == 0)
 		{
 			Menus_CloseAll();
 			ui.Cmd_ExecuteText( EXEC_APPEND, "load auto\n");	//load game menu
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "loadgame") == 0)
+		if (Q_stricmp(name, "loadgame") == 0)
 		{
 			if (s_savedata[s_savegame.currentLine].currentSaveFileName)// && (*s_file_desc_field.field.buffer))
 			{
@@ -1632,9 +1700,9 @@ static qboolean UI_RunMenuScript ( const char **args )
 			}
 			// after loading a game, the list box (and it's highlight) get's reset back to 0, but currentLine sticks around, so set it to 0 here
 			s_savegame.currentLine = 0;
-
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "deletegame") == 0)
+		if (Q_stricmp(name, "deletegame") == 0)
 		{
 			if (s_savedata[s_savegame.currentLine].currentSaveFileName)	// A line was chosen
 			{
@@ -1656,8 +1724,9 @@ static qboolean UI_RunMenuScript ( const char **args )
 				s_savegame.saveFileCnt = -1;	//force a refresh at drawtime
 
 			}
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "savegame") == 0)
+		if (Q_stricmp(name, "savegame") == 0)
 		{
 			char fileName[MAX_SAVELOADNAME];
 			char description[64];
@@ -1683,12 +1752,14 @@ static qboolean UI_RunMenuScript ( const char **args )
 
 			ui.Cmd_ExecuteText( EXEC_APPEND, va("save %s\n", fileName));
 			s_savegame.saveFileCnt = -1;	//force a refresh the next time around
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "LoadMods") == 0)
+		if (Q_stricmp(name, "LoadMods") == 0)
 		{
 			UI_LoadMods();
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "RunMod") == 0)
+		if (Q_stricmp(name, "RunMod") == 0)
 		{
 			if (uiInfo.modList[uiInfo.modIndex].modName)
 			{
@@ -1697,17 +1768,20 @@ static qboolean UI_RunMenuScript ( const char **args )
 				FS_Restart();
 				Cbuf_ExecuteText( EXEC_APPEND, "vid_restart;" );
 			}
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "Quit") == 0)
+		if (Q_stricmp(name, "Quit") == 0)
 		{
 			Cbuf_ExecuteText( EXEC_NOW, "quit");
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "Controls") == 0)
+		if (Q_stricmp(name, "Controls") == 0)
 		{
 			Cvar_Set( "cl_paused", "1" );
 			trap_Key_SetCatcher( KEYCATCH_UI );
 			Menus_CloseAll();
 			Menus_ActivateByName("setup_menu2");
+			return qtrue;
 		}
 		else if (Q_stricmp(name, "Leave") == 0)
 		{
@@ -2194,6 +2268,30 @@ static qboolean UI_RunMenuScript ( const char **args )
 
 			UI_SwitchSaberStyle(saberStyle);
 		}
+		else if (Q_stricmp(name, "cmd_god") == 0)
+		{
+			UI_Cheats("god");
+		}
+		else if (Q_stricmp(name, "cmd_noclip") == 0)
+		{
+			UI_Cheats("noclip");
+		}
+		else if (Q_stricmp(name, "cmd_notarget") == 0)
+		{
+			UI_Cheats("notarget");
+		}
+		else if (Q_stricmp(name, "cmd_undying") == 0)
+		{
+			UI_Cheats("undying");
+		}
+		else if (Q_stricmp(name, "cmd_noforce") == 0)
+		{
+			UI_Cheats("noforce");
+		}
+		else if (Q_stricmp(name, "getsaberstyle") == 0)
+		{
+			UI_GetSaberStyle();
+		}
 		else if (Q_stricmp(name, "getNPCcode") == 0)
 		{
 			const char* code;
@@ -2205,9 +2303,12 @@ static qboolean UI_RunMenuScript ( const char **args )
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s\n", Cvar_VariableString("ui_npc_type")));
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s %s %s %s\n", Cvar_VariableString("ui_char_model"), Cvar_VariableString("ui_char_skin_head"), Cvar_VariableString("ui_char_skin_torso"), Cvar_VariableString("ui_char_skin_legs")));
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playerteam %s\n", Cvar_VariableString("ui_team")));
-			ui.Cmd_ExecuteText(EXEC_NOW, va("give health %s\n", Cvar_VariableString("ui_health")));
-			ui.Cmd_ExecuteText(EXEC_NOW, va("give shield %s\n", Cvar_VariableString("ui_health")));
-			ui.Cmd_ExecuteText(EXEC_NOW, va("give force %s\n", Cvar_VariableString("ui_force")));
+			if (Cvar_VariableIntegerValue("g_adoptcharstats") >= 1)
+			{
+				ui.Cmd_ExecuteText(EXEC_NOW, va("give health %s\n", Cvar_VariableString("ui_health")));
+				ui.Cmd_ExecuteText(EXEC_NOW, va("give shield %s\n", Cvar_VariableString("ui_health")));
+				ui.Cmd_ExecuteText(EXEC_NOW, va("give force %s\n", Cvar_VariableString("ui_force")));
+			}			
 			ui.Cmd_ExecuteText(EXEC_NOW, va("lightningColor %s\n", Cvar_VariableString("ui_lightning_color")));
 		}
 		else if (Q_stricmp(name, "anglesesc") == 0)
@@ -2298,18 +2399,27 @@ static qboolean UI_RunMenuScript ( const char **args )
 			if (!missionData[Cvar_VariableIntegerValue("ui_mission_topic")][0].title)
 			{
 				Menu_ShowItemByName(menu, "emptyBox", qtrue);
-				Menu_ShowItemByName(menu, "missionList", qtrue);
+				Menu_ShowItemByName(menu, "missionList", qfalse);
+				Menu_ShowItemByName(menu, "noJKO", qfalse);
+				Menu_ShowItemByName(menu, "noJKOHelp", qfalse);
+				Menu_ShowItemByName(menu, "HowtoJKO", qfalse);
 			}
-			else if (!Q_stricmp(missionTopicData[0][Cvar_VariableIntegerValue("ui_mission_topic")].title, "Jedi Outcast")
+			else if (!Q_stricmp(missionTopicData[0][Cvar_VariableIntegerValue("ui_mission_topic")].title, "@SWGLMISSIONS_MISSIONS_JKJO")
 				&& Cvar_VariableIntegerValue("g_validJKO") < 1)
 			{
 				Menu_ShowItemByName(menu, "noJKO", qtrue);
+				Menu_ShowItemByName(menu, "noJKOHelp", qtrue);
 				Menu_ShowItemByName(menu, "missionList", qfalse);
+				Menu_ShowItemByName(menu, "emptyBox", qfalse);
+				Menu_ShowItemByName(menu, "HowtoJKO", qfalse);
 			}
 			else
 			{
 				Menu_ShowItemByName(menu, "emptyBox", qfalse);
 				Menu_ShowItemByName(menu, "missionList", qtrue);
+				Menu_ShowItemByName(menu, "noJKO", qfalse);
+				Menu_ShowItemByName(menu, "noJKOHelp", qfalse);
+				Menu_ShowItemByName(menu, "HowtoJKO", qfalse);
 			}
 
 			menu = NULL;
@@ -3738,9 +3848,9 @@ static void UI_BuildPlayerModel_List(qboolean inGameLoad)
 							species->Skin = (skinName_t*)realloc(species->Skin, species->SkinMax * sizeof(skinName_t));
 						}
 						Q_strncpyz(species->Skin[species->SkinCount++].name, skinname, SKIN_LENGTH);
+						iSkinParts |= 1 << 3;
 
-						if (Q_stricmpn(skinname, "model_default", 13) == 0)
-							iSkinParts |= 1 << 3;
+						//if (Q_stricmpn(skinname, "model_default", 13) == 0)
 					}
 				}
 			}
@@ -3814,9 +3924,8 @@ static void UI_BuildPlayerModel_List(qboolean inGameLoad)
 							species->Skin = (skinName_t*)realloc(species->Skin, species->SkinMax * sizeof(skinName_t));
 						}
 						Q_strncpyz(species->Skin[species->SkinCount++].name, skinname, SKIN_LENGTH);
-
-						if (Q_stricmpn(skinname, "model_default", 13) == 0)
-							iSkinParts |= 1 << 3;
+						iSkinParts |= 1 << 3;
+						//if (Q_stricmpn(skinname, "model_default", 13) == 0)
 					}
 				}
 			}
@@ -5079,10 +5188,12 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 
 		case UI_NPC_WEAPON_LABEL:
 			ui.Draw_DataPad(DP_NPC_WEAPON_LABEL);
+			UI_UpdateSaberVisibility();
 			break;
 
 		case UI_PLAYER_WEAPON_LABEL_1:
 			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_1);
+			UI_UpdateSaberVisibility();
 			break;
 
 		case UI_PLAYER_WEAPON_LABEL_2:
@@ -5729,6 +5840,11 @@ static void UI_UpdateTeamSelect(void)
 	enabled = (itemDef_s*)Menu_FindItemByName(menu, "teamsToggle");
 	disabled = (itemDef_s*)Menu_FindItemByName(menu, "teamsDisabled");
 
+	if (!enabled || !disabled)
+	{
+		return;
+	}
+
 	if (Cvar_VariableIntegerValue("ui_npc_menu") >= 1)
 	{
 		Menu_ShowItemByName(menu, "teamsToggle", qtrue);
@@ -5738,15 +5854,67 @@ static void UI_UpdateTeamSelect(void)
 	{
 		if (Cvar_VariableIntegerValue("g_allowAlignmentChange"))
 		{
-			Menu_ShowItemByName(menu, "teamsToggle", qtrue);
-			Menu_ShowItemByName(menu, "teamsDisabled", qfalse);
+			if (enabled->window.flags & WINDOW_VISIBLE || disabled->window.flags & WINDOW_VISIBLE)
+			{
+				Menu_ShowItemByName(menu, "teamsToggle", qtrue);
+				Menu_ShowItemByName(menu, "teamsDisabled", qfalse);
+			}
 		}
 		else
 		{
-			Menu_ShowItemByName(menu, "teamsToggle", qfalse);
-			Menu_ShowItemByName(menu, "teamsDisabled", qtrue);
+			if (enabled->window.flags & WINDOW_VISIBLE || disabled->window.flags & WINDOW_VISIBLE)
+			{
+				Menu_ShowItemByName(menu, "teamsToggle", qfalse);
+				Menu_ShowItemByName(menu, "teamsDisabled", qtrue);
+			}
 		}
 	}
+}
+
+static void UI_UpdateSaberVisibility(void)
+{
+	menuDef_t* menu = Menu_GetFocused();
+
+	if(Q_stricmp(menu->window.name, "IngameSWGLChars"))
+	{
+		return;
+	}
+
+	auto SetSaberVisibility = [&](qboolean visible) {
+		Menu_ShowItemByName(menu, "saber", visible);
+		Menu_ShowItemByName(menu, "saber2", visible);
+		Menu_ShowItemByName(menu, "SaberEdit", visible);
+		};
+
+	qboolean showSabers = qfalse;
+
+	if (Cvar_VariableIntegerValue("ui_npc_menu") >= 1)
+	{
+		// NPC menu mode: single weapon cvar
+		if (!Q_stricmp(Cvar_VariableString("ui_npc_weapon"), "weapon_saber") || !Q_stricmp(Cvar_VariableString("ui_npc_weapon"), "WP_SABER"))
+		{
+			showSabers = qtrue;
+		}
+	}
+	else
+	{
+		// Player menu mode: multiple weapon slots
+		const char* weapons[] = {
+			"ui_weaponOne", "ui_weaponTwo", "ui_weaponThree",
+			"ui_weaponFour", "ui_weaponFive", "ui_weaponSix"
+		};
+
+		for (int i = 0; i < 6; i++)
+		{
+			if (!Q_stricmp(Cvar_VariableString(weapons[i]), "weapon_saber") || !Q_stricmp(Cvar_VariableString(weapons[i]), "WP_SABER"))
+			{
+				showSabers = qtrue;
+				break;
+			}
+		}
+	}
+
+	SetSaberVisibility(showSabers);
 }
 
 static void UI_RandomRGB(void)
@@ -6107,11 +6275,109 @@ static void UI_InitAllocSaberStyle(const char* saberStyle) {
 			break;
 	}
 
-	if (Cvar_VariableIntegerValue("ui_saber_styles") & stanceValue)
+	if (hasStance)
 	{
 		int newValue = Cvar_VariableIntegerValue("ui_saber_styles") + stanceValue;
 		ui.Cvar_Set("ui_saber_styles", va("%i", newValue));
 	}
+}
+
+static void UI_GetSaberStyle()
+{
+	menuDef_t* menu;
+	itemDef_t* item;
+
+	menu = Menu_GetFocused();	// Get current menu
+
+	if (!menu)
+	{
+		return;
+	}
+
+	int i;
+
+	for (i = 0; i < SS_NUM_SABER_STYLES; i++)
+	{
+		if (i == SS_DUAL)
+			continue;
+
+		const char* saberStyle = GetStringForID(SaberStyleTable, i);
+		char itemName[128];
+		Com_sprintf(itemName, sizeof(itemName), "%s_switch", saberStyle);
+		item = (itemDef_s*)Menu_FindItemByName(menu, itemName);
+		int stanceValue = 0;
+
+		switch (i)
+		{
+			case SS_FAST:
+				stanceValue = 1;
+				break;
+			case SS_MEDIUM:
+				stanceValue = 2;
+				break;
+			case SS_STRONG:
+				stanceValue = 4;
+				break;
+			case SS_DESANN:
+				stanceValue = 8;
+				break;
+			case SS_TAVION:
+				stanceValue = 16;
+				break;
+			case SS_DUAL:
+				stanceValue = 32;
+				break;
+			case SS_STAFF:
+				stanceValue = 64;
+				break;
+			default:
+				stanceValue = 0;
+				break;
+		}
+
+		bool hasStance = (Cvar_VariableIntegerValue("ui_saber_styles") & stanceValue);
+
+		if (item)
+		{
+			char itemGraphic[128];
+			Com_sprintf(itemGraphic, sizeof(itemGraphic), "gfx/menus/stance_switch_%s", hasStance ? "on" : "off");
+			item->window.background = ui.R_RegisterShaderNoMip(itemGraphic);
+		}
+		
+
+	}
+}
+
+//Change cheats flags to update at the end of the menu.
+static void UI_Cheats(const char* cheatName)
+{
+	UI_UpdateCvars();
+	if (!Q_stricmp(cheatName, "god"))
+	{
+		ui_cheats_godMode.integer ^= 1;
+		Cvar_Set("ui_cheats_godMode", va("%d",ui_cheats_godMode.integer) );
+	}
+	else if (!Q_stricmp(cheatName, "noclip"))
+	{
+		ui_cheats_noClip.integer ^= 1;
+		Cvar_Set("ui_cheats_noClip", va("%d", ui_cheats_noClip.integer));
+	}
+	else if (!Q_stricmp(cheatName, "notarget"))
+	{
+		ui_cheats_noTarget.integer ^= 1;
+		Cvar_Set("ui_cheats_noTarget", va("%d", ui_cheats_noTarget.integer));
+	}
+	else if (!Q_stricmp(cheatName, "noForce"))
+	{
+		ui_cheats_noForce.integer ^= 1;
+		Cvar_Set("ui_cheats_noForce", va("%d", ui_cheats_noForce.integer));
+	}
+	else if (!Q_stricmp(cheatName, "undying"))
+	{
+		ui_cheats_undying.integer ^= 1;
+		Cvar_Set("ui_cheats_undying", va("%d", ui_cheats_undying.integer));
+	}
+	ui.Cmd_ExecuteText(EXEC_NOW, "updateCheatsFlags\n");
 }
 
 // Switch the value of a Saber Style then call update method to update UI(Used by Force Power Allocation screen)
@@ -7389,7 +7655,7 @@ static void UI_ShowMissionInfo()
 	{
 		Menu_ShowItemByName(menu, "missionInfo", qtrue);
 
-		if (!strncmp(missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode, "levelshots/", 11))
+		if (!strncmp(missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode, "levelshots/", 11) || !strncmp(missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode, "levelshots_sav/", 14))
 			Menu_SetItemBackground(menu, "MissionPic", missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode);
 		else if (ui.R_RegisterShaderNoMip(va("gfx/menus/missions/%s/background", missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode)) != 0)
 			Menu_SetItemBackground(menu, "MissionPic", va("gfx/menus/missions/%s/background", missionData[Cvar_VariableIntegerValue("ui_mission_topic")][Cvar_VariableIntegerValue("ui_mission")].picCode));
@@ -8401,6 +8667,17 @@ static void UI_CharacterDefaultSkin(const char* otherSkin)
 				UI_FeederSelection(FEEDER_PLAYER_SKIN_TORSO, 0, item);
 				UI_FeederSelection(FEEDER_PLAYER_SKIN_LEGS, 0, item);
 				ShowCustomizationUI(true);
+				if (Q_stricmp("model_default", otherSkin))
+				{
+					for (int j = 0; j < species.SkinCount; ++j)
+					{
+						if (!Q_stricmp(species.Skin[j].name, otherSkin))
+						{
+							UI_FeederSelection(FEEDER_MODEL_SKINS, j, item);
+							break;
+						}
+					}
+				}
 			}
 			else
 			{
@@ -8852,7 +9129,8 @@ static void UI_SaveCharacterPowers(void)
 			"ui_health",
 			"ui_force",
 			"ui_team",
-			"ui_npc_type"
+			"ui_npc_type",
+			"ui_saber_styles",
 		};
 
 		const size_t count = sizeof(cvars) / sizeof(cvars[0]);
@@ -8929,7 +9207,9 @@ static void UI_SaveCharacterPowers(void)
 		}
 	}
 
+#ifdef DEBUG
 	Com_Printf("Writing Character Stats in %s\n", characterName);
+#endif
 	Com_FlushCharacterFile();
 }
 
@@ -8945,7 +9225,7 @@ void Com_FlushCharacterFile()
 	if (!characterfile)
 	{
 		// nothing to flush, right?
-		Com_Printf("No cam file available\n");
+		Com_Printf("No character file available\n");
 		return;
 	}
 	FS_ForceFlush(characterfile);
@@ -8957,6 +9237,7 @@ void Com_FlushCharacterFile()
 		Com_sprintf(flushedCharactername, MAX_QPATH, "ext_data/characters/%s_%s_%s_NPC.cfg", faction, code, variant);
 	else
 		Com_sprintf(flushedCharactername, MAX_QPATH, "ext_data/characters/%s_%s_%s.cfg", faction, code, variant);
+
 	Com_Printf("saved Character stats to %s\n", flushedCharactername);
 }
 
@@ -9073,8 +9354,11 @@ void UI_LoadCharacterCfg(void)
 
 				ui.Cmd_ExecuteText(EXEC_NOW, va("%s\n", cmd.c_str()));
 			}
+#ifdef DEBUG
+		Com_Printf("UI_LoadCharacterCfg: executed %s\n", tryFile);
+#endif
 
-			Com_Printf("UI_LoadCharacterCfg: executed %s\n", tryFile);
+			
 
 			//
 			// Update saber/hilt UI
@@ -9231,7 +9515,9 @@ void UI_LoadCharacterDefaultCfg(void)
 				ui.Cmd_ExecuteText(EXEC_NOW, va("%s\n", cmd.c_str()));
 			}
 
+#ifdef DEBUG
 			Com_Printf("UI_LoadCharacterCfg: executed %s\n", tryFile);
+#endif 			
 
 			//
 			// Update saber/hilt UI

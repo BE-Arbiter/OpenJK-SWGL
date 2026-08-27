@@ -422,6 +422,7 @@ void PrintWeaponAttackData(const weaponAttackData_t* attack)
 
 	gi.Printf("\t\t^6'energyPerShot'^7 : ^5%d^7 (int)\n", attack->energyPerShot);
 	gi.Printf("\t\t^6'fireTime'^7 : ^5%d^7 (int)\n", attack->fireTime);
+	gi.Printf("\t\t^6'effectDuration'^7 : ^5%d^7 (int)\n", attack->effectDuration);
 	gi.Printf("\t\t^6'range'^7 : ^5%d^7 (int)\n", attack->range);
 	gi.Printf("\t\t^6'spread'^7 : ^5%f^7 (float)\n", attack->spread);
 
@@ -488,6 +489,7 @@ void PrintWeaponAttackData(const weaponAttackData_t* attack)
 	gi.Printf("\t\t^6'missileDlightColor'^7 : ^5%s^7 (vec3_t)\n", getStringValueForvec3(&attack->missileDlightColor));
 
 	gi.Printf("\t\t^6'firingSnd'^7 : ^5\"%s\"^7 (char[64])\n", attack->firingSnd);
+	gi.Printf("\t\t^6'startSound'^7 : ^5\"%s\"^7 (char[64])\n", attack->startSnd);
 	gi.Printf("\t\t^6'missileHitSound'^7 : ^5\"%s\"^7 (char[64])\n", attack->missileHitSound);
 
 	gi.Printf("\t\t^6'dempDetonateShader'^7 : ^5\"%s\"^7 (char[64])\n", attack->dempDetonateShader);
@@ -513,6 +515,7 @@ void PrintWeaponAttackData_Light(const weaponAttackData_t* attack)
 
 	gi.Printf("\t\t^6'energyPerShot'^7 : ^5%d^7 (int)\n", attack->energyPerShot);
 	gi.Printf("\t\t^6'fireTime'^7 : ^5%d^7 (int)\n", attack->fireTime);
+	gi.Printf("\t\t^6'effectDuration'^7 : ^5%d^7 (int)\n", attack->effectDuration);
 	gi.Printf("\t\t^6'range'^7 : ^5%d^7 (int)\n", attack->range);
 	gi.Printf("\t\t^6'spread'^7 : ^5%f^7 (float)\n", attack->spread);
 	gi.Printf("\t\t^6'damage'^7 : ^5%d^7 (int)\n", attack->damage);
@@ -784,7 +787,91 @@ extern void SP_fx_runner( gentity_t *ent );
 	gi.Printf( S_COLOR_CYAN"fx origin <#><#><#>    fx origin 10 20 30\n" );
 	gi.Printf( S_COLOR_CYAN"fx dir <#><#><#>       fx dir 0 0 -1\n\n" );
 }
+/*
+==================
+	Cmd_Update_CheatStatsHealth
+	Cmd_Update_CheatStatsShield
+	Cmd_Update_CheatStatsForce
+	Update Client statistics from cheat cvar
+==================
+*/
+void Cmd_Update_CheatStatsHealth(gentity_t* ent)
+{
+	int health = Com_Clampi(1,999,gi.Cvar_VariableIntegerValue("ui_cheats_health"));
+	ent->client->ps.stats[STAT_MAX_HEALTH] = health;
+	ent->health = health;
+}
 
+void Cmd_Update_CheatStatsShield(gentity_t* ent)
+{
+	int shield = gi.Cvar_VariableIntegerValue("ui_cheats_shield");
+	ent->client->ps.stats[STAT_ARMOR] = Com_Clampi(0, ent->client->ps.stats[STAT_MAX_HEALTH], shield);
+}
+
+void Cmd_Update_CheatStatsForce(gentity_t* ent)
+{
+	int force = Com_Clampi(0, 999, gi.Cvar_VariableIntegerValue("ui_cheats_force"));
+	ent->client->ps.forcePowerMax = force;
+	ent->client->ps.forcePower = force;
+}
+
+void Cmd_Update_CheatStatsForceRegenRate(gentity_t* ent)
+{
+	int regenRate = Com_Clampi(1, 5000, gi.Cvar_VariableIntegerValue("ui_cheats_force_regen_rate"));
+	ent->client->ps.forcePowerRegenRate= regenRate;
+}
+
+void Cmd_Update_CheatStatsForceRegenAmount(gentity_t* ent)
+{
+	int regenAmount = Com_Clampi(1, 999, gi.Cvar_VariableIntegerValue("ui_cheats_force_regen_amount"));
+	ent->client->ps.forcePowerRegenAmount = regenAmount;
+}
+
+/*
+==================
+Cmd_Update_CF
+
+Updates client Flags
+==================
+*/
+void Cmd_Update_CF(gentity_t* ent)
+{
+	if (gi.Cvar_VariableIntegerValue("ui_cheats_godMode"))
+	{
+		ent->flags |= FL_GODMODE;
+	}
+	else {
+		ent->flags &= ~FL_GODMODE;
+	}
+	if (gi.Cvar_VariableIntegerValue("ui_cheats_noForce"))
+	{
+		ent->flags |= FL_NOFORCE;
+	}
+	else {
+		ent->flags &= ~FL_NOFORCE;
+	}
+	if (gi.Cvar_VariableIntegerValue("ui_cheats_undying"))
+	{
+		ent->flags |= FL_UNDYING;
+	}
+	else {
+		ent->flags &= ~FL_UNDYING;
+	}
+	if (gi.Cvar_VariableIntegerValue("ui_cheats_noTarget"))
+	{
+		ent->flags |= FL_NOTARGET;
+	}
+	else {
+		ent->flags &= ~FL_NOTARGET;
+	}
+	if (gi.Cvar_VariableIntegerValue("ui_cheats_noClip"))
+	{
+		ent->client->noclip = 1;
+	}
+	else {
+		ent->client->noclip = 0;;
+	}
+}
 /*
 ==================
 Cmd_God_f
@@ -803,10 +890,16 @@ void Cmd_God_f (gentity_t *ent)
 	}
 
 	ent->flags ^= FL_GODMODE;
-	if (!(ent->flags & FL_GODMODE) )
+	if (!(ent->flags & FL_GODMODE))
+	{
 		msg = "godmode OFF\n";
+		gi.cvar_set("ui_cheats_godMode", "0");
+	}
 	else
+	{
 		msg = "godmode ON\n";
+		gi.cvar_set("ui_cheats_godMode", "1");
+	}
 
 	gi.SendServerCommand( ent-g_entities, "print \"%s\"", msg);
 }
@@ -830,9 +923,15 @@ void Cmd_Noforce_f(gentity_t *ent)
 
 	ent->flags ^= FL_NOFORCE;
 	if (!(ent->flags & FL_NOFORCE))
+	{
 		msg = "No Force OFF\n";
+		gi.cvar_set("ui_cheats_noForce", "0");
+	}
 	else
+	{
 		msg = "No Force ON\n";
+		gi.cvar_set("ui_cheats_noForce", "1");
+	}
 
 	gi.SendServerCommand(ent - g_entities, "print \"%s\"", msg);
 }
@@ -860,6 +959,7 @@ void Cmd_Undying_f (gentity_t *ent)
 	if (!(ent->flags & FL_UNDYING) )
 	{
 		msg = "undead mode OFF\n";
+		gi.cvar_set("ui_cheats_undying", "0");
 	}
 	else
 	{
@@ -879,6 +979,7 @@ void Cmd_Undying_f (gentity_t *ent)
 		ent->health = ent->max_health = max;
 
 		msg = "undead mode ON\n";
+		gi.cvar_set("ui_cheats_undying", "1");
 
 		if ( ent->client )
 		{
@@ -906,10 +1007,16 @@ void Cmd_Notarget_f( gentity_t *ent ) {
 	}
 
 	ent->flags ^= FL_NOTARGET;
-	if (!(ent->flags & FL_NOTARGET) )
+	if (!(ent->flags & FL_NOTARGET))
+	{
 		msg = "notarget OFF\n";
+		gi.cvar_set("ui_cheats_noTarget", "0");
+	}
 	else
+	{
 		msg = "notarget ON\n";
+		gi.cvar_set("ui_cheats_noTarget", "1");
+	}
 
 	gi.SendServerCommand( ent-g_entities, "print \"%s\"", msg);
 }
@@ -930,10 +1037,14 @@ void Cmd_Noclip_f( gentity_t *ent ) {
 		return;
 	}
 
-	if ( ent->client->noclip ) {
+	if ( ent->client->noclip ) 
+	{
 		msg = "noclip OFF\n";
-	} else {
+		gi.cvar_set("ui_cheats_noClip", "0");
+	} else 
+	{
 		msg = "noclip ON\n";
+		gi.cvar_set("ui_cheats_noClip", "1");
 	}
 	ent->client->noclip = !ent->client->noclip;
 	ent->flags ^= FL_NOFORCE;
@@ -1789,6 +1900,31 @@ void ClientCommand( int clientNum ) {
 		Cmd_Spawn( ent );
 		return;
 	}
+	if ( !Q_stricmp(cmd, "updateCheatStatsHealth") )
+	{
+		Cmd_Update_CheatStatsHealth( ent );
+		return;
+	}
+	if ( !Q_stricmp(cmd, "updateCheatStatsShield") )
+	{
+		Cmd_Update_CheatStatsShield( ent );
+		return;
+	}
+	if ( !Q_stricmp(cmd, "updateCheatStatsForce") )
+	{
+		Cmd_Update_CheatStatsForce( ent );
+		return;
+	}
+	if ( !Q_stricmp(cmd, "updateCheatStatsForceRegenRate") )
+	{
+		Cmd_Update_CheatStatsForceRegenRate( ent );
+		return;
+	}
+	if ( !Q_stricmp(cmd, "updateCheatStatsForceRegenAmount") )
+	{
+		Cmd_Update_CheatStatsForceRegenAmount( ent );
+		return;
+	}
 
 	if (Q_stricmp(cmd, "give") == 0)
 		Cmd_Give_f(ent);
@@ -1798,6 +1934,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_God_f(ent);
 	else if (Q_stricmp(cmd, "noforce") == 0)
 		Cmd_Noforce_f(ent);
+	else if (Q_stricmp(cmd, "updateCheatsFlags") == 0)
+		Cmd_Update_CF(ent);
 	else if (Q_stricmp (cmd, "undying") == 0)
 		Cmd_Undying_f (ent);
 	else if (Q_stricmp (cmd, "notarget") == 0)

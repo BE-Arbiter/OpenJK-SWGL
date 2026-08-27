@@ -603,6 +603,12 @@ void ATK_Blockability(const char** holdBuf) {
 }
 
 //--------------------------------------------
+void ATK_StartSound(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].startSnd, 64, "startSnd");
+}
+
+//--------------------------------------------
 void ATK_FiringSound(const char** holdBuf)
 {
 	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].firingSnd, 64, "firingSnd");
@@ -619,6 +625,12 @@ void ATK_ChargeSnd(const char** holdBuf)
 void ATK_FireTime(const char** holdBuf)
 {
 	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fireTime, 0, MAX_FIRETIME, "Firetime");
+}
+
+//--------------------------------------------
+void ATK_EffectDuration(const char** holdBuf)
+{
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].effectDuration, 0, INT_MAX, "EffectDuration");
 }
 
 //--------------------------------------------

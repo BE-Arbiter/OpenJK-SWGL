@@ -215,6 +215,14 @@ void	cgi_S_ClearLoopingSounds(void) {
 	Q_syscall(CG_S_CLEARLOOPINGSOUNDS);
 }
 
+void	cgi_S_ClearLoopingSoundsForEntity(int entityNum) {
+	Q_syscall(CG_S_CLEARLOOPINGSOUNDSFORENT, entityNum);
+}
+
+void	cgi_S_ClearLoopingSoundsForEntityAndChannel(int entityNum,soundChannel_t chan) {
+	Q_syscall(CG_S_CLEARLOOPINGSOUNDSFORENTANDCHAN, entityNum, chan);
+}
+
 void	cgi_S_AddLoopingSound(int entityNum, const vec3_t origin, const vec3_t velocity, sfxHandle_t sfx, soundChannel_t chan) {
 	Q_syscall(CG_S_ADDLOOPINGSOUND, entityNum, origin, velocity, sfx, chan);
 }

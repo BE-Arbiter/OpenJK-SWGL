@@ -1981,6 +1981,9 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 	newent->NPC_color_green = -1;
 	newent->NPC_color_blue = -1;
 
+	if (ent->allowAttributes)
+		newent->allowAttributes = ent->allowAttributes;
+
 	if (ent->NPC_color_red >= 0)
 		newent->NPC_color_red = ent->NPC_color_red;
 
@@ -2372,7 +2375,7 @@ void SP_NPC_spawner(gentity_t *self)
 
 	//NOTE: bounceCount is transferred to the spawned NPC's NPC->aiFlags
 	self->bounceCount = 0;
-
+	self->allowAttributes = 0;
 	{
 		static	int	garbage;
 		//Stop loading of certain extra sounds
@@ -2391,6 +2394,10 @@ void SP_NPC_spawner(gentity_t *self)
 		if (G_SpawnInt("nodelay", "0", &garbage))
 		{
 			self->bounceCount |= NPCAI_NO_JEDI_DELAY;
+		}
+		if (G_SpawnInt("allowAttributes", "0", &garbage))
+		{
+			self->allowAttributes = 1;
 		}
 	}
 
@@ -2976,6 +2983,8 @@ void SP_NPC_Jedi(gentity_t *self)
 					continue;
 				}
 				break;	//get out of the while
+				self->NPC_skin = "random";
+				GetRandomNPCSaber(self, qtrue);
 			}
 		}
 		else if (self->spawnflags & 2)
@@ -3430,11 +3439,13 @@ void SP_NPC_SWGL_Jedi(gentity_t *self)
 				{//bah, we're using this one, try again
 					continue;
 				}
+				self->NPC_skin = "random";
 				break;	//get out of the while
 			}
 		}
 	}
 	//self->NPC_skin = "random";
+	GetRandomNPCSaber(self, qfalse);
 	SP_NPC_spawner(self);
 }
 /*QUAKED NPC_Prisoner(1 0 0) (-16 -16 -24) (16 16 40) ELDER x x x DROPTOFLOOR CINEMATIC NOTSOLID STARTINSOLID SHY
@@ -5582,6 +5593,7 @@ static void NPC_Spawn_f(void)
 	NPCspawner->NPC_color_red = -1;
 	NPCspawner->NPC_color_green = -1;
 	NPCspawner->NPC_color_blue = -1;
+	NPCspawner->allowAttributes = 1;
 
 	while (spawnCommand < gi.argc())
 	{
@@ -6825,4 +6837,127 @@ bool isInteger(const std::string& s) {
 	}
 
 	return true;
+}
+
+static void GetRandomNPCSaber(gentity_t* NPCspawner, qboolean nrJedi)
+{
+	// Quick comment on this, I don't know of a better way to do this, I hope I do this well.
+	// If it's ugly, I'm sorry, but it works. I don't know of a better way to do this, so if you do, please let me know.
+
+	char* younglingSabers[] = { "youngling1", "youngling2" };
+
+	char* kotorSabers[] = { "darth_revan", "jolee_bindo", "juhani", "vandar", "bastila_shan_single" };
+	char* kotorStaffSabers[] = { "bastila_shan" };
+
+	char* jediSabers[] = {"ashara_zavros", "ven_zallow", "orgus_din", "carrick", "sahar_kateen", "darth_revan", "juhani", "vanguard"};
+	char* jediStaffSabers[] = {"bastila_shan", "vanguard_staff", "dual_3", "dual_4", "dual_5"};
+
+	char* sithSabers[] = { "ashara_zavros", "sith_soldier", "darth_revan", "desolous", "lord_kallig", "tulak_hord"};
+	char* sithStaffSabers[] = {"vanguard_staff", "centurion", "jaesa_willsaam", "phobos"};
+
+	char* prequelSabers[] = { "aayla_secura", "barriss_offee", "ki_adi", "plo_koon", "shaak_ti" };
+	char* prequelStaffSabers[] = { "bastila_shan", "dual_2" };
+
+	char* nrSabers[] = { "single_1", "single_2", "single_3", "single_4", "single_5", "single_6", "single_7", "single_8", "single_9" };
+	char* nrStaffSabers[] = { "dual_1", "dual_2", "dual_3", "dual_4", "dual_5" };
+
+	if (nrJedi)
+	{
+		if (!Q_irand(0, 5))
+		{
+			NPCspawner->NPC_SaberOne = nrStaffSabers[Q_irand(0, ARRAY_LEN(nrStaffSabers) - 1)];
+			NPCspawner->NPC_SaberOneColor = "random";
+		}
+		else
+		{
+			NPCspawner->NPC_SaberOne = nrSabers[Q_irand(0, ARRAY_LEN(nrSabers) - 1)];
+			NPCspawner->NPC_SaberOneColor = "random";
+			if (!Q_irand(0, 4))
+			{
+				NPCspawner->NPC_SaberTwo = nrSabers[Q_irand(0, ARRAY_LEN(nrSabers) - 1)];
+				NPCspawner->NPC_SaberTwoColor = "random";
+			}
+		}
+	}
+	else
+	{
+
+		if (NPCspawner->spawnflags & 1)// Prequel Jedi
+		{
+			if (!Q_irand(0, 5))
+			{
+				NPCspawner->NPC_SaberOne = prequelStaffSabers[Q_irand(0, ARRAY_LEN(prequelStaffSabers) - 1)];
+				NPCspawner->NPC_SaberOneColor = "prequel_random";
+			}
+			else
+			{
+				NPCspawner->NPC_SaberOne = prequelSabers[Q_irand(0, ARRAY_LEN(prequelSabers) - 1)];
+				NPCspawner->NPC_SaberOneColor = "prequel_random";
+				if (!Q_irand(0, 4))
+				{
+					NPCspawner->NPC_SaberTwo = prequelSabers[Q_irand(0, ARRAY_LEN(prequelSabers) - 1)];
+					NPCspawner->NPC_SaberTwoColor = "prequel_random";
+				}
+			}
+		}
+		else if (NPCspawner->spawnflags & 2)// SWTOR Jedi
+		{
+			if (!Q_irand(0, 5))
+			{
+				NPCspawner->NPC_SaberOne = jediStaffSabers[Q_irand(0, ARRAY_LEN(jediStaffSabers) - 1)];
+				NPCspawner->NPC_SaberOneColor = "random";
+			}
+			else
+			{
+				NPCspawner->NPC_SaberOne = jediSabers[Q_irand(0, ARRAY_LEN(jediSabers) - 1)];
+				NPCspawner->NPC_SaberOneColor = "random";
+				if (!Q_irand(0, 4))
+				{
+					NPCspawner->NPC_SaberTwo = jediSabers[Q_irand(0, ARRAY_LEN(jediSabers) - 1)];
+					NPCspawner->NPC_SaberTwoColor = "random";
+				}
+			}
+		}
+		else if (NPCspawner->spawnflags & 4)// SWTOR Sith
+		{
+			if (!Q_irand(0, 5))
+			{
+				NPCspawner->NPC_SaberOne = sithStaffSabers[Q_irand(0, ARRAY_LEN(sithStaffSabers) - 1)];
+				NPCspawner->NPC_SaberOneColor = "swtor_sith_random";
+			}
+			else
+			{
+				NPCspawner->NPC_SaberOne = sithSabers[Q_irand(0, ARRAY_LEN(sithSabers) - 1)];
+				NPCspawner->NPC_SaberOneColor = "swtor_sith_random";
+				if (!Q_irand(0, 4))
+				{
+					NPCspawner->NPC_SaberTwo = sithSabers[Q_irand(0, ARRAY_LEN(sithSabers) - 1)];
+					NPCspawner->NPC_SaberTwoColor = "swtor_sith_random";
+				}
+			}
+		}
+		else if (NPCspawner->spawnflags & 8)// Jedi Youngling
+		{
+			NPCspawner->NPC_SaberOne = younglingSabers[Q_irand(0, ARRAY_LEN(younglingSabers) - 1)];
+			NPCspawner->NPC_SaberOneColor = "prequel_random";
+		}
+		else // KOTOR Jedi
+		{
+			if (!Q_irand(0, 5))
+			{
+				NPCspawner->NPC_SaberOne = kotorStaffSabers[Q_irand(0, ARRAY_LEN(kotorStaffSabers) - 1)];
+				NPCspawner->NPC_SaberOneColor = "random";
+			}
+			else
+			{
+				NPCspawner->NPC_SaberOne = kotorSabers[Q_irand(0, ARRAY_LEN(kotorSabers) - 1)];
+				NPCspawner->NPC_SaberOneColor = "random";
+				if (!Q_irand(0, 4))
+				{
+					NPCspawner->NPC_SaberTwo = kotorSabers[Q_irand(0, ARRAY_LEN(kotorSabers) - 1)];
+					NPCspawner->NPC_SaberTwoColor = "random";
+				}
+			}
+		}
+	}
 }

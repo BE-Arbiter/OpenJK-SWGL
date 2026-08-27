@@ -30,6 +30,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_vehicles.h"
 #include "b_local.h"
 #include "g_navigator.h"
+#include "g_effects.h"
 
 #ifdef _DEBUG
 	#include <float.h>
@@ -4939,6 +4940,8 @@ usually be a couple times for each server frame on fast clients.
 extern int		G_FindLocalInterestPoint( gentity_t *self );
 extern float	G_CanJumpToEnemyVeh(Vehicle_t *pVeh, const usercmd_t *pUmcd );
 
+extern cvar_t* g_skippingcin;
+
 void ClientThink_real( gentity_t *ent, usercmd_t *ucmd )
 {
 	gclient_t	*client;
@@ -4965,7 +4968,7 @@ void ClientThink_real( gentity_t *ent, usercmd_t *ucmd )
 
 	if ( ent->s.number == 0 )
 	{
-extern cvar_t	*g_skippingcin;
+		G_applyEffects(ent);
 
 		if ( ent->s.eFlags & EF_LOCKED_TO_WEAPON )
 		{
@@ -5107,6 +5110,8 @@ extern cvar_t	*g_skippingcin;
 	}
 	else
 	{
+		G_applyEffects(ent);
+
 		if ( ent->s.eFlags & EF_LOCKED_TO_WEAPON )
 		{
 			G_UpdateEmplacedWeaponData( ent );
@@ -5720,13 +5725,13 @@ extern cvar_t	*g_skippingcin;
 	ClientTimerActions( ent, msec );
 
 	// Passive health regen for player
-	if ((player->client->ps.stats[STAT_HEALTH] < player->client->ps.stats[STAT_MAX_HEALTH]) && g_allowHealthRegen->integer)
+	if ((ent->s.number == 0 && ent->client->ps.stats[STAT_HEALTH] < ent->client->ps.stats[STAT_MAX_HEALTH]) && g_allowHealthRegen->integer)
 	{
-		if (TIMER_Done(player, "healthRegenTimer") && player->health > 0)
+		if (TIMER_Done(ent, "healthRegenTimer") && ent->health > 0)
 		{
-			player->health++;
-			player->client->ps.stats[STAT_HEALTH] = player->health;
-			TIMER_Set(player, "healthRegenTimer", g_healthRegenRate->value * 1000);
+			ent->health++;
+			ent->client->ps.stats[STAT_HEALTH] = ent->health;
+			TIMER_Set(ent, "healthRegenTimer", g_healthRegenRate->value * 1000);
 		}
 	}
 

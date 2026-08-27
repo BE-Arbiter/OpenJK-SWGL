@@ -72,6 +72,7 @@ void CalcEntitySpot ( const gentity_t *ent, const spot_t spot, vec3_t point )
 		break;
 
 	case SPOT_CHEST:
+	case SPOT_HEAD_LEAN:
 	case SPOT_HEAD:
 		if ( ent->client && VectorLengthSquared( ent->client->renderInfo.eyePoint ) && (ent->client->ps.viewEntity <= 0 || ent->client->ps.viewEntity >= ENTITYNUM_WORLD) )
 		{//Actual tag_head eyespot!
@@ -86,7 +87,7 @@ void CalcEntitySpot ( const gentity_t *ent, const spot_t spot, vec3_t point )
 				point[0] = ent->currentOrigin[0];
 				point[1] = ent->currentOrigin[1];
 			}
-			else if ( !ent->s.number )
+			else if (!ent->s.number)
 			{
 				SubtractLeanOfs( ent, point );
 			}
@@ -99,50 +100,16 @@ void CalcEntitySpot ( const gentity_t *ent, const spot_t spot, vec3_t point )
 				point[2] += ent->client->ps.viewheight;
 			}
 		}
-		if ( spot == SPOT_CHEST && ent->client )
+
+		if (spot == SPOT_CHEST)
 		{
-			if ( ent->client->NPC_class != CLASS_ATST )
-			{//adjust up some
-				point[2] -= ent->maxs[2]*0.2f;
-			}
+			point[0] = (point[0] + ent->currentOrigin[0]) * 0.5f;	
+			point[1] = (point[1] + ent->currentOrigin[1]) * 0.5f;	
+			point[2] = (point[2] + ent->currentOrigin[2]) * 0.5f;	
 		}
 		break;
 
-	case SPOT_HEAD_LEAN:
-		if ( ent->client && VectorLengthSquared( ent->client->renderInfo.eyePoint ) && (ent->client->ps.viewEntity <= 0 || ent->client->ps.viewEntity >= ENTITYNUM_WORLD) )
-		{//Actual tag_head eyespot!
-			//FIXME: Stasis aliens may have a problem here...
-			VectorCopy( ent->client->renderInfo.eyePoint, point );
-			if ( ent->client->NPC_class == CLASS_ATST )
-			{//adjust up some
-				point[2] += 28;//magic number :)
-			}
-			if ( ent->NPC )
-			{//always aim from the center of my bbox, so we don't wiggle when we lean forward or backwards
-				point[0] = ent->currentOrigin[0];
-				point[1] = ent->currentOrigin[1];
-			}
-			else if ( !ent->s.number )
-			{
-				SubtractLeanOfs( ent, point );
-			}
-			//NOTE: automatically takes leaning into account!
-		}
-		else
-		{
-			VectorCopy ( ent->currentOrigin, point );
-			if ( ent->client )
-			{
-				point[2] += ent->client->ps.viewheight;
-			}
-			//AddLeanOfs ( ent, point );
-		}
-		break;
 
-	//FIXME: implement...
-	//case SPOT_CHEST:
-		//Returns point 3/4 from tag_torso to tag_head?
-		//break;
 
 	case SPOT_LEGS:
 		VectorCopy ( ent->currentOrigin, point );

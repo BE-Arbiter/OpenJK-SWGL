@@ -29,6 +29,7 @@ File for default fire behavior
 #include "wp_saber.h"
 #include "w_local.h"
 #include "../cgame/cg_local.h"
+#include "g_effects.h"
 
 
 qboolean is_player_scoped(gentity_t* ent)
@@ -482,8 +483,7 @@ void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
 	vec3_t	dir, start,end;
 	float range = attackData->range;
-
-	/* Calculate the damage, it's a little bit random */
+	int duration = attackData->effectDuration > 0 ? attackData->effectDuration: 1000; // Default to 1 second if not specified
 	int	damage = attackData->damage;
 	
 	//Get normalized direction in dir
@@ -522,14 +522,11 @@ void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 		vec3_t target_dir;
 		VectorSubtract(hitloc, start, target_dir);
 
-		int dist = VectorLength(target_dir);
-		if (dist == 0) {
-			continue; // Just in case
-		}
+		float dist = VectorLength(target_dir);
 
 		VectorNormalizeFast(target_dir);
-		if (DotProduct(target_dir, dir) < 0.80f) {
-			continue; // We are not "in front" of the muzzle
+		if (DotProduct(target_dir, dir) < 0.80f && dist > 20.0f) {
+			continue; // We are not "in front" of the muzzle, We also are not directly next to the muzzle.
 		}
 
 		gi.trace(&tr, start, vec3_origin, vec3_origin, hitloc, ent->s.number, MASK_FORCE_PUSH, (EG2_Collision)0, 0);//was MASK_SHOT, but changed to match above trace and crosshair trace
@@ -540,31 +537,23 @@ void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 
 		if (target->takedamage)
 		{
-			G_Damage(target, ent, ent, target_dir, hitloc, damage, DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC | DAMAGE_IGNORE_TEAM, MOD_LAVA, HL_NONE);
-			// HeEeHuHahEHoHo
-			if (target->health > 0)
+			//G_Damage(target, ent, ent, target_dir, hitloc, damage, DAMAGE_NO_ARMOR | DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC | DAMAGE_IGNORE_TEAM, MOD_LAVA, HL_NONE);
+			activeEffect_t effect;
+			effect.effectType= ET_FIRE;
+			effect.endTime = level.time + duration;
+			effect.lastApplied = level.time;
+			effect.parameter = (float)damage;
+			effect.inflictorIndex = ent->s.number;
+			if (attackData->hitFleshEffect[0])
 			{
-				if (attackData->hitFleshEffect[0]) 
-				{
-					G_PlayEffect(G_EffectIndex(attackData->hitFleshEffect), target->currentOrigin);
-				}
-				else
-				{
-					G_PlayEffect(G_EffectIndex("env/fire.efx"), target->currentOrigin);
-					G_PlayEffect(G_EffectIndex("env/small_fire.efx"), hitloc);
-				}
+				effect.effectIndex = G_EffectIndex(attackData->hitFleshEffect);
 			}
 			else
 			{
-				if (attackData->hitFleshEffect[0])
-				{
-					G_PlayEffect(G_EffectIndex(attackData->hitFleshEffect), target->currentOrigin);
-				}
-				else
-				{
-					G_PlayEffect(G_EffectIndex("env/small_fire.efx"), target->currentOrigin);
-				}
+				effect.effectIndex = -1;
 			}
+
+			G_startEffect(target, &effect);
 		}
 	}
 }

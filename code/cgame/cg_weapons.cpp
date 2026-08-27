@@ -340,6 +340,9 @@ void CG_RegisterWeapon( int weaponNum ) {
 			theFxScheduler.RegisterEffect("env/small_fire.efx");
 		}
 		// register the sounds for the weapon
+		if (weaponData[weaponNum].attackData[i].startSnd[0]) {
+			weaponInfo->weaponAttacksInfo[i].startSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].startSnd);
+		}
 		if (weaponData[weaponNum].attackData[i].firingSnd[0]) {
 			weaponInfo->weaponAttacksInfo[i].firingSound = cgi_S_RegisterSound(weaponData[weaponNum].attackData[i].firingSnd);
 		}
@@ -1187,12 +1190,17 @@ qboolean CG_IsChargedAttack(centity_t* cent)
 	return qfalse;
 }
 
-char* CG_GetMuzzleEffect(centity_t* cent, weaponData_t* wData) {
-	char* effect = NULL;
-
+const char* CG_GetMuzzleEffect(const centity_t* cent, const weaponData_t* wData) {
+	const char* effect = NULL;
+		
 	int attackIndex = CG_GetAttackIndex(cent->gent, cent->altFire);
 	// I declared this variable just for readability.
 
+	//If I can't fire cause I'm underwater, don't play the effect.
+	if (!WP_checkWaterFire(cent->gent, &wData->attackData[attackIndex]))
+	{
+		return effect;
+	}
 	// Try and get a default muzzle so we have one to fall back on
 	if ( wData->attackData[attackIndex].muzzleEffect[0])
 	{

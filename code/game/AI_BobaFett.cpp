@@ -434,10 +434,6 @@ void Boba_FlyStart( gentity_t *self )
 		G_SoundOnEnt( self, CHAN_ITEM, "sound/chars/boba/bf_blast-off.wav" );
 		//jet loop sound
 		self->s.loopSound = G_SoundIndex( "sound/chars/boba/bf_jetpack_lp.wav" );
-		if ( self->NPC )
-		{
-			self->count = Q3_INFINITE; // SEEKER shot ammo count
-		}
 	}
 }
 
@@ -466,7 +462,6 @@ void Boba_FlyStop( gentity_t *self )
 	self->s.loopSound = 0;
 	if ( self->NPC )
 	{
-		self->count = 0; // SEEKER shot ammo count
 		TIMER_Set( self, "jetRecharge", Q_irand( 1000, 5000 ) );
 		TIMER_Set( self, "jumpChaseDebounce", Q_irand( 500, 2000 ) );
 	}
@@ -713,14 +708,14 @@ void	Boba_Fire()
 		{
 			if (TIMER_Done(NPC, "nextBlasterAltFireDecide"))
 			{
-				if (Q_irand(0, (NPC->count * 2) + 3)>2)
+				if (Q_irand(0, (NPC->bobaCounter * 2) + 3)>2)
 				{
 					TIMER_Set(NPC, "nextBlasterAltFireDecide", Q_irand(3000, 8000));
 					if (!(NPCInfo->scriptFlags&SCF_ALT_FIRE))
 					{
 						Boba_Printf("ALT FIRE On");
 						NPCInfo->scriptFlags |= SCF_ALT_FIRE;
-						NPC_ChangeWeapon(WP_BLASTER);			// Update Delay Timers
+						NPC_ChangeWeapon(NPC->s.weapon);			// Update Delay Timers
 					}
 				}
 				else
@@ -730,7 +725,7 @@ void	Boba_Fire()
 					{
 						Boba_Printf("ALT FIRE Off");
 						NPCInfo->scriptFlags &= ~SCF_ALT_FIRE;
-						NPC_ChangeWeapon(WP_BLASTER);			// Update Delay Timers
+						NPC_ChangeWeapon(NPC->s.weapon);			// Update Delay Timers
 					}
 				}
 			}
@@ -743,110 +738,108 @@ void	Boba_Fire()
 				ucmd.buttons |= BUTTON_ALT_ATTACK;
 			}
 		}
-
-		switch (NPC->s.weapon)
+		else
 		{
-		case WP_ROCKET_LAUNCHER:
-		case WP_THERMAL:
-			TIMER_Set( NPC, "nextAttackDelay", Q_irand(1000, 2000));
-
-			// Occasionally Shoot A Homing Missile
-			//-------------------------------------
-			if (!Q_irand(0,3))
+			switch (NPC->s.weapon)
 			{
-				ucmd.buttons &= ~BUTTON_ATTACK;
-				ucmd.buttons |=  BUTTON_ALT_ATTACK;
-				NPC->client->fireDelay = Q_irand( 1000, 3000 );
-			}
-			break;
+			case WP_ROCKET_LAUNCHER:
+			case WP_THERMAL:
+				TIMER_Set(NPC, "nextAttackDelay", Q_irand(1000, 2000));
 
-		case WP_DISRUPTOR:
-			TIMER_Set(NPC, "nextAttackDelay", Q_irand(1000, 4000));
-
-			// Occasionally Alt-Fire
-			//-----------------------
-			if (!Q_irand(0,3))
-			{
-				ucmd.buttons &= ~BUTTON_ATTACK;
-				ucmd.buttons |=  BUTTON_ALT_ATTACK;
-				NPC->client->fireDelay = Q_irand( 1000, 3000 );
-			}
-			break;
-
-		case WP_BOBA:
-
-			if (TIMER_Done(NPC, "nextBlasterAltFireDecide"))
-			{
- 			 	if (Q_irand(0, (NPC->count*2)+3)>2)
+				// Occasionally Shoot A Homing Missile
+				//-------------------------------------
+				if (!Q_irand(0, 3))
 				{
-			 		TIMER_Set(NPC, "nextBlasterAltFireDecide", Q_irand(3000, 8000));
-					if (!(NPCInfo->scriptFlags&SCF_ALT_FIRE))
+					ucmd.buttons &= ~BUTTON_ATTACK;
+					ucmd.buttons |= BUTTON_ALT_ATTACK;
+					NPC->client->fireDelay = Q_irand(1000, 3000);
+				}
+				break;
+
+			case WP_DISRUPTOR:
+				TIMER_Set(NPC, "nextAttackDelay", Q_irand(1000, 4000));
+
+				// Occasionally Alt-Fire
+				//-----------------------
+				if (!Q_irand(0, 3))
+				{
+					ucmd.buttons &= ~BUTTON_ATTACK;
+					ucmd.buttons |= BUTTON_ALT_ATTACK;
+					NPC->client->fireDelay = Q_irand(1000, 3000);
+				}
+				break;
+
+			case WP_BOBA:
+
+				if (TIMER_Done(NPC, "nextBlasterAltFireDecide"))
+				{
+					if (Q_irand(0, (NPC->bobaCounter * 2) + 3) > 2)
 					{
-						Boba_Printf("ALT FIRE On");
-						NPCInfo->scriptFlags |= SCF_ALT_FIRE;
-						NPC_ChangeWeapon(WP_BOBA);			// Update Delay Timers
+						TIMER_Set(NPC, "nextBlasterAltFireDecide", Q_irand(3000, 8000));
+						if (!(NPCInfo->scriptFlags & SCF_ALT_FIRE))
+						{
+							Boba_Printf("ALT FIRE On");
+							NPCInfo->scriptFlags |= SCF_ALT_FIRE;
+							NPC_ChangeWeapon(WP_BOBA);			// Update Delay Timers
+						}
+					}
+					else
+					{
+						TIMER_Set(NPC, "nextBlasterAltFireDecide", Q_irand(2000, 5000));
+						if ((NPCInfo->scriptFlags & SCF_ALT_FIRE))
+						{
+							Boba_Printf("ALT FIRE Off");
+							NPCInfo->scriptFlags &= ~SCF_ALT_FIRE;
+							NPC_ChangeWeapon(WP_BOBA);			// Update Delay Timers
+						}
 					}
 				}
-				else
+
+				// Occasionally Alt Fire
+				//-----------------------
+				if (NPCInfo->scriptFlags & SCF_ALT_FIRE)
 				{
-					TIMER_Set(NPC, "nextBlasterAltFireDecide", Q_irand(2000, 5000));
-					if ( (NPCInfo->scriptFlags&SCF_ALT_FIRE))
+					ucmd.buttons &= ~BUTTON_ATTACK;
+					ucmd.buttons |= BUTTON_ALT_ATTACK;
+				}
+				break;
+
+			default:
+
+				if (TIMER_Done(NPC, "nextBlasterAltFireDecide"))
+				{
+					if (Q_irand(0, (NPC->bobaCounter * 2) + 3) > 2)
 					{
-						Boba_Printf("ALT FIRE Off");
-						NPCInfo->scriptFlags &=~SCF_ALT_FIRE;
-						NPC_ChangeWeapon(WP_BOBA);			// Update Delay Timers
+						TIMER_Set(NPC, "nextBlasterAltFireDecide", Q_irand(3000, 8000));
+						if (!(NPCInfo->scriptFlags & SCF_ALT_FIRE))
+						{
+							Boba_Printf("ALT FIRE On");
+							NPCInfo->scriptFlags |= SCF_ALT_FIRE;
+							NPC_ChangeWeapon(NPC->s.weapon);			// Update Delay Timers
+						}
+					}
+					else
+					{
+						TIMER_Set(NPC, "nextBlasterAltFireDecide", Q_irand(2000, 5000));
+						if ((NPCInfo->scriptFlags & SCF_ALT_FIRE))
+						{
+							Boba_Printf("ALT FIRE Off");
+							NPCInfo->scriptFlags &= ~SCF_ALT_FIRE;
+							NPC_ChangeWeapon(NPC->s.weapon);			// Update Delay Timers
+						}
 					}
 				}
-			}
 
-			// Occasionally Alt Fire
-			//-----------------------
-			if (NPCInfo->scriptFlags&SCF_ALT_FIRE)
-			{
-				ucmd.buttons &= ~BUTTON_ATTACK;
-				ucmd.buttons |=  BUTTON_ALT_ATTACK;
-			}
-			break;
-
-		case WP_CLONECARBINE:
-		case WP_CLONERIFLE:
-		case WP_CLONEPISTOL:
-
-			if (TIMER_Done(NPC, "nextBlasterAltFireDecide"))
-			{
-				if (Q_irand(0, (NPC->count * 2) + 3)>2)
+				// Occasionally Alt Fire
+				//-----------------------
+				if (NPCInfo->scriptFlags & SCF_ALT_FIRE)
 				{
-					TIMER_Set(NPC, "nextBlasterAltFireDecide", Q_irand(3000, 8000));
-					if (!(NPCInfo->scriptFlags&SCF_ALT_FIRE))
-					{
-						Boba_Printf("ALT FIRE On");
-						NPCInfo->scriptFlags |= SCF_ALT_FIRE;
-						NPC_ChangeWeapon(NPC->s.weapon);			// Update Delay Timers
-					}
+					ucmd.buttons &= ~BUTTON_ATTACK;
+					ucmd.buttons |= BUTTON_ALT_ATTACK;
 				}
-				else
-				{
-					TIMER_Set(NPC, "nextBlasterAltFireDecide", Q_irand(2000, 5000));
-					if ((NPCInfo->scriptFlags&SCF_ALT_FIRE))
-					{
-						Boba_Printf("ALT FIRE Off");
-						NPCInfo->scriptFlags &= ~SCF_ALT_FIRE;
-						NPC_ChangeWeapon(NPC->s.weapon);			// Update Delay Timers
-					}
-				}
+				break;
 			}
-
-			// Occasionally Alt Fire
-			//-----------------------
-			if (NPCInfo->scriptFlags&SCF_ALT_FIRE)
-			{
-				ucmd.buttons &= ~BUTTON_ATTACK;
-				ucmd.buttons |= BUTTON_ALT_ATTACK;
-			}
-			break;
 		}
-
-
 	}
 }
 
@@ -874,35 +867,20 @@ void Boba_FireDecide( void )
 
 	// Now Check Weapon Specific Parameters To See If We Should Shoot Or Not
 	//-----------------------------------------------------------------------
-	switch (NPC->s.weapon)
+	int baseWeapon = weaponData[NPC->s.weapon].baseWeaponNum > 0 ? weaponData[NPC->s.weapon].baseWeaponNum : NPC->s.weapon;
+	switch (baseWeapon)
 	{
-	case WP_ROCKET_LAUNCHER:
-	case WP_THERMAL:
-		if (Distance(NPC->currentOrigin, NPC->enemy->currentOrigin)>400.0f)
-		{
+		case WP_ROCKET_LAUNCHER:
+		case WP_THERMAL:
+			if (Distance(NPC->currentOrigin, NPC->enemy->currentOrigin)>400.0f)
+			{
+				Boba_Fire();
+			}
+			break;
+		//The idea is that Boba class should be able to use all weapons.
+		default:
 			Boba_Fire();
-		}
-		break;
-
-	case WP_DISRUPTOR:
-		// TODO: Add Conditions Here
-		Boba_Fire();
-		break;
-
-	case WP_BOBA:
-		// TODO: Add Conditions Here
-		Boba_Fire();
-		break;
-	case WP_CLONECARBINE:
-	case WP_CLONERIFLE:
-		// TODO: Add Conditions Here
-		Boba_Fire();
-		break;
-	// This is for DYN_WP_JANGO.
-	case WP_BLASTER:
-		// TODO: Add Conditions Here
-		Boba_Fire();
-		break;
+			break;
 	}
 }
 
@@ -972,9 +950,9 @@ void	Boba_TacticsSelect()
 	else if (enemyRecentlySeen)
 	{
 		// At First, Boba will prefer to use his blaster against the player, but
-		//  the more times he is driven away (NPC->count), he will be less likely to
+		//  the more times he is driven away (NPC->bobaCounter), he will be less likely to
 		//  choose the blaster, and more likely to go for the missile launcher
-		nextState = (!enemyInRocketRange || Q_irand(0, NPC->count)<1)?(BTS_RIFLE):(BTS_MISSILE);
+		nextState = (!enemyInRocketRange || Q_irand(0, NPC->bobaCounter)<1)?(BTS_RIFLE):(BTS_MISSILE);
 	}
 
 	// Hmmm...  Havn't Seen The Player In A While, We Might Want To Try Something Sneaky
@@ -984,7 +962,7 @@ void	Boba_TacticsSelect()
 		bool	SnipePointsNear = false;		 // TODO
 		bool	AmbushPointNear = false;		 // TODO
 
-		if (Q_irand(0, NPC->count)>0)
+		if (Q_irand(0, NPC->bobaCounter)>0)
 		{
 			int		SniperPoint = NPC_FindCombatPoint(NPC->currentOrigin, 0, NPC->currentOrigin, CP_SNIPE|CP_CLEAR|CP_HAS_ROUTE|CP_TRYFAR|CP_HORZ_DIST_COLL, 0, -1);
 			if (SniperPoint!=-1)
@@ -1010,7 +988,7 @@ void	Boba_TacticsSelect()
 		}
 		else
 		{
-			nextState = (!enemyInRocketRange || Q_irand(0, NPC->count)<1)?(BTS_RIFLE):(BTS_MISSILE);
+			nextState = (!enemyInRocketRange || Q_irand(0, NPC->bobaCounter)<1)?(BTS_RIFLE):(BTS_MISSILE);
 		}
 	}
 
@@ -1166,7 +1144,7 @@ bool	Boba_Respawn()
 		NPCInfo->surrenderTime = 0;
 		NPC->health = NPC->max_health;
 		NPC->svFlags &=~SVF_NOCLIENT;
-		NPC->count ++;										// This is the number of times spawned
+		NPC->bobaCounter ++;										// This is the number of times spawned
 		G_SetOrigin(NPC, level.combatPoints[cp].origin);
 
 		AverageEnemyDirectionSamples = 0;
@@ -1322,9 +1300,9 @@ void	Boba_Update()
 		{
 			NPC_SetCombatPoint( cp );
 			NPC_SetMoveGoal( NPC, level.combatPoints[cp].origin, 8, qtrue, cp );
-			if (NPC->count<6)
+			if (NPC->bobaCounter<6)
 			{
- 	 		 	NPCInfo->surrenderTime = level.time + Q_irand(5000, 10000) + 1000*(6-NPC->count);
+ 	 		 	NPCInfo->surrenderTime = level.time + Q_irand(5000, 10000) + 1000*(6-NPC->bobaCounter);
 			}
 			else
 			{

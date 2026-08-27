@@ -822,6 +822,8 @@ typedef enum
 #define MAX_AMMO				32
 #define WEAPON_BUCKETS_SIZE (MAX_WEAPONS - WB_OTHERS)
 
+#define MAX_ACTIVE_EFFECTS		16
+
 #define MAX_INVENTORY			15		// See INV_MAX
 #define MAX_SECURITY_KEYS		5
 #define MAX_SECURITY_KEY_MESSSAGE		24
@@ -1598,6 +1600,42 @@ public:
 
 #define MAX_SABERS 2	// if this ever changes then update the table "static const save_field_t savefields_gClient[]"!!!!!!!!!!!!
 #define MAX_NUM_WEAPONS 36
+
+// Define the type of effect defined in the game
+typedef enum
+{
+	ET_FIRE = 0,
+	ET_DEFAULT = -1
+} effectType_t;
+
+//This is one instance of an active effect
+typedef struct activeEffect_s
+{
+	effectType_t	effectType; // Cf enum on top 
+	float				parameter; // Main exemple is Damage
+	int				endTime; // When does the effect end
+	int				inflictorIndex; // Entity number of the inflictor (if any)
+	int				lastApplied; // time of last application, for effects that are applied over time (like fire)
+	int				effectIndex; // Index of the FX to use (if override)
+
+	void sg_export(ojk::SavedGameHelper& saved_game) const {
+		saved_game.write<int32_t>(effectType);
+		saved_game.write<float>(parameter);
+		saved_game.write<int32_t>(endTime);
+		saved_game.write<int32_t>(lastApplied);
+		saved_game.write<int32_t>(effectIndex);
+	}
+
+	void sg_import(ojk::SavedGameHelper& saved_game) {
+		saved_game.read<int32_t>(effectType);
+		saved_game.read<float>(parameter);
+		saved_game.read<int32_t>(endTime);
+		saved_game.read<int32_t>(lastApplied);
+		saved_game.read<int32_t>(effectIndex);
+	}
+} activeEffect_t;
+
+
 
 // playerState_t is the information needed by both the client and server
 // to predict player motion and actions
@@ -2524,6 +2562,8 @@ typedef struct entityState_s {// !!!!!!!!!!! LOADSAVE-affecting struct !!!!!!!!!
 	int forceUpperAnimSpeed;
 	int forceLowerAnimSpeed;
 
+	activeEffect_t			activeEffects[MAX_ACTIVE_EFFECTS]; //List of active effects on the entity/player
+
 	//FIXME: why did IMMERSION dupe these 2 fields here?  There's no reason for this!!!
 	qboolean	saberInFlight;
 	qboolean	saberActive;
@@ -2605,16 +2645,19 @@ Ghoul2 Insert End
 		saved_game.write<float>(modelScale);
 		saved_game.write<int32_t>(radius);
 		saved_game.write<int32_t>(boltInfo);
+
+#ifndef JK2_MODE
+		saved_game.write<int32_t>(isPortalEnt);
+#endif // !JK2_MODE
+
 		saved_game.write<int32_t>(forceUpperAnim);
 		saved_game.write<int32_t>(forceLowerAnim);
 		saved_game.write<int32_t>(forceUpperAnimTimer);
 		saved_game.write<int32_t>(forceLowerAnimTimer);
 		saved_game.write<int32_t>(forceUpperAnimSpeed);
 		saved_game.write<int32_t>(forceLowerAnimSpeed);
+		saved_game.write<>(activeEffects);
 
-#ifndef JK2_MODE
-		saved_game.write<int32_t>(isPortalEnt);
-#endif // !JK2_MODE
 	}
 
 	void sg_import(
@@ -2678,6 +2721,7 @@ Ghoul2 Insert End
 		saved_game.read<int32_t>(forceLowerAnimTimer);
 		saved_game.read<int32_t>(forceUpperAnimSpeed);
 		saved_game.read<int32_t>(forceLowerAnimSpeed);
+		saved_game.read<>(activeEffects);
 	}
 } entityState_t;
 
