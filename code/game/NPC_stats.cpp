@@ -56,6 +56,8 @@ extern qboolean saberFound;
 extern cvar_t *g_allowAlignmentChange;
 extern cvar_t* g_adoptcharstats;
 
+int Get_SaberStyleValue(int style);
+
 #define		MAX_MODELS_PER_LEVEL	60
 
 hstring		modelsAlreadyDone[MAX_MODELS_PER_LEVEL];
@@ -4538,9 +4540,9 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				{
 					NPC->client->ps.saberStylesKnown = NPC->NPC_SaberStyles;
 					int i;
-					for (i = SS_NONE; i < SS_STAFF; i++)
+					for (i = SS_FAST; i < SS_STAFF; i++)
 					{
-						if (NPC->NPC_SaberStyles & i)
+						if (NPC->NPC_SaberStyles & Get_SaberStyleValue(i))
 						{
 							NPC->client->ps.saberAnimLevel = i;
 						}
@@ -4591,7 +4593,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 
 			for (i = SS_NONE; i < SS_STAFF; i++)
 			{
-				if (NPC->NPC_SaberStyles & i)
+				if (NPC->NPC_SaberStyles & Get_SaberStyleValue(i))
 				{
 					NPC->client->ps.saberAnimLevel = i;
 				}
@@ -5081,5 +5083,26 @@ void NPC_AssignRandom(gentity_t* ent, char* playerModel)
 		newSkin.append("|");
 		newSkin.append(lowerList[Q_irand(0, lowerCount - 1)]);
 		ent->NPC_skin = G_NewString(newSkin.c_str());
+	}
+}
+
+int Get_SaberStyleValue(int style)
+{
+	switch (style)
+	{
+	case SS_FAST:
+		return 1;
+	case SS_STRONG:
+		return 4;
+	case SS_DESANN:
+		return 8;
+	case SS_TAVION:
+		return 16;
+	case SS_DUAL:
+		return 32;
+	case SS_STAFF:
+		return 64;
+	default:
+		return 2;
 	}
 }
