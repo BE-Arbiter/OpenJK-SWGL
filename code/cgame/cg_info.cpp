@@ -834,6 +834,67 @@ static void CG_DrawLoadingScreen( qhandle_t	levelshot ,const char *mapName)
 	}
 }
 
+static void CG_DrawLoadingScreenWithoutBriefing(qhandle_t	levelshot, const char* mapName)
+{
+	int xPos, yPos, width, height;
+	vec4_t	color;
+	qhandle_t	background;
+	int weapons = 0, forcepowers = 0;
+
+	// Print background
+	if (cgi_UI_GetMenuItemInfo(
+		"loadScreen",
+		"background",
+		&xPos,
+		&yPos,
+		&width,
+		&height,
+		color,
+		&background))
+	{
+		cgi_R_SetColor(color);
+		CG_DrawPic(0, 0, 0, 0, background);
+	}
+
+	// Print level pic
+	if (cgi_UI_GetMenuItemInfo(
+		"loadScreen",
+		"mappic",
+		&xPos,
+		&yPos,
+		&width,
+		&height,
+		color,
+		&background))
+	{
+		//if (!levelshot)
+		//{// No level shot so use screenshot.
+	//		CG_DrawPic( xPos, yPos, 1, 1, 0);	//force the tess to flush
+		//	cgi_R_DrawScreenShot( xPos, yPos+height, width, -height );
+		//}
+		//else
+		{
+			cgi_R_SetColor(color);
+			CG_DrawPic(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, levelshot);
+		}
+	}
+
+	// Get player weapons and force power info
+	CG_GetLoadScreenInfo(&weapons, &forcepowers);
+
+	// Print weapon icons
+	if (weapons)
+	{
+		CG_DrawLoadWeapons(weapons);
+	}
+
+	// Print force power icons
+	if (forcepowers)
+	{
+		CG_DrawLoadForcePowers(forcepowers);
+	}
+}
+
 /*
 ====================
 CG_DrawInformation
@@ -919,16 +980,21 @@ void CG_DrawInformation( void ) {
 			levelshot = cgi_R_RegisterShaderNoMip(va("levelshots_sav/%s", s + 5));
 			CG_DrawLoadingScreen(levelshot, s);
 			cgi_UI_Menu_Paint(cgi_UI_GetMenuByName("loadscreen"), qtrue);
+			vec4_t	rectColor = { 1, 0.1, 0, 1 };
+			CG_DrawRect(21, 29, 270, 203, 2, rectColor);
 		}
 	}
 	else if (g_eSavedGameJustLoaded != eFULL && cgi_SP_GetStringTextString(va("BRIEFINGS_%s", s), NULL, 0) == 0)
 	{
-		CG_DrawPic(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, levelshot);
+		CG_DrawLoadingScreenWithoutBriefing(levelshot, s);
+		cgi_UI_Menu_Paint(cgi_UI_GetMenuByName("loadscreen"), qtrue);
 	}
 	else
 	{
 		CG_DrawLoadingScreen(levelshot, s);
 		cgi_UI_Menu_Paint( cgi_UI_GetMenuByName( "loadscreen" ), qtrue );
+		vec4_t	rectColor = { 1, 0.1, 0, 1 };
+		CG_DrawRect(21, 29, 270, 203, 2, rectColor);
 		//cgi_UI_MenuPaintAll();
 	}
 
