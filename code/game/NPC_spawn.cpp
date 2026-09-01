@@ -1980,6 +1980,7 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 	newent->NPC_color_red = -1;
 	newent->NPC_color_green = -1;
 	newent->NPC_color_blue = -1;
+	newent->NPC_SaberStyles = -1;
 
 	if (ent->allowAttributes)
 		newent->allowAttributes = ent->allowAttributes;
@@ -1992,6 +1993,9 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 
 	if (ent->NPC_color_blue >= 0)
 		newent->NPC_color_blue = ent->NPC_color_blue;
+
+	if (ent->NPC_SaberStyles >= 0)
+		newent->NPC_SaberStyles = ent->NPC_SaberStyles;
 
 	VectorCopy(ent->s.origin, newent->s.origin);
 	VectorCopy(ent->s.origin, newent->client->ps.origin);
@@ -2404,6 +2408,8 @@ void SP_NPC_spawner(gentity_t *self)
 	self->NPC_color_red = -1;
 	self->NPC_color_green = -1;
 	self->NPC_color_blue = -1;
+
+	self->NPC_SaberStyles = -1;
 
 	if (!self->wait)
 	{
@@ -6358,20 +6364,69 @@ void NPC_Saber_f(void)
 
 void NPC_Remove_f(void)
 {
-	int			n;
+	int         n;
 	gentity_t* ent;
-	char* targetname;
+	char* name;
+	team_t      removeTeam = TEAM_FREE;
+	qboolean    removeNonSF = qfalse;
 
-	targetname = gi.argv(2);
+	name = gi.argv(2);
 
-	if (!*targetname)
+	if (!*name || !name[0])
 	{
 		gi.Printf(S_COLOR_RED"Error, Expected:\n");
-		gi.Printf(S_COLOR_RED"NPC remove '[NPC targetname]' - removes the NPC from the game\n");
-		gi.Printf(S_COLOR_RED"NPC remove all - removes all NPCs from the game\n");
+		gi.Printf(S_COLOR_RED"NPC remove '[NPC targetname]' - removes NPCs with certain targetname\n");
+		gi.Printf(S_COLOR_RED"or\n");
+		gi.Printf(S_COLOR_RED"NPC remove 'all' - removes all NPCs\n");
+		gi.Printf(S_COLOR_RED"or\n");
+		gi.Printf(S_COLOR_RED"NPC remove team '[teamname]' - removes all NPCs of a certain team ('nonally' is all but your allies)\n");
 		return;
 	}
 
+	//
+	// TEAM REMOVAL MODE
+	//
+	if (Q_stricmp("team", name) == 0)
+	{
+		name = gi.argv(3);
+
+		if (!*name || !name[0])
+		{
+			gi.Printf(S_COLOR_RED"NPC_Remove Error: 'npc remove team' requires a team name!\n");
+			gi.Printf(S_COLOR_RED"Valid team names are:\n");
+			for (n = (TEAM_FREE + 1); n < TEAM_NUM_TEAMS; n++)
+			{
+				gi.Printf(S_COLOR_RED"%s\n", GetStringForID(TeamTable, n));
+			}
+			gi.Printf(S_COLOR_RED"nonally - removes all but your teammates\n");
+			return;
+		}
+
+		if (Q_stricmp("nonally", name) == 0)
+		{
+			removeNonSF = qtrue;
+		}
+		else
+		{
+			removeTeam = (team_t)GetIDForString(TeamTable, name);
+
+			if (removeTeam == (team_t)-1)
+			{
+				gi.Printf(S_COLOR_RED"NPC_Remove Error: team '%s' not recognized\n", name);
+				gi.Printf(S_COLOR_RED"Valid team names are:\n");
+				for (n = (TEAM_FREE + 1); n < TEAM_NUM_TEAMS; n++)
+				{
+					gi.Printf(S_COLOR_RED"%s\n", GetStringForID(TeamTable, n));
+				}
+				gi.Printf(S_COLOR_RED"nonally - removes all but your teammates\n");
+				return;
+			}
+		}
+	}
+
+	//
+	// MAIN LOOP
+	//
 	for (n = 1; n < ENTITYNUM_MAX_NORMAL; n++)
 	{
 		ent = &g_entities[n];
@@ -6379,28 +6434,104 @@ void NPC_Remove_f(void)
 		{
 			continue;
 		}
-		// Entity needs to be an NPC, NOT THE PLAYER!
-		if ((!Q_stricmp("all", targetname) || (ent->targetname && Q_stricmp(targetname, ent->targetname) == 0)) && (ent->NPC && ent != player))
-		{
-			gi.Printf(S_COLOR_GREEN"Removing NPC %s named %s\n", ent->NPC_type, ent->targetname);
-			G_UseTargets2(ent, ent, ent->target3);
-			ent->s.eFlags |= EF_NODRAW;
-			ent->svFlags &= ~SVF_NPC;
-			ent->s.eType = ET_INVISIBLE;
-			ent->contents = 0;
-			ent->health = 0;
-			ent->targetname = NULL;
 
-			//Disappear in half a second
-			ent->e_ThinkFunc = thinkF_G_FreeEntity;
-			ent->nextthink = level.time + FRAMETIME;
-		}
-		if (ent && (ent->svFlags & SVF_NPC_PRECACHE))
-		{//a spawner
-			if ((ent->targetname && Q_stricmp(targetname, ent->targetname) == 0)
-				|| Q_stricmp(targetname, "all") == 0)
+		//
+		// REMOVE NON-ALLY TEAM (nonSF)
+		//
+		if (removeNonSF)
+		{
+			if (ent->client)
 			{
-				gi.Printf(S_COLOR_GREEN"Removing NPC spawner %s named %s\n", ent->NPC_type, ent->targetname);
+				if (ent->client->playerTeam != TEAM_PLAYER)
+				{
+					gi.Printf(S_COLOR_GREEN"Removing NPC %s named %s\n",
+						ent->NPC_type,
+						ent->targetname ? ent->targetname : "(none)");
+
+					// Hide & disable NPC
+					G_UseTargets2(ent, ent, ent->target3);
+					ent->s.eFlags |= EF_NODRAW;
+					ent->svFlags &= ~SVF_NPC;
+					ent->s.eType = ET_INVISIBLE;
+					ent->contents = 0;
+					ent->health = 0;
+					ent->targetname = NULL;
+
+					ent->e_ThinkFunc = thinkF_G_FreeEntity;
+					ent->nextthink = level.time + FRAMETIME;
+				}
+			}
+			else if (ent->NPC_type && ent->classname && ent->classname[0] &&
+				Q_stricmp("NPC_starfleet", ent->classname) != 0)
+			{
+				// Remove spawner
+				gi.Printf(S_COLOR_GREEN"Removing NPC spawner %s with NPC named %s\n",
+					ent->NPC_type,
+					ent->NPC_targetname);
+
+				G_FreeEntity(ent);
+			}
+
+			continue;
+		}
+
+		//
+		// REMOVE BY TEAM
+		//
+		if (ent->client && ent->NPC)
+		{
+			if (ent->client->playerTeam == removeTeam)
+			{
+				gi.Printf(S_COLOR_GREEN"Removing NPC %s named %s\n",
+					ent->NPC_type,
+					ent->targetname ? ent->targetname : "(none)");
+
+				G_UseTargets2(ent, ent, ent->target3);
+				ent->s.eFlags |= EF_NODRAW;
+				ent->svFlags &= ~SVF_NPC;
+				ent->s.eType = ET_INVISIBLE;
+				ent->contents = 0;
+				ent->health = 0;
+				ent->targetname = NULL;
+
+				ent->e_ThinkFunc = thinkF_G_FreeEntity;
+				ent->nextthink = level.time + FRAMETIME;
+			}
+
+			//
+			// REMOVE BY TARGETNAME OR "ALL"
+			//
+			if ((ent->targetname && Q_stricmp(name, ent->targetname) == 0)
+				|| Q_stricmp(name, "all") == 0)
+			{
+				gi.Printf(S_COLOR_GREEN"Removing NPC %s named %s\n",
+					ent->NPC_type,
+					ent->targetname ? ent->targetname : "(none)");
+
+				G_UseTargets2(ent, ent, ent->target3);
+				ent->s.eFlags |= EF_NODRAW;
+				ent->svFlags &= ~SVF_NPC;
+				ent->s.eType = ET_INVISIBLE;
+				ent->contents = 0;
+				ent->health = 0;
+				ent->targetname = NULL;
+
+				ent->e_ThinkFunc = thinkF_G_FreeEntity;
+				ent->nextthink = level.time + FRAMETIME;
+			}
+		}
+		//
+		// REMOVE SPAWNERS
+		//
+		else if (ent->svFlags & SVF_NPC_PRECACHE)
+		{
+			if ((ent->targetname && Q_stricmp(name, ent->targetname) == 0)
+				|| Q_stricmp(name, "all") == 0)
+			{
+				gi.Printf(S_COLOR_GREEN"Removing NPC spawner %s named %s\n",
+					ent->NPC_type,
+					ent->targetname ? ent->targetname : "(none)");
+
 				G_FreeEntity(ent);
 			}
 		}
@@ -6674,6 +6805,18 @@ void Svcmd_NPC_f(void)
 		gi.Printf(" kill [NPC targetname] or [all(kills all NPCs)] or 'team [teamname]'\n");
 		gi.Printf(" showbounds (draws exact bounding boxes of NPCs)\n");
 		gi.Printf(" score [NPC targetname] (prints number of kills per NPC)\n");
+		gi.Printf(" remove [NPC targetname] or [all(kills all NPCs)] or 'team [teamname]'\n");
+		gi.Printf(" kill [NPC targetname] or [all(kills all NPCs)] or 'team [teamname]'\n");
+		gi.Printf(" saber [NPC targetname] [Saber] [Saber Color] [Saber 2] [Saber 2 Color]\n");
+		gi.Printf(" weapon [NPC targetname] [weapon code]\n");
+		gi.Printf(" follow [NPC targetname] [Targetname of who to follow]\n");
+		gi.Printf(" enemy [NPC targetname] [Targetname of who to make an enemy]\n");
+		gi.Printf(" anim [NPC targetname] [Animation Code] [Upper/Lower/Both] [Time in ms]\n");
+		gi.Printf(" sound [NPC targetname] [Sound Name] [Channel]\n");
+		gi.Printf(" attribute [NPC targetname] [Attribute Code]\n");
+		gi.Printf(" attribute [NPC targetname] [Attribute Code]\n");
+		gi.Printf(" skin [NPC targetname] [Skin Code]\n");
+		gi.Printf(" model [NPC targetname] [Model Code]\n");
 	}
 	else if (Q_stricmp(cmd, "spawn") == 0)
 	{
