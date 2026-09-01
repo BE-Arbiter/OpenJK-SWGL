@@ -943,5 +943,14 @@ void WIN_VK_destroyWindow( void )
 
 qboolean WIN_VK_IsMinimized( void )
 {
-	return ( screen && ( SDL_GetWindowFlags( screen ) & SDL_WINDOW_MINIMIZED ) ) ? qtrue : qfalse;
+	Uint32 flags;
+
+	if ( !screen )
+	{
+		return qfalse;
+	}
+
+	flags = SDL_GetWindowFlags( screen );
+
+	return ( ( flags & SDL_WINDOW_MINIMIZED ) || ( flags & SDL_WINDOW_HIDDEN ) ) ? qtrue : qfalse;
 }
