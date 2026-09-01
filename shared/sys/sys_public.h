@@ -154,6 +154,7 @@ typedef enum graphicsApi_e
 
 	// Only OpenGL needs special treatment..
 	GRAPHICS_API_OPENGL,
+	GRAPHICS_API_VULKAN,
 } graphicsApi_t;
 
 // Graphics API
@@ -198,3 +199,27 @@ void *		WIN_GL_GetProcAddress( const char *proc );
 qboolean	WIN_GL_ExtensionSupported( const char *extension );
 
 uint8_t ConvertUTF32ToExpectedCharset( uint32_t utf32 );
+
+// Vulkan
+// Opaque handle forward declarations so headers that only pass these types
+// around (like this one) don't need to pull in the full Vulkan SDK headers.
+// These must stay textually identical to what vulkan_core.h's
+// VK_DEFINE_HANDLE / VK_DEFINE_NON_DISPATCHABLE_HANDLE macros generate, so
+// re-declaring them here is a legal redundant typedef if a TU later also
+// includes the real Vulkan headers.
+#ifndef OPENJK_VK_HANDLES_DECLARED
+#define OPENJK_VK_HANDLES_DECLARED
+#ifndef VULKAN_CORE_H_
+typedef struct VkInstance_T* VkInstance;
+#if defined(__LP64__) || defined(_WIN64) || (defined(__x86_64__) && !defined(__ILP32__)) || defined(_M_X64) || defined(__ia64) || defined(_M_IA64) || defined(__aarch64__) || defined(__powerpc64__)
+typedef struct VkSurfaceKHR_T* VkSurfaceKHR;
+#else
+typedef uint64_t VkSurfaceKHR;
+#endif
+#endif // VULKAN_CORE_H_
+#endif // OPENJK_VK_HANDLES_DECLARED
+
+void* WIN_VK_GetInstanceProcAddress(void);
+qboolean	WIN_VK_createSurfaceImpl(VkInstance instance, VkSurfaceKHR* surface);
+void		WIN_VK_destroyWindow(void);
+qboolean	WIN_VK_IsMinimized(void);

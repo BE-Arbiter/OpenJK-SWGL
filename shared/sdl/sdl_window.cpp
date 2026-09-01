@@ -23,6 +23,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include <SDL_syswm.h>
 #include "qcommon/qcommon.h"
 #include "rd-common/tr_types.h"
+#include <SDL_vulkan.h>		
 #include "sys/sys_local.h"
 #include "sdl_icon.h"
 
@@ -331,6 +332,10 @@ static rserr_t GLimp_SetMode(glconfig_t *glConfig, const windowDesc_t *windowDes
 	if ( windowDesc->api == GRAPHICS_API_OPENGL )
 	{
 		flags |= SDL_WINDOW_OPENGL;
+	}
+	else if ( windowDesc->api == GRAPHICS_API_VULKAN )
+	{
+		flags |= SDL_WINDOW_VULKAN;
 	}
 
 	Com_Printf( "Initializing display\n");
@@ -901,4 +906,42 @@ void *WIN_GL_GetProcAddress( const char *proc )
 qboolean WIN_GL_ExtensionSupported( const char *extension )
 {
 	return SDL_GL_ExtensionSupported( extension ) == SDL_TRUE ? qtrue : qfalse;
+}
+
+void *WIN_VK_GetInstanceProcAddress( void )
+{
+	if ( SDL_Vulkan_LoadLibrary( NULL ) != 0 )
+	{
+		Com_Printf( "SDL_Vulkan_LoadLibrary() failed: %s\n", SDL_GetError() );
+		return NULL;
+	}
+
+	return SDL_Vulkan_GetVkGetInstanceProcAddr();
+}
+
+qboolean WIN_VK_createSurfaceImpl( VkInstance instance, VkSurfaceKHR *surface )
+{
+	if ( !screen )
+	{
+		return qfalse;
+	}
+
+	if ( SDL_Vulkan_CreateSurface( screen, (SDL_vulkanInstance)instance, (SDL_vulkanSurface *)surface ) == SDL_FALSE )
+	{
+		Com_Printf( "SDL_Vulkan_CreateSurface() failed: %s\n", SDL_GetError() );
+		return qfalse;
+	}
+
+	return qtrue;
+}
+
+void WIN_VK_destroyWindow( void )
+{
+	WIN_Shutdown();
+	SDL_Vulkan_UnloadLibrary();
+}
+
+qboolean WIN_VK_IsMinimized( void )
+{
+	return ( screen && ( SDL_GetWindowFlags( screen ) & SDL_WINDOW_MINIMIZED ) ) ? qtrue : qfalse;
 }
