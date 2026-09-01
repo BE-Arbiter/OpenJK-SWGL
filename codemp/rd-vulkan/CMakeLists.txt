@@ -185,37 +185,37 @@ list(APPEND MPVulkanRendererLibraries          ${MINIZIP_LIBRARIES})
 #set(MPVulkanRendererLibraries ${MPVulkanRendererLibraries} ${OPENGL_LIBRARIES})
 
 set(MPVulkanRendererIncludeDirectories ${MPVulkanRendererIncludeDirectories} ${OpenJKLibDir})
-add_library(${MPVulkanRenderer} SHARED ${MPVulkanRendererFiles})
+add_library(${MPVulkan} SHARED ${MPVulkanRendererFiles})
 
 if(NOT MSVC)
 	# remove "lib" prefix for .so/.dylib files
-	set_target_properties(${MPVulkanRenderer} PROPERTIES PREFIX "")
+	set_target_properties(${MPVulkan} PROPERTIES PREFIX "")
 endif()
 
 if(WIN32)
-	install(TARGETS ${MPVulkanRenderer}
+	install(TARGETS ${MPVulkan}
 		RUNTIME
 		DESTINATION ${JKAInstallDir}
 		COMPONENT ${JKAMPClientComponent})
 else(WIN32)
 	if(MakeApplicationBundles AND BuildMPEngine)
-		install(TARGETS ${MPVulkanRenderer}
+		install(TARGETS ${MPVulkan}
 			LIBRARY
 			DESTINATION "${JKAInstallDir}/${MPEngine}.app/Contents/MacOS/"
 			COMPONENT ${JKAMPClientComponent})
 	else()
-		install(TARGETS ${MPVulkanRenderer}
+		install(TARGETS ${MPVulkan}
 			LIBRARY
 			DESTINATION ${JKAInstallDir}
 			COMPONENT ${JKAMPClientComponent})
 	endif()
 endif()
 
-set_target_properties(${MPVulkanRenderer} PROPERTIES COMPILE_DEFINITIONS "${SharedDefines}")
+set_target_properties(${MPVulkan} PROPERTIES COMPILE_DEFINITIONS "${SharedDefines}")
 
 # Hide symbols not explicitly marked public.
-set_property(TARGET ${MPVulkanRenderer} APPEND PROPERTY COMPILE_OPTIONS ${OPENJK_VISIBILITY_FLAGS})
+set_property(TARGET ${MPVulkan} APPEND PROPERTY COMPILE_OPTIONS ${OPENJK_VISIBILITY_FLAGS})
 
-set_target_properties(${MPVulkanRenderer} PROPERTIES INCLUDE_DIRECTORIES "${MPVulkanRendererIncludeDirectories}")
-set_target_properties(${MPVulkanRenderer} PROPERTIES PROJECT_LABEL "MP Vulkan Renderer")
-target_link_libraries(${MPVulkanRenderer} ${MPVulkanRendererLibraries})
+set_target_properties(${MPVulkan} PROPERTIES INCLUDE_DIRECTORIES "${MPVulkanRendererIncludeDirectories}")
+set_target_properties(${MPVulkan} PROPERTIES PROJECT_LABEL "MP Vulkan Renderer")
+target_link_libraries(${MPVulkan} ${MPVulkanRendererLibraries})
