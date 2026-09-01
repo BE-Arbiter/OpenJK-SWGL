@@ -24,9 +24,13 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "tr_local.h"
 
 #include "ghoul2/G2.h"
+#ifndef RENDERER
 #include "ghoul2/g2_local.h"
+#endif
 #include "qcommon/matcomp.h"
+#ifndef RENDERER
 #include "qcommon/disablewarnings.h"
+#endif
 
 static	int			r_firstSceneDrawSurf;
 #ifdef USE_PMLIGHT
@@ -236,10 +240,7 @@ void RE_AddRefEntityToScene( const refEntity_t *ent ) {
 	}
 #endif
 
-	// not adding these flags yet
-	// if ( (int)ent->reType < 0 || ent->reType >= RT_MAX_SP_REF_ENTITY_TYPE || ent->reType == RT_MAX_MP_REF_ENTITY_TYPE ) {
-
-	if ( (int)ent->reType < 0 || ent->reType >= RT_MAX_MP_REF_ENTITY_TYPE ) {
+	if ( (int)ent->reType < 0 || ent->reType >= RT_MAX_SP_REF_ENTITY_TYPE || ent->reType == RT_MAX_MP_REF_ENTITY_TYPE ) {
 		Com_Error( ERR_DROP, "RE_AddRefEntityToScene: bad reType %i", ent->reType );
 	}
 

@@ -241,7 +241,7 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 		tr.numLightmaps = numLightmaps;
 	}
 
-	tr.lightmaps = (image_t **)ri.Hunk_Alloc( tr.numLightmaps * sizeof(image_t *), h_low );
+	tr.lightmaps = (image_t **)Hunk_Alloc( tr.numLightmaps * sizeof(image_t *), h_low );
 
 	if ( tr.worldInternalLightmapping )
 	{
@@ -538,7 +538,7 @@ static void GenerateNormals( srfSurfaceFace_t *face )
 	indices = ((int*)((byte*)face + face->ofsIndices));
 
 	// store as vec4_t so we can simply use memcpy() during tesselation
-	face->normals = (float*)ri.Hunk_Alloc(face->numPoints * sizeof(tess.normal[0]), h_low);
+	face->normals = (float*)Hunk_Alloc(face->numPoints * sizeof(tess.normal[0]), h_low);
 
 	for (i = 0; i < face->numIndices; i += 3) {
 		i0 = indices[i + 0];
@@ -2208,6 +2208,9 @@ static void R_LoadEntities( const lump_t *l, world_t &worldData ) {
 
 	token = COM_ParseExt( &p, qtrue );
 	if (!*token || *token != '{') {
+#ifdef RENDERER
+		COM_EndParseSession();
+#endif
 		return;
 	}
 
@@ -2278,6 +2281,9 @@ static void R_LoadEntities( const lump_t *l, world_t &worldData ) {
 	}
 	//both default to 1 so no harm if not present.
 	VectorScale( tr.sunAmbient, ambient, tr.sunAmbient);
+#ifdef RENDERER
+	COM_EndParseSession();
+#endif
 }
 
 /*
@@ -2342,9 +2348,9 @@ void RE_LoadWorldMap_Actual( const char *name, world_t &worldData, int index )
 
 	// check for cached disk file from the server first...
 	//
-	if (ri.CM_GetCachedMapDiskImage())
+	if (CM_GetCachedMapDiskImage())
 	{
-		buffer = (byte *)ri.CM_GetCachedMapDiskImage();
+		buffer = (byte *)CM_GetCachedMapDiskImage();
 	}
 	else
 	{
@@ -2415,10 +2421,10 @@ void RE_LoadWorldMap_Actual( const char *name, world_t &worldData, int index )
 	R_BuildSurfaceSpritesVBO( worldData, index );
 #endif
 
-	if (ri.CM_GetCachedMapDiskImage())
+	if (CM_GetCachedMapDiskImage())
 	{
-		Z_Free( ri.CM_GetCachedMapDiskImage() );
-		ri.CM_SetCachedMapDiskImage( NULL );
+		Z_Free( CM_GetCachedMapDiskImage() );
+		CM_SetCachedMapDiskImage( NULL );
 	}
 	else
 	{
@@ -2430,9 +2436,9 @@ void RE_LoadWorldMap_Actual( const char *name, world_t &worldData, int index )
 //
 void RE_LoadWorldMap( const char *name )
 {
-	ri.CM_SetUsingCache( qtrue );
+	CM_SetUsingCache( qtrue );
 	RE_LoadWorldMap_Actual( name, s_worldData, 0 );
-	ri.CM_SetUsingCache( qfalse );
+	CM_SetUsingCache( qfalse );
 
 	vk_set_clearcolor();
 }

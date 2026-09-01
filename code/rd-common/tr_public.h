@@ -30,6 +30,20 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "../ghoul2/G2.h"
 #include "../ghoul2/ghoul2_gore.h"
 
+// Vulkan opaque handle forward declarations (see shared/sys/sys_public.h for
+// why these are hand-declared instead of including the Vulkan SDK headers).
+#ifndef OPENJK_VK_HANDLES_DECLARED
+#define OPENJK_VK_HANDLES_DECLARED
+#ifndef VULKAN_CORE_H_
+typedef struct VkInstance_T* VkInstance;
+#if defined(__LP64__) || defined(_WIN64) || (defined(__x86_64__) && !defined(__ILP32__)) || defined(_M_X64) || defined(__ia64) || defined(_M_IA64) || defined(__aarch64__) || defined(__powerpc64__)
+typedef struct VkSurfaceKHR_T* VkSurfaceKHR;
+#else
+typedef uint64_t VkSurfaceKHR;
+#endif
+#endif // VULKAN_CORE_H_
+#endif // OPENJK_VK_HANDLES_DECLARED
+
 #define	REF_API_VERSION		19
 
 typedef struct {
@@ -84,6 +98,15 @@ typedef struct {
 	bool				(*CM_CullWorldBox)					( const cplane_t *frustrum, const vec3pair_t bounds );
 	byte*				(*CM_ClusterPVS)					( int cluster );
 	int					(*CM_PointContents)					( const vec3_t p, clipHandle_t model );
+	void				(*CM_BoxTrace)						( trace_t *results, const vec3_t start, const vec3_t end, const vec3_t mins, const vec3_t maxs, clipHandle_t model, int brushmask );
+	int					(*CM_PointLeafnum)					( const vec3_t p );
+	int					(*CM_LeafCluster)					( int leafnum );
+
+	// Vulkan-specific
+	qboolean			(*VK_IsMinimized)					( void );
+	void *				(*VK_GetInstanceProcAddress)		( void );
+	qboolean			(*VK_createSurfaceImpl)				( VkInstance instance, VkSurfaceKHR *surface );
+	void				(*VK_destroyWindow)					( void );
 	void				(*S_RestartMusic)					( void );
 	qboolean			(*SND_RegisterAudio_LevelLoadEnd)	( qboolean bDeleteEverythingNotUsedThisLevel );
 

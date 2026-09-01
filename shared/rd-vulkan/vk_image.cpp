@@ -548,7 +548,7 @@ void vk_upload_image( image_t *image, byte *pic ) {
 	vk_create_image( image, w, h, upload_data.mip_levels );
 	vk_upload_image_data( image, 0, 0, w, h, upload_data.mip_levels, upload_data.buffer, upload_data.buffer_size, qfalse );
 
-	//ri.Hunk_FreeTempMemory( upload_data.buffer );
+	//Hunk_FreeTempMemory( upload_data.buffer );
 	//upload_data.buffer = NULL;
 }
 
@@ -1135,7 +1135,7 @@ void vk_upload_image_data( image_t *image, int x, int y, int width,
 
 	// this is not ok?
 	if ( buf != pixels ) {
-		//ri.Hunk_FreeTempMemory( buf );
+		//Hunk_FreeTempMemory( buf );
 	}
 }
 
@@ -1392,7 +1392,7 @@ image_t *R_CreateImage( const char *name, byte *pic, int width, int height, imgF
 #endif
 
     //image = (image_t*)Z_Malloc(sizeof(*image) + namelen + namelen2, TAG_IMAGE_T, qtrue);
-    //image = (image_t*)ri.Hunk_Alloc(sizeof(*image) + namelen, h_low);
+    //image = (image_t*)Hunk_Alloc(sizeof(*image) + namelen, h_low);
 	image = (image_t*)Z_Malloc(sizeof(*image) + namelen, TAG_IMAGE_T);
 	Com_Memset(image, 0, sizeof(*image) + namelen);
 
@@ -1734,7 +1734,7 @@ static void R_CreateFogImage( void )
     }
 
     tr.fogImage = R_CreateImage("*fog", data, FOG_S, FOG_T, IMGFLAG_CLAMPTOEDGE);
-    ri.Hunk_FreeTempMemory(data);
+    Hunk_FreeTempMemory(data);
 }
 
 /*

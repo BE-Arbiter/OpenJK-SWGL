@@ -172,7 +172,7 @@ static qboolean	R_CullSurface( surfaceType_t *surface, shader_t *shader ) {
 			VectorSet(nNormal, 0.0f, 0.0f, 1.0f);
 			VectorMA(basePoint, 8192.0f, nNormal, endPoint);
 
-			ri.CM_BoxTrace(&tr, basePoint, endPoint, NULL, NULL, 0, (CONTENTS_SOLID|CONTENTS_TERRAIN), qfalse);
+			CM_BoxTrace(&tr, basePoint, endPoint, NULL, NULL, 0, (CONTENTS_SOLID|CONTENTS_TERRAIN), qfalse);
 
 			if (!tr.startsolid &&
 				!tr.allsolid &&
@@ -190,7 +190,7 @@ static qboolean	R_CullSurface( surfaceType_t *surface, shader_t *shader ) {
 					while (i < 4096)
 					{
 						VectorMA(basePoint, i, nNormal, endPoint);
-						ri.CM_BoxTrace(&tr, endPoint, endPoint, NULL, NULL, 0, (CONTENTS_SOLID|CONTENTS_TERRAIN), qfalse);
+						CM_BoxTrace(&tr, endPoint, endPoint, NULL, NULL, 0, (CONTENTS_SOLID|CONTENTS_TERRAIN), qfalse);
 						if (!tr.startsolid &&
 							!tr.allsolid &&
 							tr.fraction == 1.0f)
@@ -212,7 +212,7 @@ static qboolean	R_CullSurface( surfaceType_t *surface, shader_t *shader ) {
 						//If we hit something within a set amount of units, we will assume it's a bridge type object
 						//and leave it to be drawn. Otherwise we will assume it is a roof or other obstruction and
 						//cull it out.
-						ri.CM_BoxTrace(&tr, basePoint, endPoint, NULL, NULL, 0, (CONTENTS_SOLID|CONTENTS_TERRAIN), qfalse);
+						CM_BoxTrace(&tr, basePoint, endPoint, NULL, NULL, 0, (CONTENTS_SOLID|CONTENTS_TERRAIN), qfalse);
 
 						if (!tr.startsolid &&
 							!tr.allsolid &&

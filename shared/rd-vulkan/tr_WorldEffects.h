@@ -31,6 +31,11 @@ void R_WorldEffect_f(void);
 
 bool R_GetWindVector(vec3_t windVector);
 bool R_GetWindSpeed(float &windSpeed);
+bool R_GetWindGusting();
+bool R_IsOutside(vec3_t pos);
+float R_IsOutsideCausingPain(vec3_t pos);
+float R_GetChanceOfSaberFizz();
+bool R_IsShaking();
 
 bool R_IsRaining();
 //bool R_IsSnowing();

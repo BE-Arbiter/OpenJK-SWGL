@@ -51,10 +51,137 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #define USE_BUFFER_CLEAR		/* clear attachments on render pass begin */
 
+#ifdef RENDERER
+#include "qcommon/q_shared.h"
+#endif
 #include "qcommon/qfiles.h"
 #include "rd-common/tr_public.h"
 #include "rd-common/tr_common.h"
+#ifndef RENDERER
 #include "ghoul2/ghoul2_shared.h" //rwwRMG - added
+// SP's G2API_GiveMeVectorFromMatrix takes its matrix by reference instead of
+// by pointer (see ghoul2/G2.h) -- callers pass "&X" for MP; this macro is a
+// no-op passthrough here and drops the "&" under RENDERER below.
+#define G2VFM_ARG(x) (&(x))
+#define G2VFM_VEC(x) (x)
+// See the RENDERER branch below for why this alias exists.
+typedef size_t g2vert_int_t;
+#else
+#include "rd-common/mdx_format.h"
+#include "ghoul2/G2.h"
+
+// SP's refimport_t has no Hunk_Alloc family (see tr_subs.cpp) -- provide the
+// ha_pref type locally, matching shared/rd-rend2/tr_local.h's REND2_SP block.
+typedef enum {
+	h_high,
+	h_low,
+	h_dontcare
+} ha_pref;
+void *Hunk_Alloc( int size, ha_pref preference );
+void *Hunk_AllocateTempMemory( int size );
+void Hunk_FreeTempMemory( void *buf );
+int Hunk_MemoryRemaining( void );
+
+// SP's q_shared.h has no Square() macro.
+#define Square(x) ((x)*(x))
+
+// SP's tags.h has no TAG_TEMP_IMAGE -- closest equivalent purpose.
+#define TAG_TEMP_IMAGE TAG_TEMP_WORKSPACE
+
+// Normally declared in ghoul2/g2_local.h (MP-only, see above) but still
+// defined in G2_bolts.cpp / G2_bones.cpp and called cross-file from
+// G2_surfaces.cpp -- redeclare here so SP builds can see them too.
+void G2_RemoveRedundantBoneOverrides( boneInfo_v &blist, int *activeBones );
+void G2_RemoveRedundantBolts( boltInfo_v &bltlist, surfaceInfo_v &slist, int *activeSurfaces, int *activeBones );
+
+// Also declared only in ghoul2/g2_local.h (MP-only) -- also declared
+// directly in shared/rd-rend2/tr_local.h and code/rd-vanilla/tr_local.h for
+// the same reason, so redeclare it here too rather than including g2_local.h.
+void Create_Matrix( const float *angle, mdxaBone_t *matrix );
+
+// Also declared only in ghoul2/G2.h (MP-only) -- an internal boneInfo_t::flags
+// bit unused by SP's own flag set (see code/game/ghoul2_shared.h).
+#define BONE_NEED_TRANSFORM 0x8000
+
+// Defined in tr_ghoul2.cpp; extern-declared only in ghoul2/g2_local.h (MP-only).
+extern mdxaBone_t worldMatrix;
+extern mdxaBone_t worldMatrixInv;
+
+// SP's G2API_GiveMeVectorFromMatrix takes its matrix by reference instead of
+// by pointer (see ghoul2/G2.h) -- this drops the "&" callers use for MP.
+#define G2VFM_ARG(x) (x)
+// Its vec3_t out-param is also by reference on SP; some callers only have a
+// decayed float* (e.g. a vec3_t function parameter) in scope, so reinterpret
+// it back to an array lvalue that can bind to vec3_t&.
+#define G2VFM_VEC(x) (*(vec3_t*)(x))
+
+// Declared only in ghoul2/g2_local.h (MP-only, see above); still defined in
+// G2_surfaces.cpp and called cross-file from G2_API.cpp.
+int G2_IsSurfaceOff( CGhoul2Info *ghlInfo, surfaceInfo_v &slist, const char *surfaceName );
+
+// MP's IHeapAllocator interface (qcommon/MiniHeap.h) doesn't exist on SP --
+// SP's G2.h uses the concrete CMiniHeap directly everywhere instead.
+#define IHeapAllocator CMiniHeap
+
+// Declared only in ghoul2/g2_local.h (MP-only, see above); still defined in
+// tr_ghoul2.cpp (shared) and called cross-file from G2_API.cpp.
+void RemoveBoneCache( CBoneCache *boneCache );
+
+// SP's mflags bitfield (code/game/ghoul2_shared.h) has no ZONETRANSALLOC bit
+// -- it's an MP-only "was this Z_Malloc'd across a zone-transfer" marker with
+// no SP equivalent, so it's simply never set/checked here.
+#define GHOUL2_ZONETRANSALLOC 0
+
+// SP declares CGhoul2Info::mTransformedVertsArray as intptr_t* (MP uses
+// size_t*) -- alias so the transform-surface helper chain in G2_misc.cpp can
+// use one type name for both.
+typedef intptr_t g2vert_int_t;
+
+// The following ragdoll G2API_* entry points are declared only in
+// ghoul2/g2_local.h (MP-only, see above); still defined in G2_API.cpp and
+// referenced cross-file from GetRefAPI in tr_init.cpp.
+void		G2API_AnimateG2ModelsRag(CGhoul2Info_v &ghoul2, int AcurrentTime, CRagDollUpdateParams *params);
+void		G2API_SetRagDoll(CGhoul2Info_v &ghoul2, CRagDollParams *parms);
+qboolean	G2API_RagEffectorGoal(CGhoul2Info_v &ghoul2, const char *boneName, vec3_t pos);
+qboolean	G2API_RagEffectorKick(CGhoul2Info_v &ghoul2, const char *boneName, vec3_t velocity);
+qboolean	G2API_RagForceSolve(CGhoul2Info_v &ghoul2, qboolean force);
+qboolean	G2API_RagPCJConstraint(CGhoul2Info_v &ghoul2, const char *boneName, vec3_t min, vec3_t max);
+qboolean	G2API_RagPCJGradientSpeed(CGhoul2Info_v &ghoul2, const char *boneName, const float speed);
+qboolean	G2API_GetRagBonePos(CGhoul2Info_v &ghoul2, const char *boneName, vec3_t pos, vec3_t entAngles, vec3_t entPos, vec3_t entScale);
+qboolean	G2API_SetBoneIKState(CGhoul2Info_v &ghoul2, int time, const char *boneName, int ikState, sharedSetBoneIKStateParams_t *params);
+qboolean	G2API_IKMove(CGhoul2Info_v &ghoul2, int time, sharedIKMoveParams_t *params);
+
+// EternalJK convenience alias for "no cvar flags" -- doesn't exist in this
+// codebase's q_shared.h on either side, cvar registrations just use 0.
+#define CVAR_NONE 0
+#endif
+
+// Cached BSP disk-image accessors: MP exposes ri.CM_Get/SetCachedMapDiskImage
+// and ri.CM_SetUsingCache directly; SP only exposes read-only pointer
+// accessors (ri.gpvCachedMapDiskImage / ri.gbUsingCachedMapDataRightNow) with
+// no renderer-side setter, so the SP path below never uses the cache.
+void *CM_GetCachedMapDiskImage( void );
+void CM_SetCachedMapDiskImage( void *ptr );
+void CM_SetUsingCache( qboolean usingCache );
+
+// MP's ri.CM_BoxTrace takes an extra "capsule" argument that SP's engine-side
+// CM_BoxTrace doesn't have -- bridge the two.
+void CM_BoxTrace( trace_t *results, const vec3_t start, const vec3_t end, const vec3_t mins, const vec3_t maxs, clipHandle_t model, int brushmask, int capsule );
+
+// RE_RegisterServerSkin is a dedicated-server-only path with no SP export
+// table entry at all (see refexport_t) -- this check is unreachable on SP.
+qboolean Com_TheHunkMarkHasBeenMade( void );
+
+#ifndef RENDERER
+// SP's own qcommon.h already provides a checksum-ignoring inline overload of
+// FS_FileIsInPAK(filename, checksum), so only MP needs a bridge here.
+int FS_FileIsInPAK( const char *filename, int *pChecksum );
+#endif
+
+// SP's ri.Cvar_Get has no var_desc param; SP's ri.CIN_PlayCinematic takes an
+// extra psAudioFile param MP doesn't have -- bridge both.
+cvar_t *Cvar_Get( const char *var_name, const char *value, int flags, const char *var_desc );
+int CIN_PlayCinematic( const char *arg0, int xpos, int ypos, int width, int height, int bits );
 
 #if defined(_WIN32)
 #	include <windows.h>

@@ -1401,7 +1401,7 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 				vk_debug("WARNING: missing parameter for 'videoMap' keyword in shader '%s'\n", shader.name);
 				return qfalse;
 			}
-			handle = ri.CIN_PlayCinematic(token, 0, 0, 256, 256, (CIN_loop | CIN_silent | CIN_shader));
+			handle = CIN_PlayCinematic(token, 0, 0, 256, 256, (CIN_loop | CIN_silent | CIN_shader));
 			if (handle != -1) {
 				if (!tr.scratchImage[handle]) {
 					tr.scratchImage[handle] = R_CreateImage(va("*scratch%i", handle), NULL, 256, 256, 
@@ -2969,10 +2969,19 @@ static void ScanAndLoadShaderFiles( void )
 
 		if (buffers[i])
 			sum += summand;
+
+#ifdef RENDERER
+		// SP's COM_BeginParseSession/COM_EndParseSession maintain a fixed
+		// MAX_PARSE_DATA-deep (5) session stack -- unlike MP's, which doesn't
+		// nest -- so every Begin here must be matched or loading past a
+		// handful of shader files hits "cannot nest more than 5 parsing
+		// sessions." Matches shared/rd-rend2/tr_shader.cpp's REND2_SP path.
+		COM_EndParseSession();
+#endif
 	}
 
 	// build single large buffer
-	s_shaderText = (char*)ri.Hunk_Alloc(sum + numShaderFiles * 2, h_low);
+	s_shaderText = (char*)Hunk_Alloc(sum + numShaderFiles * 2, h_low);
 	s_shaderText[0] = '\0';
 	textEnd = s_shaderText;
 
@@ -2996,6 +3005,12 @@ static void ScanAndLoadShaderFiles( void )
 	memset(shaderTextHashTableSizes, 0, sizeof(shaderTextHashTableSizes));
 	size = 0;
 
+#ifdef RENDERER
+	// matches shared/rd-rend2/tr_shader.cpp's REND2_SP wrap around this pair
+	// of hash-table-building scans -- see the note in R_FindShader.
+	COM_BeginParseSession();
+#endif
+
 	p = s_shaderText;
 	// look for shader names
 	while (1) {
@@ -3018,7 +3033,7 @@ static void ScanAndLoadShaderFiles( void )
 
 	size += MAX_SHADERTEXT_HASH;
 
-	hashMem = (char*)ri.Hunk_Alloc(size * sizeof(char*), h_low);
+	hashMem = (char*)Hunk_Alloc(size * sizeof(char*), h_low);
 
 	for (i = 0; i < MAX_SHADERTEXT_HASH; i++) {
 		shaderTextHashTable[i] = (const char**)hashMem;
@@ -3047,6 +3062,10 @@ static void ScanAndLoadShaderFiles( void )
 
 		SkipBracedSection(&p, 0);
 	}
+
+#ifdef RENDERER
+	COM_EndParseSession();
+#endif
 
 	return;
 }
@@ -3177,8 +3196,14 @@ shader_t *R_FindShader( const char *name, const int *lightmapIndex, const byte *
 	//
 	// attempt to define shader from an explicit parameter file
 	//
+#ifdef RENDERER
+	// ParseShader() below has no session of its own -- SP's COM_ParseExt
+	// requires one to already be open (unlike MP's), so R_FindShader has to
+	// provide it, matching shared/rd-rend2/tr_shader.cpp's REND2_SP path.
+	COM_BeginParseSession();
+#endif
 	shaderText = FindShaderInShaderText(strippedName);
-	
+
 	if (shaderText) {
 		//vk_debug("shader [%s] pre load\n", strippedName);
 
@@ -3189,8 +3214,14 @@ shader_t *R_FindShader( const char *name, const int *lightmapIndex, const byte *
 		sh = FinishShader();
 
 		//vk_debug("shader [%s] post load\n", strippedName);
+#ifdef RENDERER
+		COM_EndParseSession();
+#endif
 		return sh;
 	}
+#ifdef RENDERER
+	COM_EndParseSession();
+#endif
 
 
 	//
@@ -4797,7 +4828,7 @@ shader_t *GeneratePermanentShader( void )
 		return tr.defaultShader;
 	}
 
-	newShader = (shader_t*)ri.Hunk_Alloc( sizeof(shader_t), h_low );
+	newShader = (shader_t*)Hunk_Alloc( sizeof(shader_t), h_low );
 
 	*newShader = shader;
 
@@ -4814,7 +4845,7 @@ shader_t *GeneratePermanentShader( void )
 		if ( !stages[i].active ) {
 			break;
 		}
-		newShader->stages[i] = (shaderStage_t*)ri.Hunk_Alloc( sizeof(stages[i]), h_low );
+		newShader->stages[i] = (shaderStage_t*)Hunk_Alloc( sizeof(stages[i]), h_low );
 		*newShader->stages[i] = stages[i];
 
 		for ( b = 0; b < NUM_TEXTURE_BUNDLES; b++ )
@@ -4823,7 +4854,7 @@ shader_t *GeneratePermanentShader( void )
 			{
 				size = newShader->stages[i]->bundle[b].numTexMods * sizeof( texModInfo_t );
 				if ( size ) {
-					newShader->stages[i]->bundle[b].texMods = (texModInfo_t*)ri.Hunk_Alloc( size, h_low );
+					newShader->stages[i]->bundle[b].texMods = (texModInfo_t*)Hunk_Alloc( size, h_low );
 					Com_Memcpy( newShader->stages[i]->bundle[b].texMods, stages[i].bundle[b].texMods, size );
 				}
 			} 

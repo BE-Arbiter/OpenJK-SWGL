@@ -1472,7 +1472,15 @@ void RE_WorldEffectCommand(const char *command)
 		return;
 	}
 
+#ifdef RENDERER
+	// SP's COM_BeginParseSession/COM_EndParseSession maintain a fixed
+	// MAX_PARSE_DATA-deep (5) session stack -- unlike MP's, which doesn't
+	// nest -- so this Begin must be matched on every exit path. Use the
+	// RAII guard from q_shared.h rather than hand-balancing every return.
+	COM_ParseSession parseSession;
+#else
 	COM_BeginParseSession ("RE_WorldEffectCommand");
+#endif
 
 	const char	*token;//, *origCommand;
 

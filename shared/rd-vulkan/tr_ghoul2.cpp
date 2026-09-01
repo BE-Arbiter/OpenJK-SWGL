@@ -25,13 +25,21 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "qcommon/matcomp.h"
 #include "qcommon/qcommon.h"
 #include "ghoul2/G2.h"
+#ifndef RENDERER
 #include "ghoul2/g2_local.h"
+#endif // !RENDERER
 #ifdef _G2_GORE
+#ifndef RENDERER
 #include "ghoul2/G2_gore.h"
+#else
+#include "ghoul2/ghoul2_gore.h"
+#endif // !RENDERER
 #include "G2_gore_r2.h"
 #endif
 
+#ifndef RENDERER
 #include "qcommon/disablewarnings.h"
+#endif // !RENDERER
 #include "tr_cache.h"
 
 #define	LL(x) x=LittleLong(x)
@@ -2026,6 +2034,11 @@ void G2_TransformBone (int child,CBoneCache &BC)
 
 }
 
+#ifndef RENDERER
+// Unused even on MP (no callers) -- and SP's boltInfo_t has no "position"
+// field to cache into (bolt matrices are computed on demand there via
+// G2_GetBoltMatrixLow instead; see shared/rd-rend2/tr_ghoul2.cpp, which
+// keeps this same function entirely commented out).
 void G2_SetUpBolts( mdxaHeader_t *header, CGhoul2Info &ghoul2, mdxaBone_v &bonePtr, boltInfo_v &boltList)
 {
 	mdxaSkel_t		*skel;
@@ -2042,6 +2055,7 @@ void G2_SetUpBolts( mdxaHeader_t *header, CGhoul2Info &ghoul2, mdxaBone_v &boneP
 		}
 	}
 }
+#endif // !RENDERER
 
 //rww - RAGDOLL_BEGIN
 #define		GHOUL2_RAG_STARTED						0x0010
@@ -2129,11 +2143,14 @@ void G2_TransformGhoulBones(boneInfo_v &rootBoneList,mdxaBone_t &rootMatrix, CGh
 		{
 			//if (ghoul2.mFlags&GHOUL2_RESERVED_FOR_RAGDOLL)
 #if 1
+#ifndef RENDERER
 			if(ghoul2.mFlags & GHOUL2_CRAZY_SMOOTH)
 			{
 				val = 0.9f;
 			}
-			else if(ghoul2.mFlags & GHOUL2_RAG_STARTED)
+			else
+#endif
+			if(ghoul2.mFlags & GHOUL2_RAG_STARTED)
 			{
 				for (size_t k=0;k<rootBoneList.size();k++)
 				{
@@ -2218,6 +2235,10 @@ void G2_TransformGhoulBones(boneInfo_v &rootBoneList,mdxaBone_t &rootMatrix, CGh
 
 
 // We've come across a surface that's designated as a bolt surface, process it and put it in the appropriate bolt place
+// SP's boltInfo_t has no "position" field to write into (see G2_SetUpBolts
+// above) -- excluded on SP, matching shared/rd-rend2/tr_ghoul2.cpp's
+// "#ifndef REND2_SP" guard around its own copy of this function.
+#ifndef RENDERER
 void G2_ProcessSurfaceBolt(mdxaBone_v &bonePtr, mdxmSurface_t *surface, int boltNum, boltInfo_v &boltList, surfaceInfo_t *surfInfo, model_t *mod)
 {
  	mdxmVertex_t 	*v, *vert0, *vert1, *vert2;
@@ -2420,6 +2441,7 @@ void G2_ProcessSurfaceBolt(mdxaBone_v &bonePtr, mdxmSurface_t *surface, int bolt
 	}
 
 }
+#endif // !RENDERER
 
 
 // now go through all the generated surfaces that aren't included in the model surface hierarchy and create the correct bolt info for them
@@ -2439,7 +2461,9 @@ void G2_ProcessGeneratedSurfaceBolts(CGhoul2Info &ghoul2, mdxaBone_v &bonePtr, m
 			// yes - ok, processing time.
 			if (boltNum != -1)
 			{
+#ifndef RENDERER
 				G2_ProcessSurfaceBolt(bonePtr, NULL, boltNum, ghoul2.mBltlist, &ghoul2.mSlist[i], mod_t);
+#endif
 			}
 		}
 	}
@@ -2695,6 +2719,11 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 }
 
 // Go through the model and deal with just the surfaces that are tagged as bolt on points - this is for the server side skeleton construction
+// Unused (no external callers, only self-recursive) even on MP -- and it
+// relies on G2_ProcessSurfaceBolt, which SP's Rag_Trace-only bolt-caching
+// layout doesn't support (see G2_SetUpBolts above). Excluded for RENDERER,
+// matching shared/rd-rend2/tr_ghoul2.cpp's fully-commented-out version.
+#ifndef RENDERER
 void ProcessModelBoltSurfaces(int surfaceNum, surfaceInfo_v &rootSList,
 					mdxaBone_v &bonePtr, model_t *currentModel, int lod, boltInfo_v &boltList)
 {
@@ -2705,7 +2734,7 @@ void ProcessModelBoltSurfaces(int surfaceNum, surfaceInfo_v &rootSList,
 	int			offFlags = 0;
 
 	// back track and get the surfinfo struct for this surface
-	mdxmSurface_t			*surface = (mdxmSurface_t *)G2_FindSurface((void *)currentModel, surfaceNum, 0);
+	mdxmSurface_t			*surface = (mdxmSurface_t *)G2_FindSurface(currentModel, surfaceNum, 0);
 	mdxmHierarchyOffsets_t	*surfIndexes = (mdxmHierarchyOffsets_t *)((byte *)currentModel->data.glm->header + sizeof(mdxmHeader_t));
 	mdxmSurfHierarchy_t		*surfInfo = (mdxmSurfHierarchy_t *)((byte *)surfIndexes + surfIndexes->offsets[surface->thisSurfaceIndex]);
 
@@ -2749,6 +2778,7 @@ void ProcessModelBoltSurfaces(int surfaceNum, surfaceInfo_v &rootSList,
 	G2Time_ProcessModelBoltSurfaces += G2PerformanceTimer_ProcessModelBoltSurfaces.End();
 #endif
 }
+#endif // !RENDERER
 
 
 // build the used bone list so when doing bone transforms we can determine if we need to do it or not
@@ -2759,7 +2789,7 @@ void G2_ConstructUsedBoneList(CConstructBoneList &CBL)
 	mdxmHeader_t *mdxm = CBL.currentModel->data.glm->header;
 
 	// back track and get the surfinfo struct for this surface
-	const mdxmSurface_t			*surface = (mdxmSurface_t *)G2_FindSurface((void *)CBL.currentModel, CBL.surfaceNum, 0);
+	const mdxmSurface_t			*surface = (mdxmSurface_t *)G2_FindSurface(CBL.currentModel, CBL.surfaceNum, 0);
 	const mdxmHierarchyOffsets_t	*surfIndexes = (mdxmHierarchyOffsets_t *)((byte *)mdxm + sizeof(mdxmHeader_t));
 	const mdxmSurfHierarchy_t	*surfInfo = (mdxmSurfHierarchy_t *)((byte *)surfIndexes + surfIndexes->offsets[surface->thisSurfaceIndex]);
 	const model_t				*mod_a = R_GetModelByHandle(mdxm->animIndex);
@@ -4464,7 +4494,7 @@ qboolean R_LoadMDXM( model_t *mod, void *buffer, const char *mod_name, qboolean 
 
 	qboolean bAlreadyFound = qfalse;
 	mdxm = (mdxmHeader_t*)CModelCache->Allocate(size, buffer, mod_name, &bAlreadyFound, TAG_MODEL_GLM);
-	mod->data.glm = (mdxmData_t *)ri.Hunk_Alloc (sizeof (mdxmData_t), h_low);
+	mod->data.glm = (mdxmData_t *)Hunk_Alloc(sizeof (mdxmData_t), h_low);
 	mod->data.glm->header = mdxm;
 
 	assert(bAlreadyCached == bAlreadyFound);

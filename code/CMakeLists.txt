@@ -34,6 +34,11 @@ if(BuildSPRend2 )
 	add_subdirectory("${SPDir}/rd-rend2")
 endif(BuildSPRend2)
 
+#	Add Vulkan JKA Renderer Project
+if(BuildSPVulkan)
+	add_subdirectory("${SPDir}/rd-vulkan")
+endif(BuildSPVulkan)
+
 #    Add Engine Project
 if(BuildSPEngine)
 	# Libraries

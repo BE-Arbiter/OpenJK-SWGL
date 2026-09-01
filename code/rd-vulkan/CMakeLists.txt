@@ -23,25 +23,25 @@ endif(NOT InOpenJK)
 
 # Check for dependencies first
 
-set(MPVulkanRendererIncludeDirectories ${MPDir})
-set(MPVulkanRendererIncludeDirectories
-	${MPVulkanRendererIncludeDirectories}
+set(SPVulkanRendererIncludeDirectories ${SPDir})
+set(SPVulkanRendererIncludeDirectories
+	${SPVulkanRendererIncludeDirectories}
 	${SharedDir}
-	${MPDir}
-	"${MPDir}/rd-vulkan"
+	${SPDir}
+	"${SPDir}/rd-vulkan"
 	"${SharedDir}/rd-vulkan"
 	"${SharedDir}/rd-vulkan/vulkan"
 	"${GSLIncludeDirectory}"
 	)
 
-set(MPVulkanRendererFiles
-	"${MPDir}/rd-vulkan/G2_API.cpp"
-	"${MPDir}/rd-vulkan/G2_bolts.cpp"
-	"${MPDir}/rd-vulkan/G2_bones.cpp"
+set(SPVulkanRendererFiles
+	"${SPDir}/rd-vulkan/G2_API.cpp"
+	"${SPDir}/rd-vulkan/G2_bolts.cpp"
+	"${SPDir}/rd-vulkan/G2_bones.cpp"
 	"${SharedDir}/rd-vulkan/G2_gore_r2.cpp"
 	"${SharedDir}/rd-vulkan/G2_gore_r2.h"
-	"${MPDir}/rd-vulkan/G2_misc.cpp"
-	"${MPDir}/rd-vulkan/G2_surfaces.cpp"
+	"${SPDir}/rd-vulkan/G2_misc.cpp"
+	"${SPDir}/rd-vulkan/G2_surfaces.cpp"
 	"${SharedDir}/rd-vulkan/tr_backend.cpp"
 	"${SharedDir}/rd-vulkan/tr_bsp.cpp"
 	"${SharedDir}/rd-vulkan/tr_cache.h"
@@ -51,7 +51,7 @@ set(MPVulkanRendererFiles
 	"${SharedDir}/rd-vulkan/tr_decals.cpp"
 	"${SharedDir}/rd-vulkan/tr_ghoul2.cpp"
 	"${SharedDir}/rd-vulkan/tr_image.cpp"
-	"${MPDir}/rd-vulkan/tr_init.cpp"
+	"${SPDir}/rd-vulkan/tr_init.cpp"
 	"${SharedDir}/rd-vulkan/tr_light.cpp"
 	"${SharedDir}/rd-vulkan/tr_local.h"
 	"${SharedDir}/rd-vulkan/tr_main.cpp"
@@ -93,42 +93,40 @@ set(MPVulkanRendererFiles
 	"${SharedDir}/rd-vulkan/vk_vbo.cpp"
 	"${SharedDir}/rd-vulkan/vk_vbo_surfacesprites.cpp"
 	)
-source_group("renderer" FILES ${MPVulkanRendererFiles})
+source_group("renderer" FILES ${SPVulkanRendererFiles})
 
-set(MPVulkanRendererGhoul2Files
-	"${MPDir}/ghoul2/g2_local.h"
-	"${MPDir}/ghoul2/ghoul2_shared.h"
-	"${MPDir}/ghoul2/G2_gore.cpp"
-	"${MPDir}/ghoul2/G2_gore.h")
-source_group("ghoul2" FILES ${MPVulkanRendererGhoul2Files})
-set(MPVulkanRendererFiles ${MPVulkanRendererFiles} ${MPVulkanRendererGhoul2Files})
+set(SPVulkanRendererGhoul2Files
+	"${SPDir}/ghoul2/G2.h"
+	"${SPDir}/ghoul2/ghoul2_gore.h")
+source_group("ghoul2" FILES ${SPVulkanRendererGhoul2Files})
+set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererGhoul2Files})
 
-set(MPVulkanRendererRdCommonFiles
-	"${MPDir}/rd-common/mdx_format.h"
-	"${MPDir}/rd-common/tr_common.h"
-	"${MPDir}/rd-common/tr_font.cpp"
-	"${MPDir}/rd-common/tr_font.h"
-	"${MPDir}/rd-common/tr_image_load.cpp"
-	"${MPDir}/rd-common/tr_image_jpg.cpp"
-	"${MPDir}/rd-common/tr_image_tga.cpp"
-	"${MPDir}/rd-common/tr_image_png.cpp"
-	"${MPDir}/rd-common/tr_noise.cpp"
-	"${MPDir}/rd-common/tr_public.h"
-	"${MPDir}/rd-common/tr_types.h")
-source_group("rd-common" FILES ${MPVulkanRendererRdCommonFiles})
-set(MPVulkanRendererFiles ${MPVulkanRendererFiles} ${MPVulkanRendererRdCommonFiles})
+set(SPVulkanRendererRdCommonFiles
+	"${SPDir}/rd-common/mdx_format.h"
+	"${SPDir}/rd-common/tr_common.h"
+	"${SPDir}/rd-common/tr_font.cpp"
+	"${SPDir}/rd-common/tr_font.h"
+	"${SPDir}/rd-common/tr_image_load.cpp"
+	"${SPDir}/rd-common/tr_image_jpg.cpp"
+	"${SPDir}/rd-common/tr_image_tga.cpp"
+	"${SPDir}/rd-common/tr_image_png.cpp"
+	"${SPDir}/rd-common/tr_noise.cpp"
+	"${SPDir}/rd-common/tr_public.h"
+	"${SPDir}/rd-common/tr_types.h")
+source_group("rd-common" FILES ${SPVulkanRendererRdCommonFiles})
+set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererRdCommonFiles})
 
-set(MPVulkanRendererVulkanAssets
+set(SPVulkanRendererVulkanAssets
 	"${SharedDir}/rd-vulkan/vulkan/vk_platform.h"
 	"${SharedDir}/rd-vulkan/vulkan/vulkan.h"
 	"${SharedDir}/rd-vulkan/vulkan/vulkan_core.h"
 	"${SharedDir}/rd-vulkan/vulkan/vulkan_win32.h"
 	"${SharedDir}/rd-vulkan/vulkan/vulkan_xlib.h"
 	"${SharedDir}/rd-vulkan/vulkan/vulkan_xlib_xrandr.h")
-source_group("renderer\\vulkan" FILES ${MPVulkanRendererVulkanAssets})
-set(MPVulkanRendererFiles ${MPVulkanRendererFiles} ${MPVulkanRendererVulkanAssets})
+source_group("renderer\\vulkan" FILES ${SPVulkanRendererVulkanAssets})
+set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererVulkanAssets})
 
-set(MPVulkanRendererVulkanVideoAssets
+set(SPVulkanRendererVulkanVideoAssets
     "${SharedDir}/rd-vulkan/vulkan/vk_video/vulkan_video_codecs_common.h"
     "${SharedDir}/rd-vulkan/vulkan/vk_video/vulkan_video_codec_av1std.h"
     "${SharedDir}/rd-vulkan/vulkan/vk_video/vulkan_video_codec_av1std_decode.h"
@@ -142,81 +140,82 @@ set(MPVulkanRendererVulkanVideoAssets
     "${SharedDir}/rd-vulkan/vulkan/vk_video/vulkan_video_codec_vp9std.h"
     "${SharedDir}/rd-vulkan/vulkan/vk_video/vulkan_video_codec_vp9std_decode.h"
 )
-source_group("renderer\\vulkan\\vk_video" FILES ${MPVulkanRendererVulkanVideoAssets})
-set(MPVulkanRendererFiles ${MPVulkanRendererFiles} ${MPVulkanRendererVulkanVideoAssets})
+source_group("renderer\\vulkan\\vk_video" FILES ${SPVulkanRendererVulkanVideoAssets})
+set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererVulkanVideoAssets})
 
-set(MPVulkanRendererUtils
+set(SPVulkanRendererUtils
 	"${SharedDir}/rd-vulkan/utils/stb_dxt.h")
-source_group("renderer\\utils" FILES ${MPVulkanRendererUtils})
-set(MPVulkanRendererFiles ${MPVulkanRendererFiles} ${MPVulkanRendererUtils})
+source_group("renderer\\utils" FILES ${SPVulkanRendererUtils})
+set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererUtils})
 
-set(MPVulkanRendererCommonFiles
-	"${MPDir}/qcommon/matcomp.cpp"
-	"${MPDir}/qcommon/q_shared.cpp"
-	
+set(SPVulkanRendererCommonFiles
+	"${SPDir}/qcommon/matcomp.cpp"
+	"${SPDir}/qcommon/q_shared.cpp"
+
 	${SharedCommonFiles})
-source_group("common" FILES ${MPVulkanRendererCommonFiles})
-set(MPVulkanRendererFiles ${MPVulkanRendererFiles} ${MPVulkanRendererCommonFiles})
+source_group("common" FILES ${SPVulkanRendererCommonFiles})
+set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererCommonFiles})
 
-set(MPVulkanRendererCommonSafeFiles
+set(SPVulkanRendererCommonSafeFiles
 	${SharedCommonSafeFiles}
 	)
-source_group("common/safe" FILES ${MPVulkanRendererCommonSafeFiles})
-set(MPVulkanRendererFiles ${MPVulkanRendererFiles} ${MPVulkanRendererCommonSafeFiles})
+source_group("common/safe" FILES ${SPVulkanRendererCommonSafeFiles})
+set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererCommonSafeFiles})
 
 # Transparently use either bundled or system libjpeg.
-list(APPEND MPVulkanRendererIncludeDirectories ${JPEG_INCLUDE_DIR})
-list(APPEND MPVulkanRendererLibraries          ${JPEG_LIBRARIES})
+list(APPEND SPVulkanRendererIncludeDirectories ${JPEG_INCLUDE_DIR})
+list(APPEND SPVulkanRendererLibraries          ${JPEG_LIBRARIES})
 
 # Transparently use either bundled or system libpng.  Order is important --
 # libpng used zlib, so it must come before it on the linker command line.
-list(APPEND MPVulkanRendererIncludeDirectories ${PNG_INCLUDE_DIRS})
-list(APPEND MPVulkanRendererLibraries          ${PNG_LIBRARIES})
+list(APPEND SPVulkanRendererIncludeDirectories ${PNG_INCLUDE_DIRS})
+list(APPEND SPVulkanRendererLibraries          ${PNG_LIBRARIES})
 
 # Transparently use either bundled or system zlib.
-list(APPEND MPVulkanRendererIncludeDirectories ${ZLIB_INCLUDE_DIR})
-list(APPEND MPVulkanRendererLibraries          ${ZLIB_LIBRARIES})
+list(APPEND SPVulkanRendererIncludeDirectories ${ZLIB_INCLUDE_DIR})
+list(APPEND SPVulkanRendererLibraries          ${ZLIB_LIBRARIES})
 
 # Transparently use our bundled minizip.
-list(APPEND MPVulkanRendererIncludeDirectories ${MINIZIP_INCLUDE_DIRS})
-list(APPEND MPVulkanRendererLibraries          ${MINIZIP_LIBRARIES})
+list(APPEND SPVulkanRendererIncludeDirectories ${MINIZIP_INCLUDE_DIRS})
+list(APPEND SPVulkanRendererLibraries          ${MINIZIP_LIBRARIES})
 
 #find_package(OpenGL REQUIRED)
-#set(MPVulkanRendererIncludeDirectories ${MPVulkanRendererIncludeDirectories} ${OPENGL_INCLUDE_DIR})
-#set(MPVulkanRendererLibraries ${MPVulkanRendererLibraries} ${OPENGL_LIBRARIES})
+#set(SPVulkanRendererIncludeDirectories ${SPVulkanRendererIncludeDirectories} ${OPENGL_INCLUDE_DIR})
+#set(SPVulkanRendererLibraries ${SPVulkanRendererLibraries} ${OPENGL_LIBRARIES})
 
-set(MPVulkanRendererIncludeDirectories ${MPVulkanRendererIncludeDirectories} ${OpenJKLibDir})
-add_library(${MPVulkan} SHARED ${MPVulkanRendererFiles})
+set(SPVulkanRendererIncludeDirectories ${SPVulkanRendererIncludeDirectories} ${OpenJKLibDir})
+add_library(${SPVulkan} SHARED ${SPVulkanRendererFiles})
 
 if(NOT MSVC)
 	# remove "lib" prefix for .so/.dylib files
-	set_target_properties(${MPVulkan} PROPERTIES PREFIX "")
+	set_target_properties(${SPVulkan} PROPERTIES PREFIX "")
 endif()
 
 if(WIN32)
-	install(TARGETS ${MPVulkan}
+	install(TARGETS ${SPVulkan}
 		RUNTIME
 		DESTINATION ${JKAInstallDir}
-		COMPONENT ${JKAMPClientComponent})
+		COMPONENT ${JKASPClientComponent})
 else(WIN32)
-	if(MakeApplicationBundles AND BuildMPEngine)
-		install(TARGETS ${MPVulkan}
+	if(MakeApplicationBundles AND BuildSPEngine)
+		install(TARGETS ${SPVulkan}
 			LIBRARY
-			DESTINATION "${JKAInstallDir}/${MPEngine}.app/Contents/MacOS/"
-			COMPONENT ${JKAMPClientComponent})
+			DESTINATION "${JKAInstallDir}/${SPEngine}.app/Contents/MacOS/"
+			COMPONENT ${JKASPClientComponent})
 	else()
-		install(TARGETS ${MPVulkan}
+		install(TARGETS ${SPVulkan}
 			LIBRARY
 			DESTINATION ${JKAInstallDir}
-			COMPONENT ${JKAMPClientComponent})
+			COMPONENT ${JKASPClientComponent})
 	endif()
 endif()
 
-set_target_properties(${MPVulkan} PROPERTIES COMPILE_DEFINITIONS "${SharedDefines}")
+set(SPVulkanDefines ${SharedDefines} "RENDERER")
+set_target_properties(${SPVulkan} PROPERTIES COMPILE_DEFINITIONS "${SPVulkanDefines}")
 
 # Hide symbols not explicitly marked public.
-set_property(TARGET ${MPVulkan} APPEND PROPERTY COMPILE_OPTIONS ${OPENJK_VISIBILITY_FLAGS})
+set_property(TARGET ${SPVulkan} APPEND PROPERTY COMPILE_OPTIONS ${OPENJK_VISIBILITY_FLAGS})
 
-set_target_properties(${MPVulkan} PROPERTIES INCLUDE_DIRECTORIES "${MPVulkanRendererIncludeDirectories}")
-set_target_properties(${MPVulkan} PROPERTIES PROJECT_LABEL "MP Vulkan Renderer")
-target_link_libraries(${MPVulkan} ${MPVulkanRendererLibraries})
+set_target_properties(${SPVulkan} PROPERTIES INCLUDE_DIRECTORIES "${SPVulkanRendererIncludeDirectories}")
+set_target_properties(${SPVulkan} PROPERTIES PROJECT_LABEL "SP Vulkan Renderer")
+target_link_libraries(${SPVulkan} ${SPVulkanRendererLibraries})

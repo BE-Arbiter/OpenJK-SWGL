@@ -24,7 +24,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // tr_main.c -- main control flow for each frame
 
 #include "tr_local.h"
+#ifndef RENDERER
 #include "ghoul2/g2_local.h"
+#endif
 
 trGlobals_t		tr;
 
