@@ -252,6 +252,8 @@ cvar_t	*r_Ghoul2BlendMultiplier=0;
 // code/rd-common/tr_font.cpp (shared across all SP renderers) references
 // this as extern -- must be defined by whichever renderer DLL links it in.
 cvar_t	*com_buildScript;
+// Used by R_LoadMDXM (tr_ghoul2.cpp) to precache the per-map cinematic .gla, matching rd-vanilla.
+cvar_t	*sv_mapname;
 #endif
 
 cvar_t	*broadsword=0;
@@ -1003,6 +1005,7 @@ Ghoul2 Insert Start
 #ifdef RENDERER
 	r_Ghoul2BlendMultiplier				= Cvar_Get( "r_ghoul2blendmultiplier",			"1",						CVAR_NONE, "" );
 	com_buildScript						= ri.Cvar_Get( "com_buildScript",				"0",						0 );
+	sv_mapname							= ri.Cvar_Get( "mapname",						"nomap",					CVAR_SERVERINFO | CVAR_ROM );
 #endif
 	broadsword							= Cvar_Get( "broadsword",						"0",						CVAR_ARCHIVE_ND, "" );
 	broadsword_kickbones				= Cvar_Get( "broadsword_kickbones",				"1",						CVAR_NONE, "" );

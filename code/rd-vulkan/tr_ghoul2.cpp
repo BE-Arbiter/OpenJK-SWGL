@@ -4524,6 +4524,7 @@ Bone  52:   "face_always_":
 */
 
 
+extern cvar_t *sv_mapname;
 qboolean R_LoadMDXM( model_t *mod, void *buffer, const char *mod_name, qboolean &bAlreadyCached ) {
 	int					i,l, j;
 	mdxmHeader_t		*pinmodel, *mdxm;
@@ -4596,6 +4597,36 @@ qboolean R_LoadMDXM( model_t *mod, void *buffer, const char *mod_name, qboolean 
 
 	// first up, go load in the animation file we need that has the skeletal animation info for this model
 	mdxm->animIndex = RE_RegisterModel(va ("%s.gla",mdxm->animName));
+
+	// Also precache the per-map cinematic .gla right here so it's always adjacent to the base
+	// .gla in tr.models[] (matches rd-vanilla; missing this let unrelated later registrations
+	// -- e.g. a menu model -- steal the slot R_GetAnimModelByHandle assumes is the cinematic gla).
+	{
+		char	animGLAName[MAX_QPATH];
+		char	*strippedName;
+		char	*slash = NULL;
+		const char*mapname = sv_mapname->string;
+
+		if (strcmp(mapname,"nomap") )
+		{
+			if (strrchr(mapname,'/') )	//maps in subfolders use the root name, ( presuming only one level deep!)
+			{
+				mapname = strrchr(mapname,'/')+1;
+			}
+			//stripped name of GLA for this model
+			Q_strncpyz(animGLAName, mdxm->animName, sizeof(animGLAName));
+			slash = strrchr(animGLAName, '/');
+			if (slash)
+			{
+				*slash = 0;
+			}
+			strippedName = COM_SkipPath(animGLAName);
+			if (VALIDSTRING(strippedName))
+			{
+				RE_RegisterModel(va("models/players/%s_%s/%s_%s.gla", strippedName, mapname, strippedName, mapname));
+			}
+		}
+	}
 
 	if (!mdxm->animIndex)
 	{

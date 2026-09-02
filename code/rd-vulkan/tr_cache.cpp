@@ -226,6 +226,10 @@ qhandle_t CModelCacheManager::GetModelHandle( const char *fileName )
 	if( it == std::end(assets) )
 		return -1; // asset not found
 
+	// Cache isn't cleared on map load unlike tr.models[]; validate like rd-vanilla's mhHashTable does.
+	if ( it->handle < 1 || it->handle >= tr.numModels || tr.models[it->handle]->type == MOD_BAD )
+		return -1;
+
 	return it->handle;
 }
 
