@@ -488,12 +488,14 @@ qboolean G2_Set_Bone_Angles_Index(
 		}
 	}
 
+#ifndef RENDERER
 	if (flags & (BONE_ANGLES_PREMULT | BONE_ANGLES_POSTMULT))
 	{
 		// you CANNOT call this with an index with these kinds of bone overrides - we need the model details for these kinds of bone angle overrides
 		assert(0);
 		return qfalse;
 	}
+#endif
 
 	// yes, so set the angles and flags correctly
 	blist[index].flags &= ~(BONE_ANGLES_TOTAL);
@@ -504,7 +506,14 @@ qboolean G2_Set_Bone_Angles_Index(
 	Com_OPrintf("PCJ %2d %6d   (%6.2f,%6.2f,%6.2f) %d %d %d %d\n",index,currentTime,angles[0],angles[1],angles[2],yaw,pitch,roll,flags);
 #endif
 
+#ifdef RENDERER
+	// unlike MP, RENDERER's Index API has ghlInfo, so it CAN provide the
+	// model details PREMULT/POSTMULT needs -- matches rend2's own
+	// G2_Set_Bone_Angles_Index, which passes ghlInfo->animModel here too.
+	G2_Generate_Matrix((model_t *)ghlInfo->animModel, blist, index, angles, flags, yaw, pitch, roll);
+#else
 	G2_Generate_Matrix(NULL, blist, index, angles, flags, yaw, pitch, roll);
+#endif
 	return qtrue;
 
 }

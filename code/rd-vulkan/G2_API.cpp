@@ -719,8 +719,11 @@ void G2API_CleanGhoul2Models(CGhoul2Info_v &ghoul2)
 qboolean G2_ShouldRegisterServer(void)
 {
 #ifdef RENDERER
-	// SP has no client/server VM split for the renderer (no RegisterServerModel
-	// / RegisterServerSkin in refexport_t either) -- never a "server" registration.
+	// Unreachable: every RENDERER call site now goes straight to
+	// RE_RegisterModel (matching code/rd-vanilla and code/rd-rend2, neither
+	// of which has a server/client registration split at all -- see the
+	// note in G2_TestModelPointers). Kept only because this function is
+	// still referenced from the #else (MP) branch below.
 	return qfalse;
 #else
 	vm_t *currentVM = ri.GetCurrentVM();
@@ -741,10 +744,16 @@ qboolean G2_ShouldRegisterServer(void)
 
 qhandle_t G2API_PrecacheGhoul2Model( const char *fileName )
 {
+#ifdef RENDERER
+	// matches code/rd-rend2's G2API_PrecacheGhoul2Model exactly -- no
+	// server/client branch on SP, see the note in G2_TestModelPointers.
+	return RE_RegisterModel( fileName );
+#else
 	if ( G2_ShouldRegisterServer() )
 		return RE_RegisterServerModel( fileName );
 	else
 		return RE_RegisterModel( fileName );
+#endif
 }
 
 // initialise all that needs to be on a new Ghoul II model
@@ -2747,6 +2756,14 @@ qboolean G2_TestModelPointers(CGhoul2Info *ghlInfo) // returns true if the model
 	ghlInfo->mValid=false;
 	if (ghlInfo->mModelindex != -1)
 	{
+#ifdef RENDERER
+		// Neither code/rd-vanilla nor code/rd-rend2's G2_TestModelPointers
+		// branch on a server/client registration path at all -- that split
+		// only exists for MP's dedicated server (no renderer present).  SP's
+		// renderer is always loaded, so always do the real registration,
+		// matching both reference SP renderers exactly.
+		ghlInfo->mModel = RE_RegisterModel(ghlInfo->mFileName);
+#else
 		if (ri.Cvar_VariableIntegerValue( "dedicated" ) ||
 			(G2_ShouldRegisterServer())) //supreme hackery!
 		{
@@ -2756,6 +2773,7 @@ qboolean G2_TestModelPointers(CGhoul2Info *ghlInfo) // returns true if the model
 		{
 			ghlInfo->mModel = RE_RegisterModel(ghlInfo->mFileName);
 		}
+#endif
 		ghlInfo->currentModel = R_GetModelByHandle(ghlInfo->mModel);
 		if (ghlInfo->currentModel)
 		{
@@ -2840,6 +2858,11 @@ qboolean G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the mode
 		// RJ - experimental optimization!
 		if (!ghlInfo->mModel || 1)
 		{
+#ifdef RENDERER
+			// see the note in G2_TestModelPointers -- no server/client
+			// branch on SP, matches code/rd-rend2 exactly.
+			ghlInfo->mModel = RE_RegisterModel(ghlInfo->mFileName);
+#else
 			if (ri.Cvar_VariableIntegerValue( "dedicated" ) ||
 				(G2_ShouldRegisterServer())) //supreme hackery!
 			{
@@ -2849,6 +2872,7 @@ qboolean G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the mode
 			{
 				ghlInfo->mModel = RE_RegisterModel(ghlInfo->mFileName);
 			}
+#endif
 			ghlInfo->currentModel = R_GetModelByHandle(ghlInfo->mModel);
 		}
 

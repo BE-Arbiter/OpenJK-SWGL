@@ -247,6 +247,12 @@ void RE_AddRefEntityToScene( const refEntity_t *ent ) {
 	backEndData->entities[r_numentities].e = *ent;
 	backEndData->entities[r_numentities].lightingCalculated = qfalse;
 
+#ifndef RENDERER
+	// SP's ghoul2 instances can legitimately reach this point valid-but-
+	// empty (mItem allocated, zero models) -- e.g. movers with no G2 model
+	// -- so ghoul2[0] would trip CGhoul2Info_v::operator[]'s assert. MP's
+	// entities are never empty here, so this stays MP-only, matching
+	// shared/rd-rend2/tr_scene.cpp, which has no such check at all.
 	if (ent->ghoul2)
 	{
 		CGhoul2Info_v	&ghoul2 = *((CGhoul2Info_v *)ent->ghoul2);
@@ -256,6 +262,7 @@ void RE_AddRefEntityToScene( const refEntity_t *ent ) {
 			ri.Printf( PRINT_ALL, "Your ghoul2 instance has no model!\n");
 		}
 	}
+#endif
 
 	r_numentities++;
 }
