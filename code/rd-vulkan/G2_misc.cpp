@@ -373,7 +373,7 @@ qboolean G2_GetAnimFileName(const char *fileName, char **filename)
 	// find the model we want
 	model_t				*mod = R_GetModelByHandle(RE_RegisterModel(fileName));
 
-	if (mod && mod->data.glm->header && (mod->data.glm->header->animName[0] != 0))
+	if (mod && mod->data.glm && mod->data.glm->header && (mod->data.glm->header->animName[0] != 0))
 	{
 		*filename = mod->data.glm->header->animName;
 		return qtrue;

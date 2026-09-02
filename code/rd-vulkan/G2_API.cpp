@@ -1851,8 +1851,8 @@ void G2API_SetGhoul2ModelIndexes(CGhoul2Info_v &ghoul2, qhandle_t *modelList, qh
 char *G2API_GetAnimFileNameIndex(qhandle_t modelIndex)
 {
 	model_t		*mod_m = R_GetModelByHandle(modelIndex);
-	G2ERROR(mod_m&&mod_m->data.glm->header,"Bad Model");
-	if (mod_m&&mod_m->data.glm->header)
+	G2ERROR(mod_m&&mod_m->data.glm&&mod_m->data.glm->header,"Bad Model");
+	if (mod_m&&mod_m->data.glm&&mod_m->data.glm->header)
 	{
 		return mod_m->data.glm->header->animName;
 	}
@@ -2237,7 +2237,7 @@ bool G2_TestModelPointers(CGhoul2Info *ghlInfo) // returns true if the model is 
 		ghlInfo->currentModel = R_GetModelByHandle(ghlInfo->mModel);
 		if (ghlInfo->currentModel)
 		{
-			if (ghlInfo->currentModel->data.glm->header)
+			if (ghlInfo->currentModel->data.glm && ghlInfo->currentModel->data.glm->header)
 			{
 				if (ghlInfo->currentModelSize)
 				{
@@ -2298,8 +2298,8 @@ qboolean G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the mode
 		G2ERROR(ghlInfo->currentModel,va("NULL Model (glm) %s",ghlInfo->mFileName));
 		if (ghlInfo->currentModel)
 		{
-			G2ERROR(ghlInfo->currentModel->data.glm->header,va("Model has no mdxm (glm) %s",ghlInfo->mFileName));
-			if (ghlInfo->currentModel->data.glm->header)
+			G2ERROR(ghlInfo->currentModel->data.glm&&ghlInfo->currentModel->data.glm->header,va("Model has no mdxm (glm) %s",ghlInfo->mFileName));
+			if (ghlInfo->currentModel->data.glm&&ghlInfo->currentModel->data.glm->header)
 			{
 				if (ghlInfo->currentModelSize)
 				{

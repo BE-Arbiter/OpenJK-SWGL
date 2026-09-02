@@ -26,6 +26,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "tr_local.h"
 
 #include <algorithm>
+#include <map>
+#include <string>
 #include "../rd-common/tr_common.h"
 #include "tr_WorldEffects.h"
 #include "qcommon/MiniHeap.h"
@@ -1370,8 +1372,49 @@ static bool stub_SetTempGlobalFogColor( vec3_t color ) { return false; }
 
 static void stub_R_ClearStuffToStopGhoul2CrashingThings( void ) {}
 
-// Save-game / UI-only features with no vulkan-side implementation.
-static int stub_GetAnimationCFG( const char *psCFGFilename, char *psDest, int iDestSize ) { return 0; }
+// Ported from code/rd-vanilla/tr_skin.cpp's RE_GetAnimationCFG -- reads and
+// caches models/players/<x>/animation.cfg. code/game/NPC_stats.cpp's
+// G_ParseAnimationFile() depends on this to populate animation frame data;
+// previously stubbed to always return 0, which silently made every
+// animation register with numFrames==0 (T-pose, no bone anim ever applied).
+static std::map<std::string, char *> s_animationCFGs;
+static int RE_GetAnimationCFG( const char *psCFGFilename, char *psDest, int iDestSize )
+{
+	char *psText = NULL;
+
+	std::map<std::string, char *>::iterator it = s_animationCFGs.find( psCFGFilename );
+	if ( it != s_animationCFGs.end() )
+	{
+		psText = it->second;
+	}
+	else
+	{
+		fileHandle_t f;
+		long iLen = ri.FS_FOpenFileRead( psCFGFilename, &f, qfalse );
+		if ( iLen <= 0 )
+		{
+			return 0;
+		}
+
+		psText = (char *)ri.Z_Malloc( iLen + 1, TAG_GHOUL2, qfalse, 4 );
+		ri.FS_Read( psText, iLen, f );
+		psText[iLen] = '\0';
+		ri.FS_FCloseFile( f );
+
+		s_animationCFGs[psCFGFilename] = psText;
+	}
+
+	if ( psText )
+	{
+		if ( psDest )
+		{
+			Q_strncpyz( psDest, psText, iDestSize );
+		}
+		return (int)strlen( psText );
+	}
+
+	return 0;
+}
 static void stub_R_LoadImage( const char *name, byte **pic, int *width, int *height ) { *pic = NULL; *width = 0; *height = 0; }
 static qboolean stub_GetLighting( const vec3_t org, vec3_t ambientLight, vec3_t directedLight, vec3_t lightDir ) { return qfalse; }
 static void stub_LAGoggles( void ) {}
@@ -1425,7 +1468,7 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.BeginRegistration					= RE_BeginRegistration;
 	re.RegisterModel						= RE_RegisterModel;
 	re.RegisterSkin							= RE_RegisterSkin;
-	re.GetAnimationCFG						= stub_GetAnimationCFG;
+	re.GetAnimationCFG						= RE_GetAnimationCFG;
 	re.RegisterShader						= RE_RegisterShader;
 	re.RegisterShaderNoMip					= RE_RegisterShaderNoMip;
 	re.LoadWorld							= RE_LoadWorldMap;

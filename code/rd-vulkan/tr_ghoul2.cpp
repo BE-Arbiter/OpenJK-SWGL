@@ -3488,6 +3488,20 @@ void R_AddGhoulSurfaces( trRefEntity_t *ent ) {
 			{
 				cust_shader = NULL;
 				// figure out the custom skin thing
+#ifdef RENDERER
+				// SP's ghoul2[i].mCustomSkin is a configstring index
+				// (G_SkinIndex/CS_CHARSKINS), NOT a render skin handle --
+				// CGAME already resolves it into ent->e.customSkin, which
+				// is the only one code/rd-vanilla's own version checks.
+				if (ent->e.customSkin)
+				{
+					skin = R_GetSkinByHandle(ent->e.customSkin );
+				}
+				else if ( ghoul2[i].mSkin > 0 && ghoul2[i].mSkin < tr.numSkins )
+				{
+					skin = R_GetSkinByHandle( ghoul2[i].mSkin );
+				}
+#else
 				if (ghoul2[i].mCustomSkin)
 				{
 					skin = R_GetSkinByHandle(ghoul2[i].mCustomSkin );
@@ -3500,6 +3514,7 @@ void R_AddGhoulSurfaces( trRefEntity_t *ent ) {
 				{
 					skin = R_GetSkinByHandle( ghoul2[i].mSkin );
 				}
+#endif
 			}
 
 			if (j&&ghoul2[i].mModelBoltLink != -1)
