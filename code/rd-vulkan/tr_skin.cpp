@@ -59,7 +59,10 @@ bool RE_SplitSkins(const char *INname, char *skinhead, char *skintorso, char *sk
 {	//INname= "models/players/jedi_tf/|head01_skin1|torso01|lower01";
 	if (strchr(INname, '|'))
 	{
-		char name[MAX_QPATH];
+		// MAX_CSPATH (128, not MAX_QPATH's 64) is q_shared.h's own documented
+		// size for this exact "models/players/%s/|%s|%s|%s" composite skin
+		// pathname -- matches code/rd-vanilla/tr_skin.cpp's RE_SplitSkins.
+		char name[MAX_CSPATH];
 		strcpy(name, INname);
 		char *p = strchr(name, '|');
 		*p=0;
