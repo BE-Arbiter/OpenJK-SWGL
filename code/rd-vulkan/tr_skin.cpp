@@ -186,13 +186,36 @@ qhandle_t RE_RegisterSkin( const char *name ) {
 	qhandle_t	hSkin;
 	skin_t		*skin;
 
+	if (!tr.numSkins)
+	{
+		R_InitSkins(); //make sure we have numSkins set to at least one.
+	}
+
 	if ( !name || !name[0] ) {
 		ri.Printf(PRINT_WARNING, "Empty name passed to RE_RegisterSkin\n" );
 		return 0;
 	}
 
-	if ( strlen( name ) >= MAX_QPATH ) {
-		ri.Printf(PRINT_WARNING, "Skin name exceeds MAX_QPATH\n" );
+	char skinhead[MAX_QPATH] = { 0 };
+	char skintorso[MAX_QPATH] = { 0 };
+	char skinlower[MAX_QPATH] = { 0 };
+
+	bool multiskin = RE_SplitSkins(name, (char*)&skinhead, (char*)&skintorso, (char*)&skinlower);
+
+	if ((!multiskin && strlen(name) >= MAX_QPATH)) {
+		ri.Printf(PRINT_WARNING, "WARNING : RE_REGISTERSkin Skin name (%s) exceeds MAX_QPATH\n", name);
+		return 0;
+	}
+	else if (multiskin && strlen(skinhead) >= MAX_QPATH) {
+		ri.Printf(PRINT_WARNING, "WARNING : RE_REGISTERSkin Skin name (%s) exceeds MAX_QPATH\n", skinhead);
+		return 0;
+	}
+	else if (multiskin && strlen(skinlower) >= MAX_QPATH) {
+		ri.Printf(PRINT_WARNING, "WARNING : RE_REGISTERSkin Skin name (%s) exceeds MAX_QPATH\n", skinlower);
+		return 0;
+	}
+	else if (multiskin && strlen(skintorso) >= MAX_QPATH) {
+		ri.Printf(PRINT_WARNING, "WARNING : RE_REGISTERSkin Skin name (%s) exceeds MAX_QPATH\n", skintorso);
 		return 0;
 	}
 
@@ -215,10 +238,10 @@ qhandle_t RE_RegisterSkin( const char *name ) {
 	tr.numSkins++;
 	skin = (struct skin_s *)Hunk_Alloc( sizeof( skin_t ), h_low );
 	tr.skins[hSkin] = skin;
-	Q_strncpyz( skin->name, name, sizeof( skin->name ) );
+	Q_strncpyz( skin->name, name, sizeof( skin->name ) );	//always make one so it won't search for it again
 	skin->numSurfaces = 0;
 
-	// If not a .skin file, load as a single shader
+	// If not a .skin file, load as a single shader	- then return
 	if ( strcmp( name + strlen( name ) - 5, ".skin" ) ) {
 /*		skin->numSurfaces = 1;
 		skin->surfaces[0] = (skinSurface_t *)Hunk_Alloc( sizeof(skin->surfaces[0]), h_low );
@@ -227,10 +250,7 @@ qhandle_t RE_RegisterSkin( const char *name ) {
 */
 	}
 
-	char skinhead[MAX_QPATH]={0};
-	char skintorso[MAX_QPATH]={0};
-	char skinlower[MAX_QPATH]={0};
-	if ( RE_SplitSkins(name, (char*)&skinhead, (char*)&skintorso, (char*)&skinlower ) )
+	if ( multiskin )
 	{//three part
 		hSkin = RE_RegisterIndividualSkin(skinhead, hSkin);
 		if (hSkin && strcmp(skinhead, skintorso))
@@ -240,7 +260,14 @@ qhandle_t RE_RegisterSkin( const char *name ) {
 
 		if (hSkin && strcmp(skinhead, skinlower) && strcmp(skintorso, skinlower))
 		{
-			hSkin = RE_RegisterIndividualSkin(skinlower, hSkin);
+			// Very ugly way of doing this, need to stop the game from registering the last listed "model_" skin in the menu as the lower skin can get cut off.
+			// If using a model_ skin, we'll register the head (which shouldn't be cut off). Otherwise, keep the original behavior for the custom skins.
+			char* skinPart;
+			skinPart = strrchr(skinlower, '/');
+			if (skinPart && !strncmp(skinPart, "/model_", 7))
+				hSkin = RE_RegisterIndividualSkin(skinhead, hSkin);
+			else
+				hSkin = RE_RegisterIndividualSkin(skinlower, hSkin);
 		}
 	}
 	else

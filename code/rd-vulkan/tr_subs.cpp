@@ -80,7 +80,14 @@ void QDECL Com_Error( int level, const char *error, ... )
 // SP's refimport_t has no hunk allocator exposed to the renderer -- route
 // through the zone allocator instead, matching code/rd-rend2's own path.
 void *Hunk_Alloc( int size, ha_pref preference ) {
-	return ri.Z_Malloc( size, TAG_HUNKALLOC, qtrue, 4 );
+	// Hunk_Clear() (code/qcommon/common.cpp) runs on every map load and
+	// bulk-frees everything tagged TAG_HUNKALLOC -- that's correct for
+	// h_high (temporary, per-level data) but h_low is meant to survive
+	// map transitions (e.g. tr_shader.cpp's persistent s_shaderText /
+	// shaderTextHashTable, built once at renderer init), so it needs a
+	// tag Hunk_Clear() never touches.
+	memtag_t tag = ( preference == h_low ) ? TAG_GENERAL : TAG_HUNKALLOC;
+	return ri.Z_Malloc( size, tag, qtrue, 4 );
 }
 
 void *Hunk_AllocateTempMemory( int size ) {

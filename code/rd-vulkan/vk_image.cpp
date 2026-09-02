@@ -124,6 +124,12 @@ void R_InitImagesPool( void )
     tr.images.count = 0;
 
     tr.images.items = (image_t**)Z_Malloc( sizeof(image_t*) * tr.images.capacity, TAG_IMAGE_T);
+
+    // R_DestroyImagesPool() (called every map change, see its own comment)
+    // frees every image_t this hash table points to but never clears the
+    // table itself -- without this, R_FindImageFile()'s hashTable[hash]
+    // walk on the next map dereferences freed image_t pointers.
+    Com_Memset( hashTable, 0, sizeof(hashTable) );
 }
 
 static void R_DestroyImagesPool( void )
@@ -139,6 +145,14 @@ static void R_DestroyImagesPool( void )
 	tr.images.items = NULL;
 	tr.images.count = 0;
 	tr.images.capacity = 0;
+
+	// R_InitImagesPool() only ever runs once, from R_Init() (guarded by
+	// cls.rendererStarted in code/client/cl_main.cpp -- it never re-runs).
+	// vk_delete_textures() -> here runs on every map change (RE_Shutdown
+	// comment: "reinitialized on a map change"), so without this the pool
+	// stays NULL/capacity 0 and the next R_AddImageToPool() crashes trying
+	// to Z_Free(NULL) on its "grow" path.
+	R_InitImagesPool();
 }
 
 static void R_AddImageToPool(image_t *image)
