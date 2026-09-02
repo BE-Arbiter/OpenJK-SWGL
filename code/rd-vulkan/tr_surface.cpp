@@ -1092,8 +1092,8 @@ static void DoBoltSeg( vec3_t start, vec3_t end, vec3_t right, float radius )
 
 		// create our level of deviation for this point
 		VectorScale( fwd, Q_crandom(&e->frame) * 3.0f, temp );				// move less in fwd direction, chaos also does not affect this
-		VectorMA( temp, Q_crandom(&e->frame) * 7.0f * e->axis[0][0], rt, temp );	// move more in direction perpendicular to line, angles is really the chaos
-		VectorMA( temp, Q_crandom(&e->frame) * 7.0f * e->axis[0][0], up, temp );	// move more in direction perpendicular to line
+		VectorMA( temp, Q_crandom(&e->frame) * 7.0f * e->angles[0], rt, temp );	// move more in direction perpendicular to line, angles is really the chaos
+		VectorMA( temp, Q_crandom(&e->frame) * 7.0f * e->angles[0], up, temp );	// move more in direction perpendicular to line
 
 		// track our total level of offset from the ideal line
 		VectorAdd( off, temp, off );
@@ -1163,7 +1163,7 @@ static void RB_SurfaceElectricity()
 	// see if we should grow from start to end
 	if ( e->renderfx & RF_GROW )
 	{
-		perc = 1.0f - ( e->axis[0][2]/*endTime*/ - tr.refdef.time ) / e->axis[0][1]/*duration*/;
+		perc = 1.0f - ( e->endTime - tr.refdef.time ) / e->angles[1]/*duration*/;
 
 		if ( perc > 1.0f )
 		{

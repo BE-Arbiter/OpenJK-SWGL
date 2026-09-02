@@ -12701,16 +12701,6 @@ void ForceLightning(gentity_t* self)
 	else
 	{
 		ForceLightningAnim(self);
-		/*
-		if ( ForceLightningCheck2Handed( self ) )
-		{//empty handed lightning 3
-			NPC_SetAnim( self, SETANIM_TORSO, BOTH_FORCE_2HANDEDLIGHTNING_START, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-		}
-		else
-		{//one-handed lightning 3
-			NPC_SetAnim( self, SETANIM_TORSO, BOTH_FORCELIGHTNING_START, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-		}
-		*/
 	}
 	self->client->ps.saberMove = self->client->ps.saberBounceMove = LS_READY;//don't finish whatever saber anim you may have been in
 	self->client->ps.saberBlocked = BLOCKED_NONE;

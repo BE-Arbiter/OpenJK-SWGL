@@ -2223,6 +2223,7 @@ void G2API_AddSkinGore(CGhoul2Info_v &ghoul2,SSkinGoreData &gore)
 }
 #endif
 
+extern model_t* R_GetAnimModelByHandle(CGhoul2Info* ghlInfo, qhandle_t index);
 bool G2_TestModelPointers(CGhoul2Info *ghlInfo) // returns true if the model is properly set up
 {
 	G2ERROR(ghlInfo,"NULL ghlInfo");
@@ -2247,7 +2248,10 @@ bool G2_TestModelPointers(CGhoul2Info *ghlInfo) // returns true if the model is 
 					}
 				}
 				ghlInfo->currentModelSize=ghlInfo->currentModel->data.glm->header->ofsEnd;
-				ghlInfo->animModel =  R_GetModelByHandle(ghlInfo->currentModel->data.glm->header->animIndex + ghlInfo->animModelIndexOffset);
+				// Use the smart (position-remapping) lookup, matching G2_SetupModelPointers -- the
+				// naive R_GetModelByHandle broke for altered-skeleton NPCs (animModelIndexOffset
+				// is a small "+1-style" flag, not a literal index delta; see R_GetAnimModelByHandle).
+				ghlInfo->animModel =  R_GetAnimModelByHandle(ghlInfo, ghlInfo->currentModel->data.glm->header->animIndex + ghlInfo->animModelIndexOffset);
 				if (ghlInfo->animModel)
 				{
 					ghlInfo->aHeader =ghlInfo->animModel->data.gla;
