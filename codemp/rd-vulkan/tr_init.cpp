@@ -1164,10 +1164,9 @@ void RE_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 
 		Com_Memset(&glState, 0, sizeof(glState));
 
-		if (destroyWindow && !restarting) {
-			ri.VK_destroyWindow();
-			Com_Memset(&glConfig, 0, sizeof(glConfig));
-		}
+		// Unconditional (matches rd-vanilla) to avoid a stale window on mid-session renderer switches.
+		ri.VK_destroyWindow();
+		Com_Memset(&glConfig, 0, sizeof(glConfig));
 	}
 
 	tr.registered = qfalse;

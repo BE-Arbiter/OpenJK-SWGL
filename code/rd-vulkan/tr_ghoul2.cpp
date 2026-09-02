@@ -1539,15 +1539,15 @@ void G2_RagGetAnimMatrix(CGhoul2Info &ghoul2, const int boneNum, mdxaBone_t &mat
 void G2_TransformBone (int child,CBoneCache &BC)
 {
 	SBoneCalc &TB=BC.mBones[child];
-	static mdxaBone_t		tbone[6];
+	mdxaBone_t		tbone[6];
 // 	mdxaFrame_t		*aFrame=0;
 //	mdxaFrame_t		*bFrame=0;
 //	mdxaFrame_t		*aoldFrame=0;
 //	mdxaFrame_t		*boldFrame=0;
-	static mdxaSkel_t		*skel;
-	static mdxaSkelOffsets_t *offsets;
+	mdxaSkel_t		*skel;
+	mdxaSkelOffsets_t *offsets;
 	boneInfo_v		&boneList = *BC.rootBoneList;
-	static int				j, boneListIndex;
+	int				j, boneListIndex;
 	int				angleOverride = 0;
 
 #if DEBUG_G2_TIMING
