@@ -27,9 +27,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "../rd-common/tr_common.h"
 #include "tr_WorldEffects.h"
 #include "qcommon/MiniHeap.h"
-#ifndef RENDERER
-#include "ghoul2/g2_local.h"
-#endif
 
 int vkSamples = VK_SAMPLE_COUNT_1_BIT;
 int vkMaxSamples = VK_SAMPLE_COUNT_1_BIT;

@@ -31,9 +31,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "../rd-common/tr_common.h"
 #include "tr_WorldEffects.h"
 #include "qcommon/MiniHeap.h"
-#ifndef RENDERER
-#include "ghoul2/g2_local.h"
-#endif
 #include "tr_cache.h"
 
 glconfig_t	glConfig;
@@ -248,13 +245,11 @@ cvar_t	*r_Ghoul2UnSqashAfterSmooth=0;
 //cvar_t	*r_Ghoul2NoLerp;
 //cvar_t	*r_Ghoul2NoBlend;
 cvar_t	*r_Ghoul2BlendMultiplier=0;
-#ifdef RENDERER
 // code/rd-common/tr_font.cpp (shared across all SP renderers) references
 // this as extern -- must be defined by whichever renderer DLL links it in.
 cvar_t	*com_buildScript;
 // Used by R_LoadMDXM (tr_ghoul2.cpp) to precache the per-map cinematic .gla, matching rd-vanilla.
 cvar_t	*sv_mapname;
-#endif
 
 cvar_t	*broadsword=0;
 cvar_t	*broadsword_kickbones=0;
@@ -652,81 +647,11 @@ RB_TakeVideoFrameCmd
 */
 const void *RB_TakeVideoFrameCmd( const void *data )
 {
-#ifdef RENDERER
 	// SP has no video (AVI) capture pipeline -- refimport_t exposes neither
 	// CL_WriteAVIVideoFrame nor the 7-arg RE_SaveJPGToBuffer this needs, and
 	// rd-vanilla/rd-rend2 have no equivalent of this command at all.
 	const videoFrameCommand_t *cmd = (const videoFrameCommand_t*)data;
 	return (const void*)(cmd + 1);
-#else
-	const videoFrameCommand_t *cmd;
-	byte		*cBuf;
-	size_t		memcount, linelen;
-	int			padwidth, avipadwidth, padlen, avipadlen;
-	int			packAlign;
-
-	cmd = (const videoFrameCommand_t*)data;
-
-	packAlign = 1;
-
-	linelen = cmd->width * 3;
-
-	// Alignment stuff for glReadPixels
-	padwidth = PAD(linelen, packAlign);
-	padlen = padwidth - linelen;
-	// AVI line padding
-	avipadwidth = PAD(linelen, AVI_LINE_PADDING);
-	avipadlen = avipadwidth - linelen;
-
-	cBuf = (byte*)PADP(cmd->captureBuffer, packAlign);
-
-	vk_read_pixels(cBuf, cmd->width, cmd->height);
-
-	memcount = padwidth * cmd->height;
-
-	// gamma correct
-	if (glConfig.deviceSupportsGamma)
-		R_GammaCorrect(cBuf, memcount);
-
-	if (cmd->motionJpeg)
-	{
-		memcount = RE_SaveJPGToBuffer(cmd->encodeBuffer, linelen * cmd->height,
-			r_aviMotionJpegQuality->integer,
-			cmd->width, cmd->height, cBuf, padlen);
-		ri.CL_WriteAVIVideoFrame(cmd->encodeBuffer, memcount);
-	}
-	else
-	{
-		byte* lineend, * memend;
-		byte* srcptr, * destptr;
-
-		srcptr = cBuf;
-		destptr = cmd->encodeBuffer;
-		memend = srcptr + memcount;
-
-		// swap R and B and remove line paddings
-		while (srcptr < memend)
-		{
-			lineend = srcptr + linelen;
-			while (srcptr < lineend)
-			{
-				*destptr++ = srcptr[2];
-				*destptr++ = srcptr[1];
-				*destptr++ = srcptr[0];
-				srcptr += 3;
-			}
-
-			Com_Memset(destptr, '\0', avipadlen);
-			destptr += avipadlen;
-
-			srcptr += padlen;
-		}
-
-		ri.CL_WriteAVIVideoFrame(cmd->encodeBuffer, avipadwidth * cmd->height);
-	}
-
-	return (const void*)(cmd + 1);
-#endif
 }
 
 void R_RemapSkyShader_f ( void ) {
@@ -1002,11 +927,9 @@ Ghoul2 Insert Start
 	r_noServerGhoul2					= Cvar_Get( "r_noserverghoul2",					"0",						CVAR_CHEAT, "" );
 	r_Ghoul2AnimSmooth					= Cvar_Get( "r_ghoul2animsmooth",				"0.3",						CVAR_NONE, "" );
 	r_Ghoul2UnSqashAfterSmooth			= Cvar_Get( "r_ghoul2unsqashaftersmooth",		"1",						CVAR_NONE, "" );
-#ifdef RENDERER
 	r_Ghoul2BlendMultiplier				= Cvar_Get( "r_ghoul2blendmultiplier",			"1",						CVAR_NONE, "" );
 	com_buildScript						= ri.Cvar_Get( "com_buildScript",				"0",						0 );
 	sv_mapname							= ri.Cvar_Get( "mapname",						"nomap",					CVAR_SERVERINFO | CVAR_ROM );
-#endif
 	broadsword							= Cvar_Get( "broadsword",						"0",						CVAR_ARCHIVE_ND, "" );
 	broadsword_kickbones				= Cvar_Get( "broadsword_kickbones",				"1",						CVAR_NONE, "" );
 	broadsword_kickorigin				= Cvar_Get( "broadsword_kickorigin",				"1",						CVAR_NONE, "" );
@@ -1023,12 +946,10 @@ Ghoul2 Insert Start
 Ghoul2 Insert End
 */
 	r_modelpoolmegs = Cvar_Get("r_modelpoolmegs", "20", CVAR_ARCHIVE, "" );
-#ifdef RENDERER
-	if (ri.LowPhysicalMemory() )
-#else
-	if (ri.Sys_LowPhysicalMemory() )
-#endif
+	if (ri.LowPhysicalMemory())
+	{
 		ri.Cvar_Set("r_modelpoolmegs", "0");
+	}
 
 	r_aviMotionJpegQuality				= Cvar_Get( "r_aviMotionJpegQuality",			"100",						CVAR_ARCHIVE_ND, "" );
 	r_screenshotJpegQuality				= Cvar_Get( "r_screenshotJpegQuality",			"100",						CVAR_ARCHIVE_ND, "" );
@@ -1036,12 +957,10 @@ Ghoul2 Insert End
 	ri.Cvar_CheckRange( r_aviMotionJpegQuality, 10, 100, qtrue );
 	ri.Cvar_CheckRange( r_screenshotJpegQuality, 10, 100, qtrue );
 
-	for ( size_t i = 0; i < numCommands; i++ )
-#ifdef RENDERER
-		ri.Cmd_AddCommand( commands[i].cmd, commands[i].func );
-#else
-		ri.Cmd_AddCommand( commands[i].cmd, commands[i].func, "" );
-#endif
+	for (size_t i = 0; i < numCommands; i++)
+	{
+		ri.Cmd_AddCommand(commands[i].cmd, commands[i].func);
+	}
 }
 
 /*
@@ -1321,7 +1240,6 @@ void C_LevelLoadEnd( void )
 	ri.S_RestartMusic();
 }
 
-#ifdef RENDERER
 // ---------------------------------------------------------------------
 // SP-only GetRefAPI support: adapters for real vulkan functions whose
 // signature differs from what SP's refexport_t expects, and minimal
@@ -1435,7 +1353,6 @@ static void stub_GetModelBounds( refEntity_t *refEnt, vec3_t bounds1, vec3_t bou
 extern void G2Time_ResetTimers(void);
 extern void G2Time_ReportTimers(void);
 #endif
-#endif // RENDERER
 
 /*
 @@@@@@@@@@@@@@@@@@@@@
@@ -1459,7 +1376,6 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 
 	// the RE_ functions are Renderer Entry points
 
-#ifdef RENDERER
 	// SP's refexport_t is a different (smaller, differently-shaped) struct
 	// than MP's -- built field-by-field against code/rd-common/tr_public.h,
 	// using code/rd-rend2/tr_init.cpp's own GetRefAPI as the reference
@@ -1640,185 +1556,7 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.G2API_SetGhoul2ModelIndexes			= G2API_SetGhoul2ModelIndexes;
 
 	return &re;
-#else
 
-	re.Shutdown = RE_Shutdown;
-	re.BeginRegistration					= RE_BeginRegistration;
-	re.RegisterModel						= RE_RegisterModel;
-	re.RegisterServerModel					= RE_RegisterServerModel;
-	re.RegisterSkin							= RE_RegisterSkin;
-	re.RegisterServerSkin					= RE_RegisterServerSkin;
-	re.RegisterShader						= RE_RegisterShader;
-	re.RegisterShaderNoMip					= RE_RegisterShaderNoMip;
-	re.ShaderNameFromIndex					= RE_ShaderNameFromIndex;
-	re.LoadWorld							= RE_LoadWorldMap;
-	re.SetWorldVisData						= RE_SetWorldVisData;
-	re.EndRegistration						= RE_EndRegistration;
-	re.BeginFrame							= RE_BeginFrame;
-	re.EndFrame								= RE_EndFrame;
-	re.MarkFragments						= R_MarkFragments;
-	re.LerpTag								= R_LerpTag;
-	re.ModelBounds							= R_ModelBounds;
-	re.DrawRotatePic						= RE_RotatePic;
-	re.DrawRotatePic2						= RE_RotatePic2;
-	re.ClearScene							= RE_ClearScene;
-	re.ClearDecals							= RE_ClearDecals;
-	re.AddRefEntityToScene					= RE_AddRefEntityToScene;
-	re.AddMiniRefEntityToScene				= RE_AddMiniRefEntityToScene;
-	re.AddPolyToScene						= RE_AddPolyToScene;
-	re.AddDecalToScene						= RE_AddDecalToScene;
-	re.LightForPoint						= R_LightForPoint;
-	re.AddLightToScene						= RE_AddLightToScene;
-	re.AddAdditiveLightToScene				= RE_AddAdditiveLightToScene;
-
-	re.RenderScene							= RE_RenderScene;
-	re.SetColor								= RE_SetColor;
-	re.DrawStretchPic						= RE_StretchPic;
-	re.DrawStretchRaw						= RE_StretchRaw;
-	re.UploadCinematic						= RE_UploadCinematic;
-
-	re.RegisterFont							= RE_RegisterFont;
-	re.Font_StrLenPixels					= RE_Font_StrLenPixels;
-	re.Font_StrLenChars						= RE_Font_StrLenChars;
-	re.Font_HeightPixels					= RE_Font_HeightPixels;
-	re.Font_DrawString						= RE_Font_DrawString;
-	re.Language_IsAsian						= Language_IsAsian;
-	re.Language_UsesSpaces					= Language_UsesSpaces;
-	re.AnyLanguage_ReadCharFromString		= AnyLanguage_ReadCharFromString;
-
-	re.RemapShader							= R_RemapShader;
-	re.GetEntityToken						= R_GetEntityToken;
-	re.inPVS								= R_inPVS;
-	re.GetLightStyle						= RE_GetLightStyle;
-	re.SetLightStyle						= RE_SetLightStyle;
-	re.GetBModelVerts						= RE_GetBModelVerts;
-
-	// missing from 1.01
-	re.SetRangedFog							= SetRangedFog;
-	re.SetRefractionProperties				= SetRefractionProperties;
-	re.GetDistanceCull						= GetDistanceCull;
-	re.GetRealRes							= GetRealRes;
-	re.AutomapElevationAdjustment			= R_AutomapElevationAdjustment; //tr_world.cpp
-	re.InitializeWireframeAutomap			= R_InitializeWireframeAutomap; //tr_world.cpp
-	re.AddWeatherZone						= RE_AddWeatherZone;
-	re.WorldEffectCommand					= RE_WorldEffectCommand;
-	re.RegisterMedia_LevelLoadBegin			= C_LevelLoadBegin;
-	re.RegisterMedia_LevelLoadEnd			= C_LevelLoadEnd;
-	re.RegisterMedia_GetLevel				= C_GetLevel;
-	re.RegisterImages_LevelLoadEnd			= C_Images_LevelLoadEnd;
-	re.RegisterModels_LevelLoadEnd			= C_Models_LevelLoadEnd;
-
-	// AVI recording
-	re.TakeVideoFrame						= RE_TakeVideoFrame;
-
-	// G2 stuff
-	re.InitSkins							= R_InitSkins;
-	re.InitShaders							= R_InitShaders;
-	re.SVModelInit							= R_SVModelInit;
-	re.HunkClearCrap						= RE_HunkClearCrap;
-
-	// G2API
-	re.G2API_AddBolt						= G2API_AddBolt;
-	re.G2API_AddBoltSurfNum					= G2API_AddBoltSurfNum;
-	re.G2API_AddSurface						= G2API_AddSurface;
-	re.G2API_AnimateG2ModelsRag				= G2API_AnimateG2ModelsRag;
-	re.G2API_AttachEnt						= G2API_AttachEnt;
-	re.G2API_AttachG2Model					= G2API_AttachG2Model;
-	re.G2API_AttachInstanceToEntNum			= G2API_AttachInstanceToEntNum;
-	re.G2API_AbsurdSmoothing				= G2API_AbsurdSmoothing;
-	re.G2API_BoltMatrixReconstruction		= G2API_BoltMatrixReconstruction;
-	re.G2API_BoltMatrixSPMethod				= G2API_BoltMatrixSPMethod;
-	re.G2API_CleanEntAttachments			= G2API_CleanEntAttachments;
-	re.G2API_CleanGhoul2Models				= G2API_CleanGhoul2Models;
-	re.G2API_ClearAttachedInstance			= G2API_ClearAttachedInstance;
-	re.G2API_CollisionDetect				= G2API_CollisionDetect;
-	re.G2API_CollisionDetectCache			= G2API_CollisionDetectCache;
-	re.G2API_CopyGhoul2Instance				= G2API_CopyGhoul2Instance;
-	re.G2API_CopySpecificG2Model			= G2API_CopySpecificG2Model;
-	re.G2API_DetachG2Model					= G2API_DetachG2Model;
-	re.G2API_DoesBoneExist					= G2API_DoesBoneExist;
-	re.G2API_DuplicateGhoul2Instance		= G2API_DuplicateGhoul2Instance;
-	re.G2API_FreeSaveBuffer					= G2API_FreeSaveBuffer;
-	re.G2API_GetAnimFileName				= G2API_GetAnimFileName;
-	re.G2API_GetAnimFileNameIndex			= G2API_GetAnimFileNameIndex;
-	re.G2API_GetAnimRange					= G2API_GetAnimRange;
-	re.G2API_GetBoltMatrix					= G2API_GetBoltMatrix;
-	re.G2API_GetBoneAnim					= G2API_GetBoneAnim;
-	re.G2API_GetBoneIndex					= G2API_GetBoneIndex;
-	re.G2API_GetGhoul2ModelFlags			= G2API_GetGhoul2ModelFlags;
-	re.G2API_GetGLAName						= G2API_GetGLAName;
-	re.G2API_GetModelName					= G2API_GetModelName;
-	re.G2API_GetParentSurface				= G2API_GetParentSurface;
-	re.G2API_GetRagBonePos					= G2API_GetRagBonePos;
-	re.G2API_GetSurfaceIndex				= G2API_GetSurfaceIndex;
-	re.G2API_GetSurfaceName					= G2API_GetSurfaceName;
-	re.G2API_GetSurfaceOnOff				= G2API_GetSurfaceOnOff;
-	re.G2API_GetSurfaceRenderStatus			= G2API_GetSurfaceRenderStatus;
-	re.G2API_GetTime						= G2API_GetTime;
-	re.G2API_Ghoul2Size						= G2API_Ghoul2Size;
-	re.G2API_GiveMeVectorFromMatrix			= G2API_GiveMeVectorFromMatrix;
-	re.G2API_HasGhoul2ModelOnIndex			= G2API_HasGhoul2ModelOnIndex;
-	re.G2API_HaveWeGhoul2Models				= G2API_HaveWeGhoul2Models;
-	re.G2API_IKMove							= G2API_IKMove;
-	re.G2API_InitGhoul2Model				= G2API_InitGhoul2Model;
-	re.G2API_IsGhoul2InfovValid				= G2API_IsGhoul2InfovValid;
-	re.G2API_IsPaused						= G2API_IsPaused;
-	re.G2API_ListBones						= G2API_ListBones;
-	re.G2API_ListSurfaces					= G2API_ListSurfaces;
-	re.G2API_LoadGhoul2Models				= G2API_LoadGhoul2Models;
-	re.G2API_LoadSaveCodeDestructGhoul2Info	= G2API_LoadSaveCodeDestructGhoul2Info;
-	re.G2API_OverrideServerWithClientData	= G2API_OverrideServerWithClientData;
-	re.G2API_PauseBoneAnim					= G2API_PauseBoneAnim;
-	re.G2API_PrecacheGhoul2Model			= G2API_PrecacheGhoul2Model;
-	re.G2API_RagEffectorGoal				= G2API_RagEffectorGoal;
-	re.G2API_RagEffectorKick				= G2API_RagEffectorKick;
-	re.G2API_RagForceSolve					= G2API_RagForceSolve;
-	re.G2API_RagPCJConstraint				= G2API_RagPCJConstraint;
-	re.G2API_RagPCJGradientSpeed			= G2API_RagPCJGradientSpeed;
-	re.G2API_RemoveBolt						= G2API_RemoveBolt;
-	re.G2API_RemoveBone						= G2API_RemoveBone;
-	re.G2API_RemoveGhoul2Model				= G2API_RemoveGhoul2Model;
-	re.G2API_RemoveGhoul2Models				= G2API_RemoveGhoul2Models;
-	re.G2API_RemoveSurface					= G2API_RemoveSurface;
-	re.G2API_ResetRagDoll					= G2API_ResetRagDoll;
-	re.G2API_SaveGhoul2Models				= G2API_SaveGhoul2Models;
-	re.G2API_SetBoltInfo					= G2API_SetBoltInfo;
-	re.G2API_SetBoneAngles					= G2API_SetBoneAngles;
-	re.G2API_SetBoneAnglesIndex				= G2API_SetBoneAnglesIndex;
-	re.G2API_SetBoneAnglesMatrix			= G2API_SetBoneAnglesMatrix;
-	re.G2API_SetBoneAnglesMatrixIndex		= G2API_SetBoneAnglesMatrixIndex;
-	re.G2API_SetBoneAnim					= G2API_SetBoneAnim;
-	re.G2API_SetBoneAnimIndex				= G2API_SetBoneAnimIndex;
-	re.G2API_SetBoneIKState					= G2API_SetBoneIKState;
-	re.G2API_SetGhoul2ModelIndexes			= G2API_SetGhoul2ModelIndexes;
-	re.G2API_SetGhoul2ModelFlags			= G2API_SetGhoul2ModelFlags;
-	re.G2API_SetLodBias						= G2API_SetLodBias;
-	re.G2API_SetNewOrigin					= G2API_SetNewOrigin;
-	re.G2API_SetRagDoll						= G2API_SetRagDoll;
-	re.G2API_SetRootSurface					= G2API_SetRootSurface;
-	re.G2API_SetShader						= G2API_SetShader;
-	re.G2API_SetSkin						= G2API_SetSkin;
-	re.G2API_SetSurfaceOnOff				= G2API_SetSurfaceOnOff;
-	re.G2API_SetTime						= G2API_SetTime;
-	re.G2API_SkinlessModel					= G2API_SkinlessModel;
-	re.G2API_StopBoneAngles					= G2API_StopBoneAngles;
-	re.G2API_StopBoneAnglesIndex			= G2API_StopBoneAnglesIndex;
-	re.G2API_StopBoneAnim					= G2API_StopBoneAnim;
-	re.G2API_StopBoneAnimIndex				= G2API_StopBoneAnimIndex;
-
-	#ifdef _G2_GORE
-	re.G2API_GetNumGoreMarks				= G2API_GetNumGoreMarks;
-	re.G2API_AddSkinGore					= G2API_AddSkinGore;
-	re.G2API_ClearSkinGore					= G2API_ClearSkinGore;
-	#endif // _SOF2
-
-	// this is set in R_Init
-	//re.G2VertSpaceServer	= G2VertSpaceServer;
-
-	re.ext.Font_StrLenPixels				= RE_Font_StrLenPixelsNew;
-
-	return &re;
-#endif // RENDERER
 }
 
 } //extern "C"

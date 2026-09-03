@@ -51,18 +51,10 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #define USE_BUFFER_CLEAR		/* clear attachments on render pass begin */
 
-#ifdef RENDERER
 #include "qcommon/q_shared.h"
-#endif
 #include "qcommon/qfiles.h"
 #include "rd-common/tr_public.h"
 #include "rd-common/tr_common.h"
-#ifndef RENDERER
-#include "ghoul2/ghoul2_shared.h" //rwwRMG - added
-#define G2VFM_ARG(x) (&(x))
-#define G2VFM_VEC(x) (x)
-typedef size_t g2vert_int_t;
-#else
 #include "rd-common/mdx_format.h"
 #include "game/ghoul2_shared.h"
 #include "ghoul2/G2.h"
@@ -104,7 +96,6 @@ qboolean G2API_GetRagBonePos(CGhoul2Info_v &ghoul2, const char *boneName, vec3_t
 qboolean G2API_SetBoneIKState(CGhoul2Info_v &ghoul2, int time, const char *boneName, int ikState, sharedSetBoneIKStateParams_t *params);
 qboolean G2API_IKMove(CGhoul2Info_v &ghoul2, int time, sharedIKMoveParams_t *params);
 #define CVAR_NONE 0
-#endif
 
 #if defined(_WIN32)
 #	include <windows.h>

@@ -24,9 +24,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 #include "tr_cache.h"
-#ifndef RENDERER
-#include "qcommon/disablewarnings.h"
-#endif
 #include "qcommon/sstring.h"	// #include <string>
 
 #include <vector>
@@ -170,7 +167,6 @@ model_t	*R_GetModelByHandle( qhandle_t index ) {
 	return mod;
 }
 
-#ifdef RENDERER
 /*
 ** R_GetAnimModelByHandle
 ** SP's G2_API.cpp (ported from code/rd-vanilla) needs this JKA-campaign
@@ -222,7 +218,7 @@ model_t* R_GetAnimModelByHandle(CGhoul2Info* ghlInfo, qhandle_t index)
 
 	return mod;
 }
-#endif
+
 
 //===============================================================================
 

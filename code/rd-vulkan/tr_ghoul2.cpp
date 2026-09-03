@@ -20,28 +20,15 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 ===========================================================================
 */
 
-#ifndef RENDERER
-#include "client/client.h"	//FIXME!! EVIL - just include the definitions needed
-#endif
 #include "tr_local.h"
 #include "qcommon/matcomp.h"
 #include "qcommon/qcommon.h"
 #include "ghoul2/G2.h"
-#ifndef RENDERER
-#include "ghoul2/g2_local.h"
-#endif
 #ifdef _G2_GORE
-#ifndef RENDERER
-#include "ghoul2/G2_gore.h"
-#else
 #include "ghoul2/ghoul2_gore.h"
-#endif
 #include "G2_gore_r2.h"
 #endif
 
-#ifndef RENDERER
-#include "qcommon/disablewarnings.h"
-#endif
 #include "tr_cache.h"
 
 #define	LL(x) x=LittleLong(x)
@@ -1397,13 +1384,9 @@ void G2_RagPrintMatrix(mdxaBone_t *mat);
 //off which will give us the desired settling position given the frame in the skeleton
 //that should be used -rww
 int G2_Add_Bone (const model_t *mod, boneInfo_v &blist, const char *boneName);
-#ifdef RENDERER
 // SP's G2_bones.cpp (ported from code/rd-vanilla) only defines the
 // CGhoul2Info*-based overload of G2_Find_Bone, not this model_t* one.
 int G2_Find_Bone(CGhoul2Info *ghlInfo, boneInfo_v &blist, const char *boneName);
-#else
-int G2_Find_Bone(const model_t *mod, boneInfo_v &blist, const char *boneName);
-#endif
 void G2_RagGetAnimMatrix(CGhoul2Info &ghoul2, const int boneNum, mdxaBone_t &matrix, const int frame)
 {
 	mdxaBone_t animMatrix;
@@ -1430,11 +1413,7 @@ void G2_RagGetAnimMatrix(CGhoul2Info &ghoul2, const int boneNum, mdxaBone_t &mat
 	}
 	else
 	{
-#ifdef RENDERER
 		bListIndex = G2_Find_Bone(&ghoul2, ghoul2.mBlist, skel->name);
-#else
-		bListIndex = G2_Find_Bone(ghoul2.animModel, ghoul2.mBlist, skel->name);
-#endif
 		if (bListIndex == -1)
 		{
 #ifdef _RAG_PRINT_TEST
@@ -1473,11 +1452,7 @@ void G2_RagGetAnimMatrix(CGhoul2Info &ghoul2, const int boneNum, mdxaBone_t &mat
 		}
 		else
 		{
-#ifdef RENDERER
 			parentBlistIndex = G2_Find_Bone(&ghoul2, ghoul2.mBlist, pskel->name);
-#else
-			parentBlistIndex = G2_Find_Bone(ghoul2.animModel, ghoul2.mBlist, pskel->name);
-#endif
 			if (parentBlistIndex == -1)
 			{
 				parentBlistIndex = G2_Add_Bone(ghoul2.animModel, ghoul2.mBlist, pskel->name);
@@ -2050,30 +2025,6 @@ void G2_TransformBone (int child,CBoneCache &BC)
 
 }
 
-// Unused (no callers) even on MP -- and it relies on boltInfo_t::position,
-// a cached-matrix field SP's boltInfo_t doesn't have (bolt matrices are
-// computed on demand via G2_GetBoltMatrixLow instead). Excluded for
-// RENDERER, matching shared/rd-rend2/tr_ghoul2.cpp's fully-commented-out
-// version.
-#ifndef RENDERER
-void G2_SetUpBolts( mdxaHeader_t *header, CGhoul2Info &ghoul2, mdxaBone_v &bonePtr, boltInfo_v &boltList)
-{
-	mdxaSkel_t		*skel;
-	mdxaSkelOffsets_t *offsets;
-	offsets = (mdxaSkelOffsets_t *)((byte *)header + sizeof(mdxaHeader_t));
-
-	for (size_t i=0; i<boltList.size(); i++)
-	{
-		if (boltList[i].boneNumber != -1)
-		{
-			// figure out where the bone hirearchy info is
-			skel = (mdxaSkel_t *)((byte *)header + sizeof(mdxaHeader_t) + offsets->offsets[boltList[i].boneNumber]);
-			Multiply_3x4Matrix(&boltList[i].position, &bonePtr[boltList[i].boneNumber].second, &skel->BasePoseMat);
-		}
-	}
-}
-#endif // !RENDERER
-
 //rww - RAGDOLL_BEGIN
 #define		GHOUL2_RAG_STARTED						0x0010
 //rww - RAGDOLL_END
@@ -2159,14 +2110,6 @@ void G2_TransformGhoulBones(boneInfo_v &rootBoneList,mdxaBone_t &rootMatrix, CGh
 		if (val>0.0f&&val<1.0f)
 		{
 			//if (ghoul2.mFlags&GHOUL2_RESERVED_FOR_RAGDOLL)
-#if 1
-#ifndef RENDERER
-			if(ghoul2.mFlags & GHOUL2_CRAZY_SMOOTH)
-			{
-				val = 0.9f;
-			}
-			else
-#endif
 			if(ghoul2.mFlags & GHOUL2_RAG_STARTED)
 			{
 				for (size_t k=0;k<rootBoneList.size();k++)
@@ -2192,7 +2135,6 @@ void G2_TransformGhoulBones(boneInfo_v &rootBoneList,mdxaBone_t &rootMatrix, CGh
 					}
 				}
 			}
-#endif
 
 //			ghoul2.mBoneCache->mSmoothFactor=(val + 1.0f-pow(1.0f-val,50.0f/dif))/2.0f;  // meaningless formula
 			ghoul2.mBoneCache->mSmoothFactor=val;  // meaningless formula
@@ -2249,251 +2191,8 @@ void G2_TransformGhoulBones(boneInfo_v &rootBoneList,mdxaBone_t &rootMatrix, CGh
 //======================================================================
 //
 // Surface Manipulation code
-
-
-// We've come across a surface that's designated as a bolt surface, process it and put it in the appropriate bolt place
-// SP's boltInfo_t has no "position" field to cache into (bolt matrices are
-// computed on demand there via G2_GetBoltMatrixLow instead; see
-// shared/rd-rend2/tr_ghoul2.cpp, which keeps this same function entirely
-// commented out) -- excluded for RENDERER.
-#ifndef RENDERER
-void G2_ProcessSurfaceBolt(mdxaBone_v &bonePtr, mdxmSurface_t *surface, int boltNum, boltInfo_v &boltList, surfaceInfo_t *surfInfo, model_t *mod)
-{
- 	mdxmVertex_t 	*v, *vert0, *vert1, *vert2;
- 	matrix3_t		axes, sides;
- 	float			pTri[3][3], d;
- 	int				j, k;
-
-	// now there are two types of tag surface - model ones and procedural generated types - lets decide which one we have here.
-	if (surfInfo && surfInfo->offFlags == G2SURFACEFLAG_GENERATED)
-	{
-		int surfNumber = surfInfo->genPolySurfaceIndex & 0x0ffff;
-		int	polyNumber = (surfInfo->genPolySurfaceIndex >> 16) & 0x0ffff;
-
-		// find original surface our original poly was in.
-		mdxmSurface_t	*originalSurf = (mdxmSurface_t *)G2_FindSurface((void*)mod, surfNumber, surfInfo->genLod);
-		mdxmTriangle_t	*originalTriangleIndexes = (mdxmTriangle_t *)((byte*)originalSurf + originalSurf->ofsTriangles);
-
-		// get the original polys indexes
-		int index0 = originalTriangleIndexes[polyNumber].indexes[0];
-		int index1 = originalTriangleIndexes[polyNumber].indexes[1];
-		int index2 = originalTriangleIndexes[polyNumber].indexes[2];
-
-		// decide where the original verts are
-
- 		vert0 = (mdxmVertex_t *) ((byte *)originalSurf + originalSurf->ofsVerts);
-		vert0+= index0;
-
- 		vert1 = (mdxmVertex_t *) ((byte *)originalSurf + originalSurf->ofsVerts);
-		vert1+= index1;
-
- 		vert2 = (mdxmVertex_t *) ((byte *)originalSurf + originalSurf->ofsVerts);
-		vert2+= index2;
-
-		// clear out the triangle verts to be
- 	   	VectorClear( pTri[0] );
- 	   	VectorClear( pTri[1] );
- 	   	VectorClear( pTri[2] );
-
-//		mdxmWeight_t	*w;
-
-		int *piBoneRefs = (int*) ((byte*)originalSurf + originalSurf->ofsBoneReferences);
-
-		// now go and transform just the points we need from the surface that was hit originally
-//		w = vert0->weights;
-		float fTotalWeight = 0.0f;
-		int iNumWeights = G2_GetVertWeights( vert0 );
- 		for ( k = 0 ; k < iNumWeights ; k++ )
- 		{
-			int		iBoneIndex	= G2_GetVertBoneIndex( vert0, k );
-			float	fBoneWeight	= G2_GetVertBoneWeight( vert0, k, fTotalWeight, iNumWeights );
-
- 			pTri[0][0] += fBoneWeight * ( DotProduct( bonePtr[piBoneRefs[iBoneIndex]].second.matrix[0], vert0->vertCoords ) + bonePtr[piBoneRefs[iBoneIndex]].second.matrix[0][3] );
- 			pTri[0][1] += fBoneWeight * ( DotProduct( bonePtr[piBoneRefs[iBoneIndex]].second.matrix[1], vert0->vertCoords ) + bonePtr[piBoneRefs[iBoneIndex]].second.matrix[1][3] );
- 			pTri[0][2] += fBoneWeight * ( DotProduct( bonePtr[piBoneRefs[iBoneIndex]].second.matrix[2], vert0->vertCoords ) + bonePtr[piBoneRefs[iBoneIndex]].second.matrix[2][3] );
-		}
-//		w = vert1->weights;
-		fTotalWeight = 0.0f;
-		iNumWeights = G2_GetVertWeights( vert1 );
- 		for ( k = 0 ; k < iNumWeights ; k++ )
- 		{
-			int		iBoneIndex	= G2_GetVertBoneIndex( vert1, k );
-			float	fBoneWeight	= G2_GetVertBoneWeight( vert1, k, fTotalWeight, iNumWeights );
-
- 			pTri[1][0] += fBoneWeight * ( DotProduct( bonePtr[piBoneRefs[iBoneIndex]].second.matrix[0], vert1->vertCoords ) + bonePtr[piBoneRefs[iBoneIndex]].second.matrix[0][3] );
- 			pTri[1][1] += fBoneWeight * ( DotProduct( bonePtr[piBoneRefs[iBoneIndex]].second.matrix[1], vert1->vertCoords ) + bonePtr[piBoneRefs[iBoneIndex]].second.matrix[1][3] );
- 			pTri[1][2] += fBoneWeight * ( DotProduct( bonePtr[piBoneRefs[iBoneIndex]].second.matrix[2], vert1->vertCoords ) + bonePtr[piBoneRefs[iBoneIndex]].second.matrix[2][3] );
-		}
-//		w = vert2->weights;
-		fTotalWeight = 0.0f;
-		iNumWeights = G2_GetVertWeights( vert2 );
- 		for ( k = 0 ; k < iNumWeights ; k++ )
- 		{
-			int		iBoneIndex	= G2_GetVertBoneIndex( vert2, k );
-			float	fBoneWeight	= G2_GetVertBoneWeight( vert2, k, fTotalWeight, iNumWeights );
-
- 			pTri[2][0] += fBoneWeight * ( DotProduct( bonePtr[piBoneRefs[iBoneIndex]].second.matrix[0], vert2->vertCoords ) + bonePtr[piBoneRefs[iBoneIndex]].second.matrix[0][3] );
- 			pTri[2][1] += fBoneWeight * ( DotProduct( bonePtr[piBoneRefs[iBoneIndex]].second.matrix[1], vert2->vertCoords ) + bonePtr[piBoneRefs[iBoneIndex]].second.matrix[1][3] );
- 			pTri[2][2] += fBoneWeight * ( DotProduct( bonePtr[piBoneRefs[iBoneIndex]].second.matrix[2], vert2->vertCoords ) + bonePtr[piBoneRefs[iBoneIndex]].second.matrix[2][3] );
-		}
-
-   		vec3_t normal;
-		vec3_t up;
-		vec3_t right;
-		vec3_t vec0, vec1;
-		// work out baryCentricK
-		float baryCentricK = 1.0 - (surfInfo->genBarycentricI + surfInfo->genBarycentricJ);
-
-		// now we have the model transformed into model space, now generate an origin.
-		boltList[boltNum].position.matrix[0][3] = (pTri[0][0] * surfInfo->genBarycentricI) + (pTri[1][0] * surfInfo->genBarycentricJ) + (pTri[2][0] * baryCentricK);
-		boltList[boltNum].position.matrix[1][3] = (pTri[0][1] * surfInfo->genBarycentricI) + (pTri[1][1] * surfInfo->genBarycentricJ) + (pTri[2][1] * baryCentricK);
-		boltList[boltNum].position.matrix[2][3] = (pTri[0][2] * surfInfo->genBarycentricI) + (pTri[1][2] * surfInfo->genBarycentricJ) + (pTri[2][2] * baryCentricK);
-
-		// generate a normal to this new triangle
-		VectorSubtract(pTri[0], pTri[1], vec0);
-		VectorSubtract(pTri[2], pTri[1], vec1);
-
-		CrossProduct(vec0, vec1, normal);
-		VectorNormalize(normal);
-
-		// forward vector
-		boltList[boltNum].position.matrix[0][0] = normal[0];
-		boltList[boltNum].position.matrix[1][0] = normal[1];
-		boltList[boltNum].position.matrix[2][0] = normal[2];
-
-		// up will be towards point 0 of the original triangle.
-		// so lets work it out. Vector is hit point - point 0
-		up[0] = boltList[boltNum].position.matrix[0][3] - pTri[0][0];
-		up[1] = boltList[boltNum].position.matrix[1][3] - pTri[0][1];
-		up[2] = boltList[boltNum].position.matrix[2][3] - pTri[0][2];
-
-		// normalise it
-		VectorNormalize(up);
-
-		// that's the up vector
-		boltList[boltNum].position.matrix[0][1] = up[0];
-		boltList[boltNum].position.matrix[1][1] = up[1];
-		boltList[boltNum].position.matrix[2][1] = up[2];
-
-		// right is always straight
-
-		CrossProduct( normal, up, right );
-		// that's the up vector
-		boltList[boltNum].position.matrix[0][2] = right[0];
-		boltList[boltNum].position.matrix[1][2] = right[1];
-		boltList[boltNum].position.matrix[2][2] = right[2];
-
-
-	}
-	// no, we are looking at a normal model tag
-	else
-	{
-		int *piBoneRefs = (int*) ((byte*)surface + surface->ofsBoneReferences);
-
-	 	// whip through and actually transform each vertex
- 		v = (mdxmVertex_t *) ((byte *)surface + surface->ofsVerts);
- 		for ( j = 0; j < 3; j++ )
- 		{
-// 			mdxmWeight_t	*w;
-
- 			VectorClear( pTri[j] );
- //			w = v->weights;
-
-			const int iNumWeights = G2_GetVertWeights( v );
-			float fTotalWeight = 0.0f;
- 			for ( k = 0 ; k < iNumWeights ; k++ )
- 			{
-				int		iBoneIndex	= G2_GetVertBoneIndex( v, k );
-				float	fBoneWeight	= G2_GetVertBoneWeight( v, k, fTotalWeight, iNumWeights );
-
- 				//bone = bonePtr + piBoneRefs[w->boneIndex];
- 				pTri[j][0] += fBoneWeight * ( DotProduct( bonePtr[piBoneRefs[iBoneIndex]].second.matrix[0], v->vertCoords ) + bonePtr[piBoneRefs[iBoneIndex]].second.matrix[0][3] );
- 				pTri[j][1] += fBoneWeight * ( DotProduct( bonePtr[piBoneRefs[iBoneIndex]].second.matrix[1], v->vertCoords ) + bonePtr[piBoneRefs[iBoneIndex]].second.matrix[1][3] );
- 				pTri[j][2] += fBoneWeight * ( DotProduct( bonePtr[piBoneRefs[iBoneIndex]].second.matrix[2], v->vertCoords ) + bonePtr[piBoneRefs[iBoneIndex]].second.matrix[2][3] );
- 			}
-
- 			v++;// = (mdxmVertex_t *)&v->weights[/*v->numWeights*/surface->maxVertBoneWeights];
- 		}
-
- 		// clear out used arrays
- 		memset( axes, 0, sizeof( axes ) );
- 		memset( sides, 0, sizeof( sides ) );
-
- 		// work out actual sides of the tag triangle
- 		for ( j = 0; j < 3; j++ )
- 		{
- 			sides[j][0] = pTri[(j+1)%3][0] - pTri[j][0];
- 			sides[j][1] = pTri[(j+1)%3][1] - pTri[j][1];
- 			sides[j][2] = pTri[(j+1)%3][2] - pTri[j][2];
- 		}
-
- 		// do math trig to work out what the matrix will be from this triangle's translated position
- 		VectorNormalize2( sides[iG2_TRISIDE_LONGEST], axes[0] );
- 		VectorNormalize2( sides[iG2_TRISIDE_SHORTEST], axes[1] );
-
- 		// project shortest side so that it is exactly 90 degrees to the longer side
- 		d = DotProduct( axes[0], axes[1] );
- 		VectorMA( axes[0], -d, axes[1], axes[0] );
- 		VectorNormalize2( axes[0], axes[0] );
-
- 		CrossProduct( sides[iG2_TRISIDE_LONGEST], sides[iG2_TRISIDE_SHORTEST], axes[2] );
- 		VectorNormalize2( axes[2], axes[2] );
-
- 		// set up location in world space of the origin point in out going matrix
- 		boltList[boltNum].position.matrix[0][3] = pTri[MDX_TAG_ORIGIN][0];
- 		boltList[boltNum].position.matrix[1][3] = pTri[MDX_TAG_ORIGIN][1];
- 		boltList[boltNum].position.matrix[2][3] = pTri[MDX_TAG_ORIGIN][2];
-
- 		// copy axis to matrix - do some magic to orient minus Y to positive X and so on so bolt on stuff is oriented correctly
-		boltList[boltNum].position.matrix[0][0] = axes[1][0];
-		boltList[boltNum].position.matrix[0][1] = axes[0][0];
-		boltList[boltNum].position.matrix[0][2] = -axes[2][0];
-
-		boltList[boltNum].position.matrix[1][0] = axes[1][1];
-		boltList[boltNum].position.matrix[1][1] = axes[0][1];
-		boltList[boltNum].position.matrix[1][2] = -axes[2][1];
-
-		boltList[boltNum].position.matrix[2][0] = axes[1][2];
-		boltList[boltNum].position.matrix[2][1] = axes[0][2];
-		boltList[boltNum].position.matrix[2][2] = -axes[2][2];
-	}
-
-}
-#endif // !RENDERER
-
-
-// now go through all the generated surfaces that aren't included in the model surface hierarchy and create the correct bolt info for them
-// Unused (no callers, gG2_GBMUseSPMethod is never checked) even on MP -- and
-// it relies on G2_ProcessSurfaceBolt, which SP's Rag_Trace-only bolt-caching
-// layout doesn't support (see G2_ProcessSurfaceBolt above). Excluded for
-// RENDERER, matching shared/rd-rend2/tr_ghoul2.cpp's fully-commented-out
-// version.
-#ifndef RENDERER
-void G2_ProcessGeneratedSurfaceBolts(CGhoul2Info &ghoul2, mdxaBone_v &bonePtr, model_t *mod_t)
-{
-#ifdef G2_PERFORMANCE_ANALYSIS
-	G2PerformanceTimer_G2_ProcessGeneratedSurfaceBolts.Start();
-#endif
-	// look through the surfaces off the end of the pre-defined model surfaces
-	for (size_t i=0; i< ghoul2.mSlist.size(); i++)
-	{
-		// only look for bolts if we are actually a generated surface, and not just an overriden one
-		if (ghoul2.mSlist[i].offFlags & G2SURFACEFLAG_GENERATED)
-		{
-	   		// well alrighty then. Lets see if there is a bolt that is attempting to use it
-			int boltNum = G2_Find_Bolt_Surface_Num(ghoul2.mBltlist, i, G2SURFACEFLAG_GENERATED);
-			// yes - ok, processing time.
-			if (boltNum != -1)
-			{
-				G2_ProcessSurfaceBolt(bonePtr, NULL, boltNum, ghoul2.mBltlist, &ghoul2.mSlist[i], mod_t);
-			}
-		}
-	}
-#ifdef G2_PERFORMANCE_ANALYSIS
-	G2Time_G2_ProcessGeneratedSurfaceBolts += G2PerformanceTimer_G2_ProcessGeneratedSurfaceBolts.End();
-#endif
-}
-#endif // !RENDERER
+// //
+//======================================================================
 
 #ifdef USE_VBO_GHOUL2
 static inline void vk_set_ghoul2_vbo_mesh( const CRenderSurface &RS, CRenderableSurface *surf, const int lod, const int surfaceIndex )
@@ -2508,7 +2207,6 @@ static inline void vk_set_ghoul2_vbo_mesh( const CRenderSurface &RS, CRenderable
 }
 #endif
 
-#ifdef RENDERER
 // SP's G2_API.cpp (ported from code/rd-vanilla) calls this expecting it to
 // live here, matching code/rd-vanilla/tr_ghoul2.cpp's own copy verbatim.
 void G2API_SetSurfaceOnOffFromSkin (CGhoul2Info *ghlInfo, qhandle_t renderSkin)
@@ -2540,7 +2238,7 @@ void G2API_SetSurfaceOnOffFromSkin (CGhoul2Info *ghlInfo, qhandle_t renderSkin)
 		}
 	}
 }
-#endif
+
 
 void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from SP.
 {
@@ -2774,69 +2472,6 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 	G2Time_RenderSurfaces += G2PerformanceTimer_RenderSurfaces.End();
 #endif
 }
-
-// Go through the model and deal with just the surfaces that are tagged as bolt on points - this is for the server side skeleton construction
-// Unused (no external callers, only self-recursive) even on MP -- and it
-// relies on G2_ProcessSurfaceBolt, which SP's Rag_Trace-only bolt-caching
-// layout doesn't support (see G2_ProcessSurfaceBolt above). Excluded for
-// RENDERER, matching shared/rd-rend2/tr_ghoul2.cpp's fully-commented-out
-// version.
-#ifndef RENDERER
-void ProcessModelBoltSurfaces(int surfaceNum, surfaceInfo_v &rootSList,
-					mdxaBone_v &bonePtr, model_t *currentModel, int lod, boltInfo_v &boltList)
-{
-#ifdef G2_PERFORMANCE_ANALYSIS
-	G2PerformanceTimer_ProcessModelBoltSurfaces.Start();
-#endif
-	int			i;
-	int			offFlags = 0;
-
-	// back track and get the surfinfo struct for this surface
-	mdxmSurface_t			*surface = (mdxmSurface_t *)G2_FindSurface((void *)currentModel, surfaceNum, 0);
-	mdxmHierarchyOffsets_t	*surfIndexes = (mdxmHierarchyOffsets_t *)((byte *)currentModel->data.glm->header + sizeof(mdxmHeader_t));
-	mdxmSurfHierarchy_t		*surfInfo = (mdxmSurfHierarchy_t *)((byte *)surfIndexes + surfIndexes->offsets[surface->thisSurfaceIndex]);
-
-	// see if we have an override surface in the surface list
-	surfaceInfo_t	*surfOverride = G2_FindOverrideSurface(surfaceNum, rootSList);
-
-	// really, we should use the default flags for this surface unless it's been overriden
-	offFlags = surfInfo->flags;
-
-	// set the off flags if we have some
-	if (surfOverride)
-	{
-		offFlags = surfOverride->offFlags;
-	}
-
-	// is this surface considered a bolt surface?
-	if (surfInfo->flags & G2SURFACEFLAG_ISBOLT)
-	{
-		// well alrighty then. Lets see if there is a bolt that is attempting to use it
-		int boltNum = G2_Find_Bolt_Surface_Num(boltList, surfaceNum, 0);
-		// yes - ok, processing time.
-		if (boltNum != -1)
-		{
-			G2_ProcessSurfaceBolt(bonePtr, surface, boltNum, boltList, surfOverride, currentModel);
-		}
-	}
-
-	// if we are turning off all descendants, then stop this recursion now
-	if (offFlags & G2SURFACEFLAG_NODESCENDANTS)
-	{
-		return;
-	}
-
-	// now recursively call for the children
-	for (i=0; i< surfInfo->numChildren; i++)
-	{
-		ProcessModelBoltSurfaces(surfInfo->childIndexes[i], rootSList, bonePtr, currentModel, lod, boltList);
-	}
-
-#ifdef G2_PERFORMANCE_ANALYSIS
-	G2Time_ProcessModelBoltSurfaces += G2PerformanceTimer_ProcessModelBoltSurfaces.End();
-#endif
-}
-#endif // !RENDERER
 
 
 // build the used bone list so when doing bone transforms we can determine if we need to do it or not
@@ -3488,7 +3123,7 @@ void R_AddGhoulSurfaces( trRefEntity_t *ent ) {
 			{
 				cust_shader = NULL;
 				// figure out the custom skin thing
-#ifdef RENDERER
+
 				// SP's ghoul2[i].mCustomSkin is a configstring index
 				// (G_SkinIndex/CS_CHARSKINS), NOT a render skin handle --
 				// CGAME already resolves it into ent->e.customSkin, which
@@ -3501,20 +3136,6 @@ void R_AddGhoulSurfaces( trRefEntity_t *ent ) {
 				{
 					skin = R_GetSkinByHandle( ghoul2[i].mSkin );
 				}
-#else
-				if (ghoul2[i].mCustomSkin)
-				{
-					skin = R_GetSkinByHandle(ghoul2[i].mCustomSkin );
-				}
-				else if (ent->e.customSkin)
-				{
-					skin = R_GetSkinByHandle(ent->e.customSkin );
-				}
-				else if ( ghoul2[i].mSkin > 0 && ghoul2[i].mSkin < tr.numSkins )
-				{
-					skin = R_GetSkinByHandle( ghoul2[i].mSkin );
-				}
-#endif
 			}
 
 			if (j&&ghoul2[i].mModelBoltLink != -1)

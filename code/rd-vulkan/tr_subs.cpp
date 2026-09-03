@@ -44,11 +44,7 @@ void QDECL Com_OPrintf( const char *msg, ... )
 	va_start(argptr, msg);
 	Q_vsnprintf(text, sizeof(text), msg, argptr);
 	va_end(argptr);
-#ifndef RENDERER
-	ri.OPrintf("%s", text);
-#else
 	ri.Printf(PRINT_ALL, "%s", text);
-#endif
 }
 
 void QDECL Com_DPrintf( const char *format, ... )
@@ -76,7 +72,7 @@ void QDECL Com_Error( int level, const char *error, ... )
 }
 
 // HUNK
-#ifdef RENDERER
+
 // SP's refimport_t has no hunk allocator exposed to the renderer -- route
 // through the zone allocator instead, matching code/rd-rend2's own path.
 void *Hunk_Alloc( int size, ha_pref preference ) {
@@ -97,30 +93,12 @@ void *Hunk_AllocateTempMemory( int size ) {
 void Hunk_FreeTempMemory( void *buf ) {
 	ri.Z_Free( buf );
 }
-#else
-void *Hunk_AllocateTempMemory( int size ) {
-	return ri.Hunk_AllocateTempMemory( size );
-}
-
-void Hunk_FreeTempMemory( void *buf ) {
-	ri.Hunk_FreeTempMemory( buf );
-}
-
-void *Hunk_Alloc( int size, ha_pref preference ) {
-	return ri.Hunk_Alloc( size, preference );
-}
-
-int Hunk_MemoryRemaining( void ) {
-	return ri.Hunk_MemoryRemaining();
-}
-#endif
 
 // ZONE
 void *Z_Malloc( int iSize, memtag_t eTag, qboolean bZeroit, int iAlign ) {
 	return ri.Z_Malloc( iSize, eTag, bZeroit, iAlign );
 }
 
-#ifdef RENDERER
 // SP's qcommon.h declares a bare "int Z_Free(void*)" -- match its signature.
 int Z_Free( void *ptr ) {
 	return ri.Z_Free( ptr );
@@ -135,11 +113,6 @@ void *R_Malloc( int iSize, memtag_t eTag, qboolean bZeroit ) {
 void R_Free( void *ptr ) {
 	ri.Z_Free( ptr );
 }
-#else
-void Z_Free( void *ptr ) {
-	ri.Z_Free( ptr );
-}
-#endif
 
 int Z_MemSize( memtag_t eTag ) {
 	return ri.Z_MemSize( eTag );
@@ -151,63 +124,28 @@ void Z_MorphMallocTag( void *pvBuffer, memtag_t eDesiredTag ) {
 
 // CACHED BSP DISK IMAGE
 void *CM_GetCachedMapDiskImage( void ) {
-#ifdef RENDERER
+	//TODO Check if this is correct
 	return NULL; // SP never populates the disk-image cache for the renderer
-#else
-	return ri.CM_GetCachedMapDiskImage();
-#endif
 }
 
 void CM_SetCachedMapDiskImage( void *ptr ) {
-#ifndef RENDERER
-	ri.CM_SetCachedMapDiskImage( ptr );
-#endif
+
 }
 
 void CM_SetUsingCache( qboolean usingCache ) {
-#ifdef RENDERER
 	*(ri.gbUsingCachedMapDataRightNow()) = usingCache;
-#else
-	ri.CM_SetUsingCache( usingCache );
-#endif
 }
-
-#ifndef RENDERER
-// SP's refimport_t has no CM_BoxTrace at all -- every RENDERER caller of
-// this wrapper has been ported to either ri.SV_Trace (Rag_Trace) or
-// R_PointInLeaf-based PVS lookups (R_inPVS) instead, and the roof-culling
-// automap feature (tr_world.cpp) that used it is MP-only.
-void CM_BoxTrace( trace_t *results, const vec3_t start, const vec3_t end, const vec3_t mins, const vec3_t maxs, clipHandle_t model, int brushmask, int capsule ) {
-	ri.CM_BoxTrace( results, start, end, mins, maxs, model, brushmask, capsule );
-}
-#endif
 
 qboolean Com_TheHunkMarkHasBeenMade( void ) {
-#ifdef RENDERER
+	//TODO Check if this is correct
 	return qtrue; // unreachable on SP -- RE_RegisterServerSkin has no export entry
-#else
-	return ri.Com_TheHunkMarkHasBeenMade();
-#endif
-}
 
-#ifndef RENDERER
-int FS_FileIsInPAK( const char *filename, int *pChecksum ) {
-	return ri.FS_FileIsInPAK( filename, pChecksum );
 }
-#endif
 
 cvar_t *Cvar_Get( const char *var_name, const char *value, int flags, const char *var_desc ) {
-#ifdef RENDERER
 	return ri.Cvar_Get( var_name, value, flags );
-#else
-	return ri.Cvar_Get( var_name, value, flags, var_desc );
-#endif
 }
 
 int CIN_PlayCinematic( const char *arg0, int xpos, int ypos, int width, int height, int bits ) {
-#ifdef RENDERER
 	return ri.CIN_PlayCinematic( arg0, xpos, ypos, width, height, bits, NULL );
-#else
-	return ri.CIN_PlayCinematic( arg0, xpos, ypos, width, height, bits );
-#endif
 }

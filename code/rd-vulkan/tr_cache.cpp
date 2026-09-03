@@ -132,13 +132,10 @@ void* CModelCacheManager::Allocate( int iSize, void *pvDiskBuffer, const char *p
 		pFile->iAllocSize = iSize;
 		Q_strncpyz(pFile->path, sModelName, sizeof(pFile->path));
 
-#ifndef RENDERER
-		if( FS_FileIsInPAK( sModelName, &iChecksum ) )
+		if (ri.FS_FileIsInPAK(sModelName))
+		{
 			pFile->iPAKChecksum = iChecksum;  /* Otherwise, it will be -1. */
-#else
-		if( ri.FS_FileIsInPAK( sModelName ) )
-			pFile->iPAKChecksum = iChecksum;  /* Otherwise, it will be -1. */
-#endif
+		}
 
 		*bAlreadyFound = qfalse;
 	}
@@ -182,12 +179,8 @@ void CModelCacheManager::DumpNonPure( void )
 	for ( auto it = files.begin(); it != files.end(); /* empty */ )
 	{
 		int iChecksum;
-#ifndef RENDERER
-		int iInPak = FS_FileIsInPAK( it->path, &iChecksum );
-#else
 		int iInPak = ri.FS_FileIsInPAK( it->path );
 		iChecksum = it->iPAKChecksum;
-#endif
 
 		if( iInPak == -1 || iChecksum != it->iPAKChecksum )
 		{

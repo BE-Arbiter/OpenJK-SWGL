@@ -24,13 +24,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "tr_local.h"
 
 #include "ghoul2/G2.h"
-#ifndef RENDERER
-#include "ghoul2/g2_local.h"
-#endif
 #include "qcommon/matcomp.h"
-#ifndef RENDERER
-#include "qcommon/disablewarnings.h"
-#endif
 
 static	int			r_firstSceneDrawSurf;
 #ifdef USE_PMLIGHT
@@ -240,7 +234,6 @@ void RE_AddRefEntityToScene( const refEntity_t *ent ) {
 	}
 #endif
 
-#ifdef RENDERER
 	// RT_LATHE/RT_CLOUDS are SP-only refEntityType_t values with enum
 	// numbers past RT_MAX_MP_REF_ENTITY_TYPE (see rd-common/tr_types.h) --
 	// the MP-only bound below rejects them as "bad reType". Matches
@@ -248,30 +241,9 @@ void RE_AddRefEntityToScene( const refEntity_t *ent ) {
 	if ( (int)ent->reType < 0 || ent->reType >= RT_MAX_SP_REF_ENTITY_TYPE || ent->reType == RT_MAX_MP_REF_ENTITY_TYPE ) {
 		Com_Error( ERR_DROP, "RE_AddRefEntityToScene: bad reType %i", ent->reType );
 	}
-#else
-	if ( (int)ent->reType < 0 || ent->reType >= RT_MAX_MP_REF_ENTITY_TYPE ) {
-		Com_Error( ERR_DROP, "RE_AddRefEntityToScene: bad reType %i", ent->reType );
-	}
-#endif
 
 	backEndData->entities[r_numentities].e = *ent;
 	backEndData->entities[r_numentities].lightingCalculated = qfalse;
-
-#ifndef RENDERER
-	// Neither code/rd-vanilla nor shared/rd-rend2 have this diagnostic --
-	// ghoul2[0] asserts (mItem) if the entity's CGhoul2Info_v was never
-	// resized/allocated (e.g. a mover with ent->ghoul2 set but no model
-	// added to it yet), crashing instead of just warning.
-	if (ent->ghoul2)
-	{
-		CGhoul2Info_v	&ghoul2 = *((CGhoul2Info_v *)ent->ghoul2);
-
-		if (!ghoul2[0].mModel)
-		{
-			ri.Printf( PRINT_ALL, "Your ghoul2 instance has no model!\n");
-		}
-	}
-#endif
 
 	r_numentities++;
 }
