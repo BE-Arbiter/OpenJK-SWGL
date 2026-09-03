@@ -2216,6 +2216,17 @@ void ClientCommand( int clientNum ) {
 	else if (Q_stricmp(cmd, "dropcurrentweapon") == 0) {
 		WP_DropWeapon_Configurable(ent, NULL,true,false,false);
 	}
+	else if (Q_stricmp(cmd, "countNPC") == 0) {
+		int npcCount = 0;
+		for(int i = 0 ; i < MAX_GENTITIES; i++)
+		{
+			if (g_entities[i].inuse && g_entities[i].client && g_entities[i].client->ps.clientNum >= MAX_CLIENTS)
+			{
+				npcCount++;
+			}
+		}
+		gi.SendServerCommand( ent-g_entities, va("print \"Number of NPCs: %d\n\"", npcCount) );
+	}
 	else if (Q_stricmp(cmd, "removecurrentweapon") == 0) {
 		WP_DropWeapon_Configurable(ent, NULL, true, true, false);
 	}
