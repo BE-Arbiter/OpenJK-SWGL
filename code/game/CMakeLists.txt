@@ -66,6 +66,8 @@ set(SPGameGameFiles
 	"${SPDir}/game/AI_Utils.cpp"
 	"${SPDir}/game/AI_Wampa.cpp"
 	"${SPDir}/game/AI_Vehicle.cpp"
+	"${SPDir}/game/ai_time.h"
+	"${SPDir}/game/ai_time.cpp"
 	"${SPDir}/game/g_active.cpp"
 	"${SPDir}/game/g_breakable.cpp"
 	"${SPDir}/game/g_camera.cpp"
