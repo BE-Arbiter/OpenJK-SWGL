@@ -69,7 +69,10 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 //#define USE_REVERSED_DEPTH
 //#define USE_UPLOAD_QUEUE
 
-//#define USE_VANILLA_SHADOWFINISH
+// Darken inside RB_RenderDrawSurfList as soon as a shader sorts past SS_BANNER,
+// like rd-vanilla. Doing it after the whole list instead paints the quad over
+// translucent surfaces - a saber blade crossing a shadow came out darkened.
+#define USE_VANILLA_SHADOWFINISH
 #define USE_VK_STATS
 
 #define	REFRACTION_EXTRACT_SCALE		2
