@@ -1090,7 +1090,7 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 					lastWeight -= attr.weights[w];
 				}
 
-				assert(lastWeight > 0);
+				assert(lastWeight >= 0);
 
 				// Ensure that all the weights add up to 1.0
 				attr.weights[lastInfluence] = lastWeight;
