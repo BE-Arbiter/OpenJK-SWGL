@@ -196,13 +196,9 @@ void vk_create_pipeline_layout( void )
     VK_SET_OBJECT_NAME(vk.pipeline_layout_post_process, "pipeline layout - post-processing", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT);
     VK_SET_OBJECT_NAME(vk.pipeline_layout_blend, "pipeline layout - blend", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT);
 
-    // GPU stencil shadow volume silhouette extrusion (shadow_volume.vert/.geom).
-    // Only the vertex stage's Bones binding (set 0, binding 3) is used - that
-    // binding is already exposed to VK_SHADER_STAGE_VERTEX_BIT in
-    // vk.set_layout_uniform (see vk_create_layout_binding above), so it's
-    // reused as-is. The push constant range differs from the standard 64-byte
-    // mvp-only one (mvp + lightDir + groundOffset, read by the geometry stage
-    // only), so this needs its own pipeline layout.
+    // Shadow silhouette extrusion. Only the Bones binding (set 0, binding 3) is
+    // used, already exposed to the vertex stage; the push constant range differs
+    // from the standard mvp-only one, so it needs its own layout.
     if ( vk.geometryShader )
     {
         VkPushConstantRange shadow_push_range;
@@ -1425,23 +1421,13 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
 ================
 vk_create_shadow_volume_adjacency_pipeline
 
-Bespoke pipeline for GPU-side stencil shadow silhouette extrusion
-(shadow_volume.vert/.geom) - deliberately NOT built through the generic
-Vk_Pipeline_Def/vk_create_pipeline machinery (that switch statement is
-already huge, and this pipeline's 3-stage vert+geom+frag setup and
-adjacency topology don't fit its assumptions). Only ever targets
-vk.render_pass.main - shadows aren't relevant to the screenmap/refraction/
-post-process passes. Lazily (re)created per (cullIndex, mirror) combination
-via vk_get_shadow_volume_adjacency_pipeline() below; reset alongside every
-other pipeline in vk_destroy_pipelines() so it survives render pass
-recreation (resize, MSAA toggle, etc.) the same way the rest of the
-renderer does.
+Bespoke pipeline for the shadow silhouette geometry shader - its vert+geom+frag
+setup and adjacency topology do not fit vk_create_pipeline's Vk_Pipeline_Def
+machinery. Targets vk.render_pass.main only, lazily created per (cullIndex,
+mirror) and reset in vk_destroy_pipelines like every other pipeline.
 
-cullIndex/passOp convention matches vk.std_pipeline.shadow_volume_pipelines
-exactly (see the SHADOW_EDGES pipeline def a bit further down in this file):
-cullIndex 0 = CT_FRONT_SIDED = increment, cullIndex 1 = CT_BACK_SIDED =
-decrement - so RB_TransformBones' GPU shadow draw call can reuse the exact
-same [pipeline-0-then-1] sequencing RB_ShadowTessEnd already uses.
+cullIndex matches vk.std_pipeline.shadow_volume_pipelines: 0 = CT_FRONT_SIDED =
+increment, 1 = CT_BACK_SIDED = decrement.
 ================
 */
 static VkPipeline vk_create_shadow_volume_adjacency_pipeline( int cullIndex, qboolean mirror, qboolean debugVisible )
@@ -1581,17 +1567,9 @@ static VkPipeline vk_create_shadow_volume_adjacency_pipeline( int cullIndex, qbo
     depth_stencil_state.maxDepthBounds = 1.0f;
     depth_stencil_state.stencilTestEnable = debugVisible ? VK_FALSE : VK_TRUE;
     depth_stencil_state.front.failOp = VK_STENCIL_OP_KEEP;
-    // CLAMP, exactly like the CPU path's shadow_volume_pipelines above - the
-    // saturation is load-bearing, not an accident. These volumes are uncapped
-    // (RB_ShadowTessEnd emits only the silhouette skirt, no cap on the model and
-    // none on the ground plane), so a ray entering through the missing top cap -
-    // any camera looking down at the caster - exits through a single back face
-    // and reaches -1. Clamping pins that to 0 and the NOT_EQUAL 0 test in
-    // SHADOW_FS_QUAD reads "unshadowed", which is correct. Wrapping instead
-    // turns the same -1 into 255 and paints a spurious shadow, which is what an
-    // earlier attempt here did: it swapped CLAMP for WRAP to make the per-surface
-    // increment/decrement interleaving order-independent, without noticing that
-    // an open volume depends on the clamp to discard those negative counts.
+    // CLAMP like the CPU pipelines: these volumes are uncapped, so a downward
+    // camera looking into the open top reaches -1, and the clamp to 0 is what
+    // makes NOT_EQUAL 0 read "unshadowed" there.
     depth_stencil_state.front.passOp = ( cullIndex == 0 ) ? VK_STENCIL_OP_INCREMENT_AND_CLAMP : VK_STENCIL_OP_DECREMENT_AND_CLAMP;
     depth_stencil_state.front.depthFailOp = VK_STENCIL_OP_KEEP;
     depth_stencil_state.front.compareOp = VK_COMPARE_OP_ALWAYS;
@@ -2276,16 +2254,8 @@ void vk_alloc_persistent_pipelines( void )
             Com_Memset(&def, 0, sizeof(def));
             def.face_culling = CT_FRONT_SIDED;
             def.polygon_offset = qfalse;
-            // Matches rd-vanilla's actual RB_ShadowFinish exactly (tr_shadows.cpp):
-            // black at 50% alpha, no depth write. An earlier version of this
-            // pipeline used a multiplicative blend (GLS_SRCBLEND_DST_COLOR |
-            // GLS_DSTBLEND_ZERO) with GLS_DEPTHMASK_TRUE - that's vanilla's own
-            // abandoned/commented-out alternate technique, not what it actually
-            // runs; the stray depth write let this quad overwrite the depth
-            // buffer under the shadow silhouette, which nothing else in this
-            // renderer does for a translucent pass and was implicated in the
-            // lightsaber blade incorrectly getting darkened by its own cast
-            // shadow (Vulkan-only, confirmed absent on rd-vanilla).
+            // Matches rd-vanilla's RB_ShadowFinish: black at 50% alpha, no depth
+            // write. The multiplicative blend is vanilla's commented-out variant.
             def.state_bits = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA;
             def.shader_type = TYPE_SINGLE_TEXTURE;
             def.mirror = qfalse;

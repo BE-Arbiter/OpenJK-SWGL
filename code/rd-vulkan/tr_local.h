@@ -1369,9 +1369,8 @@ typedef struct mdxmVBOMesh_s
 	VBO_t *vbo;
 	IBO_t *ibo;
 
-	// GL_TRIANGLES_ADJACENCY-style index buffer (6 indices/triangle) used by
-	// the stencil shadow silhouette-extrusion geometry shader. NULL if the
-	// GPU doesn't support geometry shaders (vk.geometryShader == qfalse).
+	// GL_TRIANGLES_ADJACENCY index buffer (6 per triangle) for the shadow
+	// silhouette geometry shader. NULL without geometry shader support.
 	IBO_t *adjacencyIbo;
 	int adjacencyIndexOffset;
 	int numAdjacencyIndexes;

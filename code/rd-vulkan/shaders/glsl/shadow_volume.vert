@@ -1,14 +1,8 @@
 #version 450
 
-// GPU stencil shadow volume silhouette extrusion - vertex stage.
-//
-// Skins the vertex exactly like gen_vert.tmpl's USE_VBO_GHOUL2 path, but
-// does NOT apply the mvp transform: it outputs the skinned position in
-// local (model) space, which the paired shadow_volume.geom needs to do the
-// same "extrude toward the ground plane" math CPU-side RB_ShadowTessEnd
-// (tr_shadows.cpp) does before any view/projection transform is applied.
-// The geometry shader applies mvp itself once it has decided what (if
-// anything) to emit for a given triangle.
+// Shadow volume silhouette extrusion, vertex stage. Skins like gen_vert.tmpl's
+// USE_VBO_GHOUL2 path but leaves the result in model space: shadow_volume.geom
+// extrudes there and applies mvp itself.
 
 layout(set = 0, binding = 3) uniform Bones {
 	mat3x4 u_BoneMatrices[72];

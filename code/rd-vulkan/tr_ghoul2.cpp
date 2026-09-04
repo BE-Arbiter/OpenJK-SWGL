@@ -2421,15 +2421,9 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 			CRenderableSurface *newSurf = AllocGhoul2RenderableSurface();
 			if ( vk.geometryShader && r_vbo_shadow2->integer )
 			{
-				// GPU path (RB_DrawShadowVolumeGPU/shadow_volume.geom): the
-				// silhouette/extrusion happens in the geometry shader, so the CPU
-				// branch below only drops to the lowest LOD because it needs
-				// numVerts*2 free xyz slots in tess - a constraint that simply does
-				// not exist here. Do NOT copy that downgrade: it would leave some
-				// surfaces of the model at RS.lod and others at numLods-1, and two
-				// LODs of the same character do not line up along their shared
-				// borders, so the combined volume gains holes exactly where the
-				// mismatched surfaces meet. Always cast from RS.lod.
+				// No LOD downgrade here: the CPU branch below only needs it for its
+				// tess budget, and mixing two LODs on one character opens the volume
+				// along their shared borders.
 				newSurf->surfaceData = surface;
 				vk_set_ghoul2_vbo_mesh( RS, newSurf, RS.lod, surface->thisSurfaceIndex );
 			}
@@ -3398,16 +3392,11 @@ int RB_GetBoneUboOffset( CRenderableSurface *surf )
 ==============
 RB_DrawShadowVolumeGPU
 
-GPU replacement for RB_ShadowTessEnd's CPU silhouette walk (tr_shadows.cpp),
-used for stencil shadow surfaces (r_shadows 2) that RenderSurfaces routed
-onto the GPU-skinned VBO path (see the r_shadows==2 block there, gated on
-vk.geometryShader and r_vbo_shadow2). The silhouette test and quad extrusion
-happen in shadow_volume.geom, fed by the adjacency index buffer built once
-per model at load time (R_BuildShadowAdjacency, vk_vbo.cpp) - this function
-just binds the right buffers/pipeline and issues the two z-pass draw calls
-(increment front-sided, decrement back-sided), matching RB_ShadowTessEnd's
-own sequencing so RB_ShadowFinish's darkening pass behaves the same either
-way.
+GPU replacement for RB_ShadowTessEnd's CPU silhouette walk (tr_shadows.cpp).
+The silhouette test and extrusion happen in shadow_volume.geom, fed by the
+adjacency buffer built at model load; this just binds and issues the two
+z-pass draws (increment front-sided, decrement back-sided) in the same order
+RB_ShadowTessEnd uses.
 ==============
 */
 static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
@@ -3453,47 +3442,24 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 			vboMesh->numAdjacencyIndexes, pushData.lightDir[0], pushData.lightDir[1], pushData.lightDir[2], pushData.groundOffset,
 			pushData.mvp[12], pushData.mvp[13], pushData.mvp[14], pushData.mvp[15] );
 
-	// vertex buffers: position (0), bones (8), weights (9) - reuses the same
-	// bind path the normal GPU ghoul2 draw uses (vk_vbo_bind_geometry_ghoul2);
-	// our pipeline's vertex input state only references those 3 bindings, so
-	// the others it also binds along the way are simply unused.
+	// position (0), bones (8), weights (9) - the pipeline only references those
+	// three; the rest vk_bind_geometry binds along the way are unused.
 	tess.vbo_model = vboMesh->vbo;
 	tess.surfType = SF_MDX;
 	vk_bind_geometry( TESS_XYZ );
-	// vk_bind_geometry() only needed tess.vbo_model to pick the ghoul2 vertex
-	// buffer bind path (vk_vbo_bind_geometry_ghoul2) - clear it right away.
-	// We bind our own (adjacency) index buffer directly below instead of
-	// going through vk_bind_index()/tess.ibo_model, so if this were left
-	// set, the next surface processed afterwards (which may not be a VBO
-	// ghoul2 surface at all) would wrongly take vk_bind_index()'s
-	// tess.vbo_model branch and dereference a stale/NULL tess.ibo_model.
+	// Cleared right away: we bind our own adjacency index buffer below rather
+	// than going through vk_bind_index(), which would then take the vbo_model
+	// branch on the next surface and hit a stale tess.ibo_model.
 	tess.vbo_model = NULL;
 
 	// adjacency index buffer (R_BuildShadowAdjacency, vk_vbo.cpp)
 	qvkCmdBindIndexBuffer( vk.cmd->command_buffer, vboMesh->adjacencyIbo->buffer,
 		vboMesh->adjacencyIndexOffset * sizeof( uint32_t ), VK_INDEX_TYPE_UINT32 );
 
-	// Bones descriptor set (set 0) - vk.cmd->descriptor_set.current[] is only
-	// ever populated for the sampler sets (updated per-texture-selection via
-	// vk_update_descriptor()); the dynamic uniform set at index 0 is instead
-	// one persistent VkDescriptorSet per command buffer (vk.cmd->uniform_descriptor,
-	// allocated once - see vk_shade_geometry.cpp), reused every draw with
-	// different dynamic offsets.
-	//
-	// vk.cmd->descriptor_set.offset[VK_DESC_UNIFORM_BONES_BINDING/ENTITY_BINDING]
-	// are NOT safe to reuse here: they're only written by the per-stage
-	// iterator in vk_shade_geometry.cpp (RB_StageIteratorGeneric), which
-	// never runs for tr.shadowShader (it has zero stages) - so by the time
-	// we get here those two slots still hold whatever the *last stage-
-	// iterated* ghoul2 surface left behind (a different entity/bone cache
-	// entirely, possibly from earlier in the frame). Skinning with those
-	// stale bones is exactly what produced wildly displaced, camera-
-	// dependent shadow geometry ("streaks"/"holes") that no amount of
-	// adjacency/topology fixing could touch. RB_RenderDrawSurfList (see
-	// tr_backend.cpp) DOES freshly prime vk.cmd->bones_ubo_offset for every
-	// surface (keyed on boneCache change, before shader dispatch), so read
-	// that directly instead; the entity offset is likewise recomputed here
-	// rather than trusted from descriptor_set.offset.
+	// descriptor_set.offset[BONES/ENTITY] is only written by the stage iterator,
+	// which never runs for tr.shadowShader (zero stages), so those slots hold a
+	// different entity's bones by now. RB_RenderDrawSurfList primes
+	// vk.cmd->bones_ubo_offset per surface - read that instead.
 	{
 		uint32_t entityOffset;
 		if ( !backEnd.currentEntity || backEnd.currentEntity == &backEnd.entity2D || backEnd.currentEntity == &tr.worldEntity )
@@ -3558,19 +3524,10 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 		}
 	}
 
-	// vk.pipeline_layout_shadow_volume's push constant range differs from
-	// vk.pipeline_layout's (size/stage), so per Vulkan's pipeline layout
-	// compatibility rules our raw vkCmdBindDescriptorSets() call above
-	// invalidates every previously bound set from index 0 on, even the
-	// sampler sets (1-4) we never touched. The deferred descriptor-set
-	// tracker (vk_bind_descriptor_sets(), vk_update_descriptor()) doesn't
-	// know that happened, so without this it would wrongly assume those
-	// sets are still bound and skip rebinding them for the very next
-	// surface drawn with the standard pipeline layout - producing a
-	// "descriptor set N not bound" validation error/crash right after any
-	// GPU stencil shadow draw. Marking them all as stale (current[i] =
-	// VK_NULL_HANDLE) forces the next vk_update_descriptor() call for each
-	// to see a mismatch and schedule a real rebind.
+	// Our raw vkCmdBindDescriptorSets above used an incompatible pipeline layout,
+	// so Vulkan unbound every set from index 0 on. The deferred tracker does not
+	// know that, so mark them all stale or the next standard-layout draw skips
+	// the rebind and trips "descriptor set N not bound".
 	for ( int i = 0; i < VK_DESC_COUNT; i++ )
 		vk_reset_descriptor( i );
 	vk.cmd->last_pipeline = VK_NULL_HANDLE;

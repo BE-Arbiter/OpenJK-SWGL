@@ -35,36 +35,12 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 ==============
 R_BuildShadowAdjacency
 
-Builds a GL_TRIANGLES_ADJACENCY-compatible index list (6 indices per
-triangle: the 3 real vertices interleaved with the "opposite" vertex of the
-neighboring triangle across each edge) for all numTriangles triangles in
-indices[] (spanning every surface of the LOD, not just one). Used by the
-stencil shadow silhouette-extrusion geometry shader so it doesn't have to
-duplicate the CPU-side edge-adjacency walk (R_CalcShadowEdges,
-tr_shadows.cpp) every frame.
-
-Matches edges by literal vertex index only, same as R_CalcShadowEdges - no
-position-based welding across surface seams. An earlier version welded
-same-position vertices across different surfaces to avoid a spurious
-silhouette line along every seam; in practice, on a real multi-surface
-character model that made ~11% of all edges collide on the same welded
-position (unrelated vertices from different body parts landing in the same
-bind-pose neighborhood) and get dropped as "non-manifold", producing far
-worse artifacts (wide banding) than the seam lines it was meant to fix. The
-CPU path never attempted this and looks clean regardless - a duplicated
-seam boundary on both sides of the seam contributes the same "shadowed"
-stencil parity on both sides, so it's not visually distinguishable from a
-true match. Simplicity wins here.
-
-On an open/boundary edge (no second triangle claims it), the adjacency slot
-is set to one of the edge's own two vertices instead of a real neighbor.
-shadow_volume.geom detects that by exact position comparison and always
-treats such an edge as a silhouette edge, which reproduces R_CalcShadowEdges'
-boundary-edge behaviour ("if it doesn't share the edge with another front
-facing triangle, it is a sil edge").
-
-This only depends on mesh topology, not on the current pose, so it runs
-once per model load (R_BuildMDXM), never per frame.
+Builds the GL_TRIANGLES_ADJACENCY index list (6 per triangle) the shadow
+silhouette geometry shader needs, over every surface of one LOD. Edges are
+matched by vertex index only, same as R_CalcShadowEdges - no position welding.
+An open edge gets one of its own vertices in the adjacency slot; the shader
+spots that and treats it as a silhouette edge. Topology only, so this runs
+once per model load rather than per frame.
 ==============
 */
 static void R_BuildShadowAdjacency( const uint32_t *indices, int numTriangles, uint32_t *outAdjIndices )
@@ -98,9 +74,8 @@ static void R_BuildShadowAdjacency( const uint32_t *indices, int numTriangles, u
 				owner.tri[1] = t;
 				owner.opposite[1] = opp;
 			}
-			// a 3rd+ triangle sharing this edge (non-manifold mesh) is
-			// dropped - same "at most 2 faces per edge" assumption the CPU
-			// path (R_CalcShadowEdges) makes implicitly.
+			// a 3rd+ triangle on this edge is dropped - the same "at most 2 faces
+			// per edge" assumption R_CalcShadowEdges makes implicitly.
 		}
 	}
 
@@ -130,10 +105,8 @@ static void R_BuildShadowAdjacency( const uint32_t *indices, int numTriangles, u
 				adjVert = owner.opposite[0];
 				numRealNeighbors++;
 			} else {
-				// non-manifold edge (3rd+ triangle sharing it, dropped in
-				// pass 1) - treat this triangle's copy of the edge as an
-				// open boundary too, same degenerate fallback as above,
-				// rather than wrongly matching it to an unrelated neighbor.
+				// non-manifold (3rd+ triangle on this edge, dropped in pass 1):
+				// treat as an open boundary rather than match an unrelated neighbor.
 				adjVert = tri[e];
 				numNonManifoldDropped++;
 			}
@@ -1257,10 +1230,8 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 		VBO_t *vbo = R_CreateVBO( modelName, data, dataSize );
 		IBO_t *ibo = R_CreateIBO( modelName, (byte *)indices, sizeof(uint32_t) * numTriangles * 3 );
 
-		// Stencil shadow silhouette-extrusion adjacency buffer (see
-		// R_BuildShadowAdjacency above). Skipped entirely if the GPU has no
-		// geometry shader support - those surfaces fall back to the CPU
-		// shadow-volume path (RB_ShadowTessEnd, tr_shadows.cpp) instead.
+		// Adjacency buffer for the shadow silhouette geometry shader. Skipped
+		// without geometry shader support - those surfaces use the CPU path.
 		IBO_t *adjacencyIbo = NULL;
 		if ( vk.geometryShader )
 		{

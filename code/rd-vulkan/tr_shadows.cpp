@@ -298,9 +298,7 @@ void RB_ShadowFinish(void)
 	for (i = 0; i < 4; i++)
 	{
 		VectorCopy(verts[i], tess.xyz[i]);
-		// black at 50% alpha - matches rd-vanilla's qglColor4f(0,0,0,0.5f)
-		// exactly (see vk.std_pipeline.shadow_finish_pipeline's blend state,
-		// vk_pipelines.cpp)
+		// black at 50% alpha, as rd-vanilla does
 		Vector4Set(tess.svars.colors[0][i], 0, 0, 0, 128);
 	}
 	tess.numVertexes = 4;

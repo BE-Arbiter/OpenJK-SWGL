@@ -377,13 +377,8 @@ static VkFormat get_depth_format( VkPhysicalDevice physical_device ) {
     VkFormat formats[2];
     uint32_t i;
 
-    // r_stencilbits' Cvar_Get() was commented out (see tr_init.cpp), so
-    // glConfig.stencilBits was never set anywhere in this renderer and
-    // stayed 0 forever - meaning this function always picked a stencil-less
-    // depth format, and every stencil-dependent feature (r_shadows 2)
-    // silently no-op'd downstream (RB_ShadowFinish, tr_shadows.cpp, bails
-    // out on "glConfig.stencilBits < 4") no matter what wrote to the
-    // stencil buffer earlier in the frame.
+    // r_stencilbits' Cvar_Get was commented out in tr_init.cpp, so this stayed 0
+    // and every stencil feature silently no-op'd.
     glConfig.stencilBits = r_stencilbits->integer;
 
     if ( glConfig.stencilBits > 0 ) {
