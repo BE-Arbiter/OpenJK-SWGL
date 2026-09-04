@@ -131,8 +131,7 @@ cvar_t	*r_distanceCull;
 cvar_t	*r_vertexLight;
 cvar_t	*r_uiFullScreen;
 cvar_t	*r_shadows;
-cvar_t	*r_vbo_shadow2; // TEMP DEBUG: gates the GPU stencil shadow (geometry shader) path, separately from vk.geometryShader hardware support
-cvar_t	*r_g2_shadowdebug; // TEMP DEBUG: 1 = print G2SHADOWDEBUG traces, 2 = also render shadow volumes in visible color with no depth/stencil test
+cvar_t	*r_g2_shadowdebug; // DEBUG: 1 = print G2SHADOWDEBUG traces, 2 = also render shadow volumes in visible color with no depth/stencil test
 cvar_t	*r_shadowRange;
 
 
@@ -844,7 +843,6 @@ void R_Register( void )
 	r_lockpvs							= Cvar_Get( "r_lockpvs",							"0",						CVAR_CHEAT, "" );
 	r_noportals							= Cvar_Get( "r_noportals",						"0",						CVAR_NONE, "" );
 	r_shadows							= Cvar_Get( "cg_shadows",						"1",						CVAR_NONE, "" );
-	r_vbo_shadow2						= Cvar_Get( "r_vbo_shadow2",					"0",						CVAR_TEMP, "" );
 	r_g2_shadowdebug					= Cvar_Get( "r_g2_shadowdebug",				"0",						CVAR_TEMP, "" );
 	r_shadowRange						= Cvar_Get( "r_shadowRange",						"1000",						CVAR_NONE, "" );
 	r_marksOnTriangleMeshes				= Cvar_Get( "r_marksOnTriangleMeshes",			"0",						CVAR_ARCHIVE_ND, "" );

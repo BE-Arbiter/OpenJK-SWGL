@@ -1953,9 +1953,13 @@ extern	cvar_t	*r_showsky;				// forces sky in front of all surfaces
 extern	cvar_t	*r_shownormals;			// draws wireframe normals
 extern	cvar_t	*r_clear;				// force screen clear every frame
 
-extern	cvar_t	*r_shadows;				// controls shadows: 0 = none, 1 = blur, 2 = stencil, 3 = black planar projection
-extern	cvar_t	*r_vbo_shadow2;			// TEMP DEBUG: gates the GPU stencil shadow (geometry shader) path, separately from vk.geometryShader hardware support
-extern	cvar_t	*r_g2_shadowdebug;		// TEMP DEBUG: 1 = print G2SHADOWDEBUG traces, 2 = also render shadow volumes in visible color with no depth/stencil test
+extern	cvar_t	*r_shadows;				// 0 = none, 1 = blur, 2 = stencil, 3 = black planar projection, 4 = stencil on the GPU
+extern	cvar_t	*r_g2_shadowdebug;		// TEMP DEBUG: 1 = print G2SHADOWDEBUG traces, 2 = render shadow volumes in visible color
+
+// stencil shadow volumes: mode 2 walks silhouettes on the CPU, mode 4 in a
+// geometry shader. Everything outside that choice treats them alike.
+#define R_STENCIL_SHADOWS()	( r_shadows->integer == 2 || r_shadows->integer == 4 )
+
 extern	cvar_t	*r_flares;				// light flares
 //extern	cvar_t	*r_flareSize;			// light flare size
 //extern cvar_t	*r_flareFade;

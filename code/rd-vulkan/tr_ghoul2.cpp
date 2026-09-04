@@ -2412,14 +2412,14 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 		// stencil shadows can't do personal models unless I polyhedron clip
 		//using z-fail now so can do personal models -rww
 		if ( /*!RS.personalModel
-			&& */r_shadows->integer == 2
+			&& */R_STENCIL_SHADOWS()
 //			&& RS.fogNum == 0
 			&& (RS.renderfx & RF_SHADOW_PLANE )
 			&& !(RS.renderfx & ( RF_NOSHADOW | RF_DEPTHHACK ) )
 			&& shader->sort == SS_OPAQUE )
 		{		// set the surface info to point at the where the transformed bone list is going to be for when the surface gets rendered out
 			CRenderableSurface *newSurf = AllocGhoul2RenderableSurface();
-			if ( vk.geometryShader && r_vbo_shadow2->integer )
+			if ( vk.geometryShader && r_shadows->integer == 4 )
 			{
 				// No LOD downgrade here: the CPU branch below only needs it for its
 				// tess budget, and mixing two LODs on one character opens the volume
@@ -3421,7 +3421,7 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 	// same light source selection RB_ShadowTessEnd uses - r_dlightMode defaults
 	// to 2, so on a stock config this picks shadowLightDir, not modelLightDir.
 #ifdef USE_PMLIGHT
-	if ( r_dlightMode->integer == 2 && r_shadows->integer == 2 )
+	if ( r_dlightMode->integer == 2 && R_STENCIL_SHADOWS() )
 		VectorCopy( backEnd.currentEntity->shadowLightDir, entLight );
 	else
 #endif
@@ -3543,7 +3543,7 @@ void RB_SurfaceGhoul(CRenderableSurface* surf)
 	{
 		mdxmVBOMesh_t *surface = surf->vboMesh;
 
-		if ( tess.shader == tr.shadowShader && vk.geometryShader && r_vbo_shadow2->integer )
+		if ( tess.shader == tr.shadowShader && vk.geometryShader && r_shadows->integer == 4 )
 		{
 			RB_DrawShadowVolumeGPU( surf );
 			return;

@@ -140,7 +140,7 @@ void RB_ShadowTessEnd(void) {
 	float	groundDist;
 
 #ifdef USE_PMLIGHT
-	if (r_dlightMode->integer == 2 && r_shadows->integer == 2)
+	if (r_dlightMode->integer == 2 && R_STENCIL_SHADOWS())
 		VectorCopy(backEnd.currentEntity->shadowLightDir, entLight);
 	else
 #endif
@@ -165,7 +165,7 @@ void RB_ShadowTessEnd(void) {
 	}
 #else
 #ifdef USE_PMLIGHT
-	if (r_dlightMode->integer == 2 && r_shadows->integer == 2)
+	if (r_dlightMode->integer == 2 && R_STENCIL_SHADOWS())
 		VectorCopy(backEnd.currentEntity->shadowLightDir, lightDir);
 	else
 #endif
@@ -277,7 +277,7 @@ void RB_ShadowFinish(void)
 
 	backEnd.doneShadows = qfalse;
 
-	if (r_shadows->integer != 2)
+	if (!R_STENCIL_SHADOWS())
 		return;
 
 	if (glConfig.stencilBits < 4)
@@ -347,7 +347,7 @@ void RB_ProjectionShadowDeform(void)
 	groundDist = backEnd.ori.origin[2] - backEnd.currentEntity->e.shadowPlane;
 
 #ifdef USE_PMLIGHT
-	if (r_dlightMode->integer == 2 && r_shadows->integer == 2)
+	if (r_dlightMode->integer == 2 && R_STENCIL_SHADOWS())
 		VectorCopy(backEnd.currentEntity->shadowLightDir, lightDir);
 	else
 #endif
