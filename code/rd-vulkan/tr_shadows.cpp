@@ -222,6 +222,10 @@ void RB_ShadowTessEnd(void) {
 	
 	R_CalcShadowEdges();
 
+	if ( r_g2_shadowdebug->integer )
+		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: CPU R_CalcShadowEdges: %d triangles in, %d silhouette edges found\n",
+			numTris, tess.numIndexes / 6 );
+
 	// draw the silhouette edges
 	vk_bind(tr.whiteImage);
 
@@ -264,6 +268,10 @@ void RB_ShadowFinish(void)
 	float tmp[16];
 	int i;
 
+	if ( r_g2_shadowdebug->integer )
+		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: RB_ShadowFinish called, doneShadows=%d r_shadows=%d stencilBits=%d\n",
+			backEnd.doneShadows, r_shadows->integer, glConfig.stencilBits );
+
 	if (!backEnd.doneShadows)
 		return;
 
@@ -271,9 +279,12 @@ void RB_ShadowFinish(void)
 
 	if (r_shadows->integer != 2)
 		return;
-	
+
 	if (glConfig.stencilBits < 4)
 		return;
+
+	if ( r_g2_shadowdebug->integer )
+		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: RB_ShadowFinish drawing darkening quad\n" );
 
 	static const vec3_t verts[4] = {
 		{ -100, 100, -10 },
@@ -287,7 +298,10 @@ void RB_ShadowFinish(void)
 	for (i = 0; i < 4; i++)
 	{
 		VectorCopy(verts[i], tess.xyz[i]);
-		Vector4Set(tess.svars.colors[0][i], 153, 153, 153, 255);
+		// black at 50% alpha - matches rd-vanilla's qglColor4f(0,0,0,0.5f)
+		// exactly (see vk.std_pipeline.shadow_finish_pipeline's blend state,
+		// vk_pipelines.cpp)
+		Vector4Set(tess.svars.colors[0][i], 0, 0, 0, 128);
 	}
 	tess.numVertexes = 4;
 

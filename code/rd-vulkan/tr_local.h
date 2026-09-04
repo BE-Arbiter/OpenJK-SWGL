@@ -1368,6 +1368,13 @@ typedef struct mdxmVBOMesh_s
 
 	VBO_t *vbo;
 	IBO_t *ibo;
+
+	// GL_TRIANGLES_ADJACENCY-style index buffer (6 indices/triangle) used by
+	// the stencil shadow silhouette-extrusion geometry shader. NULL if the
+	// GPU doesn't support geometry shaders (vk.geometryShader == qfalse).
+	IBO_t *adjacencyIbo;
+	int adjacencyIndexOffset;
+	int numAdjacencyIndexes;
 } mdxmVBOMesh_t;
 
 typedef struct mdxmVBOModel_s
@@ -1948,6 +1955,8 @@ extern	cvar_t	*r_shownormals;			// draws wireframe normals
 extern	cvar_t	*r_clear;				// force screen clear every frame
 
 extern	cvar_t	*r_shadows;				// controls shadows: 0 = none, 1 = blur, 2 = stencil, 3 = black planar projection
+extern	cvar_t	*r_vbo_shadow2;			// TEMP DEBUG: gates the GPU stencil shadow (geometry shader) path, separately from vk.geometryShader hardware support
+extern	cvar_t	*r_g2_shadowdebug;		// TEMP DEBUG: 1 = print G2SHADOWDEBUG traces, 2 = also render shadow volumes in visible color with no depth/stencil test
 extern	cvar_t	*r_flares;				// light flares
 //extern	cvar_t	*r_flareSize;			// light flare size
 //extern cvar_t	*r_flareFade;

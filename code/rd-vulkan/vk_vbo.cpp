@@ -23,9 +23,130 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 
+#include <unordered_map>
+#include <vector>
+
 #ifdef _G2_GORE
 #include "G2_gore_r2.h"
 #endif
+
+
+/*
+==============
+R_BuildShadowAdjacency
+
+Builds a GL_TRIANGLES_ADJACENCY-compatible index list (6 indices per
+triangle: the 3 real vertices interleaved with the "opposite" vertex of the
+neighboring triangle across each edge) for all numTriangles triangles in
+indices[] (spanning every surface of the LOD, not just one). Used by the
+stencil shadow silhouette-extrusion geometry shader so it doesn't have to
+duplicate the CPU-side edge-adjacency walk (R_CalcShadowEdges,
+tr_shadows.cpp) every frame.
+
+Matches edges by literal vertex index only, same as R_CalcShadowEdges - no
+position-based welding across surface seams. An earlier version welded
+same-position vertices across different surfaces to avoid a spurious
+silhouette line along every seam; in practice, on a real multi-surface
+character model that made ~11% of all edges collide on the same welded
+position (unrelated vertices from different body parts landing in the same
+bind-pose neighborhood) and get dropped as "non-manifold", producing far
+worse artifacts (wide banding) than the seam lines it was meant to fix. The
+CPU path never attempted this and looks clean regardless - a duplicated
+seam boundary on both sides of the seam contributes the same "shadowed"
+stencil parity on both sides, so it's not visually distinguishable from a
+true match. Simplicity wins here.
+
+On an open/boundary edge (no second triangle claims it), the adjacency slot
+is set to one of the edge's own two vertices instead of a real neighbor.
+shadow_volume.geom detects that by exact position comparison and always
+treats such an edge as a silhouette edge, which reproduces R_CalcShadowEdges'
+boundary-edge behaviour ("if it doesn't share the edge with another front
+facing triangle, it is a sil edge").
+
+This only depends on mesh topology, not on the current pose, so it runs
+once per model load (R_BuildMDXM), never per frame.
+==============
+*/
+static void R_BuildShadowAdjacency( const uint32_t *indices, int numTriangles, uint32_t *outAdjIndices )
+{
+	struct edgeOwner_t {
+		int tri[2] = { -1, -1 };
+		uint32_t opposite[2] = { 0, 0 };
+	};
+
+	std::unordered_map<uint64_t, edgeOwner_t> edgeMap;
+	edgeMap.reserve( numTriangles * 3 );
+
+	// pass 1: record up to 2 owning triangles per undirected edge.
+	for ( int t = 0; t < numTriangles; t++ )
+	{
+		const uint32_t *tri = indices + t * 3;
+		for ( int e = 0; e < 3; e++ )
+		{
+			uint32_t v0 = tri[e];
+			uint32_t v1 = tri[(e + 1) % 3];
+			uint32_t opp = tri[(e + 2) % 3]; // real index - this is what gets emitted
+			uint32_t lo = v0 < v1 ? v0 : v1;
+			uint32_t hi = v0 < v1 ? v1 : v0;
+			uint64_t key = ( (uint64_t)lo << 32 ) | (uint64_t)hi;
+
+			edgeOwner_t &owner = edgeMap[key];
+			if ( owner.tri[0] == -1 ) {
+				owner.tri[0] = t;
+				owner.opposite[0] = opp;
+			} else if ( owner.tri[1] == -1 && owner.tri[0] != t ) {
+				owner.tri[1] = t;
+				owner.opposite[1] = opp;
+			}
+			// a 3rd+ triangle sharing this edge (non-manifold mesh) is
+			// dropped - same "at most 2 faces per edge" assumption the CPU
+			// path (R_CalcShadowEdges) makes implicitly.
+		}
+	}
+
+	// pass 2: for each triangle/edge, find the OTHER triangle on that edge
+	// (if any) and emit the 6-index adjacency list.
+	int numRealNeighbors = 0, numOpenBoundary = 0, numNonManifoldDropped = 0;
+	for ( int t = 0; t < numTriangles; t++ )
+	{
+		const uint32_t *tri = indices + t * 3;
+		uint32_t *outTri = outAdjIndices + t * 6;
+
+		for ( int e = 0; e < 3; e++ )
+		{
+			uint32_t v0 = tri[e];
+			uint32_t v1 = tri[(e + 1) % 3];
+			uint32_t lo = v0 < v1 ? v0 : v1;
+			uint32_t hi = v0 < v1 ? v1 : v0;
+			uint64_t key = ( (uint64_t)lo << 32 ) | (uint64_t)hi;
+
+			const edgeOwner_t &owner = edgeMap[key];
+			uint32_t adjVert;
+
+			if ( owner.tri[0] == t ) {
+				if ( owner.tri[1] != -1 ) { adjVert = owner.opposite[1]; numRealNeighbors++; }
+				else { adjVert = tri[e]; numOpenBoundary++; } // boundary fallback: real index
+			} else if ( owner.tri[1] == t ) {
+				adjVert = owner.opposite[0];
+				numRealNeighbors++;
+			} else {
+				// non-manifold edge (3rd+ triangle sharing it, dropped in
+				// pass 1) - treat this triangle's copy of the edge as an
+				// open boundary too, same degenerate fallback as above,
+				// rather than wrongly matching it to an unrelated neighbor.
+				adjVert = tri[e];
+				numNonManifoldDropped++;
+			}
+
+			outTri[e * 2 + 0] = tri[e];
+			outTri[e * 2 + 1] = adjVert;
+		}
+	}
+
+	if ( r_g2_shadowdebug->integer )
+		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: adjacency stats: %d triangles, %d edges matched to a real neighbor, %d genuine open boundary, %d non-manifold (3rd+ triangle) dropped\n",
+			numTriangles, numRealNeighbors, numOpenBoundary, numNonManifoldDropped );
+}
 
 #ifdef USE_VBO
 
@@ -1136,6 +1257,23 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 		VBO_t *vbo = R_CreateVBO( modelName, data, dataSize );
 		IBO_t *ibo = R_CreateIBO( modelName, (byte *)indices, sizeof(uint32_t) * numTriangles * 3 );
 
+		// Stencil shadow silhouette-extrusion adjacency buffer (see
+		// R_BuildShadowAdjacency above). Skipped entirely if the GPU has no
+		// geometry shader support - those surfaces fall back to the CPU
+		// shadow-volume path (RB_ShadowTessEnd, tr_shadows.cpp) instead.
+		IBO_t *adjacencyIbo = NULL;
+		if ( vk.geometryShader )
+		{
+			uint32_t *adjIndices = (uint32_t *)Hunk_AllocateTempMemory( sizeof(uint32_t) * numTriangles * 6 );
+			R_BuildShadowAdjacency( indices, numTriangles, adjIndices );
+
+			adjacencyIbo = R_CreateIBO( modelName, (byte *)adjIndices, sizeof(uint32_t) * numTriangles * 6 );
+			Hunk_FreeTempMemory( adjIndices );
+
+			if ( r_g2_shadowdebug->integer )
+				ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: built adjacency IBO for '%s' lod, %d triangles, ibo=%p\n", modelName, numTriangles, adjacencyIbo );
+		}
+
 		Hunk_FreeTempMemory( data );
 		Hunk_FreeTempMemory( tangentsf );
 		Hunk_FreeTempMemory( indices );
@@ -1159,6 +1297,10 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 			vboMeshes[n].maxIndex = baseVertexes[n + 1] - 1;
 			vboMeshes[n].numVertexes = surf->numVerts;
 			vboMeshes[n].numIndexes = surf->numTriangles * 3;
+
+			vboMeshes[n].adjacencyIbo = adjacencyIbo;
+			vboMeshes[n].adjacencyIndexOffset = indexOffsets[n] * 2;
+			vboMeshes[n].numAdjacencyIndexes = surf->numTriangles * 6;
 
 			surf = (mdxmSurface_t *)((byte *)surf + surf->ofsEnd);
 		}

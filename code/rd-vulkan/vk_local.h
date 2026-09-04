@@ -895,6 +895,9 @@ typedef struct {
 #endif
 	VkPipelineLayout pipeline_layout_post_process;	// post-processing
 	VkPipelineLayout pipeline_layout_blend;			// post-processing
+	VkPipelineLayout pipeline_layout_shadow_volume;	// GPU stencil shadow silhouette extrusion (vk.geometryShader only)
+	VkPipeline shadow_volume_adjacency_pipeline[2][2];	// [cull: front/back][mirror] - lazily (re)created, always targets vk.render_pass.main; reset in vk_destroy_pipelines()
+	VkPipeline shadow_volume_debug_pipeline;			// TEMP DEBUG (r_g2_shadowdebug 2): no cull/depth/stencil test, visible red color
 
 	VkPipeline gamma_pipeline;
 	VkPipeline bloom_extract_pipeline;
@@ -989,12 +992,18 @@ typedef struct {
 
 		VkShaderModule refraction_vs[3];
 		VkShaderModule refraction_fs;
+
+		// GPU stencil shadow volume silhouette extrusion (only created when
+		// vk.geometryShader is true; see shadow_volume.vert/.geom).
+		VkShaderModule shadow_volume_vs;
+		VkShaderModule shadow_volume_gs;
 	} shaders;
 
 	uint32_t frame_count;
 	qboolean shaderStorageImageMultisample;
 	qboolean samplerAnisotropy;
 	qboolean fragmentStores;
+	qboolean geometryShader;		// enables GPU-side stencil shadow volume silhouette extrusion; CPU fallback otherwise
 	qboolean dedicatedAllocation;
 	qboolean debugMarkers;
 	qboolean wideLines;
@@ -1174,6 +1183,7 @@ void		vk_clear_depthstencil_attachments( qboolean clear_stencil );
 void		vk_set_2d( void );
 void		vk_set_depthrange( const Vk_Depth_Range depthRange );
 void		vk_update_mvp( const float *m );
+void		vk_get_mvp_transform( float *out );
 
 void		vk_create_render_passes( void );
 void		vk_destroy_render_passes( void );
@@ -1201,6 +1211,8 @@ VkBuffer	vk_get_vertex_buffer( void );
 void		vk_update_descriptor( int tmu, VkDescriptorSet curDesSet );
 uint32_t	vk_find_pipeline_ext( uint32_t base, const Vk_Pipeline_Def *def, qboolean use );
 VkPipeline	vk_gen_pipeline( uint32_t index );
+VkPipeline	vk_get_shadow_volume_adjacency_pipeline( int cullIndex, qboolean mirror );
+VkPipeline	vk_get_shadow_volume_debug_pipeline( void ); // TEMP DEBUG
 void		vk_end_render_pass( void );
 void		vk_begin_main_render_pass( void );
 void		vk_get_pipeline_def( uint32_t pipeline, Vk_Pipeline_Def *def );

@@ -195,6 +195,33 @@ void vk_create_pipeline_layout( void )
 
     VK_SET_OBJECT_NAME(vk.pipeline_layout_post_process, "pipeline layout - post-processing", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT);
     VK_SET_OBJECT_NAME(vk.pipeline_layout_blend, "pipeline layout - blend", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT);
+
+    // GPU stencil shadow volume silhouette extrusion (shadow_volume.vert/.geom).
+    // Only the vertex stage's Bones binding (set 0, binding 3) is used - that
+    // binding is already exposed to VK_SHADER_STAGE_VERTEX_BIT in
+    // vk.set_layout_uniform (see vk_create_layout_binding above), so it's
+    // reused as-is. The push constant range differs from the standard 64-byte
+    // mvp-only one (mvp + lightDir + groundOffset, read by the geometry stage
+    // only), so this needs its own pipeline layout.
+    if ( vk.geometryShader )
+    {
+        VkPushConstantRange shadow_push_range;
+        shadow_push_range.stageFlags = VK_SHADER_STAGE_GEOMETRY_BIT;
+        shadow_push_range.offset = 0;
+        shadow_push_range.size = 80; // mat4 mvp (64) + vec3 lightDir + float groundOffset (16, std140-packed)
+
+        set_layouts[0] = vk.set_layout_uniform;
+
+        desc.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        desc.pNext = NULL;
+        desc.flags = 0;
+        desc.setLayoutCount = 1;
+        desc.pSetLayouts = set_layouts;
+        desc.pushConstantRangeCount = 1;
+        desc.pPushConstantRanges = &shadow_push_range;
+        VK_CHECK(qvkCreatePipelineLayout(vk.device, &desc, NULL, &vk.pipeline_layout_shadow_volume));
+        VK_SET_OBJECT_NAME(vk.pipeline_layout_shadow_volume, "pipeline layout - shadow volume", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT);
+    }
 }
 
 static uint32_t vk_bind_stride( uint32_t in ) 
@@ -1394,6 +1421,263 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
     return pipeline;
 }
 
+/*
+================
+vk_create_shadow_volume_adjacency_pipeline
+
+Bespoke pipeline for GPU-side stencil shadow silhouette extrusion
+(shadow_volume.vert/.geom) - deliberately NOT built through the generic
+Vk_Pipeline_Def/vk_create_pipeline machinery (that switch statement is
+already huge, and this pipeline's 3-stage vert+geom+frag setup and
+adjacency topology don't fit its assumptions). Only ever targets
+vk.render_pass.main - shadows aren't relevant to the screenmap/refraction/
+post-process passes. Lazily (re)created per (cullIndex, mirror) combination
+via vk_get_shadow_volume_adjacency_pipeline() below; reset alongside every
+other pipeline in vk_destroy_pipelines() so it survives render pass
+recreation (resize, MSAA toggle, etc.) the same way the rest of the
+renderer does.
+
+cullIndex/passOp convention matches vk.std_pipeline.shadow_volume_pipelines
+exactly (see the SHADOW_EDGES pipeline def a bit further down in this file):
+cullIndex 0 = CT_FRONT_SIDED = increment, cullIndex 1 = CT_BACK_SIDED =
+decrement - so RB_TransformBones' GPU shadow draw call can reuse the exact
+same [pipeline-0-then-1] sequencing RB_ShadowTessEnd already uses.
+================
+*/
+static VkPipeline vk_create_shadow_volume_adjacency_pipeline( int cullIndex, qboolean mirror, qboolean debugVisible )
+{
+    VkPipeline pipeline;
+    VkPipelineShaderStageCreateInfo shader_stages[3];
+    VkPipelineVertexInputStateCreateInfo vertex_input_state;
+    VkPipelineInputAssemblyStateCreateInfo input_assembly_state;
+    VkPipelineViewportStateCreateInfo viewport_state;
+    VkPipelineRasterizationStateCreateInfo rasterization_state;
+    VkPipelineMultisampleStateCreateInfo multisample_state;
+    VkPipelineDepthStencilStateCreateInfo depth_stencil_state;
+    VkPipelineColorBlendAttachmentState attachment_blend_state;
+    VkPipelineColorBlendStateCreateInfo blend_state;
+    VkPipelineDynamicStateCreateInfo dynamic_state;
+    // TEMP DEBUG (r_g2_shadowdebug 2): color.frag's "red" mode, so the raw
+    // shadow volume geometry is visible on screen with no depth/stencil
+    // test in the way, to isolate whether the geometry shader is emitting
+    // anything at all from whether the stencil test setup is wrong.
+    int32_t debugColorMode = 3;
+    VkSpecializationMapEntry debugColorEntry = { 4, 0, sizeof(int32_t) };
+    VkSpecializationInfo debugColorInfo = { 1, &debugColorEntry, sizeof(int32_t), &debugColorMode };
+    VkDynamicState dynamic_state_array[2] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    VkGraphicsPipelineCreateInfo create_info;
+
+    // vertex input: position (0), bone indexes (8), bone weights (9) - the
+    // same subset of the ghoul2 VBO layout vk_push_vertex_input_binding_attribute
+    // uses, since shadow_volume.vert only needs those three.
+    is_ghoul2_vbo = qtrue;
+    is_mdv_vbo = qfalse;
+    num_binds = num_attrs = 0;
+    vk_push_bind( 0, sizeof( vec4_t ) );
+    vk_push_attr( 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT );
+    vk_push_bind( 8, sizeof( vec4_t ) );
+    vk_push_attr( 8, 8, VK_FORMAT_R8G8B8A8_UINT );
+    vk_push_bind( 9, sizeof( vec4_t ) );
+    vk_push_attr( 9, 9, VK_FORMAT_R8G8B8A8_UNORM );
+
+    vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertex_input_state.pNext = NULL;
+    vertex_input_state.flags = 0;
+    vertex_input_state.pVertexBindingDescriptions = bindings;
+    vertex_input_state.pVertexAttributeDescriptions = attribs;
+    vertex_input_state.vertexBindingDescriptionCount = num_binds;
+    vertex_input_state.vertexAttributeDescriptionCount = num_attrs;
+
+    // shader stages: vertex (skin only, see shadow_volume.vert) + geometry
+    // (silhouette test + extrusion, see shadow_volume.geom) + a trivial
+    // fragment stage. color.frag has no inputs/bindings of its own so it's
+    // always layout-compatible here; its output is discarded anyway since
+    // colorWriteMask is 0 below (this pass only writes the stencil buffer).
+    shader_stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stages[0].pNext = NULL;
+    shader_stages[0].flags = 0;
+    shader_stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    shader_stages[0].module = vk.shaders.shadow_volume_vs;
+    shader_stages[0].pName = "main";
+    shader_stages[0].pSpecializationInfo = NULL;
+
+    shader_stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stages[1].pNext = NULL;
+    shader_stages[1].flags = 0;
+    shader_stages[1].stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+    shader_stages[1].module = vk.shaders.shadow_volume_gs;
+    shader_stages[1].pName = "main";
+    shader_stages[1].pSpecializationInfo = NULL;
+
+    shader_stages[2].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stages[2].pNext = NULL;
+    shader_stages[2].flags = 0;
+    shader_stages[2].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shader_stages[2].module = vk.shaders.color_fs;
+    shader_stages[2].pName = "main";
+    shader_stages[2].pSpecializationInfo = debugVisible ? &debugColorInfo : NULL;
+
+    // primitive assembly - adjacency topology so the geometry shader can see
+    // each edge's opposite/neighbor vertex (R_BuildShadowAdjacency, vk_vbo.cpp)
+    input_assembly_state.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    input_assembly_state.pNext = NULL;
+    input_assembly_state.flags = 0;
+    input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY;
+    input_assembly_state.primitiveRestartEnable = VK_FALSE;
+
+    viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewport_state.pNext = NULL;
+    viewport_state.flags = 0;
+    viewport_state.viewportCount = 1;
+    viewport_state.pViewports = NULL; // dynamic
+    viewport_state.scissorCount = 1;
+    viewport_state.pScissors = NULL; // dynamic
+
+    // rasterization - same front/back-sided z-pass culling as the CPU
+    // stencil shadow pipelines (vk.std_pipeline.shadow_volume_pipelines,
+    // SHADOW_EDGES def further down in this file)
+    rasterization_state.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterization_state.pNext = NULL;
+    rasterization_state.flags = 0;
+    rasterization_state.depthClampEnable = VK_FALSE;
+    rasterization_state.rasterizerDiscardEnable = VK_FALSE;
+    rasterization_state.polygonMode = VK_POLYGON_MODE_FILL;
+    if ( debugVisible )
+        rasterization_state.cullMode = VK_CULL_MODE_NONE;
+    else if ( cullIndex == 0 ) // CT_FRONT_SIDED
+        rasterization_state.cullMode = mirror ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT;
+    else // CT_BACK_SIDED
+        rasterization_state.cullMode = mirror ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_FRONT_BIT;
+    rasterization_state.frontFace = VK_FRONT_FACE_CLOCKWISE; // Q3 defaults to clockwise vertex order
+    rasterization_state.depthBiasEnable = VK_FALSE;
+    rasterization_state.depthBiasConstantFactor = 0.0f;
+    rasterization_state.depthBiasClamp = 0.0f;
+    rasterization_state.depthBiasSlopeFactor = 0.0f;
+    rasterization_state.lineWidth = 1.0f;
+
+    multisample_state.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisample_state.pNext = NULL;
+    multisample_state.flags = 0;
+    multisample_state.rasterizationSamples = (VkSampleCountFlagBits)vkSamples;
+    multisample_state.sampleShadingEnable = VK_FALSE;
+    multisample_state.minSampleShading = 1.0f;
+    multisample_state.pSampleMask = NULL;
+    multisample_state.alphaToCoverageEnable = VK_FALSE;
+    multisample_state.alphaToOneEnable = VK_FALSE;
+
+    // depth/stencil - identical z-pass increment/decrement state to the CPU
+    // shadow_volume_pipelines (vk_pipelines.cpp, SHADOW_EDGES def)
+    Com_Memset( &depth_stencil_state, 0, sizeof(depth_stencil_state) );
+    depth_stencil_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depth_stencil_state.depthTestEnable = debugVisible ? VK_FALSE : VK_TRUE;
+    depth_stencil_state.depthWriteEnable = VK_FALSE;
+#ifdef USE_REVERSED_DEPTH
+    depth_stencil_state.depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
+#else
+    depth_stencil_state.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+#endif
+    depth_stencil_state.depthBoundsTestEnable = VK_FALSE;
+    depth_stencil_state.minDepthBounds = 0.0f;
+    depth_stencil_state.maxDepthBounds = 1.0f;
+    depth_stencil_state.stencilTestEnable = debugVisible ? VK_FALSE : VK_TRUE;
+    depth_stencil_state.front.failOp = VK_STENCIL_OP_KEEP;
+    // CLAMP, exactly like the CPU path's shadow_volume_pipelines above - the
+    // saturation is load-bearing, not an accident. These volumes are uncapped
+    // (RB_ShadowTessEnd emits only the silhouette skirt, no cap on the model and
+    // none on the ground plane), so a ray entering through the missing top cap -
+    // any camera looking down at the caster - exits through a single back face
+    // and reaches -1. Clamping pins that to 0 and the NOT_EQUAL 0 test in
+    // SHADOW_FS_QUAD reads "unshadowed", which is correct. Wrapping instead
+    // turns the same -1 into 255 and paints a spurious shadow, which is what an
+    // earlier attempt here did: it swapped CLAMP for WRAP to make the per-surface
+    // increment/decrement interleaving order-independent, without noticing that
+    // an open volume depends on the clamp to discard those negative counts.
+    depth_stencil_state.front.passOp = ( cullIndex == 0 ) ? VK_STENCIL_OP_INCREMENT_AND_CLAMP : VK_STENCIL_OP_DECREMENT_AND_CLAMP;
+    depth_stencil_state.front.depthFailOp = VK_STENCIL_OP_KEEP;
+    depth_stencil_state.front.compareOp = VK_COMPARE_OP_ALWAYS;
+    depth_stencil_state.front.compareMask = 255;
+    depth_stencil_state.front.writeMask = 255;
+    depth_stencil_state.front.reference = 0;
+    depth_stencil_state.back = depth_stencil_state.front;
+
+    Com_Memset( &attachment_blend_state, 0, sizeof(attachment_blend_state) );
+    attachment_blend_state.blendEnable = VK_FALSE;
+    attachment_blend_state.colorWriteMask = debugVisible
+        ? ( VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT )
+        : 0; // normally a stencil-only pass, no color output
+
+    blend_state.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    blend_state.pNext = NULL;
+    blend_state.flags = 0;
+    blend_state.logicOpEnable = VK_FALSE;
+    blend_state.logicOp = VK_LOGIC_OP_COPY;
+    blend_state.attachmentCount = 1;
+    blend_state.pAttachments = &attachment_blend_state;
+    blend_state.blendConstants[0] = 0.0f;
+    blend_state.blendConstants[1] = 0.0f;
+    blend_state.blendConstants[2] = 0.0f;
+    blend_state.blendConstants[3] = 0.0f;
+
+    dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamic_state.pNext = NULL;
+    dynamic_state.flags = 0;
+    dynamic_state.dynamicStateCount = ARRAY_LEN( dynamic_state_array );
+    dynamic_state.pDynamicStates = dynamic_state_array;
+
+    create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    create_info.pNext = NULL;
+    create_info.flags = 0;
+    create_info.stageCount = ARRAY_LEN( shader_stages );
+    create_info.pStages = shader_stages;
+    create_info.pVertexInputState = &vertex_input_state;
+    create_info.pInputAssemblyState = &input_assembly_state;
+    create_info.pTessellationState = NULL;
+    create_info.pViewportState = &viewport_state;
+    create_info.pRasterizationState = &rasterization_state;
+    create_info.pMultisampleState = &multisample_state;
+    create_info.pDepthStencilState = &depth_stencil_state;
+    create_info.pColorBlendState = &blend_state;
+    create_info.pDynamicState = &dynamic_state;
+    create_info.layout = vk.pipeline_layout_shadow_volume;
+    create_info.renderPass = vk.render_pass.main;
+    create_info.subpass = 0;
+    create_info.basePipelineHandle = VK_NULL_HANDLE;
+    create_info.basePipelineIndex = -1;
+
+    VK_CHECK( qvkCreateGraphicsPipelines( vk.device, vk.pipelineCache, 1, &create_info, NULL, &pipeline ) );
+    VK_SET_OBJECT_NAME( pipeline, debugVisible ? "shadow volume adjacency pipeline (debug visible)" :
+        va( "shadow volume adjacency pipeline cull#%i mirror#%i", cullIndex, mirror ), VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT );
+    vk.pipeline_create_count++;
+
+    return pipeline;
+}
+
+VkPipeline vk_get_shadow_volume_adjacency_pipeline( int cullIndex, qboolean mirror )
+{
+    VkPipeline *cached;
+
+    if ( !vk.geometryShader )
+        return VK_NULL_HANDLE;
+
+    cached = &vk.shadow_volume_adjacency_pipeline[cullIndex][mirror ? 1 : 0];
+    if ( *cached == VK_NULL_HANDLE ) {
+        *cached = vk_create_shadow_volume_adjacency_pipeline( cullIndex, mirror, qfalse );
+    }
+    return *cached;
+}
+
+// TEMP DEBUG (r_g2_shadowdebug 2): see vk_create_shadow_volume_adjacency_pipeline's debugVisible path.
+VkPipeline vk_get_shadow_volume_debug_pipeline( void )
+{
+    if ( !vk.geometryShader )
+        return VK_NULL_HANDLE;
+
+    if ( vk.shadow_volume_debug_pipeline == VK_NULL_HANDLE ) {
+        vk.shadow_volume_debug_pipeline = vk_create_shadow_volume_adjacency_pipeline( 0, qfalse, qtrue );
+    }
+    return vk.shadow_volume_debug_pipeline;
+}
+
 static void vk_create_post_process_pipeline( int program_index, uint32_t width, uint32_t height )
 {
     VkPipelineShaderStageCreateInfo shader_stages[2];
@@ -1992,7 +2276,17 @@ void vk_alloc_persistent_pipelines( void )
             Com_Memset(&def, 0, sizeof(def));
             def.face_culling = CT_FRONT_SIDED;
             def.polygon_offset = qfalse;
-            def.state_bits = GLS_DEPTHMASK_TRUE | GLS_SRCBLEND_DST_COLOR | GLS_DSTBLEND_ZERO;
+            // Matches rd-vanilla's actual RB_ShadowFinish exactly (tr_shadows.cpp):
+            // black at 50% alpha, no depth write. An earlier version of this
+            // pipeline used a multiplicative blend (GLS_SRCBLEND_DST_COLOR |
+            // GLS_DSTBLEND_ZERO) with GLS_DEPTHMASK_TRUE - that's vanilla's own
+            // abandoned/commented-out alternate technique, not what it actually
+            // runs; the stray depth write let this quad overwrite the depth
+            // buffer under the shadow silhouette, which nothing else in this
+            // renderer does for a translucent pass and was implicated in the
+            // lightsaber blade incorrectly getting darkened by its own cast
+            // shadow (Vulkan-only, confirmed absent on rd-vanilla).
+            def.state_bits = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA;
             def.shader_type = TYPE_SINGLE_TEXTURE;
             def.mirror = qfalse;
             def.shadow_phase = SHADOW_FS_QUAD;
@@ -2319,6 +2613,20 @@ void vk_destroy_pipelines( qboolean resetCounter )
     if ( vk.capture_pipeline ) {
         qvkDestroyPipeline( vk.device, vk.capture_pipeline, NULL );
         vk.capture_pipeline = VK_NULL_HANDLE;
+    }
+
+    for ( i = 0; i < 2; i++ ) {
+        for ( j = 0; j < 2; j++ ) {
+            if ( vk.shadow_volume_adjacency_pipeline[i][j] != VK_NULL_HANDLE ) {
+                qvkDestroyPipeline( vk.device, vk.shadow_volume_adjacency_pipeline[i][j], NULL );
+                vk.shadow_volume_adjacency_pipeline[i][j] = VK_NULL_HANDLE;
+            }
+        }
+    }
+
+    if ( vk.shadow_volume_debug_pipeline != VK_NULL_HANDLE ) {
+        qvkDestroyPipeline( vk.device, vk.shadow_volume_debug_pipeline, NULL );
+        vk.shadow_volume_debug_pipeline = VK_NULL_HANDLE;
     }
 
     for ( i = 0; i < ARRAY_LEN( vk.bloom_blur_pipeline ); i++ ) {
