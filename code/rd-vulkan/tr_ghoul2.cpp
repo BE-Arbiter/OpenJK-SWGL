@@ -2405,10 +2405,6 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 #endif
 		}
 
-#ifdef USE_VBO_GHOUL2
-		// stencil/projection shadows are not supported with ghoul2 vbo enabled, yet
-		if( !vk.vboGhoul2Active ) {
-#endif
 		//rww - catch surfaces with bad shaders
 		//assert(shader != tr.defaultShader);
 		//Alright, this is starting to annoy me because of the state of the assets. Disabling for now.
@@ -2438,7 +2434,7 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 			R_AddDrawSurf( (surfaceType_t *)newSurf, tr.shadowShader, 0, qfalse );
 		}
 
-		// projection shadows work fine with personal models
+		// Projection shadows work fine with personal models
 		if ( r_shadows->integer == 3
 //			&& RS.fogNum == 0
 			&& (RS.renderfx & RF_SHADOW_PLANE )
@@ -2446,13 +2442,10 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 		{		// set the surface info to point at the where the transformed bone list is going to be for when the surface gets rendered out
 			CRenderableSurface *newSurf = AllocGhoul2RenderableSurface();
 			newSurf->surfaceData = surface;
-			//vk_set_ghoul2_vbo_mesh( RS, newSurf, RS.lod, surface->thisSurfaceIndex );
+			vk_set_ghoul2_vbo_mesh( RS, newSurf, RS.lod, surface->thisSurfaceIndex );
 			newSurf->boneCache = RS.boneCache;
 			R_AddDrawSurf( (surfaceType_t *)newSurf, tr.projectionShadowShader, 0, qfalse );
 		}
-#ifdef USE_VBO_GHOUL2
-		}
-#endif
 	}
 
 	// if we are turning off all descendants, then stop this recursion now

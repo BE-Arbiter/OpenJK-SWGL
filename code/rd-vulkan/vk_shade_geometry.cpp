@@ -2015,6 +2015,7 @@ static void vk_compute_deform( void ) {
 				info->vector[2] = 0.0f;
 				break;
 			case DEFORM_PROJECTION_SHADOW:
+			{
 				type = DEFORM_PROJECTION_SHADOW;
 
 				info->base = backEnd.ori.axis[0][2];
@@ -2022,16 +2023,20 @@ static void vk_compute_deform( void ) {
 				info->phase = backEnd.ori.axis[2][2];
 				info->frequency = backEnd.ori.origin[2] - backEnd.currentEntity->e.shadowPlane;
 
+				vec3_t ground = { info->base, info->amplitude, info->phase };
 				vec3_t lightDir;
 				VectorCopy( backEnd.currentEntity->modelLightDir, lightDir );
-				lightDir[2] = 0.0f;
-				VectorNormalize( lightDir );
-				VectorSet( lightDir, lightDir[0] * 0.3f, lightDir[1] * 0.3f, 1.0f );
+				float d = DotProduct( lightDir, ground );
+				// don't let the shadows get too long or go negative
+				if ( d < 0.5f ) {
+					VectorMA( lightDir, (0.5f - d), ground, lightDir );
+				}
 
 				info->vector[0] = lightDir[0];
 				info->vector[1] = lightDir[1];
 				info->vector[2] = lightDir[2];
 				break;
+			}
 			default:
 				break;
 		}
