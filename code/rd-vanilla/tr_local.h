@@ -995,6 +995,11 @@ typedef struct {
 	// Image used to downsample and blur scene to.	- AReis
 	GLuint					blurImage;
 
+	// Effective glow blur size: r_DynamicGlowWidth/Height if set (>0), else
+	// auto-computed from vidWidth/Height * r_DynamicGlowScale. Never 0.
+	int						dynamicGlowWidth;
+	int						dynamicGlowHeight;
+
 	shader_t				*defaultShader;
 	shader_t				*shadowShader;
 	shader_t				*distortionShader;
@@ -1176,6 +1181,7 @@ extern cvar_t	*r_DynamicGlowIntensity;
 extern cvar_t	*r_DynamicGlowSoft;
 extern cvar_t	*r_DynamicGlowWidth;
 extern cvar_t	*r_DynamicGlowHeight;
+extern cvar_t	*r_DynamicGlowScale;
 
 extern	cvar_t	*r_nobind;						// turns off binding to appropriate textures
 extern	cvar_t	*r_singleShader;				// make most world faces use default shader

@@ -199,3 +199,8 @@ compile_commands.json
 #############
 [Bb]uild*/
 cmake-build-*
+
+#############
+## Claude Code
+#############
+.claude/
