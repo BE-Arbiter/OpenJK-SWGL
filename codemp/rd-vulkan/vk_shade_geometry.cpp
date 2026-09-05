@@ -1846,9 +1846,6 @@ static void vk_compute_colors( const int b, const shaderStage_t *pStage, int for
 				baseColor[2] = ((unsigned char *)backEnd.currentEntity->e.shaderRGBA)[2] / 255.0f;
 				baseColor[3] = ((unsigned char *)backEnd.currentEntity->e.shaderRGBA)[3] / 255.0f;
 
-				vertColor[0] = vertColor[1] = vertColor[2] = tr.identityLight;
-				vertColor[3] = 1.0f;
-
 				if ( alphaGen == AGEN_IDENTITY && backEnd.currentEntity->e.shaderRGBA[3] == 255 )
 					alphaGen = AGEN_SKIP;
 			}
