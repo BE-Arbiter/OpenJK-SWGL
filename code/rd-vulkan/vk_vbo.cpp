@@ -23,9 +23,11 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 
+
 #ifdef _G2_GORE
 #include "G2_gore_r2.h"
 #endif
+
 
 #ifdef USE_VBO
 
@@ -1135,7 +1137,6 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 
 		VBO_t *vbo = R_CreateVBO( modelName, data, dataSize );
 		IBO_t *ibo = R_CreateIBO( modelName, (byte *)indices, sizeof(uint32_t) * numTriangles * 3 );
-
 		Hunk_FreeTempMemory( data );
 		Hunk_FreeTempMemory( tangentsf );
 		Hunk_FreeTempMemory( indices );
