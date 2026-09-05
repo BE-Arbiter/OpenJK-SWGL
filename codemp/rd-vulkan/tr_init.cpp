@@ -216,6 +216,9 @@ cvar_t	*r_nomip;
 #ifdef USE_VBO
 cvar_t	*r_vbo;
 cvar_t	*r_vbo_models;
+#ifdef _DEBUG
+cvar_t	*r_vbo_mdvdebug;	// 1 = name every MD3 taking the VBO path, with its shader
+#endif
 #endif
 
 // the limits apply to the sum of all scenes in a frame --
@@ -960,6 +963,9 @@ void R_Register( void )
 #ifdef USE_VBO
 	r_vbo								= ri.Cvar_Get("r_vbo",								"0",						CVAR_ARCHIVE | CVAR_LATCH, "Cache static world surfaces");
 	r_vbo_models						= ri.Cvar_Get("r_vbo_models",						"0",						CVAR_ARCHIVE | CVAR_LATCH, "Cache ghoul2 and md3 model surfaces");
+#ifdef _DEBUG
+	r_vbo_mdvdebug						= ri.Cvar_Get("r_vbo_mdvdebug",					"0",						CVAR_TEMP, "");
+#endif
 #endif
 	r_renderWidth						= ri.Cvar_Get("r_renderWidth",						"800",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
 	r_renderHeight						= ri.Cvar_Get("r_renderHeight",						"600",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");

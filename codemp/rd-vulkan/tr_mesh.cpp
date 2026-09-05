@@ -412,7 +412,20 @@ void R_AddMD3Surfaces( trRefEntity_t *ent ) {
 		// don't add third_person objects if not viewing through a portal
 		if ( !personalModel ) {
 #ifdef USE_VBO_MDV
-			if ( vk.vboMdvActive ) 
+#ifdef _DEBUG
+			if ( r_vbo_mdvdebug->integer )
+				ri.Printf( PRINT_ALL, "MDVDEBUG: %s surf %d -> %s | sort %.1f | passes %d | deforms %d | stateBits 0x%08x | rgbGen %d alphaGen %d | vbo %s\n",
+					tr.currentModel->name, i, shader->name, shader->sort, shader->numUnfoggedPasses, shader->numDeforms,
+					shader->stages[0] ? shader->stages[0]->stateBits : 0u,
+					shader->stages[0] ? shader->stages[0]->bundle[0].rgbGen : -1,
+					shader->stages[0] ? shader->stages[0]->bundle[0].alphaGen : -1,
+					( vk.vboMdvActive && !shader->numDeforms ) ? "yes" : "no" );
+#endif
+			// A shader with deforms is off-limits: RB_SurfaceVBOMDVMesh never fills
+			// tess.xyz, so RB_DeformTessGeometry would read nothing - and autosprite,
+			// which foliage uses, also rewrites tess.numVertexes/numIndexes under the
+			// multidraw. Same rule the world VBO applies (vk_vbo.cpp).
+			if ( vk.vboMdvActive && !shader->numDeforms )
 				R_AddDrawSurf( (surfaceType_t *)&model->vboSurfaces[i], shader, fogNum, qfalse );
 			else
 #endif

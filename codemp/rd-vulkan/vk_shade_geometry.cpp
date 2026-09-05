@@ -1835,7 +1835,6 @@ static void vk_compute_colors( const int b, const shaderStage_t *pStage, int for
 			baseColor[0] = baseColor[1] = baseColor[2] = RB_CalcWaveColorSingle( &pStage->bundle[b].rgbWave );
 			break;
 		case CGEN_ENTITY:
-		case CGEN_LIGHTING_DIFFUSE_ENTITY:
 			if ( backEnd.currentEntity )
 			{
 				baseColor[0] = ((unsigned char *)backEnd.currentEntity->e.shaderRGBA)[0] / 255.0f;
@@ -1845,6 +1844,23 @@ static void vk_compute_colors( const int b, const shaderStage_t *pStage, int for
 
 				vertColor[0] = vertColor[1] = vertColor[2] = tr.identityLight;
 				vertColor[3] = 1.0f;
+
+				if ( alphaGen == AGEN_IDENTITY && backEnd.currentEntity->e.shaderRGBA[3] == 255 )
+					alphaGen = AGEN_SKIP;
+			}
+			break;
+		case CGEN_LIGHTING_DIFFUSE_ENTITY:
+			// CalcVertexColor lights the vertex, the entity colour tints it - the
+			// two multiplied is what RB_CalcDiffuseEntityColor produces on the CPU.
+			if ( backEnd.currentEntity )
+			{
+				baseColor[0] = baseColor[1] = baseColor[2] = 0.0f;
+				baseColor[3] = ((unsigned char *)backEnd.currentEntity->e.shaderRGBA)[3] / 255.0f;
+
+				vertColor[0] = ((unsigned char *)backEnd.currentEntity->e.shaderRGBA)[0] / 255.0f;
+				vertColor[1] = ((unsigned char *)backEnd.currentEntity->e.shaderRGBA)[1] / 255.0f;
+				vertColor[2] = ((unsigned char *)backEnd.currentEntity->e.shaderRGBA)[2] / 255.0f;
+				vertColor[3] = 0.0f;
 
 				if ( alphaGen == AGEN_IDENTITY && backEnd.currentEntity->e.shaderRGBA[3] == 255 )
 					alphaGen = AGEN_SKIP;
@@ -1862,8 +1878,12 @@ static void vk_compute_colors( const int b, const shaderStage_t *pStage, int for
 		case CGEN_LIGHTMAPSTYLE:
 			VectorScale4 (styleColors[pStage->lightmapStyle[b%2]], 1.0f / 255.0f, baseColor);
 			break;
-		case CGEN_IDENTITY:
 		case CGEN_LIGHTING_DIFFUSE:
+			// pass CalcVertexColor's per-vertex lighting straight through
+			baseColor[0] = baseColor[1] = baseColor[2] = 0.0f;
+			vertColor[0] = vertColor[1] = vertColor[2] = 1.0f;
+			break;
+		case CGEN_IDENTITY:
 		case CGEN_BAD:
 			break;
 		default:

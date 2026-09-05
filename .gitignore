@@ -204,3 +204,5 @@ cmake-build-*
 ## Claude Code
 #############
 .claude/
+/code/rd-vulkan/shaders/tools/compile_threaded.exe
+/codemp/rd-vulkan/shaders/tools/compile_threaded.exe

@@ -2270,7 +2270,9 @@ void RB_SurfaceVBOMDVMesh( srfVBOMDVMesh_t *surf )
 	mergeForward = -1;
 	mergeBack = -1;
 	firstIndexOffset = BUFFER_OFFSET( surf->indexOffset );
-	lastIndexOffset = BUFFER_OFFSET( surf->numIndexes );
+	// end of this surface's index range - the merge tests below compare it against
+	// other primitives' offsets, so it has to be an offset, not a count.
+	lastIndexOffset = BUFFER_OFFSET( surf->indexOffset + surf->numIndexes );
 
 	//if (r_mergeMultidraws->integer)
 	{

@@ -1971,6 +1971,9 @@ extern cvar_t	*r_nomip;				// apply picmip only on worldspawn textures
 #ifdef USE_VBO
 extern cvar_t	*r_vbo;
 extern cvar_t	*r_vbo_models;
+#ifdef _DEBUG
+extern cvar_t	*r_vbo_mdvdebug;	// 1 = name every MD3 taking the VBO path, with its shader
+#endif
 #endif
 
 /*

@@ -898,6 +898,10 @@ static void vk_update_entity_light_constants( vkUniformEntity_t &uniform, const 
 	VectorCopy(refEntity->lightDir, uniform.lightOrigin);
 
 	uniform.lightOrigin[3] = 0.0f;
+
+	// model space, so the vertex shader can dot it against the model space normal
+	VectorCopy(refEntity->modelLightDir, uniform.modelLightDir);
+	uniform.modelLightDir[3] = 0.0f;
 }
 
 static void vk_update_entity_matrix_constants( vkUniformEntity_t &uniform, const trRefEntity_t *refEntity ) 
