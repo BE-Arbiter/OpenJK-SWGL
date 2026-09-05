@@ -2422,7 +2422,9 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 			&& shader->sort == SS_OPAQUE )
 		{		// set the surface info to point at the where the transformed bone list is going to be for when the surface gets rendered out
 			CRenderableSurface *newSurf = AllocGhoul2RenderableSurface();
-			if ( vk.geometryShader && r_shadows->integer == 4 )
+			// the GPU volume reads the ghoul2 VBO, so r_vbo_models selects it;
+			// without it vboMesh stays null and the CPU branches below run.
+			if ( vk.vboGhoul2Active && vk.geometryShader )
 			{
 				// No LOD downgrade here: the CPU branch below only needs it for its
 				// tess budget, and mixing two LODs on one character opens the volume
@@ -3531,7 +3533,7 @@ void RB_SurfaceGhoul(CRenderableSurface* surf)
 	{
 		mdxmVBOMesh_t *surface = surf->vboMesh;
 
-		if ( tess.shader == tr.shadowShader && vk.geometryShader && r_shadows->integer == 4 )
+		if ( tess.shader == tr.shadowShader && vk.geometryShader )
 		{
 			RB_DrawShadowVolumeGPU( surf );
 			return;

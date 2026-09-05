@@ -575,11 +575,6 @@ extern	vmCvar_t		cg_bobup;
 extern	vmCvar_t		cg_bobpitch;
 extern	vmCvar_t		cg_bobroll;
 extern	vmCvar_t		cg_shadows;
-
-// stencil shadow volumes: mode 2 walks silhouettes on the CPU, mode 4 in a
-// geometry shader (rd-vulkan only). Everything here treats the two alike.
-#define CG_STENCIL_SHADOWS()	( cg_shadows.integer == 2 || cg_shadows.integer == 4 )
-
 extern	vmCvar_t		cg_renderToTextureFX;
 extern	vmCvar_t		cg_shadowCullDistance;
 extern	vmCvar_t		cg_paused;

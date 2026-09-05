@@ -2626,10 +2626,6 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 #endif
 		}
 
-#ifdef USE_VBO_GHOUL2
-		// stencil/projection shadows are not supported with ghoul2 vbo enabled, yet
-		if( !vk.vboGhoul2Active ) {
-#endif
 		//rww - catch surfaces with bad shaders
 		//assert(shader != tr.defaultShader);
 		//Alright, this is starting to annoy me because of the state of the assets. Disabling for now.
@@ -2647,7 +2643,9 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 			&& shader->sort == SS_OPAQUE )
 		{		// set the surface info to point at the where the transformed bone list is going to be for when the surface gets rendered out
 			CRenderableSurface *newSurf = AllocGhoul2RenderableSurface();
-			if ( vk.geometryShader && r_shadows->integer == 4 )
+			// the GPU volume reads the ghoul2 VBO, so r_vbo_models selects it;
+			// without it vboMesh stays null and the CPU branches below run.
+			if ( vk.vboGhoul2Active && vk.geometryShader )
 			{
 				// No LOD downgrade here: the CPU branch below only needs it for its
 				// tess budget, and mixing two LODs on one character opens the volume
@@ -2680,9 +2678,6 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 			newSurf->boneCache = RS.boneCache;
 			R_AddDrawSurf( (surfaceType_t *)newSurf, tr.projectionShadowShader, 0, qfalse );
 		}
-#ifdef USE_VBO_GHOUL2
-		}
-#endif
 	}
 
 	// if we are turning off all descendants, then stop this recursion now
@@ -3814,7 +3809,7 @@ void RB_SurfaceGhoul(CRenderableSurface* surf)
 	{
 		mdxmVBOMesh_t *surface = surf->vboMesh;
 
-		if ( tess.shader == tr.shadowShader && vk.geometryShader && r_shadows->integer == 4 )
+		if ( tess.shader == tr.shadowShader && vk.geometryShader )
 		{
 			RB_DrawShadowVolumeGPU( surf );
 			return;

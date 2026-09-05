@@ -1924,9 +1924,9 @@ extern	cvar_t	*r_g2_shadowsurf;		// -1 = every shadow surface, >= 0 = only that 
 #define R_SHADOW_DEBUG_SURF		-1
 #endif
 
-// stencil shadow volumes: mode 2 walks the volume on the CPU, mode 4 in a
-// geometry shader. Everything outside that choice treats them alike.
-#define R_STENCIL_SHADOWS()	( r_shadows->integer == 2 || r_shadows->integer == 4 )
+// cg_shadows 2 is the one stencil mode; r_vbo_models picks how the volume is
+// built, on the GPU when the ghoul2 VBO is up, on the CPU otherwise.
+#define R_STENCIL_SHADOWS()	( r_shadows->integer == 2 )
 
 extern	cvar_t	*r_flares;				// light flares
 //extern	cvar_t	*r_flareSize;			// light flare size
