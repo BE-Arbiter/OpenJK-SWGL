@@ -2413,9 +2413,9 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 		//using z-fail now so can do personal models -rww
 		if ( /*!RS.personalModel
 			&& */R_STENCIL_SHADOWS()
-			// TEMP DEBUG: isolating a surface has to gate both paths, otherwise the
-			// CPU/GPU comparison is not on the same geometry.
-			&& ( r_g2_shadowsurf->integer < 0 || surface->thisSurfaceIndex == r_g2_shadowsurf->integer )
+			// r_g2_shadowsurf gates both paths, otherwise the CPU/GPU comparison is
+			// not on the same geometry.
+			&& ( R_SHADOW_DEBUG_SURF < 0 || surface->thisSurfaceIndex == R_SHADOW_DEBUG_SURF )
 //			&& RS.fogNum == 0
 			&& (RS.renderfx & RF_SHADOW_PLANE )
 			&& !(RS.renderfx & ( RF_NOSHADOW | RF_DEPTHHACK ) )
@@ -3406,10 +3406,10 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 	const mdxmSurface_t *surfData = (const mdxmSurface_t *)surf->surfaceData;
 	const int surfaceIndex = surfData ? surfData->thisSurfaceIndex : -1;
 
-	if ( r_g2_shadowsurf->integer >= 0 && surfaceIndex != r_g2_shadowsurf->integer )
+	if ( R_SHADOW_DEBUG_SURF >= 0 && surfaceIndex != R_SHADOW_DEBUG_SURF )
 		return;
 
-	if ( r_g2_shadowdebug->integer )
+	if ( R_SHADOW_DEBUG )
 		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: shadow surface #%d, ibo=%p numIdx=%d\n", surfaceIndex, vboMesh->ibo, vboMesh->numIndexes );
 
 	if ( !vboMesh->ibo || !vboMesh->numIndexes )
@@ -3443,9 +3443,9 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 	// folded into a single per-draw constant, since shadow_volume.geom adds
 	// each (already local-space) vertex's own .z on top of this.
 	pushData.groundOffset = backEnd.ori.origin[2] - backEnd.currentEntity->e.shadowPlane + 16.0f;
-	pushData.edgeMask = r_g2_shadowedges->integer;
+	pushData.edgeMask = R_SHADOW_DEBUG_EDGES;
 
-	if ( r_g2_shadowdebug->integer )
+	if ( R_SHADOW_DEBUG )
 		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: draw call, numIdx=%d lightDir=(%.2f %.2f %.2f) groundOffset=%.2f mvp[12..15]=(%.2f %.2f %.2f %.2f)\n",
 			vboMesh->numIndexes, pushData.lightDir[0], pushData.lightDir[1], pushData.lightDir[2], pushData.groundOffset,
 			pushData.mvp[12], pushData.mvp[13], pushData.mvp[14], pushData.mvp[15] );
@@ -3487,17 +3487,16 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 	}
 
 	qboolean mirror = ( backEnd.viewParms.portalView == PV_MIRROR ) ? qtrue : qfalse;
-	const int debugMode = r_g2_shadowdebug->integer;
 
-	// Mode 2 (parity map) needs both culled passes, like the stencil counter it
-	// mirrors. Modes 3 and 4 colour every emitted quad in one unculled pass.
-	const int numPasses = ( debugMode >= 3 ) ? 1 : 2;
-
-	for ( int cullIndex = 0; cullIndex < numPasses; cullIndex++ )
+	for ( int cullIndex = 0; cullIndex < 2; cullIndex++ )
 	{
-		VkPipeline pipeline = ( debugMode >= 2 )
-			? vk_get_shadow_volume_debug_pipeline( debugMode, cullIndex )
+#ifdef _DEBUG
+		VkPipeline pipeline = ( R_SHADOW_DEBUG >= 2 )
+			? vk_get_shadow_volume_debug_pipeline( cullIndex )
 			: vk_get_shadow_volume_adjacency_pipeline( cullIndex, mirror );
+#else
+		VkPipeline pipeline = vk_get_shadow_volume_adjacency_pipeline( cullIndex, mirror );
+#endif
 
 		if ( pipeline == VK_NULL_HANDLE )
 			return;

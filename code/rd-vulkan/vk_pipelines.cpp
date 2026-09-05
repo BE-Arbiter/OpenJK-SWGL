@@ -1676,18 +1676,21 @@ VkPipeline vk_get_shadow_volume_adjacency_pipeline( int cullIndex, qboolean mirr
     return *cached;
 }
 
-// TEMP DEBUG: debugMode 2 = parity map, 3 = emission rule, 4 = triangle id.
-VkPipeline vk_get_shadow_volume_debug_pipeline( int debugMode, int cullIndex )
+#ifdef _DEBUG
+// Parity map (r_g2_shadowdebug 2): the same two culled passes as the real volume,
+// writing colour instead of stencil.
+VkPipeline vk_get_shadow_volume_debug_pipeline( int cullIndex )
 {
-    if ( !vk.geometryShader || debugMode < 2 || debugMode > 4 )
+    if ( !vk.geometryShader )
         return VK_NULL_HANDLE;
 
-    VkPipeline *cached = &vk.shadow_volume_debug_pipeline[debugMode - 2][cullIndex];
+    VkPipeline *cached = &vk.shadow_volume_debug_pipeline[cullIndex];
     if ( *cached == VK_NULL_HANDLE )
-        *cached = vk_create_shadow_volume_adjacency_pipeline( cullIndex, qfalse, debugMode );
+        *cached = vk_create_shadow_volume_adjacency_pipeline( cullIndex, qfalse, 2 );
 
     return *cached;
 }
+#endif
 
 static void vk_create_post_process_pipeline( int program_index, uint32_t width, uint32_t height )
 {
@@ -2629,14 +2632,14 @@ void vk_destroy_pipelines( qboolean resetCounter )
         }
     }
 
-    for ( i = 0; i < 3; i++ ) {
-        for ( j = 0; j < 2; j++ ) {
-            if ( vk.shadow_volume_debug_pipeline[i][j] != VK_NULL_HANDLE ) {
-                qvkDestroyPipeline( vk.device, vk.shadow_volume_debug_pipeline[i][j], NULL );
-                vk.shadow_volume_debug_pipeline[i][j] = VK_NULL_HANDLE;
-            }
+#ifdef _DEBUG
+    for ( i = 0; i < 2; i++ ) {
+        if ( vk.shadow_volume_debug_pipeline[i] != VK_NULL_HANDLE ) {
+            qvkDestroyPipeline( vk.device, vk.shadow_volume_debug_pipeline[i], NULL );
+            vk.shadow_volume_debug_pipeline[i] = VK_NULL_HANDLE;
         }
     }
+#endif
 
     for ( i = 0; i < ARRAY_LEN( vk.bloom_blur_pipeline ); i++ ) {
         if ( vk.bloom_blur_pipeline[i] != VK_NULL_HANDLE ) {

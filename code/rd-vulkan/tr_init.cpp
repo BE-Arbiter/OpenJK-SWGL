@@ -131,9 +131,11 @@ cvar_t	*r_distanceCull;
 cvar_t	*r_vertexLight;
 cvar_t	*r_uiFullScreen;
 cvar_t	*r_shadows;
-cvar_t	*r_g2_shadowdebug; // TEMP DEBUG: 1 = traces, 2 = parity map, 3 = emission rule, 4 = triangle id
-cvar_t	*r_g2_shadowedges; // TEMP DEBUG: emission filter, bit 0 = real silhouette edges, bit 1 = open boundary edges
-cvar_t	*r_g2_shadowsurf; // TEMP DEBUG: -1 = every shadow surface, >= 0 = only that surface index
+#ifdef _DEBUG
+cvar_t	*r_g2_shadowdebug;	// 1 = traces, 2 = parity map
+cvar_t	*r_g2_shadowedges;	// emission filter: bit 0 = the sides, bit 1 = the caps
+cvar_t	*r_g2_shadowsurf;	// -1 = every shadow surface, >= 0 = only that surface index
+#endif
 cvar_t	*r_shadowRange;
 
 
@@ -845,9 +847,11 @@ void R_Register( void )
 	r_lockpvs							= Cvar_Get( "r_lockpvs",							"0",						CVAR_CHEAT, "" );
 	r_noportals							= Cvar_Get( "r_noportals",						"0",						CVAR_NONE, "" );
 	r_shadows							= Cvar_Get( "cg_shadows",						"1",						CVAR_NONE, "" );
+#ifdef _DEBUG
 	r_g2_shadowdebug					= Cvar_Get( "r_g2_shadowdebug",				"0",						CVAR_TEMP, "" );
 	r_g2_shadowedges					= Cvar_Get( "r_g2_shadowedges",				"3",						CVAR_TEMP, "" );
 	r_g2_shadowsurf						= Cvar_Get( "r_g2_shadowsurf",				"-1",						CVAR_TEMP, "" );
+#endif
 	r_shadowRange						= Cvar_Get( "r_shadowRange",						"1000",						CVAR_NONE, "" );
 	r_marksOnTriangleMeshes				= Cvar_Get( "r_marksOnTriangleMeshes",			"0",						CVAR_ARCHIVE_ND, "" );
 	r_aspectCorrectFonts				= Cvar_Get( "r_aspectCorrectFonts",				"0",						CVAR_ARCHIVE, "" );

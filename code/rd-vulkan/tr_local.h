@@ -1947,10 +1947,23 @@ extern	cvar_t	*r_showsky;				// forces sky in front of all surfaces
 extern	cvar_t	*r_shownormals;			// draws wireframe normals
 extern	cvar_t	*r_clear;				// force screen clear every frame
 
+
 extern	cvar_t	*r_shadows;				// 0 = none, 1 = blur, 2 = stencil, 3 = black planar projection, 4 = stencil on the GPU
-extern	cvar_t	*r_g2_shadowdebug;		// TEMP DEBUG: 1 = traces, 2 = parity map, 3 = emission rule, 4 = triangle id
-extern	cvar_t	*r_g2_shadowedges;		// TEMP DEBUG: emission filter, bit 0 = real silhouette edges, bit 1 = open boundary edges
-extern	cvar_t	*r_g2_shadowsurf;		// TEMP DEBUG: -1 = every shadow surface, >= 0 = only that surface index
+// Ghoul2 shadow volume debug aids, Debug builds only. In release these fold to
+// constants and the call sites compile away.
+#ifdef _DEBUG
+extern	cvar_t	*r_g2_shadowdebug;		// 1 = traces, 2 = parity map (front pass tints red, back blue, so balanced reads purple)
+extern	cvar_t	*r_g2_shadowedges;		// emission filter: bit 0 = the sides, bit 1 = the caps
+extern	cvar_t	*r_g2_shadowsurf;		// -1 = every shadow surface, >= 0 = only that surface index
+
+#define R_SHADOW_DEBUG			( r_g2_shadowdebug->integer )
+#define R_SHADOW_DEBUG_EDGES	( r_g2_shadowedges->integer )
+#define R_SHADOW_DEBUG_SURF		( r_g2_shadowsurf->integer )
+#else
+#define R_SHADOW_DEBUG			0
+#define R_SHADOW_DEBUG_EDGES	3
+#define R_SHADOW_DEBUG_SURF		-1
+#endif
 
 // stencil shadow volumes: mode 2 walks silhouettes on the CPU, mode 4 in a
 // geometry shader. Everything outside that choice treats them alike.

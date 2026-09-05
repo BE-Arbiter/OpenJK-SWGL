@@ -282,7 +282,7 @@ void RB_ShadowTessEnd(void) {
 
 	R_BuildShadowVolume( pipeline );
 
-	if ( r_g2_shadowdebug->integer )
+	if ( R_SHADOW_DEBUG )
 		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: CPU shadow volume: %d triangles in\n", numTris );
 
 	backEnd.doneShadows = qtrue;
@@ -305,7 +305,7 @@ void RB_ShadowFinish(void)
 	float tmp[16];
 	int i;
 
-	if ( r_g2_shadowdebug->integer )
+	if ( R_SHADOW_DEBUG )
 		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: RB_ShadowFinish called, doneShadows=%d r_shadows=%d stencilBits=%d\n",
 			backEnd.doneShadows, r_shadows->integer, glConfig.stencilBits );
 
@@ -320,7 +320,7 @@ void RB_ShadowFinish(void)
 	if (glConfig.stencilBits < 4)
 		return;
 
-	if ( r_g2_shadowdebug->integer )
+	if ( R_SHADOW_DEBUG )
 		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: RB_ShadowFinish drawing darkening quad\n" );
 
 	static const vec3_t verts[4] = {

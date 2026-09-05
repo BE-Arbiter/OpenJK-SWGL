@@ -25,7 +25,7 @@ layout(push_constant) uniform Transform {
 	// entity.origin.z - shadowPlane + fudge in one constant, so extrusion needs
 	// a single add (matches RB_ShadowTessEnd's groundDist).
 	float groundOffset;
-	// TEMP DEBUG (r_g2_shadowedges): bit 0 emits the sides, bit 1 the caps.
+	// r_g2_shadowedges (Debug builds): bit 0 emits the sides, bit 1 the caps.
 	int edgeMask;
 };
 

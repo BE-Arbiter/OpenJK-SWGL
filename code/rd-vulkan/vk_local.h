@@ -900,7 +900,9 @@ typedef struct {
 	VkPipelineLayout pipeline_layout_blend;			// post-processing
 	VkPipelineLayout pipeline_layout_shadow_volume;	// GPU stencil shadow silhouette extrusion (vk.geometryShader only)
 	VkPipeline shadow_volume_adjacency_pipeline[2][2];	// [cull: front/back][mirror] - lazily (re)created, always targets vk.render_pass.main; reset in vk_destroy_pipelines()
-	VkPipeline shadow_volume_debug_pipeline[3][2];	// TEMP DEBUG: [r_g2_shadowdebug 2..4][cull] parity map, emission rule, triangle id
+#ifdef _DEBUG
+	VkPipeline shadow_volume_debug_pipeline[2];	// [cull] parity map for r_g2_shadowdebug 2
+#endif
 
 	VkPipeline gamma_pipeline;
 	VkPipeline bloom_extract_pipeline;
@@ -1215,7 +1217,9 @@ void		vk_update_descriptor( int tmu, VkDescriptorSet curDesSet );
 uint32_t	vk_find_pipeline_ext( uint32_t base, const Vk_Pipeline_Def *def, qboolean use );
 VkPipeline	vk_gen_pipeline( uint32_t index );
 VkPipeline	vk_get_shadow_volume_adjacency_pipeline( int cullIndex, qboolean mirror );
-VkPipeline	vk_get_shadow_volume_debug_pipeline( int debugMode, int cullIndex ); // TEMP DEBUG
+#ifdef _DEBUG
+VkPipeline	vk_get_shadow_volume_debug_pipeline( int cullIndex );	// parity map, r_g2_shadowdebug 2
+#endif
 void		vk_end_render_pass( void );
 void		vk_begin_main_render_pass( void );
 void		vk_get_pipeline_def( uint32_t pipeline, Vk_Pipeline_Def *def );
