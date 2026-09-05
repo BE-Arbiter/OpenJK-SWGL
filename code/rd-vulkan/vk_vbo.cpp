@@ -23,103 +23,11 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 
-#include <unordered_map>
-#include <vector>
 
 #ifdef _G2_GORE
 #include "G2_gore_r2.h"
 #endif
 
-
-/*
-==============
-R_BuildShadowAdjacency
-
-Builds the GL_TRIANGLES_ADJACENCY index list (6 per triangle) the shadow
-silhouette geometry shader needs, over every surface of one LOD. Edges are
-matched by vertex index only, same as R_CalcShadowEdges - no position welding.
-An open edge gets one of its own vertices in the adjacency slot; the shader
-spots that and treats it as a silhouette edge. Topology only, so this runs
-once per model load rather than per frame.
-==============
-*/
-static void R_BuildShadowAdjacency( const uint32_t *indices, int numTriangles, uint32_t *outAdjIndices )
-{
-	struct edgeOwner_t {
-		int tri[2] = { -1, -1 };
-		uint32_t opposite[2] = { 0, 0 };
-	};
-
-	std::unordered_map<uint64_t, edgeOwner_t> edgeMap;
-	edgeMap.reserve( numTriangles * 3 );
-
-	// pass 1: record up to 2 owning triangles per undirected edge.
-	for ( int t = 0; t < numTriangles; t++ )
-	{
-		const uint32_t *tri = indices + t * 3;
-		for ( int e = 0; e < 3; e++ )
-		{
-			uint32_t v0 = tri[e];
-			uint32_t v1 = tri[(e + 1) % 3];
-			uint32_t opp = tri[(e + 2) % 3]; // real index - this is what gets emitted
-			uint32_t lo = v0 < v1 ? v0 : v1;
-			uint32_t hi = v0 < v1 ? v1 : v0;
-			uint64_t key = ( (uint64_t)lo << 32 ) | (uint64_t)hi;
-
-			edgeOwner_t &owner = edgeMap[key];
-			if ( owner.tri[0] == -1 ) {
-				owner.tri[0] = t;
-				owner.opposite[0] = opp;
-			} else if ( owner.tri[1] == -1 && owner.tri[0] != t ) {
-				owner.tri[1] = t;
-				owner.opposite[1] = opp;
-			}
-			// a 3rd+ triangle on this edge is dropped - the same "at most 2 faces
-			// per edge" assumption R_CalcShadowEdges makes implicitly.
-		}
-	}
-
-	// pass 2: for each triangle/edge, find the OTHER triangle on that edge
-	// (if any) and emit the 6-index adjacency list.
-	int numRealNeighbors = 0, numOpenBoundary = 0, numNonManifoldDropped = 0;
-	for ( int t = 0; t < numTriangles; t++ )
-	{
-		const uint32_t *tri = indices + t * 3;
-		uint32_t *outTri = outAdjIndices + t * 6;
-
-		for ( int e = 0; e < 3; e++ )
-		{
-			uint32_t v0 = tri[e];
-			uint32_t v1 = tri[(e + 1) % 3];
-			uint32_t lo = v0 < v1 ? v0 : v1;
-			uint32_t hi = v0 < v1 ? v1 : v0;
-			uint64_t key = ( (uint64_t)lo << 32 ) | (uint64_t)hi;
-
-			const edgeOwner_t &owner = edgeMap[key];
-			uint32_t adjVert;
-
-			if ( owner.tri[0] == t ) {
-				if ( owner.tri[1] != -1 ) { adjVert = owner.opposite[1]; numRealNeighbors++; }
-				else { adjVert = tri[e]; numOpenBoundary++; } // boundary fallback: real index
-			} else if ( owner.tri[1] == t ) {
-				adjVert = owner.opposite[0];
-				numRealNeighbors++;
-			} else {
-				// non-manifold (3rd+ triangle on this edge, dropped in pass 1):
-				// treat as an open boundary rather than match an unrelated neighbor.
-				adjVert = tri[e];
-				numNonManifoldDropped++;
-			}
-
-			outTri[e * 2 + 0] = tri[e];
-			outTri[e * 2 + 1] = adjVert;
-		}
-	}
-
-	if ( r_g2_shadowdebug->integer )
-		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: adjacency stats: %d triangles, %d edges matched to a real neighbor, %d genuine open boundary, %d non-manifold (3rd+ triangle) dropped\n",
-			numTriangles, numRealNeighbors, numOpenBoundary, numNonManifoldDropped );
-}
 
 #ifdef USE_VBO
 
@@ -1229,22 +1137,6 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 
 		VBO_t *vbo = R_CreateVBO( modelName, data, dataSize );
 		IBO_t *ibo = R_CreateIBO( modelName, (byte *)indices, sizeof(uint32_t) * numTriangles * 3 );
-
-		// Adjacency buffer for the shadow silhouette geometry shader. Skipped
-		// without geometry shader support - those surfaces use the CPU path.
-		IBO_t *adjacencyIbo = NULL;
-		if ( vk.geometryShader )
-		{
-			uint32_t *adjIndices = (uint32_t *)Hunk_AllocateTempMemory( sizeof(uint32_t) * numTriangles * 6 );
-			R_BuildShadowAdjacency( indices, numTriangles, adjIndices );
-
-			adjacencyIbo = R_CreateIBO( modelName, (byte *)adjIndices, sizeof(uint32_t) * numTriangles * 6 );
-			Hunk_FreeTempMemory( adjIndices );
-
-			if ( r_g2_shadowdebug->integer )
-				ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: built adjacency IBO for '%s' lod, %d triangles, ibo=%p\n", modelName, numTriangles, adjacencyIbo );
-		}
-
 		Hunk_FreeTempMemory( data );
 		Hunk_FreeTempMemory( tangentsf );
 		Hunk_FreeTempMemory( indices );
@@ -1268,10 +1160,6 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 			vboMeshes[n].maxIndex = baseVertexes[n + 1] - 1;
 			vboMeshes[n].numVertexes = surf->numVerts;
 			vboMeshes[n].numIndexes = surf->numTriangles * 3;
-
-			vboMeshes[n].adjacencyIbo = adjacencyIbo;
-			vboMeshes[n].adjacencyIndexOffset = indexOffsets[n] * 2;
-			vboMeshes[n].numAdjacencyIndexes = surf->numTriangles * 6;
 
 			surf = (mdxmSurface_t *)((byte *)surf + surf->ofsEnd);
 		}

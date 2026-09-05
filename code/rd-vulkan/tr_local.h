@@ -1368,12 +1368,6 @@ typedef struct mdxmVBOMesh_s
 
 	VBO_t *vbo;
 	IBO_t *ibo;
-
-	// GL_TRIANGLES_ADJACENCY index buffer (6 per triangle) for the shadow
-	// silhouette geometry shader. NULL without geometry shader support.
-	IBO_t *adjacencyIbo;
-	int adjacencyIndexOffset;
-	int numAdjacencyIndexes;
 } mdxmVBOMesh_t;
 
 typedef struct mdxmVBOModel_s
@@ -1954,7 +1948,9 @@ extern	cvar_t	*r_shownormals;			// draws wireframe normals
 extern	cvar_t	*r_clear;				// force screen clear every frame
 
 extern	cvar_t	*r_shadows;				// 0 = none, 1 = blur, 2 = stencil, 3 = black planar projection, 4 = stencil on the GPU
-extern	cvar_t	*r_g2_shadowdebug;		// TEMP DEBUG: 1 = print G2SHADOWDEBUG traces, 2 = render shadow volumes in visible color
+extern	cvar_t	*r_g2_shadowdebug;		// TEMP DEBUG: 1 = traces, 2 = parity map, 3 = emission rule, 4 = triangle id
+extern	cvar_t	*r_g2_shadowedges;		// TEMP DEBUG: emission filter, bit 0 = real silhouette edges, bit 1 = open boundary edges
+extern	cvar_t	*r_g2_shadowsurf;		// TEMP DEBUG: -1 = every shadow surface, >= 0 = only that surface index
 
 // stencil shadow volumes: mode 2 walks silhouettes on the CPU, mode 4 in a
 // geometry shader. Everything outside that choice treats them alike.

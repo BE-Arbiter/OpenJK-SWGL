@@ -2413,6 +2413,9 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 		//using z-fail now so can do personal models -rww
 		if ( /*!RS.personalModel
 			&& */R_STENCIL_SHADOWS()
+			// TEMP DEBUG: isolating a surface has to gate both paths, otherwise the
+			// CPU/GPU comparison is not on the same geometry.
+			&& ( r_g2_shadowsurf->integer < 0 || surface->thisSurfaceIndex == r_g2_shadowsurf->integer )
 //			&& RS.fogNum == 0
 			&& (RS.renderfx & RF_SHADOW_PLANE )
 			&& !(RS.renderfx & ( RF_NOSHADOW | RF_DEPTHHACK ) )
@@ -3392,27 +3395,31 @@ int RB_GetBoneUboOffset( CRenderableSurface *surf )
 ==============
 RB_DrawShadowVolumeGPU
 
-GPU replacement for RB_ShadowTessEnd's CPU silhouette walk (tr_shadows.cpp).
-The silhouette test and extrusion happen in shadow_volume.geom, fed by the
-adjacency buffer built at model load; this just binds and issues the two
-z-pass draws (increment front-sided, decrement back-sided) in the same order
-RB_ShadowTessEnd uses.
+GPU replacement for the CPU volume build in RB_ShadowTessEnd (tr_shadows.cpp),
+emitting the same sides and caps from shadow_volume.geom. Binds the model's
+ordinary index buffer and issues the two z-fail draws.
 ==============
 */
 static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 {
 	mdxmVBOMesh_t *vboMesh = surf->vboMesh;
+	const mdxmSurface_t *surfData = (const mdxmSurface_t *)surf->surfaceData;
+	const int surfaceIndex = surfData ? surfData->thisSurfaceIndex : -1;
+
+	if ( r_g2_shadowsurf->integer >= 0 && surfaceIndex != r_g2_shadowsurf->integer )
+		return;
 
 	if ( r_g2_shadowdebug->integer )
-		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: RB_DrawShadowVolumeGPU called, adjacencyIbo=%p numAdjIdx=%d\n", vboMesh->adjacencyIbo, vboMesh->numAdjacencyIndexes );
+		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: shadow surface #%d, ibo=%p numIdx=%d\n", surfaceIndex, vboMesh->ibo, vboMesh->numIndexes );
 
-	if ( !vboMesh->adjacencyIbo || !vboMesh->numAdjacencyIndexes )
+	if ( !vboMesh->ibo || !vboMesh->numIndexes )
 		return;
 
 	struct {
 		float mvp[16];
 		float lightDir[3];
 		float groundOffset;
+		int32_t edgeMask;
 	} pushData;
 
 	vk_get_mvp_transform( pushData.mvp );
@@ -3436,10 +3443,11 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 	// folded into a single per-draw constant, since shadow_volume.geom adds
 	// each (already local-space) vertex's own .z on top of this.
 	pushData.groundOffset = backEnd.ori.origin[2] - backEnd.currentEntity->e.shadowPlane + 16.0f;
+	pushData.edgeMask = r_g2_shadowedges->integer;
 
 	if ( r_g2_shadowdebug->integer )
-		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: draw call, numAdjIdx=%d lightDir=(%.2f %.2f %.2f) groundOffset=%.2f mvp[12..15]=(%.2f %.2f %.2f %.2f)\n",
-			vboMesh->numAdjacencyIndexes, pushData.lightDir[0], pushData.lightDir[1], pushData.lightDir[2], pushData.groundOffset,
+		ri.Printf( PRINT_ALL, "G2SHADOWDEBUG: draw call, numIdx=%d lightDir=(%.2f %.2f %.2f) groundOffset=%.2f mvp[12..15]=(%.2f %.2f %.2f %.2f)\n",
+			vboMesh->numIndexes, pushData.lightDir[0], pushData.lightDir[1], pushData.lightDir[2], pushData.groundOffset,
 			pushData.mvp[12], pushData.mvp[13], pushData.mvp[14], pushData.mvp[15] );
 
 	// position (0), bones (8), weights (9) - the pipeline only references those
@@ -3447,14 +3455,12 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 	tess.vbo_model = vboMesh->vbo;
 	tess.surfType = SF_MDX;
 	vk_bind_geometry( TESS_XYZ );
-	// Cleared right away: we bind our own adjacency index buffer below rather
-	// than going through vk_bind_index(), which would then take the vbo_model
-	// branch on the next surface and hit a stale tess.ibo_model.
+	// Cleared right away: we bind the index buffer ourselves below, so leaving this
+	// set would send the next surface down vk_bind_index()'s vbo_model branch.
 	tess.vbo_model = NULL;
 
-	// adjacency index buffer (R_BuildShadowAdjacency, vk_vbo.cpp)
-	qvkCmdBindIndexBuffer( vk.cmd->command_buffer, vboMesh->adjacencyIbo->buffer,
-		vboMesh->adjacencyIndexOffset * sizeof( uint32_t ), VK_INDEX_TYPE_UINT32 );
+	qvkCmdBindIndexBuffer( vk.cmd->command_buffer, vboMesh->ibo->buffer,
+		vboMesh->indexOffset * sizeof( uint32_t ), VK_INDEX_TYPE_UINT32 );
 
 	// descriptor_set.offset[BONES/ENTITY] is only written by the stage iterator,
 	// which never runs for tr.shadowShader (zero stages), so those slots hold a
@@ -3481,14 +3487,18 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 	}
 
 	qboolean mirror = ( backEnd.viewParms.portalView == PV_MIRROR ) ? qtrue : qfalse;
+	const int debugMode = r_g2_shadowdebug->integer;
 
-	if ( r_g2_shadowdebug->integer >= 2 )
+	// Mode 2 (parity map) needs both culled passes, like the stencil counter it
+	// mirrors. Modes 3 and 4 colour every emitted quad in one unculled pass.
+	const int numPasses = ( debugMode >= 3 ) ? 1 : 2;
+
+	for ( int cullIndex = 0; cullIndex < numPasses; cullIndex++ )
 	{
-		// TEMP DEBUG: single unculled pass, no depth/stencil test, visible
-		// red color - shows the raw extruded geometry wherever it lands, to
-		// tell apart "geometry shader emits nothing" from "stencil test
-		// setup is wrong" while the normal 2-pass volume shows nothing.
-		VkPipeline pipeline = vk_get_shadow_volume_debug_pipeline();
+		VkPipeline pipeline = ( debugMode >= 2 )
+			? vk_get_shadow_volume_debug_pipeline( debugMode, cullIndex )
+			: vk_get_shadow_volume_adjacency_pipeline( cullIndex, mirror );
+
 		if ( pipeline == VK_NULL_HANDLE )
 			return;
 
@@ -3500,28 +3510,7 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 		qvkCmdPushConstants( vk.cmd->command_buffer, vk.pipeline_layout_shadow_volume,
 			VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof( pushData ), &pushData );
 
-		qvkCmdDrawIndexed( vk.cmd->command_buffer, vboMesh->numAdjacencyIndexes, 1, 0, 0, 0 );
-	}
-	else
-	{
-		// two-pass z-pass volume: increment front-sided, decrement back-sided -
-		// same pipeline pair/order RB_ShadowTessEnd (CPU path) uses.
-		for ( int cullIndex = 0; cullIndex < 2; cullIndex++ )
-		{
-			VkPipeline pipeline = vk_get_shadow_volume_adjacency_pipeline( cullIndex, mirror );
-			if ( pipeline == VK_NULL_HANDLE )
-				return;
-
-			if ( pipeline != vk.cmd->last_pipeline ) {
-				qvkCmdBindPipeline( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
-				vk.cmd->last_pipeline = pipeline;
-			}
-
-			qvkCmdPushConstants( vk.cmd->command_buffer, vk.pipeline_layout_shadow_volume,
-				VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof( pushData ), &pushData );
-
-			qvkCmdDrawIndexed( vk.cmd->command_buffer, vboMesh->numAdjacencyIndexes, 1, 0, 0, 0 );
-		}
+		qvkCmdDrawIndexed( vk.cmd->command_buffer, vboMesh->numIndexes, 1, 0, 0, 0 );
 	}
 
 	// Our raw vkCmdBindDescriptorSets above used an incompatible pipeline layout,

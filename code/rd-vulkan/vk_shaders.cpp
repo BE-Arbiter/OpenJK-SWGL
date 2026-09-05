@@ -181,6 +181,7 @@ void vk_create_shader_modules( void )
     {
         vk.shaders.shadow_volume_vs = SHADER_MODULE(shadow_volume_vert_spv);
         vk.shaders.shadow_volume_gs = SHADER_MODULE(shadow_volume_geom_spv);
+
         VK_SET_OBJECT_NAME(vk.shaders.shadow_volume_vs, "shadow volume adjacency vertex module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
         VK_SET_OBJECT_NAME(vk.shaders.shadow_volume_gs, "shadow volume adjacency geometry module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
     }
