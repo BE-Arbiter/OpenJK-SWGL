@@ -4716,7 +4716,7 @@ static qboolean CG_PlayerShadow( centity_t *cent, float *shadowPlane ) {
 	}
 	// send a trace down from the player to the ground
 	VectorCopy( cent->lerpOrigin, end );
-	if (cg_shadows.integer == 2)
+	if (CG_STENCIL_SHADOWS())
 	{ //stencil
 		end[2] -= 4096.0f;
 
@@ -4739,7 +4739,7 @@ static qboolean CG_PlayerShadow( centity_t *cent, float *shadowPlane ) {
 		}
 	}
 
-	if (cg_shadows.integer == 2)
+	if (CG_STENCIL_SHADOWS())
 	{ //stencil shadows need plane to be on ground
 		*shadowPlane = trace.endpos[2];
 	}
@@ -5633,7 +5633,7 @@ void CG_DoSaber(vec3_t origin, vec3_t dir, float length, float lengthMax, float 
 		radiusmult = 1.0;
 	}
 
-	if (cg_saberTrail.integer == 2 && cg_shadows.integer != 2 && cgs.glconfig.stencilBits >= 4)
+	if (cg_saberTrail.integer == 2 && !CG_STENCIL_SHADOWS() && cgs.glconfig.stencilBits >= 4)
 	{ //draw the blade as a post-render so it doesn't get in the cap...
 		rfx |= RF_FORCEPOST;
 	}
@@ -6539,7 +6539,7 @@ CheckTrail:
 			if ( (BG_SuperBreakWinAnim(cent->currentState.torsoAnim) || saberMoveData[cent->currentState.saberMove].trailLength > 0 || ((cent->currentState.powerups & (1 << PW_SPEED) && cg_speedTrail.integer)) || (cent->currentState.saberInFlight && saberNum == 0)) && cg.time < saberTrail->lastTime + 2000 ) // if we have a stale segment, don't draw until we have a fresh one
 			{
 	#if 0
-				if (cg_saberTrail.integer == 2 && cg_shadows.integer != 2 && cgs.glconfig.stencilBits >= 4)
+				if (cg_saberTrail.integer == 2 && !CG_STENCIL_SHADOWS() && cgs.glconfig.stencilBits >= 4)
 				{
 					polyVert_t	verts[4];
 
@@ -6656,7 +6656,7 @@ CheckTrail:
 					{ //don't draw it if the last time is way out of date
 						float oldAlpha = 1.0f - ( diff / trailDur );
 
-						if (cg_saberTrail.integer == 2 && cg_shadows.integer != 2 && cgs.glconfig.stencilBits >= 4)
+						if (cg_saberTrail.integer == 2 && !CG_STENCIL_SHADOWS() && cgs.glconfig.stencilBits >= 4)
 						{//does other stuff below
 						}
 						else
@@ -6716,7 +6716,7 @@ CheckTrail:
 						fx.mVerts[3].destST[0] = 1.0f + fx.mVerts[2].ST[0];
 						fx.mVerts[3].destST[1] = 1.0f;
 
-						if (cg_saberTrail.integer == 2 && cg_shadows.integer != 2 && cgs.glconfig.stencilBits >= 4)
+						if (cg_saberTrail.integer == 2 && !CG_STENCIL_SHADOWS() && cgs.glconfig.stencilBits >= 4)
 						{
 							trap->R_SetRefractionProperties(1.0f, 0.0f, qtrue, qtrue); //don't need to do this every frame.. but..
 
@@ -9452,7 +9452,7 @@ void CG_Player( centity_t *cent ) {
 	// add a water splash if partially in and out of water
 	CG_PlayerSplash( cent );
 
-	if ( (cg_shadows.integer == 3 || cg_shadows.integer == 2) && shadow ) {
+	if ( (cg_shadows.integer == 3 || CG_STENCIL_SHADOWS()) && shadow ) {
 		renderfx |= RF_SHADOW_PLANE;
 	}
 	renderfx |= RF_LIGHTING_ORIGIN;			// use the same origin for all
@@ -9465,7 +9465,7 @@ void CG_Player( centity_t *cent ) {
 	VectorCopy( cent->lerpOrigin, legs.lightingOrigin );
 	legs.shadowPlane = shadowPlane;
 	legs.renderfx = renderfx;
-	if (cg_shadows.integer == 2 && (renderfx & RF_THIRD_PERSON))
+	if (CG_STENCIL_SHADOWS() && (renderfx & RF_THIRD_PERSON))
 	{ //can see own shadow
 		legs.renderfx |= RF_SHADOW_ONLY;
 	}
@@ -11012,7 +11012,7 @@ stillDoSaber:
 				ScaleModelAxis(&legs);
 				*/
 
-				if (cg_shadows.integer != 2 && cgs.glconfig.stencilBits >= 4 && cg_renderToTextureFX.integer)
+				if (!CG_STENCIL_SHADOWS() && cgs.glconfig.stencilBits >= 4 && cg_renderToTextureFX.integer)
 				{
 					trap->R_SetRefractionProperties(1.0f, 0.0f, qfalse, qfalse); //don't need to do this every frame.. but..
 					legs.customShader = 2; //crazy "refractive" shader

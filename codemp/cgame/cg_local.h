@@ -1679,6 +1679,11 @@ extern	markPoly_t		cg_markPolys[MAX_MARK_POLYS];
 #define XCVAR_PROTO
 	#include "cg_xcvar.h"
 #undef XCVAR_PROTO
+
+// stencil shadow volumes: mode 2 walks the volume on the CPU, mode 4 in a
+// geometry shader (rd-vulkan only). Everything here treats the two alike.
+#define CG_STENCIL_SHADOWS()	( cg_shadows.integer == 2 || cg_shadows.integer == 4 )
+
 void CG_RegisterCvars( void );
 void CG_UpdateCvars( void );
 
