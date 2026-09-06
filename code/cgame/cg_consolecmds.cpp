@@ -25,7 +25,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // executed by a key binding
 
 #include "cg_headers.h"
-
+#include "cg_characters.h"
 #include "cg_media.h"	//just for cgs....
 
 void CG_TargetCommand_f( void );
@@ -303,6 +303,10 @@ static consoleCommand_t	commands[] = {
 	{ "uiNpcWeaponNext",		CG_NPC_NextWeapon_f},
 	{ "uiNpcWeaponPrev",		CG_NPC_PrevWeapon_f},
 	{ "uiNpcWeaponLabelUpd",		CG_NPC_UpdateLabel}, 
+	{ "characterUpdateSearch",		CG_Characters_SearchChanged_f},
+	{ "characterButtonClick",		CG_Characters_CharacterClick_f},
+	{ "characterNextPage",		CG_Characters_NextPage_f},
+	{ "characterPreviousPage",		CG_Characters_PreviousPage_f},
 	{ "dualwield",			CG_Dualwield_f},
 	{ "forcenext",			CG_NextForcePower_f },
 	{ "forceprev",			CG_PrevForcePower_f },

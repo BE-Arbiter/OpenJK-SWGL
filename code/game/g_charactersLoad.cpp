@@ -30,9 +30,6 @@ const char* CHAR_DATA_DIR = "ext_data/characters/";
 	Methods to initialize and load faction data from the faction list file.
 */
 #pragma region Faction Load
-int factionIndex = 0;
-
-
 void CHA_ParseFaction(const char** holdBuf)
 {
 	const char* token;
@@ -43,22 +40,22 @@ void CHA_ParseFaction(const char** holdBuf)
 
 		if (!Q_stricmp(token, "}"))	// End of data for this faction
 		{
-			factionIndex++;
+			loadedFactions++;
 			break;
 		}
 		if (!Q_stricmp(token, "code"))
 		{
-			ParseStr(holdBuf, factionsData[factionIndex].code, 5, "faction code");
+			ParseStr(holdBuf, factionsData[loadedFactions].code, 5, "faction code");
 			continue;
 		}
 		if (!Q_stricmp(token, "nameKey"))
 		{
-			ParseStr(holdBuf, factionsData[factionIndex].nameKey, 64, "faction name key");
+			ParseStr(holdBuf, factionsData[loadedFactions].nameKey, 64, "faction name key");
 			continue;
 		}
 		if (!Q_stricmp(token, "icon"))
 		{
-			ParseStr(holdBuf, factionsData[factionIndex].icon, 64, "faction icon");
+			ParseStr(holdBuf, factionsData[loadedFactions].icon, 64, "faction icon");
 			continue;
 		}
 		SkipRestOfLine(holdBuf);
@@ -99,6 +96,7 @@ void CHA_ParseFactionFiles()
 	char* holdChar = fileList;
 
 	Com_Printf("Found %d External files\n", fileCount);
+	loadedFactions = 0;
 	for (int i = 0; i < fileCount; i++, holdChar += fileNameSize + 1)
 	{
 		fileNameSize = strlen(holdChar);
@@ -130,7 +128,6 @@ void CHA_ParseFactionFiles()
 	Methods to initialize and load character data from the character list file.
 */
 #pragma region Character Load
-int characterIndex = 0;
 int variantIndex = 0;
 
 void CHA_ParseForcePowers(const char** holdBuf)
@@ -146,12 +143,12 @@ void CHA_ParseForcePowers(const char** holdBuf)
 		forcePowers_t power = G_ForcePowerForName(token);
 		if(power == FP_FIRST)
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: Invalid force power name \"%s\" in character variant \"%s\" for character \"%s\"\n", token, charactersData[characterIndex].variantList[variantIndex].name, charactersData[characterIndex].name);
+			gi.Printf(S_COLOR_YELLOW"WARNING: Invalid force power name \"%s\" in character variant \"%s\" for character \"%s\"\n", token, charactersData[loadedCharacters].variantList[variantIndex].name, charactersData[loadedCharacters].name);
 			continue;
 		};
 		int powerValue = 0;
 		ParseIntWithLims(holdBuf, &powerValue, 0, NUM_FORCE_POWERS - 1, "force power");
-		charactersData[characterIndex].variantList[variantIndex].forcePowers[power] = powerValue;
+		charactersData[loadedCharacters].variantList[variantIndex].forcePowers[power] = powerValue;
 	}
 }
 
@@ -214,22 +211,22 @@ void CHA_ParseVariant(const char** holdBuf)
 	const char* token;
 
 	//Reallocate Memory if needed
-	if (variantIndex == charactersData[characterIndex].variantCount)
+	if (variantIndex == charactersData[loadedCharacters].variantCount)
 	{
-		int newCount = charactersData[characterIndex].variantCount + 5;
-		characterVariant_t* newList = (characterVariant_t*)realloc(charactersData[characterIndex].variantList, sizeof(characterVariant_t) * newCount);
+		int newCount = charactersData[loadedCharacters].variantCount + 5;
+		characterVariant_t* newList = (characterVariant_t*)realloc(charactersData[loadedCharacters].variantList, sizeof(characterVariant_t) * newCount);
 		if (!newList)
 		{
 			gi.Printf(S_COLOR_YELLOW"WARNING: failed to reallocate memory for character variant list\n");
 			return;
 		}
 		//Make sure the new memory is cleared
-		for (int i = charactersData[characterIndex].variantCount; i < newCount; i++)
+		for (int i = charactersData[loadedCharacters].variantCount; i < newCount; i++)
 		{
 			memset(&newList[i], 0, sizeof(characterVariant_t));
 		}
-		charactersData[characterIndex].variantList = newList;
-		charactersData[characterIndex].variantCount = newCount;
+		charactersData[loadedCharacters].variantList = newList;
+		charactersData[loadedCharacters].variantCount = newCount;
 	}
 
 	if (holdBuf)
@@ -249,7 +246,7 @@ void CHA_ParseVariant(const char** holdBuf)
 	int lowerSkinIndex = 0;
 	int weaponIndex = 0;
 
-	characterVariant_t* currentVariant = &charactersData[characterIndex].variantList[variantIndex];
+	characterVariant_t* currentVariant = &charactersData[loadedCharacters].variantList[variantIndex];
 	while (holdBuf)
 	{
 		token = COM_ParseExt(holdBuf, qtrue);
@@ -312,7 +309,7 @@ void CHA_ParseVariant(const char** holdBuf)
 		{
 			if (weaponIndex >= 6) 
 			{
-				Com_Printf(S_COLOR_YELLOW"WARNING: Too many weapons defined for character variant \"%s\" of character \"%s\". Maximum is 6.\n", currentVariant->name, charactersData[characterIndex].name);
+				Com_Printf(S_COLOR_YELLOW"WARNING: Too many weapons defined for character variant \"%s\" of character \"%s\". Maximum is 6.\n", currentVariant->name, charactersData[loadedCharacters].name);
 				continue;	
 			}
 			ParseStr(holdBuf, currentVariant->weapons[weaponIndex], 64, "variant weapon");
@@ -333,27 +330,27 @@ void CHA_ParseCharacter(const char** holdBuf)
 
 		if (!Q_stricmp(token, "}"))	// End of data for this character
 		{
-			characterIndex++;
+			loadedCharacters++;
 			break;
 		}
 		if (!Q_stricmp(token, "name"))
 		{
-			ParseStr(holdBuf, charactersData[characterIndex].name, 64, "character name");
+			ParseStr(holdBuf, charactersData[loadedCharacters].name, 64, "character name");
 			continue;
 		}
 		if (!Q_stricmp(token, "icon"))
 		{
-			ParseStr(holdBuf, charactersData[characterIndex].icon, 64, "character icon");
+			ParseStr(holdBuf, charactersData[loadedCharacters].icon, 64, "character icon");
 			continue;
 		}
 		if (!Q_stricmp(token, "factions"))
 		{
-			ParseStr(holdBuf, charactersData[characterIndex].factions, 256, "character factions Codes");
+			ParseStr(holdBuf, charactersData[loadedCharacters].factions, 256, "character factions Codes");
 			continue;
 		}
 		if (!Q_stricmp(token, "tags"))
 		{
-			ParseStr(holdBuf, charactersData[characterIndex].tags, 256, "character factions Codes");
+			ParseStr(holdBuf, charactersData[loadedCharacters].tags, 256, "character factions Codes");
 			continue;
 		}
 		if (!Q_stricmp(token, "Variant"))
@@ -399,6 +396,7 @@ void CHA_ParseCharacterFiles()
 	char* holdChar = fileList;
 
 	Com_Printf("Found %d External files\n", fileCount);
+	loadedCharacters = 0;
 	for (int i = 0; i < fileCount; i++, holdChar += fileNameSize + 1)
 	{
 		fileNameSize = strlen(holdChar);

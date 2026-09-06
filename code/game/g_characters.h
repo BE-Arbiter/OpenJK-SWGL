@@ -34,6 +34,7 @@ typedef struct characterFaction_s {
 	char code[5];
 	char nameKey[64];
 	char icon[64];
+	qboolean selectedFilter = qfalse;
 } characterFaction_t;
 
 typedef struct characterSkin_s {
@@ -78,7 +79,10 @@ typedef struct characterInfo_s{
 
 #pragma region Global Character Data
 extern characterFaction_t factionsData[MAX_FACTIONS];
+extern int loadedFactions;
 extern characterInfo_t charactersData[MAX_CHARACTERS];
+extern int loadedCharacters;
+
 #pragma endregion
 
 #pragma region Faction Functions

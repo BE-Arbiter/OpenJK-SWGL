@@ -242,16 +242,10 @@ Ghoul2 Insert End
 			CG_DrawDataPadForceSelect();
 		}
 		return 0;
-	case CG_DRAW_FACTIONS:
-		if (cg.snap)
-		{
-			CG_DrawFactions();
-		}
-		return 0;
 	case CG_DRAW_CHARACTERS:
 		if (cg.snap)
 		{
-			CG_DrawCharacters();
+			CG_DrawCharactersMenu();
 		}
 		return 0;
 	}
@@ -463,6 +457,11 @@ vmCvar_t		ui_weaponFive_label;
 vmCvar_t		ui_weaponSix;
 vmCvar_t		ui_weaponSix_label;
 
+vmCvar_t		ui_c_filter_name;
+vmCvar_t		ui_character_screen;
+vmCvar_t		ui_character_selected;
+vmCvar_t		ui_character_page;
+
 
 
 
@@ -627,6 +626,10 @@ static cvarTable_t cvarTable[] = {
 	{ &ui_weaponFive_label, "ui_weaponFive_label","None",CVAR_ARCHIVE},
 	{ &ui_weaponSix, "ui_weaponSix","WP_NONE",CVAR_ARCHIVE},
 	{ &ui_weaponSix_label, "ui_weaponSix_label","None",CVAR_ARCHIVE},
+	{ &ui_c_filter_name, "ui_c_filter_name","",CVAR_ARCHIVE},
+	{ &ui_character_screen, "ui_character_screen","",CVAR_ARCHIVE},
+	{ &ui_character_selected, "ui_character_selected","",CVAR_ARCHIVE},
+	{ &ui_character_page, "ui_character_page","",CVAR_ARCHIVE},
 };
 
 static const size_t cvarTableSize = ARRAY_LEN( cvarTable );

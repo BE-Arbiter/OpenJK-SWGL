@@ -23,4 +23,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_characters.h"
 
 characterFaction_t factionsData[MAX_FACTIONS];
+int loadedFactions;
 characterInfo_t charactersData[MAX_CHARACTERS];
+int loadedCharacters;

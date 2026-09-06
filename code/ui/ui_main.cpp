@@ -1783,44 +1783,72 @@ static qboolean UI_RunMenuScript ( const char **args )
 			Menus_ActivateByName("setup_menu2");
 			return qtrue;
 		}
-		else if (Q_stricmp(name, "Leave") == 0)
+		if (Q_stricmp(name, "Leave") == 0)
 		{
 			Cbuf_ExecuteText( EXEC_APPEND, "disconnect\n" );
 			trap_Key_SetCatcher( KEYCATCH_UI );
 			Menus_CloseAll();
 			//Menus_ActivateByName("mainMenu");
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "getvideosetup") == 0)
+		if (Q_stricmp(name, "getvideosetup") == 0)
 		{
 			UI_GetVideoSetup ( );
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "updatevideosetup") == 0)
+		if (Q_stricmp(name, "updatevideosetup") == 0)
 		{
 			UI_UpdateVideoSetup ( );
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "nextDataPadForcePower") == 0)
+		if (Q_stricmp(name, "nextDataPadForcePower") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "dpforcenext\n");
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "prevDataPadForcePower") == 0)
+		if (Q_stricmp(name, "prevDataPadForcePower") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "dpforceprev\n");
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "nextDataPadWeapon") == 0)
+		if (Q_stricmp(name, "nextDataPadWeapon") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "dpweapnext\n");
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "loadoutSelectBaseWeapon") == 0)
+		if (Q_stricmp(name, "loadoutSelectBaseWeapon") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSelectBaseWeapon\n");
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "loadoutSelectWeapon") == 0)
+		if (Q_stricmp(name, "loadoutSelectWeapon") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSelectWeapon\n");
+			return qtrue;
 		}
-		else if (Q_stricmp(name, "loadoutSwitchSelectWeapon") == 0)
+		if (Q_stricmp(name, "loadoutSwitchSelectWeapon") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSwitchSelectWeapon\n");
+			return qtrue;
+		}
+		if (Q_stricmp(name, "characterButtonClick") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterButtonClick\n");
+			return qtrue;
+		}
+		if (Q_stricmp(name, "characterNextPage") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterNextPage\n");
+			return qtrue;
+		}
+		if (Q_stricmp(name, "characterPreviousPage") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterPreviousPage\n");
+			return qtrue;
+		}
+		if (Q_stricmp(name, "characterUpdateSearch") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterUpdateSearch\n");
 		}
 		else if (Q_stricmpn(name, "uiPcWeaponNext", 14) == 0)
 		{
@@ -5216,11 +5244,7 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_5);
 			break;
 
-		case UI_DATAPAD_FACTIONS:
-			ui.Draw_DataPad(DP_FACTIONS);
-			break;
-
-		case UI_DATAPAD_CHARACTER:
+		case UI_DATAPAD_CHARACTERS:
 			ui.Draw_DataPad(DP_CHARACTERS);
 			break;
 

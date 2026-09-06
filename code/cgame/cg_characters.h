@@ -30,7 +30,11 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 extern characterInfo_t selectedCharacters[MAX_CHARACTERS];
 
-void CG_DrawFactions();
-void CG_DrawCharacters();
+void CG_DrawCharactersMenu();
+
+void CG_Characters_CharacterClick_f();
+void CG_Characters_PreviousPage_f();
+void CG_Characters_NextPage_f();
+void CG_Characters_SearchChanged_f();
 
 #endif //__CG_CHARACTERS_H__
