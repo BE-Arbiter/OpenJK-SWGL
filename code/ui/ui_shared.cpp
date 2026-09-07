@@ -12315,7 +12315,7 @@ void Menu_HandleKey(menuDef_t *menu, int key, qboolean down)
 	}
 
 	// Special SwglSystem key handling
-	if (!(key & K_CHAR_FLAG))
+	if (!(key & K_CHAR_FLAG) && !g_editingField)
 	{	//only check keys not chars
 		char	b[256];
 		DC->getBindingBuf(key, b, 256);
