@@ -754,6 +754,7 @@ void CG_DrawString( float x, float y, const char *string,
 void CG_PrintInterfaceGraphics(int min,int max);
 void CG_DrawNumField (int x, int y, int width, int value,int charWidth,int charHeight,int style,qboolean zeroFill);
 void CG_DrawProportionalString(int x, int y, const char* str, int style, vec4_t color, float aspectCorrection = 1.0f);
+void CG_DrawTextInBox(int iBoxX, int iBoxY, int iBoxWidth, int iBoxHeight, const char* psText, int iFontHandle, const vec4_t v4Color);
 
 
 void CG_DrawStringExt( int x, int y, const char *string, const float *setColor,
