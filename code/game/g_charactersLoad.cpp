@@ -25,6 +25,17 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_parseUtils.h"
 
 const char* CHAR_DATA_DIR = "ext_data/characters/";
+
+// Alphabetical order for the menu grid. Both sort on the key
+static int CHA_SortFactionsByName(const void* a, const void* b)
+{
+	return Q_stricmp(((const characterFaction_t*)a)->nameKey, ((const characterFaction_t*)b)->nameKey);
+}
+
+static int CHA_SortCharactersByName(const void* a, const void* b)
+{
+	return Q_stricmp(((const characterInfo_t*)a)->name, ((const characterInfo_t*)b)->name);
+}
 /*
 	Faction Loading
 	Methods to initialize and load faction data from the faction list file.
@@ -118,6 +129,8 @@ void CHA_ParseFactionFiles()
 			gi.FS_FreeFile(fileBuffer);	//let go of the buffer
 		}
 	}
+
+	qsort(factionsData, loadedFactions, sizeof(characterFaction_t), CHA_SortFactionsByName);
 }
 
 
@@ -418,5 +431,7 @@ void CHA_ParseCharacterFiles()
 			gi.FS_FreeFile(fileBuffer);	//let go of the buffer
 		}
 	}
+
+	qsort(charactersData, loadedCharacters, sizeof(characterInfo_t), CHA_SortCharactersByName);
 }
 #pragma endregion
