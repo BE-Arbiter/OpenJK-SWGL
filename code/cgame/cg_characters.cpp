@@ -39,6 +39,7 @@ extern vmCvar_t ui_c_filter_name;
 extern vmCvar_t ui_character_screen;
 extern vmCvar_t ui_character_selected;
 extern vmCvar_t ui_character_page;
+extern vmCvar_t ui_character_index;
 
 #pragma endregion
 
@@ -142,7 +143,7 @@ qboolean filterFunction(characterInfo_t *character)
 		if (faction->selectedFilter)
 		{
 			hasSelectedFaction = qtrue;
-			if (Q_stristr(faction->code, character->factions) != NULL)
+			if (Q_stristr(character->factions, faction->code) != NULL)
 			{
 				hasFaction = qtrue;
 				break;
@@ -192,16 +193,16 @@ void UpdateSearchFromCvar()
 #pragma region Draw Functions
 
 void CG_DrawCharacters() {
-	int marginX = 5, marginY = 6;
-	int startX = 114, startY = 106;
+	int marginX = 5, marginY = 4;
+	int startX = 114, startY = 88;
 	
-	int bgSizeX = 94, bgSizeY = 125;
+	int bgSizeX = 94, bgSizeY = 114;
 
 	int iconSizeX = 90, iconSizeY = 90;
 	int iconOffsetX = 2, iconOffsetY = 2;
 
-	int nameSizeX = 86, nameSizeY = 11;
-	int nameOffsetX = 4, nameOffsetY = 96;
+	int nameSizeX = 82, nameSizeY = 16;
+	int nameOffsetX = 6, nameOffsetY = 90;
 
 	int posX = startX, posY = startY;
 
@@ -226,33 +227,32 @@ void CG_DrawCharacters() {
 		CG_DrawPic(posX + iconOffsetX, posY + iconOffsetY, iconSizeX, iconSizeY, icon);
 
 		//Translate & draw name
-		if (!cgi_SP_GetStringTextString(va("%s_DESC", currentCharacter->name), text, sizeof(text)))
+		if (!cgi_SP_GetStringTextString(va("%s", currentCharacter->name), text, sizeof(text)))
 		{
 			Com_sprintf(text, sizeof(currentCharacter->name), currentCharacter->name);
 		}
-		int textWidth = cgi_R_Font_StrLenPixels(text, cgs.media.qhFontSmall, 1.0f, cgs.widthRatioCoef);
-		int x = posX + nameOffsetX + ((nameSizeX - textWidth) / 2);
-		cgi_R_Font_DrawString(x, posY + nameOffsetY, text, colorTable[CT_WHITE], cgs.media.qhFontSmall, -1, 1.0f, cgs.widthRatioCoef);
+		CG_DrawTextInBox(posX + nameOffsetX, posY + nameOffsetY, nameSizeX, nameSizeY,
+			text, cgs.media.qhFontSmall, colorTable[CT_WHITE]);
 
 		//switch to next position
-		int nextLine = (i+1) / 5;
-		int nextColumn = (i+1) % 5;
+		int nextLine = ((i - beginIndex) + 1) / 5;
+		int nextColumn = ((i - beginIndex) + 1) % 5;
 		posX = startX + nextColumn * (bgSizeX + marginX);
 		posY = startY + nextLine * (bgSizeY + marginY);
 	}
 }
 
 void CG_DrawFactions() {
-	int marginX = 5, marginY = 6;
-	int startX = 114, startY = 106;
+	int marginX = 5, marginY = 4;
+	int startX = 114, startY = 88;
 
-	int bgSizeX = 94, bgSizeY = 125;
+	int bgSizeX = 94, bgSizeY = 114;
 
-	int iconSizeX = 90, iconSizeY = 90;
-	int iconOffsetX = 2, iconOffsetY = 2;
+	int iconSizeX = 72, iconSizeY = 72;
+	int iconOffsetX = 11, iconOffsetY = 11;
 
-	int nameSizeX = 86, nameSizeY = 11;
-	int nameOffsetX = 4, nameOffsetY = 96;
+	int nameSizeX = 82, nameSizeY = 16;
+	int nameOffsetX = 6, nameOffsetY = 90;
 
 	int posX = startX, posY = startY;
 
@@ -276,17 +276,16 @@ void CG_DrawFactions() {
 		CG_DrawPic(posX + iconOffsetX, posY + iconOffsetY, iconSizeX, iconSizeY, icon);
 
 		//Translate & draw name
-		if (!cgi_SP_GetStringTextString(va("%s_DESC", faction->nameKey), text, sizeof(text)))
+		if (!cgi_SP_GetStringTextString(va("%s", faction->nameKey), text, sizeof(text)))
 		{
 			Com_sprintf(text, sizeof(faction->nameKey), faction->nameKey);
 		}
-		int textWidth = cgi_R_Font_StrLenPixels(text, cgs.media.qhFontSmall, 1.0f, cgs.widthRatioCoef);
-		int x = posX + nameOffsetX + ((nameSizeX - textWidth) / 2);
-		cgi_R_Font_DrawString(x, posY + nameOffsetY, text, colorTable[CT_WHITE], cgs.media.qhFontSmall, -1, 1.0f, cgs.widthRatioCoef);
+		CG_DrawTextInBox(posX + nameOffsetX, posY + nameOffsetY, nameSizeX, nameSizeY,
+			text, cgs.media.qhFontSmall, colorTable[CT_WHITE]);
 
 		//switch to next position
-		int nextLine = (i + 1) / 5;
-		int nextColumn = (i + 1) % 5;
+		int nextLine = ((i-beginIndex) + 1) / 5;
+		int nextColumn = ((i - beginIndex) + 1) % 5;
 		posX = startX + nextColumn * (bgSizeX + marginX);
 		posY = startY + nextLine * (bgSizeY + marginY);
 	}
