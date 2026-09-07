@@ -47,11 +47,27 @@ void CG_Characters_CharacterClick_f()
 {
 	//Update CVAR
 	cgi_Cvar_Update(&ui_character_screen);	
+	cgi_Cvar_Update(&ui_character_selected);
+	cgi_Cvar_Update(&ui_character_page);
 	if (Q_stricmp(ui_character_screen.string, "factions") == 0)
 	{
+		int selectedChar = (ui_character_page.integer * 15) + ui_character_selected.integer - 1;
+		if(selectedChar >= loadedFactions || selectedChar < 0)
+		{
+			//Draw warning in debug$
+			#ifdef DEBUG
+			Com_Printf("Invalid faction selected: %d\n", selectedChar);
+			#endif // DEBUG
+			return;
+		}
+		//Toggle the selected faction filter
+		factionsData[selectedChar].selectedFilter = factionsData[selectedChar].selectedFilter ? qfalse : qtrue;
+		return;
 	}
-	else if (Q_stricmp(ui_character_screen.string, "characters") == 0)
+	if (Q_stricmp(ui_character_screen.string, "characters") == 0)
 	{
+		//Todo Select Character
+		//Force ui update?
 	}
 }
 
@@ -129,6 +145,7 @@ qboolean filterFunction(characterInfo_t *character)
 			if (Q_stristr(faction->code, character->factions) != NULL)
 			{
 				hasFaction = qtrue;
+				break;
 			}
 		}
 	}
