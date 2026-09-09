@@ -34,7 +34,37 @@ static int CHA_SortFactionsByName(const void* a, const void* b)
 
 static int CHA_SortCharactersByName(const void* a, const void* b)
 {
-	return Q_stricmp(((const characterInfo_t*)a)->name, ((const characterInfo_t*)b)->name);
+	const characterInfo_t* charA = (const characterInfo_t*)a;
+	const characterInfo_t* charB = (const characterInfo_t*)b;
+	char nameA[64] = { 0 };
+	char nameB[64] = { 0 };
+	if (charA->nameKey != NULL && charA->nameKey[0] != '\0')
+	{
+		Com_sprintf(nameA, sizeof(charA->nameKey), charA->nameKey);
+	}
+	else if (charA->name != NULL && charA->name[0] != '\0')
+	{
+		Com_sprintf(nameA, sizeof(charA->name), charA->name);
+	}
+	else
+	{
+		Com_sprintf(nameA, sizeof(charA->code), charA->code);
+	}
+
+	if (charB->nameKey != NULL && charB->nameKey[0] != '\0')
+	{
+		Com_sprintf(nameB, sizeof(charB->nameKey), charB->nameKey);
+	}
+	else if (charB->name != NULL && charB->name[0] != '\0')
+	{
+		Com_sprintf(nameB, sizeof(charB->name), charB->name);
+	}
+	else
+	{
+		Com_sprintf(nameB, sizeof(charB->code), charB->code);
+	}
+
+	return Q_stricmp(nameA, nameB);
 }
 /*
 	Faction Loading
@@ -56,7 +86,7 @@ void CHA_ParseFaction(const char** holdBuf)
 		}
 		if (!Q_stricmp(token, "code"))
 		{
-			ParseStr(holdBuf, factionsData[loadedFactions].code, 5, "faction code");
+			ParseStr(holdBuf, factionsData[loadedFactions].code, 16, "faction code");
 			continue;
 		}
 		if (!Q_stricmp(token, "nameKey"))
@@ -156,7 +186,7 @@ void CHA_ParseForcePowers(const char** holdBuf)
 		forcePowers_t power = G_ForcePowerForName(token);
 		if(power == FP_FIRST)
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: Invalid force power name \"%s\" in character variant \"%s\" for character \"%s\"\n", token, charactersData[loadedCharacters].variantList[variantIndex].name, charactersData[loadedCharacters].name);
+			gi.Printf(S_COLOR_YELLOW"WARNING: Invalid force power name \"%s\" in character variant \"%s\" for character \"%s\"\n", token, charactersData[loadedCharacters].variantList[variantIndex].code, charactersData[loadedCharacters].code);
 			continue;
 		};
 		int powerValue = 0;
@@ -268,9 +298,19 @@ void CHA_ParseVariant(const char** holdBuf)
 			variantIndex++;
 			break;
 		}
+		if (!Q_stricmp(token, "code"))
+		{
+			ParseStr(holdBuf, currentVariant->code, 32, "character code");
+			continue;
+		}
 		if (!Q_stricmp(token, "name"))
 		{
 			ParseStr(holdBuf, currentVariant->name, 64, "variant name");
+			continue;
+		}
+		if (!Q_stricmp(token, "nameKey"))
+		{
+			ParseStr(holdBuf, currentVariant->nameKey, 64, "variant nameKey");
 			continue;
 		}
 		if (!Q_stricmp(token, "icon"))
@@ -322,7 +362,7 @@ void CHA_ParseVariant(const char** holdBuf)
 		{
 			if (weaponIndex >= 6) 
 			{
-				Com_Printf(S_COLOR_YELLOW"WARNING: Too many weapons defined for character variant \"%s\" of character \"%s\". Maximum is 6.\n", currentVariant->name, charactersData[loadedCharacters].name);
+				Com_Printf(S_COLOR_YELLOW"WARNING: Too many weapons defined for character variant \"%s\" of character \"%s\". Maximum is 6.\n", currentVariant->code, charactersData[loadedCharacters].code);
 				continue;	
 			}
 			ParseStr(holdBuf, currentVariant->weapons[weaponIndex], 64, "variant weapon");
@@ -346,9 +386,19 @@ void CHA_ParseCharacter(const char** holdBuf)
 			loadedCharacters++;
 			break;
 		}
+		if (!Q_stricmp(token, "code"))
+		{
+			ParseStr(holdBuf, charactersData[loadedCharacters].code, 32, "character code");
+			continue;
+		}
 		if (!Q_stricmp(token, "name"))
 		{
 			ParseStr(holdBuf, charactersData[loadedCharacters].name, 64, "character name");
+			continue;
+		}
+		if (!Q_stricmp(token, "nameKey"))
+		{
+			ParseStr(holdBuf, charactersData[loadedCharacters].nameKey, 64, "character nameKey");
 			continue;
 		}
 		if (!Q_stricmp(token, "icon"))
@@ -402,10 +452,11 @@ void CHA_ParseCharacterFiles()
 	//Init Data to all 0
 	memset(charactersData, 0, sizeof(characterInfo_t) * MAX_CHARACTERS);
 	//Read all the externals file
-	char	fileList[2048];			//	The list of file names read in
+	char	fileList[10184];			//	The list of file names read in
 	int		fileNameSize;
 	int		fileCount = gi.FS_GetFileList(CHAR_DATA_DIR, ".cha", fileList, sizeof(fileList));
 
+	
 	char* holdChar = fileList;
 
 	Com_Printf("Found %d External files\n", fileCount);

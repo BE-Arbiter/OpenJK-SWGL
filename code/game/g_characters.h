@@ -31,7 +31,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #pragma region Character Data Structures
 typedef struct characterFaction_s {
-	char code[5];
+	char code[16];
 	char nameKey[64];
 	char icon[64];
 	qboolean selectedFilter = qfalse;
@@ -43,6 +43,8 @@ typedef struct characterSkin_s {
 } characterSkin_t;
 
 typedef struct characterVariant_s {
+	char code[32];
+	char nameKey[64];
 	char name[64];
 	char npcName[64];
 	char descriptionKey[64];
@@ -67,6 +69,8 @@ typedef struct characterVariant_s {
 } characterVariant_t;
 
 typedef struct characterInfo_s{
+	char code[32];
+	char nameKey[64];
 	char name[64];
 	char icon[64];
 	char factions[256]; //LIST OF CODE OF FACTIONS THAT THIS CHARACTER BELONGS TO (SEPARATED BY COMMA)

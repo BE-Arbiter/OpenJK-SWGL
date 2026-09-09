@@ -368,23 +368,25 @@ Description :
 	Provides detailed information about a specific character, specific variant or basic information for all characters.
 
 Usage:
-	weaponStat [characterName] [variantName]
+	characterStat [characterCode] [variantCode]
 
 
 Behavior:
 	- characterStat
 		Print each Character Name in the log, no data about variants or stats nor structure;
 
-	- characterStat [characterName]
+	- characterStat [characterCode]
 		Print the Character data and the list of variants for that character, no data about the variants;
 
-	- characterStat [characterName] [variantName]
+	- characterStat [characterCode] [variantCode]
 		Print the Character data and the Variant data for that specific variant of that character.
 */
 
 void PrintCharacter(int characterIndex, int variantIndex)
 {
 	gi.Printf("^7CharacterData:\n{\n");
+	gi.Printf("\t^3code:^5\"%s\"^7;\n", charactersData[characterIndex].code);
+	gi.Printf("\t^3nameKey:^5\"%s\"^7;\n", charactersData[characterIndex].nameKey);
 	gi.Printf("\t^3name:^5\"%s\"^7;\n", charactersData[characterIndex].name);
 	gi.Printf("\t^3icon:^5\"%s\"^7;\n", charactersData[characterIndex].icon);
 	gi.Printf("\t^3faction:^5\"%s\"^7;\n", charactersData[characterIndex].factions);
@@ -392,7 +394,9 @@ void PrintCharacter(int characterIndex, int variantIndex)
 	if(variantIndex >= 0)
 	{
 		gi.Printf("^7\tSelectedVariant:\n\t{\n");
+		gi.Printf("\t\t^3code:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].code);
 		gi.Printf("\t\t^3name:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].name);
+		gi.Printf("\t\t^3nameKey:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].nameKey);
 		gi.Printf("\t\t^3icon:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].icon);
 		gi.Printf("\t\t^3npcName:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].npcName);
 		gi.Printf("\t\t^3model:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[variantIndex].model);
@@ -431,9 +435,9 @@ void PrintCharacter(int characterIndex, int variantIndex)
 		gi.Printf("\t^7}\n");
 	}
 	else {
-		for (int i = 0; (i < charactersData[characterIndex].variantCount) && !Q_IsStringEmpty(charactersData[characterIndex].variantList[i].name); i++)
+		for (int i = 0; (i < charactersData[characterIndex].variantCount) && !Q_IsStringEmpty(charactersData[characterIndex].variantList[i].code); i++)
 		{
-			gi.Printf("\t^3Variant:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[i].name);
+			gi.Printf("\t^3Variant:^5\"%s\"^7;\n", charactersData[characterIndex].variantList[i].nameKey);
 
 		}
 	}
@@ -454,9 +458,9 @@ void Cmd_CharacterStat_f(gentity_t* ent)
 	//Case specific character
 	if (gi.argc() == 3 || gi.argc() == 2)
 	{
-		for (int i = 0; (i < MAX_CHARACTERS) || charactersData[i].name == NULL; i++)
+		for (int i = 0; (i < MAX_CHARACTERS) || charactersData[i].code == NULL; i++)
 		{
-			if (!Q_stricmp(charactersData[i].name, gi.argv(1)))
+			if (!Q_stricmp(charactersData[i].code, gi.argv(1)))
 			{
 				//No specific variant, print all variants
 				if (gi.argc() == 2)
@@ -465,9 +469,9 @@ void Cmd_CharacterStat_f(gentity_t* ent)
 					return;
 				}
 				//Specific variant, search and print print that variant
-				for (int j = 0; (j < charactersData[i].variantCount) || charactersData[i].variantList[j].name == NULL ; j++)
+				for (int j = 0; (j < charactersData[i].variantCount) || charactersData[i].variantList[j].code == NULL ; j++)
 				{
-					if (!Q_stricmp(charactersData[i].variantList[j].name, gi.argv(2)))
+					if (!Q_stricmp(charactersData[i].variantList[j].code, gi.argv(2)))
 					{
 						PrintCharacter(i, j);
 						return;
@@ -476,13 +480,13 @@ void Cmd_CharacterStat_f(gentity_t* ent)
 				gi.SendServerCommand(0, va("print \"Variant %s not found for character %s\n\"", gi.argv(2), gi.argv(1)));
 				return;
 			}
-			gi.SendServerCommand(0, va("print \"Character %s not found\n\"", gi.argv(1)));
 		}
+		gi.SendServerCommand(0, va("print \"Character %s not found\n\"", gi.argv(1)));
 		return;
 	}
-	for (int i = 0; (i < MAX_CHARACTERS) && !Q_IsStringEmpty(charactersData[i].name); i++)
+	for (int i = 0; (i < MAX_CHARACTERS) && !Q_IsStringEmpty(charactersData[i].code); i++)
 	{
-		gi.Printf("%s,", charactersData[i].name);
+		gi.Printf("%s,", charactersData[i].code);
 	}
 }
 /*

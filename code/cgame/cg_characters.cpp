@@ -156,6 +156,8 @@ qboolean filterFunction(characterInfo_t *character)
 	}
 	//Search if the name is found in this character's name, if not, return false
 	if (ui_c_filter_name.string != NULL && ui_c_filter_name.string[0] != '\0'
+		&& Q_stristr(character->nameKey, ui_c_filter_name.string) == NULL
+		&& Q_stristr(character->code, ui_c_filter_name.string) == NULL
 		&& Q_stristr(character->name, ui_c_filter_name.string) == NULL)
 	{
 		return qfalse;
@@ -177,7 +179,7 @@ void UpdateSearchFromCvar()
 		filteredCharacters = 0;
 
 		//Do filter
-		for (int i = 0; i < MAX_CHARACTERS && !Q_IsStringEmpty(charactersData[i].name); i++)
+		for (int i = 0; i < MAX_CHARACTERS && !Q_IsStringEmpty(charactersData[i].code); i++)
 		{
 			if (filterFunction(&charactersData[i]))
 			{
@@ -191,6 +193,30 @@ void UpdateSearchFromCvar()
 #pragma endregion
 
 #pragma region Draw Functions
+void getCharacterName(characterInfo_t* character, char* buffer, int bufferSize)
+{
+	if (buffer == NULL || bufferSize <= 0)
+	{
+		return;
+	}
+	if (character == NULL)
+	{
+		Q_strncpyz(buffer, "Unknown", bufferSize);
+		return;
+	}
+	if (character->name != NULL && character->name[0] != '\0')
+	{
+		Q_strncpyz(buffer, character->name, bufferSize);
+	}
+	else if (character->nameKey != NULL && character->nameKey[0] != '\0')
+	{
+		cgi_SP_GetStringTextString(character->nameKey, buffer, bufferSize);
+	}
+	else
+	{
+		Q_strncpyz(buffer, character->code, bufferSize);
+	}
+}
 
 void CG_DrawCharacters() {
 	int marginX = 5, marginY = 4;
@@ -227,10 +253,8 @@ void CG_DrawCharacters() {
 		CG_DrawPic(posX + iconOffsetX, posY + iconOffsetY, iconSizeX, iconSizeY, icon);
 
 		//Translate & draw name
-		if (!cgi_SP_GetStringTextString(va("%s", currentCharacter->name), text, sizeof(text)))
-		{
-			Com_sprintf(text, sizeof(currentCharacter->name), currentCharacter->name);
-		}
+		char text[1024] = { 0 };
+		getCharacterName(currentCharacter, text, sizeof(text));
 		CG_DrawTextInBox(posX + nameOffsetX, posY + nameOffsetY, nameSizeX, nameSizeY,
 			text, cgs.media.qhFontSmall, colorTable[CT_WHITE]);
 
