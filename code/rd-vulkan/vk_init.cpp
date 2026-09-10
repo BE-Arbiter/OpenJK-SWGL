@@ -551,6 +551,29 @@ void vk_initialize( void )
 	if ( vk.fboActive && glConfig.maxActiveTextures >= 4 )
 		vk.refractionActive = qtrue;
 
+	// depth+normal G-buffer extraction pass, foundation for later screen-space techniques
+	if ( vk.fboActive && r_depthPrepass->integer )
+		vk.gbufferActive = qtrue;
+	else if ( r_depthPrepass->integer )
+		ri.Printf( PRINT_WARNING, "...ignoring r_depthPrepass: requires \\r_fbo 1\n" );
+
+	// screen-space motion vectors, piggy-backs on the gbuffer extraction pass.
+	// The velocity-capable pipelines need a 192-byte push constant range
+	// (vkGBufferVelocityPushConstants_t), above the Vulkan-guaranteed 128-byte
+	// minimum, so this also requires the device to actually support that size -
+	// virtually all desktop GPUs do (commonly 256 bytes), but this stays off rather
+	// than assume it.
+	if ( vk.gbufferActive && r_velocityBuffer->integer ) {
+		if ( props.limits.maxPushConstantsSize >= sizeof( vkGBufferVelocityPushConstants_t ) )
+			vk.velocityActive = qtrue;
+		else
+			ri.Printf( PRINT_WARNING, "...ignoring r_velocityBuffer: device maxPushConstantsSize is %u, need %u\n",
+				(unsigned)props.limits.maxPushConstantsSize, (unsigned)sizeof( vkGBufferVelocityPushConstants_t ) );
+	}
+	else if ( r_velocityBuffer->integer && !vk.gbufferActive ) {
+		ri.Printf( PRINT_WARNING, "...ignoring r_velocityBuffer: requires \\r_depthPrepass 1 (and \\r_fbo 1)\n" );
+	}
+
 	// Screenmap
 	vk.screenMapSamples = MIN(vkMaxSamples, VK_SAMPLE_COUNT_4_BIT);
 	vk.screenMapWidth = (float)glConfig.vidWidth / 16.0;
@@ -641,6 +664,8 @@ void vk_shutdown( void )
 #endif
 	qvkDestroyPipelineLayout(vk.device, vk.pipeline_layout_post_process, NULL);
 	qvkDestroyPipelineLayout(vk.device, vk.pipeline_layout_blend, NULL);
+	qvkDestroyPipelineLayout(vk.device, vk.pipeline_layout_gbuffer, NULL);
+	qvkDestroyPipelineLayout(vk.device, vk.pipeline_layout_gbuffer_velocity, NULL);
 
 #ifdef USE_VBO	
 	vk_release_world_vbo();

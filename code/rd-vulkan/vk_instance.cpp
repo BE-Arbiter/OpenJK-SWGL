@@ -531,6 +531,9 @@ qboolean vk_select_surface_format( VkPhysicalDevice physical_device, VkSurfaceKH
     vk.depth_format		= get_depth_format(physical_device);
     vk.bloom_format		= vk.base_format.format;
     vk.capture_format	= VK_FORMAT_R8G8B8A8_UNORM;
+    // mandatory-supported formats for color attachment + sampled image usage, no capability query needed
+    vk.normal_format	= VK_FORMAT_R16G16B16A16_SFLOAT;
+    vk.velocity_format	= VK_FORMAT_R16G16_SFLOAT; // screen-space XY delta only
     vk.blitEnabled		= vk_blit_enabled(physical_device, vk.color_format, vk.capture_format);
 
     if (!vk.blitEnabled)

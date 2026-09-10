@@ -198,6 +198,281 @@ static void RB_BeginDrawingView( void ) {
 
 /*
 ==================
+RB_RenderGBufferSurfList
+
+Depth+normal(+velocity) G-buffer extraction pass (r_depthPrepass / r_velocityBuffer).
+Deliberately minimal and independent from RB_RenderDrawSurfList's big multi-stage/
+dlight/glow/refraction machinery: opaque surfaces only, position+normal only, one
+draw per surface (no batching).
+
+World/rigid (SF_FACE/SF_GRID/SF_TRIANGLES/SF_MDV/SF_VBO_MDVMESH) surfaces use a
+push-constant-only pipeline (pipeline_layout_gbuffer) and never touch descriptor
+sets. Ghoul2 (SF_MDX, skinned) surfaces need the shared Entity+Bones UBOs (for
+u_ModelMatrix and bone skinning - see gbuffer_skinned.vert), so they use the standard
+vk.pipeline_layout and drive vk_update_descriptor_offset()/vk_bind_descriptor_sets()
+exactly like every other Ghoul2 draw in the renderer does - vk_draw_geometry() already
+calls vk_bind_descriptor_sets() for us, so setting the offsets (and forcing a rebind
+via vk_reset_descriptor()) on entity/bone-cache change is all that's needed here.
+(An earlier version raw-bound a dedicated, vk.pipeline_layout-incompatible layout
+instead, mirroring RB_DrawShadowVolumeGPU() in tr_ghoul2.cpp - that produced visible
+corruption on bolted/attached Ghoul2 models (weapons); root cause not fully pinned
+down, but reusing the already-proven standard binding path sidesteps it entirely.)
+
+When r_velocityBuffer is on, every rigid surface (world, brush models, MDV - anything
+whose vertices are already in their final object space) goes through the velocity
+pipelines instead, which emit a real screen-space motion vector from
+proj_prev * view_prev * model_now vs. this frame's mvp. The previous view/projection
+pair is vk_world.prevWorldModelView/prevProjection, committed once per displayed frame
+back in RB_DrawSurfs. That accounts for camera motion exactly and treats the object
+itself as having stayed put - no per-entity transform history is tracked yet, so a
+moving prop reports only the camera's share of its screen motion (still strictly
+better than the zero it used to report).
+
+Ghoul2 (SF_MDX) has no velocity variant: it rides vk.pipeline_layout, whose push
+constant range is only 64 bytes, and correct skinned motion vectors would need
+previous-frame bone matrices as well. Those surfaces keep the zero-motion placeholder
+in gbuffer_velocity.frag, matching the attachment's clear value.
+==================
+*/
+static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSurfs ) {
+	int						i;
+	int						entityNum, oldEntityNum;
+	int						fogNum;
+	int						dlighted;
+	shader_t				*shader;
+	const drawSurf_t		*drawSurf;
+	VkPipeline				pipeline;
+	VkPipelineLayout		pipelineLayout;
+	qboolean				useVelocity;
+	Vk_Depth_Range			depthRange;
+	vkGBufferPushConstants_t			pushData;
+	vkGBufferVelocityPushConstants_t	velocityPushData;
+#ifdef USE_VBO_GHOUL2
+	CBoneCache				*oldBoneCache = nullptr;
+#endif
+
+	oldEntityNum = -1;
+	depthRange = DEPTH_RANGE_NORMAL;
+	backEnd.currentEntity = &tr.worldEntity;
+
+	for ( i = 0, drawSurf = drawSurfs; i < numDrawSurfs; i++, drawSurf++ ) {
+		R_DecomposeSort( drawSurf->sort, &entityNum, &shader, &fogNum, &dlighted );
+
+		if ( shader->sort != SS_OPAQUE )
+			continue;
+
+		pipelineLayout = vk.pipeline_layout_gbuffer;
+		useVelocity = qfalse;
+
+		switch ( *drawSurf->surface ) {
+			case SF_FACE:
+			case SF_GRID:
+			case SF_TRIANGLES:
+			case SF_MDV:
+				if ( vk.gbuffer_rigid_velocity_pipeline != VK_NULL_HANDLE ) {
+					pipeline = vk.gbuffer_rigid_velocity_pipeline;
+					pipelineLayout = vk.pipeline_layout_gbuffer_velocity;
+					useVelocity = qtrue;
+				} else {
+					pipeline = vk.gbuffer_world_pipeline;
+				}
+				break;
+			case SF_VBO_MDVMESH:
+				if ( vk.gbuffer_mdv_velocity_pipeline != VK_NULL_HANDLE ) {
+					pipeline = vk.gbuffer_mdv_velocity_pipeline;
+					pipelineLayout = vk.pipeline_layout_gbuffer_velocity;
+					useVelocity = qtrue;
+				} else {
+					pipeline = vk.gbuffer_mdv_pipeline;
+				}
+				break;
+#ifdef USE_VBO_GHOUL2
+			case SF_MDX:
+				if ( vk.gbuffer_ghoul2_pipeline == VK_NULL_HANDLE )
+					continue; // r_vbo_models 0: no VBO-backed Ghoul2 path to draw from here
+				pipeline = vk.gbuffer_ghoul2_pipeline;
+				pipelineLayout = vk.pipeline_layout;
+				break;
+#endif
+			default:
+				// SF_SPRITES, SF_FLARE, SF_ENTITY, SF_POLY: not covered by this pass.
+				continue;
+		}
+
+		if ( entityNum != oldEntityNum ) {
+			depthRange = DEPTH_RANGE_NORMAL;
+
+			if ( entityNum == REFENTITYNUM_WORLD ) {
+				backEnd.currentEntity = &tr.worldEntity;
+				backEnd.ori = backEnd.viewParms.world;
+			} else {
+				backEnd.currentEntity = &backEnd.refdef.entities[entityNum];
+
+				if ( backEnd.currentEntity->e.renderfx & RF_NODEPTH ) {
+					// e.g. the view-through-walls hack: deliberately not depth
+					// tested/written by the main pass either, so keep it out of
+					// the depth+normal buffer too.
+					oldEntityNum = entityNum;
+					continue;
+				}
+
+				R_RotateForEntity( backEnd.currentEntity, &backEnd.viewParms, &backEnd.ori );
+
+				if ( backEnd.currentEntity->e.renderfx & RF_DEPTHHACK ) {
+					// Same depth range squeeze RB_RenderDrawSurfList applies to the
+					// view model, so its prepass depth matches what the main pass
+					// actually writes instead of poking through the world.
+					depthRange = DEPTH_RANGE_WEAPON;
+				}
+			}
+
+			// Reuses vk_get_mvp_transform()'s existing (and already-correct)
+			// reversed-depth/projection-flip handling, rather than duplicating it
+			// here. vk_world.modelview_transform is restored below, after the loop.
+			Com_Memcpy( vk_world.modelview_transform, backEnd.ori.modelViewMatrix, 64 );
+			vk_get_mvp_transform( pushData.mvp );
+			Com_Memcpy( pushData.modelView, backEnd.ori.modelViewMatrix, 64 );
+
+			if ( vk.velocityActive ) {
+				Com_Memcpy( velocityPushData.mvp, pushData.mvp, 64 );
+				Com_Memcpy( velocityPushData.modelView, pushData.modelView, 64 );
+
+				if ( vk_world.prevViewValid ) {
+					// proj_prev * view_prev * model_now, applied (in the vertex
+					// shader) to this frame's object-space position: where this
+					// vertex would have landed last frame had only the camera
+					// moved. Mirrors get_mvp_transform()'s own reversed-depth
+					// Y-flip + multiply, just against last frame's stored matrices
+					// instead of the live backEnd.viewParms ones. For world
+					// surfaces ori.modelMatrix is identity (see R_RotateForViewer),
+					// so this reduces to the plain camera-only case.
+					float prevProj[16];
+					float prevModelView[16];
+
+					Com_Memcpy( prevProj, vk_world.prevProjection, 64 );
+					prevProj[5] = -prevProj[5];
+					myGlMultMatrix( backEnd.ori.modelMatrix, vk_world.prevWorldModelView, prevModelView );
+					myGlMultMatrix( prevModelView, prevProj, velocityPushData.prevMvp );
+				} else {
+					// First frame after init/map load: no history yet, so report
+					// zero motion for this one frame rather than a bogus delta.
+					Com_Memcpy( velocityPushData.prevMvp, velocityPushData.mvp, 64 );
+				}
+			}
+
+#ifdef USE_VBO_GHOUL2
+			if ( *drawSurf->surface == SF_MDX ) {
+				// u_ModelMatrix for this (possibly just-changed) entity - same
+				// precomputed offset RB_RenderDrawSurfList uses, see
+				// vk_update_entity_constants() in tr_backend.cpp.
+				vk_reset_descriptor( VK_DESC_UNIFORM );
+				vk_update_descriptor( VK_DESC_UNIFORM, vk.cmd->uniform_descriptor );
+				vk_update_descriptor_offset( VK_DESC_UNIFORM_ENTITY_BINDING, vk.cmd->entity_ubo_offset[entityNum] );
+			}
+#endif
+
+			oldEntityNum = entityNum;
+		}
+
+#ifdef USE_VBO_GHOUL2
+		if ( *drawSurf->surface == SF_MDX ) {
+			CBoneCache *boneCache = ((CRenderableSurface *)drawSurf->surface)->boneCache;
+
+			if ( boneCache != oldBoneCache ) {
+				oldBoneCache = boneCache;
+
+				// Force a rebind (vk_draw_geometry() -> vk_bind_descriptor_sets() picks
+				// this up below) even though vk.cmd->uniform_descriptor's handle itself
+				// doesn't change frame to frame - only the dynamic offset does, and
+				// vk_update_descriptor() only marks things dirty on a handle change, so
+				// vk_reset_descriptor() first is what forces it. Same pattern
+				// vk_push_uniform()/vk_push_uniform_global() use in vk_shade_geometry.cpp.
+				vk_reset_descriptor( VK_DESC_UNIFORM );
+				vk_update_descriptor( VK_DESC_UNIFORM, vk.cmd->uniform_descriptor );
+				vk_update_descriptor_offset( VK_DESC_UNIFORM_BONES_BINDING,
+					RB_GetBoneUboOffset( (CRenderableSurface *)drawSurf->surface ) );
+			}
+		}
+#endif
+
+		RB_BeginSurface( shader, fogNum );
+		rb_surfaceTable[*drawSurf->surface]( drawSurf->surface );
+
+		if ( tess.numIndexes == 0 )
+			continue;
+
+		if ( pipeline != vk.cmd->last_pipeline ) {
+			qvkCmdBindPipeline( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
+			vk.cmd->last_pipeline = pipeline;
+		}
+
+		// Flush any pending descriptor-set bind BEFORE pushing constants. Per the
+		// Vulkan pipeline layout compatibility rules, a vkCmdBindDescriptorSets with
+		// a layout that isn't push-constant compatible with the one the values were
+		// pushed through leaves those values undefined - and vk_bind_descriptor_sets()
+		// always binds with vk.pipeline_layout, whose push constant range differs from
+		// pipeline_layout_gbuffer[_velocity]'s. Pushing first and letting
+		// vk_draw_geometry() bind afterwards would hand the vertex shader a garbage
+		// mvp; doing it here makes vk_draw_geometry()'s own call below a no-op.
+		vk_bind_descriptor_sets();
+
+		if ( useVelocity ) {
+			qvkCmdPushConstants( vk.cmd->command_buffer, pipelineLayout,
+				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( velocityPushData ), &velocityPushData );
+		}
+#ifdef USE_VBO_GHOUL2
+		else if ( *drawSurf->surface == SF_MDX ) {
+			// vk.pipeline_layout's push constant range is 64 bytes (mat4 mvp) - see
+			// gbuffer_skinned.vert, which gets modelView-equivalent data from the
+			// Entity UBO instead (u_ModelMatrix, bound above).
+			qvkCmdPushConstants( vk.cmd->command_buffer, pipelineLayout,
+				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( pushData.mvp ), &pushData.mvp );
+		}
+#endif
+		else {
+			qvkCmdPushConstants( vk.cmd->command_buffer, pipelineLayout,
+				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( pushData ), &pushData );
+		}
+
+		vk_bind_geometry( TESS_XYZ | TESS_NNN );
+		vk_bind_index();
+		vk_draw_geometry( depthRange, qtrue );
+	}
+
+	// tess is shared with the main pass that runs right after this one, and this loop
+	// drives rb_surfaceTable[] / issues its own draws without ever calling
+	// RB_EndSurface() to close the last surface out. RB_RenderDrawSurfList()'s first
+	// iteration calls RB_EndSurface() unconditionally, so anything still sitting in
+	// tess here would be re-emitted into the MAIN render pass with this pass's leftover
+	// transform and pipeline state - visible garbage on screen. With r_vbo on that is
+	// not even real geometry: RB_SurfaceFace()/Grid()/Triangles() park a dummy
+	// numIndexes == 1 in tess and hand the actual drawing to the queued IBO items
+	// (see tr_surface.cpp), which RB_EndSurface() would then replay. Hand the main pass
+	// a clean tess instead.
+#ifdef USE_VBO
+	VBO_UnBind();
+	tess.vbo_model = nullptr;
+	tess.ibo_model = nullptr;
+#endif
+	tess.numIndexes = 0;
+	tess.numVertexes = 0;
+	tess.multiDrawPrimitives = 0;
+
+	// Same story for the orientation: put back what RB_BeginDrawingView() left in
+	// place, so the main pass starts from the view's own transform rather than from
+	// whichever entity happened to be last in this loop.
+	backEnd.currentEntity = &tr.worldEntity;
+	backEnd.ori = backEnd.viewParms.world;
+	Com_Memcpy( vk_world.modelview_transform, backEnd.ori.modelViewMatrix, 64 );
+
+	// No descriptor-tracker reset needed here: Ghoul2 surfaces above go through the
+	// standard vk_update_descriptor()/vk_bind_descriptor_sets() path with
+	// vk.pipeline_layout, same as RB_RenderDrawSurfList's own draws that follow -
+	// nothing to reconcile between the two.
+}
+
+/*
+==================
 RB_RenderDrawSurfList
 ==================
 */
@@ -1047,6 +1322,31 @@ const void	*RB_DrawSurfs( const void *data ) {
 
 	// clear the z buffer, set the modelview, etc
 	RB_BeginDrawingView();
+
+	// depth+normal(+velocity) G-buffer extraction pass (r_depthPrepass / r_velocityBuffer).
+	// Once per displayed frame, ahead of the main pass, primary view only - portal/
+	// mirror sub-views and HUD/menu 3D icon sub-scenes (RDF_NOWORLDMODEL) are excluded
+	// since they don't own the frame's depth+normal buffer. vk_begin_frame() already
+	// opened the main pass before this runs, and any portal/mirror sub-view queued
+	// ahead of the primary one has already drawn into it (see RB_BeginDrawingView's
+	// comment), so resuming main afterward must NOT clear it.
+	if ( vk.gbufferActive && backEnd.viewParms.portalView == PV_NONE && !( backEnd.refdef.rdflags & RDF_NOWORLDMODEL ) ) {
+		vk_end_render_pass();
+		vk_begin_gbuffer_extract_render_pass();
+		RB_RenderGBufferSurfList( cmd->drawSurfs, cmd->numDrawSurfs );
+		vk_end_render_pass();
+		vk_begin_main_render_pass( qfalse );
+
+		if ( vk.velocityActive ) {
+			// Commit this frame's camera transform as "previous" for next frame's
+			// motion vectors, now that RB_RenderGBufferSurfList above is done
+			// reading the OLD vk_world.prevWorldModelView/prevProjection. Exactly
+			// once per real displayed frame, matching this whole block's guard.
+			Com_Memcpy( vk_world.prevWorldModelView, backEnd.viewParms.world.modelViewMatrix, 64 );
+			Com_Memcpy( vk_world.prevProjection, backEnd.viewParms.projectionMatrix, 64 );
+			vk_world.prevViewValid = qtrue;
+		}
+	}
 
 	RB_RenderDrawSurfList( cmd->drawSurfs, cmd->numDrawSurfs );
 

@@ -242,8 +242,8 @@ static void create_color_attachment( uint32_t width, uint32_t height, VkSampleCo
     vk_add_attachment_desc( *image, image_view, usage, &memory_requirements, format, VK_IMAGE_ASPECT_COLOR_BIT, image_layout );
 }
 
-static void create_depth_attachment( uint32_t width, uint32_t height, VkSampleCountFlagBits samples, 
-    VkImage *image, VkImageView *image_view, qboolean allowTransient )
+static void create_depth_attachment( uint32_t width, uint32_t height, VkSampleCountFlagBits samples,
+    VkImage *image, VkImageView *image_view, qboolean allowTransient, qboolean sampled = qfalse )
 {
     VkImageCreateInfo desc;
     VkMemoryRequirements memory_requirements;
@@ -266,6 +266,9 @@ static void create_depth_attachment( uint32_t width, uint32_t height, VkSampleCo
 	desc.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	if ( allowTransient ) {
 		desc.usage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+	}
+	if ( sampled ) {
+		desc.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 	}
     desc.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     desc.queueFamilyIndexCount = 0;
@@ -364,6 +367,24 @@ void vk_create_attachments( void )
                 usage, &vk.refraction_extract_image, &vk.refraction_extract_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );     
         }
 
+        // depth+normal G-buffer extraction pass (r_depthPrepass); self-contained attachments,
+        // not shared with vk.depth_image/vk.color_image so it cannot disturb the main pass
+        if ( vk.gbufferActive )
+        {
+            usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+            create_color_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT, vk.normal_format,
+                usage, &vk.gbuffer_normal_image, &vk.gbuffer_normal_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );
+
+            create_depth_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT,
+                &vk.gbuffer_depth_image, &vk.gbuffer_depth_image_view, qfalse, qtrue );
+
+            if ( vk.velocityActive ) {
+                create_color_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT, vk.velocity_format,
+                    usage, &vk.gbuffer_velocity_image, &vk.gbuffer_velocity_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );
+            }
+        }
+
         // MSAA
         if (vk.msaaActive) {
             create_color_attachment( glConfig.vidWidth, glConfig.vidHeight, (VkSampleCountFlagBits)vkSamples, vk.color_format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
@@ -407,6 +428,13 @@ void vk_create_attachments( void )
 
     VK_SET_OBJECT_NAME( vk.refraction_extract_image, "refraction extract attachment", VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT );
     VK_SET_OBJECT_NAME( vk.refraction_extract_image_view, "refraction extract attachment", VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT );
+
+    VK_SET_OBJECT_NAME( vk.gbuffer_normal_image, "gbuffer normal attachment", VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT );
+    VK_SET_OBJECT_NAME( vk.gbuffer_normal_image_view, "gbuffer normal attachment", VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT );
+    VK_SET_OBJECT_NAME( vk.gbuffer_depth_image, "gbuffer depth attachment", VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT );
+    VK_SET_OBJECT_NAME( vk.gbuffer_depth_image_view, "gbuffer depth attachment", VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT );
+    VK_SET_OBJECT_NAME( vk.gbuffer_velocity_image, "gbuffer velocity attachment", VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT );
+    VK_SET_OBJECT_NAME( vk.gbuffer_velocity_image_view, "gbuffer velocity attachment", VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT );
 
     VK_SET_OBJECT_NAME( vk.capture.image, "capture image", VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT );
     VK_SET_OBJECT_NAME( vk.capture.image_view, "capture image view", VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT );
@@ -515,6 +543,28 @@ void vk_destroy_attachments( void )
         qvkDestroyImageView(vk.device, vk.refraction_extract_image_view, NULL);
         vk.refraction_extract_image = VK_NULL_HANDLE;
         vk.refraction_extract_image_view = VK_NULL_HANDLE;
+    }
+
+    // depth+normal G-buffer extraction pass
+    if (vk.gbuffer_normal_image) {
+        qvkDestroyImage(vk.device, vk.gbuffer_normal_image, NULL);
+        qvkDestroyImageView(vk.device, vk.gbuffer_normal_image_view, NULL);
+        vk.gbuffer_normal_image = VK_NULL_HANDLE;
+        vk.gbuffer_normal_image_view = VK_NULL_HANDLE;
+    }
+
+    if (vk.gbuffer_depth_image) {
+        qvkDestroyImage(vk.device, vk.gbuffer_depth_image, NULL);
+        qvkDestroyImageView(vk.device, vk.gbuffer_depth_image_view, NULL);
+        vk.gbuffer_depth_image = VK_NULL_HANDLE;
+        vk.gbuffer_depth_image_view = VK_NULL_HANDLE;
+    }
+
+    if (vk.gbuffer_velocity_image) {
+        qvkDestroyImage(vk.device, vk.gbuffer_velocity_image, NULL);
+        qvkDestroyImageView(vk.device, vk.gbuffer_velocity_image_view, NULL);
+        vk.gbuffer_velocity_image = VK_NULL_HANDLE;
+        vk.gbuffer_velocity_image_view = VK_NULL_HANDLE;
     }
 
     // bloom

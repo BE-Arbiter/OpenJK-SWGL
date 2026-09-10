@@ -205,7 +205,9 @@ cvar_t	*r_bloom;
 cvar_t	*r_bloom_threshold;
 cvar_t	*r_bloom_intensity;
 cvar_t	*r_bloom_threshold_mode;
-cvar_t	*r_bloom_modulate; 
+cvar_t	*r_bloom_modulate;
+cvar_t	*r_depthPrepass;
+cvar_t	*r_velocityBuffer;
 cvar_t	*r_renderWidth;
 cvar_t	*r_renderHeight;
 cvar_t	*r_renderScale;
@@ -896,6 +898,10 @@ void R_Register( void )
 	r_bloom_intensity					= Cvar_Get("r_bloom_intensity",					"0.15",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Final bloom blend factor, default is 0.15");
 	ri.Cvar_CheckRange(r_bloom_intensity, 0.01f, 2, qfalse);
 	r_bloom_modulate					= Cvar_Get("r_bloom_modulate",					"0",						CVAR_ARCHIVE_ND, "Modulate extracted color:\n 0: off (color = color, i.e. no changes)\n 1: by itself (color = color * color)\n 2: by intensity (color = color * luma(color))");
+	r_depthPrepass						= Cvar_Get("r_depthPrepass",						"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Render a depth+normal G-buffer extraction pass ahead of the main pass, for use by later screen-space techniques\nRequires " S_COLOR_CYAN "\\r_fbo 1");
+	ri.Cvar_CheckRange(r_depthPrepass, 0, 1, qtrue);
+	r_velocityBuffer					= Cvar_Get("r_velocityBuffer",					"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Add a per-pixel screen-space motion vector attachment to the G-buffer extraction pass\nRequires " S_COLOR_CYAN "\\r_depthPrepass 1");
+	ri.Cvar_CheckRange(r_velocityBuffer, 0, 1, qtrue);
 #ifdef USE_PMLIGHT
 	r_dlightMode						= Cvar_Get("r_dlightMode",						"2",						CVAR_ARCHIVE, "");
 	ri.Cvar_CheckRange(r_dlightMode, 0, 2, qtrue);
