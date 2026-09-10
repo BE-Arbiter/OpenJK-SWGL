@@ -511,6 +511,11 @@ void cgi_UI_Menu_OpenByName(char* buf)
 	Q_syscall(CG_UI_MENU_OPENBYNAME, buf);
 }
 
+void cgi_UI_Run_Script(char* buf)
+{
+	Q_syscall(CG_UI_RUN_SCRIPT, buf);
+}
+
 void cgi_UI_Menu_Reset(void)
 {
 	Q_syscall(CG_UI_MENU_RESET);

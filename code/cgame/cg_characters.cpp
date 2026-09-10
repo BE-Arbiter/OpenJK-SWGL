@@ -44,6 +44,22 @@ extern vmCvar_t ui_character_index;
 #pragma endregion
 
 #pragma region Actions
+void ChangeCharacter(int characterIndex)
+{
+	characterInfo_t *currentCharacter = &charactersData[characterIndex];
+	cgi_Cvar_Set("ui_char_model", currentCharacter->variantList[0].model);
+	cgi_Cvar_Set("ui_npc_type", "");
+	cgi_Cvar_Set("ui_variant_code", currentCharacter->variantList[0].code);
+	cgi_UI_Run_Script("loadCharacter");
+	cgi_UI_Run_Script("getsaberstyle");
+	cgi_UI_Run_Script("\"char_default_skin\" \"model_default\"");
+	cgi_UI_Run_Script("\"char_skin\"");
+	cgi_UI_Run_Script("\"rgbsabercvars\"");		
+	cgi_UI_Run_Script("\"saber_hilt\"");
+	cgi_UI_Run_Script("\"saber2_hilt\"");
+	cgi_Cvar_Set("ui_char_model_angle", "180");
+}
+
 void CG_Characters_CharacterClick_f()
 {
 	//Update CVAR
@@ -52,23 +68,35 @@ void CG_Characters_CharacterClick_f()
 	cgi_Cvar_Update(&ui_character_page);
 	if (Q_stricmp(ui_character_screen.string, "factions") == 0)
 	{
-		int selectedChar = (ui_character_page.integer * 15) + ui_character_selected.integer - 1;
-		if(selectedChar >= loadedFactions || selectedChar < 0)
+		int selectedFaction = (ui_character_page.integer * 15) + ui_character_selected.integer - 1;
+		if(selectedFaction >= loadedFactions || selectedFaction < 0)
 		{
 			//Draw warning in debug$
 			#ifdef DEBUG
-			Com_Printf("Invalid faction selected: %d\n", selectedChar);
+			Com_Printf("Invalid faction selected: %d\n", selectedFaction);
 			#endif // DEBUG
 			return;
 		}
 		//Toggle the selected faction filter
-		factionsData[selectedChar].selectedFilter = factionsData[selectedChar].selectedFilter ? qfalse : qtrue;
+		factionsData[selectedFaction].selectedFilter = factionsData[selectedFaction].selectedFilter ? qfalse : qtrue;
 		return;
 	}
 	if (Q_stricmp(ui_character_screen.string, "characters") == 0)
 	{
-		//Todo Select Character
-		//Force ui update?
+		int selectedCharacter = (ui_character_page.integer * 15) + ui_character_selected.integer - 1;
+		if(selectedCharacter < 0 || selectedCharacter >= filteredCharacters)
+		{
+			//Draw warning in debug
+			#ifdef DEBUG
+			Com_Printf("Invalid character selected: %d\n", selectedCharacter);
+			#endif // DEBUG
+			return;
+		}
+		//Change Character (Load Default, Screen)
+		ChangeCharacter(filteredCharactersIndexList[selectedCharacter]);
+		//Update View
+		cgi_Cvar_Set("ui_character_screen","character");
+		
 	}
 }
 
@@ -237,6 +265,7 @@ void CG_DrawCharacters() {
 
 	cgi_Cvar_Update(&ui_character_page);
 	int currentPage = ui_character_page.integer;
+	int maxPage = getMaxPage();
 	int beginIndex = (currentPage * 15);
 	int endIndex = beginIndex + 15;
 
@@ -264,6 +293,9 @@ void CG_DrawCharacters() {
 		posX = startX + nextColumn * (bgSizeX + marginX);
 		posY = startY + nextLine * (bgSizeY + marginY);
 	}
+	//Draw page and total page
+	CG_DrawTextInBox(411, 441, 218, 18,
+		va("Page %d of %d (showing %d characters)", currentPage + 1, maxPage, filteredCharacters), cgs.media.qhFontSmall, colorTable[CT_WHITE], ALIGN_RIGHT);
 }
 
 void CG_DrawFactions() {
@@ -286,6 +318,7 @@ void CG_DrawFactions() {
 
 	cgi_Cvar_Update(&ui_character_page);
 	int currentPage = ui_character_page.integer;
+	int maxPage = getMaxPage();
 	int beginIndex = (currentPage * 15);
 	int endIndex = beginIndex + 15;
 
@@ -313,6 +346,9 @@ void CG_DrawFactions() {
 		posX = startX + nextColumn * (bgSizeX + marginX);
 		posY = startY + nextLine * (bgSizeY + marginY);
 	}
+
+	CG_DrawTextInBox(411, 441, 218, 18,
+		va("Page %d of %d (showing %d factions)", currentPage + 1, maxPage, loadedFactions), cgs.media.qhFontSmall, colorTable[CT_WHITE], ALIGN_RIGHT);
 
 }
 

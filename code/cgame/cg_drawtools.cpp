@@ -566,11 +566,12 @@ static qboolean CG_SplitWidestLine(char lines[FIT_MAX_LINES][FIT_LINE_CHARS], in
 	return qtrue;
 }
 
-// Draws psText centred in the box. The scale starts at one line filling the box height;
+// Draws psText in the box, horizontally aligned per iAlign. The scale starts at one
+// line filling the box height;
 // while the text is too wide, the widest line is cut on its most central space and the
 // scale becomes base/numLines - so the block always stays exactly one box high.
 void CG_DrawTextInBox(int iBoxX, int iBoxY, int iBoxWidth, int iBoxHeight,
-	const char* psText, int iFontHandle, const vec4_t v4Color)
+	const char* psText, int iFontHandle, const vec4_t v4Color, textBoxAlign_t iAlign)
 {
 	char	lines[FIT_MAX_LINES][FIT_LINE_CHARS];
 	int		numLines = 1;
@@ -598,7 +599,22 @@ void CG_DrawTextInBox(int iBoxX, int iBoxY, int iBoxWidth, int iBoxHeight,
 	for (int i = 0; i < numLines; i++)
 	{
 		int w = cgi_R_Font_StrLenPixels(lines[i], iFontHandle, fScale, cgs.widthRatioCoef);
-		cgi_R_Font_DrawString(iBoxX + ((iBoxWidth - w) / 2), y + (i * iLineHeight) + (numLines == 1 ? 0 : numLines), //Adding numline to Y to "correct" the font padding that is divided by two
+		int x;
+
+		switch (iAlign)
+		{
+			case ALIGN_LEFT:	
+				x = iBoxX;		
+				break;
+			case ALIGN_RIGHT:
+				x = iBoxX + iBoxWidth - w;		
+				break;
+			default:			
+				x = iBoxX + ((iBoxWidth - w) / 2);	
+				break;
+		}
+
+		cgi_R_Font_DrawString(x, y + (i * iLineHeight) + (numLines == 1 ? 0 : numLines), //Adding numline to Y to "correct" the font padding that is divided by two
 			lines[i], v4Color, iFontHandle, iBoxWidth, fScale, cgs.widthRatioCoef);
 	}
 }
