@@ -1506,6 +1506,11 @@ static void R_AddEntitySurfaces( void ) {
 		case RT_ORIENTEDLINE:
 		case RT_CYLINDER:
 		case RT_SABER_GLOW:
+		// SP-only, and absent from this switch since the port: a map holding either one
+		// died on "Bad reType" below before anything was drawn. See RB_SurfaceLathe and
+		// RB_SurfaceClouds in tr_surface.cpp.
+		case RT_LATHE:
+		case RT_CLOUDS:
 			// self blood sprites, talk balloons, etc should not be drawn in the primary
 			// view.  We can't just do this check for all entities, because md3
 			// entities may still want to cast shadows from them
