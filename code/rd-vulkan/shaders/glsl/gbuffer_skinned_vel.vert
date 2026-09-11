@@ -34,6 +34,8 @@ layout(set = 0, binding = 2) uniform Entity {
 	vec4 u_ModelLightDir;
 	vec4 u_localViewOrigin;
 	mat4 u_ModelMatrix;
+	// x: 1 when this entity already casts a stencil shadow volume - see vkUniformEntity_t.
+	vec4 u_SurfaceFlags;
 };
 
 layout(set = 0, binding = 3) uniform Bones {
@@ -49,6 +51,7 @@ layout(location = 9) in vec4 in_weights;
 
 // View space, matching every other gbuffer shader - see gbuffer_skinned.vert.
 layout(location = 0) out vec3 var_ViewNormal;
+layout(location = 7) flat out float var_ShadowCaster;
 layout(location = 1) out vec4 var_CurrClip;
 layout(location = 2) out vec4 var_PrevClip;
 
@@ -86,5 +89,6 @@ void main() {
 
 	var_CurrClip = gl_Position;
 	var_PrevClip = u_PrevViewProjection * u_PrevModelMatrix * vec4(prev_position, 1.0);
+	var_ShadowCaster = u_SurfaceFlags.x;
 	var_ViewNormal = mat3(u_ViewMatrix) * (mat3(u_ModelMatrix) * normal);
 }

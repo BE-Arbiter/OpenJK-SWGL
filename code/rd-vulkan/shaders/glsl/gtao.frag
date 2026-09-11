@@ -37,6 +37,7 @@ layout(push_constant) uniform Params {
 	float lightX, lightY, lightZ;
 	float csLength;		// world-space ray length; 0 disables
 	float csThickness;	// how deep behind a surface a hit still counts as an occluder
+	float csStrength;	// how much of the pixel a full contact shadow may take away
 	int   csSteps;
 };
 
@@ -79,7 +80,7 @@ float SampleDepth(vec2 uv) {
 // The thickness test is what keeps this honest: the depth buffer records a surface, not a
 // solid, so a ray passing far behind a distant wall would otherwise report a hit. Only a
 // hit within csThickness of the ray counts.
-float ContactShadow(vec3 P, vec3 N, vec3 L) {
+float ContactShadow(vec3 P, vec3 N, vec3 L, float jitter) {
 	if (csLength <= 0.0 || csSteps <= 0) {
 		return 1.0;
 	}
@@ -93,7 +94,21 @@ float ContactShadow(vec3 P, vec3 N, vec3 L) {
 	}
 
 	for (int i = 1; i <= csSteps; i++) {
-		float t = (float(i) / float(csSteps)) * csLength;
+		// Quadratic step distribution, not linear. A contact shadow lives in the first few
+		// units off the surface, but linear steps put the very first sample at
+		// csLength/csSteps - 2.7 units at the defaults - so the contact itself was never
+		// sampled: the ground directly under an object came out lit and the shadow only
+		// started further along the ray. Squaring f packs the samples where they matter and
+		// lets the tail stay coarse.
+		// Jittered per pixel. Without this every pixel samples the ray at exactly the same
+		// distances, so the shadow boundary quantises to the same step everywhere and comes
+		// out as hard stair-steps. The jitter trades that banding for noise, which is what a
+		// denoise pass is for - it cannot be tuned away.
+		float f     = (float(i) - jitter) / float(csSteps);
+		float fPrev = max(float(i) - 1.0 - jitter, 0.0) / float(csSteps);
+		float t     = csLength * f * f;
+		float dt    = max(t - csLength * fPrev * fPrev, 1e-4);
+
 		vec3 Q = P + L * t;
 
 		// Forward projection, the exact inverse of ViewPosition(): w is -z, and the Y term
@@ -116,16 +131,66 @@ float ContactShadow(vec3 P, vec3 N, vec3 L) {
 			continue;	// nothing was drawn there
 		}
 
-		float sceneZ = -p14 / (sceneDepth + p10);
-		float diff = sceneZ - Q.z;	// both negative; positive means the scene is nearer
+		// Alpha of the normal attachment marks a surface whose entity already casts a
+		// stencil shadow volume. Its occlusion is drawn into the frame by that system, so
+		// counting it here too would darken the same ground twice.
+		if (texture(normalTexture, uv).a > 0.5) {
+			continue;
+		}
 
-		if (diff > 0.0 && diff < csThickness) {
-			// Fade with how far along the ray the blocker sits: this is a CONTACT shadow, so a
-			// blocker right against the surface is opaque and one at the end of the ray barely
-			// registers. A flat 0 here is what produced the hard binary mask with no gradient
-			// anywhere. NdotL softens grazing surfaces, where the march is least reliable.
+		vec3  S      = ViewPosition(uv, sceneDepth);	// the surface actually seen here
+		float diff   = S.z - Q.z;	// both negative; positive means the scene is in front
+
+		// Separation as a real distance, not as a depth difference. diff measures along the
+		// VIEW axis, so for a fixed world configuration it shrinks when you look down a ray
+		// and grows when you look across it - comparing it to a world-unit thickness made
+		// acceptance a function of where the camera was pointing, and the shadow appeared
+		// and vanished on rotation alone. length(S - Q) is invariant under rotation.
+		float sep = length(S - Q);
+
+		// Self-hit rejection scaled by THIS step, not by the average one. When the light
+		// grazes a surface the ray hugs it and every sample reports a small positive diff,
+		// which smears the shadow along the whole ray; a floor stops that. Sizing the floor
+		// off csLength/csSteps instead would reject the near-contact hits as well, which is
+		// the detached-shadow failure in the other direction. With quadratic steps dt is
+		// tiny at the contact, so the floor there is tiny too.
+		// dt, not abs(L.z) * dt. L is in VIEW space, so its z component changes as the
+		// camera turns - which made both of these thresholds functions of the view angle and
+		// the shadow appear and vanish on rotation alone. A shadow is a world-space fact.
+		// dt is a world-space distance along the ray and is invariant under rotation, and it
+		// is dimensionally the same kind of quantity as diff, so it compares directly.
+		float minDiff = max(dt * 0.5, -Q.z * 0.0004);
+
+		// Upper bound: how far behind a surface the ray may sit and still count as blocked.
+		// The depth buffer holds one layer, so past this we assume the ray came out the other
+		// side rather than staying inside the object.
+		//
+		// Deliberately NOT scaled by csLength. Length and thickness answer two unrelated
+		// questions - how far to look for an occluder, versus how deep behind a surface the
+		// ray is still inside it - and tying them together meant a ray long enough to find a
+		// large object's occluder also opened the window to hundreds of units, so everything
+		// behind a silhouette counted as blocking and every object dragged a trail.
+		// Thickness is a property of the geometry; it belongs to csThickness alone.
+		float maxSep = csThickness + dt;
+
+		// diff still gates the SIGN - the surface has to be in front of the ray for the ray
+		// to be hidden behind it - while sep decides whether it is close enough to count.
+		if (diff > minDiff && sep < maxSep) {
+			// Fade with how far along the ray the blocker sits: a blocker against the
+			// surface is opaque, one at the end of the ray barely registers. NdotL softens
+			// grazing surfaces, where the march is least reliable.
+			// Bounded by csStrength. A contact shadow occludes DIRECT light only - ambient
+			// still reaches the surface - so it can never take the whole pixel. Returning 0,
+			// which the NdotL weighting did for any surface facing the light at all, punched
+			// black holes instead of shading: a floor lit from above has a high NdotL
+			// everywhere, so every one of its contact shadows came out maximal.
+			//
+			// NdotL now only ramps the shadow out near the terminator, where the march is
+			// least reliable and where the lighting is already darkening the surface anyway.
 			float fade = smoothstep(0.0, 1.0, t / csLength);
-			return mix(1.0 - clamp(NdotL * 2.0, 0.0, 1.0), 1.0, fade);
+			float edge = smoothstep(0.0, 0.25, NdotL);
+
+			return mix(1.0 - csStrength * edge, 1.0, fade);
 		}
 	}
 
@@ -253,8 +318,12 @@ void main() {
 	vec3 L = vec3(lightX, lightY, lightZ);
 	// Bias scaled with view depth: one fixed world-space offset is either useless up close
 	// or visibly detaches the shadow far away.
-	float bias = max(0.5, -P.z * 0.004);
-	float shadow = ContactShadow(P + N * bias, N, L);
+	// Kept small on purpose. This offset exists to stop a surface self-shadowing at
+	// grazing angles, but it also throws away the first samples - the ones that make the
+	// contact. On an 8-unit ray a one-unit offset is an eighth of the whole march, which is
+	// what detached the shadow from tight corners. Raise it if acne returns.
+	float bias = max(0.05, -P.z * 0.0004);
+	float shadow = ContactShadow(P + N * bias, N, L, noise);
 
 	out_ao = vec4(visibility, shadow, 0.0, 1.0);
 }

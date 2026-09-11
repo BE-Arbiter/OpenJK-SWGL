@@ -23,12 +23,16 @@ layout(push_constant) uniform Transform {
 	// World geometry's model matrix is identity, so it degenerates to the plain
 	// camera-only case there. Objects that moved on their own are not tracked yet.
 	mat4 prevMvp;
+	// x: 1 when this surface belongs to an entity that already casts a stencil shadow.
+	// See vkGBufferPushConstants_t.
+	vec4 surfaceFlags;
 };
 
 layout(location = 0) in vec3 in_position;
 layout(location = 5) in vec3 in_normal;
 
 layout(location = 0) out vec3 var_ViewNormal;
+layout(location = 7) flat out float var_ShadowCaster;
 layout(location = 1) out vec4 var_CurrClip;
 layout(location = 2) out vec4 var_PrevClip;
 
@@ -41,5 +45,6 @@ void main() {
 
 	var_CurrClip = gl_Position;
 	var_PrevClip = prevMvp * vec4(in_position, 1.0);
+	var_ShadowCaster = surfaceFlags.x;
 	var_ViewNormal = mat3(modelView) * in_normal;
 }

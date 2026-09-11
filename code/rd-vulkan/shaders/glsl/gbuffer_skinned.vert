@@ -30,6 +30,8 @@ layout(set = 0, binding = 2) uniform Entity {
 	vec4 u_ModelLightDir;
 	vec4 u_localViewOrigin;
 	mat4 u_ModelMatrix;
+	// x: 1 when this entity already casts a stencil shadow volume - see vkUniformEntity_t.
+	vec4 u_SurfaceFlags;
 };
 
 layout(set = 0, binding = 3) uniform Bones {
@@ -47,6 +49,7 @@ layout(location = 9) in vec4 in_weights;
 // already free to bind - the old world-space output existed only because nothing here
 // had reached for it yet.
 layout(location = 0) out vec3 var_ViewNormal;
+layout(location = 7) flat out float var_ShadowCaster;
 
 out gl_PerVertex {
 	vec4 gl_Position;
@@ -73,5 +76,6 @@ void main() {
 	vec3 normal = mat3(skin_matrix) * in_normal;
 
 	gl_Position = mvp * vec4(position, 1.0);
+	var_ShadowCaster = u_SurfaceFlags.x;
 	var_ViewNormal = mat3(u_ViewMatrix) * (mat3(u_ModelMatrix) * normal);
 }

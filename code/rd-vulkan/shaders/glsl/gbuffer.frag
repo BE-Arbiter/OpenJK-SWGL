@@ -11,9 +11,12 @@
 
 layout(location = 0) in vec3 var_ViewNormal;
 
+layout(location = 7) flat in float var_ShadowCaster;
+
 layout(location = 0) out vec4 out_normal;
 
 void main() {
 	vec3 n = normalize(var_ViewNormal);
-	out_normal = vec4(n * 0.5 + 0.5, 0.0);
+	// Alpha carries the stencil-shadow-caster flag; nothing else uses this channel.
+	out_normal = vec4(n * 0.5 + 0.5, var_ShadowCaster);
 }

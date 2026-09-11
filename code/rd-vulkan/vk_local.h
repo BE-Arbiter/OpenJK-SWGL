@@ -590,6 +590,11 @@ typedef struct vkUniformCamera_s {
 typedef struct vkGBufferPushConstants_s {
 	mat4_t mvp;			// proj * modelview - same value the main pass pushes for this surface
 	mat4_t modelView;	// modelview alone, to bring the normal into view space
+	// x: 1 when this surface belongs to an entity that already casts a stencil shadow
+	// (r_shadows 2), 0 otherwise. Written to the normal attachment's alpha, which nothing
+	// else uses, so a consumer can tell the two apart. vec4-sized to keep the block
+	// 16-byte aligned and leave room for further per-surface flags.
+	vec4_t surfaceFlags;
 } vkGBufferPushConstants_t;
 
 // push constants for the velocity-capable gbuffer variants
@@ -602,6 +607,7 @@ typedef struct vkGBufferVelocityPushConstants_s {
 	mat4_t mvp;
 	mat4_t modelView;
 	mat4_t prevMvp;		// proj_prev * view_prev * model_now, for this frame's object-space position
+	vec4_t surfaceFlags;	// see vkGBufferPushConstants_t
 } vkGBufferVelocityPushConstants_t;
 
 // Push constants for the GTAO pass (vk.pipeline_layout_gtao), 52 bytes. Field order
@@ -621,6 +627,7 @@ typedef struct vkGTAOPushConstants_s {
 	float	lightX, lightY, lightZ;
 	float	csLength;		// world units; 0 disables
 	float	csThickness;
+	float	csStrength;		// upper bound on the darkening; a contact shadow never takes the whole pixel
 	int32_t	csSteps;
 } vkGTAOPushConstants_t;
 
@@ -631,6 +638,12 @@ typedef struct vkUniformEntity_s {
 	vec4_t modelLightDir;
 	vec4_t localViewOrigin;
 	mat4_t modelMatrix;
+	// x: 1 when this entity already casts a stencil shadow volume. The skinned gbuffer
+	// shaders read it from here rather than from a push constant, because they ride
+	// vk.pipeline_layout whose push range is only the 64-byte mvp - and per-entity is
+	// exactly the granularity the flag has. Shaders declaring this block without the
+	// field are unaffected; the binding's range simply covers more than they read.
+	vec4_t surfaceFlags;
 } vkUniformEntity_t;
 
 typedef struct vkUniformGlobal_s {
@@ -861,7 +874,7 @@ typedef struct {
 	VkDescriptorSet	gbuffer_depth_descriptor;
 	VkDescriptorSet	gbuffer_velocity_descriptor;
 
-	// GTAO (r_gtao): single-channel visibility over the gbuffer's depth + normal.
+	// GTAO (r_ssao 2): single-channel visibility over the gbuffer's depth + normal.
 	// Its own attachment, consumed today only by the r_showGBuffer debug view.
 	VkImage			gtao_image;
 	VkImageView		gtao_image_view;
@@ -920,7 +933,7 @@ typedef struct {
 
 		// Consumes the gbuffer rather than belonging to it, so it sits alongside the other
 		// top-level passes instead of inside the gbuffer group.
-		VkRenderPass gtao; // ambient occlusion over the gbuffer (r_gtao)
+		VkRenderPass gtao; // ambient occlusion over the gbuffer (r_ssao 2)
 	} render_pass;
 
 	struct {
@@ -954,7 +967,7 @@ typedef struct {
 			VkFramebuffer extract; // depth+normal G-buffer extraction pass (r_depthPrepass)
 		} gbuffer;
 
-		VkFramebuffer gtao; // ambient occlusion over the gbuffer (r_gtao)
+		VkFramebuffer gtao; // ambient occlusion over the gbuffer (r_ssao 2)
 	} framebuffers;
 
 #ifdef USE_UPLOAD_QUEUE
@@ -1194,8 +1207,8 @@ typedef struct {
 		VkShaderModule gbuffer_velocity_fs;
 
 		VkShaderModule gbuffer_debug_fs;	// r_showGBuffer; see gbuffer_debug.frag
-		VkShaderModule gtao_fs;				// r_gtao; see gtao.frag
-		VkShaderModule gtao_apply_fs;		// r_gtao; see gtao_apply.frag
+		VkShaderModule gtao_fs;				// r_ssao 2; see gtao.frag
+		VkShaderModule gtao_apply_fs;		// r_ssao 2; see gtao_apply.frag
 
 		// Alpha-tested gbuffer variants; see gbuffer_at.vert / gbuffer_atvel.vert.
 		VkShaderModule gbuffer_at_vs;

@@ -376,9 +376,28 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 			vk_get_mvp_transform( pushData.mvp );
 			Com_Memcpy( pushData.modelView, backEnd.ori.modelViewMatrix, 64 );
 
+			// Does this entity already get a stencil shadow volume? If so its occlusion is
+			// already in the frame and a contact shadow from it would double the darkening,
+			// so the flag rides in the normal attachment's alpha and gtao.frag skips it as an
+			// occluder. Conditions mirror the two places that actually queue tr.shadowShader:
+			// tr_mesh.cpp for MD3 and tr_ghoul2.cpp for Ghoul2, which additionally demands
+			// RF_SHADOW_PLANE.
+			pushData.surfaceFlags[0] = 0.0f;
+			pushData.surfaceFlags[1] = pushData.surfaceFlags[2] = pushData.surfaceFlags[3] = 0.0f;
+
+			if ( entityNum != REFENTITYNUM_WORLD && R_STENCIL_SHADOWS() && shader->sort == SS_OPAQUE ) {
+				const int rfx = backEnd.currentEntity->e.renderfx;
+
+				if ( !( rfx & ( RF_NOSHADOW | RF_DEPTHHACK ) )
+					&& ( *drawSurf->surface != SF_MDX || ( rfx & RF_SHADOW_PLANE ) ) ) {
+					pushData.surfaceFlags[0] = 1.0f;
+				}
+			}
+
 			if ( vk.velocityActive ) {
 				Com_Memcpy( velocityPushData.mvp, pushData.mvp, 64 );
 				Com_Memcpy( velocityPushData.modelView, pushData.modelView, 64 );
+				Com_Memcpy( velocityPushData.surfaceFlags, pushData.surfaceFlags, sizeof( vec4_t ) );
 
 				if ( vk_world.prevViewValid ) {
 					// proj_prev * view_prev * model_now, applied (in the vertex
@@ -1433,6 +1452,15 @@ static void vk_update_entity_matrix_constants( vkUniformEntity_t &uniform, const
 
 	R_RotateForEntity(refEntity, &backEnd.viewParms, &ori);
 	Matrix16Copy(ori.modelMatrix, uniform.modelMatrix);
+
+	// Does this entity already get a stencil shadow volume? The skinned gbuffer shaders
+	// forward this into the normal attachment's alpha so gtao.frag can decline to count it
+	// as a contact-shadow occluder and darken the same ground twice. Conditions mirror the
+	// Ghoul2 caster test in tr_ghoul2.cpp, which is the only thing that reads this.
+	uniform.surfaceFlags[0] = ( R_STENCIL_SHADOWS()
+							&& ( refEntity->e.renderfx & RF_SHADOW_PLANE )
+							&& !( refEntity->e.renderfx & ( RF_NOSHADOW | RF_DEPTHHACK ) ) ) ? 1.0f : 0.0f;
+	uniform.surfaceFlags[1] = uniform.surfaceFlags[2] = uniform.surfaceFlags[3] = 0.0f;
 	VectorCopy(ori.viewOrigin, uniform.localViewOrigin);
 
 	Com_Memcpy( &uniform.localViewOrigin, ori.viewOrigin, sizeof( vec3_t) );

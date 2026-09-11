@@ -14,6 +14,8 @@ layout(push_constant) uniform Transform {
 	mat4 mvp;
 	// modelview alone (no projection), used to bring the normal into view space.
 	mat4 modelView;
+	// x: 1 when this surface already casts a stencil shadow - see vkGBufferPushConstants_t.
+	vec4 surfaceFlags;
 };
 
 layout(location = 0) in vec3 in_position;
@@ -22,6 +24,7 @@ layout(location = 5) in vec3 in_normal;
 
 layout(location = 0) out vec3 var_ViewNormal;
 layout(location = 1) out vec2 var_TexCoord;
+layout(location = 7) flat out float var_ShadowCaster;
 
 out gl_PerVertex {
 	vec4 gl_Position;
@@ -34,5 +37,6 @@ void main() {
 	// for a separate inverse-transpose normal matrix since this pass only ever
 	// deals with rigid (rotation + uniform-ish scale) transforms.
 	var_TexCoord = in_tex0;
+	var_ShadowCaster = surfaceFlags.x;
 	var_ViewNormal = mat3(modelView) * in_normal;
 }

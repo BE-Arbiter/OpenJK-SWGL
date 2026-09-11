@@ -574,13 +574,18 @@ void vk_initialize( void )
 		ri.Printf( PRINT_WARNING, "...ignoring r_velocityBuffer: requires \\r_depthPrepass 1 (and \\r_fbo 1)\n" );
 	}
 
-	// GTAO reads the gbuffer's depth attachment, so it needs both the pass itself and a
-	// sampleable depth format - see get_gbuffer_depth_format().
-	if ( vk.gbufferActive && vk.gbufferDepthSampled && r_gtao->integer ) {
+	// GTAO reads the gbuffer depth attachment, so it needs the pass itself and a
+	// sampleable depth format - see get_gbuffer_depth_format(). r_ssao is a mode, not a
+	// toggle: 2 selects GTAO; 1 is reserved for a cheaper method that does not exist yet,
+	// and says so rather than silently doing nothing.
+	if ( vk.gbufferActive && vk.gbufferDepthSampled && r_ssao->integer == 2 ) {
 		vk.gtaoActive = qtrue;
 	}
-	else if ( r_gtao->integer ) {
-		ri.Printf( PRINT_WARNING, "...ignoring r_gtao: requires \\r_depthPrepass 1 and a sampleable depth format\n" );
+	else if ( r_ssao->integer == 1 ) {
+		ri.Printf( PRINT_WARNING, "...ignoring \\r_ssao 1: not implemented, use \\r_ssao 2 for GTAO\n" );
+	}
+	else if ( r_ssao->integer ) {
+		ri.Printf( PRINT_WARNING, "...ignoring \\r_ssao: requires \\r_depthPrepass 1 and a sampleable depth format\n" );
 	}
 
 	// One line saying what actually came up, so "is it on?" never has to be inferred from

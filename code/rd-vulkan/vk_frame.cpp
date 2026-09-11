@@ -1438,7 +1438,7 @@ void vk_begin_gbuffer_extract_render_pass( void )
     vk.cmd->depth_range = DEPTH_RANGE_COUNT;
 }
 
-// GTAO over the gbuffer's depth + normal (r_gtao). Runs once per displayed frame, between
+// GTAO over the gbuffer's depth + normal (r_ssao 2). Runs once per displayed frame, between
 // the gbuffer extraction pass ending and the main pass resuming - see RB_DrawSurfs().
 // A full-screen draw with no vertex buffer, like every other post-process pass here.
 void vk_render_gtao( const void *viewParms_ )
@@ -1498,6 +1498,7 @@ void vk_render_gtao( const void *viewParms_ )
 
         push.csLength    = r_contactShadowLength->value;
         push.csThickness = r_contactShadowThickness->value;
+        push.csStrength  = r_contactShadowIntensity->value;
         push.csSteps     = r_contactShadowSteps->integer;
     }
     else {
@@ -1506,6 +1507,7 @@ void vk_render_gtao( const void *viewParms_ )
         push.lightX = push.lightY = push.lightZ = 0.0f;
         push.csLength = 0.0f;
         push.csThickness = 0.0f;
+        push.csStrength = 0.0f;
         push.csSteps = 0;
     }
 
