@@ -2031,6 +2031,12 @@ frontend, since CG_DrawActive() is what calls it; com_speeds reports that part a
 
 static timing_c	cgs_timer, cgs_spanTimer;
 
+// Cycles are useless on their own: rdtsc counts at the CPU's nominal rate, which is not the
+// rate it runs at, so converting to milliseconds by assuming a clock was guesswork. Time the
+// whole reporting interval against cg.time instead and derive the rate from that.
+static unsigned long long	cgs_wallStart;
+static int					cgs_wallStartTime;
+
 // 64-bit: a second of accumulation reaches ~1e9 cycles, and the x100 in the percentages
 // overflows a signed int long before that.
 static int64_t	cgs_ents, cgs_misc, cgs_fx, cgs_local, cgs_draw, cgs_span;
@@ -2059,29 +2065,51 @@ static void CG_ReportSpeeds( void )
 	if ( cg.time < cgs_nextPrint && cg.time + 1000 >= cgs_nextPrint )
 		return;
 
-	if ( cgs_span > 0 && cgs_frames > 0 )
+	// The first interval spans the load frame, which is worth hundreds of Mcy and drowns
+	// everything else in "other". Throw it away rather than print a misleading line.
+	static qboolean cgs_primed = qfalse;
+
+	if ( !cgs_primed )
+	{
+		cgs_primed = qtrue;
+	}
+	else if ( cgs_span > 0 && cgs_frames > 0 )
 	{
 		const int64_t measured = cgs_ents + cgs_misc + cgs_fx + cgs_local + cgs_draw;
+		const int elapsedMs = cg.time - cgs_wallStartTime;
+		const unsigned long long wallCycles = __rdtsc() - cgs_wallStart;
 
-		// shares of the whole cgame frame, so "other" says how much sits outside the
-		// phases below - and the Mcy figure says how much of com_speeds' cl this is
-		CG_Printf( "cgame: ents %2i%%  fx %2i%%  local %2i%%  misc %2i%%  draw %2i%%  other %2i%%   %.1f Mcy/frame\n",
-			CG_SpeedsPercent( cgs_ents,  cgs_span ),
-			CG_SpeedsPercent( cgs_fx,    cgs_span ),
-			CG_SpeedsPercent( cgs_local, cgs_span ),
-			CG_SpeedsPercent( cgs_misc,  cgs_span ),
-			CG_SpeedsPercent( cgs_draw,  cgs_span ),
-			CG_SpeedsPercent( cgs_span - measured, cgs_span ),
-			(double)cgs_span / (double)cgs_frames / 1000000.0 );
+		if ( elapsedMs > 0 && wallCycles > 0 )
+		{
+			// cycles -> ms per frame, self-calibrated against the interval just elapsed
+			const double perFrame = (double)elapsedMs / (double)wallCycles / (double)cgs_frames;
+
+			CG_Printf( "cgame: ents %.2f  fx %.2f  local %.2f  misc %.2f  draw %.2f  other %.2f  = %.2f ms/frame (%i%% of frame)\n",
+				(double)cgs_ents  * perFrame,
+				(double)cgs_fx    * perFrame,
+				(double)cgs_local * perFrame,
+				(double)cgs_misc  * perFrame,
+				(double)cgs_draw  * perFrame,
+				(double)( cgs_span - measured ) * perFrame,
+				(double)cgs_span  * perFrame,
+				CG_SpeedsPercent( cgs_span, (int64_t)wallCycles ) );
+		}
 	}
 
 	cgs_ents = cgs_misc = cgs_fx = cgs_local = cgs_draw = cgs_span = 0;
 	cgs_frames = 0;
 	cgs_nextPrint = cg.time + 1000;
+	cgs_wallStartTime = cg.time;
+	cgs_wallStart = __rdtsc();
 }
 
 void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 	qboolean	inwater = qfalse;
+
+	// The whole function, so "other" accounts for the phases before the render lists are
+	// built - CG_BuildSolidList and CG_ProcessSnapshots both walk the entities. Frames that
+	// take an early return never reach the stop and simply contribute nothing.
+	CGS_SPAN_START();
 
 	cg.time = serverTime;
 
@@ -2116,9 +2144,6 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 		//CG_DrawInformation();
 		return;
 	}
-
-	// past every early return, so the span always has a matching stop
-	CGS_SPAN_START();
 
 	// make sure the lagometerSample and frame timing isn't done twice when in stereo
 	if ( stereoView != STEREO_RIGHT ) {

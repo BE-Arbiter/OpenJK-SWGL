@@ -1660,6 +1660,7 @@ typedef struct trGlobals_s {
 
 	int						visCount;			// incremented every time a new vis cluster is entered
 	int						frameCount;			// incremented every frame
+	int						modelEpoch;			// incremented by R_ModelInit; invalidates resolved ghoul2 model pointers
 	int						sceneCount;			// incremented every scene
 	int						viewCount;			// incremented every view (twice a scene if portaled)
 												// and every R_MarkFragments call

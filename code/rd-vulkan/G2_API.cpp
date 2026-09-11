@@ -1738,7 +1738,7 @@ void G2API_DetachEnt(int *boltInfo)
 
 bool G2_NeedsRecalc(CGhoul2Info *ghlInfo,int frameNum);
 
-qboolean G2API_GetBoltMatrix(CGhoul2Info_v &ghoul2, const int modelIndex, const int boltIndex, mdxaBone_t *matrix, const vec3_t angles,
+static qboolean G2API_GetBoltMatrix_Actual(CGhoul2Info_v &ghoul2, const int modelIndex, const int boltIndex, mdxaBone_t *matrix, const vec3_t angles,
 							 const vec3_t position, const int AframeNum, qhandle_t *modelList, const vec3_t scale )
 {
 	G2ERROR(ghoul2.IsValid(),"Invalid ghlInfo");
@@ -1809,6 +1809,31 @@ qboolean G2API_GetBoltMatrix(CGhoul2Info_v &ghoul2, const int modelIndex, const 
 	}
 	Multiply_3x4Matrix(matrix, &worldMatrix, &identityMatrix);
 	return qfalse;
+}
+
+#ifdef G2_PERFORMANCE_ANALYSIS
+#include "qcommon/timing.h"
+extern timing_c G2PerformanceTimer_G2API_GetBoltMatrix;
+extern int G2Time_G2API_GetBoltMatrix;
+extern int G2PerformanceCounter_G2API_GetBoltMatrix;
+#endif
+
+qboolean G2API_GetBoltMatrix(CGhoul2Info_v &ghoul2, const int modelIndex, const int boltIndex, mdxaBone_t *matrix, const vec3_t angles,
+							 const vec3_t position, const int AframeNum, qhandle_t *modelList, const vec3_t scale )
+{
+#ifdef G2_PERFORMANCE_ANALYSIS
+	G2PerformanceTimer_G2API_GetBoltMatrix.Start();
+	G2PerformanceCounter_G2API_GetBoltMatrix++;
+#endif
+
+	const qboolean ret = G2API_GetBoltMatrix_Actual( ghoul2, modelIndex, boltIndex, matrix,
+		angles, position, AframeNum, modelList, scale );
+
+#ifdef G2_PERFORMANCE_ANALYSIS
+	G2Time_G2API_GetBoltMatrix += G2PerformanceTimer_G2API_GetBoltMatrix.End();
+#endif
+
+	return ret;
 }
 
 void G2API_ListSurfaces(CGhoul2Info *ghlInfo)
@@ -2292,6 +2317,17 @@ qboolean G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the mode
 	{
 		return qfalse;
 	}
+
+	// Already resolved this frame, against this generation of the model list. Everything
+	// below re-registers the model by name and re-fetches its handles, which cannot change
+	// within a frame - and CG_Player asks for it 8 to 25 times per character.
+	if (ghlInfo->mValid
+		&& ghlInfo->mSetupFrame == tr.frameCount
+		&& ghlInfo->mSetupEpoch == tr.modelEpoch)
+	{
+		return qtrue;
+	}
+
 	ghlInfo->mValid=false;
 //	G2WARNING(ghlInfo->mModelindex != -1,"Setup request on non-used info slot?");
 	if (ghlInfo->mModelindex != -1)
@@ -2335,6 +2371,8 @@ qboolean G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the mode
 					ghlInfo->currentAnimModelSize=ghlInfo->aHeader->ofsEnd;
 					G2ERROR(ghlInfo->currentAnimModelSize,va("Zero sized Model? (gla) %s",ghlInfo->mFileName));
 					ghlInfo->mValid=true;
+					ghlInfo->mSetupFrame=tr.frameCount;
+					ghlInfo->mSetupEpoch=tr.modelEpoch;
 				}
 			}
 		}
@@ -2351,7 +2389,7 @@ qboolean G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the mode
 }
 
 #ifdef G2_PERFORMANCE_ANALYSIS
-#include "qcommon/timing.h"
+// timing.h has no include guard; it is already pulled in above for GetBoltMatrix
 extern timing_c G2PerformanceTimer_G2_SetupModelPointers;
 extern int G2Time_G2_SetupModelPointers;
 #endif

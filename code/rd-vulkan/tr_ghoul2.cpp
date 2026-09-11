@@ -48,7 +48,18 @@ timing_c G2PerformanceTimer_RB_SurfaceGhoul;
 timing_c G2PerformanceTimer_G2_SetupModelPointers;
 timing_c G2PerformanceTimer_PreciseFrame;
 
+// CG_Player makes 25 of these per character per frame, so this is the one call the cgame
+// frame is built out of. Its total includes the G2_SetupModelPointers below, which it calls.
+timing_c G2PerformanceTimer_G2API_GetBoltMatrix;
+int G2Time_G2API_GetBoltMatrix = 0;
+int G2PerformanceCounter_G2API_GetBoltMatrix = 0;
+
 int G2PerformanceCounter_G2_TransformGhoulBones = 0;
+
+int G2Counter_NeedsRecalc = 0;
+int G2Counter_NeedsRecalc_Frame = 0;
+int G2Counter_NeedsRecalc_NoCache = 0;
+int G2Counter_NeedsRecalc_Model = 0;
 
 int G2Time_RenderSurfaces = 0;
 int G2Time_R_AddGHOULSurfaces = 0;
@@ -72,6 +83,12 @@ void G2Time_ResetTimers(void)
 	G2Time_G2_SetupModelPointers = 0;
 	G2Time_PreciseFrame = 0;
 	G2PerformanceCounter_G2_TransformGhoulBones = 0;
+	G2Time_G2API_GetBoltMatrix = 0;
+	G2PerformanceCounter_G2API_GetBoltMatrix = 0;
+	G2Counter_NeedsRecalc = 0;
+	G2Counter_NeedsRecalc_Frame = 0;
+	G2Counter_NeedsRecalc_NoCache = 0;
+	G2Counter_NeedsRecalc_Model = 0;
 }
 
 void G2Time_ReportTimers(void)
@@ -88,6 +105,16 @@ void G2Time_ReportTimers(void)
 		G2Time_PreciseFrame,
 		G2PerformanceCounter_G2_TransformGhoulBones
 	);
+
+	ri.Printf( PRINT_ALL, "G2API_GetBoltMatrix: %i  (%i calls, includes SetupModelPointers)\n",
+		G2Time_G2API_GetBoltMatrix,
+		G2PerformanceCounter_G2API_GetBoltMatrix );
+
+	ri.Printf( PRINT_ALL, "NeedsRecalc: %i asked -> rebuilt: frame %i, no cache %i, model changed %i\n\n",
+		G2Counter_NeedsRecalc,
+		G2Counter_NeedsRecalc_Frame,
+		G2Counter_NeedsRecalc_NoCache,
+		G2Counter_NeedsRecalc_Model );
 }
 #endif
 
@@ -3213,6 +3240,20 @@ qboolean G2API_OverrideServerWithClientData(CGhoul2Info *serverInstance);
 bool G2_NeedsRecalc(CGhoul2Info *ghlInfo,int frameNum)
 {
 	G2_SetupModelPointers(ghlInfo);
+
+#ifdef G2_PERFORMANCE_ANALYSIS
+	// Which of the three conditions actually forces the rebuild - the skeleton is meant to
+	// be built once per model per frame, and the call count says it is being built far more.
+	G2Counter_NeedsRecalc++;
+
+	if ( ghlInfo->mSkelFrameNum != frameNum )
+		G2Counter_NeedsRecalc_Frame++;
+	else if ( !ghlInfo->mBoneCache )
+		G2Counter_NeedsRecalc_NoCache++;
+	else if ( ghlInfo->mBoneCache->mod != ghlInfo->currentModel )
+		G2Counter_NeedsRecalc_Model++;
+#endif
+
 	// not sure if I still need this test, probably
 	if (ghlInfo->mSkelFrameNum!=frameNum||
 		!ghlInfo->mBoneCache||

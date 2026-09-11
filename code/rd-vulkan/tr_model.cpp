@@ -1251,6 +1251,9 @@ void R_ModelInit( void )
 	// leave a space for NULL model
 	tr.numModels = 0;
 
+	// every ghoul2 instance's resolved model pointers now dangle - see G2_SetupModelPointers
+	tr.modelEpoch++;
+
 	CModelCache->DeleteAll();
 
 	mod = R_AllocModel();
