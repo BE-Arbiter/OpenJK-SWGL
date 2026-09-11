@@ -393,9 +393,9 @@ void vk_create_attachments( void )
                     usage, &vk.gbuffer_velocity_image, &vk.gbuffer_velocity_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );
             }
 
-            if ( vk.gtaoActive ) {
-                create_color_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT, vk.gtao_format,
-                    usage, &vk.gtao_image, &vk.gtao_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );
+            if ( vk.ssaoActive ) {
+                create_color_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT, vk.ssao_format,
+                    usage, &vk.ssao_image, &vk.ssao_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );
             }
         }
 
@@ -574,11 +574,11 @@ void vk_destroy_attachments( void )
         vk.gbuffer_depth_image_view = VK_NULL_HANDLE;
     }
 
-    if (vk.gtao_image) {
-        qvkDestroyImage(vk.device, vk.gtao_image, NULL);
-        qvkDestroyImageView(vk.device, vk.gtao_image_view, NULL);
-        vk.gtao_image = VK_NULL_HANDLE;
-        vk.gtao_image_view = VK_NULL_HANDLE;
+    if (vk.ssao_image) {
+        qvkDestroyImage(vk.device, vk.ssao_image, NULL);
+        qvkDestroyImageView(vk.device, vk.ssao_image_view, NULL);
+        vk.ssao_image = VK_NULL_HANDLE;
+        vk.ssao_image_view = VK_NULL_HANDLE;
     }
 
     if (vk.gbuffer_velocity_image) {

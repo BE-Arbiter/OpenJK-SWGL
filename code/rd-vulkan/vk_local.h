@@ -91,7 +91,10 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define USE_DEDICATED_ALLOCATION
 #endif
 // depth + msaa + msaa-resolve + screenmap.msaa + screenmap.resolve + screenmap.depth + (bloom_extract + blur pairs + dglow_extract + blur pairs) + dglow-msaa
-#define MAX_ATTACHMENTS_IN_POOL			( 6 + ( ( 1 + VK_NUM_BLUR_PASSES * 2 ) * 2 ) + 1  ) 
+// The trailing + 4 is the G-buffer family: normal, depth, motion vectors (r_velocityBuffer)
+// and the ambient occlusion target (r_ssao). They are allocated from this same pool, and
+// leaving the count at its pre-G-buffer value overflowed it as soon as bloom was also on.
+#define MAX_ATTACHMENTS_IN_POOL			( 6 + ( ( 1 + VK_NUM_BLUR_PASSES * 2 ) * 2 ) + 1 + 4 ) 
 
 #define VK_DESC_STORAGE					0
 #define VK_DESC_UNIFORM					0
@@ -610,8 +613,8 @@ typedef struct vkGBufferVelocityPushConstants_s {
 	vec4_t surfaceFlags;	// see vkGBufferPushConstants_t
 } vkGBufferVelocityPushConstants_t;
 
-// Push constants for the GTAO pass (vk.pipeline_layout_gtao), 52 bytes. Field order
-// matches gtao.frag's Params block exactly: all members are 4-byte, and invScreen lands
+// Push constants for the GTAO pass (vk.pipeline_layout_ssao), 52 bytes. Field order
+// matches ssao.frag's Params block exactly: all members are 4-byte, and invScreen lands
 // at offset 24, which already satisfies a vec2's 8-byte alignment - so no explicit
 // padding is needed and none must be added without changing the shader to match.
 typedef struct vkGTAOPushConstants_s {
@@ -623,13 +626,13 @@ typedef struct vkGTAOPushConstants_s {
 	int32_t	sliceCount;
 	int32_t	stepCount;
 	// Contact shadows. Loose floats, not a vec3: a vec3 here would align to 16 and add
-	// padding gtao.frag's block would have to mirror exactly. Points TOWARD the light.
+	// padding ssao.frag's block would have to mirror exactly. Points TOWARD the light.
 	float	lightX, lightY, lightZ;
 	float	csLength;		// world units; 0 disables
 	float	csThickness;
 	float	csStrength;		// upper bound on the darkening; a contact shadow never takes the whole pixel
 	int32_t	csSteps;
-} vkGTAOPushConstants_t;
+} vkSSAOPushConstants_t;
 
 typedef struct vkUniformEntity_s {
 	vec4_t ambientLight;
@@ -876,11 +879,12 @@ typedef struct {
 
 	// GTAO (r_ssao 2): single-channel visibility over the gbuffer's depth + normal.
 	// Its own attachment, consumed today only by the r_showGBuffer debug view.
-	VkImage			gtao_image;
-	VkImageView		gtao_image_view;
-	VkDescriptorSet	gtao_descriptor;
-	VkFormat		gtao_format;
-	qboolean		gtaoActive;
+	VkImage			ssao_image;
+	VkImageView		ssao_image_view;
+	VkDescriptorSet	ssao_descriptor;
+	VkFormat		ssao_format;
+	qboolean		ssaoActive;	// the AO pass exists at all (either mode)
+	int				ssaoMode;	// r_ssao: 1 = hemisphere SSAO, 2 = GTAO. Selects a spec constant.
 
 	VkImage			bloom_image[1 + VK_NUM_BLUR_PASSES * 2];
 	VkImageView		bloom_image_view[1 + VK_NUM_BLUR_PASSES * 2];
@@ -933,7 +937,7 @@ typedef struct {
 
 		// Consumes the gbuffer rather than belonging to it, so it sits alongside the other
 		// top-level passes instead of inside the gbuffer group.
-		VkRenderPass gtao; // ambient occlusion over the gbuffer (r_ssao 2)
+		VkRenderPass ssao; // ambient occlusion over the gbuffer (r_ssao 2)
 	} render_pass;
 
 	struct {
@@ -967,7 +971,7 @@ typedef struct {
 			VkFramebuffer extract; // depth+normal G-buffer extraction pass (r_depthPrepass)
 		} gbuffer;
 
-		VkFramebuffer gtao; // ambient occlusion over the gbuffer (r_ssao 2)
+		VkFramebuffer ssao; // ambient occlusion over the gbuffer (r_ssao 2)
 	} framebuffers;
 
 #ifdef USE_UPLOAD_QUEUE
@@ -1090,11 +1094,11 @@ typedef struct {
 
 	// GTAO: two sampler sets (depth, normal) plus a push constant range, so it cannot
 	// reuse pipeline_layout_post_process (one set, no push constants).
-	VkPipelineLayout pipeline_layout_gtao;
-	VkPipeline gtao_pipeline;
+	VkPipelineLayout pipeline_layout_ssao;
+	VkPipeline ssao_pipeline;
 	// Multiplies the AO into the scene from inside the main render pass, so its sample
-	// count has to match the main pass's - unlike gtao_pipeline, which owns its own.
-	VkPipeline gtao_apply_pipeline;
+	// count has to match the main pass's - unlike ssao_pipeline, which owns its own.
+	VkPipeline ssao_apply_pipeline;
 
 	VkPipeline gamma_pipeline;
 	VkPipeline bloom_extract_pipeline;
@@ -1207,8 +1211,8 @@ typedef struct {
 		VkShaderModule gbuffer_velocity_fs;
 
 		VkShaderModule gbuffer_debug_fs;	// r_showGBuffer; see gbuffer_debug.frag
-		VkShaderModule gtao_fs;				// r_ssao 2; see gtao.frag
-		VkShaderModule gtao_apply_fs;		// r_ssao 2; see gtao_apply.frag
+		VkShaderModule ssao_fs;				// r_ssao 2; see ssao.frag
+		VkShaderModule ssao_apply_fs;		// r_ssao 2; see ssao_apply.frag
 		VkShaderModule shadow_volume_self_fs;	// self-shadow exclusion; see shadow_volume_self.frag
 
 		// Alpha-tested gbuffer variants; see gbuffer_at.vert / gbuffer_atvel.vert.
@@ -1489,8 +1493,8 @@ qboolean	vk_begin_dglow_blur( void );
 
 // depth+normal G-buffer extraction pass (r_depthPrepass)
 void		vk_begin_gbuffer_extract_render_pass( void );
-void		vk_render_gtao( const void *viewParms );
-void		vk_apply_gtao( void );
+void		vk_render_ssao( const void *viewParms );
+void		vk_apply_ssao( void );
 
 // info
 const char	*vk_format_string( VkFormat format );

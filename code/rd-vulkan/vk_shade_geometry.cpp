@@ -572,9 +572,9 @@ void vk_update_attachment_descriptors( void ) {
 				qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
 			}
 
-			if ( vk.gtaoActive ) {
-				info.imageView = vk.gtao_image_view;
-				desc.dstSet = vk.gtao_descriptor;
+			if ( vk.ssaoActive ) {
+				info.imageView = vk.ssao_image_view;
+				desc.dstSet = vk.ssao_descriptor;
 				qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
 			}
 		}
@@ -691,8 +691,8 @@ void vk_init_descriptors( void ) {
 			if ( vk.velocityActive )
 				VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.gbuffer_velocity_descriptor ) );
 
-			if ( vk.gtaoActive )
-				VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.gtao_descriptor ) );
+			if ( vk.ssaoActive )
+				VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.ssao_descriptor ) );
 		}
 
 		// dglow images
@@ -1004,6 +1004,10 @@ void ComputeColors( const int b, color4ub_t *dest, const shaderStage_t *pStage, 
 	int			i;
 	qboolean killGen = qfalse;
 	alphaGen_t forceAlphaGen = pStage->bundle[b].alphaGen;//set this up so we can override below
+
+	// RF_ALPHA_FADE takes its alpha straight from the entity - see rd-vanilla's ComputeColors
+	if ( (backEnd.currentEntity->e.renderfx & RF_ALPHA_FADE) && backEnd.currentEntity->e.shaderRGBA[3] < 255 )
+		forceAlphaGen = AGEN_ENTITY;
 
 	if (!tess.numVertexes)
 		return;
@@ -1841,6 +1845,10 @@ static void vk_compute_colors( const int b, const shaderStage_t *pStage, int for
 	int rgbGen = forceRGBGen;
 	int alphaGen = pStage->bundle[b].alphaGen;
 
+	// same RF_ALPHA_FADE override as ComputeColors(), for the GPU vertex-colour path
+	if ( (backEnd.currentEntity->e.renderfx & RF_ALPHA_FADE) && backEnd.currentEntity->e.shaderRGBA[3] < 255 )
+		alphaGen = AGEN_ENTITY;
+
 	baseColor = (float*)uniform_global.bundle[b].baseColor;
 	vertColor = (float*)uniform_global.bundle[b].vertColor;
 
@@ -2472,6 +2480,15 @@ void RB_StageIteratorGeneric( void )
 		}
 	}
 
+	// refraction.tmpl bends its sampling offset around the view direction, and neither
+	// fogCollapse nor TESS_VPOS is guaranteed on a distortion surface
+	if ( tess.shader->useDistortion ||
+		( backEnd.currentEntity && ( backEnd.currentEntity->e.renderfx & RF_DISTORTION ) ) )
+	{
+		VectorCopy( backEnd.ori.viewOrigin, uniform.eyePos );
+		push_uniform = qtrue;
+	}
+
 	for ( stage = 0; stage < MAX_SHADER_STAGES; stage++ )
 	{
 		int			forceRGBGen = 0;
@@ -2607,7 +2624,13 @@ void RB_StageIteratorGeneric( void )
 			// only force blend on the internal distortion shader
 			if ( tess.shader == tr.distortionShader )
 				def.state_bits = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA | GLS_DEPTHMASK_TRUE;
-	
+
+			// SP never uses the marker shader above: its one RF_DISTORTION effect passes
+			// effects/refraction as a customShader and marks the entity RF_ALPHA_FADE, so
+			// without this the refraction dome draws opaque - see CG_ForcePushRefraction.
+			if ( (backEnd.currentEntity->e.renderfx & RF_ALPHA_FADE) && backEnd.currentEntity->e.shaderRGBA[3] < 255 )
+				def.state_bits = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA;
+
 			if ( backEnd.currentEntity->e.renderfx & RF_FORCE_ENT_ALPHA ) {
 				ForceAlpha( (unsigned char *) tess.svars.colors, backEnd.currentEntity->e.shaderRGBA[3] );
 				
@@ -2659,8 +2682,37 @@ void RB_StageIteratorGeneric( void )
 			if ( !tess.vbo_model ) // else is set earlier
 			{
 				vk_compute_tex_coords( &pStage->bundle[0], &uniform.refraction.tcMod, &uniform.refraction.tcGen );
-				
+
 				set_model_matrix = qtrue;
+			}
+
+			// r_distortionStyle 1 reproduces SP: the effect is textured with a crop of the
+			// screen taken around the entity instead of refracted per pixel. tcMod is
+			// already a 2x2 matrix plus an offset, so the crop composes straight into it
+			// and both styles share one pipeline - eyePos.w picks which the shader emits.
+			uniform.eyePos[3] = 0.0f;
+
+			if ( r_distortionStyle->integer == 1 && backEnd.currentEntity )
+			{
+				vec4_t crop;
+
+				if ( R_DistortionScreenCrop( backEnd.currentEntity, crop ) )
+				{
+#ifdef USE_VBO
+					vktcMod_t *tcMod = tess.vbo_model ? &uniform_global.bundle[0].tcMod
+													  : &uniform.refraction.tcMod;
+#else
+					vktcMod_t *tcMod = &uniform.refraction.tcMod;
+#endif
+					tcMod->matrix[0] *= crop[0];
+					tcMod->matrix[2] *= crop[0];
+					tcMod->matrix[1] *= crop[1];
+					tcMod->matrix[3] *= crop[1];
+					tcMod->offTurb[0] = tcMod->offTurb[0] * crop[0] + crop[2];
+					tcMod->offTurb[1] = tcMod->offTurb[1] * crop[1] + crop[3];
+
+					uniform.eyePos[3] = 1.0f;
+				}
 			}
 
 			push_uniform = qtrue;

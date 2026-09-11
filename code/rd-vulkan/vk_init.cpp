@@ -574,15 +574,13 @@ void vk_initialize( void )
 		ri.Printf( PRINT_WARNING, "...ignoring r_velocityBuffer: requires \\r_depthPrepass 1 (and \\r_fbo 1)\n" );
 	}
 
-	// GTAO reads the gbuffer depth attachment, so it needs the pass itself and a
-	// sampleable depth format - see get_gbuffer_depth_format(). r_ssao is a mode, not a
-	// toggle: 2 selects GTAO; 1 is reserved for a cheaper method that does not exist yet,
-	// and says so rather than silently doing nothing.
-	if ( vk.gbufferActive && vk.gbufferDepthSampled && r_ssao->integer == 2 ) {
-		vk.gtaoActive = qtrue;
-	}
-	else if ( r_ssao->integer == 1 ) {
-		ri.Printf( PRINT_WARNING, "...ignoring \\r_ssao 1: not implemented, use \\r_ssao 2 for GTAO\n" );
+	// The AO pass reads the gbuffer depth attachment, so it needs the pass itself and a
+	// sampleable depth format - see get_gbuffer_depth_format(). r_ssao selects which
+	// estimator fills it: 1 = hemisphere SSAO, 2 = GTAO. Both share this pass, its
+	// attachment and its contact-shadow half; only a spec constant differs.
+	if ( vk.gbufferActive && vk.gbufferDepthSampled && r_ssao->integer ) {
+		vk.ssaoActive = qtrue;
+		vk.ssaoMode = r_ssao->integer;
 	}
 	else if ( r_ssao->integer ) {
 		ri.Printf( PRINT_WARNING, "...ignoring \\r_ssao: requires \\r_depthPrepass 1 and a sampleable depth format\n" );
@@ -593,7 +591,7 @@ void vk_initialize( void )
 	if ( vk.gbufferActive ) {
 		ri.Printf( PRINT_ALL, "...G-buffer: depth+normal%s%s (depth %ssampleable)\n",
 			vk.velocityActive ? " + velocity" : "",
-			vk.gtaoActive ? " + GTAO" : "",
+			vk.ssaoActive ? ( vk.ssaoMode == 1 ? " + SSAO" : " + GTAO" ) : "",
 			vk.gbufferDepthSampled ? "" : "NOT " );
 	}
 
@@ -689,6 +687,10 @@ void vk_shutdown( void )
 	qvkDestroyPipelineLayout(vk.device, vk.pipeline_layout_blend, NULL);
 	qvkDestroyPipelineLayout(vk.device, vk.pipeline_layout_gbuffer, NULL);
 	qvkDestroyPipelineLayout(vk.device, vk.pipeline_layout_gbuffer_velocity, NULL);
+	qvkDestroyPipelineLayout(vk.device, vk.pipeline_layout_gbuffer_at, NULL);
+	qvkDestroyPipelineLayout(vk.device, vk.pipeline_layout_gbuffer_at_velocity, NULL);
+	qvkDestroyPipelineLayout(vk.device, vk.pipeline_layout_ssao, NULL);
+	qvkDestroyPipelineLayout(vk.device, vk.pipeline_layout_shadow_volume, NULL);
 
 #ifdef USE_VBO	
 	vk_release_world_vbo();

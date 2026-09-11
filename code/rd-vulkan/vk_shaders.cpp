@@ -228,14 +228,14 @@ void vk_create_shader_modules( void )
         }
         VK_SET_OBJECT_NAME(vk.shaders.gbuffer_debug_fs, "gbuffer debug view fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
 
-        if ( vk.gtaoActive )
+        if ( vk.ssaoActive )
         {
-            vk.shaders.gtao_fs = SHADER_MODULE(gtao_frag_spv);
-            vk.shaders.gtao_apply_fs = SHADER_MODULE(gtao_apply_frag_spv);
+            vk.shaders.ssao_fs = SHADER_MODULE(ssao_frag_spv);
+            vk.shaders.ssao_apply_fs = SHADER_MODULE(ssao_apply_frag_spv);
             vk.shaders.shadow_volume_self_fs = SHADER_MODULE(shadow_volume_self_frag_spv);
             VK_SET_OBJECT_NAME(vk.shaders.shadow_volume_self_fs, "shadow volume self-exclusion fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
-            VK_SET_OBJECT_NAME(vk.shaders.gtao_fs, "gtao fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
-            VK_SET_OBJECT_NAME(vk.shaders.gtao_apply_fs, "gtao apply fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+            VK_SET_OBJECT_NAME(vk.shaders.ssao_fs, "ssao fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+            VK_SET_OBJECT_NAME(vk.shaders.ssao_apply_fs, "ssao apply fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
         }
 
         if ( vk.velocityActive )
@@ -365,8 +365,8 @@ void vk_destroy_shader_modules( void )
     qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_skinned_vs, NULL);
     qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_skinned_velocity_vs, NULL);
     qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_debug_fs, NULL);
-    qvkDestroyShaderModule(vk.device, vk.shaders.gtao_fs, NULL);
-    qvkDestroyShaderModule(vk.device, vk.shaders.gtao_apply_fs, NULL);
+    qvkDestroyShaderModule(vk.device, vk.shaders.ssao_fs, NULL);
+    qvkDestroyShaderModule(vk.device, vk.shaders.ssao_apply_fs, NULL);
     qvkDestroyShaderModule(vk.device, vk.shaders.shadow_volume_self_fs, NULL);
     qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_at_vs, NULL);
     qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_at_fs, NULL);

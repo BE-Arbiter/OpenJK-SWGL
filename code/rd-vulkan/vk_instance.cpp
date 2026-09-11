@@ -356,6 +356,13 @@ static void vk_create_instance( void )
     free(extension_properties);
 }
 
+// Note on real (float) HDR: switching this to R16G16B16A16_SFLOAT is not enough, and was
+// tried. This renderer uses destination-reading blend factors - ONE_MINUS_DST_COLOR,
+// DST_COLOR, ONE_MINUS_DST_ALPHA, see create_pipeline() - which the Quake 3 era shaders
+// rely on everywhere. Those are only well defined against a destination clamped to [0,1].
+// On a float target a few additive layers push the destination above 1, ONE_MINUS_DST goes
+// negative, and effects come out with inverted hues. Real HDR here means replacing those
+// blends with shader-side blending first, not changing this format.
 static VkFormat get_hdr_format( VkFormat base_format )
 {
     if (r_fbo->integer == 0) {
@@ -363,11 +370,12 @@ static VkFormat get_hdr_format( VkFormat base_format )
     }
 
     switch (r_hdr->integer) {
-        case -1: 
+        case -1:
             return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
-        case 1: 
+        case 1:
+            // More precision, same range: UNORM still clamps at 1.0.
             return VK_FORMAT_R16G16B16A16_UNORM;
-        default: 
+        default:
             return base_format;
     }
 }
@@ -559,7 +567,7 @@ qboolean vk_select_surface_format( VkPhysicalDevice physical_device, VkSurfaceKH
     // mandatory-supported formats for color attachment + sampled image usage, no capability query needed
     vk.normal_format	= VK_FORMAT_R16G16B16A16_SFLOAT;
     vk.velocity_format	= VK_FORMAT_R16G16_SFLOAT; // screen-space XY delta only
-    vk.gtao_format		= VK_FORMAT_R8G8_UNORM; // R = ambient visibility, G = contact shadow
+    vk.ssao_format		= VK_FORMAT_R8G8_UNORM; // R = ambient visibility, G = contact shadow
     vk.blitEnabled		= vk_blit_enabled(physical_device, vk.color_format, vk.capture_format);
 
     if (!vk.blitEnabled)

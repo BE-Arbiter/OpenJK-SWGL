@@ -1,6 +1,6 @@
 #version 450
 
-// Multiplies the GTAO buffer into the scene (r_gtao). Drawn as a full-screen quad INSIDE
+// Multiplies the AO buffer into the scene (r_ssao). Drawn as a full-screen quad INSIDE
 // the main render pass, right after the opaque surfaces and before anything translucent -
 // see RB_RenderDrawSurfList(). The darkening itself comes from the pipeline's blend
 // factors (DST_COLOR, ZERO), so this shader only has to hand back the visibility term.

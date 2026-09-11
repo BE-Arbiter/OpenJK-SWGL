@@ -1,7 +1,7 @@
 #version 450
 
 // Ground-truth ambient occlusion over the G-buffer extraction pass's depth + normal
-// attachments (r_gtao). Horizon-search GTAO after Jimenez et al. 2016: per slice, walk
+// attachments (r_ssao). Horizon-search GTAO after Jimenez et al. 2016: per slice, walk
 // the depth buffer either side of the pixel to find the largest unoccluded angles, then
 // integrate the cosine-weighted visibility over the arc between them.
 //
@@ -46,6 +46,11 @@ layout(push_constant) uniform Params {
 // at the far end - assuming the reversed convention here made the sky read as geometry
 // glued to the far plane, which GTAO then happily occluded.
 layout(constant_id = 0) const int reversedDepth = 0;
+
+// Which estimator fills the ambient term: 1 = hemisphere SSAO, 2 = GTAO (r_ssao). Both
+// live in this shader rather than in two, so the contact-shadow half below - which is the
+// larger and more delicate piece - is written once and shared.
+layout(constant_id = 1) const int aoMode = 2;
 
 bool DepthIsEmpty(float d) {
 	return (reversedDepth == 1) ? (d <= 0.0) : (d >= 1.0);
@@ -197,6 +202,70 @@ float ContactShadow(vec3 P, vec3 N, vec3 L, float jitter) {
 	return 1.0;
 }
 
+// Classic normal-oriented hemisphere SSAO (r_ssao 1). Cheaper and blunter than the horizon
+// search: it asks "how many points in the hemisphere above this surface turn out to be
+// buried" rather than integrating a visibility arc, so it has no notion of how MUCH of the
+// hemisphere a given occluder covers. The trade is sample count - the whole budget goes on
+// independent points instead of on marching slices.
+//
+// Reuses sliceCount * stepCount as the sample count so r_ssaoSlices and r_ssaoSteps stay
+// the single pair of quality knobs across both modes.
+float HemisphereAO(vec3 P, vec3 N, float rnd) {
+	int n = max(sliceCount * stepCount, 1);
+	float occlusion = 0.0;
+
+	// Tangent frame around the normal. The up vector is swapped near the pole so the cross
+	// product never degenerates.
+	vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+	vec3 T  = normalize(cross(up, N));
+	vec3 B  = cross(N, T);
+
+	for (int i = 0; i < n; i++) {
+		// Golden-angle spiral: an even cosine-weighted spread over the hemisphere without a
+		// kernel texture, rotated per pixel by rnd so neighbours do not share a pattern.
+		float u   = (float(i) + 0.5) / float(n);
+		float r   = sqrt(u);
+		float phi = (float(i) + rnd) * 2.39996323;
+
+		vec3 dir = T * (r * cos(phi)) + B * (r * sin(phi)) + N * sqrt(max(1.0 - u, 0.0));
+
+		// Samples bunched toward the surface, where occlusion actually matters.
+		float scale = mix(0.1, 1.0, u * u);
+		vec3  Q = P + dir * (radius * scale);
+
+		float w = -Q.z;
+		if (w <= 0.0) {
+			continue;
+		}
+
+		vec2 ndc = vec2( (p0 * Q.x + p8 * Q.z) / w,
+						 (-p5 * Q.y + p9 * Q.z) / w );
+		vec2 uv = ndc * 0.5 + 0.5;
+
+		if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) {
+			continue;
+		}
+
+		float d = SampleDepth(uv);
+		if (DepthIsEmpty(d)) {
+			continue;
+		}
+
+		vec3 S = ViewPosition(uv, d);
+
+		// The sample is buried if the surface actually seen there sits in front of it. The
+		// range check stops a distant wall behind the pixel from counting as a near
+		// occluder, which is what makes naive SSAO halo around silhouettes.
+		float rangeCheck = smoothstep(0.0, 1.0, radius / max(abs(P.z - S.z), 1e-4));
+
+		if (S.z > Q.z + 0.02) {
+			occlusion += rangeCheck;
+		}
+	}
+
+	return clamp(1.0 - occlusion / float(n), 0.0, 1.0);
+}
+
 void main() {
 	float centerDepth = SampleDepth(frag_tex_coord);
 
@@ -222,6 +291,14 @@ void main() {
 
 	// Visibility, not occlusion: 1 is fully open. Named for what it holds so the output
 	// convention is not something you have to derive from the integral.
+	float visibility = 1.0;
+
+	// aoMode is a specialization constant, so exactly one of these two bodies survives
+	// pipeline creation and the other costs nothing.
+	if (aoMode == 1) {
+		visibility = HemisphereAO(P, N, noise);
+	}
+	else {
 	float visibilitySum = 0.0;
 
 	for (int slice = 0; slice < sliceCount; slice++) {
@@ -303,14 +380,16 @@ void main() {
 		h[1] = n + min(h[1] - n,  HALF_PI);
 
 		float sinN = sin(n);
-		float visibility =
+		float sliceVisibility =
 			0.25 * (-cos(2.0 * h[0] - n) + cos(n) + 2.0 * h[0] * sinN) +
 			0.25 * (-cos(2.0 * h[1] - n) + cos(n) + 2.0 * h[1] * sinN);
 
-		visibilitySum += projNLen * visibility;
+		visibilitySum += projNLen * sliceVisibility;
 	}
 
-	float visibility = clamp(visibilitySum / float(sliceCount), 0.0, 1.0);
+	visibility = clamp(visibilitySum / float(sliceCount), 0.0, 1.0);
+	}
+
 	visibility = pow(visibility, intensity);
 
 	// Offset the ray start along the normal so a surface does not shadow itself at

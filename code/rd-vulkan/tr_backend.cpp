@@ -107,6 +107,70 @@ static int g_numPostRenders = 0;
 
 /*
 ================
+R_DistortionScreenCrop
+
+SP draws RF_DISTORTION by copying a radius-sized square of the screen around the entity
+and texturing the effect with that crop - see rd-vanilla's RB_RenderDrawSurfList. This
+renderer already keeps one full-screen extract, so the same crop is expressed as a
+texcoord scale + offset over it. Fills crop as { scaleS, scaleT, offsetS, offsetT }.
+
+Unlike vanilla the window is centred on the entity rather than mirrored across both axes;
+vanilla's cX/cY arithmetic subtracts the projected position from the screen size on X too,
+which lands the copy on the opposite side of the screen.
+================
+*/
+qboolean R_DistortionScreenCrop( const trRefEntity_t *ent, vec4_t crop )
+{
+	vec3_t	local, transformed;
+	float	xcenter, ycenter, xzi, yzi, x, y, rad, maxX, maxY;
+
+	rad = ent->e.radius;
+
+	if ( rad < 1.0f || glConfig.vidWidth <= 0 || glConfig.vidHeight <= 0 )
+		return qfalse;
+
+	if ( rad > glConfig.vidWidth )
+		rad = (float)glConfig.vidWidth;
+	if ( rad > glConfig.vidHeight )
+		rad = (float)glConfig.vidHeight;
+
+	xcenter = glConfig.vidWidth * 0.5f;
+	ycenter = glConfig.vidHeight * 0.5f;
+
+	VectorSubtract( ent->e.origin, backEnd.refdef.vieworg, local );
+
+	transformed[0] = DotProduct( local, backEnd.refdef.viewaxis[1] );
+	transformed[1] = DotProduct( local, backEnd.refdef.viewaxis[2] );
+	transformed[2] = DotProduct( local, backEnd.refdef.viewaxis[0] );
+
+	// behind the eye, nothing sensible to crop around
+	if ( transformed[2] < 0.01f )
+		return qfalse;
+
+	xzi = xcenter / transformed[2] * ( 90.0f / backEnd.refdef.fov_x );
+	yzi = ycenter / transformed[2] * ( 90.0f / backEnd.refdef.fov_y );
+
+	x = xcenter + xzi * transformed[0] - rad * 0.5f;
+	y = ycenter - yzi * transformed[1] - rad * 0.5f;
+
+	maxX = (float)glConfig.vidWidth - rad;
+	maxY = (float)glConfig.vidHeight - rad;
+
+	if ( x > maxX ) x = maxX;
+	if ( x < 0.0f ) x = 0.0f;
+	if ( y > maxY ) y = maxY;
+	if ( y < 0.0f ) y = 0.0f;
+
+	crop[0] = rad / (float)glConfig.vidWidth;
+	crop[1] = rad / (float)glConfig.vidHeight;
+	crop[2] = x / (float)glConfig.vidWidth;
+	crop[3] = y / (float)glConfig.vidHeight;
+
+	return qtrue;
+}
+
+/*
+================
 RB_Hyperspace
 
 A player has predicted a teleport, but hasn't arrived yet
@@ -299,6 +363,19 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 		if ( shader->sort != SS_OPAQUE && !isSky )
 			continue;
 
+		// sort == SS_OPAQUE is not enough on its own. A shader can carry that sort and still
+		// be blended - a glare disc, a screen overlay - and writing its depth here makes it a
+		// solid occluder for GTAO and the contact shadows while the eye sees straight through
+		// it. That is where the large dark polygons come from. Require what actually makes a
+		// surface occlude: it writes depth, and it is not blended. Alpha-tested surfaces do
+		// both, and their cut is handled by the alpha-test pipelines below.
+		if ( !isSky && shader->stages && shader->stages[0] ) {
+			const uint32_t bits = shader->stages[0]->stateBits;
+
+			if ( !( bits & GLS_DEPTHMASK_TRUE ) || ( bits & GLS_BLEND_BITS ) )
+				continue;
+		}
+
 		switch ( *drawSurf->surface ) {
 			case SF_FACE:
 			case SF_GRID:
@@ -378,7 +455,7 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 
 			// Does this entity already get a stencil shadow volume? If so its occlusion is
 			// already in the frame and a contact shadow from it would double the darkening,
-			// so the flag rides in the normal attachment's alpha and gtao.frag skips it as an
+			// so the flag rides in the normal attachment's alpha and ssao.frag skips it as an
 			// occluder. Conditions mirror the two places that actually queue tr.shadowShader:
 			// tr_mesh.cpp for MD3 and tr_ghoul2.cpp for Ghoul2, which additionally demands
 			// RF_SHADOW_PLANE.
@@ -704,8 +781,11 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	// Only for the primary view's own opaque pass: portal/mirror sub-views and the glow
 	// pass have no G-buffer of their own, and RDF_NOWORLDMODEL scenes (HUD model icons)
 	// were never extracted either - see the guard on RB_RenderGBufferSurfList's caller.
-	qboolean		didGtaoPass = (qboolean)!( vk.gtaoActive
+	// The refraction pass re-runs this whole function over the same list, so it has to be
+	// excluded too or the AO gets multiplied in a second time.
+	qboolean		didGtaoPass = (qboolean)!( vk.ssaoActive
 							&& !backEnd.isGlowPass
+							&& !backEnd.refractionFill
 							&& backEnd.viewParms.portalView == PV_NONE
 							&& !( backEnd.refdef.rdflags & RDF_NOWORLDMODEL ) );
 
@@ -815,7 +895,7 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 			// the extraction pass wrote nothing.
 			if ( !didGtaoPass && shader && shader->sort > SS_OPAQUE )
 			{
-				vk_apply_gtao();
+				vk_apply_ssao();
 				didGtaoPass = qtrue;
 			}
 
@@ -895,6 +975,13 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	// draw the contents of the last shader batch
 	if (oldShader != NULL) {
 		RB_EndSurface();
+	}
+
+	// The loop only applies the AO when the sort order crosses out of SS_OPAQUE. A view
+	// holding no translucent surface at all never crosses it, so apply it here instead -
+	// everything drawn was opaque, which is exactly what the AO is allowed to darken.
+	if ( !didGtaoPass ) {
+		vk_apply_ssao();
 	}
 
 	backEnd.refdef.floatTime = originalTime;
@@ -1455,7 +1542,7 @@ static void vk_update_entity_matrix_constants( vkUniformEntity_t &uniform, const
 	Matrix16Copy(ori.modelMatrix, uniform.modelMatrix);
 
 	// Does this entity already get a stencil shadow volume? The skinned gbuffer shaders
-	// forward this into the normal attachment's alpha so gtao.frag can decline to count it
+	// forward this into the normal attachment's alpha so ssao.frag can decline to count it
 	// as a contact-shadow occluder and darken the same ground twice. Conditions mirror the
 	// Ghoul2 caster test in tr_ghoul2.cpp, which is the only thing that reads this.
 	// Stores entityNum + 1, not a yes/no: the shadow volume fragment shader needs to know
@@ -1612,8 +1699,8 @@ const void	*RB_DrawSurfs( const void *data ) {
 
 		// The gbuffer's first consumer. Has to sit here, while the depth and normal
 		// attachments rest in their readable layouts and before the main pass reopens.
-		if ( vk.gtaoActive )
-			vk_render_gtao( &backEnd.viewParms );
+		if ( vk.ssaoActive )
+			vk_render_ssao( &backEnd.viewParms );
 
 		vk_begin_main_render_pass( qfalse );
 

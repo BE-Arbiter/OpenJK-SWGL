@@ -2022,11 +2022,12 @@ extern cvar_t	*r_bloom_modulate;
 extern cvar_t	*r_depthPrepass;
 extern cvar_t	*r_velocityBuffer;
 extern cvar_t	*r_showGBuffer;
+extern cvar_t	*r_distortionStyle;
 extern cvar_t	*r_ssao;
-extern cvar_t	*r_gtaoRadius;
-extern cvar_t	*r_gtaoIntensity;
-extern cvar_t	*r_gtaoSlices;
-extern cvar_t	*r_gtaoSteps;
+extern cvar_t	*r_ssaoRadius;
+extern cvar_t	*r_ssaoIntensity;
+extern cvar_t	*r_ssaoSlices;
+extern cvar_t	*r_ssaoSteps;
 extern cvar_t	*r_contactShadows;
 extern cvar_t	*r_contactShadowLength;
 extern cvar_t	*r_contactShadowThickness;
@@ -2504,6 +2505,7 @@ RENDERER BACK END FUNCTIONS
 =============================================================
 */
 void RB_ExecuteRenderCommands( const void *data );
+qboolean R_DistortionScreenCrop( const trRefEntity_t *ent, vec4_t crop );
 
 /*
 =============================================================

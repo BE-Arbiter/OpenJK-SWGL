@@ -1480,6 +1480,11 @@ static void R_AddEntitySurfaces( void ) {
 		// preshift the value we are going to OR into the drawsurf sort
 		tr.shiftedEntityNum = tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
 
+		// RF_ALPHA_FADE must sort after everything else, including the regular alpha
+		// surfaces - rd-vanilla does the same, deliberately avoiding the top bit.
+		if ( ent->e.renderfx & RF_ALPHA_FADE )
+			tr.shiftedEntityNum |= 0x80000000;
+
 		//
 		// the weapon model must be handled special --
 		// we don't want the hacked weapon position showing in

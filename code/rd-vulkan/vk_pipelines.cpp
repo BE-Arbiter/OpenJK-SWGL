@@ -197,11 +197,11 @@ void vk_create_pipeline_layout( void )
     // tuning as push constants. pipeline_layout_post_process has neither a second set nor
     // a push constant range, hence its own layout.
     {
-        VkPushConstantRange gtao_push_range;
+        VkPushConstantRange ssao_push_range;
 
-        gtao_push_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-        gtao_push_range.offset = 0;
-        gtao_push_range.size = sizeof( vkGTAOPushConstants_t );
+        ssao_push_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        ssao_push_range.offset = 0;
+        ssao_push_range.size = sizeof( vkSSAOPushConstants_t );
 
         set_layouts[0] = vk.set_layout_sampler;
         set_layouts[1] = vk.set_layout_sampler;
@@ -209,10 +209,10 @@ void vk_create_pipeline_layout( void )
         desc.setLayoutCount = 2;
         desc.pSetLayouts = set_layouts;
         desc.pushConstantRangeCount = 1;
-        desc.pPushConstantRanges = &gtao_push_range;
+        desc.pPushConstantRanges = &ssao_push_range;
 
-        VK_CHECK( qvkCreatePipelineLayout( vk.device, &desc, NULL, &vk.pipeline_layout_gtao ) );
-        VK_SET_OBJECT_NAME( vk.pipeline_layout_gtao, "pipeline layout - gtao", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT );
+        VK_CHECK( qvkCreatePipelineLayout( vk.device, &desc, NULL, &vk.pipeline_layout_ssao ) );
+        VK_SET_OBJECT_NAME( vk.pipeline_layout_ssao, "pipeline layout - ssao", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT );
     }
 
     // Alpha-tested gbuffer surfaces: one sampler set on top of the same push constant
@@ -268,7 +268,7 @@ void vk_create_pipeline_layout( void )
         // shadow_volume_self.frag. A second set for that texture, and a fragment-stage
         // push range placed past the geometry stage's 84 bytes so neither stage has to
         // declare the other's block.
-        if ( vk.gtaoActive ) {
+        if ( vk.ssaoActive ) {
             shadow_push_range[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
             shadow_push_range[1].offset = 88;
             shadow_push_range[1].size = sizeof( int32_t );
@@ -1629,7 +1629,7 @@ static VkPipeline vk_create_shadow_volume_adjacency_pipeline( int cullIndex, qbo
     shader_stages[2].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     // With GTAO on, this stage does the self-shadow exclusion instead of just filling;
     // see shadow_volume_self.frag. debugVisible keeps color_fs so the debug view still works.
-    shader_stages[2].module = ( vk.gtaoActive && !debugVisible ) ? vk.shaders.shadow_volume_self_fs : vk.shaders.color_fs;
+    shader_stages[2].module = ( vk.ssaoActive && !debugVisible ) ? vk.shaders.shadow_volume_self_fs : vk.shaders.color_fs;
     shader_stages[2].pName = "main";
     shader_stages[2].pSpecializationInfo = debugVisible ? &debugColorInfo : NULL;
 
@@ -2113,7 +2113,7 @@ static VkPipeline vk_create_gbuffer_velocity_pipeline( qboolean mdv, cullType_t 
     Com_Memset( &depth_stencil_state, 0, sizeof( depth_stencil_state ) );
     depth_stencil_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     // Sky writes no depth on purpose: the attachment keeps its cleared value there, so
-    // gtao.frag's "depth <= 0 means nothing was drawn" early-out still fires and the sky is
+    // ssao.frag's "depth <= 0 means nothing was drawn" early-out still fires and the sky is
     // neither occluded nor an occluder. It only needs to lay down a motion vector.
     depth_stencil_state.depthTestEnable = (VkBool32)!sky;
     depth_stencil_state.depthWriteEnable = (VkBool32)!sky;
@@ -2292,8 +2292,8 @@ static VkPipeline vk_create_gbuffer_debug_pipeline( int mode )
 }
 
 // Full-screen GTAO pass. Same shape as the debug-view pipeline above, but on its own
-// render pass and layout - see gtao.frag.
-static VkPipeline vk_create_gtao_pipeline( void )
+// render pass and layout - see ssao.frag.
+static VkPipeline vk_create_ssao_pipeline( void )
 {
     VkPipeline pipeline;
     VkPipelineShaderStageCreateInfo shader_stages[2];
@@ -2307,27 +2307,33 @@ static VkPipeline vk_create_gtao_pipeline( void )
     VkPipelineDynamicStateCreateInfo dynamic_state;
     VkDynamicState dynamic_state_array[2] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
     VkGraphicsPipelineCreateInfo create_info;
-    VkSpecializationMapEntry spec_entry;
+    VkSpecializationMapEntry spec_entries[2];
     VkSpecializationInfo spec_info;
-    int32_t reversedDepth;
+    struct { int32_t reversedDepth; int32_t aoMode; } spec_data;
 
-    // gtao.frag has to know which end of the depth range means "empty", and that follows
+    // ssao.frag has to know which end of the depth range means "empty", and that follows
     // the build's USE_REVERSED_DEPTH, not an assumption. Getting it wrong makes every pixel
     // the extraction pass skipped read as geometry at the far plane.
 #ifdef USE_REVERSED_DEPTH
-    reversedDepth = 1;
+    spec_data.reversedDepth = 1;
 #else
-    reversedDepth = 0;
+    spec_data.reversedDepth = 0;
 #endif
 
-    spec_entry.constantID = 0;
-    spec_entry.offset = 0;
-    spec_entry.size = sizeof( reversedDepth );
+    // Which ambient estimator the shader keeps; the other body folds away here.
+    spec_data.aoMode = vk.ssaoMode;
 
-    spec_info.mapEntryCount = 1;
-    spec_info.pMapEntries = &spec_entry;
-    spec_info.dataSize = sizeof( reversedDepth );
-    spec_info.pData = &reversedDepth;
+    spec_entries[0].constantID = 0;
+    spec_entries[0].offset = offsetof( decltype(spec_data), reversedDepth );
+    spec_entries[0].size = sizeof( spec_data.reversedDepth );
+    spec_entries[1].constantID = 1;
+    spec_entries[1].offset = offsetof( decltype(spec_data), aoMode );
+    spec_entries[1].size = sizeof( spec_data.aoMode );
+
+    spec_info.mapEntryCount = ARRAY_LEN( spec_entries );
+    spec_info.pMapEntries = spec_entries;
+    spec_info.dataSize = sizeof( spec_data );
+    spec_info.pData = &spec_data;
 
     Com_Memset( &vertex_input_state, 0, sizeof( vertex_input_state ) );
     vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -2339,7 +2345,7 @@ static VkPipeline vk_create_gtao_pipeline( void )
     shader_stages[0].pName = "main";
     shader_stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shader_stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    shader_stages[1].module = vk.shaders.gtao_fs;
+    shader_stages[1].module = vk.shaders.ssao_fs;
     shader_stages[1].pName = "main";
     shader_stages[1].pSpecializationInfo = &spec_info;
 
@@ -2388,12 +2394,12 @@ static VkPipeline vk_create_gtao_pipeline( void )
     create_info.pMultisampleState = &multisample_state;
     create_info.pColorBlendState = &blend_state;
     create_info.pDynamicState = &dynamic_state;
-    create_info.layout = vk.pipeline_layout_gtao;
-    create_info.renderPass = vk.render_pass.gtao;
+    create_info.layout = vk.pipeline_layout_ssao;
+    create_info.renderPass = vk.render_pass.ssao;
     create_info.basePipelineIndex = -1;
 
     VK_CHECK( qvkCreateGraphicsPipelines( vk.device, vk.pipelineCache, 1, &create_info, NULL, &pipeline ) );
-    VK_SET_OBJECT_NAME( pipeline, "gtao pipeline", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT );
+    VK_SET_OBJECT_NAME( pipeline, "ssao pipeline", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT );
     vk.pipeline_create_count++;
 
     return pipeline;
@@ -2401,9 +2407,9 @@ static VkPipeline vk_create_gtao_pipeline( void )
 
 // Multiplies the AO into the scene. Lives in vk.render_pass.main so it can be issued
 // mid-pass, between the opaque surfaces and the translucent ones - hence the MSAA sample
-// count, which a pass-local pipeline like vk_create_gtao_pipeline() does not need.
+// count, which a pass-local pipeline like vk_create_ssao_pipeline() does not need.
 // Blend is (DST_COLOR, ZERO): dst *= visibility. No depth test, no depth write.
-static VkPipeline vk_create_gtao_apply_pipeline( void )
+static VkPipeline vk_create_ssao_apply_pipeline( void )
 {
     VkPipeline pipeline;
     VkPipelineShaderStageCreateInfo shader_stages[2];
@@ -2429,7 +2435,7 @@ static VkPipeline vk_create_gtao_apply_pipeline( void )
     shader_stages[0].pName = "main";
     shader_stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shader_stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    shader_stages[1].module = vk.shaders.gtao_apply_fs;
+    shader_stages[1].module = vk.shaders.ssao_apply_fs;
     shader_stages[1].pName = "main";
 
     Com_Memset( &input_assembly_state, 0, sizeof( input_assembly_state ) );
@@ -2498,7 +2504,7 @@ static VkPipeline vk_create_gtao_apply_pipeline( void )
     create_info.basePipelineIndex = -1;
 
     VK_CHECK( qvkCreateGraphicsPipelines( vk.device, vk.pipelineCache, 1, &create_info, NULL, &pipeline ) );
-    VK_SET_OBJECT_NAME( pipeline, "gtao apply pipeline", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT );
+    VK_SET_OBJECT_NAME( pipeline, "ssao apply pipeline", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT );
     vk.pipeline_create_count++;
 
     return pipeline;
@@ -2552,12 +2558,12 @@ static void vk_create_gbuffer_pipelines( void )
     vk.gbuffer_debug_pipeline[0] = vk.gbufferDepthSampled ? vk_create_gbuffer_debug_pipeline( 1 ) : VK_NULL_HANDLE;
     vk.gbuffer_debug_pipeline[1] = vk_create_gbuffer_debug_pipeline( 2 );
     vk.gbuffer_debug_pipeline[2] = vk.velocityActive ? vk_create_gbuffer_debug_pipeline( 3 ) : VK_NULL_HANDLE;
-    vk.gbuffer_debug_pipeline[3] = vk.gtaoActive ? vk_create_gbuffer_debug_pipeline( 4 ) : VK_NULL_HANDLE;
-    vk.gbuffer_debug_pipeline[4] = vk.gtaoActive ? vk_create_gbuffer_debug_pipeline( 5 ) : VK_NULL_HANDLE;
+    vk.gbuffer_debug_pipeline[3] = vk.ssaoActive ? vk_create_gbuffer_debug_pipeline( 4 ) : VK_NULL_HANDLE;
+    vk.gbuffer_debug_pipeline[4] = vk.ssaoActive ? vk_create_gbuffer_debug_pipeline( 5 ) : VK_NULL_HANDLE;
 
-    if ( vk.gtaoActive ) {
-        vk.gtao_pipeline = vk_create_gtao_pipeline();
-        vk.gtao_apply_pipeline = vk_create_gtao_apply_pipeline();
+    if ( vk.ssaoActive ) {
+        vk.ssao_pipeline = vk_create_ssao_pipeline();
+        vk.ssao_apply_pipeline = vk_create_ssao_apply_pipeline();
     }
 }
 
@@ -3494,14 +3500,14 @@ void vk_destroy_pipelines( qboolean resetCounter )
     }
 
     // One entry per cullType_t - see the vk.gbuffer_*_pipeline[] declarations in vk_local.h.
-    if ( vk.gtao_pipeline ) {
-        qvkDestroyPipeline( vk.device, vk.gtao_pipeline, NULL );
-        vk.gtao_pipeline = VK_NULL_HANDLE;
+    if ( vk.ssao_pipeline ) {
+        qvkDestroyPipeline( vk.device, vk.ssao_pipeline, NULL );
+        vk.ssao_pipeline = VK_NULL_HANDLE;
     }
 
-    if ( vk.gtao_apply_pipeline ) {
-        qvkDestroyPipeline( vk.device, vk.gtao_apply_pipeline, NULL );
-        vk.gtao_apply_pipeline = VK_NULL_HANDLE;
+    if ( vk.ssao_apply_pipeline ) {
+        qvkDestroyPipeline( vk.device, vk.ssao_apply_pipeline, NULL );
+        vk.ssao_apply_pipeline = VK_NULL_HANDLE;
     }
 
     for ( i = 3; i < 5; i++ ) {

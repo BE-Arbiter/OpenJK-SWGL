@@ -3553,7 +3553,7 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 			&vk.cmd->uniform_descriptor, VK_DESC_UNIFORM_COUNT, offsets );
 	}
 
-	if ( vk.gtaoActive ) {
+	if ( vk.ssaoActive ) {
 		// Set 1 is the G-buffer normal attachment, whose alpha holds entityNum + 1 per pixel.
 		// shadow_volume_self.frag compares it against the caster below so an entity's own
 		// volume leaves its own surfaces alone - see that shader for why this cannot be done
@@ -3585,7 +3585,7 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 		qvkCmdPushConstants( vk.cmd->command_buffer, vk.pipeline_layout_shadow_volume,
 			VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof( pushData ), &pushData );
 
-		if ( vk.gtaoActive ) {
+		if ( vk.ssaoActive ) {
 			// Must match what the gbuffer pass wrote for this entity: entityNum + 1.
 			const int32_t casterId = (int32_t)( backEnd.currentEntity - backEnd.refdef.entities ) + 1;
 

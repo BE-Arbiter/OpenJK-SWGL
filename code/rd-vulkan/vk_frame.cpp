@@ -696,12 +696,12 @@ void vk_create_render_passes()
 
     // GTAO: one R8 colour target, no depth. Reads the gbuffer attachments as textures, so
     // its in-dependency has to wait on their writes, not just on colour output.
-    if ( vk.gtaoActive )
+    if ( vk.ssaoActive )
     {
-        VkAttachmentReference gtao_color_ref;
+        VkAttachmentReference ssao_color_ref;
 
         attachments[0].flags = 0;
-        attachments[0].format = vk.gtao_format;
+        attachments[0].format = vk.ssao_format;
         attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
         attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;   // every pixel is written
         attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -710,8 +710,8 @@ void vk_create_render_passes()
         attachments[0].initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         attachments[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        gtao_color_ref.attachment = 0;
-        gtao_color_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        ssao_color_ref.attachment = 0;
+        ssao_color_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
         deps[0].srcSubpass = VK_SUBPASS_EXTERNAL;
         deps[0].dstSubpass = 0;
@@ -732,7 +732,7 @@ void vk_create_render_passes()
         Com_Memset( &subpass, 0, sizeof(subpass) );
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &gtao_color_ref;
+        subpass.pColorAttachments = &ssao_color_ref;
 
         Com_Memset( &desc, 0, sizeof(desc) );
         desc.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -743,8 +743,8 @@ void vk_create_render_passes()
         desc.dependencyCount = 2;
         desc.pDependencies = &deps[0];
 
-        VK_CHECK( qvkCreateRenderPass( device, &desc, NULL, &vk.render_pass.gtao ) );
-        VK_SET_OBJECT_NAME( vk.render_pass.gtao, "render pass - gtao", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT );
+        VK_CHECK( qvkCreateRenderPass( device, &desc, NULL, &vk.render_pass.ssao ) );
+        VK_SET_OBJECT_NAME( vk.render_pass.ssao, "render pass - ssao", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT );
     }
 }
 
@@ -856,14 +856,14 @@ void vk_create_framebuffers()
             VK_CHECK( qvkCreateFramebuffer( vk.device, &desc, NULL, &vk.framebuffers.gbuffer.extract ) );
             VK_SET_OBJECT_NAME( vk.framebuffers.gbuffer.extract, "framebuffer - gbuffer extract", VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT );
 
-            if ( vk.gtaoActive )
+            if ( vk.ssaoActive )
             {
-                desc.renderPass = vk.render_pass.gtao;
+                desc.renderPass = vk.render_pass.ssao;
                 desc.attachmentCount = 1;
-                attachments[0] = vk.gtao_image_view;
+                attachments[0] = vk.ssao_image_view;
 
-                VK_CHECK( qvkCreateFramebuffer( vk.device, &desc, NULL, &vk.framebuffers.gtao ) );
-                VK_SET_OBJECT_NAME( vk.framebuffers.gtao, "framebuffer - gtao", VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT );
+                VK_CHECK( qvkCreateFramebuffer( vk.device, &desc, NULL, &vk.framebuffers.ssao ) );
+                VK_SET_OBJECT_NAME( vk.framebuffers.ssao, "framebuffer - ssao", VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT );
             }
         }
 
@@ -1056,9 +1056,9 @@ void vk_destroy_render_passes( void )
         vk.render_pass.dglow.blend = VK_NULL_HANDLE;
     }
 
-    if ( vk.render_pass.gtao != VK_NULL_HANDLE ) {
-        qvkDestroyRenderPass( vk.device, vk.render_pass.gtao, NULL );
-        vk.render_pass.gtao = VK_NULL_HANDLE;
+    if ( vk.render_pass.ssao != VK_NULL_HANDLE ) {
+        qvkDestroyRenderPass( vk.device, vk.render_pass.ssao, NULL );
+        vk.render_pass.ssao = VK_NULL_HANDLE;
     }
 
     if ( vk.render_pass.gbuffer.extract != VK_NULL_HANDLE ) {
@@ -1121,9 +1121,9 @@ void vk_destroy_framebuffers( void )
         }
     }
 
-    if ( vk.framebuffers.gtao != VK_NULL_HANDLE ) {
-        qvkDestroyFramebuffer( vk.device, vk.framebuffers.gtao, NULL );
-        vk.framebuffers.gtao = VK_NULL_HANDLE;
+    if ( vk.framebuffers.ssao != VK_NULL_HANDLE ) {
+        qvkDestroyFramebuffer( vk.device, vk.framebuffers.ssao, NULL );
+        vk.framebuffers.ssao = VK_NULL_HANDLE;
     }
 
     if ( vk.framebuffers.gbuffer.extract != VK_NULL_HANDLE ) {
@@ -1441,13 +1441,13 @@ void vk_begin_gbuffer_extract_render_pass( void )
 // GTAO over the gbuffer's depth + normal (r_ssao 2). Runs once per displayed frame, between
 // the gbuffer extraction pass ending and the main pass resuming - see RB_DrawSurfs().
 // A full-screen draw with no vertex buffer, like every other post-process pass here.
-void vk_render_gtao( const void *viewParms_ )
+void vk_render_ssao( const void *viewParms_ )
 {
     const viewParms_t *viewParms = (const viewParms_t *)viewParms_;
     const float *p = viewParms->projectionMatrix;
     VkRenderPassBeginInfo begin_info;
     VkDescriptorSet sets[2];
-    vkGTAOPushConstants_t push;
+    vkSSAOPushConstants_t push;
 
     vk.renderPassIndex = RENDER_PASS_GBUFFER;
     vk.renderWidth = glConfig.vidWidth;
@@ -1456,8 +1456,8 @@ void vk_render_gtao( const void *viewParms_ )
 
     begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     begin_info.pNext = NULL;
-    begin_info.renderPass = vk.render_pass.gtao;
-    begin_info.framebuffer = vk.framebuffers.gtao;
+    begin_info.renderPass = vk.render_pass.ssao;
+    begin_info.framebuffer = vk.framebuffers.ssao;
     begin_info.renderArea.offset.x = 0;
     begin_info.renderArea.offset.y = 0;
     begin_info.renderArea.extent.width = vk.renderWidth;
@@ -1468,7 +1468,7 @@ void vk_render_gtao( const void *viewParms_ )
     qvkCmdBeginRenderPass( vk.cmd->command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE );
     vk.cmd->depth_range = DEPTH_RANGE_COUNT;
 
-    // p5 is passed unflipped; gtao.frag undoes the Vulkan Y flip itself rather than
+    // p5 is passed unflipped; ssao.frag undoes the Vulkan Y flip itself rather than
     // having it baked in, so this stays the matrix R_SetupProjection() actually built.
     push.p0  = p[0];
     push.p5  = p[5];
@@ -1480,11 +1480,11 @@ void vk_render_gtao( const void *viewParms_ )
     push.invScreenX = 1.0f / (float)vk.renderWidth;
     push.invScreenY = 1.0f / (float)vk.renderHeight;
 
-    push.radius     = r_gtaoRadius->value;
-    push.intensity  = r_gtaoIntensity->value;
+    push.radius     = r_ssaoRadius->value;
+    push.intensity  = r_ssaoIntensity->value;
     push.frameNoise = (float)( tr.frameCount & 63 ) * 0.0625f;
-    push.sliceCount = r_gtaoSlices->integer;
-    push.stepCount  = r_gtaoSteps->integer;
+    push.sliceCount = r_ssaoSlices->integer;
+    push.stepCount  = r_ssaoSteps->integer;
 
     if ( r_contactShadows->integer ) {
         // tr.sunDirection points toward the sun in world space (default, or q3map_sun from
@@ -1503,7 +1503,7 @@ void vk_render_gtao( const void *viewParms_ )
     }
     else {
         // csLength 0 makes ContactShadow() return 1 immediately, so the G channel stays
-        // fully lit and gtao_apply.frag's multiply is a no-op for it.
+        // fully lit and ssao_apply.frag's multiply is a no-op for it.
         push.lightX = push.lightY = push.lightZ = 0.0f;
         push.csLength = 0.0f;
         push.csThickness = 0.0f;
@@ -1514,10 +1514,10 @@ void vk_render_gtao( const void *viewParms_ )
     sets[0] = vk.gbuffer_depth_descriptor;
     sets[1] = vk.gbuffer_normal_descriptor;
 
-    qvkCmdBindPipeline( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.gtao_pipeline );
+    qvkCmdBindPipeline( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.ssao_pipeline );
     qvkCmdBindDescriptorSets( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-        vk.pipeline_layout_gtao, 0, 2, sets, 0, NULL );
-    qvkCmdPushConstants( vk.cmd->command_buffer, vk.pipeline_layout_gtao,
+        vk.pipeline_layout_ssao, 0, 2, sets, 0, NULL );
+    qvkCmdPushConstants( vk.cmd->command_buffer, vk.pipeline_layout_ssao,
         VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( push ), &push );
 
     {
@@ -1544,7 +1544,7 @@ void vk_render_gtao( const void *viewParms_ )
 
     vk_end_render_pass();
 
-    // This pass bound descriptor sets with pipeline_layout_gtao, which is not compatible
+    // This pass bound descriptor sets with pipeline_layout_ssao, which is not compatible
     // with vk.pipeline_layout - so whatever the main pass had bound is now disturbed.
     // Force the tracker to rebind everything rather than trust its cached state.
     {
@@ -1561,13 +1561,13 @@ void vk_render_gtao( const void *viewParms_ )
 // Multiplies the AO buffer into the scene. Issued from inside the main render pass, from
 // RB_RenderDrawSurfList() at the point the sort order leaves SS_OPAQUE - so opaque
 // geometry is darkened and translucent surfaces, the HUD and 2D are not.
-void vk_apply_gtao( void )
+void vk_apply_ssao( void )
 {
     VkViewport viewport;
     VkRect2D scissor;
     uint32_t i;
 
-    if ( vk.gtao_apply_pipeline == VK_NULL_HANDLE )
+    if ( vk.ssao_apply_pipeline == VK_NULL_HANDLE )
         return;
 
     viewport.x = 0.0f;
@@ -1585,9 +1585,9 @@ void vk_apply_gtao( void )
     qvkCmdSetViewport( vk.cmd->command_buffer, 0, 1, &viewport );
     qvkCmdSetScissor( vk.cmd->command_buffer, 0, 1, &scissor );
 
-    qvkCmdBindPipeline( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.gtao_apply_pipeline );
+    qvkCmdBindPipeline( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.ssao_apply_pipeline );
     qvkCmdBindDescriptorSets( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-        vk.pipeline_layout_post_process, 0, 1, &vk.gtao_descriptor, 0, NULL );
+        vk.pipeline_layout_post_process, 0, 1, &vk.ssao_descriptor, 0, NULL );
 
     qvkCmdDraw( vk.cmd->command_buffer, 4, 1, 0, 0 );
 
@@ -1921,7 +1921,7 @@ void vk_end_frame( void )
                         postSource   = ( mode == 0 ) ? vk.gbuffer_depth_descriptor
                                      : ( mode == 1 ) ? vk.gbuffer_normal_descriptor
                                      : ( mode == 2 ) ? vk.gbuffer_velocity_descriptor
-                                                     : vk.gtao_descriptor; // modes 4 and 5 share it
+                                                     : vk.ssao_descriptor; // modes 4 and 5 share it
                     }
                 }
 
