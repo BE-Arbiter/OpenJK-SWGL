@@ -193,6 +193,53 @@ void vk_create_pipeline_layout( void )
 
     VK_CHECK(qvkCreatePipelineLayout(vk.device, &desc, NULL, &vk.pipeline_layout_blend));
 
+    // GTAO: set 0 = gbuffer depth, set 1 = gbuffer normal, plus the projection terms and
+    // tuning as push constants. pipeline_layout_post_process has neither a second set nor
+    // a push constant range, hence its own layout.
+    {
+        VkPushConstantRange gtao_push_range;
+
+        gtao_push_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        gtao_push_range.offset = 0;
+        gtao_push_range.size = sizeof( vkGTAOPushConstants_t );
+
+        set_layouts[0] = vk.set_layout_sampler;
+        set_layouts[1] = vk.set_layout_sampler;
+
+        desc.setLayoutCount = 2;
+        desc.pSetLayouts = set_layouts;
+        desc.pushConstantRangeCount = 1;
+        desc.pPushConstantRanges = &gtao_push_range;
+
+        VK_CHECK( qvkCreatePipelineLayout( vk.device, &desc, NULL, &vk.pipeline_layout_gtao ) );
+        VK_SET_OBJECT_NAME( vk.pipeline_layout_gtao, "pipeline layout - gtao", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT );
+    }
+
+    // Alpha-tested gbuffer surfaces: one sampler set on top of the same push constant
+    // ranges the plain gbuffer layouts use.
+    {
+        VkPushConstantRange at_range;
+
+        set_layouts[0] = vk.set_layout_sampler;
+
+        at_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        at_range.offset = 0;
+        at_range.size = sizeof( vkGBufferPushConstants_t );
+
+        desc.setLayoutCount = 1;
+        desc.pSetLayouts = set_layouts;
+        desc.pushConstantRangeCount = 1;
+        desc.pPushConstantRanges = &at_range;
+
+        VK_CHECK( qvkCreatePipelineLayout( vk.device, &desc, NULL, &vk.pipeline_layout_gbuffer_at ) );
+        VK_SET_OBJECT_NAME( vk.pipeline_layout_gbuffer_at, "pipeline layout - gbuffer alpha test", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT );
+
+        at_range.size = sizeof( vkGBufferVelocityPushConstants_t );
+
+        VK_CHECK( qvkCreatePipelineLayout( vk.device, &desc, NULL, &vk.pipeline_layout_gbuffer_at_velocity ) );
+        VK_SET_OBJECT_NAME( vk.pipeline_layout_gbuffer_at_velocity, "pipeline layout - gbuffer alpha test (velocity)", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT );
+    }
+
     VK_SET_OBJECT_NAME(vk.pipeline_layout_post_process, "pipeline layout - post-processing", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT);
     VK_SET_OBJECT_NAME(vk.pipeline_layout_blend, "pipeline layout - blend", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT);
 
@@ -1747,7 +1794,7 @@ VkPipeline vk_get_shadow_volume_debug_pipeline( int cullIndex )
 // rigid VBO models - see vk_bind_stride()'s is_mdv_vbo/is_ghoul2_vbo dispatch); both
 // share the same gbuffer.vert/.frag pair and pipeline_layout_gbuffer. Modelled directly
 // on vk_create_shadow_volume_adjacency_pipeline() above, minus the geometry stage.
-static VkPipeline vk_create_gbuffer_pipeline( qboolean mdv, qboolean ghoul2 )
+static VkPipeline vk_create_gbuffer_pipeline( qboolean mdv, qboolean ghoul2, cullType_t cull, qboolean alphaTest = qfalse )
 {
     VkPipeline pipeline;
     VkPipelineShaderStageCreateInfo shader_stages[2];
@@ -1760,7 +1807,9 @@ static VkPipeline vk_create_gbuffer_pipeline( qboolean mdv, qboolean ghoul2 )
     VkPipelineColorBlendAttachmentState attachment_blend_state[2];
     VkPipelineColorBlendStateCreateInfo blend_state;
     VkPipelineDynamicStateCreateInfo dynamic_state;
-    VkDynamicState dynamic_state_array[2] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    // Depth bias is dynamic so one pipeline set covers both ordinary and polygonOffset
+    // surfaces; RB_RenderGBufferSurfList() sets it (zero or the shader's offset) per draw.
+    VkDynamicState dynamic_state_array[3] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_DEPTH_BIAS };
     VkGraphicsPipelineCreateInfo create_info;
 
     // vertex input: position (0) + normal (5) always; ghoul2 additionally needs bone
@@ -1783,6 +1832,11 @@ static VkPipeline vk_create_gbuffer_pipeline( qboolean mdv, qboolean ghoul2 )
         vk_push_bind( 9, sizeof( vec4_t ) );
         vk_push_attr( 9, 9, VK_FORMAT_R8G8B8A8_UNORM );
     }
+    if ( alphaTest ) {
+        // Base texcoords, the only extra input the cut needs.
+        vk_push_bind( 2, sizeof( vec2_t ) );
+        vk_push_attr( 2, 2, VK_FORMAT_R32G32_SFLOAT );
+    }
 
     vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertex_input_state.pNext = NULL;
@@ -1796,7 +1850,14 @@ static VkPipeline vk_create_gbuffer_pipeline( qboolean mdv, qboolean ghoul2 )
     shader_stages[0].pNext = NULL;
     shader_stages[0].flags = 0;
     shader_stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    shader_stages[0].module = ghoul2 ? vk.shaders.gbuffer_skinned_vs : vk.shaders.gbuffer_vs;
+    // Ghoul2 picks up its velocity variant simply by swapping both stages when
+    // r_velocityBuffer is on - no separate pipeline handle, no layout change: the skinned
+    // shader stays on vk.pipeline_layout and reads the previous-frame camera transform out
+    // of the Camera UBO instead of a push constant. See gbuffer_skinned_vel.vert.
+    shader_stages[0].module = alphaTest ? vk.shaders.gbuffer_at_vs
+        : ghoul2
+        ? ( vk.velocityActive ? vk.shaders.gbuffer_skinned_velocity_vs : vk.shaders.gbuffer_skinned_vs )
+        : vk.shaders.gbuffer_vs;
     shader_stages[0].pName = "main";
     shader_stages[0].pSpecializationInfo = NULL;
 
@@ -1804,7 +1865,8 @@ static VkPipeline vk_create_gbuffer_pipeline( qboolean mdv, qboolean ghoul2 )
     shader_stages[1].pNext = NULL;
     shader_stages[1].flags = 0;
     shader_stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    shader_stages[1].module = vk.shaders.gbuffer_fs;
+    shader_stages[1].module = alphaTest ? vk.shaders.gbuffer_at_fs
+        : ( ghoul2 && vk.velocityActive ) ? vk.shaders.gbuffer_velocity_fs : vk.shaders.gbuffer_fs;
     shader_stages[1].pName = "main";
     shader_stages[1].pSpecializationInfo = NULL;
 
@@ -1828,11 +1890,17 @@ static VkPipeline vk_create_gbuffer_pipeline( qboolean mdv, qboolean ghoul2 )
     rasterization_state.depthClampEnable = VK_FALSE;
     rasterization_state.rasterizerDiscardEnable = VK_FALSE;
     rasterization_state.polygonMode = VK_POLYGON_MODE_FILL;
-    // Plain back-face culling only, like the rest of the opaque geometry. Two-sided
-    // opaque shaders (rare) aren't special-cased yet - see RB_RenderGBufferSurfList().
-    rasterization_state.cullMode = VK_CULL_MODE_BACK_BIT;
+    // Same per-shader cull mode create_pipeline() applies in the main pass, so a
+    // surface covers exactly the same pixels here as it does there. No mirror variant:
+    // this pass only ever runs for the primary view (RB_DrawSurfs() gates it on
+    // portalView == PV_NONE), which is never front-face-winding-flipped.
+    switch ( cull ) {
+        case CT_FRONT_SIDED:    rasterization_state.cullMode = VK_CULL_MODE_BACK_BIT; break;
+        case CT_BACK_SIDED:     rasterization_state.cullMode = VK_CULL_MODE_FRONT_BIT; break;
+        default:                rasterization_state.cullMode = VK_CULL_MODE_NONE; break;
+    }
     rasterization_state.frontFace = VK_FRONT_FACE_CLOCKWISE; // Q3 defaults to clockwise vertex order
-    rasterization_state.depthBiasEnable = VK_FALSE;
+    rasterization_state.depthBiasEnable = VK_TRUE;	// value is dynamic, zero unless the shader asks
     rasterization_state.depthBiasConstantFactor = 0.0f;
     rasterization_state.depthBiasClamp = 0.0f;
     rasterization_state.depthBiasSlopeFactor = 0.0f;
@@ -1904,14 +1972,15 @@ static VkPipeline vk_create_gbuffer_pipeline( qboolean mdv, qboolean ghoul2 )
     create_info.pDynamicState = &dynamic_state;
     // Ghoul2 uses the standard vk.pipeline_layout (Entity+Bones UBOs via the usual
     // descriptor mechanism); world/mdv use the dedicated push-constant-only layout.
-    create_info.layout = ghoul2 ? vk.pipeline_layout : vk.pipeline_layout_gbuffer;
+    create_info.layout = alphaTest ? vk.pipeline_layout_gbuffer_at
+        : ghoul2 ? vk.pipeline_layout : vk.pipeline_layout_gbuffer;
     create_info.renderPass = vk.render_pass.gbuffer.extract;
     create_info.subpass = 0;
     create_info.basePipelineHandle = VK_NULL_HANDLE;
     create_info.basePipelineIndex = -1;
 
     VK_CHECK( qvkCreateGraphicsPipelines( vk.device, vk.pipelineCache, 1, &create_info, NULL, &pipeline ) );
-    VK_SET_OBJECT_NAME( pipeline, ghoul2 ? "gbuffer extraction pipeline (ghoul2)" : ( mdv ? "gbuffer extraction pipeline (mdv)" : "gbuffer extraction pipeline (world)" ),
+    VK_SET_OBJECT_NAME( pipeline, va( "gbuffer extraction pipeline (%s cull#%i)", ghoul2 ? "ghoul2" : ( mdv ? "mdv" : "world" ), (int)cull ),
         VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT );
     vk.pipeline_create_count++;
 
@@ -1926,7 +1995,7 @@ static VkPipeline vk_create_gbuffer_pipeline( qboolean mdv, qboolean ghoul2 )
 // only differ in vertex input + shader module + layout, but these also need a
 // 2-color-attachment blend state unconditionally (real velocity output, not the
 // zero-placeholder the other variants fall back to when velocityActive is off).
-static VkPipeline vk_create_gbuffer_velocity_pipeline( qboolean mdv )
+static VkPipeline vk_create_gbuffer_velocity_pipeline( qboolean mdv, cullType_t cull, qboolean sky = qfalse, qboolean alphaTest = qfalse )
 {
     VkPipeline pipeline;
     VkPipelineShaderStageCreateInfo shader_stages[2];
@@ -1939,7 +2008,7 @@ static VkPipeline vk_create_gbuffer_velocity_pipeline( qboolean mdv )
     VkPipelineColorBlendAttachmentState attachment_blend_state[2];
     VkPipelineColorBlendStateCreateInfo blend_state;
     VkPipelineDynamicStateCreateInfo dynamic_state;
-    VkDynamicState dynamic_state_array[2] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    VkDynamicState dynamic_state_array[3] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_DEPTH_BIAS };
     VkGraphicsPipelineCreateInfo create_info;
 
     // Same position(0) + normal(5) interface gbuffer.vert uses, so gbuffer_worldvel.vert
@@ -1951,6 +2020,10 @@ static VkPipeline vk_create_gbuffer_velocity_pipeline( qboolean mdv )
     vk_push_attr( 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT );
     vk_push_bind( 5, sizeof( vec4_t ) );
     vk_push_attr( 5, 5, VK_FORMAT_R32G32B32A32_SFLOAT );
+    if ( alphaTest ) {
+        vk_push_bind( 2, sizeof( vec2_t ) );
+        vk_push_attr( 2, 2, VK_FORMAT_R32G32_SFLOAT );
+    }
 
     vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertex_input_state.pNext = NULL;
@@ -1964,7 +2037,7 @@ static VkPipeline vk_create_gbuffer_velocity_pipeline( qboolean mdv )
     shader_stages[0].pNext = NULL;
     shader_stages[0].flags = 0;
     shader_stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    shader_stages[0].module = vk.shaders.gbuffer_velocity_vs;
+    shader_stages[0].module = alphaTest ? vk.shaders.gbuffer_at_velocity_vs : vk.shaders.gbuffer_velocity_vs;
     shader_stages[0].pName = "main";
     shader_stages[0].pSpecializationInfo = NULL;
 
@@ -1972,7 +2045,7 @@ static VkPipeline vk_create_gbuffer_velocity_pipeline( qboolean mdv )
     shader_stages[1].pNext = NULL;
     shader_stages[1].flags = 0;
     shader_stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    shader_stages[1].module = vk.shaders.gbuffer_velocity_fs;
+    shader_stages[1].module = alphaTest ? vk.shaders.gbuffer_at_velocity_fs : vk.shaders.gbuffer_velocity_fs;
     shader_stages[1].pName = "main";
     shader_stages[1].pSpecializationInfo = NULL;
 
@@ -1996,9 +2069,14 @@ static VkPipeline vk_create_gbuffer_velocity_pipeline( qboolean mdv )
     rasterization_state.depthClampEnable = VK_FALSE;
     rasterization_state.rasterizerDiscardEnable = VK_FALSE;
     rasterization_state.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterization_state.cullMode = VK_CULL_MODE_BACK_BIT;
+    // Per-shader cull mode, see vk_create_gbuffer_pipeline() above.
+    switch ( cull ) {
+        case CT_FRONT_SIDED:    rasterization_state.cullMode = VK_CULL_MODE_BACK_BIT; break;
+        case CT_BACK_SIDED:     rasterization_state.cullMode = VK_CULL_MODE_FRONT_BIT; break;
+        default:                rasterization_state.cullMode = VK_CULL_MODE_NONE; break;
+    }
     rasterization_state.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    rasterization_state.depthBiasEnable = VK_FALSE;
+    rasterization_state.depthBiasEnable = VK_TRUE;	// value is dynamic, zero unless the shader asks
     rasterization_state.depthBiasConstantFactor = 0.0f;
     rasterization_state.depthBiasClamp = 0.0f;
     rasterization_state.depthBiasSlopeFactor = 0.0f;
@@ -2016,8 +2094,11 @@ static VkPipeline vk_create_gbuffer_velocity_pipeline( qboolean mdv )
 
     Com_Memset( &depth_stencil_state, 0, sizeof( depth_stencil_state ) );
     depth_stencil_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depth_stencil_state.depthTestEnable = VK_TRUE;
-    depth_stencil_state.depthWriteEnable = VK_TRUE;
+    // Sky writes no depth on purpose: the attachment keeps its cleared value there, so
+    // gtao.frag's "depth <= 0 means nothing was drawn" early-out still fires and the sky is
+    // neither occluded nor an occluder. It only needs to lay down a motion vector.
+    depth_stencil_state.depthTestEnable = (VkBool32)!sky;
+    depth_stencil_state.depthWriteEnable = (VkBool32)!sky;
 #ifdef USE_REVERSED_DEPTH
     depth_stencil_state.depthCompareOp = VK_COMPARE_OP_GREATER;
 #else
@@ -2066,15 +2147,340 @@ static VkPipeline vk_create_gbuffer_velocity_pipeline( qboolean mdv )
     create_info.pDepthStencilState = &depth_stencil_state;
     create_info.pColorBlendState = &blend_state;
     create_info.pDynamicState = &dynamic_state;
-    create_info.layout = vk.pipeline_layout_gbuffer_velocity;
+    create_info.layout = alphaTest ? vk.pipeline_layout_gbuffer_at_velocity : vk.pipeline_layout_gbuffer_velocity;
     create_info.renderPass = vk.render_pass.gbuffer.extract;
     create_info.subpass = 0;
     create_info.basePipelineHandle = VK_NULL_HANDLE;
     create_info.basePipelineIndex = -1;
 
     VK_CHECK( qvkCreateGraphicsPipelines( vk.device, vk.pipelineCache, 1, &create_info, NULL, &pipeline ) );
-    VK_SET_OBJECT_NAME( pipeline, mdv ? "gbuffer extraction pipeline (mdv velocity)" : "gbuffer extraction pipeline (rigid velocity)",
+    VK_SET_OBJECT_NAME( pipeline, va( "gbuffer extraction pipeline (%s velocity cull#%i)", mdv ? "mdv" : "rigid", (int)cull ),
         VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT );
+    vk.pipeline_create_count++;
+
+    return pipeline;
+}
+
+
+// Full-screen G-buffer debug view (r_showGBuffer), one pipeline per display mode. Shares
+// the gamma pass's render pass, framebuffer, layout and vertex shader - it is drawn in
+// place of the gamma blit, not over it. See gbuffer_debug.frag.
+static VkPipeline vk_create_gbuffer_debug_pipeline( int mode )
+{
+    VkPipeline pipeline;
+    VkPipelineShaderStageCreateInfo shader_stages[2];
+    VkPipelineVertexInputStateCreateInfo vertex_input_state;
+    VkPipelineInputAssemblyStateCreateInfo input_assembly_state;
+    VkPipelineViewportStateCreateInfo viewport_state;
+    VkPipelineRasterizationStateCreateInfo rasterization_state;
+    VkPipelineMultisampleStateCreateInfo multisample_state;
+    VkPipelineColorBlendAttachmentState attachment_blend_state;
+    VkPipelineColorBlendStateCreateInfo blend_state;
+    VkPipelineDynamicStateCreateInfo dynamic_state;
+    VkDynamicState dynamic_state_array[2] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    VkGraphicsPipelineCreateInfo create_info;
+    VkSpecializationMapEntry spec_entries[2];
+    VkSpecializationInfo spec_info;
+    struct { int mode; int reversedDepth; } spec_data;
+
+    spec_data.mode = mode;
+#ifdef USE_REVERSED_DEPTH
+    spec_data.reversedDepth = 1;
+#else
+    spec_data.reversedDepth = 0;
+#endif
+
+    spec_entries[0].constantID = 0;
+    spec_entries[0].offset = offsetof( decltype(spec_data), mode );
+    spec_entries[0].size = sizeof( spec_data.mode );
+    spec_entries[1].constantID = 1;
+    spec_entries[1].offset = offsetof( decltype(spec_data), reversedDepth );
+    spec_entries[1].size = sizeof( spec_data.reversedDepth );
+
+    spec_info.mapEntryCount = ARRAY_LEN( spec_entries );
+    spec_info.pMapEntries = spec_entries;
+    spec_info.dataSize = sizeof( spec_data );
+    spec_info.pData = &spec_data;
+
+    Com_Memset( &vertex_input_state, 0, sizeof( vertex_input_state ) );
+    vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    Com_Memset( shader_stages, 0, sizeof( shader_stages ) );
+    shader_stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    shader_stages[0].module = vk.shaders.gamma_vs;
+    shader_stages[0].pName = "main";
+    shader_stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shader_stages[1].module = vk.shaders.gbuffer_debug_fs;
+    shader_stages[1].pName = "main";
+    shader_stages[1].pSpecializationInfo = &spec_info;
+
+    Com_Memset( &input_assembly_state, 0, sizeof( input_assembly_state ) );
+    input_assembly_state.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+
+    Com_Memset( &viewport_state, 0, sizeof( viewport_state ) );
+    viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewport_state.viewportCount = 1;
+    viewport_state.scissorCount = 1;
+
+    Com_Memset( &rasterization_state, 0, sizeof( rasterization_state ) );
+    rasterization_state.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterization_state.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterization_state.cullMode = VK_CULL_MODE_NONE;
+    rasterization_state.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterization_state.lineWidth = 1.0f;
+
+    Com_Memset( &multisample_state, 0, sizeof( multisample_state ) );
+    multisample_state.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisample_state.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    Com_Memset( &attachment_blend_state, 0, sizeof( attachment_blend_state ) );
+    attachment_blend_state.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+    Com_Memset( &blend_state, 0, sizeof( blend_state ) );
+    blend_state.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    blend_state.attachmentCount = 1;
+    blend_state.pAttachments = &attachment_blend_state;
+
+    Com_Memset( &dynamic_state, 0, sizeof( dynamic_state ) );
+    dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamic_state.dynamicStateCount = ARRAY_LEN( dynamic_state_array );
+    dynamic_state.pDynamicStates = dynamic_state_array;
+
+    Com_Memset( &create_info, 0, sizeof( create_info ) );
+    create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    create_info.stageCount = ARRAY_LEN( shader_stages );
+    create_info.pStages = shader_stages;
+    create_info.pVertexInputState = &vertex_input_state;
+    create_info.pInputAssemblyState = &input_assembly_state;
+    create_info.pViewportState = &viewport_state;
+    create_info.pRasterizationState = &rasterization_state;
+    create_info.pMultisampleState = &multisample_state;
+    create_info.pColorBlendState = &blend_state;
+    create_info.pDynamicState = &dynamic_state;
+    create_info.layout = vk.pipeline_layout_post_process;
+    create_info.renderPass = vk.render_pass.gamma;
+    create_info.basePipelineIndex = -1;
+
+    VK_CHECK( qvkCreateGraphicsPipelines( vk.device, vk.pipelineCache, 1, &create_info, NULL, &pipeline ) );
+    VK_SET_OBJECT_NAME( pipeline, va( "gbuffer debug view pipeline (mode %i)", mode ),
+        VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT );
+    vk.pipeline_create_count++;
+
+    return pipeline;
+}
+
+// Full-screen GTAO pass. Same shape as the debug-view pipeline above, but on its own
+// render pass and layout - see gtao.frag.
+static VkPipeline vk_create_gtao_pipeline( void )
+{
+    VkPipeline pipeline;
+    VkPipelineShaderStageCreateInfo shader_stages[2];
+    VkPipelineVertexInputStateCreateInfo vertex_input_state;
+    VkPipelineInputAssemblyStateCreateInfo input_assembly_state;
+    VkPipelineViewportStateCreateInfo viewport_state;
+    VkPipelineRasterizationStateCreateInfo rasterization_state;
+    VkPipelineMultisampleStateCreateInfo multisample_state;
+    VkPipelineColorBlendAttachmentState attachment_blend_state;
+    VkPipelineColorBlendStateCreateInfo blend_state;
+    VkPipelineDynamicStateCreateInfo dynamic_state;
+    VkDynamicState dynamic_state_array[2] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    VkGraphicsPipelineCreateInfo create_info;
+    VkSpecializationMapEntry spec_entry;
+    VkSpecializationInfo spec_info;
+    int32_t reversedDepth;
+
+    // gtao.frag has to know which end of the depth range means "empty", and that follows
+    // the build's USE_REVERSED_DEPTH, not an assumption. Getting it wrong makes every pixel
+    // the extraction pass skipped read as geometry at the far plane.
+#ifdef USE_REVERSED_DEPTH
+    reversedDepth = 1;
+#else
+    reversedDepth = 0;
+#endif
+
+    spec_entry.constantID = 0;
+    spec_entry.offset = 0;
+    spec_entry.size = sizeof( reversedDepth );
+
+    spec_info.mapEntryCount = 1;
+    spec_info.pMapEntries = &spec_entry;
+    spec_info.dataSize = sizeof( reversedDepth );
+    spec_info.pData = &reversedDepth;
+
+    Com_Memset( &vertex_input_state, 0, sizeof( vertex_input_state ) );
+    vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    Com_Memset( shader_stages, 0, sizeof( shader_stages ) );
+    shader_stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    shader_stages[0].module = vk.shaders.gamma_vs;
+    shader_stages[0].pName = "main";
+    shader_stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shader_stages[1].module = vk.shaders.gtao_fs;
+    shader_stages[1].pName = "main";
+    shader_stages[1].pSpecializationInfo = &spec_info;
+
+    Com_Memset( &input_assembly_state, 0, sizeof( input_assembly_state ) );
+    input_assembly_state.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+
+    Com_Memset( &viewport_state, 0, sizeof( viewport_state ) );
+    viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewport_state.viewportCount = 1;
+    viewport_state.scissorCount = 1;
+
+    Com_Memset( &rasterization_state, 0, sizeof( rasterization_state ) );
+    rasterization_state.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterization_state.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterization_state.cullMode = VK_CULL_MODE_NONE;
+    rasterization_state.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterization_state.lineWidth = 1.0f;
+
+    Com_Memset( &multisample_state, 0, sizeof( multisample_state ) );
+    multisample_state.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisample_state.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    Com_Memset( &attachment_blend_state, 0, sizeof( attachment_blend_state ) );
+    attachment_blend_state.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+    Com_Memset( &blend_state, 0, sizeof( blend_state ) );
+    blend_state.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    blend_state.attachmentCount = 1;
+    blend_state.pAttachments = &attachment_blend_state;
+
+    Com_Memset( &dynamic_state, 0, sizeof( dynamic_state ) );
+    dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamic_state.dynamicStateCount = ARRAY_LEN( dynamic_state_array );
+    dynamic_state.pDynamicStates = dynamic_state_array;
+
+    Com_Memset( &create_info, 0, sizeof( create_info ) );
+    create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    create_info.stageCount = ARRAY_LEN( shader_stages );
+    create_info.pStages = shader_stages;
+    create_info.pVertexInputState = &vertex_input_state;
+    create_info.pInputAssemblyState = &input_assembly_state;
+    create_info.pViewportState = &viewport_state;
+    create_info.pRasterizationState = &rasterization_state;
+    create_info.pMultisampleState = &multisample_state;
+    create_info.pColorBlendState = &blend_state;
+    create_info.pDynamicState = &dynamic_state;
+    create_info.layout = vk.pipeline_layout_gtao;
+    create_info.renderPass = vk.render_pass.gtao;
+    create_info.basePipelineIndex = -1;
+
+    VK_CHECK( qvkCreateGraphicsPipelines( vk.device, vk.pipelineCache, 1, &create_info, NULL, &pipeline ) );
+    VK_SET_OBJECT_NAME( pipeline, "gtao pipeline", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT );
+    vk.pipeline_create_count++;
+
+    return pipeline;
+}
+
+// Multiplies the AO into the scene. Lives in vk.render_pass.main so it can be issued
+// mid-pass, between the opaque surfaces and the translucent ones - hence the MSAA sample
+// count, which a pass-local pipeline like vk_create_gtao_pipeline() does not need.
+// Blend is (DST_COLOR, ZERO): dst *= visibility. No depth test, no depth write.
+static VkPipeline vk_create_gtao_apply_pipeline( void )
+{
+    VkPipeline pipeline;
+    VkPipelineShaderStageCreateInfo shader_stages[2];
+    VkPipelineVertexInputStateCreateInfo vertex_input_state;
+    VkPipelineInputAssemblyStateCreateInfo input_assembly_state;
+    VkPipelineViewportStateCreateInfo viewport_state;
+    VkPipelineRasterizationStateCreateInfo rasterization_state;
+    VkPipelineMultisampleStateCreateInfo multisample_state;
+    VkPipelineDepthStencilStateCreateInfo depth_stencil_state;
+    VkPipelineColorBlendAttachmentState attachment_blend_state;
+    VkPipelineColorBlendStateCreateInfo blend_state;
+    VkPipelineDynamicStateCreateInfo dynamic_state;
+    VkDynamicState dynamic_state_array[2] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    VkGraphicsPipelineCreateInfo create_info;
+
+    Com_Memset( &vertex_input_state, 0, sizeof( vertex_input_state ) );
+    vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    Com_Memset( shader_stages, 0, sizeof( shader_stages ) );
+    shader_stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    shader_stages[0].module = vk.shaders.gamma_vs;
+    shader_stages[0].pName = "main";
+    shader_stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shader_stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shader_stages[1].module = vk.shaders.gtao_apply_fs;
+    shader_stages[1].pName = "main";
+
+    Com_Memset( &input_assembly_state, 0, sizeof( input_assembly_state ) );
+    input_assembly_state.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+
+    Com_Memset( &viewport_state, 0, sizeof( viewport_state ) );
+    viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewport_state.viewportCount = 1;
+    viewport_state.scissorCount = 1;
+
+    Com_Memset( &rasterization_state, 0, sizeof( rasterization_state ) );
+    rasterization_state.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterization_state.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterization_state.cullMode = VK_CULL_MODE_NONE;
+    rasterization_state.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterization_state.lineWidth = 1.0f;
+
+    Com_Memset( &multisample_state, 0, sizeof( multisample_state ) );
+    multisample_state.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisample_state.rasterizationSamples = (VkSampleCountFlagBits)vkSamples;
+
+    Com_Memset( &depth_stencil_state, 0, sizeof( depth_stencil_state ) );
+    depth_stencil_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depth_stencil_state.depthTestEnable = VK_FALSE;
+    depth_stencil_state.depthWriteEnable = VK_FALSE;
+    depth_stencil_state.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+    depth_stencil_state.minDepthBounds = 0.0f;
+    depth_stencil_state.maxDepthBounds = 1.0f;
+
+    Com_Memset( &attachment_blend_state, 0, sizeof( attachment_blend_state ) );
+    attachment_blend_state.blendEnable = VK_TRUE;
+    attachment_blend_state.srcColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
+    attachment_blend_state.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+    attachment_blend_state.colorBlendOp = VK_BLEND_OP_ADD;
+    attachment_blend_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    attachment_blend_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    attachment_blend_state.alphaBlendOp = VK_BLEND_OP_ADD;
+    attachment_blend_state.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
+
+    Com_Memset( &blend_state, 0, sizeof( blend_state ) );
+    blend_state.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    blend_state.attachmentCount = 1;
+    blend_state.pAttachments = &attachment_blend_state;
+
+    Com_Memset( &dynamic_state, 0, sizeof( dynamic_state ) );
+    dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamic_state.dynamicStateCount = ARRAY_LEN( dynamic_state_array );
+    dynamic_state.pDynamicStates = dynamic_state_array;
+
+    Com_Memset( &create_info, 0, sizeof( create_info ) );
+    create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    create_info.stageCount = ARRAY_LEN( shader_stages );
+    create_info.pStages = shader_stages;
+    create_info.pVertexInputState = &vertex_input_state;
+    create_info.pInputAssemblyState = &input_assembly_state;
+    create_info.pViewportState = &viewport_state;
+    create_info.pRasterizationState = &rasterization_state;
+    create_info.pMultisampleState = &multisample_state;
+    create_info.pDepthStencilState = &depth_stencil_state;
+    create_info.pColorBlendState = &blend_state;
+    create_info.pDynamicState = &dynamic_state;
+    create_info.layout = vk.pipeline_layout_post_process;
+    create_info.renderPass = vk.render_pass.main;
+    create_info.basePipelineIndex = -1;
+
+    VK_CHECK( qvkCreateGraphicsPipelines( vk.device, vk.pipelineCache, 1, &create_info, NULL, &pipeline ) );
+    VK_SET_OBJECT_NAME( pipeline, "gtao apply pipeline", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT );
     vk.pipeline_create_count++;
 
     return pipeline;
@@ -2085,8 +2491,18 @@ static void vk_create_gbuffer_pipelines( void )
     if ( !vk.gbufferActive )
         return;
 
-    vk.gbuffer_world_pipeline = vk_create_gbuffer_pipeline( qfalse, qfalse );
-    vk.gbuffer_mdv_pipeline = vk_create_gbuffer_pipeline( qtrue, qfalse );
+    int cull;
+
+    // One set per cullType_t, picked per surface in RB_RenderGBufferSurfList() from
+    // tess.shader->cullType - see the vk.gbuffer_*_pipeline[] declarations in vk_local.h.
+    for ( cull = 0; cull < 3; cull++ ) {
+        vk.gbuffer_world_pipeline[cull] = vk_create_gbuffer_pipeline( qfalse, qfalse, (cullType_t)cull );
+        vk.gbuffer_mdv_pipeline[cull] = vk_create_gbuffer_pipeline( qtrue, qfalse, (cullType_t)cull );
+        // Alpha-tested rigid surfaces. Only the rigid class: an alpha-tested MDV VBO or
+        // Ghoul2 surface still lays down its full silhouette, which is the pre-existing
+        // behaviour and a much smaller population than world grates and foliage.
+        vk.gbuffer_at_pipeline[cull] = vk_create_gbuffer_pipeline( qfalse, qfalse, (cullType_t)cull, qtrue );
+    }
 
     // Re-enabled: the black/warped artifact near weapon (bolted Ghoul2) models was
     // traced to the previous raw-descriptor-bind approach (dedicated, standard-
@@ -2095,16 +2511,35 @@ static void vk_create_gbuffer_pipelines( void )
     // binding mechanism every other Ghoul2 draw already relies on - see that
     // shader's header comment and RB_RenderGBufferSurfList() for the full story.
 #ifdef USE_VBO_GHOUL2
-    if ( vk.vboGhoul2Active )
-        vk.gbuffer_ghoul2_pipeline = vk_create_gbuffer_pipeline( qfalse, qtrue );
+    if ( vk.vboGhoul2Active ) {
+        for ( cull = 0; cull < 3; cull++ )
+            vk.gbuffer_ghoul2_pipeline[cull] = vk_create_gbuffer_pipeline( qfalse, qtrue, (cullType_t)cull );
+    }
 #endif
 
     // Rigid geometry (world, brush models, MDV - anything whose vertices are already
     // in their final object space) gets real motion vectors; the two pipelines above
     // stay created but go unused for those surface types while velocity is on.
     if ( vk.velocityActive ) {
-        vk.gbuffer_rigid_velocity_pipeline = vk_create_gbuffer_velocity_pipeline( qfalse );
-        vk.gbuffer_mdv_velocity_pipeline = vk_create_gbuffer_velocity_pipeline( qtrue );
+        for ( cull = 0; cull < 3; cull++ ) {
+            vk.gbuffer_rigid_velocity_pipeline[cull] = vk_create_gbuffer_velocity_pipeline( qfalse, (cullType_t)cull );
+            vk.gbuffer_mdv_velocity_pipeline[cull] = vk_create_gbuffer_velocity_pipeline( qtrue, (cullType_t)cull );
+            vk.gbuffer_sky_velocity_pipeline[cull] = vk_create_gbuffer_velocity_pipeline( qfalse, (cullType_t)cull, qtrue );
+            vk.gbuffer_at_velocity_pipeline[cull] = vk_create_gbuffer_velocity_pipeline( qfalse, (cullType_t)cull, qfalse, qtrue );
+        }
+    }
+
+    // r_showGBuffer modes 1..3; the depth one is pointless without a sampleable depth,
+    // and the velocity one without an attachment to read.
+    vk.gbuffer_debug_pipeline[0] = vk.gbufferDepthSampled ? vk_create_gbuffer_debug_pipeline( 1 ) : VK_NULL_HANDLE;
+    vk.gbuffer_debug_pipeline[1] = vk_create_gbuffer_debug_pipeline( 2 );
+    vk.gbuffer_debug_pipeline[2] = vk.velocityActive ? vk_create_gbuffer_debug_pipeline( 3 ) : VK_NULL_HANDLE;
+    vk.gbuffer_debug_pipeline[3] = vk.gtaoActive ? vk_create_gbuffer_debug_pipeline( 4 ) : VK_NULL_HANDLE;
+    vk.gbuffer_debug_pipeline[4] = vk.gtaoActive ? vk_create_gbuffer_debug_pipeline( 5 ) : VK_NULL_HANDLE;
+
+    if ( vk.gtaoActive ) {
+        vk.gtao_pipeline = vk_create_gtao_pipeline();
+        vk.gtao_apply_pipeline = vk_create_gtao_apply_pipeline();
     }
 }
 
@@ -3040,29 +3475,61 @@ void vk_destroy_pipelines( qboolean resetCounter )
         vk.capture_pipeline = VK_NULL_HANDLE;
     }
 
-    if ( vk.gbuffer_world_pipeline ) {
-        qvkDestroyPipeline( vk.device, vk.gbuffer_world_pipeline, NULL );
-        vk.gbuffer_world_pipeline = VK_NULL_HANDLE;
+    // One entry per cullType_t - see the vk.gbuffer_*_pipeline[] declarations in vk_local.h.
+    if ( vk.gtao_pipeline ) {
+        qvkDestroyPipeline( vk.device, vk.gtao_pipeline, NULL );
+        vk.gtao_pipeline = VK_NULL_HANDLE;
     }
 
-    if ( vk.gbuffer_mdv_pipeline ) {
-        qvkDestroyPipeline( vk.device, vk.gbuffer_mdv_pipeline, NULL );
-        vk.gbuffer_mdv_pipeline = VK_NULL_HANDLE;
+    if ( vk.gtao_apply_pipeline ) {
+        qvkDestroyPipeline( vk.device, vk.gtao_apply_pipeline, NULL );
+        vk.gtao_apply_pipeline = VK_NULL_HANDLE;
     }
 
-    if ( vk.gbuffer_ghoul2_pipeline ) {
-        qvkDestroyPipeline( vk.device, vk.gbuffer_ghoul2_pipeline, NULL );
-        vk.gbuffer_ghoul2_pipeline = VK_NULL_HANDLE;
+    for ( i = 3; i < 5; i++ ) {
+        if ( vk.gbuffer_debug_pipeline[i] ) {
+            qvkDestroyPipeline( vk.device, vk.gbuffer_debug_pipeline[i], NULL );
+            vk.gbuffer_debug_pipeline[i] = VK_NULL_HANDLE;
+        }
     }
 
-    if ( vk.gbuffer_rigid_velocity_pipeline ) {
-        qvkDestroyPipeline( vk.device, vk.gbuffer_rigid_velocity_pipeline, NULL );
-        vk.gbuffer_rigid_velocity_pipeline = VK_NULL_HANDLE;
-    }
-
-    if ( vk.gbuffer_mdv_velocity_pipeline ) {
-        qvkDestroyPipeline( vk.device, vk.gbuffer_mdv_velocity_pipeline, NULL );
-        vk.gbuffer_mdv_velocity_pipeline = VK_NULL_HANDLE;
+    for ( i = 0; i < 3; i++ ) {
+        if ( vk.gbuffer_world_pipeline[i] ) {
+            qvkDestroyPipeline( vk.device, vk.gbuffer_world_pipeline[i], NULL );
+            vk.gbuffer_world_pipeline[i] = VK_NULL_HANDLE;
+        }
+        if ( vk.gbuffer_mdv_pipeline[i] ) {
+            qvkDestroyPipeline( vk.device, vk.gbuffer_mdv_pipeline[i], NULL );
+            vk.gbuffer_mdv_pipeline[i] = VK_NULL_HANDLE;
+        }
+        if ( vk.gbuffer_ghoul2_pipeline[i] ) {
+            qvkDestroyPipeline( vk.device, vk.gbuffer_ghoul2_pipeline[i], NULL );
+            vk.gbuffer_ghoul2_pipeline[i] = VK_NULL_HANDLE;
+        }
+        if ( vk.gbuffer_rigid_velocity_pipeline[i] ) {
+            qvkDestroyPipeline( vk.device, vk.gbuffer_rigid_velocity_pipeline[i], NULL );
+            vk.gbuffer_rigid_velocity_pipeline[i] = VK_NULL_HANDLE;
+        }
+        if ( vk.gbuffer_mdv_velocity_pipeline[i] ) {
+            qvkDestroyPipeline( vk.device, vk.gbuffer_mdv_velocity_pipeline[i], NULL );
+            vk.gbuffer_mdv_velocity_pipeline[i] = VK_NULL_HANDLE;
+        }
+        if ( vk.gbuffer_sky_velocity_pipeline[i] ) {
+            qvkDestroyPipeline( vk.device, vk.gbuffer_sky_velocity_pipeline[i], NULL );
+            vk.gbuffer_sky_velocity_pipeline[i] = VK_NULL_HANDLE;
+        }
+        if ( vk.gbuffer_at_pipeline[i] ) {
+            qvkDestroyPipeline( vk.device, vk.gbuffer_at_pipeline[i], NULL );
+            vk.gbuffer_at_pipeline[i] = VK_NULL_HANDLE;
+        }
+        if ( vk.gbuffer_at_velocity_pipeline[i] ) {
+            qvkDestroyPipeline( vk.device, vk.gbuffer_at_velocity_pipeline[i], NULL );
+            vk.gbuffer_at_velocity_pipeline[i] = VK_NULL_HANDLE;
+        }
+        if ( vk.gbuffer_debug_pipeline[i] ) {
+            qvkDestroyPipeline( vk.device, vk.gbuffer_debug_pipeline[i], NULL );
+            vk.gbuffer_debug_pipeline[i] = VK_NULL_HANDLE;
+        }
     }
 
     for ( i = 0; i < 2; i++ ) {

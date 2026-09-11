@@ -17,6 +17,12 @@ layout(push_constant) uniform Transform {
 	mat4 mvp;
 };
 
+layout(set = 0, binding = 1) uniform Camera {
+	vec4 u_ViewOrigin;
+	mat4 u_PrevViewProjection;
+	mat4 u_ViewMatrix;
+};
+
 layout(set = 0, binding = 2) uniform Entity {
 	vec4 u_ambientLight;
 	vec4 u_directedLight;
@@ -35,11 +41,12 @@ layout(location = 5) in vec3 in_normal;
 layout(location = 8) in uvec4 in_bones;
 layout(location = 9) in vec4 in_weights;
 
-// World-space, unlike gbuffer.vert/gbuffer_worldvel.vert's view-space output (no
-// separate view-matrix uniform exists to convert into view space here - the normal
-// renderer builds view-space transforms CPU-side per draw instead). Consumers need
-// to know which is which per attachment source until this gets unified.
-layout(location = 0) out vec3 var_WorldNormal;
+// View space, matching gbuffer.vert and gbuffer_worldvel.vert. The whole normal
+// attachment has to hold one space: a consumer sampling it cannot tell which shader
+// wrote a given pixel. u_ViewMatrix comes from the Camera UBO, which this shader was
+// already free to bind - the old world-space output existed only because nothing here
+// had reached for it yet.
+layout(location = 0) out vec3 var_ViewNormal;
 
 out gl_PerVertex {
 	vec4 gl_Position;
@@ -66,5 +73,5 @@ void main() {
 	vec3 normal = mat3(skin_matrix) * in_normal;
 
 	gl_Position = mvp * vec4(position, 1.0);
-	var_WorldNormal = mat3(u_ModelMatrix) * normal;
+	var_ViewNormal = mat3(u_ViewMatrix) * (mat3(u_ModelMatrix) * normal);
 }

@@ -205,35 +205,63 @@ Deliberately minimal and independent from RB_RenderDrawSurfList's big multi-stag
 dlight/glow/refraction machinery: opaque surfaces only, position+normal only, one
 draw per surface (no batching).
 
-World/rigid (SF_FACE/SF_GRID/SF_TRIANGLES/SF_MDV/SF_VBO_MDVMESH) surfaces use a
-push-constant-only pipeline (pipeline_layout_gbuffer) and never touch descriptor
-sets. Ghoul2 (SF_MDX, skinned) surfaces need the shared Entity+Bones UBOs (for
-u_ModelMatrix and bone skinning - see gbuffer_skinned.vert), so they use the standard
-vk.pipeline_layout and drive vk_update_descriptor_offset()/vk_bind_descriptor_sets()
-exactly like every other Ghoul2 draw in the renderer does - vk_draw_geometry() already
-calls vk_bind_descriptor_sets() for us, so setting the offsets (and forcing a rebind
-via vk_reset_descriptor()) on entity/bone-cache change is all that's needed here.
+Surfaces are classified into gbufferSurfClass_t (see below), not driven straight off
+surfaceType_t. Rigid surfaces - the world, brush models, MDV, and CPU-skinned Ghoul2,
+i.e. anything whose vertices reach tess already in their final object space - use a
+push-constant-only pipeline (pipeline_layout_gbuffer) and never touch descriptor sets.
+GPU-skinned Ghoul2 (SF_MDX with a VBO mesh, r_vbo_models 1) needs the shared
+Entity+Bones UBOs (for u_ModelMatrix and bone skinning - see gbuffer_skinned.vert), so
+it uses the standard vk.pipeline_layout and drives vk_update_descriptor_offset()/
+vk_bind_descriptor_sets() exactly like every other Ghoul2 draw in the renderer does -
+vk_draw_geometry() already calls vk_bind_descriptor_sets() for us, so setting the
+offsets (and forcing a rebind via vk_reset_descriptor()) on entity/bone-cache change is
+all that's needed here.
 (An earlier version raw-bound a dedicated, vk.pipeline_layout-incompatible layout
 instead, mirroring RB_DrawShadowVolumeGPU() in tr_ghoul2.cpp - that produced visible
 corruption on bolted/attached Ghoul2 models (weapons); root cause not fully pinned
 down, but reusing the already-proven standard binding path sidesteps it entirely.)
 
-When r_velocityBuffer is on, every rigid surface (world, brush models, MDV - anything
-whose vertices are already in their final object space) goes through the velocity
-pipelines instead, which emit a real screen-space motion vector from
+Every pipeline exists in three cull variants, indexed by cullType_t and picked per
+surface off tess.shader->cullType, matching create_pipeline()'s choice in the main pass
+so a surface covers the same pixels in both. No mirror variant is needed: RB_DrawSurfs()
+only runs this pass for the primary view.
+
+When r_velocityBuffer is on, every rigid surface goes through the velocity pipelines
+instead, which emit a real screen-space motion vector from
 proj_prev * view_prev * model_now vs. this frame's mvp. The previous view/projection
 pair is vk_world.prevWorldModelView/prevProjection, committed once per displayed frame
 back in RB_DrawSurfs. That accounts for camera motion exactly and treats the object
 itself as having stayed put - no per-entity transform history is tracked yet, so a
-moving prop reports only the camera's share of its screen motion (still strictly
-better than the zero it used to report).
+moving prop (and a CPU-skinned character's own animation) reports only the camera's
+share of its screen motion (still strictly better than the zero it used to report).
 
-Ghoul2 (SF_MDX) has no velocity variant: it rides vk.pipeline_layout, whose push
-constant range is only 64 bytes, and correct skinned motion vectors would need
-previous-frame bone matrices as well. Those surfaces keep the zero-motion placeholder
-in gbuffer_velocity.frag, matching the attachment's clear value.
+GPU-skinned Ghoul2 gets the same treatment through a different route: it has to stay on
+vk.pipeline_layout (a layout with a wider push constant range would not be
+push-constant compatible with it, which disturbs the descriptor sets
+vk_bind_descriptor_sets() binds with it - the trap that corrupted bolted models), so
+proj_prev * view_prev reaches gbuffer_skinned_vel.vert through the Camera UBO and gets
+composed with u_ModelMatrix in the shader rather than CPU-side.
+
+GPU-skinned Ghoul2 is the one surface type with a complete motion vector: CBoneCache
+keeps last frame's pose and model->world matrix, RB_TransformBones() rolls them forward
+and ships them in the Bones UBO, and gbuffer_skinned_vel.vert skins the vertex twice -
+so camera, entity movement and animation all land in the vector. Everything else (world,
+brush models, MDV, CPU-skinned Ghoul2 under r_vbo_models 0) still composes model_now and
+reports only the camera's share of its own motion; that would need per-entity transform
+history, which nothing stores.
 ==================
 */
+
+// How RB_RenderGBufferSurfList() has to feed a surface to the GPU. Not the same thing
+// as surfaceType_t: SF_MDX lands in either GB_GHOUL2_VBO or GB_RIGID depending on
+// whether r_vbo_models gave it a VBO mesh to skin on the GPU.
+typedef enum {
+	GB_RIGID,		// vertices already in final object space, plain vec4 stride:
+					// tess.xyz/tess.normal, the world VBO, or CPU-skinned Ghoul2
+	GB_MDV_VBO,		// SF_VBO_MDVMESH: rigid too, but its own packed vertex stride
+	GB_GHOUL2_VBO	// SF_MDX with a VBO mesh: GPU skinning, needs the Entity+Bones UBOs
+} gbufferSurfClass_t;
+
 static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	int						i;
 	int						entityNum, oldEntityNum;
@@ -243,6 +271,10 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 	const drawSurf_t		*drawSurf;
 	VkPipeline				pipeline;
 	VkPipelineLayout		pipelineLayout;
+	gbufferSurfClass_t		surfClass;
+	qboolean				isSky, oldIsSky;
+	const shaderStage_t		*atStage;
+	cullType_t				cull;
 	qboolean				useVelocity;
 	Vk_Depth_Range			depthRange;
 	vkGBufferPushConstants_t			pushData;
@@ -252,54 +284,65 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 #endif
 
 	oldEntityNum = -1;
+	oldIsSky = qfalse;
 	depthRange = DEPTH_RANGE_NORMAL;
 	backEnd.currentEntity = &tr.worldEntity;
 
 	for ( i = 0, drawSurf = drawSurfs; i < numDrawSurfs; i++, drawSurf++ ) {
 		R_DecomposeSort( drawSurf->sort, &entityNum, &shader, &fogNum, &dlighted );
 
-		if ( shader->sort != SS_OPAQUE )
-			continue;
+		// Sky is let through only to lay down a motion vector, and only when there is a
+		// velocity attachment to write it to. Its pipeline writes no depth, so it stays out
+		// of the depth+normal buffer and cannot occlude anything.
+		isSky = (qboolean)( vk.velocityActive && shader->sort == SS_ENVIRONMENT );
 
-		pipelineLayout = vk.pipeline_layout_gbuffer;
-		useVelocity = qfalse;
+		if ( shader->sort != SS_OPAQUE && !isSky )
+			continue;
 
 		switch ( *drawSurf->surface ) {
 			case SF_FACE:
 			case SF_GRID:
 			case SF_TRIANGLES:
 			case SF_MDV:
-				if ( vk.gbuffer_rigid_velocity_pipeline != VK_NULL_HANDLE ) {
-					pipeline = vk.gbuffer_rigid_velocity_pipeline;
-					pipelineLayout = vk.pipeline_layout_gbuffer_velocity;
-					useVelocity = qtrue;
-				} else {
-					pipeline = vk.gbuffer_world_pipeline;
-				}
+				surfClass = GB_RIGID;
 				break;
 			case SF_VBO_MDVMESH:
-				if ( vk.gbuffer_mdv_velocity_pipeline != VK_NULL_HANDLE ) {
-					pipeline = vk.gbuffer_mdv_velocity_pipeline;
-					pipelineLayout = vk.pipeline_layout_gbuffer_velocity;
-					useVelocity = qtrue;
-				} else {
-					pipeline = vk.gbuffer_mdv_pipeline;
-				}
+				surfClass = GB_MDV_VBO;
 				break;
-#ifdef USE_VBO_GHOUL2
 			case SF_MDX:
-				if ( vk.gbuffer_ghoul2_pipeline == VK_NULL_HANDLE )
-					continue; // r_vbo_models 0: no VBO-backed Ghoul2 path to draw from here
-				pipeline = vk.gbuffer_ghoul2_pipeline;
-				pipelineLayout = vk.pipeline_layout;
+#ifdef USE_VBO_GHOUL2
+				if ( ((const CRenderableSurface *)drawSurf->surface)->vboMesh != NULL ) {
+					if ( vk.gbuffer_ghoul2_pipeline[0] == VK_NULL_HANDLE )
+						continue;
+					surfClass = GB_GHOUL2_VBO;
+					break;
+				}
+#endif
+#ifdef _G2_GORE
+				// r_vbo_models 0 - the default - leaves vboMesh NULL, and RB_SurfaceGhoul()
+				// then CPU-skins into tess.xyz/tess.normal in model space: exactly the
+				// layout the rigid pipelines already consume. Drawing it here is what keeps
+				// every character in the G-buffer; skipping it left the player and every NPC
+				// missing from the depth+normal buffer in the stock configuration.
+				//
+				// Gated on _G2_GORE because without it RB_SurfaceGhoul() deletes the
+				// CRenderableSurface on its way through (see tr_ghoul2.cpp) - fine when the
+				// main pass is the only caller, a use-after-free once this pass tessellates
+				// the same surface first.
+				surfClass = GB_RIGID;
 				break;
+#else
+				continue;
 #endif
 			default:
 				// SF_SPRITES, SF_FLARE, SF_ENTITY, SF_POLY: not covered by this pass.
 				continue;
 		}
 
-		if ( entityNum != oldEntityNum ) {
+		// isSky is part of the condition because sky and world share the world entity: the
+		// block below is what builds prevMvp, and sky needs a different one. Without this the
+		// first surface of the frame would decide the matrix for both kinds.
+		if ( entityNum != oldEntityNum || isSky != oldIsSky ) {
 			depthRange = DEPTH_RANGE_NORMAL;
 
 			if ( entityNum == REFENTITYNUM_WORLD ) {
@@ -351,7 +394,27 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 
 					Com_Memcpy( prevProj, vk_world.prevProjection, 64 );
 					prevProj[5] = -prevProj[5];
-					myGlMultMatrix( backEnd.ori.modelMatrix, vk_world.prevWorldModelView, prevModelView );
+
+					if ( isSky ) {
+						// A sky is at infinity: its previous screen position is where the SAME
+						// direction pointed from the previous camera, which is this frame's world
+						// position translated by (prevOrigin - origin). Folding that shift in here
+						// leaves pure rotation in the motion vector and cancels the parallax the
+						// finite sky brushes would otherwise report on a camera move.
+						float skyShift[16];
+
+						Matrix16Identity( skyShift );
+						skyShift[12] = vk_world.prevViewOrigin[0] - backEnd.viewParms.ori.origin[0];
+						skyShift[13] = vk_world.prevViewOrigin[1] - backEnd.viewParms.ori.origin[1];
+						skyShift[14] = vk_world.prevViewOrigin[2] - backEnd.viewParms.ori.origin[2];
+
+						myGlMultMatrix( backEnd.ori.modelMatrix, skyShift, prevModelView );
+						myGlMultMatrix( prevModelView, vk_world.prevWorldModelView, prevModelView );
+					}
+					else {
+						myGlMultMatrix( backEnd.ori.modelMatrix, vk_world.prevWorldModelView, prevModelView );
+					}
+
 					myGlMultMatrix( prevModelView, prevProj, velocityPushData.prevMvp );
 				} else {
 					// First frame after init/map load: no history yet, so report
@@ -361,21 +424,26 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 			}
 
 #ifdef USE_VBO_GHOUL2
-			if ( *drawSurf->surface == SF_MDX ) {
+			if ( surfClass == GB_GHOUL2_VBO ) {
 				// u_ModelMatrix for this (possibly just-changed) entity - same
 				// precomputed offset RB_RenderDrawSurfList uses, see
 				// vk_update_entity_constants() in tr_backend.cpp.
 				vk_reset_descriptor( VK_DESC_UNIFORM );
 				vk_update_descriptor( VK_DESC_UNIFORM, vk.cmd->uniform_descriptor );
 				vk_update_descriptor_offset( VK_DESC_UNIFORM_ENTITY_BINDING, vk.cmd->entity_ubo_offset[entityNum] );
+				// gbuffer_skinned_vel.vert reads u_PrevViewProjection out of the Camera UBO.
+				// Nothing else in this pass sets that offset, so without this the shader would
+				// address whatever slot the previous frame or view happened to leave behind.
+				vk_update_descriptor_offset( VK_DESC_UNIFORM_CAMERA_BINDING, vk.cmd->camera_ubo_offset );
 			}
 #endif
 
 			oldEntityNum = entityNum;
+			oldIsSky = isSky;
 		}
 
 #ifdef USE_VBO_GHOUL2
-		if ( *drawSurf->surface == SF_MDX ) {
+		if ( surfClass == GB_GHOUL2_VBO ) {
 			CBoneCache *boneCache = ((CRenderableSurface *)drawSurf->surface)->boneCache;
 
 			if ( boneCache != oldBoneCache ) {
@@ -395,11 +463,93 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 		}
 #endif
 
+#ifdef USE_VBO
+		// RB_BeginSurface() clears tess.numIndexes but NOT tess.vbo_world_index/vbo_model,
+		// because in the main pass RB_EndSurface() is what closes a surface out. This loop
+		// never calls RB_EndSurface(), so without this reset the world-VBO branch in
+		// RB_SurfaceFace()/Grid()/Triangles() sees a leftover non-zero vbo_world_index,
+		// skips its transition block - the one that sets the dummy numIndexes = 1 and calls
+		// VBO_ClearQueue() - and every world surface after the first is then dropped by the
+		// numIndexes == 0 test below.
+		VBO_UnBind();
+		tess.vbo_model = nullptr;
+		tess.ibo_model = nullptr;
+#endif
+
 		RB_BeginSurface( shader, fogNum );
 		rb_surfaceTable[*drawSurf->surface]( drawSurf->surface );
 
 		if ( tess.numIndexes == 0 )
 			continue;
+
+#ifdef USE_VBO
+		// Deforms only ever apply to immediate geometry: a shader with numDeforms is not
+		// static, so it never reaches a VBO path in the first place.
+		if ( tess.shader->numDeforms && !tess.vbo_world_index && !tess.vbo_model )
+#else
+		if ( tess.shader->numDeforms )
+#endif
+		{
+			// RB_StageIteratorGeneric() does this for the main pass, and this loop bypasses
+			// it - so without this a waving or moving surface sat at its undeformed position
+			// in the G-buffer while the main pass drew it somewhere else.
+			RB_DeformTessGeometry();
+		}
+
+		// An alpha-tested surface has to cut its silhouette or it lays down a solid
+		// rectangle of depth - a grate reads as a wall to anything consuming this buffer.
+		// Only the rigid class is handled; see vk_create_gbuffer_pipelines().
+		atStage = NULL;
+
+		if ( surfClass == GB_RIGID && !isSky && tess.xstages ) {
+			int stageIdx;
+
+			for ( stageIdx = 0; stageIdx < tess.shader->numUnfoggedPasses; stageIdx++ ) {
+				const shaderStage_t *st = tess.xstages[stageIdx];
+
+				if ( st && st->active && ( st->stateBits & GLS_ATEST_BITS ) && st->bundle[0].image[0] ) {
+					atStage = st;
+#ifdef USE_VBO
+					// Which stage's texcoords vk_bind_geometry() should pull out of the VBO.
+					tess.vboStage = stageIdx;
+#endif
+					break;
+				}
+			}
+		}
+
+		// Pipeline choice waits until here on purpose: cullType has to come off
+		// tess.shader, the remapped shader RB_BeginSurface() just resolved, so this
+		// surface is culled exactly the way the main pass will cull it. Reading
+		// shader->cullType before the remap would disagree on remapped shaders.
+		cull = tess.shader->cullType;
+
+		if ( surfClass == GB_GHOUL2_VBO ) {
+			// This one handle covers both cases: vk_create_gbuffer_pipeline() builds it from
+			// gbuffer_skinned_vel.vert + gbuffer_worldvel.frag when r_velocityBuffer is on,
+			// and from gbuffer_skinned.vert otherwise. Either way it stays on
+			// vk.pipeline_layout and its 64-byte mvp push constant: the previous-frame camera
+			// rides in the Camera UBO and the pose/placement history in the Bones UBO, rather
+			// than a wider push range. See vkUniformCamera_t and vkUniformBones_t.
+			pipeline = vk.gbuffer_ghoul2_pipeline[cull];
+			pipelineLayout = vk.pipeline_layout;
+			useVelocity = qfalse;
+		}
+		else if ( vk.velocityActive ) {
+			pipeline = atStage						? vk.gbuffer_at_velocity_pipeline[cull]
+					 : isSky						? vk.gbuffer_sky_velocity_pipeline[cull]
+					 : ( surfClass == GB_MDV_VBO )	? vk.gbuffer_mdv_velocity_pipeline[cull]
+													: vk.gbuffer_rigid_velocity_pipeline[cull];
+			pipelineLayout = atStage ? vk.pipeline_layout_gbuffer_at_velocity : vk.pipeline_layout_gbuffer_velocity;
+			useVelocity = qtrue;
+		}
+		else {
+			pipeline = atStage					   ? vk.gbuffer_at_pipeline[cull]
+					 : ( surfClass == GB_MDV_VBO ) ? vk.gbuffer_mdv_pipeline[cull]
+												   : vk.gbuffer_world_pipeline[cull];
+			pipelineLayout = atStage ? vk.pipeline_layout_gbuffer_at : vk.pipeline_layout_gbuffer;
+			useVelocity = qfalse;
+		}
 
 		if ( pipeline != vk.cmd->last_pipeline ) {
 			qvkCmdBindPipeline( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
@@ -421,7 +571,7 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( velocityPushData ), &velocityPushData );
 		}
 #ifdef USE_VBO_GHOUL2
-		else if ( *drawSurf->surface == SF_MDX ) {
+		else if ( surfClass == GB_GHOUL2_VBO ) {
 			// vk.pipeline_layout's push constant range is 64 bytes (mat4 mvp) - see
 			// gbuffer_skinned.vert, which gets modelView-equivalent data from the
 			// Entity UBO instead (u_ModelMatrix, bound above).
@@ -434,9 +584,55 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( pushData ), &pushData );
 		}
 
-		vk_bind_geometry( TESS_XYZ | TESS_NNN );
+#ifdef USE_VBO
+		// vk_draw_geometry() -> VBO_RenderIBOItems() replays whatever VBO_PrepareQueues()
+		// last built, and in the main pass that call sits in RB_StageIteratorGeneric() -
+		// which this pass bypasses entirely. Without it we would redraw the previous
+		// frame's index ranges, and its host-visible range points into a dynamic vertex
+		// buffer this frame has already overwritten: undefined index data, not just a
+		// wrong picture. One surface is queued at a time here (no batching), so this
+		// resolves to a single item.
+		if ( tess.vbo_world_index )
+			VBO_PrepareQueues();
+#endif
+
+		// Depth bias is dynamic state on these pipelines, so it has to be set for every
+		// draw, not only the offset ones - an unset dynamic state carries over from whatever
+		// was bound last. Zero for ordinary surfaces is a no-op; decals get the same nudge
+		// the main pass gives them, so they land at the same depth in both.
+		qvkCmdSetDepthBias( vk.cmd->command_buffer,
+			tess.shader->polygonOffset ? r_offsetUnits->value : 0.0f, 0.0f,
+			tess.shader->polygonOffset ? r_offsetFactor->value : 0.0f );
+
+		if ( atStage ) {
+			// The immediate path needs texcoords generated - RB_StageIteratorGeneric() does
+			// this for the main pass and this loop bypasses it. The VBO path reads them
+			// straight out of the buffer at tess.vboStage's offset instead.
+#ifdef USE_VBO
+			if ( !tess.vbo_world_index )
+#endif
+				ComputeTexCoords( 0, &atStage->bundle[0] );
+
+			qvkCmdBindDescriptorSets( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+				pipelineLayout, 0, 1, &atStage->bundle[0].image[0]->descriptor_set, 0, NULL );
+		}
+
+		vk_bind_geometry( atStage ? ( TESS_XYZ | TESS_NNN | TESS_ST0 ) : ( TESS_XYZ | TESS_NNN ) );
 		vk_bind_index();
 		vk_draw_geometry( depthRange, qtrue );
+
+		if ( atStage ) {
+			// That bind used an alpha-test layout, which is not compatible with
+			// vk.pipeline_layout - so a Ghoul2 surface later in this list, or the main pass
+			// after it, must not trust the tracker's cached bindings.
+			uint32_t d;
+
+			for ( d = 0; d < VK_DESC_COUNT; d++ )
+				vk_reset_descriptor( d );
+
+			vk.cmd->descriptor_set.end = 0;
+			vk.cmd->descriptor_set.start = ~0U;
+		}
 	}
 
 	// tess is shared with the main pass that runs right after this one, and this loop
@@ -484,6 +680,14 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	unsigned int	oldSort;
 	float			oldShaderSort, originalTime;
 	CBoneCache		*oldBoneCache = nullptr;
+
+	// Only for the primary view's own opaque pass: portal/mirror sub-views and the glow
+	// pass have no G-buffer of their own, and RDF_NOWORLDMODEL scenes (HUD model icons)
+	// were never extracted either - see the guard on RB_RenderGBufferSurfList's caller.
+	qboolean		didGtaoPass = (qboolean)!( vk.gtaoActive
+							&& !backEnd.isGlowPass
+							&& backEnd.viewParms.portalView == PV_NONE
+							&& !( backEnd.refdef.rdflags & RDF_NOWORLDMODEL ) );
 
 #ifdef USE_VANILLA_SHADOWFINISH
 	qboolean		didShadowPass = qfalse;
@@ -584,6 +788,17 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 				didShadowPass = qtrue;
 			}
 #endif
+			// The opaque geometry is complete and RB_EndSurface() above has flushed it, so
+			// this is where the AO gets multiplied in - before anything translucent, which
+			// must not be darkened by occlusion computed from opaque depth alone. Sky is
+			// already safe: it sorts ahead of SS_OPAQUE and the AO buffer holds 1.0 wherever
+			// the extraction pass wrote nothing.
+			if ( !didGtaoPass && shader && shader->sort > SS_OPAQUE )
+			{
+				vk_apply_gtao();
+				didGtaoPass = qtrue;
+			}
+
 			RB_BeginSurface(shader, fogNum);
 			oldShader = shader;
 			oldFogNum = fogNum;
@@ -1148,6 +1363,12 @@ static void vk_update_camera_constants( const trRefdef_t *refdef, const viewParm
 	Com_Memcpy( uniform.viewOrigin, refdef->vieworg, sizeof( vec3_t) );
 	uniform.viewOrigin[3] = refdef->floatTime;
 
+	if ( vk.gbufferActive ) {
+		// Lets the skinned gbuffer shaders bring their normal into view space, so the
+		// normal attachment holds one space throughout.
+		Matrix16Copy( viewParms->world.modelViewMatrix, uniform.viewMatrix );
+	}
+
 	/*
 	const float* p = viewParms->projectionMatrix;
 	float proj[16];
@@ -1157,6 +1378,27 @@ static void vk_update_camera_constants( const trRefdef_t *refdef, const viewParm
 	//myGlMultMatrix(vk_world.modelview_transform, proj, uniform.mvp);
 	myGlMultMatrix(viewParms->world.modelViewMatrix, proj, uniform.mvp);
 	*/
+
+	if ( vk.velocityActive ) {
+		// Read here, before RB_DrawSurfs() overwrites vk_world.prev* with THIS frame's
+		// transform after the gbuffer pass - so this is genuinely last frame's camera.
+		// gbuffer_skinned_vel.vert composes it with u_ModelMatrix to place a skinned
+		// vertex where it would have been last frame had only the camera moved; the rigid
+		// pipelines get the equivalent composed CPU-side as prevMvp.
+		float proj[16];
+
+		if ( vk_world.prevViewValid ) {
+			Com_Memcpy( proj, vk_world.prevProjection, 64 );
+			proj[5] = -proj[5];
+			myGlMultMatrix( vk_world.prevWorldModelView, proj, uniform.prevViewProjection );
+		} else {
+			// First frame after init/map load: no history, so hand the shader this frame's
+			// own transform and let the motion vector come out as zero.
+			Com_Memcpy( proj, viewParms->projectionMatrix, 64 );
+			proj[5] = -proj[5];
+			myGlMultMatrix( viewParms->world.modelViewMatrix, proj, uniform.prevViewProjection );
+		}
+	}
 
 	vk.cmd->camera_ubo_offset = vk_append_uniform( &uniform, sizeof(uniform), vk.uniform_camera_item_size );
 }
@@ -1335,6 +1577,12 @@ const void	*RB_DrawSurfs( const void *data ) {
 		vk_begin_gbuffer_extract_render_pass();
 		RB_RenderGBufferSurfList( cmd->drawSurfs, cmd->numDrawSurfs );
 		vk_end_render_pass();
+
+		// The gbuffer's first consumer. Has to sit here, while the depth and normal
+		// attachments rest in their readable layouts and before the main pass reopens.
+		if ( vk.gtaoActive )
+			vk_render_gtao( &backEnd.viewParms );
+
 		vk_begin_main_render_pass( qfalse );
 
 		if ( vk.velocityActive ) {
@@ -1344,6 +1592,7 @@ const void	*RB_DrawSurfs( const void *data ) {
 			// once per real displayed frame, matching this whole block's guard.
 			Com_Memcpy( vk_world.prevWorldModelView, backEnd.viewParms.world.modelViewMatrix, 64 );
 			Com_Memcpy( vk_world.prevProjection, backEnd.viewParms.projectionMatrix, 64 );
+			VectorCopy( backEnd.viewParms.ori.origin, vk_world.prevViewOrigin );
 			vk_world.prevViewValid = qtrue;
 		}
 	}

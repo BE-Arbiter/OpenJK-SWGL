@@ -203,8 +203,38 @@ void vk_create_shader_modules( void )
         {
             vk.shaders.gbuffer_skinned_vs = SHADER_MODULE(gbuffer_skinned_vert_spv);
             VK_SET_OBJECT_NAME(vk.shaders.gbuffer_skinned_vs, "gbuffer extraction skinned vertex module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+
+            if ( vk.velocityActive )
+            {
+                vk.shaders.gbuffer_skinned_velocity_vs = SHADER_MODULE(gbuffer_skinned_vel_vert_spv);
+                VK_SET_OBJECT_NAME(vk.shaders.gbuffer_skinned_velocity_vs, "gbuffer extraction skinned velocity vertex module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+            }
         }
 #endif
+
+        vk.shaders.gbuffer_debug_fs = SHADER_MODULE(gbuffer_debug_frag_spv);
+
+        vk.shaders.gbuffer_at_vs = SHADER_MODULE(gbuffer_at_vert_spv);
+        vk.shaders.gbuffer_at_fs = SHADER_MODULE(gbuffer_at_frag_spv);
+        VK_SET_OBJECT_NAME(vk.shaders.gbuffer_at_vs, "gbuffer alpha test vertex module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+        VK_SET_OBJECT_NAME(vk.shaders.gbuffer_at_fs, "gbuffer alpha test fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+
+        if ( vk.velocityActive )
+        {
+            vk.shaders.gbuffer_at_velocity_vs = SHADER_MODULE(gbuffer_atvel_vert_spv);
+            vk.shaders.gbuffer_at_velocity_fs = SHADER_MODULE(gbuffer_atvel_frag_spv);
+            VK_SET_OBJECT_NAME(vk.shaders.gbuffer_at_velocity_vs, "gbuffer alpha test velocity vertex module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+            VK_SET_OBJECT_NAME(vk.shaders.gbuffer_at_velocity_fs, "gbuffer alpha test velocity fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+        }
+        VK_SET_OBJECT_NAME(vk.shaders.gbuffer_debug_fs, "gbuffer debug view fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+
+        if ( vk.gtaoActive )
+        {
+            vk.shaders.gtao_fs = SHADER_MODULE(gtao_frag_spv);
+            vk.shaders.gtao_apply_fs = SHADER_MODULE(gtao_apply_frag_spv);
+            VK_SET_OBJECT_NAME(vk.shaders.gtao_fs, "gtao fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+            VK_SET_OBJECT_NAME(vk.shaders.gtao_apply_fs, "gtao apply fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+        }
 
         if ( vk.velocityActive )
         {
@@ -331,6 +361,14 @@ void vk_destroy_shader_modules( void )
     qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_vs, NULL);
     qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_fs, NULL);
     qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_skinned_vs, NULL);
+    qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_skinned_velocity_vs, NULL);
+    qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_debug_fs, NULL);
+    qvkDestroyShaderModule(vk.device, vk.shaders.gtao_fs, NULL);
+    qvkDestroyShaderModule(vk.device, vk.shaders.gtao_apply_fs, NULL);
+    qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_at_vs, NULL);
+    qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_at_fs, NULL);
+    qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_at_velocity_vs, NULL);
+    qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_at_velocity_fs, NULL);
     qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_velocity_vs, NULL);
     qvkDestroyShaderModule(vk.device, vk.shaders.gbuffer_velocity_fs, NULL);
 

@@ -13,11 +13,9 @@ void main() {
 	vec3 n = normalize(var_ViewNormal);
 	out_normal = vec4(n * 0.5 + 0.5, 0.0);
 
-	// Ghoul2 (skinned) only - every rigid surface goes through gbuffer_worldvel.frag
-	// instead, which computes a real motion vector. Correct skinned velocity needs
-	// previous-frame bone matrices (and a push constant range vk.pipeline_layout
-	// doesn't have), neither of which exists yet. Zero == "no motion", matching this
-	// attachment's own clear value, so it stays a well-defined placeholder rather
-	// than undefined content.
+	// Unused at runtime as of the skinned velocity path: with r_velocityBuffer on, rigid
+	// surfaces take gbuffer_worldvel.frag and Ghoul2 now does too (gbuffer_skinned_vel.vert).
+	// Kept as the well-defined zero-motion fallback for any future gbuffer pipeline that
+	// needs the two-attachment signature without a real motion vector.
 	out_velocity = vec2(0.0);
 }

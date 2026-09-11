@@ -243,7 +243,8 @@ static void create_color_attachment( uint32_t width, uint32_t height, VkSampleCo
 }
 
 static void create_depth_attachment( uint32_t width, uint32_t height, VkSampleCountFlagBits samples,
-    VkImage *image, VkImageView *image_view, qboolean allowTransient, qboolean sampled = qfalse )
+    VkImage *image, VkImageView *image_view, qboolean allowTransient, qboolean sampled = qfalse,
+    VkFormat format = VK_FORMAT_UNDEFINED, VkImageLayout image_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL )
 {
     VkImageCreateInfo desc;
     VkMemoryRequirements memory_requirements;
@@ -255,7 +256,7 @@ static void create_depth_attachment( uint32_t width, uint32_t height, VkSampleCo
     desc.pNext = NULL;
     desc.flags = 0;
     desc.imageType = VK_IMAGE_TYPE_2D;
-    desc.format = vk.depth_format;
+    desc.format = ( format == VK_FORMAT_UNDEFINED ) ? vk.depth_format : format;
     desc.extent.width = width;
     desc.extent.height = height;
     desc.extent.depth = 1;
@@ -276,14 +277,16 @@ static void create_depth_attachment( uint32_t width, uint32_t height, VkSampleCo
     desc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     image_aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT;
-    if ( glConfig.stencilBits > 0 )
+    // Only when the format actually carries stencil - the gbuffer's depth is stencil-free
+    // precisely so its view stays single-aspect and therefore sampleable.
+    if ( glConfig.stencilBits > 0 && desc.format == vk.depth_format )
         image_aspect_flags |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
     VK_CHECK(qvkCreateImage(vk.device, &desc, NULL, image));
 
     vk_get_image_memory_requirements(*image, &memory_requirements);
 
-    vk_add_attachment_desc( *image, image_view, desc.usage, &memory_requirements, vk.depth_format, image_aspect_flags, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL );
+    vk_add_attachment_desc( *image, image_view, desc.usage, &memory_requirements, desc.format, image_aspect_flags, image_layout );
 }
 
 void vk_create_attachments( void )
@@ -376,12 +379,23 @@ void vk_create_attachments( void )
             create_color_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT, vk.normal_format,
                 usage, &vk.gbuffer_normal_image, &vk.gbuffer_normal_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );
 
+            // Left in a shader-readable layout so a consumer (GTAO, contact shadows, the
+            // r_showGBuffer debug view) can sample it straight after the pass; the render
+            // pass still transitions it to ATTACHMENT_OPTIMAL for its own subpass.
             create_depth_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT,
-                &vk.gbuffer_depth_image, &vk.gbuffer_depth_image_view, qfalse, qtrue );
+                &vk.gbuffer_depth_image, &vk.gbuffer_depth_image_view, qfalse, qtrue,
+                vk.gbuffer_depth_format,
+                vk.gbufferDepthSampled ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
+                                       : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL );
 
             if ( vk.velocityActive ) {
                 create_color_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT, vk.velocity_format,
                     usage, &vk.gbuffer_velocity_image, &vk.gbuffer_velocity_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );
+            }
+
+            if ( vk.gtaoActive ) {
+                create_color_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT, vk.gtao_format,
+                    usage, &vk.gtao_image, &vk.gtao_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );
             }
         }
 
@@ -558,6 +572,13 @@ void vk_destroy_attachments( void )
         qvkDestroyImageView(vk.device, vk.gbuffer_depth_image_view, NULL);
         vk.gbuffer_depth_image = VK_NULL_HANDLE;
         vk.gbuffer_depth_image_view = VK_NULL_HANDLE;
+    }
+
+    if (vk.gtao_image) {
+        qvkDestroyImage(vk.device, vk.gtao_image, NULL);
+        qvkDestroyImageView(vk.device, vk.gtao_image_view, NULL);
+        vk.gtao_image = VK_NULL_HANDLE;
+        vk.gtao_image_view = VK_NULL_HANDLE;
     }
 
     if (vk.gbuffer_velocity_image) {

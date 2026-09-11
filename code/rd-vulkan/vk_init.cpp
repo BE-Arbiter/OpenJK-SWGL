@@ -574,6 +574,24 @@ void vk_initialize( void )
 		ri.Printf( PRINT_WARNING, "...ignoring r_velocityBuffer: requires \\r_depthPrepass 1 (and \\r_fbo 1)\n" );
 	}
 
+	// GTAO reads the gbuffer's depth attachment, so it needs both the pass itself and a
+	// sampleable depth format - see get_gbuffer_depth_format().
+	if ( vk.gbufferActive && vk.gbufferDepthSampled && r_gtao->integer ) {
+		vk.gtaoActive = qtrue;
+	}
+	else if ( r_gtao->integer ) {
+		ri.Printf( PRINT_WARNING, "...ignoring r_gtao: requires \\r_depthPrepass 1 and a sampleable depth format\n" );
+	}
+
+	// One line saying what actually came up, so "is it on?" never has to be inferred from
+	// the picture. Every flag here is latched, so this is the whole truth for the session.
+	if ( vk.gbufferActive ) {
+		ri.Printf( PRINT_ALL, "...G-buffer: depth+normal%s%s (depth %ssampleable)\n",
+			vk.velocityActive ? " + velocity" : "",
+			vk.gtaoActive ? " + GTAO" : "",
+			vk.gbufferDepthSampled ? "" : "NOT " );
+	}
+
 	// Screenmap
 	vk.screenMapSamples = MIN(vkMaxSamples, VK_SAMPLE_COUNT_4_BIT);
 	vk.screenMapWidth = (float)glConfig.vidWidth / 16.0;

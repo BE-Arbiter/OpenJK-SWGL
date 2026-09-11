@@ -549,6 +549,36 @@ void vk_update_attachment_descriptors( void ) {
 			qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
 		}
 
+		// gbuffer attachments. The depth one rests in DEPTH_STENCIL_READ_ONLY_OPTIMAL
+		// rather than SHADER_READ_ONLY_OPTIMAL - that is the layout its render pass leaves
+		// it in, and what the descriptor has to name.
+		if ( vk.gbufferActive )
+		{
+			info.imageView = vk.gbuffer_normal_image_view;
+			desc.dstSet = vk.gbuffer_normal_descriptor;
+			qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
+
+			if ( vk.gbufferDepthSampled ) {
+				info.imageView = vk.gbuffer_depth_image_view;
+				info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+				desc.dstSet = vk.gbuffer_depth_descriptor;
+				qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
+				info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			}
+
+			if ( vk.velocityActive ) {
+				info.imageView = vk.gbuffer_velocity_image_view;
+				desc.dstSet = vk.gbuffer_velocity_descriptor;
+				qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
+			}
+
+			if ( vk.gtaoActive ) {
+				info.imageView = vk.gtao_image_view;
+				desc.dstSet = vk.gtao_descriptor;
+				qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
+			}
+		}
+
 		// screenmap
 		sd.gl_mag_filter = sd.gl_min_filter = GL_LINEAR;
 		sd.max_lod_1_0 = qfalse;
@@ -649,6 +679,20 @@ void vk_init_descriptors( void ) {
 		if ( vk.bloomActive ) {
 			for ( i = 0; i < ARRAY_LEN( vk.bloom_image_descriptor ); i++ )
 				VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.bloom_image_descriptor[i] ) );
+		}
+
+		// gbuffer attachments
+		if ( vk.gbufferActive ) {
+			VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.gbuffer_normal_descriptor ) );
+
+			if ( vk.gbufferDepthSampled )
+				VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.gbuffer_depth_descriptor ) );
+
+			if ( vk.velocityActive )
+				VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.gbuffer_velocity_descriptor ) );
+
+			if ( vk.gtaoActive )
+				VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.gtao_descriptor ) );
 		}
 
 		// dglow images
