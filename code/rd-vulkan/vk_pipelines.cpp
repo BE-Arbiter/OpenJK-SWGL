@@ -248,10 +248,10 @@ void vk_create_pipeline_layout( void )
     // from the standard mvp-only one, so it needs its own layout.
     if ( vk.geometryShader )
     {
-        VkPushConstantRange shadow_push_range;
-        shadow_push_range.stageFlags = VK_SHADER_STAGE_GEOMETRY_BIT;
-        shadow_push_range.offset = 0;
-        shadow_push_range.size = 84; // mat4 mvp (64) + vec3 lightDir + float groundOffset (16) + int edgeMask
+        VkPushConstantRange shadow_push_range[2];
+        shadow_push_range[0].stageFlags = VK_SHADER_STAGE_GEOMETRY_BIT;
+        shadow_push_range[0].offset = 0;
+        shadow_push_range[0].size = 84; // mat4 mvp (64) + vec3 lightDir + float groundOffset (16) + int edgeMask
 
         set_layouts[0] = vk.set_layout_uniform;
 
@@ -261,7 +261,23 @@ void vk_create_pipeline_layout( void )
         desc.setLayoutCount = 1;
         desc.pSetLayouts = set_layouts;
         desc.pushConstantRangeCount = 1;
-        desc.pPushConstantRanges = &shadow_push_range;
+        desc.pPushConstantRanges = shadow_push_range;
+
+        // With GTAO on, the G-buffer carries an entity id per pixel and the volume's
+        // fragment stage uses it to skip the caster's own surfaces - see
+        // shadow_volume_self.frag. A second set for that texture, and a fragment-stage
+        // push range placed past the geometry stage's 84 bytes so neither stage has to
+        // declare the other's block.
+        if ( vk.gtaoActive ) {
+            shadow_push_range[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+            shadow_push_range[1].offset = 88;
+            shadow_push_range[1].size = sizeof( int32_t );
+
+            set_layouts[1] = vk.set_layout_sampler;
+
+            desc.setLayoutCount = 2;
+            desc.pushConstantRangeCount = 2;
+        }
         VK_CHECK(qvkCreatePipelineLayout(vk.device, &desc, NULL, &vk.pipeline_layout_shadow_volume));
         VK_SET_OBJECT_NAME(vk.pipeline_layout_shadow_volume, "pipeline layout - shadow volume", VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT);
     }
@@ -1611,7 +1627,9 @@ static VkPipeline vk_create_shadow_volume_adjacency_pipeline( int cullIndex, qbo
     shader_stages[2].pNext = NULL;
     shader_stages[2].flags = 0;
     shader_stages[2].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    shader_stages[2].module = vk.shaders.color_fs;
+    // With GTAO on, this stage does the self-shadow exclusion instead of just filling;
+    // see shadow_volume_self.frag. debugVisible keeps color_fs so the debug view still works.
+    shader_stages[2].module = ( vk.gtaoActive && !debugVisible ) ? vk.shaders.shadow_volume_self_fs : vk.shaders.color_fs;
     shader_stages[2].pName = "main";
     shader_stages[2].pSpecializationInfo = debugVisible ? &debugColorInfo : NULL;
 

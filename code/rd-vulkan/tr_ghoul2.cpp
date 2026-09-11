@@ -3553,6 +3553,15 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 			&vk.cmd->uniform_descriptor, VK_DESC_UNIFORM_COUNT, offsets );
 	}
 
+	if ( vk.gtaoActive ) {
+		// Set 1 is the G-buffer normal attachment, whose alpha holds entityNum + 1 per pixel.
+		// shadow_volume_self.frag compares it against the caster below so an entity's own
+		// volume leaves its own surfaces alone - see that shader for why this cannot be done
+		// in RB_ShadowFinish().
+		qvkCmdBindDescriptorSets( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			vk.pipeline_layout_shadow_volume, 1, 1, &vk.gbuffer_normal_descriptor, 0, NULL );
+	}
+
 	qboolean mirror = ( backEnd.viewParms.portalView == PV_MIRROR ) ? qtrue : qfalse;
 
 	for ( int cullIndex = 0; cullIndex < 2; cullIndex++ )
@@ -3575,6 +3584,14 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 
 		qvkCmdPushConstants( vk.cmd->command_buffer, vk.pipeline_layout_shadow_volume,
 			VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof( pushData ), &pushData );
+
+		if ( vk.gtaoActive ) {
+			// Must match what the gbuffer pass wrote for this entity: entityNum + 1.
+			const int32_t casterId = (int32_t)( backEnd.currentEntity - backEnd.refdef.entities ) + 1;
+
+			qvkCmdPushConstants( vk.cmd->command_buffer, vk.pipeline_layout_shadow_volume,
+				VK_SHADER_STAGE_FRAGMENT_BIT, 88, sizeof( casterId ), &casterId );
+		}
 
 		qvkCmdDrawIndexed( vk.cmd->command_buffer, vboMesh->numIndexes, 1, 0, 0, 0 );
 	}

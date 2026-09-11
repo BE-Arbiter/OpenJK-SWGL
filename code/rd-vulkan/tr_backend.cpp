@@ -390,7 +390,8 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 
 				if ( !( rfx & ( RF_NOSHADOW | RF_DEPTHHACK ) )
 					&& ( *drawSurf->surface != SF_MDX || ( rfx & RF_SHADOW_PLANE ) ) ) {
-					pushData.surfaceFlags[0] = 1.0f;
+					// entityNum + 1, so the shadow volume shader can tell whose pixel this is.
+					pushData.surfaceFlags[0] = (float)( entityNum + 1 );
 				}
 			}
 
@@ -1437,7 +1438,7 @@ static void vk_update_entity_light_constants( vkUniformEntity_t &uniform, const 
 	uniform.modelLightDir[3] = 0.0f;
 }
 
-static void vk_update_entity_matrix_constants( vkUniformEntity_t &uniform, const trRefEntity_t *refEntity ) 
+static void vk_update_entity_matrix_constants( vkUniformEntity_t &uniform, const trRefEntity_t *refEntity, int entityNum ) 
 {
 	orientationr_t ori;
 
@@ -1457,9 +1458,12 @@ static void vk_update_entity_matrix_constants( vkUniformEntity_t &uniform, const
 	// forward this into the normal attachment's alpha so gtao.frag can decline to count it
 	// as a contact-shadow occluder and darken the same ground twice. Conditions mirror the
 	// Ghoul2 caster test in tr_ghoul2.cpp, which is the only thing that reads this.
+	// Stores entityNum + 1, not a yes/no: the shadow volume fragment shader needs to know
+	// WHICH entity a pixel belongs to so it can decline to shadow that entity with its own
+	// volume while still letting other entities' volumes through. Zero means "not a caster".
 	uniform.surfaceFlags[0] = ( R_STENCIL_SHADOWS()
 							&& ( refEntity->e.renderfx & RF_SHADOW_PLANE )
-							&& !( refEntity->e.renderfx & ( RF_NOSHADOW | RF_DEPTHHACK ) ) ) ? 1.0f : 0.0f;
+							&& !( refEntity->e.renderfx & ( RF_NOSHADOW | RF_DEPTHHACK ) ) ) ? (float)( entityNum + 1 ) : 0.0f;
 	uniform.surfaceFlags[1] = uniform.surfaceFlags[2] = uniform.surfaceFlags[3] = 0.0f;
 	VectorCopy(ori.viewOrigin, uniform.localViewOrigin);
 
@@ -1478,7 +1482,7 @@ static void vk_update_entity_constants( const trRefdef_t *refdef ) {
 
 		vkUniformEntity_t uniform = {};
 		vk_update_entity_light_constants( uniform, ent );
-		vk_update_entity_matrix_constants( uniform, ent );
+		vk_update_entity_matrix_constants( uniform, ent, (int)i );
 
 		vk.cmd->entity_ubo_offset[i] = vk_append_uniform( &uniform, sizeof(uniform), vk.uniform_entity_item_size );
 	}
@@ -1486,7 +1490,7 @@ static void vk_update_entity_constants( const trRefdef_t *refdef ) {
 	const trRefEntity_t *ent = &tr.worldEntity;
 	vkUniformEntity_t uniform = {};
 	vk_update_entity_light_constants( uniform, ent );
-	vk_update_entity_matrix_constants( uniform, ent );
+	vk_update_entity_matrix_constants( uniform, ent, REFENTITYNUM_WORLD );
 
 	vk.cmd->entity_ubo_offset[REFENTITYNUM_WORLD] = vk_append_uniform( &uniform, sizeof(uniform), vk.uniform_entity_item_size );
 }

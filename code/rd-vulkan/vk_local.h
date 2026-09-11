@@ -1209,6 +1209,7 @@ typedef struct {
 		VkShaderModule gbuffer_debug_fs;	// r_showGBuffer; see gbuffer_debug.frag
 		VkShaderModule gtao_fs;				// r_ssao 2; see gtao.frag
 		VkShaderModule gtao_apply_fs;		// r_ssao 2; see gtao_apply.frag
+		VkShaderModule shadow_volume_self_fs;	// self-shadow exclusion; see shadow_volume_self.frag
 
 		// Alpha-tested gbuffer variants; see gbuffer_at.vert / gbuffer_atvel.vert.
 		VkShaderModule gbuffer_at_vs;
