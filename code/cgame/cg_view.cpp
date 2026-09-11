@@ -2013,6 +2013,73 @@ extern void CG_BuildSolidList( void );
 extern void CG_ClearHealthBarEnts( void );
 extern vec3_t	serverViewOrg;
 static qboolean cg_rangedFogging = qfalse; //so we know if we should go back to normal fog
+
+/*
+=================
+cg_speeds
+
+The engine's com_speeds stops at "cl", which lumps every cgame phase into one number, so
+a frame dominated by the client says nothing about which part of the client. These split
+the phases of CG_DrawActiveFrame that can actually cost anything.
+
+Timed with __rdtsc(), summed over a second and printed as a share of the phases measured -
+a ratio needs no knowledge of the clock rate. "draw" also covers the renderer's own
+frontend, since CG_DrawActive() is what calls it; com_speeds reports that part as "rf".
+=================
+*/
+#include "../qcommon/timing.h"
+
+static timing_c	cgs_timer, cgs_spanTimer;
+
+// 64-bit: a second of accumulation reaches ~1e9 cycles, and the x100 in the percentages
+// overflows a signed int long before that.
+static int64_t	cgs_ents, cgs_misc, cgs_fx, cgs_local, cgs_draw, cgs_span;
+static int		cgs_frames, cgs_nextPrint;
+
+#define CGS_START()			if ( cg_speeds.integer ) { cgs_timer.Start(); }
+#define CGS_STOP( x )		if ( cg_speeds.integer ) { (x) += cgs_timer.End(); }
+#define CGS_SPAN_START()	if ( cg_speeds.integer ) { cgs_spanTimer.Start(); }
+#define CGS_SPAN_STOP()		if ( cg_speeds.integer ) { cgs_span += cgs_spanTimer.End(); }
+
+static int CG_SpeedsPercent( int64_t part, int64_t whole )
+{
+	if ( whole <= 0 )
+		return 0;
+
+	return (int)( ( part * 100 ) / whole );
+}
+
+static void CG_ReportSpeeds( void )
+{
+	if ( !cg_speeds.integer )
+		return;
+
+	cgs_frames++;
+
+	if ( cg.time < cgs_nextPrint && cg.time + 1000 >= cgs_nextPrint )
+		return;
+
+	if ( cgs_span > 0 && cgs_frames > 0 )
+	{
+		const int64_t measured = cgs_ents + cgs_misc + cgs_fx + cgs_local + cgs_draw;
+
+		// shares of the whole cgame frame, so "other" says how much sits outside the
+		// phases below - and the Mcy figure says how much of com_speeds' cl this is
+		CG_Printf( "cgame: ents %2i%%  fx %2i%%  local %2i%%  misc %2i%%  draw %2i%%  other %2i%%   %.1f Mcy/frame\n",
+			CG_SpeedsPercent( cgs_ents,  cgs_span ),
+			CG_SpeedsPercent( cgs_fx,    cgs_span ),
+			CG_SpeedsPercent( cgs_local, cgs_span ),
+			CG_SpeedsPercent( cgs_misc,  cgs_span ),
+			CG_SpeedsPercent( cgs_draw,  cgs_span ),
+			CG_SpeedsPercent( cgs_span - measured, cgs_span ),
+			(double)cgs_span / (double)cgs_frames / 1000000.0 );
+	}
+
+	cgs_ents = cgs_misc = cgs_fx = cgs_local = cgs_draw = cgs_span = 0;
+	cgs_frames = 0;
+	cgs_nextPrint = cg.time + 1000;
+}
+
 void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 	qboolean	inwater = qfalse;
 
@@ -2049,6 +2116,9 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 		//CG_DrawInformation();
 		return;
 	}
+
+	// past every early return, so the span always has a matching stop
+	CGS_SPAN_START();
 
 	// make sure the lagometerSample and frame timing isn't done twice when in stereo
 	if ( stereoView != STEREO_RIGHT ) {
@@ -2178,9 +2248,14 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 
 	// build the render lists
 	if ( !cg.hyperspace ) {
+		CGS_START();
 		CG_AddPacketEntities(qfalse);			// adter calcViewValues, so predicted player state is correct
+		CGS_STOP( cgs_ents );
+
+		CGS_START();
 		CG_AddMarks();
 		CG_DrawMiscEnts();
+		CGS_STOP( cgs_misc );
 	}
 
 	//check for opaque water
@@ -2241,7 +2316,9 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 	if ( !cg.hyperspace && fx_freeze.integer<2 )
 	{
 		//Add all effects
+		CGS_START();
 		theFxScheduler.AddScheduledEffects( false );
+		CGS_STOP( cgs_fx );
 	}
 
 	// finish up the rest of the refdef
@@ -2250,7 +2327,9 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 	}
 
 	if ( !cg.hyperspace ) {
+		CGS_START();
 		CG_AddLocalEntities();
+		CGS_STOP( cgs_local );
 	}
 
 	memcpy( cg.refdef.areamask, cg.snap->areamask, sizeof( cg.refdef.areamask ) );
@@ -2293,8 +2372,13 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 		cg.levelShot = qfalse;
 	} 	else {
 		// actually issue the rendering calls
+		CGS_START();
 		CG_DrawActive( stereoView );
+		CGS_STOP( cgs_draw );
 	}
+
+	CGS_SPAN_STOP();
+	CG_ReportSpeeds();
 	/*
 	if ( in_camera && !cg_skippingcin.integer )
 	{

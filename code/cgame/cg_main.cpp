@@ -389,6 +389,7 @@ vmCvar_t	cg_panoNumShots;
 
 vmCvar_t	fx_freeze;
 vmCvar_t	fx_debug;
+vmCvar_t	cg_speeds;
 
 vmCvar_t	cg_missionInfoFlashTime;
 vmCvar_t	cg_hudFiles;
@@ -548,6 +549,7 @@ static cvarTable_t cvarTable[] = {
 
 	{ &fx_freeze, "fx_freeze", "0", 0 },
 	{ &fx_debug, "fx_debug", "0", 0 },
+	{ &cg_speeds, "cg_speeds", "0", 0 },
 	// the following variables are created in other parts of the system,
 	// but we also reference them here
 

@@ -100,7 +100,10 @@ void G2Time_ReportTimers(void)
 
 //rww - RAGDOLL_END
 
-static const int MAX_RENDERABLE_SURFACES = 4096;
+// Per-frame budget - the heap is reset every frame, so this caps how many Ghoul2 surfaces
+// one view may hold, not how many exist. 4096 covers JKA's own scenes and nothing more;
+// a couple of hundred NPCs at roughly 25 surfaces each hit the ceiling and ERR_DROP.
+static const int MAX_RENDERABLE_SURFACES = 32768;
 static CRenderableSurface renderSurfHeap[MAX_RENDERABLE_SURFACES];
 static int currentRenderSurfIndex = 0;
 

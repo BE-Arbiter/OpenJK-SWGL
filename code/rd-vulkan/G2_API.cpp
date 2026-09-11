@@ -2350,8 +2350,21 @@ qboolean G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the mode
 	return (qboolean)ghlInfo->mValid;
 }
 
+#ifdef G2_PERFORMANCE_ANALYSIS
+#include "qcommon/timing.h"
+extern timing_c G2PerformanceTimer_G2_SetupModelPointers;
+extern int G2Time_G2_SetupModelPointers;
+#endif
+
+// com_G2Report has always printed 0 for this one: the counter existed but nothing ever
+// started the timer, and it happens to sit on the hottest path in the game - every
+// G2API_GetBoltMatrix resolves its model by name through here.
 qboolean G2_SetupModelPointers(CGhoul2Info_v &ghoul2) // returns true if any model is properly set up
 {
+#ifdef G2_PERFORMANCE_ANALYSIS
+	G2PerformanceTimer_G2_SetupModelPointers.Start();
+#endif
+
 	qboolean ret=qfalse;
 	int i;
 	for (i=0; i<ghoul2.size(); i++)
@@ -2359,6 +2372,11 @@ qboolean G2_SetupModelPointers(CGhoul2Info_v &ghoul2) // returns true if any mod
 		qboolean r=G2_SetupModelPointers(&ghoul2[i]);
 		ret=(qboolean)(ret||r);
 	}
+
+#ifdef G2_PERFORMANCE_ANALYSIS
+	G2Time_G2_SetupModelPointers += G2PerformanceTimer_G2_SetupModelPointers.End();
+#endif
+
 	return ret;
 }
 

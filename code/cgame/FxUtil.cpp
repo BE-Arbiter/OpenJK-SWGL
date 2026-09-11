@@ -173,9 +173,19 @@ static SEffectList *FX_GetValidEffect()
 		}
 	}
 
-	// report the error.
+	// Report the error, but at most once a second. Once the pool is full this is reached on
+	// every single allocation, and the formatting plus the console write cost far more than
+	// the exhaustion being reported - enough to dominate a profile taken in a build that
+	// still compiles this in.
 #ifndef FINAL_BUILD
-	theFxHelper.Print( "FX system out of effects\n" );
+	static int nextOutOfEffectsPrint = 0;
+
+	if ( theFxHelper.mTime >= nextOutOfEffectsPrint
+		|| theFxHelper.mTime + 1000 < nextOutOfEffectsPrint )	// map change, time went back
+	{
+		nextOutOfEffectsPrint = theFxHelper.mTime + 1000;
+		theFxHelper.Print( "FX system out of effects\n" );
+	}
 #endif
 
 	// Hmmm.. just trashing the first effect in the list is a poor approach
