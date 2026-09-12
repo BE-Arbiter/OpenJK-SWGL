@@ -48,16 +48,13 @@ void ChangeCharacter(int characterIndex)
 {
 	characterInfo_t *currentCharacter = &charactersData[characterIndex];
 	cgi_Cvar_Set("ui_char_model", currentCharacter->variantList[0].model);
-	cgi_Cvar_Set("ui_npc_type", "");
-	cgi_Cvar_Set("ui_variant_code", currentCharacter->variantList[0].code);
-	cgi_UI_Run_Script("loadCharacter");
-	cgi_UI_Run_Script("getsaberstyle");
-	cgi_UI_Run_Script("\"char_default_skin\" \"model_default\"");
-	cgi_UI_Run_Script("\"char_skin\"");
-	cgi_UI_Run_Script("\"rgbsabercvars\"");		
-	cgi_UI_Run_Script("\"saber_hilt\"");
-	cgi_UI_Run_Script("\"saber2_hilt\"");
 	cgi_Cvar_Set("ui_char_model_angle", "180");
+	cgi_Cvar_Set("g_charKey", currentCharacter->code);
+	cgi_UI_Run_Command(va("setitemtext CharBio @%s", currentCharacter->variantList[0].descriptionKey));
+	cgi_UI_Run_Command("uiScript loadCharacter");
+	cgi_UI_Run_Command("uiScript getcharcustom");
+	cgi_UI_Run_Command("uiScript character");
+	cgi_UI_Run_Command("uiScript ui_char_update_model");
 }
 
 void CG_Characters_CharacterClick_f()
@@ -96,6 +93,7 @@ void CG_Characters_CharacterClick_f()
 		ChangeCharacter(filteredCharactersIndexList[selectedCharacter]);
 		//Update View
 		cgi_Cvar_Set("ui_character_screen","character");
+		cgi_Cvar_Set("ui_character_skin_tab","presets");
 		
 	}
 }

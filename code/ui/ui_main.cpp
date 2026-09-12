@@ -1624,7 +1624,7 @@ static qboolean UI_DeferMenuScript ( const char **args )
 UI_RunMenuScript
 ===============
 */
-qboolean UI_RunMenuScript ( const char **args )
+static qboolean UI_RunMenuScript ( const char **args )
 {
 	const char *name, *name2,*mapName,*menuName,*warningMenuName;
 

@@ -506,7 +506,7 @@ itemDef_t *Menu_GetMatchingItemByNumber(menuDef_t *menu, int index, const char *
 void		Menu_HandleKey(menuDef_t *menu, int key, qboolean down);
 void		Menu_New(char *buffer);
 void		Menus_OpenByName(const char *p);
-qboolean		UI_RunMenuScript(const char **p);
+void		UI_RunMenuCommand(const char *command);
 void		Menu_PaintAll(void);
 void		Menu_Reset(void);
 void		PC_EndParseSession(char *buffer);

@@ -1259,7 +1259,7 @@ int		cgi_SP_GetStringTextString(const char *text, char *buf, int bufferlength);
 void	cgi_UI_Menu_Reset( void );
 void	cgi_UI_Menu_New(char *buf );
 void	cgi_UI_Menu_OpenByName(char *buf);
-void	cgi_UI_Run_Script(char* buf);
+void	cgi_UI_Run_Command(const char* buf);
 void	cgi_UI_SetActive_Menu(char *name);
 void	cgi_UI_Parse_Int(int *value);
 void	cgi_UI_Parse_String(char *buf);

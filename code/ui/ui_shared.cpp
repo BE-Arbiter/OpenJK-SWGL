@@ -5500,6 +5500,42 @@ qboolean String_Parse(const char **p, const char **out)
 
 /*
 ===============
+UI_RunMenuCommand
+
+Runs menu action commands - the ones a .menu action block takes - against the focused menu, so
+cgame can drive the UI the way a button would. Several commands can be chained with ';', and a
+token that is not in commandList falls through to the uiScript handler, so "loadCharacter"
+works here too.
+===============
+*/
+void UI_RunMenuCommand(const char *command)
+{
+	// the handlers reach the menu through item->parent, so a command needs an item to run on.
+	// This throwaway one keeps the commands that act on "this item" - setasset, setcolor,
+	// setbackground, setfocus - from landing on a real item of the menu. Static because
+	// itemDef_t holds a CGhoul2Info_v: it is constructed once and never memset over.
+	static itemDef_t	context;
+	menuDef_t			*menu;
+
+	if (!command || !command[0])
+	{
+		return;
+	}
+
+	menu = Menu_GetFocused();
+
+	if (!menu)
+	{
+		Com_Printf(S_COLOR_YELLOW "WARNING: UI_RunMenuCommand('%s') with no menu focused\n", command);
+		return;
+	}
+
+	context.parent = menu;
+	Item_RunScript(&context, command);
+}
+
+/*
+===============
 Item_RunScript
 ===============
 */
@@ -9426,8 +9462,10 @@ static void Window_PaintNinePatch(Window *w, const rectDef_t *rect)
 	float	top, right, bottom, left;	// border widths on screen
 	float	sw, sh;						// background shader size, in pixels
 	float	s[4], t[4];					// where the cuts fall in the shader
+	float	sStart[4], sEnd[4];			// the same cuts, pulled off the seam (see below)
+	float	tStart[4], tEnd[4];
 	float	x[4], y[4];					// where they fall on screen
-	float	scale, tileW, tileH;
+	float	scale, tileW, tileH, hu, hv;
 
 	sw = w->backgroundSize[0];
 	sh = w->backgroundSize[1];
@@ -9471,6 +9509,26 @@ static void Window_PaintNinePatch(Window *w, const rectDef_t *rect)
 		t[1] = t[2] = (t[1] + t[2]) * 0.5f;
 	}
 
+	// Sampling exactly on a cut makes the bilinear filter blend the texels on both sides of it,
+	// so the border bleeds into the middle and back. Pull each piece half a texel off the seam;
+	// a cut with no border behind it is left alone, its piece is empty anyway.
+	hu = 0.5f / sw;
+	hv = 0.5f / sh;
+
+	sStart[0] = sEnd[0] = 0.0f;
+	sStart[3] = sEnd[3] = 1.0f;
+	sStart[1] = (s[1] > 0.0f) ? s[1] + hu : 0.0f;
+	sEnd[1]   = (s[1] > 0.0f) ? s[1] - hu : 0.0f;
+	sStart[2] = (s[2] < 1.0f) ? s[2] + hu : 1.0f;
+	sEnd[2]   = (s[2] < 1.0f) ? s[2] - hu : 1.0f;
+
+	tStart[0] = tEnd[0] = 0.0f;
+	tStart[3] = tEnd[3] = 1.0f;
+	tStart[1] = (t[1] > 0.0f) ? t[1] + hv : 0.0f;
+	tEnd[1]   = (t[1] > 0.0f) ? t[1] - hv : 0.0f;
+	tStart[2] = (t[2] < 1.0f) ? t[2] + hv : 1.0f;
+	tEnd[2]   = (t[2] < 1.0f) ? t[2] - hv : 1.0f;
+
 	x[0] = rect->x;
 	x[1] = rect->x + left;
 	x[2] = rect->x + rect->w - right;
@@ -9491,19 +9549,19 @@ static void Window_PaintNinePatch(Window *w, const rectDef_t *rect)
 	}
 
 	// corners
-	Window_PaintPatchRegion(x[0], y[0], x[1]-x[0], y[1]-y[0], s[0],t[0],s[1],t[1], 0.0f,  0.0f,  w->background);
-	Window_PaintPatchRegion(x[2], y[0], x[3]-x[2], y[1]-y[0], s[2],t[0],s[3],t[1], 0.0f,  0.0f,  w->background);
-	Window_PaintPatchRegion(x[0], y[2], x[1]-x[0], y[3]-y[2], s[0],t[2],s[1],t[3], 0.0f,  0.0f,  w->background);
-	Window_PaintPatchRegion(x[2], y[2], x[3]-x[2], y[3]-y[2], s[2],t[2],s[3],t[3], 0.0f,  0.0f,  w->background);
+	Window_PaintPatchRegion(x[0], y[0], x[1]-x[0], y[1]-y[0], sStart[0],tStart[0],sEnd[1],tEnd[1], 0.0f,  0.0f,  w->background);
+	Window_PaintPatchRegion(x[2], y[0], x[3]-x[2], y[1]-y[0], sStart[2],tStart[0],sEnd[3],tEnd[1], 0.0f,  0.0f,  w->background);
+	Window_PaintPatchRegion(x[0], y[2], x[1]-x[0], y[3]-y[2], sStart[0],tStart[2],sEnd[1],tEnd[3], 0.0f,  0.0f,  w->background);
+	Window_PaintPatchRegion(x[2], y[2], x[3]-x[2], y[3]-y[2], sStart[2],tStart[2],sEnd[3],tEnd[3], 0.0f,  0.0f,  w->background);
 
 	// edges
-	Window_PaintPatchRegion(x[1], y[0], x[2]-x[1], y[1]-y[0], s[1],t[0],s[2],t[1], tileW, 0.0f,  w->background);
-	Window_PaintPatchRegion(x[1], y[2], x[2]-x[1], y[3]-y[2], s[1],t[2],s[2],t[3], tileW, 0.0f,  w->background);
-	Window_PaintPatchRegion(x[0], y[1], x[1]-x[0], y[2]-y[1], s[0],t[1],s[1],t[2], 0.0f,  tileH, w->background);
-	Window_PaintPatchRegion(x[2], y[1], x[3]-x[2], y[2]-y[1], s[2],t[1],s[3],t[2], 0.0f,  tileH, w->background);
+	Window_PaintPatchRegion(x[1], y[0], x[2]-x[1], y[1]-y[0], sStart[1],tStart[0],sEnd[2],tEnd[1], tileW, 0.0f,  w->background);
+	Window_PaintPatchRegion(x[1], y[2], x[2]-x[1], y[3]-y[2], sStart[1],tStart[2],sEnd[2],tEnd[3], tileW, 0.0f,  w->background);
+	Window_PaintPatchRegion(x[0], y[1], x[1]-x[0], y[2]-y[1], sStart[0],tStart[1],sEnd[1],tEnd[2], 0.0f,  tileH, w->background);
+	Window_PaintPatchRegion(x[2], y[1], x[3]-x[2], y[2]-y[1], sStart[2],tStart[1],sEnd[3],tEnd[2], 0.0f,  tileH, w->background);
 
 	// middle
-	Window_PaintPatchRegion(x[1], y[1], x[2]-x[1], y[2]-y[1], s[1],t[1],s[2],t[2], tileW, tileH, w->background);
+	Window_PaintPatchRegion(x[1], y[1], x[2]-x[1], y[2]-y[1], sStart[1],tStart[1],sEnd[2],tEnd[2], tileW, tileH, w->background);
 }
 
 /*
