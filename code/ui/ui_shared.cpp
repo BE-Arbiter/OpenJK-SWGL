@@ -4221,10 +4221,6 @@ qboolean ItemParse_background( itemDef_t *item)
 ===============
 ItemParse_backgroundStyle
 	backgroundStyle <BACKGROUND_NONE | BACKGROUND_NINE_PATCH_STRETCH | BACKGROUND_NINE_PATCH_REPEAT>
-
-	How a WINDOW_STYLE_SHADER background is fitted to the item rectangle. The nine patch modes
-	keep the borders described by backgroundOffset at their authored size instead of stretching
-	them with the rest of the shader.
 ===============
 */
 qboolean ItemParse_backgroundStyle( itemDef_t *item)
@@ -4266,11 +4262,7 @@ qboolean ItemParse_backgroundStyle( itemDef_t *item)
 /*
 ===============
 ItemParse_backgroundOffset
-	backgroundOffset <top> <right> <bottom> <left>
-
-	Width of the nine patch borders, measured in pixels of the background shader. They are drawn
-	at that same width on screen (640x480 space), so a border authored 8 pixels wide stays 8 units
-	wide whatever the item rectangle is.
+	backgroundOffset <top> <right> <bottom> <left>, in pixels of the background shader
 ===============
 */
 qboolean ItemParse_backgroundOffset( itemDef_t *item)
@@ -4297,11 +4289,7 @@ qboolean ItemParse_backgroundOffset( itemDef_t *item)
 /*
 ===============
 ItemParse_backgroundSize
-	backgroundSize <width> <height>
-
-	Size of the background shader in pixels. Optional: it is normally read from the image file
-	itself, and only needs to be given when the background is a shader script with no image of
-	that name on disk.
+	backgroundSize <width> <height>, optional override when the image file cannot be read
 ===============
 */
 qboolean ItemParse_backgroundSize( itemDef_t *item)
@@ -5501,19 +5489,13 @@ qboolean String_Parse(const char **p, const char **out)
 /*
 ===============
 UI_RunMenuCommand
-
-Runs menu action commands - the ones a .menu action block takes - against the focused menu, so
-cgame can drive the UI the way a button would. Several commands can be chained with ';', and a
-token that is not in commandList falls through to the uiScript handler, so "loadCharacter"
-works here too.
+	runs .menu action commands from cgame; a token absent from commandList falls
+	through to the uiScript handler
 ===============
 */
 void UI_RunMenuCommand(const char *command)
 {
-	// the handlers reach the menu through item->parent, so a command needs an item to run on.
-	// This throwaway one keeps the commands that act on "this item" - setasset, setcolor,
-	// setbackground, setfocus - from landing on a real item of the menu. Static because
-	// itemDef_t holds a CGhoul2Info_v: it is constructed once and never memset over.
+	// carries the menu via parent; static because itemDef_t holds a CGhoul2Info_v
 	static itemDef_t	context;
 
 	if (!command || !command[0])
@@ -9352,11 +9334,6 @@ void GradientBar_Paint(rectDef_t *rect, vec4_t color)
 /*
 =================
 Window_ResolveBackgroundSize
-
-The nine patch offsets are given in pixels of the background shader, so its size is needed to
-turn them into texture coordinates. It is read from the image file once and then kept in the
-window. A background that only exists as a shader script has no image of that name on disk, in
-which case backgroundSize has to be set in the .menu file.
 =================
 */
 static qboolean Window_ResolveBackgroundSize(Window *w)
@@ -9396,15 +9373,12 @@ static qboolean Window_ResolveBackgroundSize(Window *w)
 	return qtrue;
 }
 
-// a thin border blown up over a large item would otherwise cost thousands of quads
-#define NINEPATCH_MAX_TILES 64
+#define NINEPATCH_MAX_TILES 64		// cap on tiles per axis
 
 /*
 =================
 Window_PaintPatchRegion
-
-Draws one piece of a nine patch. A tile size of zero stretches the piece over that axis,
-anything else repeats the piece at that size, the last tile being cut short.
+	a tile size of zero stretches the piece over that axis, anything else repeats it
 =================
 */
 static void Window_PaintPatchRegion(float x, float y, float w, float h,
@@ -9454,10 +9428,6 @@ static void Window_PaintPatchRegion(float x, float y, float w, float h,
 /*
 =================
 Window_PaintNinePatch
-
-Draws the background in nine pieces: the four corners keep the size they were authored with,
-the four edges only grow along the side they follow, and the middle fills what is left. Edges
-and middle are stretched or tiled depending on the background style.
 =================
 */
 static void Window_PaintNinePatch(Window *w, const rectDef_t *rect)
@@ -9478,7 +9448,7 @@ static void Window_PaintNinePatch(Window *w, const rectDef_t *rect)
 	bottom	= w->backgroundOffset[2];
 	left	= w->backgroundOffset[3];
 
-	// opposite borders must never overlap, so squash them both when the item is too small
+	// squash both borders when the item is too small for them
 	if (left + right > rect->w && left + right > 0.0f)
 	{
 		scale = rect->w / (left + right);
@@ -9492,7 +9462,7 @@ static void Window_PaintNinePatch(Window *w, const rectDef_t *rect)
 		bottom *= scale;
 	}
 
-	// the cuts stay where they are in the shader even when the borders were squashed on screen
+	// the cuts stay put in the shader even when squashed on screen
 	s[0] = 0.0f;
 	s[1] = w->backgroundOffset[3] / sw;
 	s[2] = 1.0f - w->backgroundOffset[1] / sw;
@@ -9512,9 +9482,7 @@ static void Window_PaintNinePatch(Window *w, const rectDef_t *rect)
 		t[1] = t[2] = (t[1] + t[2]) * 0.5f;
 	}
 
-	// Sampling exactly on a cut makes the bilinear filter blend the texels on both sides of it,
-	// so the border bleeds into the middle and back. Pull each piece half a texel off the seam;
-	// a cut with no border behind it is left alone, its piece is empty anyway.
+	// half a texel off each seam, or the bilinear filter bleeds the border into the middle
 	hu = 0.5f / sw;
 	hv = 0.5f / sh;
 
@@ -9542,7 +9510,7 @@ static void Window_PaintNinePatch(Window *w, const rectDef_t *rect)
 	y[3] = rect->y + rect->h;
 
 	if (w->backgroundStyle == BACKGROUND_NINE_PATCH_REPEAT)
-	{	// one tile is the middle of the shader drawn at the size it was authored at
+	{	// one tile = the shader's middle at its authored size
 		tileW = sw - w->backgroundOffset[3] - w->backgroundOffset[1];
 		tileH = sh - w->backgroundOffset[0] - w->backgroundOffset[2];
 	}
