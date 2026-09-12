@@ -5515,22 +5515,13 @@ void UI_RunMenuCommand(const char *command)
 	// setbackground, setfocus - from landing on a real item of the menu. Static because
 	// itemDef_t holds a CGhoul2Info_v: it is constructed once and never memset over.
 	static itemDef_t	context;
-	menuDef_t			*menu;
 
 	if (!command || !command[0])
 	{
 		return;
 	}
 
-	menu = Menu_GetFocused();
-
-	if (!menu)
-	{
-		Com_Printf(S_COLOR_YELLOW "WARNING: UI_RunMenuCommand('%s') with no menu focused\n", command);
-		return;
-	}
-
-	context.parent = menu;
+	context.parent = Menu_GetFocused();
 	Item_RunScript(&context, command);
 }
 
@@ -7230,6 +7221,10 @@ void Item_ListBox_Paint(itemDef_t *item)
 						ui.R_SetColor(color);
 					}
 					DC->drawHandlePic(x+1, y+1, listPtr->elementWidth - 2, listPtr->elementHeight - 2, image);
+					if (item->window.flags & WINDOW_PLAYERCOLOR)
+					{	// or the tint leaks into everything painted after the list
+						ui.R_SetColor(NULL);
+					}
 				}
 
 				if (i == item->cursorPos)
@@ -7345,6 +7340,10 @@ void Item_ListBox_Paint(itemDef_t *item)
 									ui.R_SetColor(color);
 								}
 								DC->drawHandlePic(x + 1, y + 1, listPtr->elementWidth - 2, listPtr->elementHeight - 2, image);
+								if (item->window.flags & WINDOW_PLAYERCOLOR)
+								{	// or the tint leaks into everything painted after the list
+									ui.R_SetColor(NULL);
+								}
 							}
 							else
 							{
@@ -7415,6 +7414,10 @@ void Item_ListBox_Paint(itemDef_t *item)
 										ui.R_SetColor(color);
 									}
 									DC->drawHandlePic(x + 1, y + 1, listPtr->elementWidth - 2, listPtr->elementHeight - 2, image);
+									if (item->window.flags & WINDOW_PLAYERCOLOR)
+									{	// or the tint leaks into everything painted after the list
+										ui.R_SetColor(NULL);
+									}
 								}
 
 								if (i == item->cursorPos)

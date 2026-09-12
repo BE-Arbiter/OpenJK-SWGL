@@ -8583,14 +8583,7 @@ static void UI_CharacterDefaultSkin(const char* otherSkin)
 
 	auto ShowCustomizationUI = [&](bool hasCustomParts)
 		{
-			Menu_ShowItemByName(menu, "heads", hasCustomParts ? qtrue : qfalse);
-			Menu_ShowItemByName(menu, "torso", hasCustomParts ? qtrue : qfalse);
-			Menu_ShowItemByName(menu, "lower", hasCustomParts ? qtrue : qfalse);
-			Menu_ShowItemByName(menu, "Customization", hasCustomParts ? qtrue : qfalse);
-			Menu_ShowItemByName(menu, "Presets", hasCustomParts ? qtrue : qfalse);
-			Menu_ShowItemByName(menu, "SkinTitle", hasCustomParts ? qfalse : qtrue);
-			Menu_ShowItemByName(menu, "SkinList", hasCustomParts ? qfalse : qtrue);
-			Menu_ShowItemByName(menu, "Skins", qfalse);
+			Cvar_Set("ui_character_skin_tab", hasCustomParts ? "presets" : "presets_only");
 		};
 
 	// Parse head|torso|lower

@@ -52,6 +52,8 @@ void ChangeCharacter(int characterIndex)
 	cgi_Cvar_Set("g_charKey", currentCharacter->code);
 	cgi_UI_Run_Command(va("setitemtext CharBio @%s", currentCharacter->variantList[0].descriptionKey));
 	cgi_UI_Run_Command("uiScript loadCharacter");
+	cgi_UI_Run_Command("uiScript \"char_default_skin\" \"model_default\"");
+	cgi_UI_Run_Command("uiScript \"char_skin\"");
 	cgi_UI_Run_Command("uiScript getcharcustom");
 	cgi_UI_Run_Command("uiScript character");
 	cgi_UI_Run_Command("uiScript ui_char_update_model");
@@ -93,7 +95,6 @@ void CG_Characters_CharacterClick_f()
 		ChangeCharacter(filteredCharactersIndexList[selectedCharacter]);
 		//Update View
 		cgi_Cvar_Set("ui_character_screen","character");
-		cgi_Cvar_Set("ui_character_skin_tab","presets");
 		
 	}
 }
