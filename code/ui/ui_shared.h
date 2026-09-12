@@ -327,6 +327,10 @@ typedef struct {
 	vec4_t		borderColor;				// border color
 	vec4_t		outlineColor;				// border color
 	qhandle_t	background;					// background asset
+	char		backgroundName[MAX_QPATH];	// background asset name, kept around for the nine patch size lookup
+	int			backgroundStyle;			// BACKGROUND_NONE or one of the nine patch modes
+	float		backgroundOffset[4];		// nine patch border widths in shader pixels: top right bottom left
+	float		backgroundSize[2];			// shader size in pixels, 0 = not looked up yet, -1 = lookup failed
 } windowDef_t;
 
 typedef windowDef_t Window;

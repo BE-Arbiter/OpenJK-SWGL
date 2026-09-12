@@ -64,6 +64,11 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define WINDOW_STYLE_TEAMCOLOR 4          // team color
 #define WINDOW_STYLE_CINEMATIC 5          // cinematic
 
+// how a WINDOW_STYLE_SHADER background is fitted to the item rectangle
+#define BACKGROUND_NONE 0                    // stretch the whole shader over the rectangle
+#define BACKGROUND_NINE_PATCH_STRETCH 1      // keep the borders, stretch the edges and the center
+#define BACKGROUND_NINE_PATCH_REPEAT 2       // keep the borders, tile the edges and the center
+
 #define MENU_TRUE 1                       // uh.. true
 #define MENU_FALSE 0                      // and false
 

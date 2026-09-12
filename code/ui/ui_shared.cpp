@@ -165,6 +165,14 @@ const char *styles [] = {
 NULL
 };
 
+// keep in sync with the BACKGROUND_* defines in menudef.h
+const char *backgroundStyles [] = {
+"BACKGROUND_NONE",
+"BACKGROUND_NINE_PATCH_STRETCH",
+"BACKGROUND_NINE_PATCH_REPEAT",
+NULL
+};
+
 const char *types [] = {
 "ITEM_TYPE_TEXT",
 "ITEM_TYPE_BUTTON",
@@ -4205,6 +4213,115 @@ qboolean ItemParse_background( itemDef_t *item)
 		return qfalse;
 	}
 	item->window.background = ui.R_RegisterShaderNoMip(temp);
+	Q_strncpyz(item->window.backgroundName, temp, sizeof(item->window.backgroundName));
+	return qtrue;
+}
+
+/*
+===============
+ItemParse_backgroundStyle
+	backgroundStyle <BACKGROUND_NONE | BACKGROUND_NINE_PATCH_STRETCH | BACKGROUND_NINE_PATCH_REPEAT>
+
+	How a WINDOW_STYLE_SHADER background is fitted to the item rectangle. The nine patch modes
+	keep the borders described by backgroundOffset at their authored size instead of stretching
+	them with the rest of the shader.
+===============
+*/
+qboolean ItemParse_backgroundStyle( itemDef_t *item)
+{
+	int			i;
+	const char	*tempStr;
+
+	if (PC_ParseString(&tempStr))
+	{
+		return qfalse;
+	}
+
+	// "NONE" on its own is accepted as a shorthand for BACKGROUND_NONE
+	if (!Q_stricmp(tempStr,"NONE"))
+	{
+		item->window.backgroundStyle = BACKGROUND_NONE;
+		return qtrue;
+	}
+
+	i=0;
+	while (backgroundStyles[i])
+	{
+		if (Q_stricmp(tempStr,backgroundStyles[i])==0)
+		{
+			item->window.backgroundStyle = i;
+			break;
+		}
+		i++;
+	}
+
+	if (backgroundStyles[i] == NULL)
+	{
+		PC_ParseWarning(va("Unknown background style value '%s'",tempStr));
+	}
+
+	return qtrue;
+}
+
+/*
+===============
+ItemParse_backgroundOffset
+	backgroundOffset <top> <right> <bottom> <left>
+
+	Width of the nine patch borders, measured in pixels of the background shader. They are drawn
+	at that same width on screen (640x480 space), so a border authored 8 pixels wide stays 8 units
+	wide whatever the item rectangle is.
+===============
+*/
+qboolean ItemParse_backgroundOffset( itemDef_t *item)
+{
+	int		i;
+
+	for (i = 0; i < 4; i++)
+	{
+		if (PC_ParseFloat(&item->window.backgroundOffset[i]))
+		{
+			return qfalse;
+		}
+
+		if (item->window.backgroundOffset[i] < 0.0f)
+		{
+			PC_ParseWarning(va("Negative background offset %f",item->window.backgroundOffset[i]));
+			item->window.backgroundOffset[i] = 0.0f;
+		}
+	}
+
+	return qtrue;
+}
+
+/*
+===============
+ItemParse_backgroundSize
+	backgroundSize <width> <height>
+
+	Size of the background shader in pixels. Optional: it is normally read from the image file
+	itself, and only needs to be given when the background is a shader script with no image of
+	that name on disk.
+===============
+*/
+qboolean ItemParse_backgroundSize( itemDef_t *item)
+{
+	if (PC_ParseFloat(&item->window.backgroundSize[0]))
+	{
+		return qfalse;
+	}
+
+	if (PC_ParseFloat(&item->window.backgroundSize[1]))
+	{
+		return qfalse;
+	}
+
+	if (item->window.backgroundSize[0] <= 0.0f || item->window.backgroundSize[1] <= 0.0f)
+	{
+		PC_ParseWarning("Background size must be positive");
+		item->window.backgroundSize[0] = item->window.backgroundSize[1] = 0.0f;
+	}
+
 	return qtrue;
 }
 
@@ -5011,6 +5128,9 @@ keywordHash_t itemParseKeywords[] = {
 	{"autowrapped",		ItemParse_autowrapped,		},
 	{"backcolor",		ItemParse_backcolor,		},
 	{"background",		ItemParse_background,		},
+	{"backgroundStyle",	ItemParse_backgroundStyle,	},
+	{"backgroundOffset",ItemParse_backgroundOffset,	},
+	{"backgroundSize",	ItemParse_backgroundSize,	},
 	{"border",			ItemParse_border,			},
 	{"bordercolor",		ItemParse_bordercolor,		},
 	{"bordersize",		ItemParse_bordersize,		},
@@ -9192,6 +9312,202 @@ void GradientBar_Paint(rectDef_t *rect, vec4_t color)
 
 /*
 =================
+Window_ResolveBackgroundSize
+
+The nine patch offsets are given in pixels of the background shader, so its size is needed to
+turn them into texture coordinates. It is read from the image file once and then kept in the
+window. A background that only exists as a shader script has no image of that name on disk, in
+which case backgroundSize has to be set in the .menu file.
+=================
+*/
+static qboolean Window_ResolveBackgroundSize(Window *w)
+{
+	byte	*pic = NULL;
+	int		width = 0, height = 0;
+
+	if (w->backgroundSize[0] > 0.0f && w->backgroundSize[1] > 0.0f)
+	{
+		return qtrue;
+	}
+
+	if (w->backgroundSize[0] < 0.0f)
+	{	// looked it up already and came up empty
+		return qfalse;
+	}
+
+	if (re.R_LoadImage && w->backgroundName[0])
+	{
+		re.R_LoadImage(w->backgroundName, &pic, &width, &height);
+		if (pic)
+		{
+			Z_Free(pic);
+		}
+	}
+
+	if (width <= 0 || height <= 0)
+	{
+		Com_Printf(S_COLOR_YELLOW "WARNING: no image size for background '%s', set backgroundSize in the menu to use a nine patch\n",
+			w->backgroundName);
+		w->backgroundSize[0] = -1.0f;
+		return qfalse;
+	}
+
+	w->backgroundSize[0] = (float)width;
+	w->backgroundSize[1] = (float)height;
+	return qtrue;
+}
+
+// a thin border blown up over a large item would otherwise cost thousands of quads
+#define NINEPATCH_MAX_TILES 64
+
+/*
+=================
+Window_PaintPatchRegion
+
+Draws one piece of a nine patch. A tile size of zero stretches the piece over that axis,
+anything else repeats the piece at that size, the last tile being cut short.
+=================
+*/
+static void Window_PaintPatchRegion(float x, float y, float w, float h,
+									float s1, float t1, float s2, float t2,
+									float tileW, float tileH, qhandle_t shader)
+{
+	float	ox, oy, tw, th, ts2, tt2;
+
+	if (w <= 0.0f || h <= 0.0f)
+	{
+		return;
+	}
+
+	if (tileW <= 0.0f)
+	{
+		tileW = w;
+	}
+	if (tileH <= 0.0f)
+	{
+		tileH = h;
+	}
+
+	if (tileW * NINEPATCH_MAX_TILES < w)
+	{
+		tileW = w / NINEPATCH_MAX_TILES;
+	}
+	if (tileH * NINEPATCH_MAX_TILES < h)
+	{
+		tileH = h / NINEPATCH_MAX_TILES;
+	}
+
+	for (oy = 0.0f; oy < h - 0.01f; oy += tileH)
+	{
+		th = (h - oy < tileH) ? h - oy : tileH;
+		tt2 = t1 + (t2 - t1) * (th / tileH);
+
+		for (ox = 0.0f; ox < w - 0.01f; ox += tileW)
+		{
+			tw = (w - ox < tileW) ? w - ox : tileW;
+			ts2 = s1 + (s2 - s1) * (tw / tileW);
+
+			ui.R_DrawStretchPic(x + ox, y + oy, tw, th, s1, t1, ts2, tt2, shader);
+		}
+	}
+}
+
+/*
+=================
+Window_PaintNinePatch
+
+Draws the background in nine pieces: the four corners keep the size they were authored with,
+the four edges only grow along the side they follow, and the middle fills what is left. Edges
+and middle are stretched or tiled depending on the background style.
+=================
+*/
+static void Window_PaintNinePatch(Window *w, const rectDef_t *rect)
+{
+	float	top, right, bottom, left;	// border widths on screen
+	float	sw, sh;						// background shader size, in pixels
+	float	s[4], t[4];					// where the cuts fall in the shader
+	float	x[4], y[4];					// where they fall on screen
+	float	scale, tileW, tileH;
+
+	sw = w->backgroundSize[0];
+	sh = w->backgroundSize[1];
+
+	top		= w->backgroundOffset[0];
+	right	= w->backgroundOffset[1];
+	bottom	= w->backgroundOffset[2];
+	left	= w->backgroundOffset[3];
+
+	// opposite borders must never overlap, so squash them both when the item is too small
+	if (left + right > rect->w && left + right > 0.0f)
+	{
+		scale = rect->w / (left + right);
+		left *= scale;
+		right *= scale;
+	}
+	if (top + bottom > rect->h && top + bottom > 0.0f)
+	{
+		scale = rect->h / (top + bottom);
+		top *= scale;
+		bottom *= scale;
+	}
+
+	// the cuts stay where they are in the shader even when the borders were squashed on screen
+	s[0] = 0.0f;
+	s[1] = w->backgroundOffset[3] / sw;
+	s[2] = 1.0f - w->backgroundOffset[1] / sw;
+	s[3] = 1.0f;
+	t[0] = 0.0f;
+	t[1] = w->backgroundOffset[0] / sh;
+	t[2] = 1.0f - w->backgroundOffset[2] / sh;
+	t[3] = 1.0f;
+
+	// offsets wider than the shader itself would turn the middle inside out
+	if (s[1] > s[2])
+	{
+		s[1] = s[2] = (s[1] + s[2]) * 0.5f;
+	}
+	if (t[1] > t[2])
+	{
+		t[1] = t[2] = (t[1] + t[2]) * 0.5f;
+	}
+
+	x[0] = rect->x;
+	x[1] = rect->x + left;
+	x[2] = rect->x + rect->w - right;
+	x[3] = rect->x + rect->w;
+	y[0] = rect->y;
+	y[1] = rect->y + top;
+	y[2] = rect->y + rect->h - bottom;
+	y[3] = rect->y + rect->h;
+
+	if (w->backgroundStyle == BACKGROUND_NINE_PATCH_REPEAT)
+	{	// one tile is the middle of the shader drawn at the size it was authored at
+		tileW = sw - w->backgroundOffset[3] - w->backgroundOffset[1];
+		tileH = sh - w->backgroundOffset[0] - w->backgroundOffset[2];
+	}
+	else
+	{
+		tileW = tileH = 0.0f;
+	}
+
+	// corners
+	Window_PaintPatchRegion(x[0], y[0], x[1]-x[0], y[1]-y[0], s[0],t[0],s[1],t[1], 0.0f,  0.0f,  w->background);
+	Window_PaintPatchRegion(x[2], y[0], x[3]-x[2], y[1]-y[0], s[2],t[0],s[3],t[1], 0.0f,  0.0f,  w->background);
+	Window_PaintPatchRegion(x[0], y[2], x[1]-x[0], y[3]-y[2], s[0],t[2],s[1],t[3], 0.0f,  0.0f,  w->background);
+	Window_PaintPatchRegion(x[2], y[2], x[3]-x[2], y[3]-y[2], s[2],t[2],s[3],t[3], 0.0f,  0.0f,  w->background);
+
+	// edges
+	Window_PaintPatchRegion(x[1], y[0], x[2]-x[1], y[1]-y[0], s[1],t[0],s[2],t[1], tileW, 0.0f,  w->background);
+	Window_PaintPatchRegion(x[1], y[2], x[2]-x[1], y[3]-y[2], s[1],t[2],s[2],t[3], tileW, 0.0f,  w->background);
+	Window_PaintPatchRegion(x[0], y[1], x[1]-x[0], y[2]-y[1], s[0],t[1],s[1],t[2], 0.0f,  tileH, w->background);
+	Window_PaintPatchRegion(x[2], y[1], x[3]-x[2], y[2]-y[1], s[2],t[1],s[3],t[2], 0.0f,  tileH, w->background);
+
+	// middle
+	Window_PaintPatchRegion(x[1], y[1], x[2]-x[1], y[2]-y[1], s[1],t[1],s[2],t[2], tileW, tileH, w->background);
+}
+
+/*
+=================
 Window_Paint
 =================
 */
@@ -9255,7 +9571,14 @@ void Window_Paint(Window *w, float fadeAmount, float fadeClamp, float fadeCycle)
 		{
 			DC->setColor(w->foreColor);
 		}
-		DC->drawHandlePic(fillRect.x, fillRect.y, fillRect.w, fillRect.h, w->background);
+		if (w->backgroundStyle != BACKGROUND_NONE && Window_ResolveBackgroundSize(w))
+		{
+			Window_PaintNinePatch(w, &fillRect);
+		}
+		else
+		{
+			DC->drawHandlePic(fillRect.x, fillRect.y, fillRect.w, fillRect.h, w->background);
+		}
 		DC->setColor(NULL);
 	}
 
