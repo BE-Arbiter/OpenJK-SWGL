@@ -276,6 +276,41 @@ void vk_rtx_initialize( void )
 	vk_rtx_add_descriptor_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, MAX_DRAWIMAGES, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 	vk_rtx_create_descriptor( &vk.imageDescriptor );
 
+	// vk_create_image binds each new image into the array above, but the array only
+	// starts existing on the line before this one - anything created earlier bound into
+	// a descriptor of size zero, which vk_rtx_bind_descriptor_image_sampler silently
+	// ignores. Catch those up now.
+	{
+		uint32_t n, highest = 0;
+
+		for ( n = 0; n < tr.images.count; n++ )
+		{
+			const image_t *img = tr.images.items[n];
+
+			// A hole below updateSize would make the whole array write invalid, so an
+			// image without a view still gets a slot - pointing at the white image.
+			if ( !img || img->view == VK_NULL_HANDLE || img->sampler == VK_NULL_HANDLE ) {
+				if ( tr.whiteImage && tr.whiteImage->view != VK_NULL_HANDLE )
+					vk_rtx_bind_descriptor_image_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, tr.whiteImage->sampler, tr.whiteImage->view, n );
+				else
+					continue;
+			}
+			else {
+				vk_rtx_bind_descriptor_image_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, img->sampler, img->view, img->index );
+			}
+
+			if ( n + 1 > highest )
+				highest = n + 1;
+		}
+
+		if ( highest ) {
+			vk_rtx_set_descriptor_update_size( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, highest );
+			vk.imageDescriptor.needsUpdate = qtrue;
+		}
+
+		vk_debug( "rtx init: bound %u pre-existing images\n", highest );
+	}
+
 	vk_rtx_clear_material_list();
 
 	vk_debug( "rtx init: transparency\n" );
