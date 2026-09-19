@@ -181,7 +181,11 @@ void vk_rtx_extract_emissive_texture_info( image_t *image )
 
 static void vk_rtx_copy_buffer_to_image(vkimage_t* image, uint32_t width, uint32_t height, VkBuffer *buffer, uint32_t mipLevel, uint32_t arrayLayer)
 {
+	vk_debug( "      copy: pool %p\n", (void *)vk.cmd_buffers_graphics.command_pool );
+
 	VkCommandBuffer cmd_buf = vkpt_begin_command_buffer( &vk.cmd_buffers_graphics );
+
+	vk_debug( "      copy: recording into %p\n", (void *)cmd_buf );
 
 	VkImageMemoryBarrier barrier;
 	Com_Memset( &barrier, 0, sizeof(VkImageMemoryBarrier) );
@@ -237,7 +241,11 @@ static void vk_rtx_copy_buffer_to_image(vkimage_t* image, uint32_t width, uint32
 		0, 0, NULL, 0, NULL,
 		1, &barrier);
 
+	vk_debug( "      copy: submitting to queue %p\n", (void *)vk.queue_graphics );
+
 	vkpt_submit_command_buffer_simple( cmd_buf, vk.queue_graphics, true );
+
+	vk_debug( "      copy: submitted\n" );
 }
 
 static void vk_rtx_create_image_array( const char *name, vkimage_t *image, uint32_t width, uint32_t height, 
