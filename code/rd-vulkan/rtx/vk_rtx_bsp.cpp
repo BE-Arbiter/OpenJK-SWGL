@@ -2274,6 +2274,7 @@ void R_PreparePT( world_t &worldData )
 	worldData.light_polys = NULL;
 
 	// reset acceleration structures, redundant
+	vk_debug( "rtx world: reset geometries\n" );
 	vk_rtx_reset_world_geometries( tr.world );
 
 	vk_geometry_data_t *sky_static				= &worldData.geometry.sky_static;
@@ -2413,25 +2414,34 @@ void R_PreparePT( world_t &worldData )
 	
 		bmodel->transparent = false; // is_model_transparent(wm, model);
 		bmodel->masked = false; // is_model_masked(wm, model);
-		Com_Printf("num light polys : %d", bmodel->num_light_polys );
+		vk_debug( "rtx world: bmodel %i, %i light polys\n", i, bmodel->num_light_polys );
 	}
 
 #ifdef DEBUG_POLY_LIGHTS
 	vk_rtx_inject_light_poly_debug( world_static, worldData, DEBUG_POLY_LIGHTS );
 #endif
 
+	vk_debug( "rtx world: cluster lights\n" );
 	collect_cluster_lights( worldData );
 
+	vk_debug( "rtx world: sky visibility\n" );
 	compute_sky_visibility( worldData );
 
+	vk_debug( "rtx world: light buffers\n" );
 	vkpt_light_buffers_create( worldData  );
 
 	// create buffers and upload and create blas
+	vk_debug( "rtx world: vertex buffer upload\n" );
 	vkpt_vertex_buffer_upload_bsp_mesh( worldData );
 
+	vk_debug( "rtx world: envmap\n" );
 	vk_rtx_prepare_envmap( worldData );
 
+	vk_debug( "rtx world: physical sky\n" );
 	vkpt_physical_sky_initialize();
 
+	vk_debug( "rtx world: primary ray resources\n" );
 	vk_rtx_create_primary_rays_resources( worldData );
+
+	vk_debug( "rtx world: done\n" );
 }

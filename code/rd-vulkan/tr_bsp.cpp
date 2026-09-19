@@ -2418,6 +2418,14 @@ void RE_LoadWorldMap_Actual( const char *name, world_t &worldData, int index )
 	R_BuildSurfaceSpritesVBO( worldData, index );
 #endif
 
+#ifdef USE_RTX
+	// Builds everything the tracer needs from the BSP: acceleration structures, the light
+	// polys and their per-cluster lists, sky visibility and the envmap. Only for index 0,
+	// which is the world the tracer renders - SP's sub-BSP instances are not tr.world.
+	if ( vk.rtxActive && !index )
+		R_PreparePT( worldData );
+#endif
+
 	if (CM_GetCachedMapDiskImage())
 	{
 		Z_Free( CM_GetCachedMapDiskImage() );

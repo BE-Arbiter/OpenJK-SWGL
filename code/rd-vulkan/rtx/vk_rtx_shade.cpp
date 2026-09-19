@@ -1002,7 +1002,9 @@ static void vk_rtx_process_render_feedback( ref_feedback_t *feedback, mnode_t *v
 		feedback->lookatcluster = readback.cluster;
 		feedback->num_light_polys = 0;
 
-		if ( tr.world && feedback->lookatcluster >= 0 && feedback->lookatcluster < tr.world->numClusters )
+		// The offsets only exist once R_PreparePT has run over this world.
+		if ( tr.world && tr.world->cluster_light_offsets
+			&& feedback->lookatcluster >= 0 && feedback->lookatcluster < tr.world->numClusters )
 		{
 			int* light_offsets = tr.world->cluster_light_offsets + feedback->lookatcluster;
 			feedback->num_light_polys = light_offsets[1] - light_offsets[0];
