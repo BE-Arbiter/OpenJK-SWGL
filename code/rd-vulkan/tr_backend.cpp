@@ -1684,6 +1684,27 @@ const void	*RB_DrawSurfs( const void *data ) {
 	// clear the z buffer, set the modelview, etc
 	RB_BeginDrawingView();
 
+#ifdef USE_RTX
+	// The path tracer replaces the whole rasterised world pass, so it takes over before
+	// anything else runs. Upstream puts this switch further down, past where its own
+	// rasterised list is built - this renderer has a G-buffer prepass ahead of that, and
+	// leaving the switch there would extract depth, normals and GTAO every frame only to
+	// throw the result away.
+	if ( vk.rtxActive && backEnd.viewParms.portalView == PV_NONE
+		&& !( backEnd.refdef.rdflags & RDF_NOWORLDMODEL ) )
+	{
+		vk_end_render_pass();
+
+		vk_rtx_begin_scene( &backEnd.refdef, cmd->drawSurfs, cmd->numDrawSurfs );
+
+		vk_begin_main_render_pass( qfalse );
+
+		backEnd.doneSurfaces = qtrue;	// for bloom
+
+		return (const void *)(cmd + 1);
+	}
+#endif
+
 	// depth+normal(+velocity) G-buffer extraction pass (r_depthPrepass / r_velocityBuffer).
 	// Once per displayed frame, ahead of the main pass, primary view only - portal/
 	// mirror sub-views and HUD/menu 3D icon sub-scenes (RDF_NOWORLDMODEL) are excluded

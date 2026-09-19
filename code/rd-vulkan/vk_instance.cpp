@@ -645,7 +645,7 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 	// create VkDevice
 	{
 		char *str;
-		const char *device_extension_list[9];
+		const char *device_extension_list[20];	// ray tracing alone asks for seven of these
 		uint32_t device_extension_count;
 		const char *ext, *end;
 		const float priority = 1.0;
@@ -660,6 +660,15 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 		qboolean memoryRequirements2 = qfalse;
 		qboolean debugMarker = qfalse;
 		qboolean toolingInfo = qfalse;
+#ifdef USE_RTX
+		qboolean raytracing = qfalse;
+		qboolean descIndexing = qfalse;
+		qboolean maintance3 = qfalse;
+		qboolean mutableType = qfalse;
+		qboolean pipelineLib = qfalse;
+		qboolean accelStruct = qfalse;
+		qboolean deferredHostOp = qfalse;
+#endif
 #ifdef _DEBUG
 		qboolean timelineSemaphore = qfalse;
 		qboolean memoryModel = qfalse;
@@ -694,6 +703,22 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 			}
 			else if ( strcmp( ext, VK_EXT_TOOLING_INFO_EXTENSION_NAME ) == 0 ) {
 				toolingInfo = qtrue;
+#ifdef USE_RTX
+			} else if ( strcmp( ext, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME ) == 0 ) {
+				raytracing = qtrue;
+			} else if ( strcmp( ext, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME ) == 0 ) {
+				descIndexing = qtrue;
+			} else if ( strcmp( ext, VK_KHR_MAINTENANCE3_EXTENSION_NAME ) == 0 ) {
+				maintance3 = qtrue;
+			} else if ( strcmp( ext, VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME ) == 0 ) {
+				mutableType = qtrue;
+			} else if ( strcmp( ext, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME ) == 0 ) {
+				accelStruct = qtrue;
+			} else if ( strcmp( ext, VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME ) == 0 ) {
+				pipelineLib = qtrue;
+			} else if ( strcmp( ext, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME ) == 0 ) {
+				deferredHostOp = qtrue;
+#endif
 #ifdef _DEBUG
 			} else if ( strcmp( ext, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME ) == 0 ) {
 				timelineSemaphore = qtrue;
@@ -750,6 +775,32 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 
 		if ( toolingInfo )
 			device_extension_list[device_extension_count++] = VK_EXT_TOOLING_INFO_EXTENSION_NAME;
+
+#ifdef USE_RTX
+		// The path tracer needs all seven or none of them; a partial set is not a degraded
+		// mode, it is a device that cannot trace rays at all.
+		if ( raytracing && descIndexing && maintance3 && mutableType
+			&& accelStruct && pipelineLib && deferredHostOp )
+		{
+			device_extension_list[device_extension_count++] = VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME;
+			device_extension_list[device_extension_count++] = VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
+			device_extension_list[device_extension_count++] = VK_KHR_MAINTENANCE3_EXTENSION_NAME;
+			device_extension_list[device_extension_count++] = VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME;
+			device_extension_list[device_extension_count++] = VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME;
+			device_extension_list[device_extension_count++] = VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME;
+			device_extension_list[device_extension_count++] = VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME;
+
+			vk.rtxSupport = qtrue;
+		}
+		else
+		{
+			vk.rtxSupport = qfalse;
+			vk.rtxActive = qfalse;
+
+			if ( r_rtx->integer )
+				ri.Printf( PRINT_WARNING, "...ignoring \\r_rtx: this device has no ray tracing support\n" );
+		}
+#endif
 
 #ifdef _DEBUG
 		if ( timelineSemaphore ) {
@@ -911,6 +962,13 @@ __initStart:
 #endif
 
 	Com_Memset(&vk, 0, sizeof(vk));
+
+#ifdef USE_RTX
+	// Set before device selection, which is where rtxSupport is decided and can clear it
+	// again if this GPU cannot trace rays.
+	if ( r_rtx->integer )
+		vk.rtxActive = qtrue;
+#endif
 
 	qvkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)ri.VK_GetInstanceProcAddress();
 	if (qvkGetInstanceProcAddr == NULL)
