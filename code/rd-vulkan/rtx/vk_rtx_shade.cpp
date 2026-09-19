@@ -658,13 +658,6 @@ static void process_regular_entity(
 		if (  entity_mesh->mesh->indexOffset < 0 ) // failed to upload the vertex data - don't instance this mesh
 			return;
 
-		// A distortion surface only exists to drive the rasteriser's screen-space warp
-		// pass, which the tracer replaces with real refraction. Its own albedo is the
-		// white image, so instancing it puts an opaque white shell in the scene.
-		if ( entity_mesh->shader->useDistortion
-			|| ( entity && ( entity->e.renderfx & RF_DISTORTION ) ) )
-			continue;
-
 		uint32_t material_id = compute_mesh_material_flags( entity, entity_mesh->mesh->modelIndex, entity_mesh->shader );
 
 		if (!material_id)
