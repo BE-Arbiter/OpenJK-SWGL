@@ -86,15 +86,18 @@ bool pt_logic_masked(int primitiveID, int instanceID, int geometryIndex, uint in
 #endif
 	vec4 texel = global_textureLod(minfo.base_texture, tex_coord, 0);
 
-	if (minfo.blend_mode == RTX_BLEND_ALPHA)
+	// A texel that contributes nothing must not stop the ray: a fully transparent one on
+	// a blended stage, or a black one on an additive stage. These used to return true,
+	// which kept the hit and let those texels cast a shadow.
+	if (minfo.blend_mode == RTX_BLEND_ALPHA || minfo.blend_mode == RTX_BLEND_ALPHA_PREMUL)
 	{
 		if (texel.a == 0.0)
-			return true;
+			return false;
 	}
 	else if (minfo.blend_mode == RTX_BLEND_ADDITIVE)
 	{
 		if (dot(texel.rgb, texel.rgb) == 0.0)
-			return true;
+			return false;
 	}
 
 	switch (minfo.alpha_test_func)
@@ -176,6 +179,15 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
 
     switch (minfo.blend_mode)
     {
+        case RTX_BLEND_OPAQUE:
+        {
+            // An opaque stage ignores the source alpha, so the quad covers whatever is
+            // behind it. Taking the texture's alpha here instead left effect sprites
+            // half-covering the background with unpremultiplied colour.
+            color.a = 1.0;
+            break;
+        }
+
         case RTX_BLEND_ALPHA:
         {
             if (color.a <= 0.0)
@@ -183,6 +195,31 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
 
             // correct premultiplied alpha
             color.rgb *= color.a;
+            break;
+        }
+
+        case RTX_BLEND_ALPHA_PREMUL:
+        {
+            // GL_ONE means the colour is already premultiplied; scaling it again here
+            // would darken the sprite by its own alpha a second time.
+            if (color.a <= 0.0 && dot(color.rgb, color.rgb) <= 0.0)
+                return make_empty_hit();
+
+            break;
+        }
+
+        case RTX_BLEND_MODULATE:
+        {
+            // dst * src. There is no multiply in the effects composite, but for the
+            // greyscale filters this is used for - scorch marks, darkening smoke - an
+            // alpha blend towards black with coverage 1 - luminance matches it.
+            float lum = clamp(luminance(color.rgb), 0.0, 1.0);
+
+            if (lum >= 1.0)
+                return make_empty_hit();
+
+            color.rgb = vec3(0.0);
+            color.a = 1.0 - lum;
             break;
         }
 

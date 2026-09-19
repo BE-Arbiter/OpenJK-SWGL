@@ -545,7 +545,7 @@ MaterialInfo get_material_info( uint material_id )
 
 	uint at = data[5];
 	minfo.alpha_test_func  =  at        & 0x3u;
-	minfo.blend_mode       = (at >> 2u) & 0x3u;
+	minfo.blend_mode       = (at >> 2u) & uint(RTX_BLEND_MASK);
 	minfo.alpha_test_value = unpackHalf2x16(at).y;
 
 	return minfo;

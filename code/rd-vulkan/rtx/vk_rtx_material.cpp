@@ -429,21 +429,42 @@ uint32_t vk_get_rtx_material_stage_tex_count( const Vk_Pipeline_Def *def )
     }
 }
 
+// Which of the tracer's four composites a stage's blendFunc maps onto. Only two pairs
+// used to be recognised and everything else fell through to OPAQUE, which the sprite
+// path then drew at full coverage - a blended effect came out as a solid disc of its own
+// texture, reading as a shadow wherever that texture was dark.
 static uint32_t vk_get_rtx_material_stage_blend_mode( uint32_t state_bits )
 {
-	if ((state_bits & GLS_DEPTHMASK_TRUE) != 0)
-		return RTX_BLEND_OPAQUE;	// allow_discard = 0
-
 	const uint32_t src = state_bits & GLS_SRCBLEND_BITS;
 	const uint32_t dst = state_bits & GLS_DSTBLEND_BITS;
 
-    if (src == GLS_SRCBLEND_SRC_ALPHA && dst == GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA)
-        return RTX_BLEND_ALPHA; // 1
+	// No blendFunc at all. ParseStage folds GL_ONE/GL_ZERO into this and sets the depth
+	// mask, so either test on its own would do; take both.
+	if ( ( src == 0 && dst == 0 ) || ( src == GLS_SRCBLEND_ONE && dst == GLS_DSTBLEND_ZERO ) )
+		return RTX_BLEND_OPAQUE;
 
-    if (src == GLS_SRCBLEND_ONE && dst == GLS_DSTBLEND_ONE)
-        return RTX_BLEND_ADDITIVE; // 2
+	if ( ( state_bits & GLS_DEPTHMASK_TRUE ) != 0 )
+		return RTX_BLEND_OPAQUE;	// allow_discard = 0
 
-	return RTX_BLEND_OPAQUE;
+	// Everything added onto the framebuffer. The source factor only scales how much of
+	// the texture goes in, which the sprite path already folds into the colour.
+	if ( dst == GLS_DSTBLEND_ONE )
+		return RTX_BLEND_ADDITIVE;
+
+	if ( dst == GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA )
+		return ( src == GLS_SRCBLEND_ONE ) ? RTX_BLEND_ALPHA_PREMUL : RTX_BLEND_ALPHA;
+
+	// A filter: dst * src, written either way round. Common on scorch marks and the
+	// smoke that is meant to darken what is behind it.
+	if ( dst == GLS_DSTBLEND_ZERO && ( src == GLS_SRCBLEND_DST_COLOR || src == GLS_SRCBLEND_ONE_MINUS_DST_COLOR ) )
+		return RTX_BLEND_MODULATE;
+
+	if ( src == GLS_SRCBLEND_ZERO && ( dst == GLS_DSTBLEND_SRC_COLOR || dst == GLS_DSTBLEND_ONE_MINUS_SRC_COLOR ) )
+		return RTX_BLEND_MODULATE;
+
+	// GL_DST_COLOR/GL_SRC_COLOR (blend2x) and the rest of the long tail. Alpha is the
+	// safe landing: it never covers more than the texture's own alpha says it does.
+	return RTX_BLEND_ALPHA;
 }
 
 rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
@@ -570,11 +591,16 @@ rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
 
 	if ( pt_verbose->integer )
 	{
+		static const char * const blend_names[] = {
+			"opaque", "alpha", "additive", "modulate", "premul", "?", "?", "?"
+		};
+
 		const image_t *img0 = ( shader->stages[0] && shader->stages[0]->active ) ? shader->stages[0]->bundle[0].image[0] : NULL;
 
-		ri.Printf( PRINT_ALL, "rtx material %-4u stages %u  s0 mode %u count %u  tex %u/%u/%u  %-30s  %s\n",
+		ri.Printf( PRINT_ALL, "rtx material %-4u stages %u  s0 mode %u count %u  blend %-8s  tex %u/%u/%u  %-30s  %s\n",
 			mat->index, mat->num_stages,
 			mat->stage[0].tex_mode, mat->stage[0].tex_count,
+			blend_names[mat->blend_mode & RTX_BLEND_MASK],
 			mat->stage[0].bundle[0].image, mat->stage[0].bundle[1].image, mat->stage[0].bundle[2].image,
 			img0 ? img0->imgName : "<none>",
 			shader->name );
@@ -610,7 +636,7 @@ VkResult vk_rtx_upload_materials( LightBuffer *lbo )
 		data[4] =	mat->remappedIndex;
 
 		data[5] |= (mat->alpha_test_func & 0x3);	// bits 0-1
-		data[5] |= (mat->blend_mode & 0x3) << 2;	// bits 2-3
+		data[5] |= (mat->blend_mode & RTX_BLEND_MASK) << 2;	// bits 2-4
 		data[5] |= floatToHalf(mat->alpha_test_value) << 16;
 
 		mat->uploaded[vk.current_frame_index] = qtrue;

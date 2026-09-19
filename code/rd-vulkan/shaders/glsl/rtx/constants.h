@@ -110,10 +110,15 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define MATERIAL_FLAG_MASKED						0x04000000
 #define MATERIAL_FLAG_LIGHT							0x08000000 // bit 27
 
+// How a shader stage's blendFunc composites. Stored in 3 bits of the material table,
+// so keep these below 8; RTX_BLEND_SKIP is a shader-local "no hit" and is never stored.
 #define RTX_BLEND_SKIP								~0U
 #define RTX_BLEND_OPAQUE							0
-#define RTX_BLEND_ALPHA								1
-#define RTX_BLEND_ADDITIVE							2
+#define RTX_BLEND_ALPHA								1	// GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA
+#define RTX_BLEND_ADDITIVE							2	// anything onto GL_ONE
+#define RTX_BLEND_MODULATE							3	// GL_DST_COLOR, GL_ZERO - a filter
+#define RTX_BLEND_ALPHA_PREMUL						4	// GL_ONE, GL_ONE_MINUS_SRC_ALPHA
+#define RTX_BLEND_MASK								7
 
 #define MATERIAL_LIGHT_STYLE_MASK    0x0003f000
 #define MATERIAL_LIGHT_STYLE_SHIFT   12
