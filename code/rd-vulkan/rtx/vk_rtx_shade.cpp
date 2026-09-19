@@ -1045,6 +1045,18 @@ static void vk_rtx_process_render_feedback( ref_feedback_t *feedback, mnode_t *v
 
 		*sun_visible = readback.sun_luminance > 0.f ? qtrue : qfalse;
 		*adapted_luminance = readback.adapted_luminance;
+
+		// Auto-exposure drives the whole tone curve off this one readback value, so when
+		// the image looks flat this is the first thing to rule out.
+		if ( r_rtx->integer > 1 )
+		{
+			static int report_frame = 0;
+
+			if ( ( report_frame++ & 63 ) == 0 )
+				ri.Printf( PRINT_ALL, "rtx exposure: adapted luminance %f  sun luminance %f  hdr %f %f %f\n",
+					readback.adapted_luminance, readback.sun_luminance,
+					readback.hdr_color[0], readback.hdr_color[1], readback.hdr_color[2] );
+		}
 	}
 }
 
