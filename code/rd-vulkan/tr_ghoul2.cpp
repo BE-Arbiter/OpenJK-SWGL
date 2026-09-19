@@ -5349,10 +5349,14 @@ void vk_rtx_AddGhoulSurfaces( trRefEntity_t *ent, int entityNum, int *mdxm_matri
 			else
 			{
 				// figure out the custom skin thing
-				if ( model->mCustomSkin )
-					skin = R_GetSkinByHandle( model->mCustomSkin );
-
-				else if ( ent->e.customSkin )
+				//
+				// Upstream checks model->mCustomSkin first. In SP that field is a
+				// configstring index (G_SkinIndex/CS_CHARSKINS), not a render skin
+				// handle, so R_GetSkinByHandle returns whatever unrelated skin happens
+				// to sit at that index - and every surface of the model then draws with
+				// another character's shaders. CGAME resolves the real handle into
+				// ent->e.customSkin, which is what the rasterised path above uses.
+				if ( ent->e.customSkin )
 					skin = R_GetSkinByHandle( ent->e.customSkin );
 
 				else if ( model->mSkin > 0 && model->mSkin < tr.numSkins )
