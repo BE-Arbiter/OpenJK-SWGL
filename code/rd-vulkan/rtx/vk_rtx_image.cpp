@@ -72,11 +72,7 @@ static void LoadPNG16( const char *filename, byte **pic, int *width, int *height
 	if ( !fbuffer )
 		return;
 
-	vk_debug( "  png16: read %i bytes\n", len );
-
 	*pic = (byte*)stbi_load_16_from_memory( fbuffer, len, width, height, &components, STBI_rgb_alpha );
-
-	vk_debug( "  png16: decoded %ix%i, %i components\n", *width, *height, components );
 
 	if ( *pic == NULL )
 	{
@@ -176,25 +172,27 @@ void vk_rtx_extract_emissive_texture_info( image_t *image )
 	image->processing_complete = true;
 
 	// shouldnt image->pix_data be freed now?
-	ri.Z_Free( image->pix_data );
+	if ( image->pix_data ) {
+		ri.Z_Free( image->pix_data );
+		image->pix_data = NULL;
+	}
 }
 
 static void vk_rtx_copy_buffer_to_image(vkimage_t* image, uint32_t width, uint32_t height, VkBuffer *buffer, uint32_t mipLevel, uint32_t arrayLayer)
 {
-	vk_debug( "      copy: pool %p\n", (void *)vk.cmd_buffers_graphics.command_pool );
-
 	VkCommandBuffer cmd_buf = vkpt_begin_command_buffer( &vk.cmd_buffers_graphics );
-
-	vk_debug( "      copy: recording into %p\n", (void *)cmd_buf );
 
 	VkImageMemoryBarrier barrier;
 	Com_Memset( &barrier, 0, sizeof(VkImageMemoryBarrier) );
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = image->arrayLayers;
-	barrier.subresourceRange.baseMipLevel = 0;
-	barrier.subresourceRange.levelCount = image->mipLevels;
+	// Only the subresource being written. Upstream covers every layer of the array, and
+	// since the transition comes from UNDEFINED that lets the driver discard the layers
+	// uploaded before this one - on a 512-layer array that is the whole set but the last.
+	barrier.subresourceRange.baseArrayLayer = arrayLayer;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.baseMipLevel = mipLevel;
+	barrier.subresourceRange.levelCount = 1;
 
 	// transition to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
 	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -241,11 +239,7 @@ static void vk_rtx_copy_buffer_to_image(vkimage_t* image, uint32_t width, uint32
 		0, 0, NULL, 0, NULL,
 		1, &barrier);
 
-	vk_debug( "      copy: submitting to queue %p\n", (void *)vk.queue_graphics );
-
 	vkpt_submit_command_buffer_simple( cmd_buf, vk.queue_graphics, true );
-
-	vk_debug( "      copy: submitted\n" );
 }
 
 static void vk_rtx_create_image_array( const char *name, vkimage_t *image, uint32_t width, uint32_t height, 
@@ -338,15 +332,11 @@ void vk_rtx_upload_image_data( vkimage_t *image, uint32_t width, uint32_t height
 
 	vk_rtx_buffer_create( &staging, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 
-	vk_debug( "    upload: staging %u bytes\n", (uint32_t)imageSize );
-
 	// write data to buffer
 	uint8_t *p;
 	VK_CHECK( qvkMapMemory( vk.device, staging.memory, 0, imageSize, 0, (void**)(&p) ) );
 	Com_Memcpy( p, pixels, (size_t)(imageSize) );
 	qvkUnmapMemory( vk.device, staging.memory );
-
-	vk_debug( "    upload: copying to image\n" );
 
 	vk_rtx_copy_buffer_to_image( image, width, height, &staging.buffer, mipLevel, arrayLayer );
 
@@ -611,7 +601,6 @@ static VkResult vk_rtx_create_blue_noise( void )
 		char buf[1024];
 		snprintf(buf, sizeof buf, "blue_noise/%d_%d/HDR_RGBA_%04d.png", res, res, i);
 
-		vk_debug( "rtx blue noise: %s\n", buf );
 
 		R_LoadImage16( buf, &pic, &width, &height );
 
@@ -638,11 +627,7 @@ static VkResult vk_rtx_create_blue_noise( void )
 				img[(j * bytes_per_channel) + 1] = *(pic + ((j * 8) + ((channel * bytes_per_channel) + 1)));
 			}
 
-			vk_debug( "  channel %u: packed, uploading layer %u\n", channel, (i*4) + channel );
-
 			vk_rtx_upload_image_data( &vk.img_blue_noise, width, height, img, bytes_per_channel, 0, (i*4) + channel );
-
-			vk_debug( "  channel %u: uploaded\n", channel );
 		}
 
 		Z_Free( pic );

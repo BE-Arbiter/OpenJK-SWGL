@@ -79,7 +79,11 @@ static void vk_rtx_create_pipeline_layout( vkpipeline_t *pipeline )
 void vk_rtx_destroy_pipeline( vkpipeline_t *pipeline ) 
 {
 	free( pipeline->pushConstantRange.p );
-	Z_Free( pipeline->set_layouts );
+
+	if ( pipeline->set_layouts ) {
+		Z_Free( pipeline->set_layouts );
+		pipeline->set_layouts = NULL;
+	}
 
 	if ( pipeline->layout ) {
 		qvkDestroyPipelineLayout( vk.device, pipeline->layout, NULL );

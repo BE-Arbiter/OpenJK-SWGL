@@ -170,7 +170,9 @@ void destroy_transparency()
 
 	if (transparency.host_buffer_shadow)
 	{
-		Z_Free((void**)&transparency.host_buffer_shadow);
+		// Was freeing the address of the pointer rather than the block it holds.
+		Z_Free(transparency.host_buffer_shadow);
+		transparency.host_buffer_shadow = NULL;
 	}
 }
 

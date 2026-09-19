@@ -37,9 +37,6 @@ void vk_rtx_create_command_pool( void )
 	
 	cmd_pool_create_info.queueFamilyIndex = vk.queue_idx_transfer;
 	VK_CHECK( qvkCreateCommandPool( vk.device, &cmd_pool_create_info, NULL, &vk.cmd_buffers_transfer.command_pool) );
-
-	vk_debug( "rtx command pools: graphics family %i, transfer family %i, queue %p\n",
-		vk.queue_idx_graphics, vk.queue_idx_transfer, (void *)vk.queue_graphics );
 }
 
 VkCommandBuffer vkpt_begin_command_buffer( cmd_buf_group_t* group )
@@ -82,7 +79,11 @@ VkCommandBuffer vkpt_begin_command_buffer( cmd_buf_group_t* group )
 #endif
 #endif
 
-		Z_Free(group->buffers);
+		// SP's Z_Free reads a zone header behind the pointer and cannot be handed NULL,
+		// which is exactly what the group holds until this first growth.
+		if ( group->buffers )
+			Z_Free(group->buffers);
+
 		group->buffers = new_buffers;
 		group->count_per_frame = new_count;
 	}
