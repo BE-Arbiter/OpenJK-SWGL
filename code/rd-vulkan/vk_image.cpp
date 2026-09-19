@@ -1063,8 +1063,15 @@ void vk_upload_image_data( image_t *image, int x, int y, int width,
 #ifdef USE_RTX
 	// Keep the source pixels: vk_rtx_extract_emissive_texture_info scans them on the CPU
 	// to derive a light colour and the extent of the lit texels, then frees this.
+	//
+	// The zone, not Hunk_AllocateTempMemory. That temp region is LIFO and is handed
+	// straight back out to the next caller, but the scan does not run here - it runs
+	// later, from FinishShader, by which time every texture loaded in between has
+	// reused the block. The scan was reading whatever had landed there, so the light
+	// colour it derived was meaningless, which is why an emissive surface could glow
+	// and light nothing. It is also what the matching ri.Z_Free expects to be given.
 	if ( vk.rtxActive && !update ) {
-		image->pix_data = (byte *)Hunk_AllocateTempMemory( sizeof(byte) * 4 * width * height );
+		image->pix_data = (byte *)Z_Malloc( sizeof(byte) * 4 * width * height, TAG_TEMP_IMAGE, qfalse );
 		Com_Memcpy( image->pix_data, pixels, sizeof(byte) * 4 * width * height );
 	}
 #endif
