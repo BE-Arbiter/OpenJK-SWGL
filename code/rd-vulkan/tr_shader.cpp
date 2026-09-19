@@ -1267,9 +1267,12 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 					flags |= IMGFLAG_NOLIGHTSCALE;
 
 #ifdef USE_RTX
-				// World textures are sampled by the tracer in linear space, so they are
-				// uploaded as sRGB rather than converted per sample.
-				if ( vk.rtxActive && tr.mapLoading )
+				// The tracer wants albedo in linear space, so colour textures are
+				// uploaded sRGB and the hardware does the decode on sample. This has to
+				// hold for every colour texture it can sample, not just the ones a map
+				// happens to register while it loads - one left out is read as though it
+				// were already linear, which lifts its midtones and flattens it.
+				if ( vk.rtxActive )
 					flags |= IMGFLAG_RGB;
 #endif
 
@@ -1321,6 +1324,11 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 
 			if (shader.noLightScale)
 				flags |= IMGFLAG_NOLIGHTSCALE;
+
+#ifdef USE_RTX
+			if ( vk.rtxActive )
+				flags |= IMGFLAG_RGB;
+#endif
 
 			stage->bundle[0].image[0] = R_FindImageFile(token, flags);
 
@@ -1378,6 +1386,11 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 
 					if( bClamp )
 						flags |= IMGFLAG_CLAMPTOEDGE;
+
+#ifdef USE_RTX
+					if ( vk.rtxActive )
+						flags |= IMGFLAG_RGB;
+#endif
 
 					images[num] = R_FindImageFile( token, flags );
 					if ( !images[num] )
@@ -3231,6 +3244,13 @@ shader_t *R_FindShader( const char *name, const int *lightmapIndex, const byte *
 		{
 			flags |= IMGFLAG_CLAMPTOEDGE;
 		}
+
+#ifdef USE_RTX
+		// A texture with no shader script at all takes this path, which is most of a
+		// JKA map's walls - it was the one site the sRGB flag never reached.
+		if ( vk.rtxActive )
+			flags |= IMGFLAG_RGB;
+#endif
 
 		image = R_FindImageFile(strippedName, flags);
 		if (!image) {
