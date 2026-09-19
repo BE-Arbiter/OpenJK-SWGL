@@ -1245,6 +1245,13 @@ const void *RB_StretchPic ( const void *data ) {
 		vk_bloom();
 	}
 
+#ifdef USE_RTX
+	// The tracer's result still has to reach the 2D pass' colour attachment.
+	if ( vk.rtxActive ) {
+		vk_rtx_begin_blit();
+	}
+#endif
+
 	RB_AddQuadStamp2( cmd->x, cmd->y, cmd->w, cmd->h, cmd->s1, cmd->t1,
 		cmd->s2, cmd->t2, backEnd.color2D );
 
@@ -1816,6 +1823,11 @@ const void	*RB_DrawBuffer( const void *data ) {
 
 	vk_begin_frame();
 
+#ifdef USE_RTX
+	if ( vk.rtxActive )
+		vk_rtx_begin_frame();
+#endif
+
 	vk_set_depthrange(DEPTH_RANGE_NORMAL);
 
 	// force depth range and viewport/scissor updates
@@ -1856,7 +1868,13 @@ const void	*RB_SwapBuffers( const void *data ) {
 
 	vk_end_frame();
 
+#ifdef USE_RTX
+	// The tracer submits and synchronises its own work; an extra idle here would
+	// serialise the whole frame on it.
+	if ( !vk.rtxActive && backEnd.doneSurfaces && !glState.finishCalled ) {
+#else
 	if ( backEnd.doneSurfaces && !glState.finishCalled ) {
+#endif
 		vk_queue_wait_idle();
 	}
 

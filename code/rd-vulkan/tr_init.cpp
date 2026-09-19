@@ -755,6 +755,9 @@ static consoleCommand_t	commands[] = {
 	{ "r_cleardecals",		RE_ClearDecals },
 	{ "remapSky",			R_RemapSkyShader_f },
 	{ "clearRemaps",		R_ClearRemaps_f },
+#ifdef USE_RTX
+	{ "show_pvs",			vk_rtx_show_pvs_f },
+#endif
 	{ "vkinfo",				vk_info_f }
 };
 
@@ -1223,8 +1226,12 @@ void R_Init( void ) {
 		R_InitWorldEffects();
 	}
 	RestoreGhoul2InfoArray();
+#ifdef USE_RTX
+	vk_rtx_begin_registration();
+#endif
 
 	vk_debug("----- finished R_Init -----\n" );
+
 }
 
 
@@ -1255,6 +1262,14 @@ void RE_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 
 		vk_delete_textures();
 		vk_release_resources();
+
+#ifdef USE_RTX
+		if ( vk.rtxActive && tr.world )
+		{
+			vk_rtx_destroy_primary_rays_resources();
+			vk_rtx_clear_material_list();
+		}
+#endif
 	//}
 
 	//vk_release_resources(); not merged yet (https://github.com/ec-/Quake3e/commit/d31b84ebf2ab702686e98dff40b7673473026b30)

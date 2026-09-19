@@ -50,6 +50,12 @@ void vk_create_sync_primitives( void )
 		// second semaphore to synchronize additional tasks (e.g. image upload)
 		VK_CHECK( qvkCreateSemaphore( vk.device, &desc, NULL, &vk.tess[i].rendering_finished2 ) );
 #endif
+#ifdef USE_RTX
+		VK_CHECK( qvkCreateSemaphore( vk.device, &desc, NULL, &vk.tess[i].semaphores.trace_finished ) );
+		VK_CHECK( qvkCreateSemaphore( vk.device, &desc, NULL, &vk.tess[i].semaphores.transfer_finished ) );
+		vk.tess[i].semaphores.trace_signaled = false;
+		vk.tess[i].semaphores.prev_trace_signaled = false;
+#endif
         fence_desc.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fence_desc.pNext = NULL;
 		//fence_desc.flags = VK_FENCE_CREATE_SIGNALED_BIT; // so it can be used to start rendering
@@ -95,6 +101,10 @@ void vk_destroy_sync_primitives( void )
         qvkDestroySemaphore(vk.device, vk.tess[i].image_acquired, NULL);
 #ifdef USE_UPLOAD_QUEUE
 		qvkDestroySemaphore( vk.device, vk.tess[i].rendering_finished2, NULL );
+#endif
+#ifdef USE_RTX
+		qvkDestroySemaphore( vk.device, vk.tess[i].semaphores.trace_finished, NULL );
+		qvkDestroySemaphore( vk.device, vk.tess[i].semaphores.transfer_finished, NULL );
 #endif
         qvkDestroyFence(vk.device, vk.tess[i].rendering_finished_fence, NULL);
         vk.tess[i].waitForFence = qfalse;
@@ -348,6 +358,28 @@ void vk_create_render_passes()
         VK_SET_OBJECT_NAME( vk.render_pass.refraction.extract, "render pass - refraction extract", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT );        
     }
 
+#ifdef USE_RTX
+    // rtx post blit blend: the refraction pass' attachments, but nothing downstream
+    // reads the depth back, so it is not stored.
+    if ( vk.rtxActive )
+    {
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+
+        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+        if ( vk.msaaActive ) {
+            attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+            attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        }
+
+        VK_CHECK( qvkCreateRenderPass( device, &desc, NULL, &vk.render_pass.rtx_final_blit.blend ) );
+        VK_SET_OBJECT_NAME( vk.render_pass.rtx_final_blit.blend, "render pass - rtx final blit blend", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT );
+    }
+#endif
+
     if ( vk.bloomActive || vk.dglowActive )
     {
         // color buffer
@@ -506,6 +538,19 @@ void vk_create_render_passes()
 
     VK_CHECK(qvkCreateRenderPass(device, &desc, NULL, &vk.render_pass.gamma));
     VK_SET_OBJECT_NAME(vk.render_pass.gamma, "render pass - gamma", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT);
+
+#ifdef USE_RTX
+    // rtx blit: same layout as the gamma pass, but loading what is already there.
+    if ( vk.rtxActive )
+    {
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+
+        VK_CHECK(qvkCreateRenderPass(device, &desc, NULL, &vk.render_pass.rtx_final_blit.blit));
+        VK_SET_OBJECT_NAME(vk.render_pass.rtx_final_blit.blit, "render pass - rtx blit", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT);
+
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    }
+#endif
     
     // screenmap
     desc.dependencyCount = 2;
@@ -815,6 +860,22 @@ void vk_create_framebuffers()
 
     if (vk.fboActive)
     {
+#ifdef USE_RTX
+        // rtx final blit: the tracer's tone-mapped result is filtered back into
+        // the colour attachment before the usual post chain runs.
+        if ( vk.rtxActive )
+        {
+            desc.renderPass = vk.render_pass.rtx_final_blit.blit;
+            desc.attachmentCount = 1;
+            desc.width = glConfig.vidWidth;
+            desc.height = glConfig.vidHeight;
+            attachments[0] = vk.color_image_view;
+
+            VK_CHECK(qvkCreateFramebuffer(vk.device, &desc, NULL, &vk.framebuffers.rtx_final_blit));
+            VK_SET_OBJECT_NAME(vk.framebuffers.rtx_final_blit, "framebuffer - rtx final blit", VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT);
+        }
+#endif
+
         // refraction
         {
             desc.renderPass = vk.render_pass.refraction.extract;
@@ -1034,6 +1095,18 @@ void vk_destroy_render_passes( void )
         vk.render_pass.refraction.extract = VK_NULL_HANDLE;
     }
 
+#ifdef USE_RTX
+    if ( vk.render_pass.rtx_final_blit.blend != VK_NULL_HANDLE ) {
+        qvkDestroyRenderPass( vk.device, vk.render_pass.rtx_final_blit.blend, NULL );
+        vk.render_pass.rtx_final_blit.blend = VK_NULL_HANDLE;
+    }
+
+    if ( vk.render_pass.rtx_final_blit.blit != VK_NULL_HANDLE ) {
+        qvkDestroyRenderPass( vk.device, vk.render_pass.rtx_final_blit.blit, NULL );
+        vk.render_pass.rtx_final_blit.blit = VK_NULL_HANDLE;
+    }
+#endif
+
     if ( vk.render_pass.capture != VK_NULL_HANDLE ) {
         qvkDestroyRenderPass( vk.device, vk.render_pass.capture, NULL );
         vk.render_pass.capture = VK_NULL_HANDLE;
@@ -1086,6 +1159,13 @@ void vk_destroy_framebuffers( void )
             vk.framebuffers.gamma[i] = VK_NULL_HANDLE;
         }
     }
+
+#ifdef USE_RTX
+    if ( vk.framebuffers.rtx_final_blit != VK_NULL_HANDLE ) {
+        qvkDestroyFramebuffer( vk.device, vk.framebuffers.rtx_final_blit, NULL );
+        vk.framebuffers.rtx_final_blit = VK_NULL_HANDLE;
+    }
+#endif
 
     if ( vk.framebuffers.bloom.extract != VK_NULL_HANDLE ) {
         qvkDestroyFramebuffer( vk.device, vk.framebuffers.bloom.extract, NULL );
@@ -1615,6 +1695,9 @@ void vk_begin_frame( void )
 	vk_flush_staging_buffer( qtrue );
 #endif
 
+#ifdef USE_RTX
+	vk.current_frame_index = vk.frame_counter % NUM_COMMAND_BUFFERS;
+#endif
 	vk.cmd = &vk.tess[ vk.cmd_index ];
 
 	if ( vk.cmd->waitForFence ) {
@@ -2043,6 +2126,12 @@ void vk_present_frame( void )
 			// or we don't
 			ri.Error( ERR_FATAL, "vkQueuePresentKHR returned %s", vk_result_string( res ) );
 	}
+
+#ifdef USE_RTX
+	// The tracer indexes its per-frame resources off this, and nothing else
+	// advances it - vk.frame_count only counts frames within one submission.
+	vk.frame_counter++;
+#endif
 
 	// pickup next command buffer for rendering
 	vk.cmd_index++;

@@ -1594,6 +1594,16 @@ R_GenerateDrawSurfs
 ====================
 */
 static void R_GenerateDrawSurfs( void ) {
+#ifdef USE_RTX
+	// With the tracer on, a 3D view of the world is traced, not rasterised, so the
+	// only surfaces still worth listing are the entities of a UI/no-world view.
+	if ( vk.rtxActive && ( tr.refdef.rdflags & RDF_NOWORLDMODEL ) )
+	{
+		R_AddEntitySurfaces();
+		return;
+	}
+#endif
+
 	R_AddWorldSurfaces();
 
 	R_AddPolygonSurfaces();
@@ -1609,6 +1619,12 @@ static void R_GenerateDrawSurfs( void ) {
 
 	// we know the size of the clipping volume. Now set the rest of the projection matrix.
 	R_SetupProjectionZ(&tr.viewParms);
+
+#ifdef USE_RTX
+	// The tracer builds its own instance list from refdef->entities.
+	if ( vk.rtxActive && !( tr.refdef.rdflags & RDF_NOWORLDMODEL ) )
+		return;
+#endif
 
 	R_AddEntitySurfaces();
 
