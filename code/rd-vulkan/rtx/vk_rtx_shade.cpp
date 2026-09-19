@@ -1690,6 +1690,14 @@ uint32_t vk_rtx_debug_image_index( void )
 		}
 	}
 
+	// The images past RTX_IMG_NUM_STATIC come in A/B pairs at adjacent indices, and the
+	// descriptor set swaps which physical one the shader calls A on odd frames. Follow
+	// that swap, so "..._A" always shows what the shader wrote as A this frame rather
+	// than a fixed physical image alternating between two roles - otherwise the view
+	// flickers between two states on its own and hides whatever it was meant to show.
+	if ( resolved >= RTX_IMG_NUM_STATIC && ( vk.frame_counter & 1 ) )
+		resolved = RTX_IMG_NUM_STATIC + ( ( resolved - RTX_IMG_NUM_STATIC ) ^ 1 );
+
 	return resolved;
 }
 
