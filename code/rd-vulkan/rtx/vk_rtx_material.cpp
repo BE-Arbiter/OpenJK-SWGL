@@ -568,7 +568,7 @@ rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
 
 	MAT_SetIndex( mat );
 
-	if ( r_rtx->integer > 1 )
+	if ( pt_verbose->integer )
 	{
 		const image_t *img0 = ( shader->stages[0] && shader->stages[0]->active ) ? shader->stages[0]->bundle[0].image[0] : NULL;
 

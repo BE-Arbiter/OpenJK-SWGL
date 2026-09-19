@@ -1004,7 +1004,7 @@ static void vk_rtx_process_render_feedback( ref_feedback_t *feedback, mnode_t *v
 					// Point the crosshair at a surface and this names it, along with what
 					// the tracer decided it was - the sort and content flags are what
 					// RB_IsTransparent goes on.
-					if ( r_rtx->integer > 1 )
+					if ( pt_verbose->integer )
 					{
 						static int last_reported = -1;
 
@@ -1041,7 +1041,7 @@ static void vk_rtx_process_render_feedback( ref_feedback_t *feedback, mnode_t *v
 
 		// Auto-exposure drives the whole tone curve off this one readback value, so when
 		// the image looks flat this is the first thing to rule out.
-		if ( r_rtx->integer > 1 )
+		if ( pt_verbose->integer )
 		{
 			static int report_frame = 0;
 

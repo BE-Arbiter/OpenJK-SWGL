@@ -221,6 +221,7 @@ cvar_t	*tm_blend_enable;
 cvar_t	*pt_debug_poly_lights;
 cvar_t	*pt_restir_m_clamp;
 cvar_t	*pt_debug_image;
+cvar_t	*pt_verbose;
 
 #define UBO_CVAR_DO( _handle, _value ) cvar_t *sun_##_handle;
 	UBO_CVAR_LIST
@@ -976,6 +977,7 @@ void R_Register( void )
 	 * really likes pixels that vary over time... */
 	pt_restir_m_clamp					= ri.Cvar_Get("pt_restir_m_clamp",					"8",	CVAR_NONE);
 	pt_debug_image						= ri.Cvar_Get("pt_debug_image",						"0",	CVAR_NONE);
+	pt_verbose							= ri.Cvar_Get("pt_verbose",							"0",	CVAR_NONE);
 
 #define UBO_CVAR_DO( _handle, _value ) sun_##_handle = ri.Cvar_Get( #_handle,	#_value, CVAR_NONE);
 	UBO_CVAR_LIST
