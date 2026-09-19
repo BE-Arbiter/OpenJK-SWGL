@@ -443,21 +443,6 @@ static uint32_t vk_get_rtx_material_stage_blend_mode( uint32_t state_bits )
     if (src == GLS_SRCBLEND_ONE && dst == GLS_DSTBLEND_ONE)
         return RTX_BLEND_ADDITIVE; // 2
 
-	// Two more that JKA's effect shaders use constantly: GL_SRC_ALPHA/GL_ONE is the usual
-	// glow and impact flash, GL_ONE/GL_ONE_MINUS_SRC_ALPHA is premultiplied alpha.
-	if (src == GLS_SRCBLEND_SRC_ALPHA && dst == GLS_DSTBLEND_ONE)
-		return RTX_BLEND_ADDITIVE;
-
-	if (src == GLS_SRCBLEND_ONE && dst == GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA)
-		return RTX_BLEND_ALPHA;
-
-	// Anything else that still asked to be blended is treated as alpha. Returning OPAQUE
-	// here made the effects pass composite the surface over the background at full
-	// coverage - a sprite drawn as a solid disc of its own texture, which reads as a
-	// shadow wherever that texture is dark.
-	if (src != 0 || dst != 0)
-		return RTX_BLEND_ALPHA;
-
 	return RTX_BLEND_OPAQUE;
 }
 
