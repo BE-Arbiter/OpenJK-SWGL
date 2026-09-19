@@ -260,12 +260,17 @@ void vk_rtx_initialize( void )
 		vk.taa_samples[i][1] = halton(3, i + 1) - 0.5f;
 	}
 
+	vk_debug( "rtx init: initialize images\n" );
 	vk_rtx_initialize_images();
+	vk_debug( "rtx init: create images\n" );
 	vk_rtx_create_images();
+	vk_debug( "rtx init: create buffers\n" );
 	vk_rtx_create_buffers();
+	vk_debug( "rtx init: model vbo/ibo descriptor\n" );
 	vk_rtx_create_model_vbo_ibo_descriptor();
 
 	// game textures descriptor
+	vk_debug( "rtx init: texture descriptor\n" );
 	Com_Memset( &vk.imageDescriptor, 0, sizeof(vkdescriptor_t) );
 	vk.imageDescriptor.lastBindingVariableSizeExt = qtrue;
 	vk_rtx_add_descriptor_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, MAX_DRAWIMAGES, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
@@ -273,7 +278,10 @@ void vk_rtx_initialize( void )
 
 	vk_rtx_clear_material_list();
 
+	vk_debug( "rtx init: transparency\n" );
 	initialize_transparency();
+
+	vk_debug( "rtx init: done\n" );
 }
 
 void vk_rtx_shutdown( void ) 

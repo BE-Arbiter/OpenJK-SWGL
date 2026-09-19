@@ -540,18 +540,23 @@ void vk_create_render_passes()
     VK_SET_OBJECT_NAME(vk.render_pass.gamma, "render pass - gamma", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT);
 
 #ifdef USE_RTX
-    // rtx blit: same layout as the gamma pass, but loading what is already there.
+    // rtx blit: a full-screen pass into the fbo colour image. Upstream derives this
+    // from its gamma pass, which targets that same image - SP's gamma pass renders
+    // straight into the swapchain instead, so the format and layouts come from the
+    // main fbo pass rather than from the gamma state left in `attachments` above.
     if ( vk.rtxActive )
     {
-        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        attachments[0].format = vk.color_format;
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;    // the quad covers it
+        attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachments[0].initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        attachments[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         VK_CHECK(qvkCreateRenderPass(device, &desc, NULL, &vk.render_pass.rtx_final_blit.blit));
         VK_SET_OBJECT_NAME(vk.render_pass.rtx_final_blit.blit, "render pass - rtx blit", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT);
 
-        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     }
 #endif
-    
     // screenmap
     desc.dependencyCount = 2;
     desc.pDependencies = &deps[0];

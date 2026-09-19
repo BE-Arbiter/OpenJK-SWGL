@@ -47,6 +47,9 @@ PFN_vkGetPhysicalDeviceFormatProperties			qvkGetPhysicalDeviceFormatProperties;
 PFN_vkGetPhysicalDeviceMemoryProperties			qvkGetPhysicalDeviceMemoryProperties;
 PFN_vkGetPhysicalDeviceProperties				qvkGetPhysicalDeviceProperties;
 PFN_vkGetPhysicalDeviceQueueFamilyProperties	qvkGetPhysicalDeviceQueueFamilyProperties;
+#ifdef USE_RTX
+PFN_vkGetPhysicalDeviceProperties2				qvkGetPhysicalDeviceProperties2;
+#endif
 
 
 PFN_vkDestroySurfaceKHR							qvkDestroySurfaceKHR;
@@ -824,8 +827,31 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 
 			vk.rtxSupport = qtrue;
 
-			ri.Printf( PRINT_ALL, "...ray tracing: supported, %s\n",
-				vk.rtxActive ? "ENABLED" : "off (r_rtx 0)" );
+			// Shader group handle size/alignment and the AS scratch alignment come from
+			// here. Nothing else queries them, and vk_rtx_initialize copies them straight
+			// into the sizes it allocates - left at zero the shader binding tables come
+			// out empty. Only valid once the extensions above are known to be present.
+			if ( qvkGetPhysicalDeviceProperties2 != NULL )
+			{
+				Com_Memset( &vk.accel_struct_properties, 0, sizeof( vk.accel_struct_properties ) );
+				vk.accel_struct_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+
+				Com_Memset( &vk.ray_pipeline_properties, 0, sizeof( vk.ray_pipeline_properties ) );
+				vk.ray_pipeline_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+				vk.ray_pipeline_properties.pNext = &vk.accel_struct_properties;
+
+				Com_Memset( &vk.props2, 0, sizeof( vk.props2 ) );
+				vk.props2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+				vk.props2.pNext = &vk.ray_pipeline_properties;
+
+				qvkGetPhysicalDeviceProperties2( physical_device, &vk.props2 );
+			}
+
+			ri.Printf( PRINT_ALL, "...ray tracing: supported, %s (handle %u, align %u, scratch align %u)\n",
+				vk.rtxActive ? "ENABLED" : "off (r_rtx 0)",
+				vk.ray_pipeline_properties.shaderGroupHandleSize,
+				vk.ray_pipeline_properties.shaderGroupBaseAlignment,
+				vk.accel_struct_properties.minAccelerationStructureScratchOffsetAlignment );
 		}
 		else
 		{
@@ -1104,6 +1130,10 @@ __initStart:
 	INIT_INSTANCE_FUNCTION(vkGetPhysicalDeviceSurfaceFormatsKHR)
 	INIT_INSTANCE_FUNCTION(vkGetPhysicalDeviceSurfacePresentModesKHR)
 	INIT_INSTANCE_FUNCTION(vkGetPhysicalDeviceSurfaceSupportKHR)
+#ifdef USE_RTX
+	// The instance is created at apiVersion 1.2 when r_rtx is set, so this is core there.
+	INIT_INSTANCE_FUNCTION_EXT(vkGetPhysicalDeviceProperties2)
+#endif
 
 #ifdef USE_VK_VALIDATION
 	#ifdef USE_DEBUG_REPORT
