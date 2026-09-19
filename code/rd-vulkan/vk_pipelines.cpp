@@ -3593,3 +3593,13 @@ void vk_destroy_pipelines( qboolean resetCounter )
         vk.dglow_blend_pipeline = VK_NULL_HANDLE;
     }
 }
+
+#ifdef USE_RTX
+void vk_rtx_create_final_blit_pipeline( void ) 
+{
+    if ( !vk.rtxActive )
+        return;
+
+    vk_create_post_process_pipeline( 6, vk.extent_unscaled.width, vk.extent_unscaled.height );
+}
+#endif

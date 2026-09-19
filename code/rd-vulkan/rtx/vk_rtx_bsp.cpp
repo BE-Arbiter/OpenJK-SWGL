@@ -1206,7 +1206,7 @@ static void collect_grid_light_polys( srfGridMesh_t *cv, shader_t *shader,
     for (int h = 0; h < lodHeight; ++h) {
         for (int w = 0; w < lodWidth; ++w) {
             int gridIndex = heightTable[h] * cv->width + widthTable[w];
-            srfVert_t *dv = &cv->verts[gridIndex];
+            drawVert_t *dv = &cv->verts[gridIndex];
 
             VectorCopy(dv->xyz, vertices[vertIndex].position);
             VectorCopy2(dv->st, vertices[vertIndex].st); 

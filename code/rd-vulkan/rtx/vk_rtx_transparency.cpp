@@ -117,9 +117,9 @@ extern cvar_t* cvar_pt_projection;
 
 bool initialize_transparency()
 {
-	cvar_pt_particle_size = ri.Cvar_Get("pt_particle_size", "0.5", 0, "");
-	cvar_pt_beam_width = ri.Cvar_Get("pt_beam_width", "1.0", 0, "");
-	cvar_pt_beam_lights = ri.Cvar_Get("pt_beam_lights", "1.0", 0, "");
+	cvar_pt_particle_size = ri.Cvar_Get("pt_particle_size", "0.5", 0);
+	cvar_pt_beam_width = ri.Cvar_Get("pt_beam_width", "1.0", 0);
+	cvar_pt_beam_lights = ri.Cvar_Get("pt_beam_lights", "1.0", 0);
 
 	memset(&transparency, 0, sizeof(transparency));
 
@@ -480,25 +480,9 @@ static void vk_rtx_get_saber_lights_color( vec3_t rgb, refEntity_t *e )
 				e->shaderRGBA[2] / 255.0f
 			);
 			break;
-		case SABER_FLAME1:
-		case SABER_ELEC1:
-		case SABER_FLAME2:
-		case SABER_ELEC2:
-#if 0
-			if ( cnum < MAX_CLIENTS ) {
-				int i;
-
-				if ( bnum == 0 )
-					VectorCopy( ci->rgb1, rgb );
-				else
-					VectorCopy( ci->rgb2, rgb );
-				for ( i = 0; i < 3; i++ )
-					rgb[i] /= 255;
-			}
-			else
-#endif
-				VectorSet( rgb, 0.2f, 0.4f, 1.0f );
-			break;
+		// SABER_FLAME1/ELEC1/FLAME2/ELEC2 are MP-only styles; SP's saber_colors_t has
+		// SABER_UNSTABLE_RED, SABER_BLACK and SABER_DARKSABER in their place. Their case
+		// produced this same default colour upstream, so dropping them changes nothing.
 		default:
 			VectorSet( rgb, 0.2f, 0.4f, 1.0f );
 			break;

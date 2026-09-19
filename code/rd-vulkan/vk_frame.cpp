@@ -2303,3 +2303,29 @@ void vk_read_pixels( byte *buffer, uint32_t width, uint32_t height )
         vk_end_command_buffer( command_buffer, "restore layout" );
     }
 }
+
+#ifdef USE_RTX
+VkResult
+vkpt_final_blit_filtered(VkCommandBuffer cmd_buf)
+{
+	VkDescriptorSet desc_sets[] = {
+		vk.rt_descriptor_set[vk.current_frame_index].set,
+        vk_rtx_get_current_desc_set_textures(),
+		vk.imageDescriptor.set,
+        vk.desc_set_ubo
+	};
+
+	vk_begin_render_pass( vk.render_pass.rtx_final_blit.blit, vk.framebuffers.rtx_final_blit,
+    qfalse, vk.extent_unscaled.width, vk.extent_unscaled.height );
+
+	qvkCmdBindDescriptorSets( cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		vk.rt_pipeline_layout, 0, ARRAY_LEN(desc_sets), desc_sets, 0, 0 );
+
+
+	qvkCmdBindPipeline( cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.pipeline_final_blit );
+	qvkCmdDraw( cmd_buf, 4, 1, 0, 0 );
+	qvkCmdEndRenderPass( cmd_buf );
+
+	return VK_SUCCESS;
+}
+#endif

@@ -153,6 +153,25 @@ PFN_vkGetImageMemoryRequirements2KHR			qvkGetImageMemoryRequirements2KHR;
 PFN_vkDebugMarkerSetObjectNameEXT				qvkDebugMarkerSetObjectNameEXT;
 
 PFN_vkCmdDrawIndexedIndirect					qvkCmdDrawIndexedIndirect;
+PFN_vkCmdDispatch								qvkCmdDispatch;
+PFN_vkCreateComputePipelines					qvkCreateComputePipelines;
+#ifdef USE_RTX
+PFN_vkBindBufferMemory2								qvkBindBufferMemory2;
+PFN_vkCmdBeginDebugUtilsLabelEXT					qvkCmdBeginDebugUtilsLabelEXT;
+PFN_vkCmdBuildAccelerationStructuresKHR				qvkCmdBuildAccelerationStructuresKHR;
+PFN_vkCmdEndDebugUtilsLabelEXT						qvkCmdEndDebugUtilsLabelEXT;
+PFN_vkCmdFillBuffer									qvkCmdFillBuffer;
+PFN_vkCmdTraceRaysKHR								qvkCmdTraceRaysKHR;
+PFN_vkCreateAccelerationStructureKHR				qvkCreateAccelerationStructureKHR;
+PFN_vkCreateBufferView								qvkCreateBufferView;
+PFN_vkCreateRayTracingPipelinesKHR					qvkCreateRayTracingPipelinesKHR;
+PFN_vkDestroyAccelerationStructureKHR				qvkDestroyAccelerationStructureKHR;
+PFN_vkDestroyBufferView								qvkDestroyBufferView;
+PFN_vkGetAccelerationStructureBuildSizesKHR			qvkGetAccelerationStructureBuildSizesKHR;
+PFN_vkGetAccelerationStructureDeviceAddressKHR		qvkGetAccelerationStructureDeviceAddressKHR;
+PFN_vkGetBufferDeviceAddress						qvkGetBufferDeviceAddress;
+PFN_vkGetRayTracingShaderGroupHandlesKHR			qvkGetRayTracingShaderGroupHandlesKHR;
+#endif
 
 static char *Q_stradd( char *dst, const char *src )
 {
@@ -1120,6 +1139,29 @@ __initStart:
 	}
 
 	INIT_DEVICE_FUNCTION(vkCmdDrawIndexedIndirect)
+	INIT_DEVICE_FUNCTION(vkCmdDispatch)
+	INIT_DEVICE_FUNCTION(vkCreateComputePipelines)
+#ifdef USE_RTX
+	// Extension entry points: only present when the device actually supports ray tracing,
+	// so loading them unconditionally would be fatal on every other GPU.
+	if ( vk.rtxSupport ) {
+		INIT_DEVICE_FUNCTION(vkBindBufferMemory2)
+		INIT_DEVICE_FUNCTION(vkCmdBeginDebugUtilsLabelEXT)
+		INIT_DEVICE_FUNCTION(vkCmdBuildAccelerationStructuresKHR)
+		INIT_DEVICE_FUNCTION(vkCmdEndDebugUtilsLabelEXT)
+		INIT_DEVICE_FUNCTION(vkCmdFillBuffer)
+		INIT_DEVICE_FUNCTION(vkCmdTraceRaysKHR)
+		INIT_DEVICE_FUNCTION(vkCreateAccelerationStructureKHR)
+		INIT_DEVICE_FUNCTION(vkCreateBufferView)
+		INIT_DEVICE_FUNCTION(vkCreateRayTracingPipelinesKHR)
+		INIT_DEVICE_FUNCTION(vkDestroyAccelerationStructureKHR)
+		INIT_DEVICE_FUNCTION(vkDestroyBufferView)
+		INIT_DEVICE_FUNCTION(vkGetAccelerationStructureBuildSizesKHR)
+		INIT_DEVICE_FUNCTION(vkGetAccelerationStructureDeviceAddressKHR)
+		INIT_DEVICE_FUNCTION(vkGetBufferDeviceAddress)
+		INIT_DEVICE_FUNCTION(vkGetRayTracingShaderGroupHandlesKHR)
+	}
+#endif
 }
 
 #undef INIT_INSTANCE_FUNCTION

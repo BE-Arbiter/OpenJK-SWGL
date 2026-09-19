@@ -423,6 +423,8 @@ extern PFN_vkGetImageMemoryRequirements2KHR				qvkGetImageMemoryRequirements2KHR
 extern PFN_vkDebugMarkerSetObjectNameEXT				qvkDebugMarkerSetObjectNameEXT;
 
 extern PFN_vkCmdDrawIndexedIndirect						qvkCmdDrawIndexedIndirect;
+extern PFN_vkCmdDispatch								qvkCmdDispatch;
+extern PFN_vkCreateComputePipelines						qvkCreateComputePipelines;
 
 #ifdef USE_RTX
 extern PFN_vkGetPhysicalDeviceProperties2					qvkGetPhysicalDeviceProperties2;

@@ -315,8 +315,8 @@ uint32_t vk_get_rtx_material_stage_tex_mode( Vk_Pipeline_Def *def )
 
         case TYPE_MULTI_TEXTURE_ADD2_IDENTITY:
         case TYPE_MULTI_TEXTURE_ADD2_IDENTITY_ENV:
-        case TYPE_MULTI_TEXTURE_ADD3_IDENTITY:
-        case TYPE_MULTI_TEXTURE_ADD3_IDENTITY_ENV:
+        case TYPE_MULTI_TEXTURE_ADD3_1_1:
+        case TYPE_MULTI_TEXTURE_ADD3_1_1_ENV:
             return 1;
             break;
 
@@ -401,10 +401,10 @@ uint32_t vk_get_rtx_material_stage_tex_count( const Vk_Pipeline_Def *def )
             return 1; // 2 textures
 
         case TYPE_MULTI_TEXTURE_MUL3:
-        case TYPE_MULTI_TEXTURE_ADD3_IDENTITY:
+        case TYPE_MULTI_TEXTURE_ADD3_1_1:
         case TYPE_MULTI_TEXTURE_ADD3:
         case TYPE_MULTI_TEXTURE_MUL3_ENV:
-        case TYPE_MULTI_TEXTURE_ADD3_IDENTITY_ENV:
+        case TYPE_MULTI_TEXTURE_ADD3_1_1_ENV:
         case TYPE_MULTI_TEXTURE_ADD3_ENV:
 
         case TYPE_BLEND3_MUL:

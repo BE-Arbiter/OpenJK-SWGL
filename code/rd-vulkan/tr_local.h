@@ -187,6 +187,20 @@ typedef enum
 	DLIGHT_PROJECTED
 } eDLightTypes;
 
+#ifdef USE_RTX
+typedef enum dlight_type_e
+{
+    DLIGHT_SPHERE = 0,
+    DLIGHT_SPOT
+} dlight_type;
+
+typedef enum dlight_spot_emission_profile_e
+{
+    DLIGHT_SPOT_EMISSION_PROFILE_FALLOFF = 0,
+    DLIGHT_SPOT_EMISSION_PROFILE_AXIS_ANGLE_TEXTURE
+} dlight_spot_emission_profile;
+#endif
+
 typedef struct dlight_s {
 	eDLightTypes	mType;
 
@@ -201,6 +215,34 @@ typedef struct dlight_s {
 
 	int				additive;			// texture detail is lost tho when the lightmap is dark
 	qboolean		linear;
+#ifdef USE_RTX
+    // VKPT light types support
+    dlight_type light_type;
+	//float		intensity;		// use radius
+    // Spotlight options
+    struct {
+        // Spotlight emission profile
+        dlight_spot_emission_profile emission_profile;
+        // Spotlight direction
+        vec3_t  direction;
+        union {
+            // Options for DLIGHT_SPOT_EMISSION_PROFILE_FALLOFF
+            struct {
+                // Cosine of angle of spotlight cone width (no emission beyond that)
+                float   cos_total_width;
+                // Cosine of angle of start of falloff (full emission below that)
+                float   cos_falloff_start;
+            };
+            // Options for DLIGHT_SPOT_EMISSION_PROFILE_AXIS_ANGLE_TEXTURE
+            struct {
+                // Angle of spotlight cone width (no emission beyond that), in radians
+                float   total_width;
+                // Emission profile texture, indexed by 'angle / total_width'
+                qhandle_t texture;
+            };
+        };
+    } spot;
+#endif
 #ifdef USE_PMLIGHT
 	struct litSurf_s* head;
 	struct litSurf_s* tail;
@@ -669,6 +711,18 @@ typedef struct shaderStage_s {
 	uint32_t		rgb_offset[NUM_TEXTURE_BUNDLES]; // within current shader
 	uint32_t		tex_offset[NUM_TEXTURE_BUNDLES]; // within current shader
 #endif
+#ifdef USE_RTX
+	// Material inputs the path tracer reads. They come from the PBR branch, which is not
+	// ported yet; left null they make its materials diffuse-only rather than broken.
+	uint32_t		vk_pbr_flags;
+	image_t			*normalMap;
+	image_t			*physicalMap;
+	uint32_t		normalMapType;
+	uint32_t		physicalMapType;
+	vec4_t			normalScale;
+	vec4_t			specularScale;
+	float			parallaxBias;
+#endif
 } shaderStage_t;
 
 struct shaderCommands_s;
@@ -782,6 +836,12 @@ typedef struct shader_s {
 
 	struct shader_s		*remappedShader;			// current shader this one is remapped too
 	struct	shader_s	*next;
+#ifdef USE_RTX
+	qboolean			sun;			// authored by q3map_sun on the sky shader
+	vec3_t				sunColor;
+	int					surfacelight;	// emissive surfaces feed the path tracer's light list
+	struct shader_s		*updatedShader;
+#endif
 } shader_t;
 
 /*
@@ -843,6 +903,9 @@ typedef struct trRefdef_s {
 
 	qboolean			switchRenderPass;
 	qboolean			needScreenMap;
+#ifdef USE_RTX
+	ref_feedback_t		feedback;
+#endif
 } trRefdef_t;
 
 
@@ -948,6 +1011,9 @@ typedef enum surfaceType_e {
 typedef struct drawSurf_s {
 	unsigned			sort;			// bit combination for fast compares
 	surfaceType_t		*surface;		// any of surface*_t
+#ifdef USE_RTX
+	vk_blas_t			*blas;
+#endif
 } drawSurf_t;
 
 #ifdef USE_PMLIGHT
@@ -1173,9 +1239,6 @@ typedef struct msurface_s {
 	int					viewCount;		// if == tr.viewCount, already added
 	struct shader_s		*shader;
 	int					fogIndex;
-#ifdef USE_RTX
-	vk_blas_t			*blas;
-#endif
 #ifdef USE_PMLIGHT
 	int					vcVisible;		// if == tr.viewCount, is actually VISIBLE in this frame, i.e. passed facecull and has been added to the drawsurf list
 	int					lightCount;		// if == tr.lightCount, already added to the litsurf list for the current light
@@ -1186,6 +1249,12 @@ typedef struct msurface_s {
 		spriteStage_t	*stage;
 	} surface_sprites;
 
+#ifdef USE_RTX
+	vk_blas_t			*blas;
+	qboolean			added;
+	qboolean			skip;
+	qboolean			notBrush;
+#endif
 	surfaceType_t		*data;			// any of srf*_t
 } msurface_t;
 
@@ -1382,6 +1451,10 @@ typedef struct srfVBOMDVMesh_s
 	glIndex_t       minIndex;
 	glIndex_t       maxIndex;
 
+#ifdef USE_RTX
+	maliasmesh_t	rtx_mesh;
+#endif
+
 	// static render data
 	VBO_t          *vbo;
 	IBO_t          *ibo;
@@ -1415,6 +1488,14 @@ typedef struct mdxmVBOMesh_s
 	int maxIndex;
 	int numIndexes;
 	int numVertexes;
+
+#ifdef USE_RTX
+	maliasmesh_t	rtx_mesh;
+#ifndef USE_RTX_GLOBAL_MODEL_VBO
+	int vertexOffset;
+	model_vbo_t *vbo_rtx;
+#endif
+#endif
 
 	VBO_t *vbo;
 	IBO_t *ibo;
@@ -1474,6 +1555,10 @@ typedef struct model_s {
 	} data;
 
 	unsigned char	numLods;
+#ifdef USE_RTX
+	int				num_light_polys;
+	light_poly_t	*light_polys;
+#endif
 	bool			bspInstance;			// model is a bsp instance
 } model_t;
 
@@ -2239,6 +2324,9 @@ struct shaderCommands_s
 	glIndex_t		indexes[SHADER_MAX_INDEXES]						QALIGN(16);
 	vec4_t			xyz[SHADER_MAX_VERTEXES*2]						QALIGN(16);
 	vec4_t			normal[SHADER_MAX_VERTEXES]						QALIGN(16);
+#ifdef USE_RTX
+	vec4_t			qtangent[SHADER_MAX_VERTEXES]					QALIGN(16);
+#endif
 	vec2_t			texCoords[NUM_TEX_COORDS][SHADER_MAX_VERTEXES]	QALIGN(16);
 	vec2_t			texCoords00[SHADER_MAX_VERTEXES]				QALIGN(16);
 	color4ub_t		vertexColors[SHADER_MAX_VERTEXES]				QALIGN(16);
@@ -2812,7 +2900,6 @@ extern void VBO_Flush( void );
 IBO_t *R_CreateIBO( const char *name, const byte *vbo_data, int vbo_size );
 VBO_t *R_CreateVBO( const char *name, const byte *vbo_data, int vbo_size );
 #endif
-#endif
 #ifdef USE_RTX
 extern  cvar_t  *r_rtx;
 extern  cvar_t  *pt_restir;
@@ -2853,3 +2940,14 @@ extern  cvar_t *sky_amb_phase_g;
 #ifdef USE_RTX
 void RB_AddTriangle( vec3_t a, vec3_t b, vec3_t c, color4ub_t color );
 #endif
+
+#ifdef USE_RTX
+	// Re-included with the linker switch on, now that every type it names is known.
+	// vk_rtx.h closes its own include guard before this section precisely so a second
+	// include reaches it - see the tail of that header.
+	#define VK_RTX_LINKER
+	#include "rtx/vk_rtx.h"
+	#undef VK_RTX_LINKER
+#endif
+
+#endif // TR_LOCAL_H

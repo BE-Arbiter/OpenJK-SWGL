@@ -752,7 +752,7 @@ void vk_rtx_create_buffers( void )
 	// primbuf
 	char primbuf_initial_value[16];
 	Q_snprintf(primbuf_initial_value, sizeof(primbuf_initial_value), "%d", PRIMBUF_SIZE_DEFAULT);
-	cvar_pt_primbuf = ri.Cvar_Get("pt_primbuf", primbuf_initial_value, CVAR_ARCHIVE, "");
+	cvar_pt_primbuf = ri.Cvar_Get("pt_primbuf", primbuf_initial_value, CVAR_ARCHIVE);
 
 	create_primbuf();
 }

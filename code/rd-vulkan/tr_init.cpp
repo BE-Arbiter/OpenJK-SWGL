@@ -211,6 +211,43 @@ cvar_t	*r_velocityBuffer;
 cvar_t	*r_showGBuffer;
 cvar_t	*r_distortionStyle;
 cvar_t	*r_ssao;
+#ifdef USE_RTX
+cvar_t	*r_rtx;
+cvar_t	*pt_restir;
+cvar_t	*pt_caustics;
+cvar_t	*pt_dof;
+cvar_t	*pt_projection;
+cvar_t	*tm_blend_enable;
+cvar_t	*pt_debug_poly_lights;
+cvar_t	*pt_restir_m_clamp;
+
+#define UBO_CVAR_DO( _handle, _value ) cvar_t *sun_##_handle;
+	UBO_CVAR_LIST
+#undef UBO_CVAR_DO
+
+cvar_t *sun_color[3];
+cvar_t *sun_elevation;
+cvar_t *sun_azimuth;
+cvar_t *sun_angle;
+cvar_t *sun_brightness;
+cvar_t *sun_bounce;
+cvar_t *sun_animate;
+cvar_t *sun_gamepad;
+
+cvar_t *sun_preset;
+cvar_t *sun_latitude;
+
+cvar_t *physical_sky;
+cvar_t *physical_sky_draw_clouds;
+cvar_t *physical_sky_space;
+cvar_t *physical_sky_brightness;
+
+cvar_t *sky_scattering;
+cvar_t *sky_transmittance;
+cvar_t *sky_phase_g;
+cvar_t *sky_amb_phase_g;
+
+#endif
 cvar_t	*r_ssaoRadius;
 cvar_t	*r_ssaoIntensity;
 cvar_t	*r_ssaoSlices;
@@ -921,6 +958,54 @@ void R_Register( void )
 	ri.Cvar_CheckRange(r_distortionStyle, 0, 1, qtrue);
 	r_ssao								= Cvar_Get("r_ssao",							"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Screen-space ambient occlusion over the G-buffer: 0 = off, 1 = hemisphere SSAO (cheaper, blunter), 2 = GTAO (horizon search, cosine-weighted). Requires r_depthPrepass 1");
 	ri.Cvar_CheckRange(r_ssao, 0, 2, qtrue);
+#ifdef USE_RTX
+	r_rtx								= ri.Cvar_Get("r_rtx",								"0",	CVAR_ARCHIVE | CVAR_LATCH);
+	pt_restir							= ri.Cvar_Get("pt_restir",							"1",	CVAR_NONE);
+	pt_caustics							= ri.Cvar_Get("pt_caustics",						"1",	CVAR_NONE);
+	pt_dof								= ri.Cvar_Get("pt_dof",								"0",	CVAR_NONE);
+	pt_projection						= ri.Cvar_Get("pt_projection",						"0",	CVAR_NONE);
+	tm_blend_enable						= ri.Cvar_Get("tm_blend_enable",					"1",	CVAR_NONE);
+	pt_debug_poly_lights				= ri.Cvar_Get("pt_debug_poly_lights",				"0",	CVAR_NONE);
+	/* Note: Higher values results in pixel having higher correlation between frames;
+	 * however, this can work against the denoiser, as it's temporal filtering would
+	 * really likes pixels that vary over time... */
+	pt_restir_m_clamp					= ri.Cvar_Get("pt_restir_m_clamp",					"8",	CVAR_NONE);
+
+#define UBO_CVAR_DO( _handle, _value ) sun_##_handle = ri.Cvar_Get( #_handle,	#_value, CVAR_NONE);
+	UBO_CVAR_LIST
+#undef UBO_CVAR_DO
+
+    static char _rgb[3] = {'r', 'g', 'b'};
+
+    // sun
+    for (int i = 0; i < 3; ++i)
+    {
+        char buff[32]; 
+        snprintf(buff, 32, "sun_color_%c", _rgb[i]);
+        sun_color[i] = ri.Cvar_Get(buff, "1.0", 0);
+    }
+
+    sun_elevation				= ri.Cvar_Get( "sun_elevation",				"34",	0);
+    sun_azimuth					= ri.Cvar_Get( "sun_azimuth",				"258",	0); 
+    sun_angle					= ri.Cvar_Get( "sun_angle",					"1.0",	0); 
+    sun_brightness				= ri.Cvar_Get( "sun_brightness",			"10.0",	0); 
+    sun_bounce					= ri.Cvar_Get( "sun_bounce",				"1.0",	0); 
+    sun_animate					= ri.Cvar_Get( "sun_animate",				"0",	0); 
+	sun_preset					= ri.Cvar_Get( "sun_preset",				va("%d", SUN_PRESET_NONE), CVAR_ARCHIVE);
+	sun_latitude				= ri.Cvar_Get( "sun_latitude",				"32.9",	CVAR_ARCHIVE); // latitude of former HQ of id Software in Richardson, TX
+	sun_gamepad					= ri.Cvar_Get( "sun_gamepad",				"0",	0);
+
+    // sky
+    physical_sky				= ri.Cvar_Get( "physical_sky",				"1",	0);
+    physical_sky_draw_clouds	= ri.Cvar_Get( "physical_sky_draw_clouds",	"1",	0);
+    physical_sky_space			= ri.Cvar_Get( "physical_sky_space",		"0",	0);
+	physical_sky_brightness		= ri.Cvar_Get( "physical_sky_brightness",	"0",	0);
+	
+	sky_scattering				= ri.Cvar_Get( "sky_scattering",			"5.0",	0);
+	sky_transmittance			= ri.Cvar_Get( "sky_transmittance",			"10.0", 0);
+	sky_phase_g					= ri.Cvar_Get( "sky_phase_g",				"0.9",	0);
+	sky_amb_phase_g				= ri.Cvar_Get( "sky_amb_phase_g",			"0.3",	0);
+#endif
 	r_ssaoRadius						= Cvar_Get("r_ssaoRadius",					"48",						CVAR_ARCHIVE_ND, "Ambient occlusion sampling radius, in world units");
 	ri.Cvar_CheckRange(r_ssaoRadius, 1, 512, qfalse);
 	r_ssaoIntensity						= Cvar_Get("r_ssaoIntensity",				"1.0",						CVAR_ARCHIVE_ND, "Ambient occlusion power curve; higher darkens");

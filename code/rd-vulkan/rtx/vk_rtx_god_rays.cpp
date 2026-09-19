@@ -65,9 +65,9 @@ VkResult vk_rtx_god_rays_initialize( void )
 	VkPhysicalDeviceProperties properties;
 	qvkGetPhysicalDeviceProperties( vk.physical_device, &properties );
 
-	god_rays.intensity		= ri.Cvar_Get( "gr_intensity",		"2.0",	0, "" );
-	god_rays.eccentricity	= ri.Cvar_Get( "gr_eccentricity",	"0.75",	0, "" );
-	god_rays.enable			= ri.Cvar_Get( "gr_enable",			"1",	0, "" );
+	god_rays.intensity		= ri.Cvar_Get( "gr_intensity",		"2.0",	0);
+	god_rays.eccentricity	= ri.Cvar_Get( "gr_eccentricity",	"0.75",	0);
+	god_rays.enable			= ri.Cvar_Get( "gr_enable",			"1",	0);
 
 	return VK_SUCCESS;
 }

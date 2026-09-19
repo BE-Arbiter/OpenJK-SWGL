@@ -142,7 +142,6 @@ typedef struct miniRefEntity_s
 	refEntityType_t		reType;
 	int					renderfx;
 
-	qhandle_t			hModel;				// opaque type outside refresh
 
 	// most recent data
 	matrix3_t			axis;			// rotation vectors
@@ -275,6 +274,10 @@ typedef struct refEntity_s {
 
 	float		endTime;
 	float		saberLength;
+
+	// Stable identifier the path tracer matches entities by across frames. Placed here, past
+	// the leading region refEntity_s must keep identical to miniRefEntity_t.
+	int		id;
 
 	/*
 	Ghoul2 Insert Start

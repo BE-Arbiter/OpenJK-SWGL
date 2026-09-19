@@ -23,18 +23,21 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 
+// SP's refimport has no Hunk_AllocateTempMemory/FreeTempMemory, which is what these three
+// used upstream. Z_Malloc with a temporary tag serves the same purpose here - these only
+// back stb_image's allocator hooks below.
 static void* R_LocalMalloc( size_t size )
 {
-	return ri.Hunk_AllocateTempMemory( size );
+	return ri.Z_Malloc( (int)size, TAG_TEMP_WORKSPACE, qfalse, 4 );
 }
 
 static void* R_LocalReallocSized( void *ptr, size_t old_size, size_t new_size )
 {
-	void *mem = ri.Hunk_AllocateTempMemory( new_size );
+	void *mem = ri.Z_Malloc( (int)new_size, TAG_TEMP_WORKSPACE, qfalse, 4 );
 	if  ( ptr )
 	{
 		memcpy( mem, ptr, old_size );
-		ri.Hunk_FreeTempMemory( ptr );
+		ri.Z_Free( ptr );
 	}
 	return mem;
 }
@@ -42,14 +45,16 @@ static void* R_LocalReallocSized( void *ptr, size_t old_size, size_t new_size )
 static void R_LocalFree( void *ptr )
 {
 	if ( ptr )
-		ri.Hunk_FreeTempMemory( ptr );
+		ri.Z_Free( ptr );
 }
 
 #define STBI_MALLOC			R_LocalMalloc
 #define STBI_REALLOC_SIZED	R_LocalReallocSized
 #define STBI_FREE			R_LocalFree
 
-//#define STB_IMAGE_IMPLEMENTATION
+// Instantiated here rather than in vk_image.cpp as upstream does: this keeps stb_image
+// and the Z_Malloc hooks above confined to the path tracer.
+#define STB_IMAGE_IMPLEMENTATION
 #define STBI_NO_GIF
 //#define STBI_TEMP_ON_STACK
 //#define STBI_ONLY_HDR
@@ -166,7 +171,7 @@ void vk_rtx_extract_emissive_texture_info( image_t *image )
 	image->processing_complete = true;
 
 	// shouldnt image->pix_data be freed now?
-	ri.Hunk_FreeTempMemory( image->pix_data );
+	ri.Z_Free( image->pix_data );
 }
 
 static void vk_rtx_copy_buffer_to_image(vkimage_t* image, uint32_t width, uint32_t height, VkBuffer *buffer, uint32_t mipLevel, uint32_t arrayLayer)

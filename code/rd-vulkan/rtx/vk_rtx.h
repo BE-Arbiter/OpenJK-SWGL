@@ -24,6 +24,14 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #ifndef VK_RTX_H
 #define VK_RTX_H
 
+// PBR material flags, from the branch this path tracer expects. Nothing sets them until
+// that branch is ported; the path tracer then treats every material as diffuse-only.
+#define PBR_HAS_NORMALMAP				( 1 )
+#define PBR_HAS_PHYSICALMAP				( 2 )
+#define PBR_HAS_SPECULARMAP				( 4 )
+#define PBR_HAS_DELUXEMAP				( 8 )
+
+
 #include "dds.h"
 #include "shaders/glsl/rtx/sky.h"
 #include "shaders/glsl/rtx/global_ubo.h"		// contains constants.h
@@ -510,6 +518,20 @@ void		vk_rtx_destroy_compute_pipelines( void );
 void		vk_rtx_destroy_pipeline( vkpipeline_t *pipeline );
 
 // uniform
+// Defined in vk_rtx_cmd.cpp but never declared upstream - the callers in
+// vk_rtx_accel.cpp, vk_rtx_image.cpp and vk_rtx_physical_sky.cpp had nothing to see.
+void			vkpt_wait_idle( VkQueue queue, cmd_buf_group_t *group );
+VkCommandBuffer	vkpt_begin_command_buffer( cmd_buf_group_t *group );
+void			vkpt_free_command_buffers( cmd_buf_group_t *group );
+void			vkpt_reset_command_buffers( cmd_buf_group_t *group );
+void			vkpt_submit_command_buffer( VkCommandBuffer cmd_buf, VkQueue queue,
+					uint32_t execute_device_mask, int wait_semaphore_count,
+					VkSemaphore *wait_semaphores, VkPipelineStageFlags *wait_stages,
+					uint32_t *wait_device_indices, int signal_semaphore_count,
+					VkSemaphore *signal_semaphores, uint32_t *signal_device_indices,
+					VkFence fence );
+void			vkpt_submit_command_buffer_simple( VkCommandBuffer cmd_buf, VkQueue queue, bool all_gpus );
+
 VkResult	vkpt_uniform_buffer_create( void );
 VkResult	vkpt_uniform_buffer_destroy( void );
 VkResult	vkpt_uniform_buffer_upload_to_staging( void );
