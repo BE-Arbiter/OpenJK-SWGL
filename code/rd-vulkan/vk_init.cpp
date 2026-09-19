@@ -396,6 +396,17 @@ void vk_initialize( void )
 	vk_init_library();
 
 	qvkGetDeviceQueue( vk.device, vk.queue_family_index, 0, &vk.queue );
+#ifdef USE_RTX
+	// Upstream selects a separate transfer queue family for the tracer. Sharing the
+	// graphics queue is correct, just less parallel, and avoids rebuilding device
+	// creation around a second queue.
+	if ( vk.rtxActive ) {
+		vk.queue_graphics = vk.queue;
+		vk.queue_transfer = vk.queue;
+		vk.queue_idx_graphics = (int32_t)vk.queue_family_index;
+		vk.queue_idx_transfer = (int32_t)vk.queue_family_index;
+	}
+#endif
 
 	vk_get_vulkan_properties(&props);
 
@@ -490,6 +501,11 @@ void vk_initialize( void )
 	ri.Printf( PRINT_ALL, "VK_MAX_TEXTURE_UNITS: %d\n", glConfig.maxActiveTextures );
 
 	R_InitImageScratch();
+#ifdef USE_RTX
+	// Emissive extraction does not read compressed textures, and a card that can trace
+	// rays has no need of the memory saving.
+	if ( !vk.rtxActive )
+#endif
 	vk_initTextureCompression();
 
 	vk.xscale2D = glConfig.vidWidth * ( 1.0 / 640.0 );
@@ -642,6 +658,15 @@ void vk_initialize( void )
 	vk_create_render_passes();
 	vk_create_framebuffers();
 
+#ifdef USE_RTX
+	// Everything the tracer owns is built here: its buffers, images, pipelines and
+	// acceleration structures. Without it the first frame maps a null readback buffer.
+	if ( vk.rtxActive ) {
+		Com_Memcpy( &vk.props, &props, sizeof(VkPhysicalDeviceProperties) );
+		vk_rtx_initialize();
+	}
+#endif
+
 	// preallocate staging buffer?
 	if ( vk.defaults.staging_size == STAGING_BUFFER_SIZE_HI ) {
 		vk_alloc_staging_buffer( vk.defaults.staging_size );
@@ -717,6 +742,11 @@ void vk_shutdown( void )
     vk_destroy_shader_modules();
 
 	R_DestroyImageScratch();
+#ifdef USE_RTX
+	if ( vk.rtxActive )
+		vk_rtx_shutdown();
+#endif
+
 
 __cleanup:
 	if (vk.device != VK_NULL_HANDLE) {
