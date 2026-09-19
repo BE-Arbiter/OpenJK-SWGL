@@ -693,7 +693,10 @@ static void process_regular_entity(
 		}
 
 		entity_hash_t hash;
-		hash.entity = entity->e.id;
+		// pt_reproject 0 zeroes this, which is what the matcher treats as "no previous
+		// frame" - the behaviour before refEntity_t::id was populated. A/B for whether
+		// temporal reuse of model instances is helping or smearing.
+		hash.entity = pt_reproject->integer ? entity->e.id : 0;
 		hash.model =  entity->e.hModel;
 		hash.mesh = i;
 		hash.bsp = 0;
