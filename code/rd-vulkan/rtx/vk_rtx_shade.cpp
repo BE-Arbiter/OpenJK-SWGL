@@ -1610,41 +1610,104 @@ static const char * const rtx_image_names[] = {
 #undef IMG_DO
 };
 
+// SP's q_shared has no case-insensitive substring search.
+static qboolean vk_rtx_name_contains( const char *haystack, const char *needle )
+{
+	const size_t len = strlen( needle );
+	const char *p;
+
+	if ( !len )
+		return qfalse;
+
+	for ( p = haystack; *p; p++ ) {
+		if ( !Q_stricmpn( p, needle, (int)len ) )
+			return qtrue;
+	}
+
+	return qfalse;
+}
+
+// Resolves pt_debug_image, which takes either an index or an image name. A name matches
+// case-insensitively, whole or as a substring as long as it picks out exactly one image,
+// so "motion" is enough for PT_MOTION.
+static uint32_t vk_rtx_resolve_debug_image( const char *arg )
+{
+	uint32_t i, found = 0, matches = 0;
+
+	if ( arg[0] >= '0' && arg[0] <= '9' )
+	{
+		const int index = atoi( arg );
+
+		if ( index <= 0 || index >= (int)ARRAY_LEN( rtx_image_names ) ) {
+			ri.Printf( PRINT_ALL, "pt_debug_image: %i is out of range, %u images available\n",
+				index, (uint32_t)ARRAY_LEN( rtx_image_names ) );
+			return RTX_IMG_TAA_OUTPUT;
+		}
+
+		return (uint32_t)index;
+	}
+
+	for ( i = 0; i < ARRAY_LEN( rtx_image_names ); i++ ) {
+		if ( !Q_stricmp( rtx_image_names[i], arg ) )
+			return i;
+	}
+
+	for ( i = 0; i < ARRAY_LEN( rtx_image_names ); i++ ) {
+		if ( vk_rtx_name_contains( rtx_image_names[i], arg ) ) {
+			found = i;
+			matches++;
+		}
+	}
+
+	if ( matches == 1 )
+		return found;
+
+	if ( matches == 0 ) {
+		ri.Printf( PRINT_ALL, "pt_debug_image: no image matching '%s' - try pt_images\n", arg );
+		return RTX_IMG_TAA_OUTPUT;
+	}
+
+	ri.Printf( PRINT_ALL, "pt_debug_image: '%s' matches %u images:\n", arg, matches );
+
+	for ( i = 0; i < ARRAY_LEN( rtx_image_names ); i++ ) {
+		if ( vk_rtx_name_contains( rtx_image_names[i], arg ) )
+			ri.Printf( PRINT_ALL, "  %s\n", rtx_image_names[i] );
+	}
+
+	return RTX_IMG_TAA_OUTPUT;
+}
+
 // Which of the tracer's images the final blit puts on screen. Anything other than the
 // tone-mapped output is a debug view: the blit only converts between float formats, so
 // the integer images (the visibility buffer, the cluster ids) will make the validation
 // layer complain rather than display.
 uint32_t vk_rtx_debug_image_index( void )
 {
-	static int reported = -1;
+	static char resolved_from[MAX_QPATH] = { 0 };
+	static uint32_t resolved = RTX_IMG_TAA_OUTPUT;
 
-	if ( !pt_debug_image || pt_debug_image->integer <= 0 )
-	{
-		reported = -1;
+	if ( !pt_debug_image )
 		return RTX_IMG_TAA_OUTPUT;
-	}
 
-	if ( pt_debug_image->integer >= (int)ARRAY_LEN( rtx_image_names ) )
+	// Only re-resolve when the string changes; this runs every frame.
+	if ( strcmp( resolved_from, pt_debug_image->string ) )
 	{
-		if ( reported != pt_debug_image->integer )
+		Q_strncpyz( resolved_from, pt_debug_image->string, sizeof( resolved_from ) );
+
+		if ( !resolved_from[0] || !strcmp( resolved_from, "0" ) )
+			resolved = RTX_IMG_TAA_OUTPUT;
+		else
 		{
-			reported = pt_debug_image->integer;
-			ri.Printf( PRINT_ALL, "pt_debug_image: %i is out of range, %u images available\n",
-				pt_debug_image->integer, (uint32_t)ARRAY_LEN( rtx_image_names ) );
+			resolved = vk_rtx_resolve_debug_image( resolved_from );
+
+			if ( resolved != RTX_IMG_TAA_OUTPUT )
+				ri.Printf( PRINT_ALL, "pt_debug_image %u: %s (%ux%u)\n", resolved,
+					rtx_image_names[resolved],
+					vk.img_rtx[resolved].extent.width, vk.img_rtx[resolved].extent.height );
 		}
-		return RTX_IMG_TAA_OUTPUT;
 	}
 
-	if ( reported != pt_debug_image->integer )
-	{
-		reported = pt_debug_image->integer;
-		ri.Printf( PRINT_ALL, "pt_debug_image %i: %s (%ux%u)\n", pt_debug_image->integer,
-			rtx_image_names[pt_debug_image->integer],
-			vk.img_rtx[pt_debug_image->integer].extent.width,
-			vk.img_rtx[pt_debug_image->integer].extent.height );
-	}
-
-	return (uint32_t)pt_debug_image->integer;
+	return resolved;
 }
 
 void vk_rtx_list_debug_images_f( void )
