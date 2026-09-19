@@ -468,6 +468,7 @@ typedef struct {
 #ifdef VK_RTX_LINKER
 void		vk_rtx_cvar_handler( void );
 void		vk_rtx_begin_registration( void );
+void		vk_rtx_create_command_pool( void );
 void		vk_rtx_initialize( void );
 void		vk_rtx_shutdown( void );
 void		vk_rtx_begin_frame( void );

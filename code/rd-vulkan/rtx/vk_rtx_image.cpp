@@ -643,8 +643,8 @@ VkResult vk_rtx_initialize_images( void )
 	sampler_info.addressModeU            = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.addressModeV            = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.addressModeW            = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	sampler_info.anisotropyEnable        = VK_TRUE;
-	sampler_info.maxAnisotropy           = 16;
+	sampler_info.anisotropyEnable        = vk.samplerAnisotropy ? VK_TRUE : VK_FALSE;
+	sampler_info.maxAnisotropy           = vk.samplerAnisotropy ? MIN( 16.0f, vk.maxAnisotropy ) : 1.0f;
 	sampler_info.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 	sampler_info.unnormalizedCoordinates = VK_FALSE;
 	sampler_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
@@ -675,8 +675,8 @@ VkResult vk_rtx_initialize_images( void )
 	sampler_nearest_mipmap_aniso_info.addressModeU            = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_nearest_mipmap_aniso_info.addressModeV            = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_nearest_mipmap_aniso_info.addressModeW            = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	sampler_nearest_mipmap_aniso_info.anisotropyEnable        = VK_TRUE;
-	sampler_nearest_mipmap_aniso_info.maxAnisotropy           = 16;
+	sampler_nearest_mipmap_aniso_info.anisotropyEnable        = vk.samplerAnisotropy ? VK_TRUE : VK_FALSE;
+	sampler_nearest_mipmap_aniso_info.maxAnisotropy           = vk.samplerAnisotropy ? MIN( 16.0f, vk.maxAnisotropy ) : 1.0f;
 	sampler_nearest_mipmap_aniso_info.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 	sampler_nearest_mipmap_aniso_info.unnormalizedCoordinates = VK_FALSE;
 	sampler_nearest_mipmap_aniso_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;

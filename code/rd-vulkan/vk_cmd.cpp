@@ -35,6 +35,13 @@ void vk_create_command_pool( void )
     VK_SET_OBJECT_NAME( vk.command_pool, "command pool", VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_POOL_EXT );
 
     vk_debug("Create command pool: vk.command_pool \n");
+
+#ifdef USE_RTX
+	// The path tracer keeps its own graphics/transfer pools; without them every
+	// vkpt_begin_command_buffer() allocates from a null pool.
+	if ( vk.rtxActive )
+		vk_rtx_create_command_pool();
+#endif
 }
 
 void vk_create_command_buffer( void )
