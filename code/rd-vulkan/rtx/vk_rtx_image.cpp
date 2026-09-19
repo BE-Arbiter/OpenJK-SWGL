@@ -72,8 +72,13 @@ static void LoadPNG16( const char *filename, byte **pic, int *width, int *height
 	if ( !fbuffer )
 		return;
 
+	vk_debug( "  png16: read %i bytes\n", len );
+
 	*pic = (byte*)stbi_load_16_from_memory( fbuffer, len, width, height, &components, STBI_rgb_alpha );
-	if ( *pic == NULL ) 
+
+	vk_debug( "  png16: decoded %ix%i, %i components\n", *width, *height, components );
+
+	if ( *pic == NULL )
 	{
 		ri.FS_FreeFile( fbuffer );
 		return;
@@ -323,13 +328,17 @@ void vk_rtx_upload_image_data( vkimage_t *image, uint32_t width, uint32_t height
 	VkDeviceSize imageSize = (uint64_t) width * (uint64_t) height * (uint64_t) 1 * (uint64_t)bytes_per_pixel;
 	vkbuffer_t staging;
 
-	vk_rtx_buffer_create( &staging, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );	
+	vk_rtx_buffer_create( &staging, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+
+	vk_debug( "    upload: staging %u bytes\n", (uint32_t)imageSize );
 
 	// write data to buffer
 	uint8_t *p;
 	VK_CHECK( qvkMapMemory( vk.device, staging.memory, 0, imageSize, 0, (void**)(&p) ) );
 	Com_Memcpy( p, pixels, (size_t)(imageSize) );
 	qvkUnmapMemory( vk.device, staging.memory );
+
+	vk_debug( "    upload: copying to image\n" );
 
 	vk_rtx_copy_buffer_to_image( image, width, height, &staging.buffer, mipLevel, arrayLayer );
 
@@ -621,7 +630,11 @@ static VkResult vk_rtx_create_blue_noise( void )
 				img[(j * bytes_per_channel) + 1] = *(pic + ((j * 8) + ((channel * bytes_per_channel) + 1)));
 			}
 
+			vk_debug( "  channel %u: packed, uploading layer %u\n", channel, (i*4) + channel );
+
 			vk_rtx_upload_image_data( &vk.img_blue_noise, width, height, img, bytes_per_channel, 0, (i*4) + channel );
+
+			vk_debug( "  channel %u: uploaded\n", channel );
 		}
 
 		Z_Free( pic );
