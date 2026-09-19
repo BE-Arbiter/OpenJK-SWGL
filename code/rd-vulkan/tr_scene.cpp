@@ -327,6 +327,12 @@ static void RE_AddDynamicLightToScene( const vec3_t org, float intensity, float 
 	dl->color[2] = b;
 	dl->additive = additive;
 	dl->linear = qfalse;
+#ifdef USE_RTX
+	// The tracer switches on this. Upstream's gamecode sets it; SP's never does, and
+	// backEndData->dlights[] is never cleared, so it would hold whatever the slot held
+	// last frame - a stale spot light with stale cone data.
+	dl->light_type = DLIGHT_SPHERE;
+#endif
 }
 
 /*
@@ -375,6 +381,11 @@ void RE_AddLinearLightToScene( const vec3_t start, const vec3_t end, float inten
 	dl->color[2] = b;
 	dl->additive = 0;
 	dl->linear = qtrue;
+#ifdef USE_RTX
+	// The tracer has no linear/capsule light; a sphere at the start point is the closest
+	// it can do, and it is still better than the stale type this would otherwise carry.
+	dl->light_type = DLIGHT_SPHERE;
+#endif
 }
 
 /*

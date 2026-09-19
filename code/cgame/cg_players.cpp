@@ -6174,6 +6174,7 @@ void CG_DoSFXSaber( vec3_t blade_muz, vec3_t blade_tip, vec3_t trail_tip, vec3_t
 			VectorCopy( blade_muz, saber.origin );
 			VectorCopy( blade_dir, saber.axis[0] );
 			saber.reType = RT_SABER_GLOW;
+			saber.customSkin = color;	// the renderer's path tracer reads the blade colour from here
 			saber.customShader = glow;
 			saber.shaderRGBA[0] = 0xff * effectalpha;
 			saber.shaderRGBA[1] = 0xff * effectalpha;
@@ -6214,6 +6215,7 @@ void CG_DoSFXSaber( vec3_t blade_muz, vec3_t blade_tip, vec3_t trail_tip, vec3_t
 			VectorCopy( trail_muz, saber.origin );
 			VectorCopy( trail_dir, saber.axis[0] );
 			saber.reType = RT_SABER_GLOW;
+			saber.customSkin = color;	// the renderer's path tracer reads the blade colour from here
 			saber.customShader = glow;
 			saber.shaderRGBA[0] = 0xff * effectalpha;
 			saber.shaderRGBA[1] = 0xff * effectalpha;
@@ -6258,6 +6260,7 @@ void CG_DoSFXSaber( vec3_t blade_muz, vec3_t blade_tip, vec3_t trail_tip, vec3_t
 			VectorMA( blade_muz, ((effectradius*AngleScale)/2), base_dir, saber.origin );
 			VectorCopy( base_dir, saber.axis[0] );
 			saber.reType = RT_SABER_GLOW;
+			saber.customSkin = color;	// the renderer's path tracer reads the blade colour from here
 			saber.customShader = glow;
 			saber.shaderRGBA[0] = 0xff * effectalpha;
 			saber.shaderRGBA[1] = 0xff * effectalpha;
@@ -6335,6 +6338,7 @@ void CG_DoSFXSaber( vec3_t blade_muz, vec3_t blade_tip, vec3_t trail_tip, vec3_t
 			VectorMA( blade_tip, ((effectradius*AngleScale)/2), end_dir, saber.origin );
 			VectorCopy( end_dir, saber.axis[0] );
 			saber.reType = RT_SABER_GLOW;
+			saber.customSkin = color;	// the renderer's path tracer reads the blade colour from here
 			saber.customShader = glow;
 			saber.shaderRGBA[0] = 0xff * effectalpha;
 			saber.shaderRGBA[1] = 0xff * effectalpha;
@@ -6483,6 +6487,7 @@ static void CG_DoSaber( vec3_t origin, vec3_t dir, float length, float lengthMax
 	VectorCopy( origin, saber.origin );
 	VectorCopy( dir, saber.axis[0] );
 	saber.reType = RT_SABER_GLOW;
+	saber.customSkin = color;	// the renderer's path tracer reads the blade colour from here
 	saber.customShader = glow;
 	saber.shaderRGBA[0] = saber.shaderRGBA[1] = saber.shaderRGBA[2] = saber.shaderRGBA[3] = 0xff;
 	saber.renderfx = rfx;
