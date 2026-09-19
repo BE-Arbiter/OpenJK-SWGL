@@ -248,6 +248,8 @@ void CG_SetGhoul2Info( refEntity_t *ent, centity_t *cent)
 	VectorCopy( cent->currentState.modelScale, ent->modelScale);
 	ent->radius = cent->currentState.radius;
 	VectorCopy (cent->lerpAngles, ent->angles);
+
+	ent->id = cent->currentState.number + 1;
 }
 
 

@@ -25,7 +25,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "conversion.h"
 
 // uncomment the define to visualize polygonal lights by rednering debug triangles 
-// the value represents the offset along the light’s normal direction
+// the value represents the offset along the lightï¿½s normal direction
 // #define DEBUG_POLY_LIGHTS 3.0f
 
 static void vk_bind_storage_buffer( vkdescriptor_t *descriptor, uint32_t binding, VkShaderStageFlagBits stage, VkBuffer buffer )
@@ -1073,6 +1073,29 @@ static void collect_light_polys_from_triangles(
 {
 		rtx_material_t *material = vk_rtx_get_material( shader->index );
 
+		// This is the whole chain a surface has to pass to become a light source. Every
+		// step of it fails silently, which is why an emissive surface can glow and light
+		// nothing with no way to tell where it dropped out.
+		if ( pt_verbose->integer )
+		{
+			if ( material == NULL )
+				Com_Printf( "light poly: %s - no material slot\n", shader->name );
+			else if ( !material->active )
+				Com_Printf( "light poly: %s - material never built\n", shader->name );
+			else if ( !material->emissive )
+				Com_Printf( "light poly: %s - no emissive texture (no glow stage, surfacelight %i)\n",
+					shader->name, shader->surfacelight );
+			else
+			{
+				const image_t *img = tr.images.items[material->emissive];
+
+				Com_Printf( "light poly: %s - emissive %s colour %.3f %.3f %.3f factor %.2f\n",
+					shader->name, img ? img->imgName : "<none>",
+					img ? img->light_color[0] : 0.f, img ? img->light_color[1] : 0.f,
+					img ? img->light_color[2] : 0.f, material->emissive_factor );
+			}
+		}
+
 		if ( material == NULL )
 			return;
 
@@ -1299,6 +1322,13 @@ light_affects_cluster(light_poly_t* light, const aabb_t* aabb)
 	if (aabb->mins[0] > aabb->maxs[0])
 		return false;
 
+	// The test below culls clusters sitting behind the light's plane, which only means
+	// anything for a polygon. A sphere has no facing and positions[3..8] hold its radius
+	// and spot data rather than two more vertices, so reading them as a triangle would
+	// cull it on noise. The PVS has already narrowed this down.
+	if (light->type != LIGHT_POLYGON)
+		return true;
+
 	const float* v0 = light->positions + 0;
 	const float* v1 = light->positions + 3;
 	const float* v2 = light->positions + 6;
@@ -1333,7 +1363,142 @@ light_affects_cluster(light_poly_t* light, const aabb_t* aabb)
 	return true;
 }
 
-static void collect_cluster_lights( world_t &worldData ) 
+// JKA maps do not mark their light surfaces. textures/bespin/n_light01 and its kin carry
+// neither a glow stage nor q3map_surfacelight, so collect_light_polys finds nothing at
+// all and the interiors come out black - a panel glows because its texture is bright and
+// lights nothing because no source was ever created for it. The lighting those maps were
+// actually built with lives in the entity lump: the `light` entities q3map2 baked the
+// lightmaps from. Read them and hand the tracer the sources the mapper placed.
+//
+// Spotlights (a `light` with a `target`) are taken as point lights for now. That is too
+// generous rather than too dark, and still much closer than nothing.
+#define ENTITY_LIGHT_RADIUS 16.0f
+
+static void collect_entity_lights( world_t &worldData )
+{
+	const char	*p = worldData.entityString;
+	char		keyname[MAX_TOKEN_CHARS];
+	char		value[MAX_TOKEN_CHARS];
+	int			added = 0;
+	int			in_solid = 0;
+	int			entities = 0;
+	int			lightish = 0;
+
+	if ( !p )
+	{
+		Com_Printf( "rtx: entity lights - no entity string\n" );
+		return;
+	}
+
+	COM_BeginParseSession( "collect_entity_lights" );
+
+	while ( 1 )
+	{
+		const char *token = COM_ParseExt( &p, qtrue );
+
+		if ( !token[0] )
+			break;
+
+		if ( token[0] != '{' )
+			continue;
+
+		entities++;
+
+		qboolean	is_light = qfalse;
+		qboolean	has_origin = qfalse;
+		vec3_t		origin = { 0.0f, 0.0f, 0.0f };
+		vec3_t		color = { 1.0f, 1.0f, 1.0f };
+		float		intensity = 300.0f;	// q3map2's default when the key is absent
+
+		while ( 1 )
+		{
+			token = COM_ParseExt( &p, qtrue );
+
+			if ( !token[0] || token[0] == '}' )
+				break;
+
+			Q_strncpyz( keyname, token, sizeof(keyname) );
+
+			token = COM_ParseExt( &p, qtrue );
+
+			if ( !token[0] || token[0] == '}' )
+				break;
+
+			Q_strncpyz( value, token, sizeof(value) );
+
+			if ( !Q_stricmp( keyname, "classname" ) )
+			{
+				is_light = (qboolean)( Q_stricmp( value, "light" ) == 0 );
+
+				// Anything light-ish, so the log can tell "my parser is broken" from
+				// "q3map2 stripped the light entities out of this BSP".
+				if ( Q_stristr( value, "light" ) )
+				{
+					lightish++;
+
+					if ( lightish <= 8 )
+						Com_Printf( "rtx: entity light candidate: %s\n", value );
+				}
+			}
+			else if ( !Q_stricmp( keyname, "origin" ) )
+				has_origin = (qboolean)( sscanf( value, "%f %f %f", &origin[0], &origin[1], &origin[2] ) == 3 );
+			else if ( !Q_stricmp( keyname, "light" ) || !Q_stricmp( keyname, "_light" ) )
+				intensity = atof( value );
+			else if ( !Q_stricmp( keyname, "_color" ) || !Q_stricmp( keyname, "color" ) )
+				sscanf( value, "%f %f %f", &color[0], &color[1], &color[2] );
+		}
+
+		if ( !is_light || !has_origin || intensity <= 0.0f )
+			continue;
+
+		// Some maps give the colour as bytes rather than the usual 0..1.
+		float peak = MAX( color[0], MAX( color[1], color[2] ) );
+
+		if ( peak > 1.0f )
+			VectorScale( color, 1.0f / 255.0f, color );
+
+		// A light inside a brush reaches nothing and only costs sampling. The cluster is
+		// also what the PVS bucketing in collect_cluster_lights keys off.
+		int cluster = BSP_PointLeaf( worldData.nodes, origin )->cluster;
+
+		if ( cluster < 0 )
+		{
+			in_solid++;
+			continue;
+		}
+
+		light_poly_t *light = append_light_poly( &worldData.num_light_polys,
+			&worldData.allocated_light_polys, &worldData.light_polys );
+
+		Com_Memset( light, 0, sizeof(*light) );
+
+		VectorCopy( origin, light->positions + 0 );
+		VectorCopy( origin, light->off_center );
+
+		light->positions[3] = ENTITY_LIGHT_RADIUS;
+
+		// A sphere light's irradiance is colour * r^2 / d^2, so dividing the colour by
+		// r^2 here makes the emitter's size irrelevant at a distance and leaves
+		// pt_entity_light_scale as the only thing setting the level.
+		VectorScale( color, pt_entity_light_scale->value * intensity
+			/ ( ENTITY_LIGHT_RADIUS * ENTITY_LIGHT_RADIUS ), light->color );
+
+		light->cluster = cluster;
+		light->type = LIGHT_SPHERE;
+		light->emissive_factor = 1.0f;
+		light->material = NULL;
+		light->style = 0;
+
+		added++;
+	}
+
+	COM_EndParseSession();
+
+	Com_Printf( "rtx: %i entity lights added from %i entities (%i light-ish classnames, %i inside solid)\n",
+		added, entities, lightish, in_solid );
+}
+
+static void collect_cluster_lights( world_t &worldData )
 {
 #define MAX_LIGHTS_PER_CLUSTER 1024
 	int *cluster_lights = (int *)Z_Malloc( MAX_LIGHTS_PER_CLUSTER * worldData.numClusters * sizeof(int), TAG_GENERAL, qfalse );
@@ -2394,6 +2559,11 @@ void R_PreparePT( world_t &worldData )
 	vk_compute_cluster_aabbs( worldData );
 
 	collect_light_polys( worldData, -1, &worldData.num_light_polys, &worldData.allocated_light_polys, &worldData.light_polys );
+
+	Com_Printf( "rtx: %i light polys collected from %i world surfaces\n",
+		worldData.num_light_polys, worldData.numsurfaces );
+
+	collect_entity_lights( worldData );
 
 #ifdef DEBUG_POLY_LIGHTS
 	debug_light_polys->num_primitives = worldData.num_light_polys;
