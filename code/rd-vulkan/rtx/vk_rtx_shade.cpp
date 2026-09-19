@@ -982,22 +982,43 @@ static void vk_rtx_process_render_feedback( ref_feedback_t *feedback, mnode_t *v
 
 		if ( readback.material != ~0u )
 		{
-#if 0
-			int material_id = readback.material & MATERIAL_INDEX_MASK;
-			pbr_material_t const * material = MAT_GetPBRMaterial(material_id);
-			if (material)
+			// Upstream resolves this through its PBR material table, which SP has no
+			// equivalent of. The material index is the shader index, so go straight to
+			// the shader: its name is what identifies the surface under the crosshair.
+			const int material_id = readback.material & MATERIAL_INDEX_MASK;
+
+			if ( material_id > 0 && material_id < tr.numShaders )
 			{
-				image_t const * image = material->image_diffuse;
-				if (image)
+				const shader_t *sh = tr.shaders[material_id];
+
+				if ( sh )
 				{
-					view_material = image->name;
-					view_material_override = image->filepath;
+					view_material = sh->name;
+
+					if ( sh->stages[0] && sh->stages[0]->active && sh->stages[0]->bundle[0].image[0] )
+						view_material_override = sh->stages[0]->bundle[0].image[0]->imgName;
+
+					// Point the crosshair at a surface and this names it, along with what
+					// the tracer decided it was - the sort and content flags are what
+					// RB_IsTransparent goes on.
+					if ( r_rtx->integer > 1 )
+					{
+						static int last_reported = -1;
+
+						if ( material_id != last_reported )
+						{
+							last_reported = material_id;
+							ri.Printf( PRINT_ALL, "rtx view: %s [%s]  sort %i  content 0x%08x  %s\n",
+								sh->name, view_material_override, (int)sh->sort, sh->contentFlags,
+								RB_IsTransparent( (shader_t *)sh ) ? "transparent" :
+								RB_IsMasked( (shader_t *)sh ) ? "masked" : "opaque" );
+						}
+					}
 				}
 			}
-#endif
 		}
-		strcpy(feedback->view_material, view_material);
-		strcpy(feedback->view_material_override, view_material_override);
+		Q_strncpyz( feedback->view_material, view_material, sizeof( feedback->view_material ) );
+		Q_strncpyz( feedback->view_material_override, view_material_override, sizeof( feedback->view_material_override ) );
 
 		feedback->lookatcluster = readback.cluster;
 		feedback->num_light_polys = 0;

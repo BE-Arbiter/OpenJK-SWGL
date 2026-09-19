@@ -235,10 +235,9 @@ VkResult vkpt_tone_mapping_record_cmd_buffer( VkCommandBuffer cmd_buf, float fra
 	// In addition, we assume the kernel is symmetric; this allows us to only
 	// specify half of it in our push constant buffer.
 	
-	// Note that the second argument of Cvar_Get only specifies the default
-	// value in code if none is set; the value of tm_slope_blur_sigma specified
-	// in global_ubo.h will override this.
-	float slope_blur_sigma = ri.Cvar_Get("tm_slope_blur_sigma", "6.0", 0)->value; // bad
+	// Registered once from UBO_CVAR_LIST in global_ubo.h. Re-getting it here with a
+	// different default made the engine warn about conflicting initial values.
+	float slope_blur_sigma = sun_tm_slope_blur_sigma->value;
 	float push_constants_tm2_curve[16] = {
 		 reset_required ? 1.0f : 0.0f, // 1 means reset the histogram
 		 frame_time, // Frame time
@@ -312,9 +311,9 @@ VkResult vkpt_tone_mapping_record_cmd_buffer( VkCommandBuffer cmd_buf, float fra
 	// end of the previous tone mapping pipeline.
 	// Must be between 0 and 1; pixels with luminances above this value have
 	// their RGB values slowly clamped to 1, up to tm_white_point.
-	float knee_start = ri.Cvar_Get("tm_knee_start", "0.9", 0)->value;	// bad
+	float knee_start = sun_tm_knee_start->value;
 	// Should be greater than 1; defines those RGB values that get mapped to 1.
-	float knee_white_point = ri.Cvar_Get("tm_white_point", "10.0", 0)->value;	// bad
+	float knee_white_point = sun_tm_white_point->value;
 
 	// We modify Reinhard to smoothly blend with the identity transform up to tm_knee_start.
 	// We need to find w, a, and b such that in y(x) = (wx+a)/(x+b),
