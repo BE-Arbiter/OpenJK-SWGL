@@ -258,8 +258,12 @@ void main()
 
     if(spec_tone_mapping_hdr == 0)
     {
-        //gamma correction until color space of present swapchain is fixed sdr/hdr
-        mapped_color.rgb = pow(mapped_color.rgb, vec3(1.0/2.2));
+        // The swapchain is UNORM (present_formats[] has no sRGB entry), so nothing
+        // encodes this for us and the shader has to. A plain 1/2.2 power is not the sRGB
+        // transfer function: sRGB is linear below 0.0031308 and 1.055*x^(1/2.4) - 0.055
+        // above, which is darker in the deep shadows. srgb_dither just above already
+        // pre-compensates the dither for this exact curve, so use it.
+        mapped_color.rgb = linear_to_srgb(mapped_color.rgb);
     }
 
     // Write out to image:
