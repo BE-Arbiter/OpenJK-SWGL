@@ -1610,23 +1610,6 @@ static const char * const rtx_image_names[] = {
 #undef IMG_DO
 };
 
-// SP's q_shared has no case-insensitive substring search.
-static qboolean vk_rtx_name_contains( const char *haystack, const char *needle )
-{
-	const size_t len = strlen( needle );
-	const char *p;
-
-	if ( !len )
-		return qfalse;
-
-	for ( p = haystack; *p; p++ ) {
-		if ( !Q_stricmpn( p, needle, (int)len ) )
-			return qtrue;
-	}
-
-	return qfalse;
-}
-
 // Resolves pt_debug_image, which takes either an index or an image name. A name matches
 // case-insensitively, whole or as a substring as long as it picks out exactly one image,
 // so "motion" is enough for PT_MOTION.
@@ -1653,7 +1636,7 @@ static uint32_t vk_rtx_resolve_debug_image( const char *arg )
 	}
 
 	for ( i = 0; i < ARRAY_LEN( rtx_image_names ); i++ ) {
-		if ( vk_rtx_name_contains( rtx_image_names[i], arg ) ) {
+		if ( Q_stristr( rtx_image_names[i], arg ) ) {
 			found = i;
 			matches++;
 		}
@@ -1670,7 +1653,7 @@ static uint32_t vk_rtx_resolve_debug_image( const char *arg )
 	ri.Printf( PRINT_ALL, "pt_debug_image: '%s' matches %u images:\n", arg, matches );
 
 	for ( i = 0; i < ARRAY_LEN( rtx_image_names ); i++ ) {
-		if ( vk_rtx_name_contains( rtx_image_names[i], arg ) )
+		if ( Q_stristr( rtx_image_names[i], arg ) )
 			ri.Printf( PRINT_ALL, "  %s\n", rtx_image_names[i] );
 	}
 
