@@ -143,9 +143,18 @@ source_group("renderer\\vulkan\\vk_video" FILES ${SPVulkanRendererVulkanVideoAss
 set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererVulkanVideoAssets})
 
 set(SPVulkanRendererUtils
-	"${SPDir}/rd-vulkan/utils/stb_dxt.h")
+	"${SPDir}/rd-vulkan/utils/stb_dxt.h"
+	"${SPDir}/rd-vulkan/utils/stb_image.h")
 source_group("renderer\\utils" FILES ${SPVulkanRendererUtils})
 set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererUtils})
+
+# Path tracer, ported from JKSunny/EternalJK rtx-update (itself from NVIDIA's Q2RTX).
+# Compiled in only when USE_RTX is defined; the raster path is untouched either way.
+file(GLOB SPVulkanRendererRtxFiles
+	"${SPDir}/rd-vulkan/rtx/*.cpp"
+	"${SPDir}/rd-vulkan/rtx/*.h")
+source_group("renderer\\rtx" FILES ${SPVulkanRendererRtxFiles})
+set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererRtxFiles})
 
 set(SPVulkanRendererCommonFiles
 	"${SPDir}/qcommon/matcomp.cpp"

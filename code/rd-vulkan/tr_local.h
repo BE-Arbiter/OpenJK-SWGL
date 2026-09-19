@@ -24,6 +24,10 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #ifndef TR_LOCAL_H
 #define TR_LOCAL_H
 
+// Path tracer, ported from JKSunny/EternalJK. Comment out to build the renderer without it;
+// everything it adds is guarded by this and the raster path never sees it.
+#define USE_RTX
+
 #define USE_VBO					// store static world geometry in VBO
 
 #ifdef USE_VBO
@@ -310,6 +314,15 @@ typedef struct image_s {
 	VkImage					handle;
 	VkImageView				view;
 	VkDescriptorSet			descriptor_set;
+#ifdef USE_RTX
+	VkSampler				sampler;
+    byte					*pix_data;
+    vec3_t					light_color; // use this color if this is a light source
+	vec2_t					min_light_texcoord;
+	vec2_t					max_light_texcoord;
+	bool					entire_texture_emissive;
+	bool					processing_complete;
+#endif
 	qboolean				isLightmap;
 	uint32_t				mipLevels;		// gl texture binding
 	VkSamplerAddressMode	wrapClampMode;	
@@ -1160,6 +1173,9 @@ typedef struct msurface_s {
 	int					viewCount;		// if == tr.viewCount, already added
 	struct shader_s		*shader;
 	int					fogIndex;
+#ifdef USE_RTX
+	vk_blas_t			*blas;
+#endif
 #ifdef USE_PMLIGHT
 	int					vcVisible;		// if == tr.viewCount, is actually VISIBLE in this frame, i.e. passed facecull and has been added to the drawsurf list
 	int					lightCount;		// if == tr.lightCount, already added to the litsurf list for the current light
@@ -1198,6 +1214,20 @@ typedef struct bmodel_s {
 	vec3_t		bounds[2];			// for culling
 	msurface_t	*firstSurface;
 	int			numSurfaces;
+#ifdef USE_RTX
+	model_geometry_t geometry;
+
+	vec3_t			center;
+	vec3_t			aabb_min;
+	vec3_t			aabb_max;
+
+	int				num_light_polys;
+	int				allocated_light_polys;
+	light_poly_t	*light_polys;
+
+	bool transparent;
+	bool masked;
+#endif
 } bmodel_t;
 
 typedef struct
@@ -1254,6 +1284,26 @@ typedef struct world_s {
 	int			numClusters;
 	int			clusterBytes;
 	const byte	*vis;					// may be passed in by CM_LoadMap to save space
+#ifdef USE_RTX
+	aabb_t			world_aabb;
+	aabb_t			*cluster_aabbs;
+
+	vkgeometry_t	geometry;
+
+	const byte		*vis2;
+	int				numvisibility;
+
+	int				num_cluster_lights;
+	int				*cluster_light_offsets;
+	int				*cluster_lights;
+
+	int				num_light_polys;
+	int				allocated_light_polys;
+	light_poly_t	*light_polys;
+
+	int				num_bmodels;
+	byte			sky_visibility[VIS_MAX_BYTES];
+#endif
 
 	byte		*novis;					// clusterBytes of 0xff
 
@@ -1374,6 +1424,10 @@ typedef struct mdxmVBOModel_s
 {
 	int numVBOMeshes;
 	mdxmVBOMesh_t *vboMeshes;
+#ifdef USE_RTX
+	uint32_t	model_index;
+	model_vbo_t vbo_rtx;
+#endif
 
 	VBO_t *vbo;
 	IBO_t *ibo;
@@ -2758,4 +2812,44 @@ extern void VBO_Flush( void );
 IBO_t *R_CreateIBO( const char *name, const byte *vbo_data, int vbo_size );
 VBO_t *R_CreateVBO( const char *name, const byte *vbo_data, int vbo_size );
 #endif
+#endif
+#ifdef USE_RTX
+extern  cvar_t  *r_rtx;
+extern  cvar_t  *pt_restir;
+extern  cvar_t  *pt_caustics;
+extern  cvar_t  *pt_dof;
+extern  cvar_t  *pt_projection;
+extern  cvar_t  *tm_blend_enable;
+extern  cvar_t  *pt_debug_poly_lights;
+extern  cvar_t  *pt_restir_m_clamp;
+
+#define UBO_CVAR_DO( _handle, _value ) \
+	extern cvar_t *sun_##_handle;
+	UBO_CVAR_LIST
+#undef UBO_CVAR_DO
+
+extern  cvar_t *sun_color[3];
+extern  cvar_t *sun_elevation;
+extern  cvar_t *sun_azimuth;
+extern  cvar_t *sun_angle;
+extern  cvar_t *sun_brightness;
+extern  cvar_t *sun_bounce;
+extern  cvar_t *sun_animate;
+extern  cvar_t *sun_gamepad;
+
+extern  cvar_t *sun_preset;
+extern  cvar_t *sun_latitude;
+
+extern  cvar_t *physical_sky;
+extern  cvar_t *physical_sky_draw_clouds;
+extern  cvar_t *physical_sky_space;
+extern  cvar_t *physical_sky_brightness;
+
+extern  cvar_t *sky_scattering;
+extern  cvar_t *sky_transmittance;
+extern  cvar_t *sky_phase_g;
+extern  cvar_t *sky_amb_phase_g;
+#endif
+#ifdef USE_RTX
+void RB_AddTriangle( vec3_t a, vec3_t b, vec3_t c, color4ub_t color );
 #endif
