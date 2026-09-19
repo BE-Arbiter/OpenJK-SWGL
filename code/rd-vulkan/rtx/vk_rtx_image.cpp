@@ -333,7 +333,9 @@ void vk_rtx_upload_image_data( vkimage_t *image, uint32_t width, uint32_t height
 
 	vk_rtx_copy_buffer_to_image( image, width, height, &staging.buffer, mipLevel, arrayLayer );
 
-	qvkQueueWaitIdle( vk.queue_graphics );
+	// Reset the group along with the wait: this runs 512 times over the blue noise set,
+	// and without it every call takes a fresh buffer and doubles the group's allocation.
+	vkpt_wait_idle( vk.queue_graphics, &vk.cmd_buffers_graphics );
 
 	qvkDestroyBuffer( vk.device, staging.buffer, NULL );
 	qvkFreeMemory( vk.device, staging.memory, NULL );
@@ -583,23 +585,37 @@ static VkResult vk_rtx_create_blue_noise( void )
 
 	vk_debug( "rtx blue noise: array created, loading %i images\n", num_blue_noise_images );
 
+	// One channel's worth of 16-bit samples. Upstream declares this on the stack, which
+	// is 128KB per iteration at the shipped 256x256 resolution.
+	uint8_t *img = (uint8_t *)Z_Malloc( (int)total_size, TAG_TEMP_WORKSPACE, qfalse, 4 );
+
 	for ( i = 0; i < num_blue_noise_images; i++ )
 	{
 		char buf[1024];
 		snprintf(buf, sizeof buf, "blue_noise/%d_%d/HDR_RGBA_%04d.png", res, res, i);
-			
+
+		vk_debug( "rtx blue noise: %s\n", buf );
+
 		R_LoadImage16( buf, &pic, &width, &height );
 
 		if ( pic == NULL ) {
-			Com_Error(ERR_DROP, "Couln't load blue noise.\n");
+			Z_Free( img );
+			ri.Error( ERR_DROP, "Couldn't load %s", buf );
 			return VK_ERROR_INITIALIZATION_FAILED;
 		}
-		// HDR is RGBA
-		for ( channel = 0; channel < 4; channel++ ) 
-		{
-			uint8_t img[2 * res * res];
 
-			for ( j = 0; j < img_size; j++ ) 
+		// The reads below assume 16-bit RGBA at exactly this resolution.
+		if ( width != res || height != res ) {
+			Z_Free( pic );
+			Z_Free( img );
+			ri.Error( ERR_DROP, "%s is %ix%i, expected %ix%i", buf, width, height, res, res );
+			return VK_ERROR_INITIALIZATION_FAILED;
+		}
+
+		// HDR is RGBA
+		for ( channel = 0; channel < 4; channel++ )
+		{
+			for ( j = 0; j < img_size; j++ )
 			{
 				img[(j * bytes_per_channel) + 0] = *(pic + ((j * 8) + ((channel * bytes_per_channel) + 0)));
 				img[(j * bytes_per_channel) + 1] = *(pic + ((j * 8) + ((channel * bytes_per_channel) + 1)));
@@ -610,6 +626,8 @@ static VkResult vk_rtx_create_blue_noise( void )
 
 		Z_Free( pic );
 	}
+
+	Z_Free( img );
 
 	vk_debug( "rtx blue noise: uploaded\n" );
 
