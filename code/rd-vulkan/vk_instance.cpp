@@ -244,6 +244,14 @@ static void vk_create_instance( void )
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.pEngineName = "Quake3";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+#ifdef USE_RTX
+	// VkPhysicalDeviceVulkan12Features, which the path tracer's feature chain is built on,
+	// does not exist below 1.2. Only asked for when the tracer is actually wanted, so a
+	// plain raster run keeps the version it always used.
+	if ( r_rtx && r_rtx->integer )
+		appInfo.apiVersion = VK_API_VERSION_1_2;
+	else
+#endif
 #ifdef _DEBUG
 	appInfo.apiVersion = VK_API_VERSION_1_1;
 #else
@@ -668,6 +676,14 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 		qboolean pipelineLib = qfalse;
 		qboolean accelStruct = qfalse;
 		qboolean deferredHostOp = qfalse;
+		// Dependencies the two headline extensions pull in. The spec requires every one of
+		// them to appear in the enabled list as well, even though drivers advertise them
+		// separately: ray_tracing_pipeline needs spirv_1_4, which needs shader_float_controls,
+		// and acceleration_structure needs buffer_device_address.
+		qboolean spirv14 = qfalse;
+		qboolean floatControls = qfalse;
+		qboolean bufferDevAddr = qfalse;
+		qboolean bufferDevAddrAdded = qfalse;
 #endif
 #ifdef _DEBUG
 		qboolean timelineSemaphore = qfalse;
@@ -718,6 +734,16 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 				pipelineLib = qtrue;
 			} else if ( strcmp( ext, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME ) == 0 ) {
 				deferredHostOp = qtrue;
+			} else if ( strcmp( ext, VK_KHR_SPIRV_1_4_EXTENSION_NAME ) == 0 ) {
+				spirv14 = qtrue;
+			} else if ( strcmp( ext, VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME ) == 0 ) {
+				floatControls = qtrue;
+			} else if ( strcmp( ext, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME ) == 0 ) {
+				bufferDevAddr = qtrue;
+#ifdef _DEBUG
+				// this branch shadows the debug one below, which reads the same extension
+				devAddrFeat = qtrue;
+#endif
 #endif
 #ifdef _DEBUG
 			} else if ( strcmp( ext, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME ) == 0 ) {
@@ -780,8 +806,14 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 		// The path tracer needs all seven or none of them; a partial set is not a degraded
 		// mode, it is a device that cannot trace rays at all.
 		if ( raytracing && descIndexing && maintance3 && mutableType
-			&& accelStruct && pipelineLib && deferredHostOp )
+			&& accelStruct && pipelineLib && deferredHostOp
+			&& spirv14 && floatControls && bufferDevAddr )
 		{
+			device_extension_list[device_extension_count++] = VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME;
+			device_extension_list[device_extension_count++] = VK_KHR_SPIRV_1_4_EXTENSION_NAME;
+			device_extension_list[device_extension_count++] = VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME;
+			bufferDevAddrAdded = qtrue;
+
 			device_extension_list[device_extension_count++] = VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME;
 			device_extension_list[device_extension_count++] = VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
 			device_extension_list[device_extension_count++] = VK_KHR_MAINTENANCE3_EXTENSION_NAME;
@@ -791,14 +823,28 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 			device_extension_list[device_extension_count++] = VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME;
 
 			vk.rtxSupport = qtrue;
+
+			ri.Printf( PRINT_ALL, "...ray tracing: supported, %s\n",
+				vk.rtxActive ? "ENABLED" : "off (r_rtx 0)" );
 		}
 		else
 		{
 			vk.rtxSupport = qfalse;
 			vk.rtxActive = qfalse;
 
-			if ( r_rtx->integer )
-				ri.Printf( PRINT_WARNING, "...ignoring \\r_rtx: this device has no ray tracing support\n" );
+			// Name what is missing rather than just refusing: on a card that should be able
+			// to trace, a single absent extension is the whole story.
+			ri.Printf( PRINT_ALL, "...ray tracing: unsupported -%s%s%s%s%s%s%s%s%s%s\n",
+				raytracing		? "" : " ray_tracing_pipeline",
+				accelStruct		? "" : " acceleration_structure",
+				descIndexing	? "" : " descriptor_indexing",
+				maintance3		? "" : " maintenance3",
+				mutableType		? "" : " mutable_descriptor_type",
+				pipelineLib		? "" : " pipeline_library",
+				deferredHostOp	? "" : " deferred_host_operations",
+				spirv14			? "" : " spirv_1_4",
+				floatControls	? "" : " shader_float_controls",
+				bufferDevAddr	? "" : " buffer_device_address" );
 		}
 #endif
 
@@ -810,7 +856,11 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 		if ( memoryModel ) {
 			device_extension_list[ device_extension_count++ ] = VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME;
 		}
-		if ( devAddrFeat ) {
+		if ( devAddrFeat
+#ifdef USE_RTX
+			&& !bufferDevAddrAdded	// the ray tracing block above already listed it
+#endif
+			) {
 			device_extension_list[ device_extension_count++ ] = VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME;
 		}
 		if ( storage8bit ) {
@@ -881,9 +931,62 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 		device_desc.ppEnabledExtensionNames = device_extension_list;
 		device_desc.pEnabledFeatures = &features;
 
+#ifdef USE_RTX
+		// Enabling the extensions is not enough - their features have to be switched on too,
+		// or the entry points are present and every call through them misbehaves. This chain
+		// is what upstream builds; it needs the 1.2 API version requested at instance
+		// creation, which is why that is conditional on r_rtx as well.
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR rtx_as_features;
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtx_pipeline_features;
+		VkPhysicalDeviceVulkan12Features rtx_vk12_features;
+
+		if ( vk.rtxActive )
+		{
+			Com_Memset( &rtx_as_features, 0, sizeof( rtx_as_features ) );
+			rtx_as_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+			rtx_as_features.pNext = NULL;
+			rtx_as_features.accelerationStructure = VK_TRUE;
+
+			Com_Memset( &rtx_pipeline_features, 0, sizeof( rtx_pipeline_features ) );
+			rtx_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+			rtx_pipeline_features.pNext = &rtx_as_features;
+			rtx_pipeline_features.rayTracingPipeline = VK_TRUE;
+
+			Com_Memset( &rtx_vk12_features, 0, sizeof( rtx_vk12_features ) );
+			rtx_vk12_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+			rtx_vk12_features.pNext = &rtx_pipeline_features;
+			rtx_vk12_features.descriptorIndexing = VK_TRUE;
+			rtx_vk12_features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+			rtx_vk12_features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
+			rtx_vk12_features.runtimeDescriptorArray = VK_TRUE;
+			rtx_vk12_features.samplerFilterMinmax = VK_TRUE;
+			rtx_vk12_features.bufferDeviceAddress = VK_TRUE;
+			rtx_vk12_features.bufferDeviceAddressMultiDevice = VK_FALSE;
+			rtx_vk12_features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+			rtx_vk12_features.descriptorBindingPartiallyBound = VK_TRUE;
+
+			// Vulkan12Features subsumes the four structs the debug chain below appends, and
+			// the two forms may not both appear in one pNext chain. Carry their bits here
+			// instead, and skip that chain entirely when the tracer is on.
+			rtx_vk12_features.timelineSemaphore = VK_TRUE;
+			rtx_vk12_features.vulkanMemoryModel = VK_TRUE;
+			rtx_vk12_features.vulkanMemoryModelDeviceScope = VK_TRUE;
+			rtx_vk12_features.storageBuffer8BitAccess = VK_TRUE;
+			rtx_vk12_features.uniformAndStorageBuffer8BitAccess = VK_TRUE;
+
+			device_desc.pNext = &rtx_vk12_features;
+		}
+#endif
+
 #ifdef _DEBUG
 		pNextPtr = (const void **)&device_desc.pNext;
 
+#ifdef USE_RTX
+		// Skipped wholesale when tracing: every feature below is already carried by the
+		// Vulkan12Features struct above, and duplicating them is invalid.
+		if ( !vk.rtxActive )
+#endif
+		{
 		if ( timelineSemaphore ) {
 			*pNextPtr = &timeline_semaphore;
 			timeline_semaphore.pNext = NULL;
@@ -917,6 +1020,7 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 			storage_8bit_features.storagePushConstant8 = VK_FALSE;
 			storage_8bit_features.uniformAndStorageBuffer8BitAccess = VK_TRUE;
 			pNextPtr = (const void **)&storage_8bit_features.pNext;
+		}
 		}
 #endif
 
