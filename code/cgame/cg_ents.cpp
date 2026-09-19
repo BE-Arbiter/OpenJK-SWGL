@@ -248,6 +248,11 @@ void CG_SetGhoul2Info( refEntity_t *ent, centity_t *cent)
 	VectorCopy( cent->currentState.modelScale, ent->modelScale);
 	ent->radius = cent->currentState.radius;
 	VectorCopy (cent->lerpAngles, ent->angles);
+
+	// The path tracer matches an entity to its previous frame by this, to carry over the
+	// last transform and bone matrices - which is what its motion vectors are built from.
+	// Zero means "no match", so the world entity gets 1.
+	ent->id = cent->currentState.number + 1;
 }
 
 
