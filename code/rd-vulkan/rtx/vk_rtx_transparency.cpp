@@ -518,7 +518,14 @@ void vk_rtx_build_saber_lights( light_poly_t *light_list, int *num_lights,
 		trRefEntity_t *saber = sabers[i];
         refEntity_t *e = &saber->e;
 
+		// ReSTIR compares the whole 32 bits of this as one word to match a light to its
+		// previous-frame self. bsp is never assigned on this path and mesh is filled in
+		// by the callee, so without zeroing it first the match rides on whatever the
+		// stack held - a saber's reservoirs then reconnect, or don't, at random from one
+		// frame to the next, which shows up the moment the blade ignites.
 		entity_hash_t hash;
+		Com_Memset( &hash, 0, sizeof(hash) );
+
 		hash.entity = (sabers[i] - refdef->entities) + 1; //entity ID
 		hash.model = RT_SABER_GLOW;
 

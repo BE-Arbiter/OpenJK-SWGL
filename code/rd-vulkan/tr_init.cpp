@@ -222,6 +222,8 @@ cvar_t	*pt_debug_poly_lights;
 cvar_t	*pt_restir_m_clamp;
 cvar_t	*pt_debug_image;
 cvar_t	*pt_verbose;
+cvar_t	*pt_dlight_radius;
+cvar_t	*pt_entity_light_scale;
 
 #define UBO_CVAR_DO( _handle, _value ) cvar_t *sun_##_handle;
 	UBO_CVAR_LIST
@@ -978,6 +980,16 @@ void R_Register( void )
 	pt_restir_m_clamp					= ri.Cvar_Get("pt_restir_m_clamp",					"8",	CVAR_NONE);
 	pt_debug_image						= ri.Cvar_Get("pt_debug_image",						"0",	CVAR_NONE);
 	pt_verbose							= ri.Cvar_Get("pt_verbose",							"0",	CVAR_NONE);
+	/* Size of the sphere a dlight emits from, in world units - not its reach, which is
+	 * dlight_t::radius. An emitter with a body gets half buried in whatever surface the
+	 * light was spawned on, and loses a disc of its own illumination that size. It buys
+	 * only softer shadows, so keep it small. 0 makes the emitter as big as the light's
+	 * reach, which is what the port used to do. */
+	pt_dlight_radius					= ri.Cvar_Get("pt_dlight_radius",					"2",	CVAR_NONE);
+	/* Overall level of the lights read from the map's entity lump. q3map2's `light` key
+	 * is an inverse-square strength with no absolute unit, so the conversion to the
+	 * tracer's radiance needs calibrating by eye. Read at map load only. */
+	pt_entity_light_scale				= ri.Cvar_Get("pt_entity_light_scale",				"2",	CVAR_ARCHIVE);
 
 #define UBO_CVAR_DO( _handle, _value ) sun_##_handle = ri.Cvar_Get( #_handle,	#_value, CVAR_NONE);
 	UBO_CVAR_LIST

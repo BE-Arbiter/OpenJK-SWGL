@@ -382,6 +382,70 @@ static void add_dlight_spot(const dlight_t* dlight, light_poly_t* light)
 	light->positions[5] = uintBitsToFloat(spot_data);
 }
 
+// A dlight whose origin lands in solid is dropped, which is the common case for an
+// impact: the effect origin sits on the surface it hit, and the leaf a point on a plane
+// falls in is often the solid side. Probe a short way along each axis, and move the
+// light out to wherever that finds open space - a light sitting behind the plane of the
+// surface it lit is rejected by the dot(n, L) test anyway.
+static int dlight_cluster( world_t *worldData, vec3_t origin, float probe )
+{
+	static const vec3_t offsets[6] = {
+		{  1,  0,  0 }, { -1,  0,  0 }, {  0,  1,  0 },
+		{  0, -1,  0 }, {  0,  0,  1 }, {  0,  0, -1 }
+	};
+
+	int cluster = BSP_PointLeaf( worldData->nodes, origin )->cluster;
+
+	for ( int i = 0; cluster < 0 && i < 6; i++ )
+	{
+		vec3_t probed;
+		VectorMA( origin, probe, offsets[i], probed );
+		cluster = BSP_PointLeaf( worldData->nodes, probed )->cluster;
+
+		if ( cluster >= 0 )
+			VectorCopy( probed, origin );
+	}
+
+	return cluster;
+}
+
+// ReSTIR matches a light to its previous-frame self by this hash (see
+// update_mlight_prev_to_current and reproject_light_index), so it has to identify the
+// light, not the slot it happens to occupy. refdef->dlights is rebuilt every frame and
+// its order shifts as lights come and go, so hashing the loop index handed a reservoir
+// built for one light to whatever landed in that slot next - a bolt's colour and weight
+// applied to an unrelated light, held for as many frames as pt_restir_m_clamp allows.
+// Everything else already hashes a real identity: entities use e.id, sabers their entity
+// index. Hash the light's position and colour instead. A light that moves fails to match
+// and simply loses its history, which costs noise and nothing else.
+static uint32_t dlight_identity( const dlight_t *dlight )
+{
+	uint32_t h = 2166136261u;	// FNV-1a
+	int i;
+
+	// Quantised so float jitter on a light that is holding still still matches.
+	for ( i = 0; i < 3; i++ )
+	{
+		int q = (int)floor( dlight->origin[i] * 0.25f );
+
+		h = ( h ^ (uint32_t)( q & 0xff ) ) * 16777619u;
+		h = ( h ^ (uint32_t)( ( q >> 8 ) & 0xff ) ) * 16777619u;
+	}
+
+	// Hue rather than magnitude: an impact flash fades by scaling its colour down, and
+	// that must not read as a different light.
+	float peak = MAX( dlight->color[0], MAX( dlight->color[1], dlight->color[2] ) );
+
+	if ( peak > 0.0f )
+	{
+		for ( i = 0; i < 3; i++ )
+			h = ( h ^ (uint32_t)( dlight->color[i] / peak * 15.0f ) ) * 16777619u;
+	}
+
+	// hash.entity is 14 bits, and 0 means "no identity" to update_mlight_prev_to_current.
+	return ( h % 16383u ) + 1u;
+}
+
 static void
 add_dlights(const dlight_t* dlights, int num_dlights, light_poly_t* light_list, int* num_lights, int max_lights, world_t *worldData, int* light_entity_ids)
 {
@@ -393,19 +457,53 @@ add_dlights(const dlight_t* dlights, int num_dlights, light_poly_t* light_list, 
 		const dlight_t* dlight = dlights + i;
 		light_poly_t* light = light_list + *num_lights;
 
-		light->cluster = BSP_PointLeaf(worldData->nodes, (float*)dlight->origin)->cluster;
+		vec3_t origin;
+		VectorCopy( dlight->origin, origin );
 
+		const qboolean is_spot = (qboolean)(dlight->light_type == DLIGHT_SPOT);
+		const float falloff_radius = dlight->radius;
+		float emitter_radius = pt_dlight_radius->value;
+
+		if ( emitter_radius <= 0.0f || emitter_radius > falloff_radius )
+			emitter_radius = falloff_radius;
+
+		light->cluster = dlight_cluster( worldData, origin, 8.0f );
+
+		// Zeroed first: the whole 32 bits are compared as one word, and bsp is never
+		// assigned here, so leaving it to the stack makes the match a coin toss.
 		entity_hash_t hash;
-		hash.entity = i + 1; //entity ID
+		Com_Memset( &hash, 0, sizeof(hash) );
+
+		hash.entity = dlight_identity( dlight );
 		hash.mesh = 0xAA;
 
 		if(light->cluster >= 0)
 		{
 			//Super wasteful but we want to have all lights in the same list.
 
-			VectorCopy(dlight->origin, light->positions + 0);
-			VectorScale(dlight->color, dlight->radius / 250.f, light->color);
-			light->positions[3] = dlight->radius;
+			// dlight->radius is the distance the light reaches, but positions[3] is the
+			// radius of the sphere the light is emitted *from*. Feeding the first into
+			// the second gave every impact a 100-300 unit emitter centred on the point
+			// it hit, half of it buried in that surface: sample_lights drops every
+			// sample below the shaded point's horizon, so the light lost a dark disc of
+			// its own illumination, and the samples that survived came back shadowed by
+			// the surface itself. Emit from a small sphere instead.
+			//
+			// Shrinking the emitter costs (falloff/emitter)^2 of solid angle; putting
+			// exactly that back leaves lighting at a distance independent of the emitter
+			// size, since irradiance out there is colour * r^2 / d^2 and r cancels. Only
+			// the plateau within the emitter itself scales, as 1/r^2.
+			//
+			// A spotlight emits from a disk facing its own direction and its irradiance
+			// is 2 * falloff / d^2 whatever the radius, so it needs no compensation.
+			float power_scale = 1.0f;
+
+			if ( !is_spot && emitter_radius > 0.0f )
+				power_scale = MAX( 1.0f, ( falloff_radius * falloff_radius ) / ( emitter_radius * emitter_radius ) );
+
+			VectorCopy(origin, light->positions + 0);
+			VectorScale(dlight->color, ( falloff_radius / 250.f ) * power_scale, light->color);
+			light->positions[3] = emitter_radius;
 			light->material = NULL;
 			light->style = 0;
 
@@ -425,9 +523,19 @@ add_dlights(const dlight_t* dlights, int num_dlights, light_poly_t* light_list, 
 					break;
 			}
 
+			if ( pt_verbose->integer > 1 )
+				ri.Printf( PRINT_ALL, "dlight %i: %s falloff %.0f emitter %.1f gain %.1f -> colour %.2f %.2f %.2f\n",
+					i, is_spot ? "spot  " : "sphere", falloff_radius, emitter_radius, power_scale,
+					light->color[0], light->color[1], light->color[2] );
+
 			light_entity_ids[(*num_lights)] = *(uint32_t*)&hash;
 			(*num_lights)++;
 
+		}
+		else if ( pt_verbose->integer > 1 )
+		{
+			ri.Printf( PRINT_ALL, "dlight %i dropped: origin %.0f %.0f %.0f is in solid, radius %.0f\n",
+				i, dlight->origin[0], dlight->origin[1], dlight->origin[2], dlight->radius );
 		}
 	}
 }
