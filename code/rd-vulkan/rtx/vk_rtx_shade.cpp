@@ -1048,10 +1048,21 @@ static void vk_rtx_process_render_feedback( ref_feedback_t *feedback, mnode_t *v
 		{
 			static int report_frame = 0;
 
+			// frame_counter drives the A/B ping-pong of every history image. Printed as a
+			// delta because what matters is that it advances by exactly one per frame -
+			// anything else collapses the alternation and the gradient compares a seed
+			// against itself.
+			static uint64_t last_counter = 0;
+
 			if ( ( report_frame++ & 63 ) == 0 )
-				ri.Printf( PRINT_ALL, "rtx exposure: adapted luminance %f  sun luminance %f  hdr %f %f %f\n",
+			{
+				ri.Printf( PRINT_ALL, "rtx exposure: adapted luminance %f  sun %f  hdr %f %f %f  frame %u (+%u over 64)\n",
 					readback.adapted_luminance, readback.sun_luminance,
-					readback.hdr_color[0], readback.hdr_color[1], readback.hdr_color[2] );
+					readback.hdr_color[0], readback.hdr_color[1], readback.hdr_color[2],
+					(uint32_t)vk.frame_counter, (uint32_t)( vk.frame_counter - last_counter ) );
+
+				last_counter = vk.frame_counter;
+			}
 		}
 	}
 }
