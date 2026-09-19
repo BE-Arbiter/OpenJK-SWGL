@@ -220,6 +220,7 @@ cvar_t	*pt_projection;
 cvar_t	*tm_blend_enable;
 cvar_t	*pt_debug_poly_lights;
 cvar_t	*pt_restir_m_clamp;
+cvar_t	*pt_debug_image;
 
 #define UBO_CVAR_DO( _handle, _value ) cvar_t *sun_##_handle;
 	UBO_CVAR_LIST
@@ -757,6 +758,7 @@ static consoleCommand_t	commands[] = {
 	{ "clearRemaps",		R_ClearRemaps_f },
 #ifdef USE_RTX
 	{ "show_pvs",			vk_rtx_show_pvs_f },
+	{ "pt_images",			vk_rtx_list_debug_images_f },
 #endif
 	{ "vkinfo",				vk_info_f }
 };
@@ -973,6 +975,7 @@ void R_Register( void )
 	 * however, this can work against the denoiser, as it's temporal filtering would
 	 * really likes pixels that vary over time... */
 	pt_restir_m_clamp					= ri.Cvar_Get("pt_restir_m_clamp",					"8",	CVAR_NONE);
+	pt_debug_image						= ri.Cvar_Get("pt_debug_image",						"0",	CVAR_NONE);
 
 #define UBO_CVAR_DO( _handle, _value ) sun_##_handle = ri.Cvar_Get( #_handle,	#_value, CVAR_NONE);
 	UBO_CVAR_LIST

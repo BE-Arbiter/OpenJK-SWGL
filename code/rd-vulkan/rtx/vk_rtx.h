@@ -473,6 +473,8 @@ void		vk_rtx_initialize( void );
 void		vk_rtx_shutdown( void );
 void		vk_rtx_begin_frame( void );
 void		vk_rtx_show_pvs_f( void );
+void		vk_rtx_list_debug_images_f( void );
+uint32_t	vk_rtx_debug_image_index( void );
 
 VkDescriptorSet vk_rtx_get_current_desc_set_textures( void);
 

@@ -1601,6 +1601,62 @@ static void vk_rxt_trace_lighting( VkCommandBuffer cmd_buf, float num_bounce_ray
 	END_PERF_MARKER( cmd_buf, PROFILER_INDIRECT_LIGHTING );
 }
 
+
+// Names for pt_debug_image, generated from the same list the images themselves are.
+static const char * const rtx_image_names[] = {
+#define IMG_DO(_name, ...) #_name,
+	LIST_IMAGES
+	LIST_IMAGES_A_B
+#undef IMG_DO
+};
+
+// Which of the tracer's images the final blit puts on screen. Anything other than the
+// tone-mapped output is a debug view: the blit only converts between float formats, so
+// the integer images (the visibility buffer, the cluster ids) will make the validation
+// layer complain rather than display.
+uint32_t vk_rtx_debug_image_index( void )
+{
+	static int reported = -1;
+
+	if ( !pt_debug_image || pt_debug_image->integer <= 0 )
+	{
+		reported = -1;
+		return RTX_IMG_TAA_OUTPUT;
+	}
+
+	if ( pt_debug_image->integer >= (int)ARRAY_LEN( rtx_image_names ) )
+	{
+		if ( reported != pt_debug_image->integer )
+		{
+			reported = pt_debug_image->integer;
+			ri.Printf( PRINT_ALL, "pt_debug_image: %i is out of range, %u images available\n",
+				pt_debug_image->integer, (uint32_t)ARRAY_LEN( rtx_image_names ) );
+		}
+		return RTX_IMG_TAA_OUTPUT;
+	}
+
+	if ( reported != pt_debug_image->integer )
+	{
+		reported = pt_debug_image->integer;
+		ri.Printf( PRINT_ALL, "pt_debug_image %i: %s (%ux%u)\n", pt_debug_image->integer,
+			rtx_image_names[pt_debug_image->integer],
+			vk.img_rtx[pt_debug_image->integer].extent.width,
+			vk.img_rtx[pt_debug_image->integer].extent.height );
+	}
+
+	return (uint32_t)pt_debug_image->integer;
+}
+
+void vk_rtx_list_debug_images_f( void )
+{
+	uint32_t i;
+
+	ri.Printf( PRINT_ALL, "%u path tracer images:\n", (uint32_t)ARRAY_LEN( rtx_image_names ) );
+
+	for ( i = 0; i < ARRAY_LEN( rtx_image_names ); i++ )
+		ri.Printf( PRINT_ALL, "%3u  %-34s %ux%u\n", i, rtx_image_names[i],
+			vk.img_rtx[i].extent.width, vk.img_rtx[i].extent.height );
+}
 static VkResult vkpt_final_blit_simple( VkCommandBuffer cmd_buf )
 {
 	VkImageSubresourceRange subresource_range;
@@ -1621,8 +1677,12 @@ static VkResult vkpt_final_blit_simple( VkCommandBuffer cmd_buf )
 
 #ifdef USE_VK_IMGUI
 	VkImage output_img = vk_imgui_get_rtx_render_mode();
+	uint32_t output_idx = RTX_IMG_TAA_OUTPUT;
 #else
-	VkImage output_img = vk.img_rtx[RTX_IMG_TAA_OUTPUT].handle;
+	// pt_debug_image puts any of the tracer's intermediate images on screen in place of
+	// the tone-mapped result. "pt_debug_image list" prints the names.
+	uint32_t output_idx = vk_rtx_debug_image_index();
+	VkImage output_img = vk.img_rtx[output_idx].handle;
 #endif
 
 	IMAGE_BARRIER( cmd_buf,
@@ -1634,9 +1694,11 @@ static VkResult vkpt_final_blit_simple( VkCommandBuffer cmd_buf )
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
 	);
 
+	// Most of the intermediate images are smaller than the TAA output - the gradient ones
+	// are a third of it - so the blit has to scale from each image's own size.
 	VkOffset3D blit_size;
-	blit_size.x = vk.extent_taa_output.width;
-	blit_size.y = vk.extent_taa_output.height;
+	blit_size.x = ( output_idx == RTX_IMG_TAA_OUTPUT ) ? vk.extent_taa_output.width  : vk.img_rtx[output_idx].extent.width;
+	blit_size.y = ( output_idx == RTX_IMG_TAA_OUTPUT ) ? vk.extent_taa_output.height : vk.img_rtx[output_idx].extent.height;
 	blit_size.z = 1;
 
 	VkOffset3D blit_size_unscaled;
