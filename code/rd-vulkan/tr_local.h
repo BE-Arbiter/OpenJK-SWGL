@@ -2910,7 +2910,6 @@ extern  cvar_t  *tm_blend_enable;
 extern  cvar_t  *pt_debug_poly_lights;
 extern  cvar_t  *pt_restir_m_clamp;
 
-extern  cvar_t  *pt_reproject;
 #define UBO_CVAR_DO( _handle, _value ) \
 	extern cvar_t *sun_##_handle;
 	UBO_CVAR_LIST
