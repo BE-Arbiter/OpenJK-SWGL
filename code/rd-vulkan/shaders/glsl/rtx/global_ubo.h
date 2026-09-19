@@ -53,7 +53,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	UBO_CVAR_DO( flt_scale_lf,						1		) \
 	UBO_CVAR_DO( flt_scale_overlay,					1.0		)	/* scale for transparent and emissive objects visible with primary rays */ \
 	UBO_CVAR_DO( flt_scale_spec,					1		) \
-	UBO_CVAR_DO( flt_show_gradients,				0		)	/* switch for showing the gradient values as overlay image, 0 or 1 */ \
+	UBO_CVAR_DO( flt_show_gradients,				0		)	/* debug bitmask: 1 = gradients as an overlay, 2 = raw HF, 4 = raw LF, 8 = raw specular */ \
 	UBO_CVAR_DO( flt_taa,							1		)	/* temporal anti-aliasing mode: 0 = off, 1 = regular TAA, 2 = temporal upscale: AA_MODE_UPSCALE */ \
 	UBO_CVAR_DO( flt_taa_anti_sparkle,				0.25	)	/* strength of the anti-sparkle filter of TAA, [0..1] */ \
 	UBO_CVAR_DO( flt_taa_variance,					1.0		)	/* temporal AA variance window scale, 0 means disable NCC, [0..inf) */ \
