@@ -462,6 +462,11 @@ static	void R_LoadVisibility( const lump_t *l, world_t &worldData ) {
 	byte	*buf;
 
 	len = ( worldData.numClusters + 63 ) & ~63;
+
+#ifdef USE_RTX
+	worldData.numvisibility = len;
+#endif
+
 	worldData.novis = (unsigned char *)Hunk_Alloc( len, h_low );
 	memset( worldData.novis, 0xff, len );
 
@@ -513,7 +518,11 @@ static shader_t *ShaderForShaderNum( int shaderNum, const int *lightmapNum, cons
 		styles = vertexStyles;
 	}
 
+#ifdef USE_RTX
+	if ( r_vertexLight->integer || vk.rtxActive )
+#else
 	if ( r_vertexLight->integer )
+#endif
 	{
 		lightmapNum = lightmapsVertex;
 		styles = vertexStyles;
@@ -1709,6 +1718,11 @@ static	void R_LoadSubmodels( const lump_t *l, world_t &worldData, int index ) {
 	count = l->filelen / sizeof(*in);
 
 	worldData.bmodels = out = (bmodel_t *)Hunk_Alloc( count * sizeof(*out), h_low );
+#ifdef USE_RTX
+	// Nothing else in SP needs the count - R_PreparePT walks the array with it, and left
+	// at zero it skips every brush model, so their geometry is never initialised.
+	worldData.num_bmodels = count;
+#endif
 
 	for ( i=0 ; i<count ; i++, in++, out++ ) {
 		model_t *model;
@@ -2239,7 +2253,13 @@ static void R_LoadEntities( const lump_t *l, world_t &worldData ) {
 				break;
 			}
 			*vs++ = 0;
+#ifdef USE_RTX
+			// The tracer computes its own lighting, so the lightmapped variants of these
+			// shaders would double it.
+			if ( r_vertexLight->integer || vk.rtxActive ) {
+#else
 			if (r_vertexLight->integer) {
+#endif
 				R_RemapShader(value, s, "0");
 			}
 			continue;
