@@ -89,8 +89,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	IMG_DO(PT_BASE_COLOR_B,           RTX_IMG_NUM_STATIC + 7,  R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
 	IMG_DO(PT_METALLIC_A,             RTX_IMG_NUM_STATIC + 8,  R8G8_UNORM,          rg8,     IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
 	IMG_DO(PT_METALLIC_B,             RTX_IMG_NUM_STATIC + 9,  R8G8_UNORM,          rg8,     IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
-	IMG_DO(PT_VIEW_DEPTH_A,           RTX_IMG_NUM_STATIC + 10, R16_SFLOAT,          r32f,    IMG_WIDTH,           IMG_HEIGHT     ) \
-	IMG_DO(PT_VIEW_DEPTH_B,           RTX_IMG_NUM_STATIC + 11, R16_SFLOAT,          r32f,    IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(PT_VIEW_DEPTH_A,           RTX_IMG_NUM_STATIC + 10, R32_SFLOAT,          r32f,    IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(PT_VIEW_DEPTH_B,           RTX_IMG_NUM_STATIC + 11, R32_SFLOAT,          r32f,    IMG_WIDTH,           IMG_HEIGHT     ) \
 	IMG_DO(PT_NORMAL_A,               RTX_IMG_NUM_STATIC + 12, R32_UINT,            r32ui,   IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
 	IMG_DO(PT_NORMAL_B,               RTX_IMG_NUM_STATIC + 13, R32_UINT,            r32ui,   IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
 	IMG_DO(PT_GEO_NORMAL_A,           RTX_IMG_NUM_STATIC + 14, R32_UINT,            r32ui,   IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
@@ -125,8 +125,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	IMG_DO(PT_BASE_COLOR_A,           RTX_IMG_NUM_STATIC + 7,  R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
 	IMG_DO(PT_METALLIC_B,             RTX_IMG_NUM_STATIC + 8,  R8G8_UNORM,          rg8,     IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
 	IMG_DO(PT_METALLIC_A,             RTX_IMG_NUM_STATIC + 9,  R8G8_UNORM,          rg8,     IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
-	IMG_DO(PT_VIEW_DEPTH_B,           RTX_IMG_NUM_STATIC + 10, R16_SFLOAT,          r32f,    IMG_WIDTH,           IMG_HEIGHT     ) \
-	IMG_DO(PT_VIEW_DEPTH_A,           RTX_IMG_NUM_STATIC + 11, R16_SFLOAT,          r32f,    IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(PT_VIEW_DEPTH_B,           RTX_IMG_NUM_STATIC + 10, R32_SFLOAT,          r32f,    IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(PT_VIEW_DEPTH_A,           RTX_IMG_NUM_STATIC + 11, R32_SFLOAT,          r32f,    IMG_WIDTH,           IMG_HEIGHT     ) \
 	IMG_DO(PT_NORMAL_B,               RTX_IMG_NUM_STATIC + 12, R32_UINT,            r32ui,   IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
 	IMG_DO(PT_NORMAL_A,               RTX_IMG_NUM_STATIC + 13, R32_UINT,            r32ui,   IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
 	IMG_DO(PT_GEO_NORMAL_B,           RTX_IMG_NUM_STATIC + 14, R32_UINT,            r32ui,   IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
