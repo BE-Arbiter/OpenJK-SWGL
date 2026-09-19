@@ -568,6 +568,17 @@ rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
 
 	MAT_SetIndex( mat );
 
+	if ( r_rtx->integer > 1 )
+	{
+		const image_t *img0 = ( shader->stages[0] && shader->stages[0]->active ) ? shader->stages[0]->bundle[0].image[0] : NULL;
+
+		ri.Printf( PRINT_ALL, "rtx material %-4u stages %u  tex0 %-4u %-24s  %s\n",
+			mat->index, mat->num_stages,
+			mat->stage[0].bundle[0].image,
+			img0 ? img0->imgName : "<none>",
+			shader->name );
+	}
+
 	return mat;
 }
 
