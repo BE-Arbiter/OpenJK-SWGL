@@ -1954,7 +1954,11 @@ static void vk_begin_trace_rays( world_t &worldData, trRefdef_t *refdef, referen
 		BEGIN_PERF_MARKER( post_cmd_buf, PROFILER_TONE_MAPPING );
 		if ( sun_tm_enable->integer != 0 )
 		{
-			float frame_time = MIN( 1.f, MAX(0.f, refdef->frametime) );
+			// refdef->frametime is milliseconds; the tone curve's temporal blend is
+			// exp(-frame_time * speed), in seconds - the wallclock fallback below already
+			// converts. Unconverted, every frame clamped to a full second and the
+			// auto-exposure renormalised the scene instantly, which is what flattens it.
+			float frame_time = MIN( 1.f, MAX(0.f, (float)refdef->frametime * 1e-3f) );
 
 			static unsigned previous_wallclock_time = 0;
 			unsigned current_wallclock_time = ri.Milliseconds();
