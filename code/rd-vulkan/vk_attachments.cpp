@@ -341,8 +341,16 @@ void vk_create_attachments( void )
         }
 
         // post-processing / msaa-resolve
+#ifdef USE_RTX
+        // vkpt_final_blit_simple blits the tracer's output INTO this image, so it needs
+        // TRANSFER_DST as well. Upstream swaps SRC for DST; keeping both leaves the
+        // capture and screenshot paths, which read from it, working.
+        create_color_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT, vk.color_format,
+           usage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, &vk.color_image, &vk.color_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );
+#else
         create_color_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT, vk.color_format,
            usage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, &vk.color_image, &vk.color_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );
+#endif
 
         // screenmap-msaa
         if ( vk.screenMapSamples > VK_SAMPLE_COUNT_1_BIT ) {

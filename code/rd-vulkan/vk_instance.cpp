@@ -165,6 +165,8 @@ PFN_vkCmdBuildAccelerationStructuresKHR				qvkCmdBuildAccelerationStructuresKHR;
 PFN_vkCmdEndDebugUtilsLabelEXT						qvkCmdEndDebugUtilsLabelEXT;
 PFN_vkCmdFillBuffer									qvkCmdFillBuffer;
 PFN_vkCmdTraceRaysKHR								qvkCmdTraceRaysKHR;
+PFN_vkCmdCopyAccelerationStructureKHR				qvkCmdCopyAccelerationStructureKHR;
+PFN_vkCmdWriteAccelerationStructuresPropertiesKHR	qvkCmdWriteAccelerationStructuresPropertiesKHR;
 PFN_vkCreateAccelerationStructureKHR				qvkCreateAccelerationStructureKHR;
 PFN_vkCreateBufferView								qvkCreateBufferView;
 PFN_vkCreateRayTracingPipelinesKHR					qvkCreateRayTracingPipelinesKHR;
@@ -573,6 +575,14 @@ qboolean vk_select_surface_format( VkPhysicalDevice physical_device, VkSurfaceKH
 			vk.present_format = vk.base_format;
 		}
 	}
+
+#ifdef USE_RTX
+	// Upstream keys an HDR swapchain surface (R16G16B16A16_SFLOAT in EXTENDED_SRGB_LINEAR)
+	// off r_hdr. That cvar means something else here - colour buffer precision, and its
+	// own help text says a float target would break this renderer's blend modes - so the
+	// surface stays SDR and the tone mapper takes its SDR path.
+	vk.rtx_surf_is_hdr = qfalse;
+#endif
 
 	if (!r_fbo->integer) {
 		vk.present_format = vk.base_format;
@@ -1343,6 +1353,8 @@ __initStart:
 		INIT_DEVICE_FUNCTION(vkCmdEndDebugUtilsLabelEXT)
 		INIT_DEVICE_FUNCTION(vkCmdFillBuffer)
 		INIT_DEVICE_FUNCTION(vkCmdTraceRaysKHR)
+		INIT_DEVICE_FUNCTION(vkCmdCopyAccelerationStructureKHR)
+		INIT_DEVICE_FUNCTION(vkCmdWriteAccelerationStructuresPropertiesKHR)
 		INIT_DEVICE_FUNCTION(vkCreateAccelerationStructureKHR)
 		INIT_DEVICE_FUNCTION(vkCreateBufferView)
 		INIT_DEVICE_FUNCTION(vkCreateRayTracingPipelinesKHR)
@@ -1448,6 +1460,31 @@ void vk_deinit_library( void )
 	qvkDestroySemaphore = NULL;
 	qvkDestroyShaderModule = NULL;
 	qvkDeviceWaitIdle = NULL;
+
+#ifdef USE_RTX
+	qvkGetPhysicalDeviceProperties2 = NULL;
+
+	qvkCreateAccelerationStructureKHR = NULL;
+	qvkDestroyAccelerationStructureKHR = NULL;
+	qvkCmdBuildAccelerationStructuresKHR = NULL;
+	qvkCmdCopyAccelerationStructureKHR = NULL;
+	qvkGetAccelerationStructureDeviceAddressKHR = NULL;
+	qvkCmdWriteAccelerationStructuresPropertiesKHR = NULL;
+	qvkGetAccelerationStructureBuildSizesKHR = NULL;
+	qvkGetBufferDeviceAddress = NULL;
+	qvkCreateRayTracingPipelinesKHR = NULL;
+	qvkCmdTraceRaysKHR = NULL;
+	qvkGetRayTracingShaderGroupHandlesKHR = NULL;
+
+	qvkBindBufferMemory2 = NULL;
+	qvkCmdFillBuffer = NULL;
+
+	qvkCreateBufferView = NULL;
+	qvkDestroyBufferView = NULL;
+
+	qvkCmdBeginDebugUtilsLabelEXT = NULL;
+	qvkCmdEndDebugUtilsLabelEXT = NULL;
+#endif
 	qvkEndCommandBuffer = NULL;
 	//qvkFlushMappedMemoryRanges = NULL;
 	qvkFreeCommandBuffers = NULL;

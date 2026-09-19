@@ -4701,6 +4701,17 @@ qboolean R_LoadMDXM( model_t *mod, void *buffer, const char *mod_name, qboolean 
 
 #ifdef USE_VBO_GHOUL2
 	R_BuildMDXM( mod, mdxm );
+
+#ifdef USE_RTX
+	// Per-model vertex/index buffers for the tracer to build a BLAS from. Compiled out
+	// in the shipped configuration: shaders/glsl/rtx/constants.h - shared between GLSL
+	// and C++ - defines USE_RTX_GLOBAL_MODEL_VBO, so models live in one global buffer
+	// that vk_rtx_bind_model indexes instead.
+	#ifndef USE_RTX_GLOBAL_MODEL_VBO
+	if ( vk.rtxActive )
+		vk_rtx_build_mdxm_vbo( mod, mdxm );
+	#endif
+#endif
 #endif
 	return qtrue;
 }

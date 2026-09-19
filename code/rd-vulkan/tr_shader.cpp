@@ -1266,6 +1266,13 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 				if (shader.noLightScale)
 					flags |= IMGFLAG_NOLIGHTSCALE;
 
+#ifdef USE_RTX
+				// World textures are sampled by the tracer in linear space, so they are
+				// uploaded as sRGB rather than converted per sample.
+				if ( vk.rtxActive && tr.mapLoading )
+					flags |= IMGFLAG_RGB;
+#endif
+
 				stage->bundle[0].image[0] = R_FindImageFile(token, flags);
 
 
@@ -2514,6 +2521,12 @@ static qboolean ParseShader( const char **text )
 		{
 			token = COM_ParseExt(text, qfalse);
 			tr.sunSurfaceLight = atoi(token);
+#ifdef USE_RTX
+			// The tracer turns this into an emissive factor per surface, so it needs the
+			// value on the shader and not only in the global sun light.
+			// https://q3map2.robotrenegade.com/docs/shader_manual/q3map-global-directives.html#q3map_surfaceLight
+			shader.surfacelight = atoi(token);
+#endif
 		}
 		else if (!Q_stricmp(token, "lightColor"))
 		{
@@ -4198,7 +4211,11 @@ shader_t *FinishShader( void )
 	//
 	// if we are in r_vertexLight mode, never use a lightmap texture
 	//
+#ifdef USE_RTX
+	if (stage > 1 && ( vk.rtxActive || (r_vertexLight->integer && !r_uiFullScreen->integer))) {
+#else
 	if (stage > 1 && (r_vertexLight->integer && !r_uiFullScreen->integer)) {
+#endif
 		//VertexLightingCollapse();
 		//stage = 1;
 		//rww - since this does bad things, I am commenting it out for now. If you want to attempt a fix, feel free.
@@ -4846,6 +4863,18 @@ shader_t *GeneratePermanentShader( void )
 	const int hash = generateHashValue(newShader->name, FILE_HASH_SIZE);
 	newShader->next = hashTable[hash];
 	hashTable[hash] = newShader;
+
+#ifdef USE_RTX
+	// Scan the shader's glow/emissive texture once, so its average colour and the
+	// bounding box of its lit texels can seed a light poly.
+	if ( vk.rtxActive )
+	{
+		uint32_t emissive = vk_rtx_find_emissive_texture( newShader, NULL );
+
+		if ( emissive && !tr.images.items[emissive]->processing_complete )
+			vk_rtx_extract_emissive_texture_info( tr.images.items[emissive] );
+	}
+#endif
 
 	return newShader;
 }

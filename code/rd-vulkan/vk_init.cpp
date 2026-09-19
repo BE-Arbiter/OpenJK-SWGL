@@ -534,6 +534,14 @@ void vk_initialize( void )
 	if ( r_ext_multisample->integer )
 		vk.msaaActive = qtrue;
 
+#ifdef USE_RTX
+	// The tracer resolves its own anti-aliasing (TAA, then A-SVGF), and it never goes
+	// through the rasterised main pass MSAA would apply to. Upstream also forces its
+	// cubemap and normal/specular mapping flags here; SP has none of those.
+	if ( vk.rtxActive )
+		vk.msaaActive = qfalse;
+#endif
+
 	// MSAA
 	vkMaxSamples = MIN( props.limits.sampledImageColorSampleCounts, props.limits.sampledImageDepthSampleCounts);
 
@@ -653,7 +661,9 @@ void vk_initialize( void )
 
 	vk_create_swapchain( vk.physical_device, vk.device, vk.surface, vk.present_format, &vk.swapchain );
 	//vk_texture_mode( r_textureMode->string, qtrue );
+#ifndef USE_RTX
 	vk_render_splash();
+#endif
 	vk_create_attachments();
 	vk_create_render_passes();
 	vk_create_framebuffers();
@@ -665,6 +675,10 @@ void vk_initialize( void )
 		Com_Memcpy( &vk.props, &props, sizeof(VkPhysicalDeviceProperties) );
 		vk_rtx_initialize();
 	}
+
+	// After the tracer, not before: the splash creates images, and every image is now
+	// bound into vk.imageDescriptor, which vk_rtx_initialize is what creates.
+	vk_render_splash();
 #endif
 
 	// preallocate staging buffer?

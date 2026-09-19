@@ -1782,6 +1782,13 @@ _retry:
 
     backEnd.screenMapDone = qfalse;
 
+#ifdef USE_RTX
+    // Resets the tracer's command buffer groups for the frame and flushes any pending
+    // writes to its bindless texture array.
+    if ( vk.rtxActive )
+        VK_BeginRenderClear();
+#endif
+
     if (vk_find_screenmap_drawsurfs()) {
         vk_begin_screenmap_render_pass();
     }
@@ -1971,6 +1978,14 @@ void vk_end_frame( void )
 
             if ( vk.bloomActive )
                 vk_bloom();
+
+#ifdef USE_RTX
+            // Second chance at the blit: RB_StretchPic only reaches it if a 2D element is
+            // drawn after the traced view. frame_ready makes this a no-op when it already
+            // ran, and catches the frame when it did not.
+            if ( vk.rtxActive )
+                vk_rtx_begin_blit();
+#endif
 
             if ( backEnd.screenshotMask && vk.capture.image )
             {

@@ -564,6 +564,10 @@ IBO_t *R_CreateIBO( const char *name, const byte *vbo_data, int vbo_size )
 	vk_release_model_ibo( tr.numIBOs );
 
 	ibo = tr.ibos[tr.numIBOs] = (IBO_t *)Hunk_Alloc(sizeof(*ibo), h_low);
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+	// The tracer reads this buffer as a storage buffer and needs to know its extent.
+	ibo->size = vbo_size;
+#endif
 
 	desc.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	desc.pNext = NULL;
@@ -575,6 +579,10 @@ IBO_t *R_CreateIBO( const char *name, const byte *vbo_data, int vbo_size )
 	// device-local buffer
 	desc.size = vbo_size;
 	desc.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+	if ( vk.rtxActive )
+		desc.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+#endif
 	VK_CREATE_BUFFER(vk.device, &desc, &tr.ibos[tr.numIBOs]->buffer, "ibo device-local buffer");
 
 	// staging buffer
@@ -656,6 +664,9 @@ VBO_t *R_CreateVBO( const char *name, const byte *vbo_data, int vbo_size )
 	vk_release_model_vbo( tr.numVBOs );
 
 	vbo = tr.vbos[tr.numVBOs] = (VBO_t *)Hunk_Alloc(sizeof(*vbo), h_low);
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+	vbo->size = vbo_size;
+#endif
 
 	desc.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	desc.pNext = NULL;
@@ -667,6 +678,10 @@ VBO_t *R_CreateVBO( const char *name, const byte *vbo_data, int vbo_size )
 	// device-local buffer
 	desc.size = vbo_size;
 	desc.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+	if ( vk.rtxActive )
+		desc.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+#endif
 	VK_CREATE_BUFFER(vk.device, &desc, &tr.vbos[tr.numVBOs]->buffer, "vbo device local");
 
 	// staging buffer
@@ -944,6 +959,13 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 	if ( !vk.vboGhoul2Active )
 		return;
 
+#if defined(USE_RTX) && !defined(USE_RTX_GLOBAL_MODEL_VBO)
+	// Without the global model buffer the tracer builds its own per-model VBO in
+	// vk_rtx_build_mdxm_vbo instead, and this one would be dead weight.
+	if ( vk.rtxActive )
+		return;
+#endif
+
 	mdxmVBOModel_t		*vboModel;
 	mdxmSurface_t		*surf;
 	mdxmLOD_t			*lod;
@@ -1160,6 +1182,12 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 			vboMeshes[n].maxIndex = baseVertexes[n + 1] - 1;
 			vboMeshes[n].numVertexes = surf->numVerts;
 			vboMeshes[n].numIndexes = surf->numTriangles * 3;
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+			vboMeshes[n].rtx_mesh.indexOffset = vboMeshes[n].indexOffset;
+			vboMeshes[n].rtx_mesh.numIndexes = vboMeshes[n].numIndexes;
+			vboMeshes[n].rtx_mesh.meshIndex = n;
+			vboMeshes[n].rtx_mesh.modelIndex = vbo->index;
+#endif
 
 			surf = (mdxmSurface_t *)((byte *)surf + surf->ofsEnd);
 		}
@@ -1170,7 +1198,14 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 		Hunk_FreeTempMemory( indexOffsets );
 		Hunk_FreeTempMemory( baseVertexes );
 
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+		if ( vk.rtxActive ) {
+			vk_rtx_extract_model_lights_mdxm( mod );
+			vk_rtx_bind_model( vbo->index, vbo, ibo );
+		}
+#endif
 		// find the next LOD
+
 		lod = (mdxmLOD_t *)( (byte *)lod + lod->ofsEnd );
 	}
 
@@ -1317,7 +1352,21 @@ void R_BuildMD3( model_t *mod, mdvModel_t *mdvModel )
 		vboSurf->maxIndex = baseVertexes[i + 1] - 1;
 		vboSurf->numVerts = surf->numVerts;
 		vboSurf->numIndexes = surf->numIndexes;
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+		// Where this surface lives inside the one global model buffer.
+		vboSurf->rtx_mesh.indexOffset = vboSurf->indexOffset;
+		vboSurf->rtx_mesh.numIndexes = vboSurf->numIndexes;
+		vboSurf->rtx_mesh.meshIndex = i;
+		vboSurf->rtx_mesh.modelIndex = vbo->index;
+#endif
 	}
+
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+	if ( vk.rtxActive ) {
+		vk_rtx_extract_model_lights_mdv( mod, mdvModel );
+		vk_rtx_bind_model( vbo->index, vbo, ibo );
+	}
+#endif
 
 	Hunk_FreeTempMemory(indexOffsets);
 	Hunk_FreeTempMemory(baseVertexes);
