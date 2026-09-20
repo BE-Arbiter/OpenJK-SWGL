@@ -822,20 +822,26 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 			&& accelStruct && pipelineLib && deferredHostOp
 			&& spirv14 && floatControls && bufferDevAddr )
 		{
-			device_extension_list[device_extension_count++] = VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME;
-			device_extension_list[device_extension_count++] = VK_KHR_SPIRV_1_4_EXTENSION_NAME;
-			device_extension_list[device_extension_count++] = VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME;
-			bufferDevAddrAdded = qtrue;
-
-			device_extension_list[device_extension_count++] = VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME;
-			device_extension_list[device_extension_count++] = VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
-			device_extension_list[device_extension_count++] = VK_KHR_MAINTENANCE3_EXTENSION_NAME;
-			device_extension_list[device_extension_count++] = VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME;
-			device_extension_list[device_extension_count++] = VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME;
-			device_extension_list[device_extension_count++] = VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME;
-			device_extension_list[device_extension_count++] = VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME;
-
 			vk.rtxSupport = qtrue;
+
+			// Add these extensions only when the tracer runs. The feature structures
+			// that go with them are set further down, also only when the tracer runs.
+			// An enabled extension without its feature makes vkCreateDevice fail.
+			if ( vk.rtxActive )
+			{
+				device_extension_list[device_extension_count++] = VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME;
+				device_extension_list[device_extension_count++] = VK_KHR_SPIRV_1_4_EXTENSION_NAME;
+				device_extension_list[device_extension_count++] = VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME;
+				bufferDevAddrAdded = qtrue;
+
+				device_extension_list[device_extension_count++] = VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME;
+				device_extension_list[device_extension_count++] = VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
+				device_extension_list[device_extension_count++] = VK_KHR_MAINTENANCE3_EXTENSION_NAME;
+				device_extension_list[device_extension_count++] = VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME;
+				device_extension_list[device_extension_count++] = VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME;
+				device_extension_list[device_extension_count++] = VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME;
+				device_extension_list[device_extension_count++] = VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME;
+			}
 
 			// Shader group handle size/alignment and the AS scratch alignment come from
 			// here. Nothing else queries them, and vk_rtx_initialize copies them straight
@@ -1344,9 +1350,11 @@ __initStart:
 	INIT_DEVICE_FUNCTION(vkCmdDispatch)
 	INIT_DEVICE_FUNCTION(vkCreateComputePipelines)
 #ifdef USE_RTX
-	// Extension entry points: only present when the device actually supports ray tracing,
-	// so loading them unconditionally would be fatal on every other GPU.
-	if ( vk.rtxSupport ) {
+	// These entry points need the tracer's extensions and a Vulkan 1.2 instance. The
+	// renderer asks for both only when the tracer runs. INIT_DEVICE_FUNCTION is fatal on
+	// a null result, so a card that can trace but runs with r_rtx 0 dies here. Use
+	// rtxActive, not rtxSupport. No code outside the tracer calls these functions.
+	if ( vk.rtxActive ) {
 		INIT_DEVICE_FUNCTION(vkBindBufferMemory2)
 		INIT_DEVICE_FUNCTION(vkCmdBeginDebugUtilsLabelEXT)
 		INIT_DEVICE_FUNCTION(vkCmdBuildAccelerationStructuresKHR)
