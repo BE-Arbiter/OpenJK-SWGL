@@ -224,6 +224,7 @@ cvar_t	*pt_debug_image;
 cvar_t	*pt_verbose;
 cvar_t	*pt_dlight_radius;
 cvar_t	*pt_entity_light_scale;
+cvar_t	*pt_lightgen_scale;
 
 #define UBO_CVAR_DO( _handle, _value ) cvar_t *sun_##_handle;
 	UBO_CVAR_LIST
@@ -762,6 +763,7 @@ static consoleCommand_t	commands[] = {
 #ifdef USE_RTX
 	{ "show_pvs",			vk_rtx_show_pvs_f },
 	{ "pt_images",			vk_rtx_list_debug_images_f },
+	{ "pt_lightgen",		R_LightGen_f },
 #endif
 	{ "vkinfo",				vk_info_f }
 };
@@ -990,6 +992,9 @@ void R_Register( void )
 	 * is an inverse-square strength with no absolute unit, so the conversion to the
 	 * tracer's radiance needs calibrating by eye. Read at map load only. */
 	pt_entity_light_scale				= ri.Cvar_Get("pt_entity_light_scale",				"2",	CVAR_ARCHIVE);
+	/* Converts the .lgt intensity to the tracer radiance. The file stores a lightmap
+	 * luminance times a distance squared, which has no absolute unit. */
+	pt_lightgen_scale					= ri.Cvar_Get("pt_lightgen_scale",				"0.005",	CVAR_ARCHIVE);
 
 #define UBO_CVAR_DO( _handle, _value ) sun_##_handle = ri.Cvar_Get( #_handle,	#_value, CVAR_NONE);
 	UBO_CVAR_LIST

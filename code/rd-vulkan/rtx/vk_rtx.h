@@ -476,6 +476,12 @@ void		vk_rtx_show_pvs_f( void );
 void		vk_rtx_list_debug_images_f( void );
 uint32_t	vk_rtx_debug_image_index( void );
 
+// vk_rtx_lightgen.cpp - reconstructs point lights from the baked lightmaps of maps that
+// shipped without their light entities. Writes maps/<name>.lgt; nothing reads it yet.
+void		R_LightGen_f( void );
+void		R_LightGen_EnsureForMap( const char *mapname );
+int			R_LightGen_Load( world_t &worldData );
+
 VkDescriptorSet vk_rtx_get_current_desc_set_textures( void);
 
 void		R_PreparePT( world_t &worldData );

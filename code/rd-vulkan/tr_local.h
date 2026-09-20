@@ -2913,6 +2913,7 @@ extern  cvar_t  *pt_debug_image;
 extern  cvar_t  *pt_verbose;
 extern  cvar_t  *pt_dlight_radius;
 extern  cvar_t  *pt_entity_light_scale;
+extern  cvar_t  *pt_lightgen_scale;
 
 #define UBO_CVAR_DO( _handle, _value ) \
 	extern cvar_t *sun_##_handle;

@@ -1374,7 +1374,7 @@ light_affects_cluster(light_poly_t* light, const aabb_t* aabb)
 // generous rather than too dark, and still much closer than nothing.
 #define ENTITY_LIGHT_RADIUS 16.0f
 
-static void collect_entity_lights( world_t &worldData )
+static int collect_entity_lights( world_t &worldData )
 {
 	const char	*p = worldData.entityString;
 	char		keyname[MAX_TOKEN_CHARS];
@@ -1387,7 +1387,7 @@ static void collect_entity_lights( world_t &worldData )
 	if ( !p )
 	{
 		Com_Printf( "rtx: entity lights - no entity string\n" );
-		return;
+		return 0;
 	}
 
 	COM_BeginParseSession( "collect_entity_lights" );
@@ -1496,6 +1496,8 @@ static void collect_entity_lights( world_t &worldData )
 
 	Com_Printf( "rtx: %i entity lights added from %i entities (%i light-ish classnames, %i inside solid)\n",
 		added, entities, lightish, in_solid );
+
+	return added;
 }
 
 static void collect_cluster_lights( world_t &worldData )
@@ -2563,7 +2565,13 @@ void R_PreparePT( world_t &worldData )
 	Com_Printf( "rtx: %i light polys collected from %i world surfaces\n",
 		worldData.num_light_polys, worldData.numsurfaces );
 
-	collect_entity_lights( worldData );
+	// A map that kept its own lights needs no reconstruction. One that did not gets its
+	// lights rebuilt from the baked lightmaps, then loaded.
+	if ( collect_entity_lights( worldData ) == 0 )
+	{
+		R_LightGen_EnsureForMap( worldData.baseName );
+		R_LightGen_Load( worldData );
+	}
 
 #ifdef DEBUG_POLY_LIGHTS
 	debug_light_polys->num_primitives = worldData.num_light_polys;
