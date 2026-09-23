@@ -14,12 +14,32 @@ void NormalizePath( char *out, const char *path, size_t outSize )
 	Q_strlwr(out);
 }
 
+// FNV-1a over an already normalized path. Callers mask this into the bucket count.
+unsigned HashPath( const char *path )
+{
+	unsigned hash = 2166136261u;
+
+	while ( *path )
+	{
+		hash ^= (unsigned char)*path++;
+		hash *= 16777619u;
+	}
+
+	return hash;
+}
+
 }
 
 // This differs significantly from Raven's own caching code.
 // For starters, we are allowed to use ri-> whatever because we don't care about running on dedicated (use rd-vanilla!)
 
 CModelCacheManager *CModelCache = new CModelCacheManager();
+
+CModelCacheManager::CModelCacheManager()
+{
+	for ( int i = 0; i < ASSET_HASH_SIZE; i++ )
+		assetHashHeads[i] = -1;
+}
 
 CachedFile::CachedFile()
 	: pDiskImage(nullptr)
@@ -164,6 +184,10 @@ void CModelCacheManager::DeleteAll( void )
 
 	FileCache().swap(files);
 	AssetCache().swap(assets);
+	tr.modelEpoch++;	// resolved ghoul2 model pointers into freed data must be rebuilt
+
+	for ( int i = 0; i < ASSET_HASH_SIZE; i++ )
+		assetHashHeads[i] = -1;
 }
 
 /*
@@ -186,6 +210,7 @@ void CModelCacheManager::DumpNonPure( void )
 
 			if( it->pDiskImage )
 				Z_Free( it->pDiskImage );
+			tr.modelEpoch++;
 
 			it = files.erase(it);
 		}
@@ -198,25 +223,30 @@ void CModelCacheManager::DumpNonPure( void )
 	ri.Printf( PRINT_DEVELOPER, "CCacheManager::DumpNonPure(): Ok\n");
 }
 
-CModelCacheManager::AssetCache::iterator CModelCacheManager::FindAsset( const char *path )
-{
-	return std::find_if(
-		std::begin(assets), std::end(assets), [path]( const Asset& asset )
-		{
-			return strcmp(path, asset.path) == 0;
-		});
-}
-
 qhandle_t CModelCacheManager::GetModelHandle( const char *fileName )
 {
 	char path[MAX_QPATH];
 	NormalizePath(path, fileName, sizeof(path));
 
-	const auto it = FindAsset(path);
-	if( it == std::end(assets) )
-		return -1; // asset not found
+	const unsigned bucket = HashPath(path) & (ASSET_HASH_SIZE - 1);
 
-	return it->handle;
+	for ( int i = assetHashHeads[bucket]; i != -1; i = assets[i].hashNext )
+	{
+		if ( strcmp(path, assets[i].path) != 0 )
+			continue;
+
+		// The cache isn't cleared on map load unlike tr.models[], so a name can still be
+		// here pointing at a handle from the previous map - validate like rd-vanilla's
+		// mhHashTable does. A stale entry doesn't end the search: the same name may have
+		// been re-registered since, and that newer entry is the one we want.
+		if ( assets[i].handle < 1 || assets[i].handle >= tr.numModels
+			|| tr.models[assets[i].handle]->type == MOD_BAD )
+			continue;
+
+		return assets[i].handle;
+	}
+
+	return -1; // asset not found
 }
 
 void CModelCacheManager::InsertModelHandle( const char *fileName, qhandle_t handle )
@@ -224,10 +254,16 @@ void CModelCacheManager::InsertModelHandle( const char *fileName, qhandle_t hand
 	char path[MAX_QPATH];
 	NormalizePath(path, fileName, sizeof(path));
 
+	const unsigned bucket = HashPath(path) & (ASSET_HASH_SIZE - 1);
+
 	Asset asset;
 	asset.handle = handle;
 	Q_strncpyz(asset.path, path, sizeof(asset.path));
+
+	// newest first, so a name re-registered on this map is found before any stale entry
+	asset.hashNext = assetHashHeads[bucket];
 	assets.emplace_back(asset);
+	assetHashHeads[bucket] = (int)( assets.size() - 1 );
 }
 
 qboolean CModelCacheManager::LevelLoadEnd( qboolean deleteUnusedByLevel )
@@ -252,6 +288,7 @@ qboolean CModelCacheManager::LevelLoadEnd( qboolean deleteUnusedByLevel )
 			{
 				Z_Free( it->pDiskImage );
 				bAtLeastOneModelFreed = qtrue;	// FIXME: is this correct? shouldn't it be in the next lower scope?
+				tr.modelEpoch++;
 			}
 
 			it = files.erase(it);

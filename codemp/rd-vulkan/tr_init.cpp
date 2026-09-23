@@ -204,7 +204,21 @@ cvar_t	*r_bloom;
 cvar_t	*r_bloom_threshold;
 cvar_t	*r_bloom_intensity;
 cvar_t	*r_bloom_threshold_mode;
-cvar_t	*r_bloom_modulate; 
+cvar_t	*r_bloom_modulate;
+cvar_t	*r_depthPrepass;
+cvar_t	*r_velocityBuffer;
+cvar_t	*r_showGBuffer;
+cvar_t	*r_distortionStyle;
+cvar_t	*r_ssao;
+cvar_t	*r_ssaoRadius;
+cvar_t	*r_ssaoIntensity;
+cvar_t	*r_ssaoSlices;
+cvar_t	*r_ssaoSteps;
+cvar_t	*r_contactShadows;
+cvar_t	*r_contactShadowLength;
+cvar_t	*r_contactShadowThickness;
+cvar_t	*r_contactShadowSteps;
+cvar_t	*r_contactShadowIntensity;
 cvar_t	*r_renderWidth;
 cvar_t	*r_renderHeight;
 cvar_t	*r_renderScale;
@@ -936,7 +950,8 @@ void R_Register( void )
 	r_ext_alpha_to_coverage				= ri.Cvar_Get("r_ext_alpha_to_coverage",			"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
 	ri.Cvar_CheckRange(r_ext_alpha_to_coverage, 0, 1, qtrue);
 	r_fbo								= ri.Cvar_Get("r_fbo",								"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
-	r_hdr								= ri.Cvar_Get("r_hdr",								"1",						CVAR_ARCHIVE | CVAR_LATCH, "");
+	r_hdr								= ri.Cvar_Get("r_hdr",								"1",						CVAR_ARCHIVE | CVAR_LATCH, "Colour buffer format: 0 = 8-bit, 1 = 16-bit precision. Both clamp at white; a float target would break the destination-reading blend modes this renderer uses - see get_hdr_format()");
+	ri.Cvar_CheckRange(r_hdr, -1, 1, qtrue);
 	r_mapGreyScale						= ri.Cvar_Get("r_mapGreyScale",						"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
 	ri.Cvar_CheckRange(r_mapGreyScale, -1, 1, qfalse);
 	r_ext_max_anisotropy				= ri.Cvar_Get("r_ext_max_anisotropy",				"2",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
@@ -955,6 +970,34 @@ void R_Register( void )
 	r_bloom_intensity					= ri.Cvar_Get("r_bloom_intensity",					"0.15",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Final bloom blend factor, default is 0.15");
 	ri.Cvar_CheckRange(r_bloom_intensity, 0.01f, 2, qfalse);
 	r_bloom_modulate					= ri.Cvar_Get("r_bloom_modulate",					"0",						CVAR_ARCHIVE_ND, "Modulate extracted color:\n 0: off (color = color, i.e. no changes)\n 1: by itself (color = color * color)\n 2: by intensity (color = color * luma(color))");
+	r_depthPrepass						= ri.Cvar_Get("r_depthPrepass",						"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Render a depth+normal G-buffer extraction pass ahead of the main pass, for use by later screen-space techniques\nRequires " S_COLOR_CYAN "\\r_fbo 1");
+	ri.Cvar_CheckRange(r_depthPrepass, 0, 1, qtrue);
+	r_velocityBuffer					= ri.Cvar_Get("r_velocityBuffer",					"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Add a per-pixel screen-space motion vector attachment to the G-buffer extraction pass\nRequires " S_COLOR_CYAN "\\r_depthPrepass 1");
+	ri.Cvar_CheckRange(r_velocityBuffer, 0, 1, qtrue);
+	r_showGBuffer						= ri.Cvar_Get("r_showGBuffer",						"0",						CVAR_CHEAT, "Show the G-buffer extraction pass full-screen instead of the scene: 1 = depth, 2 = normal, 3 = motion vectors, 4 = ambient occlusion, 5 = contact shadows. Requires r_depthPrepass 1");
+	ri.Cvar_CheckRange(r_showGBuffer, 0, 5, qtrue);
+	r_distortionStyle					= ri.Cvar_Get("r_distortionStyle",					"1",						CVAR_ARCHIVE_ND, "How RF_DISTORTION effects are drawn (force push/pull): 0 = per-pixel refraction, 1 = SP's screen-region capture");
+	ri.Cvar_CheckRange(r_distortionStyle, 0, 1, qtrue);
+	r_ssao								= ri.Cvar_Get("r_ssao",							"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Screen-space ambient occlusion over the G-buffer: 0 = off, 1 = hemisphere SSAO (cheaper, blunter), 2 = GTAO (horizon search, cosine-weighted). Requires r_depthPrepass 1");
+	ri.Cvar_CheckRange(r_ssao, 0, 2, qtrue);
+	r_ssaoRadius						= ri.Cvar_Get("r_ssaoRadius",					"48",						CVAR_ARCHIVE_ND, "Ambient occlusion sampling radius, in world units");
+	ri.Cvar_CheckRange(r_ssaoRadius, 1, 512, qfalse);
+	r_ssaoIntensity						= ri.Cvar_Get("r_ssaoIntensity",				"1.0",						CVAR_ARCHIVE_ND, "Ambient occlusion power curve; higher darkens");
+	ri.Cvar_CheckRange(r_ssaoIntensity, 0.1, 8, qfalse);
+	r_ssaoSlices						= ri.Cvar_Get("r_ssaoSlices",					"3",						CVAR_ARCHIVE_ND, "r_ssao 2: direction slices per pixel. With r_ssao 1, slices x steps is the sample count");
+	ri.Cvar_CheckRange(r_ssaoSlices, 1, 8, qtrue);
+	r_ssaoSteps							= ri.Cvar_Get("r_ssaoSteps",					"6",						CVAR_ARCHIVE_ND, "r_ssao 2: horizon search steps per slice. With r_ssao 1, slices x steps is the sample count");
+	ri.Cvar_CheckRange(r_ssaoSteps, 1, 16, qtrue);
+	r_contactShadows					= ri.Cvar_Get("r_contactShadows",				"0",						CVAR_ARCHIVE_ND, "Screen-space contact shadows from the map sun. Shares the GTAO pass, so it requires r_ssao 2");
+	ri.Cvar_CheckRange(r_contactShadows, 0, 1, qtrue);
+	r_contactShadowLength				= ri.Cvar_Get("r_contactShadowLength",			"8",						CVAR_ARCHIVE_ND, "Contact shadow ray length, in world units");
+	ri.Cvar_CheckRange(r_contactShadowLength, 1, 512, qfalse);
+	r_contactShadowThickness			= ri.Cvar_Get("r_contactShadowThickness",		"16",						CVAR_ARCHIVE_ND, "How deep behind a surface a contact shadow hit still counts, in world units");
+	ri.Cvar_CheckRange(r_contactShadowThickness, 1, 256, qfalse);
+	r_contactShadowSteps				= ri.Cvar_Get("r_contactShadowSteps",			"16",						CVAR_ARCHIVE_ND, "Contact shadow ray march steps");
+	ri.Cvar_CheckRange(r_contactShadowSteps, 2, 32, qtrue);
+	r_contactShadowIntensity			= ri.Cvar_Get("r_contactShadowIntensity",		"0.6",						CVAR_ARCHIVE_ND, "How much of a pixel a full contact shadow may take away; 1 would black it out entirely");
+	ri.Cvar_CheckRange(r_contactShadowIntensity, 0, 1, qfalse);
 #ifdef USE_PMLIGHT
 	r_dlightMode						= ri.Cvar_Get("r_dlightMode",						"2",						CVAR_ARCHIVE, "");
 	ri.Cvar_CheckRange(r_dlightMode, 0, 2, qtrue);
@@ -1238,15 +1281,17 @@ extern qboolean gG2_GBMUseSPMethod;
 static void G2API_BoltMatrixReconstruction( qboolean reconstruct ) { gG2_GBMNoReconstruct = (qboolean)!reconstruct; }
 static void G2API_BoltMatrixSPMethod( qboolean spMethod ) { gG2_GBMUseSPMethod = spMethod; }
 
-//extern float tr_distortionAlpha; //opaque
-//extern float tr_distortionStretch; //no stretch override
-//extern qboolean tr_distortionPrePost; //capture before postrender phase?
-//extern qboolean tr_distortionNegate; //negative blend mode
+// Cloak distortion properties, set by cgame through trap_R_SetRefractionProperties.
+// Read by ComputeDistortionPass (vk_shade_geometry.cpp).
+float tr_distortionAlpha = 1.0f;
+float tr_distortionStretch = 0.0f;
+qboolean tr_distortionPrePost = qfalse;
+qboolean tr_distortionNegate = qfalse;
 static void SetRefractionProperties( float distortionAlpha, float distortionStretch, qboolean distortionPrePost, qboolean distortionNegate ) {
-	//tr_distortionAlpha = distortionAlpha;
-	//tr_distortionStretch = distortionStretch;
-	//tr_distortionPrePost = distortionPrePost;
-	//tr_distortionNegate = distortionNegate;
+	tr_distortionAlpha = distortionAlpha;
+	tr_distortionStretch = distortionStretch;
+	tr_distortionPrePost = distortionPrePost;
+	tr_distortionNegate = distortionNegate;
 }
 
 static float GetDistanceCull( void ) { return tr.distanceCull; }

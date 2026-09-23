@@ -356,6 +356,13 @@ static void vk_create_instance( void )
     free(extension_properties);
 }
 
+// Note on real (float) HDR: switching this to R16G16B16A16_SFLOAT is not enough, and was
+// tried. This renderer uses destination-reading blend factors - ONE_MINUS_DST_COLOR,
+// DST_COLOR, ONE_MINUS_DST_ALPHA, see create_pipeline() - which the Quake 3 era shaders
+// rely on everywhere. Those are only well defined against a destination clamped to [0,1].
+// On a float target a few additive layers push the destination above 1, ONE_MINUS_DST goes
+// negative, and effects come out with inverted hues. Real HDR here means replacing those
+// blends with shader-side blending first, not changing this format.
 static VkFormat get_hdr_format( VkFormat base_format )
 {
     if (r_fbo->integer == 0) {
@@ -363,11 +370,12 @@ static VkFormat get_hdr_format( VkFormat base_format )
     }
 
     switch (r_hdr->integer) {
-        case -1: 
+        case -1:
             return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
-        case 1: 
+        case 1:
+            // More precision, same range: UNORM still clamps at 1.0.
             return VK_FORMAT_R16G16B16A16_UNORM;
-        default: 
+        default:
             return base_format;
     }
 }
@@ -399,6 +407,26 @@ static VkFormat get_depth_format( VkPhysicalDevice physical_device ) {
 
     ri.Error(ERR_FATAL, "get_depth_format: failed to find depth attachment format");
     return VK_FORMAT_UNDEFINED; // never get here
+}
+
+// Depth format for the gbuffer extraction pass. Deliberately stencil-free: that pass
+// never tests or writes stencil, and a sampled image view may only carry one aspect -
+// a DEPTH+STENCIL view could not be handed to any consumer. Returns VK_FORMAT_UNDEFINED
+// if the driver offers neither candidate, in which case the caller keeps the shared
+// depth format and the gbuffer depth stays non-sampleable.
+static VkFormat get_gbuffer_depth_format( VkPhysicalDevice physical_device ) {
+    const VkFormatFeatureFlags need = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
+    VkFormat formats[2] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_X8_D24_UNORM_PACK32 };
+    VkFormatProperties props;
+    uint32_t i;
+
+    for (i = 0; i < ARRAY_LEN(formats); i++) {
+        qvkGetPhysicalDeviceFormatProperties(physical_device, formats[i], &props);
+        if ((props.optimalTilingFeatures & need) == need)
+            return formats[i];
+    }
+
+    return VK_FORMAT_UNDEFINED;
 }
 
 static qboolean vk_blit_enabled( VkPhysicalDevice physical_device, const VkFormat srcFormat, const VkFormat dstFormat )
@@ -529,8 +557,17 @@ qboolean vk_select_surface_format( VkPhysicalDevice physical_device, VkSurfaceKH
 {
     vk.color_format		= get_hdr_format(vk.base_format.format);
     vk.depth_format		= get_depth_format(physical_device);
+
+    vk.gbuffer_depth_format = get_gbuffer_depth_format(physical_device);
+    vk.gbufferDepthSampled  = (qboolean)( vk.gbuffer_depth_format != VK_FORMAT_UNDEFINED );
+    if ( !vk.gbufferDepthSampled )
+        vk.gbuffer_depth_format = vk.depth_format;
     vk.bloom_format		= vk.base_format.format;
     vk.capture_format	= VK_FORMAT_R8G8B8A8_UNORM;
+    // mandatory-supported formats for color attachment + sampled image usage, no capability query needed
+    vk.normal_format	= VK_FORMAT_R16G16B16A16_SFLOAT;
+    vk.velocity_format	= VK_FORMAT_R16G16_SFLOAT; // screen-space XY delta only
+    vk.ssao_format		= VK_FORMAT_R8G8_UNORM; // R = ambient visibility, G = contact shadow
     vk.blitEnabled		= vk_blit_enabled(physical_device, vk.color_format, vk.capture_format);
 
     if (!vk.blitEnabled)

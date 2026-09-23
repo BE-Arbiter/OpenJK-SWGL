@@ -2909,6 +2909,18 @@ qboolean G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the mode
 		return qtrue;
 	}
 
+	// Already resolved this frame, against this generation of the model data. The code
+	// below re-registers the model by name, and bolt queries ask for it many times per frame.
+	if (ghlInfo->mValid
+		&& ghlInfo->mSetupFrame == tr.frameCount
+		&& ghlInfo->mSetupEpoch == tr.modelEpoch)
+	{
+#ifdef G2_PERFORMANCE_ANALYSIS
+		G2Time_G2_SetupModelPointers += G2PerformanceTimer_G2_SetupModelPointers.End();
+#endif
+		return qtrue;
+	}
+
 	ghlInfo->mValid=false;
 
 //	G2WARNING(ghlInfo->mModelindex != -1,"Setup request on non-used info slot?");
@@ -2967,6 +2979,8 @@ qboolean G2_SetupModelPointers(CGhoul2Info *ghlInfo) // returns true if the mode
 						ghlInfo->currentAnimModelSize=ghlInfo->aHeader->ofsEnd;
 						G2ERROR(ghlInfo->currentAnimModelSize,va("Zero sized Model? (gla) %s",ghlInfo->mFileName));
 						ghlInfo->mValid=true;
+						ghlInfo->mSetupFrame=tr.frameCount;
+						ghlInfo->mSetupEpoch=tr.modelEpoch;
 					}
 				}
 			}

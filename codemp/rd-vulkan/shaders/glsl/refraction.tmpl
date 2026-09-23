@@ -401,10 +401,36 @@ void main() {
 		vec2 var_DiffuseTex = ModTexCoords( tex, position, u_tcMod.matrix, u_tcMod.offTurb );
 	#endif
 
+	// SP style (r_distortionStyle 1): the crop rectangle of the captured screen was folded
+	// into tcMod on the CPU, so var_DiffuseTex already addresses it. Every channel samples
+	// the same place - this effect warps texcoords, it does not bend light per channel.
+	// Internal distortion shader (cloak), rd-vanilla RB_DistortionFill: sample the screen
+	// behind the surface, zoomed toward the centre. lightVector.xy is the scale, .z the alpha.
+	if ( eyePos.w > 1.5 ) {
+		vec4 screenTex = vec4( gl_Position.xy * lightVector.xy, 0.0, gl_Position.w );
+		var_RefractPosR = screenTex;
+		var_RefractPosG = screenTex;
+		var_RefractPosB = screenTex;
+		frag_color = vec4( 1.0, 1.0, 1.0, lightVector.z );
+		return;
+	}
+
+	if ( eyePos.w > 0.5 ) {
+		vec4 screenTex = vec4( var_DiffuseTex * 2.0 - 1.0, 0.0, 1.0 );
+
+		var_RefractPosR = screenTex;
+		var_RefractPosG = screenTex;
+		var_RefractPosB = screenTex;
+		return;
+	}
+
 	vec3 ws_Position	= mat3(u_ModelMatrix) * position;
 	vec3 ws_Normal		= normalize(mat3(u_ModelMatrix) * normal);
-	vec3 ws_ViewDir		= (vec3(0.0) + vec3(0.0) * -gl_Position.x) + vec3(0.0) * gl_Position.y;
-	//vec3 ws_ViewDir	= (u_ViewForward.xyz + u_ViewLeft.xyz * gl_Position.x) + u_ViewUp.xyz * gl_Position.y;
+	// eyePos is the view origin in model space, so rotating it the same way as the position
+	// lands both in one space. This used to be hardcoded to zero because the view axis was
+	// never in the UBO, and refract() with a null incident vector collapses to -N on all
+	// three channels - no view dependency, no chromatic split, barely any visible effect.
+	vec3 ws_ViewDir		= normalize(ws_Position - mat3(u_ModelMatrix) * eyePos.xyz);
 
 	float distance = 10.0 * clamp(1.0 - (distance(tex, var_DiffuseTex)), 0.0, 1.0);
 

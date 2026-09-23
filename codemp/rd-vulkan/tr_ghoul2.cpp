@@ -370,6 +370,17 @@ public:
 	mat3x4_t boneMatrices[72];
 	int      uboOffset;
 
+	// Previous frame's pose and model->world placement, for r_velocityBuffer's skinned
+	// motion vectors. Kept inside the cache rather than in a side table keyed by
+	// CBoneCache*: the pointer is stable while the model lives, but a removed model's
+	// address can be handed straight back to a new one, and an external table would then
+	// give the new model the old one's history. Rolled forward in RB_TransformBones().
+	mat3x4_t prevBoneMatrices[72];
+	mat4_t   modelMatrix;
+	mat4_t   prevModelMatrix;
+	int      prevFrameNum;	// tr.frameCount this was last touched on; -1 = never
+	qboolean prevValid;		// qfalse until a contiguous previous frame exists
+
 	CBoneCache(const model_t *amod,const mdxaHeader_t *aheader) :
 		header(aheader),
 		mod(amod)
@@ -379,6 +390,12 @@ public:
 
 		Com_Memset(boneMatrices, 0, sizeof(boneMatrices));
 		uboOffset = -1;
+
+		Com_Memset(prevBoneMatrices, 0, sizeof(prevBoneMatrices));
+		Matrix16Identity(modelMatrix);
+		Matrix16Identity(prevModelMatrix);
+		prevFrameNum = -1;
+		prevValid = qfalse;
 
 		mSmoothingActive=false;
 		mUnsquash=false;
@@ -3561,6 +3578,17 @@ static inline float G2_GetVertBoneWeightNotSlow( const mdxmVertex_t *pVert, cons
 	return fBoneWeight;
 }
 
+// The model->world matrix R_RotateForEntity() puts in ori.modelMatrix, minus everything
+// that needs viewParms. Split out so RB_TransformBones() can keep a per-frame copy for
+// r_velocityBuffer without a view to hand.
+static void RB_BuildEntityModelMatrix( const trRefEntity_t *ent, mat4_t out )
+{
+	out[0] = ent->e.axis[0][0];	out[4] = ent->e.axis[1][0];	out[8]  = ent->e.axis[2][0];	out[12] = ent->e.origin[0];
+	out[1] = ent->e.axis[0][1];	out[5] = ent->e.axis[1][1];	out[9]  = ent->e.axis[2][1];	out[13] = ent->e.origin[1];
+	out[2] = ent->e.axis[0][2];	out[6] = ent->e.axis[1][2];	out[10] = ent->e.axis[2][2];	out[14] = ent->e.origin[2];
+	out[3] = 0.0f;				out[7] = 0.0f;				out[11] = 0.0f;					out[15] = 1.0f;
+}
+
 void RB_TransformBones( const trRefEntity_t *ent, const trRefdef_t *refdef )
 {
 	if (!ent->e.ghoul2 || !G2API_HaveWeGhoul2Models(*((CGhoul2Info_v *)ent->e.ghoul2)))
@@ -3635,6 +3663,23 @@ void RB_TransformBones( const trRefEntity_t *ent, const trRefdef_t *refdef )
 		//if (bc->uboGPUFrame == currentFrameNum)
 		//	return;
 
+		// Roll last frame's pose and placement forward before this frame overwrites them.
+		// Only on the first visit of a frame - this function runs once per view, and a
+		// second visit would make "previous" mean "this frame" and flatten the vector to
+		// zero. prevValid stays false unless the cache was also touched on frame-1, so a
+		// model that just appeared, or came back after being culled for a while, reports
+		// no motion for one frame instead of a jump from a stale pose.
+		if ( vk.velocityActive && bc->prevFrameNum != tr.frameCount ) {
+			bc->prevValid = (qboolean)( bc->prevFrameNum == tr.frameCount - 1 );
+
+			if ( bc->prevValid ) {
+				Com_Memcpy( bc->prevBoneMatrices, bc->boneMatrices, sizeof( bc->prevBoneMatrices ) );
+				Matrix16Copy( bc->modelMatrix, bc->prevModelMatrix );
+			}
+
+			bc->prevFrameNum = tr.frameCount;
+		}
+
 		for (int bone = 0; bone < (int)bc->mBones.size(); bone++)
 		{
 			const mdxaBone_t& b = bc->EvalRender(bone);
@@ -3650,6 +3695,26 @@ void RB_TransformBones( const trRefEntity_t *ent, const trRefdef_t *refdef )
 			bonesBlock.boneMatrices,
 			bc->boneMatrices,
 			sizeof(mat3x4_t) * bc->mBones.size());
+
+		if ( vk.velocityActive ) {
+			// Same matrix R_RotateForEntity() builds for the Entity UBO, rebuilt here
+			// because that one is computed per view and only for this frame - the history
+			// has to live with the cache. Depends on nothing but the entity's own axis
+			// and origin, so the two agree by construction.
+			RB_BuildEntityModelMatrix( ent, bc->modelMatrix );
+
+			if ( !bc->prevValid ) {
+				Com_Memcpy( bc->prevBoneMatrices, bc->boneMatrices, sizeof( bc->prevBoneMatrices ) );
+				Matrix16Copy( bc->modelMatrix, bc->prevModelMatrix );
+				bc->prevValid = qtrue;
+			}
+
+			Com_Memcpy(
+				bonesBlock.prevBoneMatrices,
+				bc->prevBoneMatrices,
+				sizeof(mat3x4_t) * bc->mBones.size());
+			Matrix16Copy( bc->prevModelMatrix, bonesBlock.prevModelMatrix );
+		}
 
 		int uboOffset = vk_append_uniform( &bonesBlock, sizeof(bonesBlock), vk.uniform_bones_item_size );
 
@@ -3764,6 +3829,15 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 			&vk.cmd->uniform_descriptor, VK_DESC_UNIFORM_COUNT, offsets );
 	}
 
+	if ( vk.ssaoActive ) {
+		// Set 1 is the G-buffer normal attachment, whose alpha holds entityNum + 1 per pixel.
+		// shadow_volume_self.frag compares it against the caster below so an entity's own
+		// volume leaves its own surfaces alone - see that shader for why this cannot be done
+		// in RB_ShadowFinish().
+		qvkCmdBindDescriptorSets( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			vk.pipeline_layout_shadow_volume, 1, 1, &vk.gbuffer_normal_descriptor, 0, NULL );
+	}
+
 	qboolean mirror = ( backEnd.viewParms.portalView == PV_MIRROR ) ? qtrue : qfalse;
 
 	for ( int cullIndex = 0; cullIndex < 2; cullIndex++ )
@@ -3786,6 +3860,14 @@ static void RB_DrawShadowVolumeGPU( CRenderableSurface *surf )
 
 		qvkCmdPushConstants( vk.cmd->command_buffer, vk.pipeline_layout_shadow_volume,
 			VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof( pushData ), &pushData );
+
+		if ( vk.ssaoActive ) {
+			// Must match what the gbuffer pass wrote for this entity: entityNum + 1.
+			const int32_t casterId = (int32_t)( backEnd.currentEntity - backEnd.refdef.entities ) + 1;
+
+			qvkCmdPushConstants( vk.cmd->command_buffer, vk.pipeline_layout_shadow_volume,
+				VK_SHADER_STAGE_FRAGMENT_BIT, 88, sizeof( casterId ), &casterId );
+		}
 
 		qvkCmdDrawIndexed( vk.cmd->command_buffer, vboMesh->numIndexes, 1, 0, 0, 0 );
 	}
