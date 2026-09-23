@@ -1352,6 +1352,8 @@ void CFxScheduler::PlayEffect( const char *file, vec3_t origin, vec3_t forward, 
 //------------------------------------------------------
 void CFxScheduler::AddScheduledEffects( bool portal )
 {
+	FXS_START( createStart );
+
 	TScheduledEffect::iterator	itr, next;
 	vec3_t						origin;
 	vec3_t						axis[3];
@@ -1443,8 +1445,12 @@ void CFxScheduler::AddScheduledEffects( bool portal )
 		}
 	}
 
+	FXS_STOP( createStart, create );
+
 	// Add all active effects into the scene
+	FXS_START( updateStart );
 	FX_Add(portal);
+	FXS_STOP( updateStart, update );
 
 	gEffectsInPortal = false;
 }

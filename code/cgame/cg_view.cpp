@@ -2029,6 +2029,9 @@ frontend, since CG_DrawActive() is what calls it; com_speeds reports that part a
 */
 #include "../qcommon/timing.h"
 
+extern vmCvar_t	fx_expensivePhysics;
+extern vmCvar_t	fx_skipDraw;
+
 static timing_c	cgs_timer, cgs_spanTimer;
 
 // Cycles are useless on their own: rdtsc counts at the CPU's nominal rate, which is not the
@@ -2093,9 +2096,30 @@ static void CG_ReportSpeeds( void )
 				(double)( cgs_span - measured ) * perFrame,
 				(double)cgs_span  * perFrame,
 				CG_SpeedsPercent( cgs_span, (int64_t)wallCycles ) );
+
+			// cg_speeds 2: split the fx phase. "sim" is create + update without the traces,
+			// the point-contents tests and the scene submission.
+			if ( cg_speeds.integer >= 2 )
+			{
+				const SFxSpeeds &s = fxSpeeds;
+				const int n = cgs_frames;
+				const int64_t sim = s.create + s.update - s.trace - s.g2trace - s.contents - s.submit;
+
+				CG_Printf( "  fx: create+update %.2f = sim %.2f  trace %.2f (%i)  g2trace %.2f (%i)  contents %.2f (%i)  submit %.2f (%i ent %i poly %i light)\n",
+					(double)( s.create + s.update ) * perFrame,
+					(double)sim * perFrame,
+					(double)s.trace * perFrame, s.traces / n,
+					(double)s.g2trace * perFrame, s.g2traces / n,
+					(double)s.contents * perFrame, s.contentsCalls / n,
+					(double)s.submit * perFrame, s.submits / n, s.polys / n, s.lights / n );
+				CG_Printf( "  fx: live %i/%i  scheduled %i  spawned %i/frame  evicted %i/frame  expensivePhysics %i  skipDraw %i\n",
+					s.liveSum / n, MAX_EFFECTS, s.scheduledSum / n, s.spawned / n, s.evicted / n,
+					fx_expensivePhysics.integer, fx_skipDraw.integer );
+			}
 		}
 	}
 
+	memset( &fxSpeeds, 0, sizeof( fxSpeeds ) );
 	cgs_ents = cgs_misc = cgs_fx = cgs_local = cgs_draw = cgs_span = 0;
 	cgs_frames = 0;
 	cgs_nextPrint = cg.time + 1000;
@@ -2110,6 +2134,13 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 	// built - CG_BuildSolidList and CG_ProcessSnapshots both walk the entities. Frames that
 	// take an early return never reach the stop and simply contribute nothing.
 	CGS_SPAN_START();
+
+	fxSpeedsOn = ( cg_speeds.integer >= 2 );
+	if ( fxSpeedsOn )
+	{
+		fxSpeeds.liveSum += FX_ActiveCount();
+		fxSpeeds.scheduledSum += theFxScheduler.NumScheduledFx();
+	}
 
 	cg.time = serverTime;
 

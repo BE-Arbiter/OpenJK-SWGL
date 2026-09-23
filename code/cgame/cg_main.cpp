@@ -407,6 +407,7 @@ vmCvar_t	cg_smoothPlayerPlat;
 vmCvar_t	cg_smoothPlayerPlatAccel;
 vmCvar_t	cg_g2Marks;
 vmCvar_t	fx_expensivePhysics;
+vmCvar_t	fx_skipDraw;
 vmCvar_t	cg_debugHealthBars;
 
 vmCvar_t	cg_smoothCamera;
@@ -570,6 +571,7 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_smoothPlayerPlatAccel, "cg_smoothPlayerPlatAccel", "3.25", 0},
 	{ &cg_g2Marks, "cg_g2Marks", "1", CVAR_ARCHIVE },
 	{ &fx_expensivePhysics, "fx_expensivePhysics", "1", CVAR_ARCHIVE },
+	{ &fx_skipDraw, "fx_skipDraw", "0", CVAR_CHEAT },	// measurement: simulate effects but submit nothing to the renderer
 	{ &cg_debugHealthBars,	"cg_debugHealthBars",	"0", CVAR_ARCHIVE },
 
 	{ &cg_smoothCamera, "cg_smoothCamera", "1", CVAR_ARCHIVE },

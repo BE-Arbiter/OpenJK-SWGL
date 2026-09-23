@@ -51,6 +51,9 @@ int				mLines;
 int				mTails;
 qboolean		fxInitialized = qfalse;
 
+SFxSpeeds		fxSpeeds;
+bool			fxSpeedsOn = false;
+
 //-------------------------
 // FX_Free
 //
@@ -189,6 +192,7 @@ static SEffectList *FX_GetValidEffect()
 #endif
 
 	// Hmmm.. just trashing the first effect in the list is a poor approach
+	FXS_COUNT( evicted );
 	FX_FreeMember( &effectList[0] );
 
 	// Recursive call
@@ -204,6 +208,11 @@ static SEffectList *FX_GetValidEffect()
 bool FX_ActiveFx(void)
 {
 	return ((activeFx > 0) || (theFxScheduler.NumScheduledFx() > 0));
+}
+
+int FX_ActiveCount( void )
+{
+	return activeFx;
 }
 
 
@@ -397,6 +406,7 @@ extern bool gEffectsInPortal;	//from FXScheduler.cpp so i don't have to pass it 
 void FX_AddPrimitive( CEffect *pEffect, int killTime )
 {
 	SEffectList *item = FX_GetValidEffect();
+	FXS_COUNT( spawned );
 
 	item->mEffect = pEffect;
 	item->mKillTime = theFxHelper.mTime + killTime;
