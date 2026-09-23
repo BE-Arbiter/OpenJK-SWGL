@@ -1237,15 +1237,11 @@ extern qboolean gG2_GBMUseSPMethod;
 static void G2API_BoltMatrixReconstruction( qboolean reconstruct ) { gG2_GBMNoReconstruct = (qboolean)!reconstruct; }
 static void G2API_BoltMatrixSPMethod( qboolean spMethod ) { gG2_GBMUseSPMethod = spMethod; }
 
-//extern float tr_distortionAlpha; //opaque
-//extern float tr_distortionStretch; //no stretch override
-//extern qboolean tr_distortionPrePost; //capture before postrender phase?
-//extern qboolean tr_distortionNegate; //negative blend mode
 static void SetRefractionProperties( float distortionAlpha, float distortionStretch, qboolean distortionPrePost, qboolean distortionNegate ) {
-	//tr_distortionAlpha = distortionAlpha;
-	//tr_distortionStretch = distortionStretch;
-	//tr_distortionPrePost = distortionPrePost;
-	//tr_distortionNegate = distortionNegate;
+	tr_distortionAlpha = distortionAlpha;
+	tr_distortionStretch = distortionStretch;
+	tr_distortionPrePost = distortionPrePost;
+	tr_distortionNegate = distortionNegate;
 }
 
 static float GetDistanceCull( void ) { return tr.distanceCull; }
@@ -1298,20 +1294,14 @@ void C_LevelLoadEnd( void )
 // signature differs from what SP's refexport_t expects, and minimal
 // no-op stubs (matching the pattern already used by code/rd-rend2's own
 // GetRefAPI, see code/rd-rend2/tr_init.cpp) for SP-only concepts this
-// renderer has never implemented (save-game screenshots, screen-wipe
-// dissolve transitions, etc). None of these are called by the base game
-// unless a specific feature (e.g. dissolve transitions) is exercised.
+// renderer does not implement. In a JKA build, only the dissolve wipes and
+// the refraction properties have callers; the screenshot and raw image
+// functions are used by JK2_MODE code only.
 // ---------------------------------------------------------------------
 
 // Defined in G2_API.cpp (ported from code/rd-vanilla) -- no header declares
 // it for RENDERER since SP's ghoul2/G2.h only has the MP-named ...Rag variant.
 extern void G2API_AnimateG2Models(CGhoul2Info_v &ghoul2, int AcurrentTime, CRagDollUpdateParams *params);
-
-// R_GetWindVector/R_GetWindGusting/R_IsShaking (tr_WorldEffects.cpp) take
-// fewer params than SP's refexport_t signature -- thin adapters.
-static bool RE_GetWindVector( vec3_t windVector, vec3_t atPoint ) { return R_GetWindVector( windVector ); }
-static bool RE_GetWindGusting( vec3_t atpoint ) { return R_GetWindGusting(); }
-static bool RE_IsShaking( vec3_t pos ) { return R_IsShaking(); }
 
 // SP's refexport_t wants a 3rd (bAllowScreenDissolve) param that MP's
 // RegisterMedia_LevelLoadBegin doesn't have -- C_LevelLoadBegin (shared,
@@ -1332,16 +1322,16 @@ static unsigned int RE_AnyLanguage_ReadCharFromString2( char **psText, qboolean 
 	return advance2;
 }
 
-// No fog-distortion system implemented in this renderer yet.
-static float stub_tr_distortionAlpha = 1.0f;
-static float stub_tr_distortionStretch = 0.0f;
-static qboolean stub_tr_distortionPrePost = qfalse;
-static qboolean stub_tr_distortionNegate = qfalse;
-static float *stub_get_tr_distortionAlpha( void ) { return &stub_tr_distortionAlpha; }
-static float *stub_get_tr_distortionStretch( void ) { return &stub_tr_distortionStretch; }
-static qboolean *stub_get_tr_distortionPrePost( void ) { return &stub_tr_distortionPrePost; }
-static qboolean *stub_get_tr_distortionNegate( void ) { return &stub_tr_distortionNegate; }
-static bool stub_SetTempGlobalFogColor( vec3_t color ) { return false; }
+// Cloak distortion properties, set by cgame through cgi_R_SetRefractProp.
+// Read by ComputeDistortionPass (vk_shade_geometry.cpp).
+float tr_distortionAlpha = 1.0f;
+float tr_distortionStretch = 0.0f;
+qboolean tr_distortionPrePost = qfalse;
+qboolean tr_distortionNegate = qfalse;
+static float *get_tr_distortionAlpha( void ) { return &tr_distortionAlpha; }
+static float *get_tr_distortionStretch( void ) { return &tr_distortionStretch; }
+static qboolean *get_tr_distortionPrePost( void ) { return &tr_distortionPrePost; }
+static qboolean *get_tr_distortionNegate( void ) { return &tr_distortionNegate; }
 
 static void stub_R_ClearStuffToStopGhoul2CrashingThings( void ) {}
 
@@ -1388,15 +1378,10 @@ static int RE_GetAnimationCFG( const char *psCFGFilename, char *psDest, int iDes
 
 	return 0;
 }
-static void stub_R_LoadImage( const char *name, byte **pic, int *width, int *height ) { *pic = NULL; *width = 0; *height = 0; }
-static qboolean stub_GetLighting( const vec3_t org, vec3_t ambientLight, vec3_t directedLight, vec3_t lightDir ) { return qfalse; }
-static void stub_LAGoggles( void ) {}
 static void stub_Scissor( float x, float y, float w, float h ) {}
 static qboolean stub_ProcessDissolve( void ) { return qfalse; }
 static qboolean stub_InitDissolve( qboolean bForceCircularExtroWipe ) { return qfalse; }
 static void stub_GetScreenShot( byte *data, int w, int h ) {}
-static byte *stub_TempRawImage_ReadFromFile( const char *psLocalFilename, int *piWidth, int *piHeight, byte *pbReSampleBuffer, qboolean qbVertFlip ) { return NULL; }
-static void stub_TempRawImage_CleanUp( void ) {}
 static void stub_GetModelBounds( refEntity_t *refEnt, vec3_t bounds1, vec3_t bounds2 ) { VectorClear(bounds1); VectorClear(bounds2); }
 
 #ifdef G2_PERFORMANCE_ANALYSIS
@@ -1443,14 +1428,14 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.RegisterShader						= RE_RegisterShader;
 	re.RegisterShaderNoMip					= RE_RegisterShaderNoMip;
 	re.LoadWorld							= RE_LoadWorldMap;
-	re.R_LoadImage							= stub_R_LoadImage;
+	re.R_LoadImage							= R_LoadImage;
 	re.SetWorldVisData						= RE_SetWorldVisData;
 	re.EndRegistration						= RE_EndRegistration;
 
 	re.ClearScene							= RE_ClearScene;
 	re.AddRefEntityToScene					= RE_AddRefEntityToScene;
-	re.GetLighting							= stub_GetLighting;
-	re.LAGoggles							= stub_LAGoggles;
+	re.GetLighting							= RE_GetLighting;
+	re.LAGoggles							= RE_LAGoggles;
 	re.AddPolyToScene						= RE_AddPolyToScene;
 	re.AddLightToScene						= RE_AddLightToScene;
 	re.RenderScene							= RE_RenderScene;
@@ -1469,8 +1454,8 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.InitDissolve							= stub_InitDissolve;
 	re.GetScreenShot						= stub_GetScreenShot;
 
-	re.TempRawImage_ReadFromFile			= stub_TempRawImage_ReadFromFile;
-	re.TempRawImage_CleanUp					= stub_TempRawImage_CleanUp;
+	re.TempRawImage_ReadFromFile			= RE_TempRawImage_ReadFromFile;
+	re.TempRawImage_CleanUp					= RE_TempRawImage_CleanUp;
 
 	re.MarkFragments						= R_MarkFragments;
 	re.GetModelBounds						= stub_GetModelBounds;
@@ -1492,11 +1477,11 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.SetLightStyle						= RE_SetLightStyle;
 	re.GetBModelVerts						= RE_GetBModelVerts;
 
-	re.tr_distortionAlpha					= stub_get_tr_distortionAlpha;
-	re.tr_distortionStretch					= stub_get_tr_distortionStretch;
-	re.tr_distortionPrePost					= stub_get_tr_distortionPrePost;
-	re.tr_distortionNegate					= stub_get_tr_distortionNegate;
-	re.SetTempGlobalFogColor				= stub_SetTempGlobalFogColor;
+	re.tr_distortionAlpha					= get_tr_distortionAlpha;
+	re.tr_distortionStretch					= get_tr_distortionStretch;
+	re.tr_distortionPrePost					= get_tr_distortionPrePost;
+	re.tr_distortionNegate					= get_tr_distortionNegate;
+	re.SetTempGlobalFogColor				= R_SetTempGlobalFogColor;
 
 	re.SetRangedFog							= SetRangedFog;
 
@@ -1580,9 +1565,9 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	// this list must stay in sync with code/rd-common/tr_public.h.
 	re.AddWeatherZone						= RE_AddWeatherZone;
 	re.WorldEffectCommand					= RE_WorldEffectCommand;
-	re.GetWindVector						= RE_GetWindVector;
-	re.GetWindGusting						= RE_GetWindGusting;
-	re.IsShaking							= RE_IsShaking;
+	re.GetWindVector						= R_GetWindVector;
+	re.GetWindGusting						= R_GetWindGusting;
+	re.IsShaking							= R_IsShaking;
 	re.IsOutside							= R_IsOutside;
 	re.IsOutsideCausingPain					= R_IsOutsideCausingPain;
 	re.GetChanceOfSaberFizz					= R_GetChanceOfSaberFizz;

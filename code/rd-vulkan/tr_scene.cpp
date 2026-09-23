@@ -83,6 +83,7 @@ void RE_ClearScene( void ) {
 	r_firstSceneDlight = r_numdlights;
 	r_firstSceneEntity = r_numentities;
 	r_firstScenePoly = r_numpolys;
+	tr.refdef.doLAGoggles = qfalse;
 }
 
 /*

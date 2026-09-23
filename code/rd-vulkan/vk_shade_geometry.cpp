@@ -1549,7 +1549,7 @@ void R_BindAnimatedImage( const textureBundle_t *bundle ) {
 		return;
 	}
 
-	if ( ( r_fullbright->value /*|| tr.refdef.doFullbright */ ) && bundle->isLightmap )
+	if ( ( r_fullbright->value || backEnd.refdef.doLAGoggles ) && bundle->isLightmap )
 	{
 		vk_bind( tr.whiteImage );
 		return;
@@ -2408,6 +2408,68 @@ void RB_SurfaceSpritesVBO( srfSprites_t *surf )
 }
 #endif
 
+/*
+==================
+ComputeDistortionPass
+
+The internal distortion shader (cloak) has two stages, one for each full-screen
+pass of rd-vanilla's RB_DistortionFill. Each pass samples the screen behind the
+surface, zoomed toward the centre by an animated amount. Pass 1 exists only when
+the cgame did not override alpha or stretch (cgi_R_SetRefractProp).
+Returns qfalse when the stage must not draw.
+==================
+*/
+static qboolean ComputeDistortionPass( int stage, vec4_t params, uint32_t *stateBits )
+{
+	const float	t = backEnd.refdef.time;
+	float		stretchX, stretchY, alpha;
+
+	if ( stage == 0 )
+	{
+		alpha = tr_distortionAlpha;
+
+		if ( tr_distortionStretch )
+		{
+			stretchX = stretchY = tr_distortionStretch;
+		}
+		else
+		{
+			stretchY = fabs( sin( t * 0.0005f ) ) * 0.2f;
+			stretchX = fabs( sin( t * 0.0005f ) ) * 0.08f;
+		}
+
+		*stateBits = GLS_DEPTHMASK_TRUE | GLS_SRCBLEND_SRC_ALPHA
+			| ( alpha != 1.0f ? GLS_DSTBLEND_SRC_ALPHA : GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA );
+	}
+	else if ( stage == 1 && tr_distortionAlpha == 1.0f && tr_distortionStretch == 0.0f )
+	{
+		if ( tr_distortionNegate )
+		{
+			alpha = 0.8f;
+			*stateBits = GLS_SRCBLEND_ZERO | GLS_DSTBLEND_ONE_MINUS_SRC_COLOR;
+		}
+		else
+		{
+			alpha = 0.5f;
+			*stateBits = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_SRC_ALPHA;
+		}
+
+		stretchY = fabs( sin( t * 0.0008f ) ) * 0.08f;
+		stretchX = fabs( sin( t * 0.0008f ) ) * 0.2f;
+	}
+	else
+	{
+		return qfalse;
+	}
+
+	// rd-vanilla maps the screen texture from s to 1 - s, a scale of 1 - 2s around the centre
+	params[0] = 1.0f - 2.0f * stretchX;
+	params[1] = 1.0f - 2.0f * stretchY;
+	params[2] = alpha;
+	params[3] = 0.0f;
+	return qtrue;
+}
+
 static ss_input ssInput;
 void RB_StageIteratorGeneric( void )
 {
@@ -2493,11 +2555,21 @@ void RB_StageIteratorGeneric( void )
 	{
 		int			forceRGBGen = 0;
 		qboolean	is_refraction = qfalse;
+		qboolean	is_distortion_pass = qfalse;
+		vec4_t		distortionParams;
+		uint32_t	distortionStateBits = 0;
 
 		pStage = tess.xstages[stage];
 
 		if ( !pStage || !pStage->active )
 			break;
+
+		if ( tess.shader == tr.distortionShader && tess.shader->useDistortion )
+		{
+			if ( !ComputeDistortionPass( stage, distortionParams, &distortionStateBits ) )
+				continue;
+			is_distortion_pass = qtrue;
+		}
 
 #ifdef USE_VBO
 		tess.vboStage = stage;
@@ -2622,7 +2694,9 @@ void RB_StageIteratorGeneric( void )
 				def.state_bits = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA | GLS_DEPTHMASK_TRUE | GLS_ATEST_GE_C0;
 
 			// only force blend on the internal distortion shader
-			if ( tess.shader == tr.distortionShader )
+			if ( is_distortion_pass )
+				def.state_bits = distortionStateBits;
+			else if ( tess.shader == tr.distortionShader )
 				def.state_bits = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA | GLS_DEPTHMASK_TRUE;
 
 			// SP never uses the marker shader above: its one RF_DISTORTION effect passes
@@ -2692,7 +2766,12 @@ void RB_StageIteratorGeneric( void )
 			// and both styles share one pipeline - eyePos.w picks which the shader emits.
 			uniform.eyePos[3] = 0.0f;
 
-			if ( r_distortionStyle->integer == 1 && backEnd.currentEntity )
+			if ( is_distortion_pass )
+			{
+				Vector4Copy( distortionParams, uniform.lightVector );
+				uniform.eyePos[3] = 2.0f;
+			}
+			else if ( r_distortionStyle->integer == 1 && backEnd.currentEntity )
 			{
 				vec4_t crop;
 

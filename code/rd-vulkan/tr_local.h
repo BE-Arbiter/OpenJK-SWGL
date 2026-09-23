@@ -802,6 +802,7 @@ typedef struct trRefdef_s {
 	int					time;						// time in milliseconds for shader effects and other time dependent rendering issues
 	int					frametime;
 	int					rdflags;					// RDF_NOWORLDMODEL, etc
+	qboolean			doLAGoggles;				// SP light amp goggles, set by RE_LAGoggles, cleared by RE_ClearScene
 
 	// 1 bits will prevent the associated area from rendering at all
 	byte				areamask[MAX_MAP_AREA_BYTES];
@@ -2297,6 +2298,14 @@ void R_DlightBmodel( bmodel_t *bmodel, bool NoLight );
 void R_SetupEntityLighting( const trRefdef_t *refdef, trRefEntity_t *ent );
 void R_TransformDlights( int count, dlight_t *dl, orientationr_t *ori );
 int	R_LightForPoint( vec3_t point, vec3_t ambientLight, vec3_t directedLight, vec3_t lightDir );
+qboolean RE_GetLighting( const vec3_t origin, vec3_t ambientLight, vec3_t directedLight, vec3_t lightDir );
+void RE_LAGoggles( void );
+byte *RE_TempRawImage_ReadFromFile( const char *psLocalFilename, int *piWidth, int *piHeight, byte *pbReSampleBuffer, qboolean qbVertFlip );
+void RE_TempRawImage_CleanUp( void );
+extern float tr_distortionAlpha;
+extern float tr_distortionStretch;
+extern qboolean tr_distortionPrePost;
+extern qboolean tr_distortionNegate;
 
 /*
 ============================================================

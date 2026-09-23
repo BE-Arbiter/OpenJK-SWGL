@@ -1623,6 +1623,10 @@ static void vk_update_fog_constants(const trRefdef_t* refdef)
 
 	uniform.num_fogs = tr.world ? ( tr.world->numfogs - 1 ) : 0;
 
+	// RE_LAGoggles fills the slot past numfogs, and every surface uses it.
+	if ( tr.world && refdef->doLAGoggles )
+		uniform.num_fogs++;
+
 	size = sizeof(vec4_t);
 
 	for ( i = 0; i < MIN(uniform.num_fogs, 16); ++i )

@@ -29,10 +29,11 @@ void RB_RenderWorldEffects(void);
 void RE_WorldEffectCommand(const char *command);
 void R_WorldEffect_f(void);
 
-bool R_GetWindVector(vec3_t windVector);
-bool R_GetWindSpeed(float &windSpeed);
-bool R_GetWindGusting();
-bool R_IsShaking();
+bool R_GetWindVector(vec3_t windVector, vec3_t atpoint);
+bool R_GetWindSpeed(float &windSpeed, vec3_t atpoint);
+bool R_GetWindGusting(vec3_t atpoint);
+bool R_IsShaking(vec3_t pos);
+bool R_SetTempGlobalFogColor(vec3_t color);
 
 bool R_IsRaining();
 //bool R_IsSnowing();

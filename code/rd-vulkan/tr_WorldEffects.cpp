@@ -352,22 +352,47 @@ public:
 	}
 };
 ratl::vector_vs<CWindZone, MAX_WIND_ZONES>		mWindZones;
+ratl::vector_vs<CWindZone*, MAX_WIND_ZONES>		mLocalWindZones;
 
-bool R_GetWindVector(vec3_t windVector)
+// SP local wind zones (fx_wind) add to the global wind inside their bounds.
+bool R_GetWindVector(vec3_t windVector, vec3_t atpoint)
 {
 	VectorCopy(mGlobalWindDirection.v, windVector);
+	if (atpoint && mLocalWindZones.size())
+	{
+		for (int curLocalWindZone=0; curLocalWindZone<mLocalWindZones.size(); curLocalWindZone++)
+		{
+			if (mLocalWindZones[curLocalWindZone]->mRBounds.In(atpoint))
+			{
+				VectorAdd(windVector, mLocalWindZones[curLocalWindZone]->mCurrentVelocity.v, windVector);
+			}
+		}
+		VectorNormalize(windVector);
+	}
 	return true;
 }
 
-bool R_GetWindSpeed(float &windSpeed)
+bool R_GetWindSpeed(float &windSpeed, vec3_t atpoint)
 {
 	windSpeed = mGlobalWindSpeed;
+	if (atpoint && mLocalWindZones.size())
+	{
+		for (int curLocalWindZone=0; curLocalWindZone<mLocalWindZones.size(); curLocalWindZone++)
+		{
+			if (mLocalWindZones[curLocalWindZone]->mRBounds.In(atpoint))
+			{
+				windSpeed += VectorLength(mLocalWindZones[curLocalWindZone]->mCurrentVelocity.v);
+			}
+		}
+	}
 	return true;
 }
 
-bool R_GetWindGusting()
+bool R_GetWindGusting(vec3_t atpoint)
 {
-	return (mGlobalWindSpeed>1000.0f);
+	float windSpeed;
+	R_GetWindSpeed(windSpeed, atpoint);
+	return (windSpeed>1000.0f);
 }
 
 
@@ -383,6 +408,10 @@ public:
 	////////////////////////////////////////////////////////////////////////////////////
 	bool			mOutsideShake;
 	float			mOutsidePain;
+
+	CVec3			mFogColor;
+	int				mFogColorInt;
+	bool			mFogColorTempActive;
 
 private:
 	////////////////////////////////////////////////////////////////////////////////////
@@ -478,6 +507,9 @@ public:
 	{
 		mOutsideShake = false;
 		mOutsidePain = 0.0;
+		mFogColor.Clear();
+		mFogColorInt = 0;
+		mFogColorTempActive = false;
 		mCacheInit = false;
 		SWeatherZone::mMarkedOutside = false;
 		for (int wz=0; wz<mWeatherZones.size(); wz++)
@@ -713,14 +745,59 @@ bool R_IsOutside(vec3_t pos)
 	return mOutside.PointOutside(pos);
 }
 
-bool R_IsShaking()
+// SP asks for a given position. Without one, use the view origin.
+bool R_IsShaking(vec3_t pos)
 {
-	return (mOutside.mOutsideShake && mOutside.PointOutside(backEnd.viewParms.ori.origin));
+	if (!pos)
+	{
+		pos = backEnd.viewParms.ori.origin;
+	}
+	return (mOutside.mOutsideShake && mOutside.PointOutside(pos));
 }
 
 float R_IsOutsideCausingPain(vec3_t pos)
 {
 	return (mOutside.mOutsidePain && mOutside.PointOutside(pos));
+}
+
+static void R_SetGlobalFogColorFields(fog_t *fog, const vec3_t color, int colorInt)
+{
+	VectorCopy(color, fog->parms.color);
+	fog->colorInt = colorInt;
+	for (int n = 0; n < 4; n++)
+	{
+		fog->color[n] = ((fog->colorInt >> (n * 8)) & 255) / 255.0f;
+	}
+}
+
+// SP fx_rain lightning: a non-zero color replaces the global fog color, a zero color restores it.
+bool R_SetTempGlobalFogColor(vec3_t color)
+{
+	if (tr.world && tr.world->globalFog != -1)
+	{
+		fog_t *fog = &tr.world->fogs[tr.world->globalFog];
+
+		if (color[0] || color[1] || color[2])
+		{
+			if (!mOutside.mFogColorTempActive)
+			{
+				mOutside.mFogColor				= fog->parms.color;
+				mOutside.mFogColorInt			= fog->colorInt;
+				mOutside.mFogColorTempActive	= true;
+			}
+
+			R_SetGlobalFogColorFields(fog, color, ColorBytes4(color[0] * tr.identityLight,
+															  color[1] * tr.identityLight,
+															  color[2] * tr.identityLight,
+															  1.0f));
+		}
+		else if (mOutside.mFogColorTempActive)
+		{
+			mOutside.mFogColorTempActive = false;
+			R_SetGlobalFogColorFields(fog, mOutside.mFogColor.v, mOutside.mFogColorInt);
+		}
+	}
+	return true;
 }
 
 
@@ -1087,6 +1164,15 @@ public:
 			// Grab The Force And Apply Non Global Wind
 			//------------------------------------------
 			partForce = force;
+
+			for (int curLocalWindZone=0; curLocalWindZone<mLocalWindZones.size(); curLocalWindZone++)
+			{
+				if (mLocalWindZones[curLocalWindZone]->mRBounds.In(part->mPosition))
+				{
+					partForce += mLocalWindZones[curLocalWindZone]->mCurrentVelocity;
+				}
+			}
+
 			partForce /= part->mMass;
 
 
@@ -1328,7 +1414,12 @@ void R_InitWorldEffects(void)
 	}
 	mParticleClouds.clear();
 	mWindZones.clear();
+	mLocalWindZones.clear();
 	mOutside.Reset();
+	mGlobalWindSpeed = 0.0f;
+	mGlobalWindDirection[0]=1.0f;
+	mGlobalWindDirection[1]=0.0f;
+	mGlobalWindDirection[2]=0.0f;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -1505,6 +1596,7 @@ void RE_WorldEffectCommand(const char *command)
 		}
 		mParticleClouds.clear();
 		mWindZones.clear();
+		mLocalWindZones.clear();
 	}
 
 	// Freeze / UnFreeze - Stops All Particle Motion Updates
@@ -1579,6 +1671,36 @@ void RE_WorldEffectCommand(const char *command)
 		nWind.mChanceOfDeadTime				=  0.5f;
 		nWind.mRDeadTime.mMin				=  2000;
 		nWind.mRDeadTime.mMax				=  4000;
+	}
+
+	// Local Wind Zone (SP fx_wind)
+	//-----------------------------
+	else if (Q_stricmp(token, "windzone") == 0)
+	{
+		if (mWindZones.full())
+		{
+			return;
+		}
+		CWindZone& nWind = mWindZones.push_back();
+		nWind.Initialize();
+
+		nWind.mGlobal = false;
+
+		if (!WE_ParseVector(&command, 3, nWind.mRBounds.mMins.v) ||
+			!WE_ParseVector(&command, 3, nWind.mRBounds.mMaxs.v))
+		{
+			mWindZones.pop_back();
+			return;
+		}
+
+		if (!WE_ParseVector(&command, 3, nWind.mCurrentVelocity.v))
+		{
+			nWind.mCurrentVelocity.Clear();
+			nWind.mCurrentVelocity[1] = 800.0f;
+		}
+		nWind.mTargetVelocityTimeRemaining = -1;
+
+		mLocalWindZones.push_back(&nWind);
 	}
 
 
@@ -1844,7 +1966,7 @@ void RE_WorldEffectCommand(const char *command)
 		ri.Printf( PRINT_ALL, "	wind\n" );
 		ri.Printf( PRINT_ALL, "	constantwind (velocity)\n" );
 		ri.Printf( PRINT_ALL, "	gustingwind\n" );
-		//ri.Printf( PRINT_ALL, "	windzone (mins) (maxs) (velocity)\n" );
+		ri.Printf( PRINT_ALL, "	windzone (mins) (maxs) (velocity)\n" );
 		ri.Printf( PRINT_ALL, "	lightrain\n" );
 		ri.Printf( PRINT_ALL, "	rain\n" );
 		ri.Printf( PRINT_ALL, "	acidrain\n" );

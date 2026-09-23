@@ -283,3 +283,107 @@ float	R_FogFactor( float s, float t ) {
 
 	return d;
 }
+
+/*
+===============
+RE_TempRawImage_ReadFromFile
+
+Ported from rd-vanilla (tr_draw.cpp). Gives raw RGBA pixels of an image file
+to the client or server. With pbReSampleBuffer, *piWidth and *piHeight are
+also inputs and the image is scaled into that buffer. Always use the return
+value. Call RE_TempRawImage_CleanUp afterwards.
+===============
+*/
+static byte *s_pbTempRawImage = NULL;
+
+void RE_TempRawImage_CleanUp( void )
+{
+	if ( s_pbTempRawImage )
+	{
+		R_Free( s_pbTempRawImage );
+		s_pbTempRawImage = NULL;
+	}
+}
+
+static byte *RE_TempRawImage_ReSample( byte *pbLoadedPic, int iLoadedWidth, int iLoadedHeight,
+									   byte *pbReSampleBuffer, int *piWidth, int *piHeight )
+{
+	if ( pbReSampleBuffer == NULL || ( iLoadedWidth == *piWidth && iLoadedHeight == *piHeight ) )
+	{
+		*piWidth = iLoadedWidth;
+		*piHeight = iLoadedHeight;
+		return pbLoadedPic;
+	}
+
+	const float	fXStep = (float)iLoadedWidth / (float)*piWidth;
+	const float	fYStep = (float)iLoadedHeight / (float)*piHeight;
+	const int	iTotPixelsPerDownSample = (int)ceil( fXStep ) * (int)ceil( fYStep );
+	byte		*pbDst = pbReSampleBuffer;
+
+	for ( int y = 0; y < *piHeight; y++ )
+	{
+		for ( int x = 0; x < *piWidth; x++ )
+		{
+			int r = 0, g = 0, b = 0;
+
+			for ( float yy = (float)y * fYStep; yy < (float)( y + 1 ) * fYStep; yy += 1 )
+			{
+				for ( float xx = (float)x * fXStep; xx < (float)( x + 1 ) * fXStep; xx += 1 )
+				{
+					const byte *pbSrc = pbLoadedPic + 4 * ( ( (int)yy * iLoadedWidth ) + (int)xx );
+					r += pbSrc[0];
+					g += pbSrc[1];
+					b += pbSrc[2];
+				}
+			}
+
+			pbDst[0] = r / iTotPixelsPerDownSample;
+			pbDst[1] = g / iTotPixelsPerDownSample;
+			pbDst[2] = b / iTotPixelsPerDownSample;
+			pbDst[3] = 255;
+			pbDst += 4;
+		}
+	}
+
+	return pbReSampleBuffer;
+}
+
+byte *RE_TempRawImage_ReadFromFile( const char *psLocalFilename, int *piWidth, int *piHeight, byte *pbReSampleBuffer, qboolean qbVertFlip )
+{
+	RE_TempRawImage_CleanUp();
+
+	byte *pbReturn = NULL;
+
+	if ( psLocalFilename && piWidth && piHeight )
+	{
+		int iLoadedWidth, iLoadedHeight;
+
+		R_LoadImage( psLocalFilename, &s_pbTempRawImage, &iLoadedWidth, &iLoadedHeight );
+		if ( s_pbTempRawImage )
+		{
+			pbReturn = RE_TempRawImage_ReSample( s_pbTempRawImage, iLoadedWidth, iLoadedHeight,
+												 pbReSampleBuffer, piWidth, piHeight );
+		}
+	}
+
+	// Some callers expect OpenGL's bottom-up row order.
+	if ( pbReturn && qbVertFlip )
+	{
+		unsigned int *pSrcLine = (unsigned int *)pbReturn;
+		unsigned int *pDstLine = (unsigned int *)pbReturn + ( *piHeight * *piWidth ) - *piWidth;
+
+		for ( int iLineCount = 0; iLineCount < *piHeight / 2; iLineCount++ )
+		{
+			for ( int x = 0; x < *piWidth; x++ )
+			{
+				const unsigned int l = pSrcLine[x];
+				pSrcLine[x] = pDstLine[x];
+				pDstLine[x] = l;
+			}
+			pSrcLine += *piWidth;
+			pDstLine -= *piWidth;
+		}
+	}
+
+	return pbReturn;
+}
