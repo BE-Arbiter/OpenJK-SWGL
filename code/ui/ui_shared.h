@@ -86,6 +86,7 @@ typedef struct listBoxDef_s {
 	qboolean	notselectable;
 //JLF MPMOVED
 	qboolean	scrollhidden;
+	float		scrollbarSize;		// "scrollbarsize" keyword; 0 = SCROLLBAR_SIZE
 } listBoxDef_t;
 
 

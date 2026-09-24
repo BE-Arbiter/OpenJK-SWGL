@@ -585,12 +585,25 @@ void CG_DrawTextInBox(int iBoxX, int iBoxY, int iBoxWidth, int iBoxHeight,
 
 	Q_strncpyz(lines[0], psText, FIT_LINE_CHARS);
 
-	while (CG_WidestLine(lines, numLines, iFontHandle, fScale) > iBoxWidth
-		&& numLines < FIT_MAX_LINES
-		&& CG_SplitWidestLine(lines, numLines, iFontHandle, fScale))
+	// Too wide: make the font smaller twice (x0.85), then split the widest line and start again.
+	const float shrinkFactor = 0.85f;
+	const int maxShrinks = 2;
+	int shrinks = 0;
+	while (CG_WidestLine(lines, numLines, iFontHandle, fScale) > iBoxWidth)
 	{
+		if (shrinks < maxShrinks)
+		{
+			fScale *= shrinkFactor;
+			shrinks++;
+			continue;
+		}
+		if (numLines >= FIT_MAX_LINES || !CG_SplitWidestLine(lines, numLines, iFontHandle, fScale))
+		{
+			break;
+		}
 		numLines++;
 		fScale = originalScale / (float)numLines;
+		shrinks = 0;
 	}
 
 	int iLineHeight = cgi_R_Font_HeightPixels(iFontHandle, fScale);
@@ -615,7 +628,7 @@ void CG_DrawTextInBox(int iBoxX, int iBoxY, int iBoxWidth, int iBoxHeight,
 		}
 
 		cgi_R_Font_DrawString(x, y + (i * iLineHeight) + (numLines == 1 ? 0 : numLines), //Adding numline to Y to "correct" the font padding that is divided by two
-			lines[i], v4Color, iFontHandle, iBoxWidth, fScale, cgs.widthRatioCoef);
+			lines[i], v4Color, iFontHandle, -1, fScale, cgs.widthRatioCoef);	// no clip: the lines fit already, and the clip of the renderer can drop the last letter by less than a pixel
 	}
 }
 #pragma endregion

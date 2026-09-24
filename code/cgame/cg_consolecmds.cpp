@@ -306,6 +306,8 @@ static consoleCommand_t	commands[] = {
 	{ "characterUpdateSearch",		CG_Characters_SearchChanged_f},
 	{ "characterButtonClick",		CG_Characters_CharacterClick_f},
 	{ "characterVariantClick",		CG_Characters_VariantClick_f},
+	{ "characterVariantPreviousPage",		CG_Characters_VariantPreviousPage_f},
+	{ "characterVariantNextPage",		CG_Characters_VariantNextPage_f},
 	{ "characterNextPage",		CG_Characters_NextPage_f},
 	{ "characterPreviousPage",		CG_Characters_PreviousPage_f},
 #ifdef _DEBUG

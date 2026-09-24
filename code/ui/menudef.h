@@ -109,6 +109,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define FEEDER_MISSION						0x1a			// Mission List
 #define FEEDER_ATTR_DISABLED				0x1b			// Disabled Npc Attributes
 #define FEEDER_ATTR_ENABLED 				0x1c			// Enabled Npc Attributes
+#define FEEDER_CHAR_CONFIGS					0x1d			// Saved configurations of the character (character menu)
 
 #define UI_VERSION				200
 #define UI_HANDICAP				200

@@ -38,7 +38,14 @@ int filteredCharactersIndexList[MAX_CHARACTERS];
 int filteredCharacters;
 static int shownCharacter = -1;
 static int shownVariant = 0;
+static int variantPage = 0;					// page of the variant squares on the character screen
+static char shownTitle[128];				// name at the top of the character screen (CG_DrawCharacterTitle)
+static const int variantsPerPage = 4;		// squares of a page: buttons variantButton1..4 of the menu
 qboolean searchChanged = qtrue;
+
+static vmCvar_t ui_char_config_error;
+static char configErrorSerial[16];		// serial of the last error shown
+static int configErrorHideTime;			// cgi_Milliseconds() time to hide the error
 
 extern vmCvar_t ui_c_filter_name;
 extern vmCvar_t ui_character_screen;
@@ -59,6 +66,23 @@ int GetVariantCount(const characterInfo_t* character)
 	}
 	return count;
 }
+
+// Name shown at the top of the character screen: the name of the variant, else the name of the character.
+static void GetVariantTitle(const characterInfo_t *character, const characterVariant_t *variant, char *buffer, int bufferSize)
+{
+	if (!Q_IsStringEmpty(variant->name))
+	{
+		Q_strncpyz(buffer, variant->name, bufferSize);
+	}
+	else if (!Q_IsStringEmpty(character->name))
+	{
+		Q_strncpyz(buffer, character->name, bufferSize);
+	}
+	else if (Q_IsStringEmpty(character->nameKey) || !cgi_SP_GetStringTextString(character->nameKey, buffer, bufferSize))
+	{
+		Q_strncpyz(buffer, character->code, bufferSize);
+	}
+}
 #pragma endregion
 
 #pragma region Actions
@@ -72,6 +96,9 @@ void ChangeCharacter(int characterIndex, int variantIndex = 0)
 
 	shownCharacter = characterIndex;
 	shownVariant = variantIndex;
+	variantPage = variantIndex / variantsPerPage;
+	// The page arrows only when the variants do not fit on one page.
+	cgi_UI_Run_Command(GetVariantCount(currentCharacter) > variantsPerPage ? "show variantPages" : "hide variantPages");
 
 	// The character .cfg is ext_data/characters/<g_charKey>_<ui_variant_code>[_def|_NPC].cfg.
 	cgi_Cvar_Set("ui_char_model", variant->model);
@@ -79,6 +106,8 @@ void ChangeCharacter(int characterIndex, int variantIndex = 0)
 	cgi_Cvar_Set("g_charKey", currentCharacter->code);
 	cgi_Cvar_Set("ui_variant_code", variant->code);
 	cgi_Cvar_Set("ui_npc_type", variant->npcName);
+
+	GetVariantTitle(currentCharacter, variant, shownTitle, sizeof(shownTitle));
 
 	// Same sequence as the character buttons of the old menu.
 	cgi_UI_Run_Command(va("setitemtext CharBio @%s", variant->descriptionKey));
@@ -95,6 +124,7 @@ void ChangeCharacter(int characterIndex, int variantIndex = 0)
 	cgi_UI_Run_Command("uiScript char_weapon");
 	cgi_UI_Run_Command("uiScript \"char_default_skin\" \"model_default\"");
 	cgi_UI_Run_Command("uiScript ui_char_update_model");
+	cgi_UI_Run_Command("uiScript charConfigRefresh");
 }
 
 void CG_Characters_CharacterClick_f()
@@ -149,10 +179,10 @@ void CG_Characters_CharacterClick_f()
 	}
 }
 
-// characterVariantClick <slot 1..VARIANT_SLOTS>: show this variant of the character on the screen.
+// characterVariantClick <slot 1..4>: show the variant of this square of the page on the screen.
 void CG_Characters_VariantClick_f()
 {
-	const int variantIndex = atoi(CG_Argv(1)) - 1;
+	const int variantIndex = variantPage * variantsPerPage + atoi(CG_Argv(1)) - 1;
 
 	if (shownCharacter < 0 || variantIndex < 0 || variantIndex >= GetVariantCount(&charactersData[shownCharacter])
 		|| variantIndex == shownVariant)
@@ -160,6 +190,30 @@ void CG_Characters_VariantClick_f()
 		return;
 	}
 	ChangeCharacter(shownCharacter, variantIndex);
+}
+
+// characterVariantPreviousPage / characterVariantNextPage: page of the variant squares, with wrap-around.
+static void ChangeVariantPage(int step)
+{
+	if (shownCharacter < 0)
+	{
+		return;
+	}
+	const int pages = (GetVariantCount(&charactersData[shownCharacter]) + variantsPerPage - 1) / variantsPerPage;
+	if (pages > 1)
+	{
+		variantPage = (variantPage + step + pages) % pages;
+	}
+}
+
+void CG_Characters_VariantPreviousPage_f()
+{
+	ChangeVariantPage(-1);
+}
+
+void CG_Characters_VariantNextPage_f()
+{
+	ChangeVariantPage(1);
 }
 
 int getMaxPage() {
@@ -219,14 +273,15 @@ void CG_Characters_SearchChanged_f()
 {
 	static char lastFilter[MAX_CVAR_VALUE_STRING];
 
+	// Always filter again: the menu can empty the field (onOpen) without this command.
+	// A new text goes back to the first page.
 	cgi_Cvar_Update(&ui_c_filter_name);
-	if (Q_stricmp(lastFilter, ui_c_filter_name.string) == 0)
-	{
-		return;
-	}
-	Q_strncpyz(lastFilter, ui_c_filter_name.string, sizeof(lastFilter));
 	searchChanged = qtrue;
-	setCurrentPage(0);
+	if (Q_stricmp(lastFilter, ui_c_filter_name.string) != 0)
+	{
+		Q_strncpyz(lastFilter, ui_c_filter_name.string, sizeof(lastFilter));
+		setCurrentPage(0);
+	}
 }
 #pragma endregion
 
@@ -371,7 +426,7 @@ void CG_DrawCharacters() {
 		posY = startY + nextLine * (bgSizeY + marginY);
 	}
 	//Draw page and total page
-	CG_DrawTextInBox(411, 441, 218, 18,
+	CG_DrawTextInBox(114, 441, 490, 18,	// under the grid (x 114 to 604), right-aligned on its right edge
 		va("Page %d of %d (showing %d characters)", currentPage + 1, maxPage, filteredCharacters), cgs.media.qhFontSmall, colorTable[CT_WHITE], ALIGN_RIGHT);
 }
 
@@ -424,7 +479,7 @@ void CG_DrawFactions() {
 		posY = startY + nextLine * (bgSizeY + marginY);
 	}
 
-	CG_DrawTextInBox(411, 441, 218, 18,
+	CG_DrawTextInBox(114, 441, 490, 18,	// under the grid (x 114 to 604), right-aligned on its right edge
 		va("Page %d of %d (showing %d factions)", currentPage + 1, maxPage, loadedFactions), cgs.media.qhFontSmall, colorTable[CT_WHITE], ALIGN_RIGHT);
 
 }
@@ -432,33 +487,113 @@ void CG_DrawFactions() {
 // Variant squares in the frame 13 43 196 76 of the character screen: 2 rows of 5.
 // The buttons variantButton1..10 of IngameSWGLChars.menu have the same rects.
 void CG_DrawVariants() {
-	int variantSlots = 10;
-	int variantColumns = 5;
-	int variantSize = 35;
-	int variantGap = 4;
-	int variantStartX = 15;
-	int variantStartY = 44;
+	int variantSize = 46;
+	int variantX[4] = { 14, 63, 113, 162 };	// gaps 3 4 3, 1 unit of padding on each side of the frame
+	int variantStartY = 49;
 	int variantIconInset = 1;
+	int pageTextCenterX = 111;	// center of the frame 13 43 196 76
+	int pageTextY = 101;			// between the page arrows of the menu (y 99, 14 high)
+	float pageTextScale = 0.5f;
+	vec4_t pageTextColor = { 1.0f, 0.682f, 0.0f, 1.0f };
 
 	if (shownCharacter < 0 || shownCharacter >= loadedCharacters)
 	{
 		return;
 	}
 	const characterInfo_t *character = &charactersData[shownCharacter];
-	const int count = Q_min(GetVariantCount(character), variantSlots);
+	const int variantCount = GetVariantCount(character);
+	const int first = variantPage * variantsPerPage;
+	const int last = Q_min(variantCount, first + variantsPerPage);
 	const qhandle_t background = cgi_R_RegisterShaderNoMip("gfx/menu/w_skin_icon_bg");
 	const qhandle_t backgroundSelected = cgi_R_RegisterShaderNoMip("gfx/menu/w_skin_icon_bg_s");
 
-	for (int i = 0; i < count; i++)
+	for (int i = first; i < last; i++)
 	{
-		const int x = variantStartX + (i % variantColumns) * (variantSize + variantGap);
-		const int y = variantStartY + (i / variantColumns) * (variantSize + variantGap);
+		const int x = variantX[i - first];
 
-		CG_DrawPic(x, y, variantSize, variantSize, i == shownVariant ? backgroundSelected : background);
-		CG_DrawPic(x + variantIconInset, y + variantIconInset,
+		CG_DrawPic(x, variantStartY, variantSize, variantSize, i == shownVariant ? backgroundSelected : background);
+		CG_DrawPic(x + variantIconInset, variantStartY + variantIconInset,
 			variantSize - 2 * variantIconInset, variantSize - 2 * variantIconInset,
 			cgi_R_RegisterShaderNoMip(character->variantList[i].icon));
 	}
+
+	// Page number between the arrows, when there are pages.
+	const int pages = (variantCount + variantsPerPage - 1) / variantsPerPage;
+	if (pages > 1)
+	{
+		const char *text = va("%d / %d", variantPage + 1, pages);
+		const int textWidth = cgi_R_Font_StrLenPixels(text, cgs.media.qhFontSmall, pageTextScale);
+		cgi_R_Font_DrawString(pageTextCenterX - textWidth / 2, pageTextY, text, pageTextColor, cgs.media.qhFontSmall, -1, pageTextScale);
+		cgi_R_SetColor(NULL);
+	}
+}
+
+// Name of the character in the box CharTitle of the menu (215 11 210 31), with the font of the menu titles.
+// A long name goes on more lines with a smaller font, as the names of the character grid.
+void CG_DrawCharacterTitle() {
+	int boxX = 215, boxY = 11, boxW = 210, boxH = 31;
+	int padding = 6;
+	vec4_t color = { 0.87f, 0.61f, 0.0f, 1.0f };
+
+	if (Q_IsStringEmpty(shownTitle))
+	{
+		return;
+	}
+	// Height of one line: the menu titles use this font at scale 1.
+	const int font = cgi_R_RegisterFont("anewhope");
+	const int lineH = Q_min(cgi_R_Font_HeightPixels(font, 1.0f), boxH);
+	CG_DrawTextInBox(boxX + padding, boxY + (boxH - lineH) / 2, boxW - 2 * padding, lineH, shownTitle, font, color);
+	cgi_R_SetColor(NULL);
+}
+
+// Error of the "Configurations" box: the UI writes "<serial>|<message>" to ui_char_config_error.
+// A new serial shows the message for 3 seconds, under the text field of the box.
+void CG_DrawConfigError() {
+	int errorTime = 3000;
+	int errorCenterX = 529;		// center of the "Configurations" box
+	int errorY = 293;			// under the name field
+	int outline = 1;			// width of the white edge
+	float textScale = 0.45f;
+	vec4_t red = { 0.8f, 0.0f, 0.0f, 1.0f };
+	vec4_t white = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+	cgi_Cvar_Register(&ui_char_config_error, "ui_char_config_error", "", 0);
+	cgi_Cvar_Update(&ui_char_config_error);
+
+	const char *message = strchr(ui_char_config_error.string, '|');
+	if (!message)
+	{
+		return;
+	}
+	char serial[16];
+	Q_strncpyz(serial, ui_char_config_error.string, Q_min((int)sizeof(serial), (int)(message - ui_char_config_error.string) + 1));
+	if (strcmp(serial, configErrorSerial))
+	{
+		Q_strncpyz(configErrorSerial, serial, sizeof(configErrorSerial));
+		configErrorHideTime = cgi_Milliseconds() + errorTime;
+	}
+	if (cgi_Milliseconds() >= configErrorHideTime)
+	{
+		return;
+	}
+
+	// Red text with a white edge: the white text at all the positions up to "outline" around, then the
+	// red text on it. ergoec: the letters of ocr_a have a halo that shows when the text is drawn many times.
+	const int font = cgs.media.qhFontMedium;
+	const char *text = message + 1;
+	int textX = errorCenterX - cgi_R_Font_StrLenPixels(text, font, textScale, cgs.widthRatioCoef) / 2;
+	for (int dx = -outline; dx <= outline; dx++)
+	{
+		for (int dy = -outline; dy <= outline; dy++)
+		{
+			if (dx || dy)
+			{
+				cgi_R_Font_DrawString(textX + dx, errorY + dy, text, white, font, -1, textScale, cgs.widthRatioCoef);
+			}
+		}
+	}
+	cgi_R_Font_DrawString(textX, errorY, text, red, font, -1, textScale, cgs.widthRatioCoef);
+	cgi_R_SetColor(NULL);
 }
 
 void CG_DrawCharactersMenu() {
@@ -475,7 +610,9 @@ void CG_DrawCharactersMenu() {
 	}
 	else if (Q_stricmp(ui_character_screen.string, "character") == 0)
 	{
+		CG_DrawCharacterTitle();
 		CG_DrawVariants();
+		CG_DrawConfigError();
 	}
 	else
 	{

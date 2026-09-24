@@ -34,6 +34,8 @@ void CG_DrawCharactersMenu();
 
 void CG_Characters_CharacterClick_f();
 void CG_Characters_VariantClick_f();
+void CG_Characters_VariantPreviousPage_f();
+void CG_Characters_VariantNextPage_f();
 void CG_Characters_PreviousPage_f();
 void CG_Characters_NextPage_f();
 void CG_Characters_SearchChanged_f();
