@@ -305,8 +305,13 @@ static consoleCommand_t	commands[] = {
 	{ "uiNpcWeaponLabelUpd",		CG_NPC_UpdateLabel}, 
 	{ "characterUpdateSearch",		CG_Characters_SearchChanged_f},
 	{ "characterButtonClick",		CG_Characters_CharacterClick_f},
+	{ "characterVariantClick",		CG_Characters_VariantClick_f},
 	{ "characterNextPage",		CG_Characters_NextPage_f},
 	{ "characterPreviousPage",		CG_Characters_PreviousPage_f},
+#ifdef _DEBUG
+	{ "charportraits",		CG_Characters_Portraits_f},
+#endif
+	{ "charportrait",		CG_Characters_Portrait_f},
 	{ "dualwield",			CG_Dualwield_f},
 	{ "forcenext",			CG_NextForcePower_f },
 	{ "forceprev",			CG_PrevForcePower_f },

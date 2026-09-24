@@ -439,6 +439,11 @@ void CHA_ParseCharacterFile(const char* buffer)
 
 		if (!Q_stricmp(token, "{"))
 		{
+			if (loadedCharacters >= MAX_CHARACTERS)
+			{
+				gi.Printf(S_COLOR_RED"Error: more than %d characters, the next ones are ignored. Increase MAX_CHARACTERS.\n", MAX_CHARACTERS);
+				break;
+			}
 			CHA_ParseCharacter(&holdBuf);
 		}
 
@@ -447,12 +452,31 @@ void CHA_ParseCharacterFile(const char* buffer)
 	COM_EndParseSession();
 }
 
+
+static void CHA_FreeCharacters()
+{
+	for (int i = 0; i < MAX_CHARACTERS; i++)
+	{
+		characterInfo_t *character = &charactersData[i];
+		for (int v = 0; v < character->variantCount && character->variantList; v++)
+		{
+			characterVariant_t *variant = &character->variantList[v];
+			free(variant->presetList);
+			free(variant->headSkinList);
+			free(variant->torsoSkinList);
+			free(variant->lowerSkinList);
+		}
+		free(character->variantList);
+	}
+}
+
 void CHA_ParseCharacterFiles()
 {
+	CHA_FreeCharacters();
 	//Init Data to all 0
 	memset(charactersData, 0, sizeof(characterInfo_t) * MAX_CHARACTERS);
 	//Read all the externals file
-	char	fileList[10184];			//	The list of file names read in
+	static char	fileList[65536];		//	The list of file names read in
 	int		fileNameSize;
 	int		fileCount = gi.FS_GetFileList(CHAR_DATA_DIR, ".cha", fileList, sizeof(fileList));
 

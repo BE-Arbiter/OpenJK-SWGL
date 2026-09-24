@@ -26,7 +26,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "../qcommon/q_shared.h"
 
-#define MAX_CHARACTERS 1024
+#define MAX_CHARACTERS 2048
 #define MAX_FACTIONS 64
 
 #pragma region Character Data Structures

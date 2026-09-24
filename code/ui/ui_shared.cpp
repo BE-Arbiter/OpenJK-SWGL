@@ -85,6 +85,7 @@ static void Item_TextScroll_BuildLines ( itemDef_t* item );
 //static qboolean debugMode = qfalse;
 static qboolean g_waitingForKey = qfalse;
 static qboolean g_editingField = qfalse;
+qboolean Item_HandleAccept(itemDef_t * item);
 
 static itemDef_t *g_bindItem = NULL;
 static itemDef_t *g_editItem = NULL;
@@ -3247,6 +3248,8 @@ ItemParse_asset_model
 	asset_model <string>
 ===============
 */
+extern void UI_SaberAttachToChar( itemDef_t *item );
+
 qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name )
 {
 	modelDef_t *modelPtr;
@@ -3255,6 +3258,8 @@ qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name )
 
 	if (!Q_stricmp(&name[strlen(name) - 4], ".glm"))
 	{ //it's a ghoul2 model then
+		// Sabers in slots 1+ are bolted to model 0; a new model 0 invalidates their bolt index.
+		const qboolean hadSabers = (qboolean)((item->flags & ITF_ISCHARACTER) && item->ghoul2.size() > 1);
 		if ( item->ghoul2.size() && item->ghoul2[0].mModelindex >= 0)
 		{
 			DC->g2_RemoveGhoul2Model( item->ghoul2, 0 );
@@ -3272,6 +3277,10 @@ qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name )
 			if ( modelPtr->g2skin )
 			{
 				DC->g2_SetSkin( &item->ghoul2[0], 0, modelPtr->g2skin );//this is going to set the surfs on/off matching the skin file
+			}
+			if ( hadSabers )
+			{
+				UI_SaberAttachToChar( item );
 			}
 		}
 	}
@@ -12571,17 +12580,22 @@ void Menu_HandleKey(menuDef_t *menu, int key, qboolean down)
 
 	if (g_editingField && down)
 	{
+		// The "accept" script of an edit field runs when the edit ends (enter, escape or click).
 		if (!Item_TextField_HandleKey(g_editItem, key))
 		{
+			itemDef_t *editItem = g_editItem;
 			g_editingField = qfalse;
 			g_editItem = NULL;
+			Item_HandleAccept(editItem);
 			inHandler = qfalse;
 			return;
 		}
 		else if (key == A_MOUSE1 || key == A_MOUSE2 || key == A_MOUSE3)
 		{
+			itemDef_t *editItem = g_editItem;
 			g_editingField = qfalse;
 			g_editItem = NULL;
+			Item_HandleAccept(editItem);
 			Display_MouseMove(NULL, DC->cursorx, DC->cursory);
 		}
 		else if (key == A_TAB || key == A_CURSOR_UP || key == A_CURSOR_DOWN)

@@ -2849,7 +2849,7 @@ void CG_NPC_UpdateLabel(void) {
 void CG_DrawNpcWeaponLabel(void) {
 	CG_NPC_UpdateLabel();
 	const short textboxXPos = 508;
-	const short textboxYPos = 118;
+	const short textboxYPos = 88;
 	const int	textboxWidth = 106;
 	const int	textboxHeight = 16;
 	const float	textScale = 0.75f;
@@ -2980,7 +2980,7 @@ void CG_DrawPCWeaponLabel(int index) {
 	}
 	CG_PC_UpdateLabel(index);
 	const short textboxXPos = 508;
-	const short textboxYPos = 57+ offsetFromPlayerLabel + ((index-1)*offsetPerIndex);
+	const short textboxYPos = 27 + offsetFromPlayerLabel + ((index-1)*offsetPerIndex);
 	const int	textboxWidth = 106;
 	const int	textboxHeight = 16;
 	const float	textScale = 0.75f;

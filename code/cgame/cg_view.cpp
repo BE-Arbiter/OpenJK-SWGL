@@ -28,6 +28,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "cg_headers.h"
 
 #include "cg_media.h"
+#include "cg_characters.h"
 #include "FxScheduler.h"
 #include "../game/wp_saber.h"
 #include "../game/g_vehicles.h"
@@ -2295,6 +2296,8 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 		// actually issue the rendering calls
 		CG_DrawActive( stereoView );
 	}
+
+	CG_DrawCharacterPortrait();
 	/*
 	if ( in_camera && !cg_skippingcin.integer )
 	{

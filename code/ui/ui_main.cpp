@@ -1836,6 +1836,15 @@ static qboolean UI_RunMenuScript ( const char **args )
 			ui.Cmd_ExecuteText( EXEC_APPEND, "characterButtonClick\n");
 			return qtrue;
 		}
+		if (Q_stricmp(name, "characterVariantClick") == 0)
+		{
+			const char *slot;
+			if (String_Parse(args, &slot))
+			{
+				ui.Cmd_ExecuteText( EXEC_APPEND, va("characterVariantClick %s\n", slot));
+			}
+			return qtrue;
+		}
 		if (Q_stricmp(name, "characterNextPage") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "characterNextPage\n");
@@ -8583,7 +8592,10 @@ static void UI_CharacterDefaultSkin(const char* otherSkin)
 
 	auto ShowCustomizationUI = [&](bool hasCustomParts)
 		{
-			Cvar_Set("ui_character_skin_tab", hasCustomParts ? "presets" : "presets_only");
+			Menu_ShowItemByName(menu, "skinTabCustom", qfalse);
+			Menu_ShowItemByName(menu, "skinTabPresets", hasCustomParts ? qtrue : qfalse);
+			Menu_ShowItemByName(menu, "skinTabPresetsOnly", hasCustomParts ? qfalse : qtrue);
+			Menu_ShowItemByName(menu, "skinList", qtrue);
 		};
 
 	// Parse head|torso|lower
@@ -9082,11 +9094,9 @@ void ReadSaveDirectory (void)
 static void UI_SaveCharacterPowers(void)
 {
 	static char characterName[MAX_QPATH];
-	char faction[64];
 	char code[64];
 	char variant[64];
 
-	strncpy(faction, UI_Cvar_VariableString("ui_char_faction"), sizeof(faction));
 	strncpy(code, UI_Cvar_VariableString("g_charKey"), sizeof(code));
 	strncpy(variant, UI_Cvar_VariableString("ui_variant_code"), sizeof(variant));
 
@@ -9095,9 +9105,9 @@ static void UI_SaveCharacterPowers(void)
 	{
 		// NOTE: always saves in working dir if using one...
 		if (Cvar_VariableIntegerValue("ui_npc_menu"))
-			Com_sprintf(characterName, MAX_QPATH, "ext_data/characters/%s_%s_%s_NPC.cfg", faction, code, variant);
+			Com_sprintf(characterName, MAX_QPATH, "ext_data/characters/%s_%s_NPC.cfg", code, variant);
 		else
-			Com_sprintf(characterName, MAX_QPATH, "ext_data/characters/%s_%s_%s.cfg", faction, code, variant);
+			Com_sprintf(characterName, MAX_QPATH, "ext_data/characters/%s_%s.cfg", code, variant);
 		characterfile = FS_FOpenFileWrite(characterName);
 	}
 
@@ -9240,11 +9250,9 @@ static void UI_SaveCharacterPowers(void)
 
 void Com_FlushCharacterFile()
 {
-	char faction[64];
 	char code[64];
 	char variant[64];
 
-	strncpy(faction, UI_Cvar_VariableString("ui_char_faction"), sizeof(faction));
 	strncpy(code, UI_Cvar_VariableString("g_charKey"), sizeof(code));
 	strncpy(variant, UI_Cvar_VariableString("ui_variant_code"), sizeof(variant));
 	if (!characterfile)
@@ -9259,9 +9267,9 @@ void Com_FlushCharacterFile()
 
 	static	char	flushedCharactername[MAX_QPATH];
 	if (Cvar_VariableIntegerValue("ui_npc_menu"))
-		Com_sprintf(flushedCharactername, MAX_QPATH, "ext_data/characters/%s_%s_%s_NPC.cfg", faction, code, variant);
+		Com_sprintf(flushedCharactername, MAX_QPATH, "ext_data/characters/%s_%s_NPC.cfg", code, variant);
 	else
-		Com_sprintf(flushedCharactername, MAX_QPATH, "ext_data/characters/%s_%s_%s.cfg", faction, code, variant);
+		Com_sprintf(flushedCharactername, MAX_QPATH, "ext_data/characters/%s_%s.cfg", code, variant);
 
 	Com_Printf("saved Character stats to %s\n", flushedCharactername);
 }
@@ -9272,11 +9280,9 @@ void UI_LoadCharacterCfg(void)
 	char* buf = NULL;
 	int len = 0;
 
-	char faction[64];
 	char code[64];
 	char variant[64];
 
-	Q_strncpyz(faction, UI_Cvar_VariableString("ui_char_faction"), sizeof(faction));
 	Q_strncpyz(code, UI_Cvar_VariableString("g_charKey"), sizeof(code));
 	Q_strncpyz(variant, UI_Cvar_VariableString("ui_variant_code"), sizeof(variant));
 
@@ -9286,20 +9292,20 @@ void UI_LoadCharacterCfg(void)
 	static char file1[MAX_QPATH];
 	static char file2[MAX_QPATH];
 
-	// 1. faction_code_variant.cfg
+	// 1. code_variant.cfg
 	if (Cvar_VariableIntegerValue("ui_npc_menu"))
 		Com_sprintf(file1, sizeof(file1),
-			"ext_data/characters/%s_%s_%s_NPC.cfg",
-			faction, code, variant);
+			"ext_data/characters/%s_%s_NPC.cfg",
+			code, variant);
 	else
 		Com_sprintf(file1, sizeof(file1),
-			"ext_data/characters/%s_%s_%s.cfg",
-			faction, code, variant);
+			"ext_data/characters/%s_%s.cfg",
+			code, variant);
 
-	// 2. faction_code_variant_default.cfg
+	// 2. code_variant_default.cfg
 	Com_sprintf(file2, sizeof(file2),
-		"ext_data/characters/%s_%s_%s_def.cfg",
-		faction, code, variant);
+		"ext_data/characters/%s_%s_def.cfg",
+		code, variant);
 
 	const char* candidates[3] = {
 		file1,
@@ -9434,8 +9440,8 @@ void UI_LoadCharacterCfg(void)
 		}
 	}
 
-	Com_Printf("UI_LoadCharacterCfg: no character cfg found for faction '%s' code '%s'\n",
-		faction, code);
+	Com_Printf("UI_LoadCharacterCfg: no character cfg found for code '%s' variant '%s'\n",
+		code, variant);
 }
 
 void UI_LoadCharacterDefaultCfg(void)
@@ -9444,11 +9450,9 @@ void UI_LoadCharacterDefaultCfg(void)
 	char* buf = NULL;
 	int len = 0;
 
-	char faction[64];
 	char code[64];
 	char variant[64];
 
-	Q_strncpyz(faction, UI_Cvar_VariableString("ui_char_faction"), sizeof(faction));
 	Q_strncpyz(code, UI_Cvar_VariableString("g_charKey"), sizeof(code));
 	Q_strncpyz(variant, UI_Cvar_VariableString("ui_variant_code"), sizeof(variant));
 
@@ -9457,10 +9461,10 @@ void UI_LoadCharacterDefaultCfg(void)
 	//
 	static char file[MAX_QPATH];
 
-	// 2. faction_code_variant_default.cfg
+	// 2. code_variant_default.cfg
 	Com_sprintf(file, sizeof(file),
-		"ext_data/characters/%s_%s_%s_def.cfg",
-		faction, code, variant);
+		"ext_data/characters/%s_%s_def.cfg",
+		code, variant);
 
 	const char* candidates[2] = {
 		file,
@@ -9594,6 +9598,6 @@ void UI_LoadCharacterDefaultCfg(void)
 		}
 	}
 
-	Com_Printf("UI_LoadCharacterCfg: no character cfg found for faction '%s' code '%s'\n",
-		faction, code);
+	Com_Printf("UI_LoadCharacterCfg: no character cfg found for code '%s' variant '%s'\n",
+		code, variant);
 }

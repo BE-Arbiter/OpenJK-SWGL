@@ -33,8 +33,12 @@ extern characterInfo_t selectedCharacters[MAX_CHARACTERS];
 void CG_DrawCharactersMenu();
 
 void CG_Characters_CharacterClick_f();
+void CG_Characters_VariantClick_f();
 void CG_Characters_PreviousPage_f();
 void CG_Characters_NextPage_f();
 void CG_Characters_SearchChanged_f();
+void CG_Characters_Portraits_f();
+void CG_Characters_Portrait_f();
+void CG_DrawCharacterPortrait();
 
 #endif //__CG_CHARACTERS_H__
