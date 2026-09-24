@@ -1067,9 +1067,9 @@ static cvarTable_t cvarTable[] =
 	{ &ui_saber_color,			"ui_saber_color",		"", NULL, 0},
 	{ &ui_saber2_color,			"ui_saber2_color",		"", NULL, 0},
 
-	{ &ui_char_color_red,		"ui_char_color_red",	"", NULL, 0},
-	{ &ui_char_color_green,		"ui_char_color_green",	"", NULL, 0},
-	{ &ui_char_color_blue,		"ui_char_color_blue",	"", NULL, 0},
+	{ &ui_char_color_red,		"ui_char_color_red",	"255", NULL, 0},
+	{ &ui_char_color_green,		"ui_char_color_green",	"255", NULL, 0},
+	{ &ui_char_color_blue,		"ui_char_color_blue",	"255", NULL, 0},
 
 	{ &ui_PrecacheModels,		"ui_PrecacheModels",	"1", NULL, CVAR_ARCHIVE},
 
@@ -3115,6 +3115,46 @@ static int UI_FeederCount(float feederID)
 UI_FeederSelection
 =================
 */
+// A head, torso or lower skin needs the two other parts: after a full skin (model_*), their cvars
+// hold the name of that skin. A part that is not in the list of the species takes its first entry.
+static void UI_ValidSkinPart(const char *cvarName, const skinName_t *list, int count)
+{
+	if (count <= 0)
+	{
+		return;
+	}
+	const char *value = Cvar_VariableString(cvarName);
+	for (int i = 0; i < count; i++)
+	{
+		if (!Q_stricmp(list[i].name, value))
+		{
+			return;
+		}
+	}
+	Cvar_Set(cvarName, list[0].name);
+}
+
+static void UI_ValidSkinParts(void)
+{
+	const playerSpeciesInfo_t *species = &uiInfo.playerSpecies[uiInfo.playerSpeciesIndex];
+	UI_ValidSkinPart("ui_char_skin_head", species->SkinHead, species->SkinHeadCount);
+	UI_ValidSkinPart("ui_char_skin_torso", species->SkinTorso, species->SkinTorsoCount);
+	UI_ValidSkinPart("ui_char_skin_legs", species->SkinLeg, species->SkinLegCount);
+}
+
+// No color (empty cvars or 0 0 0): white, the color that does not change the skin.
+static void UI_DefaultCharacterColor(void)
+{
+	if (Cvar_VariableIntegerValue("ui_char_color_red") == 0
+		&& Cvar_VariableIntegerValue("ui_char_color_green") == 0
+		&& Cvar_VariableIntegerValue("ui_char_color_blue") == 0)
+	{
+		Cvar_Set("ui_char_color_red", "255");
+		Cvar_Set("ui_char_color_green", "255");
+		Cvar_Set("ui_char_color_blue", "255");
+	}
+}
+
 static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 {
 	if (feederID == FEEDER_SAVEGAMES)
@@ -3303,6 +3343,7 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 		if (index >= 0 && index < uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinHeadCount)
 		{
 			Cvar_Set("ui_char_skin_head", uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinHead[index].name);
+			UI_ValidSkinParts();
 		}
 	}
 	else if (feederID == FEEDER_MODEL_SKINS)
@@ -3320,6 +3361,7 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 		if (index >= 0 && index < uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinTorsoCount)
 		{
 			Cvar_Set("ui_char_skin_torso", uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinTorso[index].name);
+			UI_ValidSkinParts();
 		}
 	}
 
@@ -3328,6 +3370,7 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 		if (index >= 0 && index < uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinLegCount)
 		{
 			Cvar_Set("ui_char_skin_legs", uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinLeg[index].name);
+			UI_ValidSkinParts();
 		}
 	}
 
@@ -8645,6 +8688,10 @@ static void UI_CharacterDefaultSkin(const char* otherSkin)
 
 	auto ShowCustomizationUI = [&](bool hasCustomParts)
 		{
+			if (hasCustomParts)
+			{
+				UI_DefaultCharacterColor();
+			}
 			Menu_ShowItemByName(menu, "skinTabCustom", qfalse);
 			Menu_ShowItemByName(menu, "skinTabPresets", hasCustomParts ? qtrue : qfalse);
 			Menu_ShowItemByName(menu, "skinTabPresetsOnly", hasCustomParts ? qfalse : qtrue);
