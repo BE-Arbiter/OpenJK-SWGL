@@ -72,8 +72,9 @@ void RB_CheckVBOandIBO(VBO_t *vbo, IBO_t *ibo)
 			tess.multiDrawPrimitives >= MAX_MULTIDRAW_PRIMITIVES)
 	{
 		RB_EndSurface();
+		int dlightBits = tess.dlightBits;
 		RB_BeginSurface(tess.shader, tess.fogNum, tess.cubemapIndex );
-
+		tess.dlightBits = dlightBits;
 		R_BindVBO(vbo);
 		R_BindIBO(ibo);
 	}
@@ -481,8 +482,8 @@ static void RB_SurfaceVertsAndIndexes( int numVerts, srfVert_t *verts, int numIn
 }
 
 static qboolean RB_SurfaceVbo(
-		VBO_t *vbo, IBO_t *ibo, int numVerts, int numIndexes, int firstIndex,
-		int minIndex, int maxIndex, int dlightBits, int pshadowBits, qboolean shaderCheck)
+		VBO_t *vbo, IBO_t *ibo, uint32_t numVerts, uint32_t numIndexes, uint32_t firstIndex,
+		uint32_t minIndex, uint32_t maxIndex, int dlightBits, int pshadowBits, qboolean shaderCheck)
 {
 	int i, mergeForward, mergeBack;
 	GLvoid *firstIndexOffset, *lastIndexOffset;
@@ -2430,6 +2431,18 @@ static void RB_SurfaceEntity( surfaceType_t *surfType ) {
 		RB_SurfaceAxis();
 		break;
 	}
+
+	// Tell the backend to merge the drawcalls except 
+	// for types that can't be merged
+	// TODO: Create RT_BEAM internal shader and make it compatible with pass system 
+	switch( backEnd.currentEntity->e.reType ) {
+	case RT_BEAM:
+	case RT_ENT_CHAIN:
+		break;
+	default:
+		tess.entityMergable = true;
+		break;
+	}
 }
 
 static void RB_SurfaceBad( surfaceType_t *surfType ) {
@@ -2662,10 +2675,10 @@ static void RB_SurfaceSprites( srfSprites_t *surf )
 	const GLuint currentSpriteUbo = shader->spriteUbo;
 	const UniformBlockBinding uniformBlockBindings[] = {
 		{ currentSpriteUbo, ss->spriteUboOffset, UNIFORM_BLOCK_SURFACESPRITE },
-		{ currentFrameUbo, tr.sceneUboOffset, UNIFORM_BLOCK_SCENE },
-		{ currentFrameUbo, tr.cameraUboOffsets[tr.viewParms.currentViewParm], UNIFORM_BLOCK_CAMERA },
-		{ currentFrameUbo, tr.fogsUboOffset, UNIFORM_BLOCK_FOGS },
-		{ currentFrameUbo, tr.temporalInfoUboOffset, UNIFORM_BLOCK_TEMPORAL_INFO }
+		{ currentFrameUbo, (size_t)tr.sceneUboOffset, UNIFORM_BLOCK_SCENE },
+		{ currentFrameUbo, (size_t)tr.cameraUboOffsets[tr.viewParms.currentViewParm], UNIFORM_BLOCK_CAMERA },
+		{ currentFrameUbo, (size_t)tr.fogsUboOffset, UNIFORM_BLOCK_FOGS },
+		{ currentFrameUbo, (size_t)tr.temporalInfoUboOffset, UNIFORM_BLOCK_TEMPORAL_INFO }
 	};
 
 	uint32_t numBindings;

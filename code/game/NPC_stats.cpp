@@ -56,6 +56,8 @@ extern qboolean saberFound;
 extern cvar_t *g_allowAlignmentChange;
 extern cvar_t* g_adoptcharstats;
 
+int Get_SaberStyleValue(int style);
+
 #define		MAX_MODELS_PER_LEVEL	60
 
 hstring		modelsAlreadyDone[MAX_MODELS_PER_LEVEL];
@@ -3900,7 +3902,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 						{
 							NPC->client->ps.saberStylesKnown |= NPC->client->ps.saber[1].singleBladeStyle;
 						}
-						if ((NPC->client->ps.saber[1].saberFlags & SFL_TWO_HANDED))
+						if ((NPC->client->ps.saber[1].saberFlags & SFL_TWO_HANDED) || (!Q_stricmp(value, "empty")))
 						{//tsk tsk, can't use a twoHanded saber as second saber
 							WP_RemoveSaber(NPC, 1);
 						}
@@ -4082,7 +4084,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				{
 					value = NPC->NPC_SaberTwo;
 				}
-				if ( !(NPC->client->ps.saber[0].saberFlags&SFL_TWO_HANDED) )
+				if ( !(NPC->client->ps.saber[0].saberFlags&SFL_TWO_HANDED) && !(!Q_stricmp(value, "empty")) )
 				{//can't use a second saber if first one is a two-handed saber...?
 					char *saberName = G_NewString( value );
 					WP_SaberParseParms( saberName, &NPC->client->ps.saber[1] );
@@ -4094,7 +4096,7 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 					{
 						NPC->client->ps.saberStylesKnown |= NPC->client->ps.saber[1].singleBladeStyle;
 					}
-					if ( (NPC->client->ps.saber[1].saberFlags&SFL_TWO_HANDED) )
+					if ( (NPC->client->ps.saber[1].saberFlags&SFL_TWO_HANDED) || (!Q_stricmp(value, "empty")) )
 					{//tsk tsk, can't use a twoHanded saber as second saber
 						WP_RemoveSaber( NPC, 1 );
 					}
@@ -4534,6 +4536,43 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 			//starting saber style
 			if ( !Q_stricmp( token, "saberStyle" ) )
 			{
+				if (NPC->NPC_SaberStyles >= 0)
+				{
+					int i;
+
+					if (NPC->NPC_SaberStyles & Get_SaberStyleValue(SS_DUAL))
+					{
+						if (NPC->client->ps.dualSabers)
+						{
+							NPC->client->ps.saberAnimLevel = SS_DUAL;
+							NPC->client->ps.saberStylesKnown = SS_DUAL;
+							NPC->NPC_SaberStyles |= Get_SaberStyleValue(SS_DUAL);
+						}
+						else
+						{
+							NPC->client->ps.saberStylesKnown &= ~SS_DUAL;
+							NPC->NPC_SaberStyles &= ~Get_SaberStyleValue(SS_DUAL);
+						}
+					}
+					else
+					{
+						NPC->client->ps.saberStylesKnown &= ~SS_DUAL;
+					}
+
+					for (i = SS_FAST; i < SS_STAFF; i++)
+					{
+						if (NPC->NPC_SaberStyles & Get_SaberStyleValue(i))
+						{
+							NPC->client->ps.saberAnimLevel = i;
+							NPC->client->ps.saberStylesKnown |= i;
+						}
+						else
+						{
+							NPC->client->ps.saberStylesKnown &= ~i;
+						}
+					}
+					continue;
+				}
 				if ( COM_ParseInt( &p, &n ) )
 				{
 					SkipRestOfLine( &p );
@@ -4569,6 +4608,42 @@ qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 				gi.Printf( "WARNING: unknown keyword '%s' while parsing '%s'\n", token, NPCName );
 			}
 			SkipRestOfLine( &p );
+		}
+
+		if (NPC->NPC_SaberStyles >= 0)
+		{
+			int i;
+
+			if (NPC->NPC_SaberStyles & Get_SaberStyleValue(SS_DUAL))
+			{
+				if (NPC->client->ps.dualSabers)
+				{
+					NPC->client->ps.saberAnimLevel = SS_DUAL;
+					NPC->client->ps.saberStylesKnown = SS_DUAL;
+				}
+				else
+				{
+					NPC->client->ps.saberStylesKnown &= ~SS_DUAL;
+					NPC->NPC_SaberStyles &= ~Get_SaberStyleValue(SS_DUAL);
+				}
+			}
+			else
+			{
+				NPC->client->ps.saberStylesKnown &= ~SS_DUAL;
+			}
+
+			for (i = SS_NONE; i < SS_STAFF; i++)
+			{
+				if (NPC->NPC_SaberStyles & Get_SaberStyleValue(i))
+				{
+					NPC->client->ps.saberAnimLevel = i;
+					NPC->client->ps.saberStylesKnown |= i;
+				}
+				else
+				{
+					NPC->client->ps.saberStylesKnown &= ~i;
+				}
+			}
 		}
 #ifdef _WIN32
 #pragma endregion
@@ -5054,5 +5129,26 @@ void NPC_AssignRandom(gentity_t* ent, char* playerModel)
 		newSkin.append("|");
 		newSkin.append(lowerList[Q_irand(0, lowerCount - 1)]);
 		ent->NPC_skin = G_NewString(newSkin.c_str());
+	}
+}
+
+int Get_SaberStyleValue(int style)
+{
+	switch (style)
+	{
+	case SS_FAST:
+		return 1;
+	case SS_STRONG:
+		return 4;
+	case SS_DESANN:
+		return 8;
+	case SS_TAVION:
+		return 16;
+	case SS_DUAL:
+		return 32;
+	case SS_STAFF:
+		return 64;
+	default:
+		return 2;
 	}
 }

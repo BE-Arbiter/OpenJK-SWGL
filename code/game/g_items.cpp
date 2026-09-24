@@ -139,13 +139,6 @@ int Add_Ammo2 (gentity_t *ent, int ammoType, int count)
 {
 	if (ammoType != AMMO_FORCE)
 	{
-		if (ent->client->ps.ammo[ammoType] > ammoData[ammoType].max)
-		{
-			return qfalse;
-		}
-
-		ent->client->ps.ammo[ammoType] += count;
-
 		// since the ammo is the weapon in this case, picking up ammo should actually give you the weapon
 		switch( ammoType )
 		{
@@ -165,11 +158,13 @@ int Add_Ammo2 (gentity_t *ent, int ammoType, int count)
 			ent->client->ps.weapons[wpIndex] = 1;
 		}
 
+		ent->client->ps.ammo[ammoType] += count;
 		if ( ent->client->ps.ammo[ammoType] > ammoData[ammoType].max )
 		{
 			ent->client->ps.ammo[ammoType] = ammoData[ammoType].max;
 			return qfalse;
 		}
+
 	}
 	else
 	{

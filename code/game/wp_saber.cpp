@@ -15397,10 +15397,6 @@ static void WP_ForcePowerRun(gentity_t* self, forcePowers_t forcePower, usercmd_
 	if (g_LegacyForceTiming->integer && self->client->ps.forcePowerTime > level.time) {
 		return;
 	}
-	else if (g_LegacyForceTiming->integer)
-	{
-		self->client->ps.forcePowerTime = level.time + 33;
-	}
 	switch ((int)forcePower)
 	{
 	case FP_HEAL:
@@ -16869,6 +16865,12 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 			WP_ForcePowerRun( self, (forcePowers_t)i, ucmd );
 		}
 	}
+	//Once we did all the force power, we clean the timer
+	if (g_LegacyForceTiming->integer && self->client->ps.forcePowerTime <= level.time)
+	{
+		self->client->ps.forcePowerTime = level.time + 33;
+	}
+
 	if ( self->client->ps.saberInFlight )
 	{//don't regen force power while throwing saber
 		if ( self->client->ps.saberEntityNum < ENTITYNUM_NONE && self->client->ps.saberEntityNum > 0 )//player is 0

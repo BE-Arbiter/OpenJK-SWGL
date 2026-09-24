@@ -2392,6 +2392,8 @@ void ClientCommand( int clientNum ) {
 	else if (Q_stricmp(cmd, "applycharweapons") == 0)
 	{
 		ent = G_GetSelfForPlayerCmd();
+		
+		memset(ent->client->ps.weapons, 0, sizeof(ent->client->ps.weapons)); // Clear all weapons
 
 		ent->client->ps.weapons[WP_GetWeaponID(g_weaponOne->string)] = 1;
 		ent->client->ps.weapons[WP_GetWeaponID(g_weaponTwo->string)] = 1;
@@ -2399,7 +2401,9 @@ void ClientCommand( int clientNum ) {
 		ent->client->ps.weapons[WP_GetWeaponID(g_weaponFour->string)] = 1;
 		ent->client->ps.weapons[WP_GetWeaponID(g_weaponFive->string)] = 1;
 		ent->client->ps.weapons[WP_GetWeaponID(g_weaponSix->string)] = 1;
-		}
+
+		CG_NextWeapon_f();
+	}
 	else
 	{
 		gi.SendServerCommand( clientNum, va("print \"Unknown command %s\n\"", cmd ) );

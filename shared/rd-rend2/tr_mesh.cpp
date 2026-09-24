@@ -348,7 +348,7 @@ void R_AddMD3Surfaces( trRefEntity_t *ent, int entityNum ) {
 	int				cull;
 	int				lod;
 	int				fogNum;
-	int             cubemapIndex;
+	int             cubemapIndex, dlightBits;
 	qboolean		personalModel;
 
 	// don't add third_person objects if not in a portal
@@ -398,9 +398,13 @@ void R_AddMD3Surfaces( trRefEntity_t *ent, int entityNum ) {
 	//
 	fogNum = R_ComputeFogNum( model, ent );
 
-	cubemapIndex = R_CubemapForPoint(ent->e.origin);
-	// FIX ME: not tested! Animated models might be handled incorrecly
-	int dlightBits = R_DLightsForPoint(ent->e.origin, model->frames[ent->e.frame].radius);
+	vec3_t origin;
+	R_LocalPointToWorld(model->frames[ent->e.frame].localOrigin, origin);
+	float maxScale = MAX(1.f, MAX(ent->e.modelScale[0], MAX(ent->e.modelScale[1], ent->e.modelScale[2])));
+
+	cubemapIndex = R_CubemapForPoint(origin);
+	
+	dlightBits = R_DLightsForPoint(origin, model->frames[ent->e.frame].radius * maxScale);
 
 	//
 	// draw all surfaces
@@ -431,12 +435,9 @@ void R_AddMD3Surfaces( trRefEntity_t *ent, int entityNum ) {
 			else if (shader->defaultShader) {
 				ri.Printf( PRINT_DEVELOPER, "WARNING: shader %s in skin %s not found\n", shader->name, skin->name);
 			}
-		//} else if ( surface->numShaders <= 0 ) {
-			//shader = tr.defaultShader;
+		} else if ( surface->numShaderIndexes <= 0 ) {
+			shader = tr.defaultShader;
 		} else {
-			//md3Shader = (md3Shader_t *) ( (byte *)surface + surface->ofsShaders );
-			//md3Shader += ent->e.skinNum % surface->numShaders;
-			//shader = tr.shaders[ md3Shader->shaderIndex ];
 			shader = tr.shaders[ surface->shaderIndexes[ ent->e.skinNum % surface->numShaderIndexes ] ];
 		}
 
