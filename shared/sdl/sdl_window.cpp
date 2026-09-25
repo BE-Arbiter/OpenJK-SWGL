@@ -825,9 +825,8 @@ window_t WIN_Init( const windowDesc_t *windowDesc, glconfig_t *glConfig )
 		}
 	}
 
-	// The gamma ramp applies to the whole display, so two renderers cannot each set one.
 	glConfig->deviceSupportsGamma =
-		(qboolean)(!win_dual && !r_ignorehwgamma->integer && SDL_SetWindowBrightness( screen, 1.0f ) >= 0);
+		(qboolean)(!r_ignorehwgamma->integer && SDL_SetWindowBrightness( screen, 1.0f ) >= 0);
 
 	// This depends on SDL_INIT_VIDEO, hence having it here
 	if ( win_slot == win_shownSlot )
@@ -900,6 +899,11 @@ void WIN_Shutdown( void )
 		// The window of the other renderer is left. The next window of this slot is hidden.
 		win_shownSlot ^= 1;
 	}
+}
+
+qboolean WIN_GammaInSoftware( void )
+{
+	return win_dual;
 }
 
 void WIN_SetDual( qboolean dual )
@@ -980,6 +984,11 @@ void WIN_SetGamma( glconfig_t *glConfig, byte red[256], byte green[256], byte bl
 	int i, j;
 
 	if( !glConfig->deviceSupportsGamma || r_ignorehwgamma->integer > 0 )
+		return;
+
+	// g_FastRendererSwitch: the ramp is display-wide and a screenshot never shows it. The
+	// renderer applies it to its own frame instead (WIN_GammaInSoftware).
+	if ( win_dual )
 		return;
 
 	for (i = 0; i < 256; i++)

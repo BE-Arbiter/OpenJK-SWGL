@@ -1881,6 +1881,8 @@ void RE_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 
 	// shut down platform specific OpenGL stuff
 	if ( destroyWindow ) {
+		extern void RB_ResetSoftwareGamma( void );
+		RB_ResetSoftwareGamma();	// the GL context goes with the window
 		ri.WIN_Shutdown();
 	}
 	tr.registered = qfalse;

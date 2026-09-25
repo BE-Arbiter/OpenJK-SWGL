@@ -1528,6 +1528,139 @@ RB_SwapBuffers
 
 =============
 */
+/*
+==============================================================================
+
+SOFTWARE GAMMA
+
+g_FastRendererSwitch: the window has no hardware gamma ramp, because the ramp is display
+wide and a screenshot never shows it. The ramp that WIN_SetGamma would get is applied
+here to the finished frame, so the screen, screenshots and the split view all show it.
+
+==============================================================================
+*/
+
+#define GL_PROGRAM_ERROR_POSITION_ARB	0x864B
+
+static GLuint	rb_gammaScreen, rb_gammaTable, rb_gammaProgram;
+static int		rb_gammaWidth, rb_gammaHeight;
+static qboolean	rb_gammaFailed;
+static byte		rb_gammaUploaded[256];
+
+// Each channel goes through the 256 entry table; the MAD moves the lookup to texel centres.
+static const char *rb_gammaProgramText =
+	"!!ARBfp1.0\n"
+	"TEMP c, r, g, b;\n"
+	"TEX c, fragment.texcoord[0], texture[0], 2D;\n"
+	"MAD c, c, 0.99609375, 0.001953125;\n"
+	"TEX r, c.x, texture[1], 2D;\n"
+	"TEX g, c.y, texture[1], 2D;\n"
+	"TEX b, c.z, texture[1], 2D;\n"
+	"MOV result.color.x, r.x;\n"
+	"MOV result.color.y, g.y;\n"
+	"MOV result.color.z, b.z;\n"
+	"MOV result.color.w, 1.0;\n"
+	"END\n";
+
+// The GL context goes with the window, and the handles with it.
+void RB_ResetSoftwareGamma( void )
+{
+	rb_gammaScreen = rb_gammaTable = rb_gammaProgram = 0;
+	rb_gammaWidth = rb_gammaHeight = 0;
+	rb_gammaFailed = qfalse;
+}
+
+static void RB_ApplySoftwareGamma( void )
+{
+	extern const unsigned char *R_GetGammaTable( void );
+	const int width = glConfig.vidWidth;
+	const int height = glConfig.vidHeight;
+	const unsigned char *table = R_GetGammaTable();
+
+	if ( rb_gammaFailed || !qglGenProgramsARB || !qglActiveTextureARB ) {
+		return;
+	}
+
+	if ( !rb_gammaProgram ) {
+		int errorPosition = -1;
+
+		qglGenProgramsARB( 1, &rb_gammaProgram );
+		qglBindProgramARB( GL_FRAGMENT_PROGRAM_ARB, rb_gammaProgram );
+		qglProgramStringARB( GL_FRAGMENT_PROGRAM_ARB, GL_PROGRAM_FORMAT_ASCII_ARB, (GLsizei)strlen( rb_gammaProgramText ), rb_gammaProgramText );
+		qglGetIntegerv( GL_PROGRAM_ERROR_POSITION_ARB, &errorPosition );
+		if ( errorPosition != -1 ) {
+			ri.Printf( PRINT_WARNING, "software gamma: fragment program error at %d, the frame stays without gamma\n", errorPosition );
+			rb_gammaFailed = qtrue;
+			return;
+		}
+	}
+
+	if ( !rb_gammaScreen || rb_gammaWidth != width || rb_gammaHeight != height ) {
+		if ( !rb_gammaScreen ) {
+			qglGenTextures( 1, &rb_gammaScreen );
+		}
+		qglBindTexture( GL_TEXTURE_2D, rb_gammaScreen );
+		qglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL );
+		qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+		qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+		qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+		qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+		rb_gammaWidth = width;
+		rb_gammaHeight = height;
+	}
+
+	if ( !rb_gammaTable || memcmp( rb_gammaUploaded, table, sizeof( rb_gammaUploaded ) ) ) {
+		byte rgb[256 * 3];
+
+		for ( int i = 0; i < 256; i++ ) {
+			rgb[i * 3 + 0] = rgb[i * 3 + 1] = rgb[i * 3 + 2] = table[i];
+		}
+		if ( !rb_gammaTable ) {
+			qglGenTextures( 1, &rb_gammaTable );
+		}
+		qglBindTexture( GL_TEXTURE_2D, rb_gammaTable );
+		qglTexImage2D( GL_TEXTURE_2D, 0, GL_RGB8, 256, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, rgb );
+		qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+		qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+		qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+		qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+		memcpy( rb_gammaUploaded, table, sizeof( rb_gammaUploaded ) );
+	}
+
+	// Copy the frame, then draw it back through the table.
+	GL_SelectTexture( 1 );
+	qglBindTexture( GL_TEXTURE_2D, rb_gammaTable );
+	GL_SelectTexture( 0 );
+	qglBindTexture( GL_TEXTURE_2D, rb_gammaScreen );
+	qglCopyTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height );
+
+	qglViewport( 0, 0, width, height );
+	qglScissor( 0, 0, width, height );
+	qglMatrixMode( GL_PROJECTION );
+	qglLoadIdentity();
+	qglOrtho( 0, 1, 0, 1, 0, 1 );
+	qglMatrixMode( GL_MODELVIEW );
+	qglLoadIdentity();
+	GL_State( GLS_DEPTHTEST_DISABLE );
+	qglDisable( GL_CULL_FACE );
+	qglDisable( GL_CLIP_PLANE0 );
+
+	qglEnable( GL_FRAGMENT_PROGRAM_ARB );
+	qglBindProgramARB( GL_FRAGMENT_PROGRAM_ARB, rb_gammaProgram );
+	qglColor4f( 1, 1, 1, 1 );
+	qglBegin( GL_QUADS );
+	qglTexCoord2f( 0, 0 ); qglVertex2f( 0, 0 );
+	qglTexCoord2f( 1, 0 ); qglVertex2f( 1, 0 );
+	qglTexCoord2f( 1, 1 ); qglVertex2f( 1, 1 );
+	qglTexCoord2f( 0, 1 ); qglVertex2f( 0, 1 );
+	qglEnd();
+	qglDisable( GL_FRAGMENT_PROGRAM_ARB );
+
+	// The bindings above went round GL_Bind, so its record of them is wrong.
+	glState.currenttextures[0] = glState.currenttextures[1] = 0;
+	backEnd.projection2D = qfalse;
+}
+
 static byte	*captureRGBA;
 static int	captureWidth, captureHeight;
 
@@ -1606,6 +1739,10 @@ const void	*RB_SwapBuffers( const void *data ) {
 	}
 
     GLimp_LogComment( "***************** RB_SwapBuffers *****************\n\n\n" );
+
+	if ( glConfig.deviceSupportsGamma && ri.WIN_GammaInSoftware && ri.WIN_GammaInSoftware() ) {
+		RB_ApplySoftwareGamma();
+	}
 
 	if ( captureRGBA ) {
 		RB_CaptureFrame();

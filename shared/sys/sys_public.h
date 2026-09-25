@@ -198,6 +198,7 @@ void		WIN_Shutdown( void );
 void		WIN_SetDual( qboolean dual );		// g_FastRendererSwitch: two renderers, one window each
 void		WIN_SelectSlot( int slot );			// window slot of the renderer that runs next
 void		WIN_ShowSlot( int slot );			// put the window of this slot on screen
+qboolean	WIN_GammaInSoftware( void );		// dual mode: no hardware gamma ramp, the renderer applies its own
 void *		WIN_GL_GetProcAddress( const char *proc );
 qboolean	WIN_GL_ExtensionSupported( const char *extension );
 

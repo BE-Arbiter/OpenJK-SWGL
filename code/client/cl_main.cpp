@@ -1181,6 +1181,7 @@ void CL_InitRef( void ) {
 	rit.VK_GetInstanceProcAddress = WIN_VK_GetInstanceProcAddress;
 	rit.VK_createSurfaceImpl = WIN_VK_createSurfaceImpl;
 	rit.VK_destroyWindow = WIN_VK_destroyWindow;
+	rit.WIN_GammaInSoftware = WIN_GammaInSoftware;
 
 	rit.PD_Load = PD_Load;
 	rit.PD_Store = PD_Store;

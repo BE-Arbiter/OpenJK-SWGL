@@ -94,7 +94,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // The trailing + 4 is the G-buffer family: normal, depth, motion vectors (r_velocityBuffer)
 // and the ambient occlusion target (r_ssao). They are allocated from this same pool, and
 // leaving the count at its pre-G-buffer value overflowed it as soon as bloom was also on.
-#define MAX_ATTACHMENTS_IN_POOL			( 6 + ( ( 1 + VK_NUM_BLUR_PASSES * 2 ) * 2 ) + 1 + 4 ) 
+// The last + 1 is the capture buffer, which the FBO always has now.
+#define MAX_ATTACHMENTS_IN_POOL			( 6 + ( ( 1 + VK_NUM_BLUR_PASSES * 2 ) * 2 ) + 1 + 4 + 1 )
 
 #define VK_DESC_STORAGE					0
 #define VK_DESC_UNIFORM					0

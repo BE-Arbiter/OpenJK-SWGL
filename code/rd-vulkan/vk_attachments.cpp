@@ -413,9 +413,10 @@ void vk_create_attachments( void )
                 &vk.msaa_image, &vk.msaa_image_view, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, qtrue );
         }
 
-        // SSAA
-        if ( r_ext_supersample->integer ) {
-            // capture buffer
+        // Capture buffer, at the output size. It goes through the same gamma and overbright
+        // pass as the screen. Without it, vk_read_pixels reads the colour image before that
+        // pass, so screenshots and g_ShowSplit do not show what the screen shows.
+        {
             usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
             create_color_attachment( gls.captureWidth, gls.captureHeight, VK_SAMPLE_COUNT_1_BIT, vk.capture_format,
                 usage, &vk.capture.image, &vk.capture.image_view , VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, qfalse );

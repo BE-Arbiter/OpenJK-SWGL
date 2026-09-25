@@ -597,6 +597,37 @@ static int DR_Pow2( int size )
 	return ( lower == size || lower * 10 >= size * 7 ) ? lower : lower * 2;
 }
 
+// Makes the image of the other renderer show on screen as it shows in its own window.
+// The capture F already holds that renderer's gamma and overbright. The renderer on screen
+// shows a raw image x as pow( x / 2^ob, 1 / r_gamma ) * 2^ob, so x is the inverse of that.
+static void DR_MatchDisplay( int shown, byte *rgba, int count )
+{
+	byte lut[256];
+	const float gamma = Com_Clamp( 0.5f, 3.0f, Cvar_VariableValue( "r_gamma" ) );
+	int ob;
+
+	if ( Q_stristr( dr_names[shown], "vulkan" ) ) {
+		// The gamma pass scales by the overbright, except for the tracer's image.
+		ob = Cvar_VariableIntegerValue( "r_rtxActive" ) ? 0 : Com_Clampi( 0, 2, Cvar_VariableIntegerValue( "r_overBrightBits" ) );
+	} else {
+		// rd-vanilla only overbrights in fullscreen, with its gamma table.
+		ob = ( Cvar_VariableIntegerValue( "r_fullscreen" ) && !Cvar_VariableIntegerValue( "r_ignorehwgamma" ) )
+			? Com_Clampi( 0, 1, Cvar_VariableIntegerValue( "r_overBrightBits" ) ) : 0;
+	}
+
+	const float scale = (float)( 1 << ob );
+	for ( int v = 0; v < 256; v++ ) {
+		const float x = scale * powf( ( v / 255.0f ) / scale, gamma );
+		lut[v] = (byte)Com_Clampi( 0, 255, (int)( x * 255.0f + 0.5f ) );
+	}
+
+	for ( int i = 0; i < count; i++, rgba += 4 ) {
+		rgba[0] = lut[rgba[0]];
+		rgba[1] = lut[rgba[1]];
+		rgba[2] = lut[rgba[2]];
+	}
+}
+
 // Renders the other renderer, then draws its right half over the right half of this one.
 static void DR_DrawSplit( int shown, int other )
 {
@@ -620,6 +651,7 @@ static void DR_DrawSplit( int shown, int other )
 	for ( int y = 0; y < halfHeight; y++ ) {
 		memcpy( dr_half + y * halfWidth * 4, dr_capture + ( y * halfWidth * 2 + halfWidth ) * 4, halfWidth * 4 );
 	}
+	DR_MatchDisplay( shown, dr_half, halfWidth * halfHeight );
 
 	refexport_t &R = DR( shown );
 	static const float divider[4] = { 1.0f, 1.0f, 1.0f, 1.0f };

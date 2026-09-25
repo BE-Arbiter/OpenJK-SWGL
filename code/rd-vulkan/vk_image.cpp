@@ -1596,8 +1596,10 @@ void RE_UploadCinematic( int cols, int rows, const byte *data, int client, qbool
 	image_t *image;
 
     if ( !tr.scratchImage[client] ) {
-		tr.scratchImage[client] = R_CreateImage(va("*scratch%i", client), (byte*)data, cols, rows, 
-			IMGFLAG_CLAMPTOEDGE | IMGFLAG_RGB | IMGFLAG_NOSCALE | IMGFLAG_NO_COMPRESSION);
+		// Not IMGFLAG_RGB: that makes an sRGB image, and the raster would decode the frame
+		// it draws on screen (cinematics, g_ShowSplit) to linear, which darkens it.
+		tr.scratchImage[client] = R_CreateImage(va("*scratch%i", client), (byte*)data, cols, rows,
+			IMGFLAG_CLAMPTOEDGE | IMGFLAG_NOSCALE | IMGFLAG_NO_COMPRESSION);
 		return;
     }
 

@@ -150,6 +150,10 @@ typedef struct {
 	// the ghoul2 instances of the first renderer, not its own.
 	IGhoul2InfoArray &	(*TheGhoul2InfoArray)				( void );
 
+	// g_FastRendererSwitch: the window has no hardware gamma ramp. A renderer that relies on
+	// one applies its ramp to the finished frame instead.
+	qboolean			(*WIN_GammaInSoftware)				( void );
+
 } refimport_t;
 
 extern refimport_t ri;
