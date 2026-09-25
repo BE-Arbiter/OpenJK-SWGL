@@ -135,6 +135,8 @@ if(BuildSPEngine)
 
 		"${SPDir}/client/cl_cgame.cpp"
 		"${SPDir}/client/cl_cin.cpp"
+		"${SPDir}/client/cl_dualref.cpp"
+		"${SPDir}/client/cl_dualref.h"
 		"${SPDir}/client/cl_console.cpp"
 		"${SPDir}/client/cl_input.cpp"
 		"${SPDir}/client/cl_keys.cpp"

@@ -1528,6 +1528,45 @@ RB_SwapBuffers
 
 =============
 */
+static byte	*captureRGBA;
+static int	captureWidth, captureHeight;
+
+void RE_CaptureNextFrame( byte *rgba, int width, int height )
+{
+	captureRGBA = rgba;
+	captureWidth = width;
+	captureHeight = height;
+}
+
+// Copies the back buffer into the requested capture buffer, nearest sampled.
+static void RB_CaptureFrame( void )
+{
+	extern byte *RB_ReadPixels( int x, int y, int width, int height, size_t *offset, int *padlen );
+	size_t offset = 0;
+	int padlen;
+	const int srcWidth = glConfig.vidWidth;
+	const int srcHeight = glConfig.vidHeight;
+	byte *source = RB_ReadPixels( 0, 0, srcWidth, srcHeight, &offset, &padlen );
+	const int srcPitch = srcWidth * 3 + padlen;
+
+	for ( int y = 0; y < captureHeight; y++ ) {
+		// The GL rows start at the bottom of the screen.
+		const int sy = srcHeight - 1 - ( y * srcHeight ) / captureHeight;
+		const byte *srcRow = source + offset + sy * srcPitch;
+		byte *dst = captureRGBA + y * captureWidth * 4;
+		for ( int x = 0; x < captureWidth; x++, dst += 4 ) {
+			const byte *src = srcRow + ( ( x * srcWidth ) / captureWidth ) * 3;
+			dst[0] = src[0];
+			dst[1] = src[1];
+			dst[2] = src[2];
+			dst[3] = 255;
+		}
+	}
+
+	R_Free( source );
+	captureRGBA = NULL;
+}
+
 extern void RB_RenderWorldEffects( void );
 const void	*RB_SwapBuffers( const void *data ) {
 	const swapBuffersCommand_t	*cmd;
@@ -1567,6 +1606,10 @@ const void	*RB_SwapBuffers( const void *data ) {
 	}
 
     GLimp_LogComment( "***************** RB_SwapBuffers *****************\n\n\n" );
+
+	if ( captureRGBA ) {
+		RB_CaptureFrame();
+	}
 
 	ri.WIN_Present(&window);
 

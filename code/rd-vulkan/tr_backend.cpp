@@ -1849,6 +1849,44 @@ RB_SwapBuffers
 
 =============
 */
+byte		*rb_captureRGBA;
+static int	rb_captureWidth, rb_captureHeight;
+
+void RE_CaptureNextFrame( byte *rgba, int width, int height )
+{
+	rb_captureRGBA = rgba;
+	rb_captureWidth = width;
+	rb_captureHeight = height;
+}
+
+// Copies the capture image of the frame into the requested buffer, nearest sampled.
+static void RB_CaptureFrame( void )
+{
+	size_t offset = 0;
+	int padlen;
+	const int srcWidth = gls.captureWidth;
+	const int srcHeight = gls.captureHeight;
+	byte *source = RB_ReadPixels( 0, 0, srcWidth, srcHeight, &offset, &padlen, 0 );
+	const int srcPitch = srcWidth * 3 + padlen;
+
+	for ( int y = 0; y < rb_captureHeight; y++ ) {
+		// RB_ReadPixels puts the bottom row first.
+		const int sy = srcHeight - 1 - ( y * srcHeight ) / rb_captureHeight;
+		const byte *srcRow = source + offset + sy * srcPitch;
+		byte *dst = rb_captureRGBA + y * rb_captureWidth * 4;
+		for ( int x = 0; x < rb_captureWidth; x++, dst += 4 ) {
+			const byte *src = srcRow + ( ( x * srcWidth ) / rb_captureWidth ) * 3;
+			dst[0] = src[0];
+			dst[1] = src[1];
+			dst[2] = src[2];
+			dst[3] = 255;
+		}
+	}
+
+	Hunk_FreeTempMemory( source );
+	rb_captureRGBA = NULL;
+}
+
 const void	*RB_SwapBuffers( const void *data ) {
 	const swapBuffersCommand_t	*cmd;
 
@@ -1905,6 +1943,10 @@ const void	*RB_SwapBuffers( const void *data ) {
 		backEnd.screenshotTGA[0] = '\0';
 		backEnd.screenshotPNG[0] = '\0';
 		backEnd.screenshotMask = 0;
+	}
+
+	if ( rb_captureRGBA && vk.cmd->waitForFence ) {
+		RB_CaptureFrame();
 	}
 
 	vk_present_frame();

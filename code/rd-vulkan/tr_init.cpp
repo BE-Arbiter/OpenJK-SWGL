@@ -1528,6 +1528,7 @@ static void stub_GetModelBounds( refEntity_t *refEnt, vec3_t bounds1, vec3_t bou
 extern void G2Time_ResetTimers(void);
 extern void G2Time_ReportTimers(void);
 #endif
+void RE_CaptureNextFrame( byte *rgba, int width, int height );
 
 /*
 @@@@@@@@@@@@@@@@@@@@@
@@ -1696,6 +1697,8 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.G2Time_ResetTimers					= G2Time_ResetTimers;
 	re.G2Time_ReportTimers					= G2Time_ReportTimers;
 #endif
+
+	re.CaptureNextFrame						= RE_CaptureNextFrame;
 
 	// Fields left unassigned here are NULL in a zero-initialized refexport_t
 	// -- any caller reaching them crashes at a null function pointer, so

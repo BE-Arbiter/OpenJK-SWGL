@@ -685,6 +685,10 @@ public:
 static Ghoul2InfoArray *singleton = NULL;
 IGhoul2InfoArray &TheGhoul2InfoArray()
 {
+	// g_FastRendererSwitch: the second renderer draws the instances of the first one.
+	if ( ri.TheGhoul2InfoArray ) {
+		return ri.TheGhoul2InfoArray();
+	}
 	if(!singleton) {
 		singleton = new Ghoul2InfoArray;
 	}
@@ -713,6 +717,10 @@ void TestAllGhoul2Anims()
 
 void RestoreGhoul2InfoArray()
 {
+	// The first renderer owns the instances and keeps them across a restart.
+	if ( ri.TheGhoul2InfoArray ) {
+		return;
+	}
 	if (singleton == NULL)
 	{
 		// Create the ghoul2 info array
@@ -738,6 +746,9 @@ void RestoreGhoul2InfoArray()
 
 void SaveGhoul2InfoArray()
 {
+	if ( ri.TheGhoul2InfoArray ) {
+		return;
+	}
 	size_t size = singleton->GetSerializedSize();
 	void *data = R_Malloc (size, TAG_GHOUL2, qfalse);
 #ifdef _DEBUG

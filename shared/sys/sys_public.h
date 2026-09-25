@@ -195,6 +195,9 @@ window_t	WIN_Init( const windowDesc_t *desc, glconfig_t *glConfig );
 void		WIN_Present( window_t *window );
 void		WIN_SetGamma( glconfig_t *glConfig, byte red[256], byte green[256], byte blue[256] );
 void		WIN_Shutdown( void );
+void		WIN_SetDual( qboolean dual );		// g_FastRendererSwitch: two renderers, one window each
+void		WIN_SelectSlot( int slot );			// window slot of the renderer that runs next
+void		WIN_ShowSlot( int slot );			// put the window of this slot on screen
 void *		WIN_GL_GetProcAddress( const char *proc );
 qboolean	WIN_GL_ExtensionSupported( const char *extension );
 

@@ -146,6 +146,10 @@ typedef struct {
 	qboolean			(*VK_createSurfaceImpl)				( VkInstance instance, VkSurfaceKHR *surface );
 	void				(*VK_destroyWindow)					( void );
 
+	// g_FastRendererSwitch: set for the second renderer only. That renderer then uses
+	// the ghoul2 instances of the first renderer, not its own.
+	IGhoul2InfoArray &	(*TheGhoul2InfoArray)				( void );
+
 } refimport_t;
 
 extern refimport_t ri;
@@ -394,6 +398,10 @@ typedef struct {
 	// Performance analysis (perform anal)
 	void		(*G2Time_ResetTimers)(void);
 	void		(*G2Time_ReportTimers)(void);
+
+	// g_FastRendererSwitch: the next EndFrame copies its final image into rgba before it
+	// presents. The image is width x height, 4 bytes per pixel, top row first.
+	void		(*CaptureNextFrame)(byte *rgba, int width, int height);
 } refexport_t;
 
 // this is the only function actually exported at the linker level

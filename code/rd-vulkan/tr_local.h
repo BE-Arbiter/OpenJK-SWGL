@@ -2826,6 +2826,8 @@ void		WIN_Shutdown( void );
 void		R_TakeScreenshot( int x, int y, int width, int height, char *fileName );
 void		R_TakeScreenshotJPEG( int x, int y, int width, int height, char *fileName );
 void		R_TakeScreenshotPNG( int x, int y, int width, int height, char *fileName );
+byte		*RB_ReadPixels( int x, int y, int width, int height, size_t *offset, int *padlen, int lineAlign );
+extern byte	*rb_captureRGBA;	// set by RE_CaptureNextFrame
 
 // lights
 #ifdef USE_PMLIGHT

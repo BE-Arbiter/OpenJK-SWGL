@@ -1987,7 +1987,7 @@ void vk_end_frame( void )
                 vk_rtx_begin_blit();
 #endif
 
-            if ( backEnd.screenshotMask && vk.capture.image )
+            if ( ( backEnd.screenshotMask || rb_captureRGBA ) && vk.capture.image )
             {
                 vk_end_render_pass();
 

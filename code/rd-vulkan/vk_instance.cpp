@@ -1249,6 +1249,14 @@ __initStart:
 		return;
 	}
 
+	// Tells the client if the tracer really runs: r_rtx 1 asks for it, the GPU decides.
+	ri.Cvar_Get( "r_rtxActive", "0", CVAR_TEMP );
+#ifdef USE_RTX
+	ri.Cvar_Set( "r_rtxActive", vk.rtxActive ? "1" : "0" );
+#else
+	ri.Cvar_Set( "r_rtxActive", "0" );
+#endif
+
 	//
 	// Get device level functions.
 	//

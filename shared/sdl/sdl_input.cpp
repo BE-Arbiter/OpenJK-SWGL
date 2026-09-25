@@ -1384,6 +1384,10 @@ static void IN_ProcessEvents(void)
 			break;
 
 		case SDL_WINDOWEVENT:
+			// g_FastRendererSwitch: the hidden window of the other renderer also sends events.
+			if (SDL_window && e.window.windowID != SDL_GetWindowID(SDL_window))
+				break;
+
 			switch (e.window.event)
 			{
 			case SDL_WINDOWEVENT_MINIMIZED:    Cvar_SetValue("com_minimized", 1); break;
@@ -1400,6 +1404,10 @@ static void IN_ProcessEvents(void)
 			{
 				Cvar_SetValue("com_unfocused", 0);
 				SNDDMA_Activate(qtrue);
+
+				// Attach text input to this window. It can still be on a window that is now hidden.
+				if (SDL_IsTextInputActive())
+					SDL_StartTextInput();
 				break;
 			}
 			}
@@ -1455,6 +1463,25 @@ void IN_Restart(void)
 	IN_Init(backupWindow);
 }
 
+
+/*
+===============
+IN_SetWindow
+
+g_FastRendererSwitch: moves input to the window of the other renderer. Text input is not
+stopped: SDL moves it to the new window when that window gets the keyboard focus.
+===============
+*/
+void IN_SetWindow(void* windowData)
+{
+	IN_DeactivateMouse();
+
+	SDL_window = (SDL_Window*)windowData;
+
+	const Uint32 flags = SDL_GetWindowFlags(SDL_window);
+	Cvar_SetValue("com_unfocused", (flags & SDL_WINDOW_INPUT_FOCUS) == 0);
+	Cvar_SetValue("com_minimized", (flags & SDL_WINDOW_MINIMIZED) != 0);
+}
 
 /*
 ===============

@@ -2009,6 +2009,7 @@ extern void G2API_SetRagDoll(CGhoul2Info_v &ghoul2,CRagDollParams *parms);
 extern void G2Time_ResetTimers(void);
 extern void G2Time_ReportTimers(void);
 #endif
+void RE_CaptureNextFrame( byte *rgba, int width, int height );
 extern IGhoul2InfoArray &TheGhoul2InfoArray();
 
 #ifdef JK2_MODE
@@ -2216,6 +2217,8 @@ extern "C" Q_EXPORT refexport_t* QDECL GetRefAPI ( int apiVersion, refimport_t *
 	re.G2Time_ReportTimers = G2Time_ReportTimers;
 	re.G2Time_ResetTimers = G2Time_ResetTimers;
 #endif
+
+	re.CaptureNextFrame = RE_CaptureNextFrame;
 
 	//Swap_Init();
 
