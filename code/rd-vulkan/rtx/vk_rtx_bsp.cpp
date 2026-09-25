@@ -1934,7 +1934,9 @@ static void vk_rtx_collect_surfaces( uint32_t *prim_ctr, vk_geometry_data_t *geo
 		else 
 		{
 			{	// ~sunny, debug
-				if ( strstr( shader->name, "glass" ) )
+				// A glass shader that blends is composed with its GL factors as a layer in
+				// primary_rays. The Q2RTX glass refracts and reflects it like a mirror.
+				if ( strstr( shader->name, "glass" ) && ( !mat || mat->blend_mode == RTX_BLEND_OPAQUE ) )
 					material_id = MAT_SetKind(material_id, MATERIAL_KIND_GLASS);
 
 				if ( strstr( shader->name, "botton") || strstr( shader->name, "door02") ) 
