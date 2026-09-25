@@ -123,7 +123,6 @@ void ChangeCharacter(int characterIndex, int variantIndex = 0)
 	cgi_UI_Run_Command("uiScript saber2_hilt");
 	cgi_UI_Run_Command("uiScript char_weapon");
 	cgi_UI_Run_Command("uiScript \"char_default_skin\" \"model_default\"");
-	cgi_UI_Run_Command("uiScript ui_char_update_model");
 	cgi_UI_Run_Command("uiScript charConfigRefresh");
 }
 
@@ -540,7 +539,8 @@ void CG_DrawCharacterTitle() {
 		return;
 	}
 	// Height of one line: the menu titles use this font at scale 1.
-	const int font = cgi_R_RegisterFont("anewhope");
+	// Registered once at media load: a register call per frame searches the pk3s for a font variant.
+	const int font = cgs.media.qhFontTitle;
 	const int lineH = Q_min(cgi_R_Font_HeightPixels(font, 1.0f), boxH);
 	CG_DrawTextInBox(boxX + padding, boxY + (boxH - lineH) / 2, boxW - 2 * padding, lineH, shownTitle, font, color);
 	cgi_R_SetColor(NULL);

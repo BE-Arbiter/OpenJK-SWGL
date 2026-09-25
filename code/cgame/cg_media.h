@@ -262,6 +262,7 @@ typedef struct {
 	//
 	qhandle_t	qhFontSmall;
 	qhandle_t	qhFontMedium;
+	qhandle_t	qhFontTitle;		// anewhope: font of the menu titles (font 3)
 
 	// special effects models / etc.
 	qhandle_t	personalShieldShader;

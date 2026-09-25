@@ -2361,6 +2361,7 @@ void CG_Init( int serverCommandSequence ) {
 
 	cgs.media.qhFontSmall = cgi_R_RegisterFont("ocr_a");
 	cgs.media.qhFontMedium= cgi_R_RegisterFont("ergoec");
+	cgs.media.qhFontTitle = cgi_R_RegisterFont("anewhope");
 
 	cgs.media.whiteShader   = cgi_R_RegisterShader( "white" );
 	cgs.media.loadTick		= cgi_R_RegisterShaderNoMip( "gfx/hud/load_tick" );
