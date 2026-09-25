@@ -102,6 +102,30 @@ static void vk_destroy_tonemap_shaders( void )
 	#undef SHADER_MODULE_DO
 }
 
+// bloom
+void vk_load_bloom_shaders( void )
+{
+	#define SHADER_MODULE_DO( _index, _spirv_handle ) \
+	{ \
+		if ( vk.bloom_shader[##_index] == NULL ) {\
+			vk.bloom_shader[##_index] = (vkshader_t*)malloc(sizeof(vkshader_t)); \
+			vk_rtx_load_shader( vk.bloom_shader[##_index], ##_spirv_handle, sizeof(##_spirv_handle), VK_SHADER_STAGE_COMPUTE_BIT ); \
+		} \
+	}
+	LIST_BLOOM_SHADERS
+	#undef SHADER_MODULE_DO
+}
+
+static void vk_destroy_bloom_shaders( void )
+{
+	#define SHADER_MODULE_DO( _index, ... ) \
+		vk_rtx_destroy_shader( vk.bloom_shader[##_index] ); \
+		free( vk.bloom_shader[##_index] ); \
+		vk.bloom_shader[##_index] = NULL; 
+	LIST_BLOOM_SHADERS
+	#undef SHADER_MODULE_DO
+}
+
 // asvgf
 void vk_load_asvgf_shaders( void ) 
 {
@@ -167,6 +191,7 @@ void vk_rtx_destroy_shaders( void )
 
 	vk_destroy_asvgf_shaders();
 	vk_destroy_tonemap_shaders();
+	vk_destroy_bloom_shaders();
 }
 
 #define LIST_PATH_TRACER_SHADERS \

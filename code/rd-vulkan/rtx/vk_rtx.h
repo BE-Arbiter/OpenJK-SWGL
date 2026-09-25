@@ -40,6 +40,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "shaders/glsl/rtx/inspector.h"
 #include "vk_rtx_asvgf.h"
 #include "vk_rtx_tonemap.h"
+#include "vk_rtx_bloom.h"
 #include "vk_rtx_precomputed_sky.h"
 #include "vk_rtx_physical_sky.h"
 
@@ -176,6 +177,10 @@ typedef struct {
 	qboolean	uploaded[VK_MAX_SWAPCHAIN_SIZE];
 	uint32_t	albedo;
 	uint32_t	emissive;	// glow
+	qboolean	glow_emissive;	// emissive comes from a glow stage, scaled by pt_glow_scale
+	uint32_t	anim_first;		// material of the next animMap frame (a frame material), or of frame 0
+	uint32_t	anim_frames;	// frames of the animMaps, 0 for a frame material
+	qboolean	anim_oneshot;
 	uint32_t	normals;
 	uint32_t	phyiscal;
 	vec4_t		specular_scale;
@@ -712,6 +717,17 @@ VkResult	vk_rtx_god_rays_noop( void );
 void		vk_rtx_record_god_rays_trace_command_buffer( VkCommandBuffer command_buffer, int pass );
 void		vk_rtx_record_god_rays_filter_command_buffer( VkCommandBuffer command_buffer );
 void		vk_rtx_get_god_rays_shadowmap( VkImageView &view, VkSampler &sampler );
+
+// animated images
+void		vk_rtx_animate_materials( const trRefdef_t *refdef );
+
+// bloom
+extern cvar_t	*cvar_bloom_enable;
+void		vk_load_bloom_shaders( void );
+void		vk_rtx_create_bloom_pipelines( void );
+void		vk_rtx_destroy_bloom_pipelines( void );
+void		vk_rtx_bloom_update( vkUniformRTX_t *ubo );
+void		vk_rtx_bloom_record_cmd_buffer( VkCommandBuffer cmd_buf );
 
 // models
 void		vk_rtx_extract_model_lights_mdxm( model_t *model );

@@ -41,9 +41,13 @@ bool MAT_IsKind(uint32_t material, uint32_t kind)
 	return (material & MATERIAL_KIND_MASK) == kind;
 }
 
+// Frame materials are taken from the top of the table, clear of the shaders.
+static uint32_t rtx_next_frame_material = MATERIAL_INDEX_MASK;
+
 void vk_rtx_clear_material_list( void ) 
 {
 	Com_Memset( &rtx_materials, 0, sizeof(rtx_materials) );
+	rtx_next_frame_material = MATERIAL_INDEX_MASK;
 }
 
 void vk_rtx_clear_material( uint32_t index ) 
@@ -197,6 +201,9 @@ uint32_t vk_rtx_find_emissive_texture( const shader_t *shader, rtx_material_t *m
 		{
 			if ( pStage->bundle[j].glow && pStage->bundle[j].image[0] ) 
 			{
+				if ( material != NULL )
+					material->glow_emissive = qtrue;
+
 				//Com_Printf("found glow texture: %d = %s", pStage->bundle[j].image[0]->index, pStage->bundle[j].image[0]->imgName );
 				
 				return pStage->bundle[j].image[0]->index;
@@ -467,6 +474,8 @@ static uint32_t vk_get_rtx_material_stage_blend_mode( uint32_t state_bits )
 	return RTX_BLEND_ALPHA;
 }
 
+static void vk_rtx_build_frame_materials( const shader_t *shader, rtx_material_t *mat );
+
 rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
 {
 	shader_t			*state;
@@ -505,6 +514,10 @@ rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
 
 	if ( mat->index >= (int)MATERIAL_INDEX_MASK || mat->remappedIndex >= (int)MATERIAL_INDEX_MASK  )
 		ri.Error( ERR_DROP, "%s() - MATERIAL_INDEX_MASK(4095) hit. Need to finaly seperate material_index from material_flags", __func__ );
+
+	// The frame materials sit at the top of the table (vk_rtx_build_frame_materials).
+	if ( mat->index > rtx_next_frame_material )
+		ri.Error( ERR_DROP, "%s() - shader %s (%u) reaches the frame materials (from %u)", __func__, shader->name, mat->index, rtx_next_frame_material + 1 );
 
 	uint32_t alphaBlend = 0;
 
@@ -587,6 +600,8 @@ rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
 		mat->alpha_test_value = 0.0f;
 	}
 
+	vk_rtx_build_frame_materials( shader, mat );
+
 	MAT_SetIndex( mat );
 
 	if ( pt_verbose->integer )
@@ -607,6 +622,18 @@ rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
 	}
 
 	return mat;
+}
+
+// JKA adds a glow stage on top of the lit texture, so the surface reads brighter than
+// its lighting. The tracer only emits it, at the brightness of the texture.
+static cvar_t *vk_rtx_glow_scale( void )
+{
+	static cvar_t *pt_glow_scale;
+
+	if ( !pt_glow_scale )
+		pt_glow_scale = ri.Cvar_Get( "pt_glow_scale", "4.0", CVAR_ARCHIVE_ND );
+
+	return pt_glow_scale;
 }
 
 VkResult vk_rtx_upload_materials( LightBuffer *lbo )
@@ -633,11 +660,23 @@ VkResult vk_rtx_upload_materials( LightBuffer *lbo )
 		data[3] =	floatToHalf( mat->specular_scale[2] );
 		data[3] |=	floatToHalf( mat->specular_scale[3] ) << 16;
 
-		data[4] =	mat->remappedIndex;
+		// Bits 0-11: remapped material. Bits 12-23: material of the first or next animMap frame,
+		// bits 24-30: frame count, bit 31: oneshotanimMap. See animate_material.
+		data[4] =	( mat->remappedIndex & MATERIAL_INDEX_MASK )
+					| ( ( mat->anim_first & MATERIAL_INDEX_MASK ) << 12 )
+					| ( MIN( mat->anim_frames, 127u ) << 24 )
+					| ( mat->anim_oneshot ? 0x80000000u : 0u );
 
 		data[5] |= (mat->alpha_test_func & 0x3);	// bits 0-1
 		data[5] |= (mat->blend_mode & RTX_BLEND_MASK) << 2;	// bits 2-4
 		data[5] |= floatToHalf(mat->alpha_test_value) << 16;
+
+		// Bits 8-15: emissive factor in eighths, 0 for 1.0. See get_material_info.
+		if ( mat->emissive && mat->glow_emissive )
+		{
+			const int eighths = (int)( vk_rtx_glow_scale()->value * 8.f + 0.5f );
+			data[5] |= (uint32_t)Com_Clampi( 1, 255, eighths ) << 8;
+		}
 
 		mat->uploaded[vk.current_frame_index] = qtrue;
 
@@ -647,4 +686,208 @@ VkResult vk_rtx_upload_materials( LightBuffer *lbo )
 	}
 
 	return VK_SUCCESS;
+}
+/*
+==============================================================================
+
+ANIMATED IMAGES
+
+A material holds one image per bundle. The image of every animMap stage follows the time
+here, the same way R_BindAnimatedImage does, and the material is uploaded again when it
+changes. A brush model instance can also ask for one frame of its own (a door shows its
+lock state this way): each frame then has a material of its own, see
+vk_rtx_build_frame_materials and animate_material in the shaders.
+
+==============================================================================
+*/
+
+static byte		rtx_anim_reported[MAX_SHADERS];	// pt_verbose: one line per shader
+
+static int vk_rtx_anim_frame( const shader_t *shader, const textureBundle_t *bundle, double time )
+{
+	int index;
+
+	if ( bundle->numImageAnimations <= 1 )
+		return 0;
+
+	// Same calculation as R_BindAnimatedImage, so the frames line up with waveforms.
+	index = Q_ftol( ( time - shader->timeOffset ) * bundle->imageAnimationSpeed * FUNCTABLE_SIZE );
+	index >>= FUNCTABLE_SIZE2;
+	if ( index < 0 )
+		index = 0;
+
+	if ( bundle->oneShotAnimMap )
+		return MIN( index, bundle->numImageAnimations - 1 );
+
+	return index % bundle->numImageAnimations;
+}
+
+// Frame k of a bundle, the way R_BindAnimatedImage treats an index set by the entity.
+static int vk_rtx_bundle_frame( const textureBundle_t *bundle, int k )
+{
+	if ( bundle->oneShotAnimMap )
+		return MIN( k, bundle->numImageAnimations - 1 );
+
+	return k % bundle->numImageAnimations;
+}
+
+// Same stage and bundle choice as vk_rtx_find_emissive_texture.
+static const textureBundle_t *vk_rtx_glow_bundle( const shader_t *shader )
+{
+	uint32_t i, j;
+
+	for ( i = 0; i < MAX_RTX_STAGES; i++ )
+	{
+		const shaderStage_t *pStage = shader->stages[i];
+
+		if ( !pStage || !pStage->active || !pStage->glow )
+			continue;
+
+		for ( j = 0; j < (uint32_t)pStage->numTexBundles; j++ )
+		{
+			if ( pStage->bundle[j].glow && pStage->bundle[j].image[0] )
+				return &pStage->bundle[j];
+		}
+	}
+
+	return NULL;
+}
+
+void vk_rtx_animate_materials( const trRefdef_t *refdef )
+{
+	int i;
+	uint32_t s, j, f;
+
+	// A new pt_glow_scale is in every glow material.
+	const qboolean rescale = vk_rtx_glow_scale()->modified;
+	vk_rtx_glow_scale()->modified = qfalse;
+
+	for ( i = 0; i < tr.numShaders && i < MAX_SHADERS; i++ )
+	{
+		const shader_t *shader = tr.shaders[i];
+		rtx_material_t *mat = vk_rtx_get_material( (uint32_t)i );
+		qboolean changed = qfalse;
+
+		if ( !shader || !mat || !mat->active )
+			continue;
+
+		for ( s = 0; s < mat->num_stages && s < MAX_RTX_STAGES; s++ )
+		{
+			const shaderStage_t *pStage = shader->stages[s];
+
+			if ( !pStage || !pStage->active )
+				break;
+
+			for ( j = 0; j <= mat->stage[s].tex_count && j < NUM_TEXTURE_BUNDLES; j++ )
+			{
+				const textureBundle_t *bundle = &pStage->bundle[j];
+
+				if ( bundle->numImageAnimations <= 1 || !bundle->image[0] )
+					continue;
+
+				f = (uint32_t)vk_rtx_anim_frame( shader, bundle, refdef->floatTime );
+				if ( bundle->image[f] && mat->stage[s].bundle[j].image != (uint32_t)bundle->image[f]->index )
+				{
+					mat->stage[s].bundle[j].image = bundle->image[f]->index;
+					if ( pt_verbose->integer && !( rtx_anim_reported[i] & 2 ) )
+					{
+						rtx_anim_reported[i] |= 2;
+						ri.Printf( PRINT_ALL, "rtx anim: %s stage %u bundle %u -> frame %u (%s)\n", shader->name, s, j, f, bundle->image[f]->imgName );
+					}
+					changed = qtrue;
+				}
+			}
+		}
+
+		const textureBundle_t *glow = vk_rtx_glow_bundle( shader );
+		if ( glow && glow->numImageAnimations > 1 )
+		{
+			f = (uint32_t)vk_rtx_anim_frame( shader, glow, refdef->floatTime );
+			if ( glow->image[f] && mat->emissive != (uint32_t)glow->image[f]->index )
+			{
+				mat->emissive = glow->image[f]->index;
+				changed = qtrue;
+			}
+		}
+
+		if ( rescale && mat->glow_emissive )
+			changed = qtrue;
+
+		if ( changed )
+			Com_Memset( mat->uploaded, 0, sizeof( mat->uploaded ) );
+	}
+}
+
+// A brush model instance can ask for one frame of its animMaps, which the shared material
+// cannot show. Each frame gets its own material, chained from the shader's material; the
+// instance frame picks one in animate_material.
+static void vk_rtx_build_frame_materials( const shader_t *shader, rtx_material_t *mat )
+{
+	uint32_t frames = 0, s, j, k;
+	qboolean oneshot = qfalse;
+
+	for ( s = 0; s < mat->num_stages && s < MAX_RTX_STAGES; s++ )
+	{
+		const shaderStage_t *pStage = shader->stages[s];
+
+		for ( j = 0; pStage && j <= mat->stage[s].tex_count && j < NUM_TEXTURE_BUNDLES; j++ )
+		{
+			if ( pStage->bundle[j].numImageAnimations > (int)frames )
+			{
+				frames = (uint32_t)pStage->bundle[j].numImageAnimations;
+				oneshot = (qboolean)pStage->bundle[j].oneShotAnimMap;
+			}
+		}
+	}
+
+	if ( frames <= 1 )
+		return;
+
+	frames = MIN( frames, 127u );
+
+	// The frame materials must stay above every shader index.
+	if ( rtx_next_frame_material < (uint32_t)tr.numShaders + frames + 64 )
+	{
+		if ( pt_verbose->integer )
+			ri.Printf( PRINT_WARNING, "rtx: no room for the %u frame materials of %s\n", frames, shader->name );
+		return;
+	}
+
+	const uint32_t first = rtx_next_frame_material - frames + 1;
+	rtx_next_frame_material -= frames;
+
+	const textureBundle_t *glow = vk_rtx_glow_bundle( shader );
+
+	for ( k = 0; k < frames; k++ )
+	{
+		rtx_material_t *frame = &rtx_materials[first + k];
+
+		*frame = *mat;
+		frame->index = first + k;
+		MAT_SetIndex( frame );
+		Com_Memset( frame->uploaded, 0, sizeof( frame->uploaded ) );
+		frame->anim_first = ( k + 1 < frames ) ? first + k + 1 : 0;
+		frame->anim_frames = 0;
+		frame->anim_oneshot = qfalse;
+
+		for ( s = 0; s < mat->num_stages && s < MAX_RTX_STAGES; s++ )
+		{
+			const shaderStage_t *pStage = shader->stages[s];
+
+			for ( j = 0; pStage && j <= mat->stage[s].tex_count && j < NUM_TEXTURE_BUNDLES; j++ )
+			{
+				const textureBundle_t *bundle = &pStage->bundle[j];
+
+				if ( bundle->numImageAnimations > 1 && bundle->image[0] )
+					frame->stage[s].bundle[j].image = bundle->image[vk_rtx_bundle_frame( bundle, (int)k )]->index;
+			}
+		}
+
+		if ( glow && glow->numImageAnimations > 1 )
+			frame->emissive = glow->image[vk_rtx_bundle_frame( glow, (int)k )]->index;
+	}
+
+	mat->anim_first = first;
+	mat->anim_frames = frames;
+	mat->anim_oneshot = oneshot;
 }

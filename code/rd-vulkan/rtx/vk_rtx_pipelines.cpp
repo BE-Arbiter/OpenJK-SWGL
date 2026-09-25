@@ -78,7 +78,10 @@ static void vk_rtx_create_pipeline_layout( vkpipeline_t *pipeline )
 
 void vk_rtx_destroy_pipeline( vkpipeline_t *pipeline ) 
 {
+	// RE_Shutdown and vk_rtx_shutdown both destroy the pipelines. The second pass must find nothing.
 	free( pipeline->pushConstantRange.p );
+	pipeline->pushConstantRange.p = NULL;
+	pipeline->pushConstantRange.size = 0;
 
 	if ( pipeline->set_layouts ) {
 		Z_Free( pipeline->set_layouts );
@@ -150,6 +153,7 @@ void vk_rtx_create_compute_pipelines( void )
 	vk_create_asvgf_pipelines();
 	vk_create_tonemap_pipelines();
 	vk_create_physical_sky_pipelines();
+	vk_rtx_create_bloom_pipelines();
 
 	vk_rtx_shadow_map_initialize();
 	vk_rtx_shadow_map_create_pipelines();
@@ -166,6 +170,7 @@ void vk_rtx_destroy_compute_pipelines( void )
 	vk_destroy_asvgf_pipelines();
 	vk_destroy_tonemap_pipelines();
 	vk_destroy_physical_sky_pipelines();
+	vk_rtx_destroy_bloom_pipelines();
 
 	vk_rtx_shadow_map_destroy_pipelines();
 
@@ -221,6 +226,7 @@ void vk_rtx_destroy_rt_pipelines( void )
 		vk.rt_pipelines[i] = VK_NULL_HANDLE;
 	}
 	qvkDestroyPipelineLayout( vk.device, vk.rt_pipeline_layout, NULL);
+	vk.rt_pipeline_layout = VK_NULL_HANDLE;	// RE_Shutdown and vk_rtx_shutdown both come through here
 
 	// destroy SBT
 	vk_rtx_buffer_destroy( &vk.buf_shader_binding_table );

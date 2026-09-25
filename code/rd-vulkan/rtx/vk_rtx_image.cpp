@@ -523,6 +523,9 @@ void vk_rtx_create_images( void )
 	img_info[RTX_IMG_ASVGF_TAA_A].sampler = vk.tex_sampler;
 	img_info[RTX_IMG_ASVGF_TAA_B].sampler = vk.tex_sampler;
 	img_info[RTX_IMG_TAA_OUTPUT].sampler = vk.tex_sampler;
+	// The bloom blur reads between two texels to take both weights in one fetch.
+	img_info[RTX_IMG_BLOOM_HBLUR].sampler = vk.tex_sampler;
+	img_info[RTX_IMG_BLOOM_VBLUR].sampler = vk.tex_sampler;
 
 	VkWriteDescriptorSet output_img_write[NUM_RTX_IMAGES * 2];
 

@@ -373,6 +373,8 @@ load_triangle(uint buffer_idx, uint prim_id)
 	return t;
 }
 
+uint animate_material( uint material, int frame );
+
 Triangle
 load_and_transform_triangle(int instance_idx, uint buffer_idx, uint prim_id)
 {
@@ -404,8 +406,7 @@ load_and_transform_triangle(int instance_idx, uint buffer_idx, uint prim_id)
 			t.material_id = mi.material;
 			t.shell = mi.shell;
 		}
-		int frame = int(mi.alpha_and_frame >> 16);
-		//t.material_id = animate_material(t.material_id, frame);
+		t.material_id = animate_material(t.material_id, int(mi.alpha_and_frame >> 16));
 		t.cluster = mi.cluster;
 		t.emissive_factor = 1.0;
 		t.alpha *= unpackHalf2x16(mi.alpha_and_frame).x;
@@ -499,6 +500,33 @@ uint get_material_uint( in uint material_index, in uint offset ) {
 	return light_buffer.material_table[nonuniformEXT(material_index * MATERIAL_UINTS + offset)];
 }
 
+// A brush model instance can hold an animMap frame of its own: a door shows its lock state
+// this way. Instance frame n + 1 picks the material of frame n, chained from the material
+// of the shader; 0 leaves the animMaps to follow the time.
+// Word 4: bits 12-23 first or next frame material, bits 24-30 frame count, bit 31 oneshot.
+uint animate_material( uint material, int frame )
+{
+	uint mat_index = material & MATERIAL_INDEX_MASK;
+
+	if ( frame <= 0 || mat_index == 0 )
+		return material;
+
+	uint chain = get_material_uint( mat_index, 4 );
+	uint num_frames = ( chain >> 24 ) & 0x7fu;
+
+	if ( num_frames <= 1 )
+		return material;
+
+	uint n = uint( frame - 1 );
+	n = ( ( chain & 0x80000000u ) != 0u ) ? min( n, num_frames - 1u ) : n % num_frames;
+
+	uint index = ( chain >> 12 ) & MATERIAL_INDEX_MASK;
+	for ( uint i = 0u; i < n; i++ )
+		index = ( get_material_uint( index, 4 ) >> 12 ) & MATERIAL_INDEX_MASK;
+
+	return ( material & ~MATERIAL_INDEX_MASK ) | index;
+}
+
 MaterialStage get_material_stage( in uint material_index, in uint stage )
 {
 	return light_buffer.material_stages[nonuniformEXT(material_index * MAX_RTX_STAGES + stage)];
@@ -510,7 +538,7 @@ MaterialInfo get_material_info( uint material_id )
 
 	uint data[MATERIAL_UINTS];
 
-	uint remappedIndex = get_material_uint( material_index, 4 );
+	uint remappedIndex = get_material_uint( material_index, 4 ) & MATERIAL_INDEX_MASK;
 
 	if ( remappedIndex > 0 )
 		material_index = remappedIndex;
@@ -540,13 +568,16 @@ MaterialInfo get_material_info( uint material_id )
 	minfo.specular_scale[2] = unpackHalf2x16(data[3]).x;
 	minfo.specular_scale[3] = unpackHalf2x16(data[3]).y;
 
-	minfo.emissive_factor 	= 1.0f;
 	minfo.base_factor		= 1.0f;
 
 	uint at = data[5];
 	minfo.alpha_test_func  =  at        & 0x3u;
 	minfo.blend_mode       = (at >> 2u) & uint(RTX_BLEND_MASK);
 	minfo.alpha_test_value = unpackHalf2x16(at).y;
+
+	// Bits 8-15: emissive factor in eighths, 0 for 1.0 (pt_glow_scale for glow stages).
+	uint emissive_eighths = (at >> 8u) & 0xffu;
+	minfo.emissive_factor = (emissive_eighths == 0u) ? 1.0 : float(emissive_eighths) / 8.0;
 
 	return minfo;
 }

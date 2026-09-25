@@ -641,6 +641,7 @@ static void process_bsp_entity(
 
 	bmodel_t* bmodel = model->data.bmodel;
 
+
 	vec3_t origin;
 	transform_point(bmodel->center, transform, origin);
 	int cluster = BSP_PointLeaf( tr.world->nodes, origin)->cluster;
@@ -698,7 +699,15 @@ static void process_bsp_entity(
 	mi->pose_lerp_prev_frame = 0.f;
 	mi->mdxm_matrix_offset_curr = -1;
 	mi->mdxm_matrix_offset_prev = -1;
-	mi->alpha_and_frame = (entity->e.frame << 16) | floatToHalf(model_alpha);
+	// A door shows its lock state through its animMaps: RF_SETANIMINDEX picks the frame, and
+	// EF_DISABLE_SHADER_ANIM sets shaderTime to now every frame to hold them on frame 0.
+	// The instance keeps that frame + 1 (0: the animMaps follow the time), see animate_material.
+	int anim_frame = 0;
+	if ( entity->e.renderfx & RF_SETANIMINDEX )
+		anim_frame = entity->e.skinNum + 1;
+	else if ( entity->e.shaderTime != 0.0f && refdef->floatTime - entity->e.shaderTime < 0.1 )
+		anim_frame = 1;
+	mi->alpha_and_frame = ( (uint32_t)anim_frame << 16 ) | floatToHalf(model_alpha);
 	mi->render_buffer_idx = VERTEX_BUFFER_SUB_MODELS;
 	mi->render_prim_offset = bmodel->geometry.prim_offsets[0];
 
@@ -2170,14 +2179,12 @@ static void vk_begin_trace_rays( world_t &worldData, trRefdef_t *refdef, referen
 
 		vkpt_taa( post_cmd_buf );
 
-#if 0
 		BEGIN_PERF_MARKER(post_cmd_buf, PROFILER_BLOOM);
-		if ( cvar_bloom_enable->integer != 0 || menu_mode )
+		if ( cvar_bloom_enable->integer != 0 )
 		{
-			vkpt_bloom_record_cmd_buffer(post_cmd_buf);
+			vk_rtx_bloom_record_cmd_buffer( post_cmd_buf );
 		}
 		END_PERF_MARKER(post_cmd_buf, PROFILER_BLOOM);
-#endif
 
 		BEGIN_PERF_MARKER( post_cmd_buf, PROFILER_TONE_MAPPING );
 		if ( sun_tm_enable->integer != 0 )
@@ -2321,13 +2328,12 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 		Vector4Set( ubo->fs_colorize, 0.f, 0.f, 0.f, 0.f );
 
 	vk_rtx_physical_sky_update_ubo( ubo, &sun_light, render_world );
-#if 0
-	vkpt_bloom_update(ubo, frame_time, ubo->medium != MEDIUM_NONE, menu_mode);
-#endif
+	vk_rtx_bloom_update( ubo );
 
 	vec3_t sky_radiance;
 	VectorScale( avg_envmap_color, ubo->pt_env_scale, sky_radiance );
 
+	vk_rtx_animate_materials( refdef );
 	vkpt_light_buffer_upload_to_staging( render_world, tr.world, num_model_lights, model_lights, sky_radiance );
 
 	float shadowmap_view_proj[16];

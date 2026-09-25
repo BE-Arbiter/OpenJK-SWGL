@@ -940,6 +940,9 @@ typedef struct {
 	vkpipeline_t	tonemap_pipeline[TM_NUM_PIPELINES];
 	vkshader_t		*tonemap_shader[TM_NUM_SHADERS];
 
+	vkpipeline_t	bloom_pipeline[BLOOM_NUM_PIPELINES];
+	vkshader_t		*bloom_shader[BLOOM_NUM_SHADERS];
+
 	vkpipeline_t	physical_sky_pipeline[PHYSICAL_SKY_NUM_PIPELINES];
 	vkshader_t		*physical_sky_shader[NUM_PHYSICAL_SKY_SHADER_MODULES];
 
