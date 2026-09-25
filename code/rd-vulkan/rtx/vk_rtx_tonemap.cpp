@@ -168,8 +168,8 @@ void vk_create_tonemap_pipelines( void )
 
 	vk_create_tonemap_pipeline( TONE_MAPPING_HISTOGRAM,		SHADER_TONE_MAPPING_HISTOGRAM_COMP,	NULL, 0 );
 	vk_create_tonemap_pipeline( TONE_MAPPING_CURVE,			SHADER_TONE_MAPPING_CURVE_COMP,		NULL, sizeof(float) * 16 );
-	vk_create_tonemap_pipeline( TONE_MAPPING_APPLY_SDR,		SHADER_TONE_MAPPING_APPLY_COMP,		&specInfo_SDR, sizeof(float) * 3 );
-	vk_create_tonemap_pipeline( TONE_MAPPING_APPLY_HDR,		SHADER_TONE_MAPPING_APPLY_COMP,		&specInfo_HDR, sizeof(float) * 3 );
+	vk_create_tonemap_pipeline( TONE_MAPPING_APPLY_SDR,		SHADER_TONE_MAPPING_APPLY_COMP,		&specInfo_SDR, sizeof(float) * 5 );
+	vk_create_tonemap_pipeline( TONE_MAPPING_APPLY_HDR,		SHADER_TONE_MAPPING_APPLY_COMP,		&specInfo_HDR, sizeof(float) * 5 );
 
 	reset_required = 1;
 }
@@ -325,10 +325,23 @@ VkResult vkpt_tone_mapping_record_cmd_buffer( VkCommandBuffer cmd_buf, float fra
 	float knee_a = -knee_start * knee_start;
 	float knee_b = knee_w - 2.0*knee_start;
 
-	float push_constants_tm2_apply[3] = {
+	// 0 keeps the hue of bright colors, 1 maps each channel and bright colors go to white,
+	// as in the rasterizer.
+	static cvar_t *tm_per_channel;
+	if ( !tm_per_channel )
+		tm_per_channel = ri.Cvar_Get( "tm_per_channel", "1", CVAR_ARCHIVE_ND );
+
+	// Contrast around the middle gray, in SDR and HDR. 1 for no change.
+	static cvar_t *tm_contrast;
+	if ( !tm_contrast )
+		tm_contrast = ri.Cvar_Get( "tm_contrast", "1", CVAR_ARCHIVE_ND );
+
+	float push_constants_tm2_apply[5] = {
 		knee_w, // knee_w in piecewise knee adjustment
 		knee_a, // knee_a in piecewise knee adjustment
 		knee_b, // knee_b in piecewise knee adjustment
+		Com_Clamp( 0.f, 1.f, tm_per_channel->value ),
+		Com_Clamp( 0.5f, 2.f, tm_contrast->value ),
 	};
 
 	// can use either _SDR or _HDR, since the layout is the same

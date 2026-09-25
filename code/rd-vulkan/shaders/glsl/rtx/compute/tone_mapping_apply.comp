@@ -59,6 +59,8 @@ layout(push_constant, std430) uniform PushConstants {
     float knee_w;
     float knee_a;
     float knee_b;
+    float per_channel;	// tm_per_channel
+    float contrast;		// tm_contrast
 } push;
 
 // When tm_debug is enabled, this displays debugging information for the
@@ -121,6 +123,26 @@ vec3 srgb_dither(vec3 color, ivec2 ipos)
 
     color = color + diff * (noise - 0.5) * 2;
     return max(vec3(0), color);
+}
+
+// One channel through the same curve, knee and Reinhard blend as the luminance in main().
+float tone_map_channel(float c)
+{
+    const float v = max(c, exp2(min_log_luminance));
+
+    const float bin = clamp((log2(v) * log_luminance_scale + log_luminance_bias) * HISTOGRAM_BINS, 0.0, HISTOGRAM_BINS);
+    const uint left = uint(bin);
+    const float w = fract(bin);
+    float mapped = exp2(mix(tonemap_buffer.curve[left], tonemap_buffer.curve[left + 1], w) + global_ubo.tm_exposure_bias);
+
+    if(spec_tone_mapping_hdr == 0 && mapped >= global_ubo.tm_knee_start)
+        mapped = (push.knee_w * mapped + push.knee_a) / max(1e-6, mapped + push.knee_b);
+
+    const float s = exp2(global_ubo.tm_exposure_bias - 2) * v / tonemap_buffer.adapted_luminance;
+    const float white_point = (spec_tone_mapping_hdr != 0) ? max(global_ubo.tm_white_point, global_ubo.tm_hdr_peak_nits / 80) : global_ubo.tm_white_point;
+    const float ae = (s * (1 + s / (white_point * white_point))) / (1 + s);
+
+    return (c > 0.0) ? mix(mapped, ae, global_ubo.tm_reinhard) : 0.0;
 }
 
 void main()
@@ -200,6 +222,19 @@ void main()
 
     // Finally, allow for some amount of blending with the original frame:
     mapped_color = mix(mapped_color, ae_mapped_color, global_ubo.tm_reinhard);
+
+    // The mapping above keeps the hue, so a bright color never reaches white. Each channel mapped
+    // on its own saturates to white, as the rasterizer clamps each channel.
+    if(push.per_channel > 0.0)
+    {
+        const vec3 channel_color = vec3(tone_map_channel(input_color.r), tone_map_channel(input_color.g), tone_map_channel(input_color.b));
+        mapped_color = mix(mapped_color, channel_color, push.per_channel);
+    }
+
+    // Contrast in log space around the middle gray (0.18), for SDR and HDR. 1 does not change
+    // the image; above 1 the dark values go down and the bright values go up.
+    if(push.contrast != 1.0)
+        mapped_color = 0.18 * pow(max(mapped_color, vec3(0)) / 0.18, vec3(push.contrast));
 
     if(spec_tone_mapping_hdr == 0)
     {
