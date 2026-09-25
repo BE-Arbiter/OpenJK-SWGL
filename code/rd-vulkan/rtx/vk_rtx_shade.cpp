@@ -954,6 +954,26 @@ static void prepare_entities( EntityUploadInfo *upload_info, const trRefdef_t *r
 	int instance_idx = 0;
 	int mdxm_matrix_offset = 0;
 
+	// cgame gives an id only to the ghoul2 entities. A model without id (the md3 view weapon,
+	// items, props) then never finds its previous frame and has no motion vector. It gets
+	// 8192 + its rank among the entities of the same model; cgame ids stay below 8192.
+	{
+		static unsigned short model_rank[MAX_MOD_KNOWN];
+		Com_Memset( model_rank, 0, sizeof( model_rank ) );
+
+		for ( i = 0; i < refdef->num_entities; i++ )
+		{
+			trRefEntity_t *entity = refdef->entities + i;
+
+			if ( entity->e.reType != RT_MODEL || entity->e.id != 0 )
+				continue;
+			if ( entity->e.hModel < 0 || entity->e.hModel >= MAX_MOD_KNOWN )
+				continue;
+
+			entity->e.id = 8192 + ( ++model_rank[entity->e.hModel] & 0x1fff );
+		}
+	}
+
 	for ( i = 0; i < refdef->num_entities; i++ )
 	{
 		if ( !r_drawentities->integer )
