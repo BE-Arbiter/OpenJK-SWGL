@@ -2707,7 +2707,7 @@ typedef struct rotatePicCommand_s {
 	float		w, h;
 	float		s1, t1;
 	float		s2, t2;
-	float		a;
+	float		a, ratio;	// ratio: aspect correction of the rotation, as in rd-vanilla
 } rotatePicCommand_t;
 
 typedef struct drawSurfsCommand_s {

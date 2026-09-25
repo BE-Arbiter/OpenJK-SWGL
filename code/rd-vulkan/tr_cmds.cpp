@@ -290,6 +290,7 @@ void RE_RotatePic ( float x, float y, float w, float h,
 	cmd->s2 = s2;
 	cmd->t2 = t2;
 	cmd->a = a;
+	cmd->ratio = aspectCorrection;
 }
 
 /*
@@ -317,6 +318,7 @@ void RE_RotatePic2 ( float x, float y, float w, float h,
 	cmd->s2 = s2;
 	cmd->t2 = t2;
 	cmd->a = a;
+	cmd->ratio = aspectCorrection;
 }
 
 void RE_RenderWorldEffects( void )
