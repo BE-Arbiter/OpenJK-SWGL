@@ -696,11 +696,12 @@ VkResult vk_rtx_upload_materials( LightBuffer *lbo )
 		data[5] |= (mat->blend_mode & RTX_BLEND_MASK) << 2;	// bits 2-4
 		data[5] |= floatToHalf(mat->alpha_test_value) << 16;
 
-		// Bits 8-15: emissive factor in eighths, 0 for 1.0. See get_material_info.
+		// Bits 8-15: emissive factor e, 2^((e - 128) / 16), 0 for 1.0. See get_material_info.
 		if ( mat->emissive && mat->glow_emissive )
 		{
-			const int eighths = (int)( vk_rtx_glow_scale()->value * 8.f + 0.5f );
-			data[5] |= (uint32_t)Com_Clampi( 1, 255, eighths ) << 8;
+			const float scale = vk_rtx_glow_scale()->value;
+			const int e = ( scale > 0.f ) ? (int)floorf( log2f( scale ) * 16.f + 128.5f ) : 1;
+			data[5] |= (uint32_t)Com_Clampi( 1, 255, e ) << 8;
 		}
 
 		mat->uploaded[vk.current_frame_index] = qtrue;

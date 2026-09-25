@@ -590,9 +590,9 @@ MaterialInfo get_material_info( uint material_id )
 	minfo.blend_mode       = (at >> 2u) & uint(RTX_BLEND_MASK);
 	minfo.alpha_test_value = unpackHalf2x16(at).y;
 
-	// Bits 8-15: emissive factor in eighths, 0 for 1.0 (pt_glow_scale for glow stages).
-	uint emissive_eighths = (at >> 8u) & 0xffu;
-	minfo.emissive_factor = (emissive_eighths == 0u) ? 1.0 : float(emissive_eighths) / 8.0;
+	// Bits 8-15: emissive factor e, 2^((e - 128) / 16), 0 for 1.0 (pt_glow_scale for glow stages).
+	uint emissive_code = (at >> 8u) & 0xffu;
+	minfo.emissive_factor = (emissive_code == 0u) ? 1.0 : exp2((float(emissive_code) - 128.0) / 16.0);
 
 	return minfo;
 }
