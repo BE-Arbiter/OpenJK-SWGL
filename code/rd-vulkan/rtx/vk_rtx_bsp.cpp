@@ -1839,8 +1839,12 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 		if ( pStage->tessFlags & TESS_RGBA0 )
 			ComputeColors( 0, tess.svars.colors[0], pStage, 0 );
 
-		// The tracer applies the tcMods at each frame (MaterialBundle tc_matrix).
-		if ( pStage->tessFlags & TESS_ST0 )
+		// The tracer applies the tcMods at each frame (MaterialBundle tc_matrix). FinishShader removes
+		// TESS_ST0 when the raster can reuse the UVs of the stage before; the tracer cannot.
+		// An env-mapped stage has TCGEN_BAD and no UVs.
+		const qboolean has_uv = ( pStage->bundle[0].tcGen != TCGEN_BAD ) ? qtrue : qfalse;
+
+		if ( has_uv )
 		{
 			textureBundle_t bundle = pStage->bundle[0];
 			bundle.numTexMods = 0;
@@ -1856,7 +1860,7 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 			i1 = tess.indexes[idx_base + 1];
 			i2 = tess.indexes[idx_base + 2];
 
-			if ( pStage->tessFlags & TESS_ST0 )
+			if ( has_uv )
 			{
 				primitives_out->uv0[stage] = floatToHalf(tess.svars.texcoordPtr[0][i0][0]) | (floatToHalf(tess.svars.texcoordPtr[0][i0][1]) << 16);
 				primitives_out->uv1[stage] = floatToHalf(tess.svars.texcoordPtr[0][i1][0]) | (floatToHalf(tess.svars.texcoordPtr[0][i1][1]) << 16);
