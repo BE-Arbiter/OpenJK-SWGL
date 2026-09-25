@@ -301,7 +301,8 @@ typedef enum{
 	WC_HEAVY, //Like Bowcaster or rocket launcher
 	WC_GRENADE, //Like thermal
 	WC_EXPLOSIVE, //Like detpack
-	WC_MINIGUN //Like a Z6
+	WC_MINIGUN, //Like a Z6
+	WC_SHOULDER //Like a PLX-1
 } weaponCategory_t;
 
 

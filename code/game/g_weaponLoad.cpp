@@ -310,6 +310,9 @@ void WPN_WeaponCategory(const char** holdBuf)
 	else if (!Q_stricmp(tokenStr, "WC_MINIGUN")) {
 		weaponCategory = WC_MINIGUN;
 	}
+	else if (!Q_stricmp(tokenStr, "WC_SHOULDER")) {
+		weaponCategory = WC_SHOULDER;
+	}
 	else if (!Q_stricmp(tokenStr, "WC_SNIPER")) {
 		weaponCategory = WC_SNIPER;
 	}

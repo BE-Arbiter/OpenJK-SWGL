@@ -2455,6 +2455,7 @@ const char* getStringValueForweaponCategory(const weaponCategory_t* wc)
 	case WC_GRENADE:    return "WC_GRENADE";
 	case WC_EXPLOSIVE:  return "WC_EXPLOSIVE";
 	case WC_MINIGUN:    return "WC_MINIGUN";
+	case WC_SHOULDER:   return "WC_SHOULDER";
 	default:            return "WC_UNKNOWN";
 	}
 }
