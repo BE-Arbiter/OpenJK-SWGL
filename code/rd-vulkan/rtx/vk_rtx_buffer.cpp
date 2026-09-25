@@ -60,8 +60,13 @@ copy_light(const light_poly_t* light, float* vblight, const float* sky_radiance)
 	}
 #endif
 
-	//float mat_scale = light->material ? light->material->emissive_scale : 1.f;
-	float mat_scale = 10.f;
+	// The light cast by a glow stage has its own scale. pt_glow_scale only sets how bright
+	// the glow surface is seen.
+	static cvar_t *pt_glow_light_scale;
+	if ( !pt_glow_light_scale )
+		pt_glow_light_scale = ri.Cvar_Get( "pt_glow_light_scale", "10", CVAR_ARCHIVE_ND );
+
+	float mat_scale = ( light->material && light->material->glow_emissive ) ? MAX( 0.f, pt_glow_light_scale->value ) : 10.f;
 
 	VectorCopy(light->positions + 0, vblight + 0);
 	VectorCopy(light->positions + 3, vblight + 4);
