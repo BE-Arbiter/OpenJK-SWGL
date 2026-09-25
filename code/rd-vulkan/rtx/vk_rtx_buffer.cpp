@@ -60,13 +60,19 @@ copy_light(const light_poly_t* light, float* vblight, const float* sky_radiance)
 	}
 #endif
 
-	// The light cast by a glow stage has its own scale. pt_glow_scale only sets how bright
-	// the glow surface is seen.
-	static cvar_t *pt_glow_light_scale;
-	if ( !pt_glow_light_scale )
-		pt_glow_light_scale = ri.Cvar_Get( "pt_glow_light_scale", "10", CVAR_ARCHIVE_ND );
+	// The light cast by a glow stage and by a q3map_surfacelight surface have their own scale.
+	// pt_glow_scale only sets how bright the glow surface is seen. The entity lights and the
+	// dynamic lights have no material: pt_light_scale_entity and pt_light_scale_dlight set them.
+	static cvar_t *pt_light_scale_glow, *pt_light_scale_surface;
+	if ( !pt_light_scale_glow )
+	{
+		pt_light_scale_glow		= ri.Cvar_Get( "pt_light_scale_glow", "10", CVAR_ARCHIVE_ND );
+		pt_light_scale_surface	= ri.Cvar_Get( "pt_light_scale_surface", "10", CVAR_ARCHIVE_ND );
+	}
 
-	float mat_scale = ( light->material && light->material->glow_emissive ) ? MAX( 0.f, pt_glow_light_scale->value ) : 10.f;
+	float mat_scale = 10.f;
+	if ( light->material )
+		mat_scale = MAX( 0.f, light->material->glow_emissive ? pt_light_scale_glow->value : pt_light_scale_surface->value );
 
 	VectorCopy(light->positions + 0, vblight + 0);
 	VectorCopy(light->positions + 3, vblight + 4);
