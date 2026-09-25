@@ -537,14 +537,39 @@ rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
 		mat->stage[i].tex_mode = vk_get_rtx_material_stage_tex_mode( &def );
 		mat->stage[i].tex_count = vk_get_rtx_material_stage_tex_count( &def );
 
-		for ( j = 0; j <= mat->stage[i].tex_count; j++ ) { 
+		// The tracer composes the stages as the raster blends them (see the shader).
+		mat->stage[i].blend = STAGE_BLEND_ACTIVE | ( pStage->stateBits & GLS_BLEND_BITS );
+
+		// vk_rtx_animate_materials sets the tcMods and the colors.
+		for ( j = 0; j < NUM_TEXTURE_BUNDLES; j++ ) {
+			mat->stage[i].bundle[j].tc_matrix[0] = 1.0f;
+			mat->stage[i].bundle[j].tc_matrix[3] = 1.0f;
+			mat->stage[i].bundle[j].color = 0xffffffffu;
+		}
+
+		// The tracer lights the surface itself, so a lightmap bundle is left out of the albedo.
+		uint32_t kept = 0;
+		for ( j = 0; j <= mat->stage[i].tex_count; j++ ) {
+			if ( pStage->bundle[j].isLightmap )
+				mat->stage[i].bundle[j].alphaGen = BUNDLE_SKIP;
+			else
+				kept++;
+
+			// A collapsed stage is a glow stage if one of its bundles glows; the glow pass takes
+			// that bundle only.
+			if ( pStage->bundle[j].glow )
+				mat->stage[i].bundle[j].alphaGen |= BUNDLE_GLOW;
+
 			if ( pStage->bundle[j].image[0] == NULL )
 				continue;
 
-			mat->stage[i].bundle[j].image = pStage->bundle[j].image[0]->index;
+			mat->stage[i].bundle[j].image = pStage->bundle[j].isLightmap ? 0 : pStage->bundle[j].image[0]->index;
 			mat->stage[i].bundle[j].rgbGen = (uint32_t)pStage->bundle[j].rgbGen;
-			mat->stage[i].bundle[j].alphaGen = (uint32_t)pStage->bundle[j].alphaGen;
+			mat->stage[i].bundle[j].alphaGen |= (uint32_t)pStage->bundle[j].alphaGen;
 		}
+
+		if ( kept == 0 )
+			mat->stage[i].blend |= STAGE_BLEND_LIGHTMAP;
 
 		// physical
 		if ( pStage->vk_pbr_flags ) 
@@ -682,7 +707,7 @@ VkResult vk_rtx_upload_materials( LightBuffer *lbo )
 
 		// stages
 		MaterialStage *stage = lbo->material_stages + i * MAX_RTX_STAGES;
-		Com_Memcpy(stage, mat->stage, sizeof(MaterialStage) * mat->num_stages);
+		Com_Memcpy( stage, mat->stage, sizeof( MaterialStage ) * MAX_RTX_STAGES );	// unused stages clear STAGE_BLEND_ACTIVE
 	}
 
 	return VK_SUCCESS;
@@ -753,6 +778,105 @@ static const textureBundle_t *vk_rtx_glow_bundle( const shader_t *shader )
 	return NULL;
 }
 
+// The color of rgbGen and alphaGen that do not come from the entity or the vertex, as rgba8.
+// The tracer lights the surface itself, so the other gens count as white.
+static uint32_t vk_rtx_bundle_color( const textureBundle_t *bundle )
+{
+	byte color[4] = { 255, 255, 255, 255 };
+	const int numVertexes = tess.numVertexes;
+
+	tess.numVertexes = 1;
+
+	switch ( bundle->rgbGen )
+	{
+	case CGEN_CONST:
+		color[0] = bundle->constantColor[0];
+		color[1] = bundle->constantColor[1];
+		color[2] = bundle->constantColor[2];
+		break;
+	case CGEN_WAVEFORM:
+		RB_CalcWaveColor( &bundle->rgbWave, color );
+		break;
+	case CGEN_IDENTITY_LIGHTING:
+		color[0] = color[1] = color[2] = (byte)Q_ftol( 255.0f * tr.identityLight );
+		break;
+	default:
+		break;
+	}
+
+	switch ( bundle->alphaGen )
+	{
+	case AGEN_CONST:
+		color[3] = bundle->constantColor[3];
+		break;
+	case AGEN_WAVEFORM:
+		RB_CalcWaveAlpha( &bundle->alphaWave, color );
+		break;
+	default:
+		color[3] = 255;
+		break;
+	}
+
+	tess.numVertexes = numVertexes;
+
+	return color[0] | ( color[1] << 8 ) | ( color[2] << 16 ) | ( (uint32_t)color[3] << 24 );
+}
+
+// The tcMods and the color of each bundle at the time of this frame. The frame materials get
+// the same values. Turbulence is per vertex and is not applied.
+static qboolean vk_rtx_bundle_gens( const shader_t *shader, rtx_material_t *mat, const trRefdef_t *refdef )
+{
+	float matrix[4], offTurb[4];
+	qboolean changed = qfalse;
+	uint32_t s, j, k, color;
+
+	const double shaderTime = tess.shaderTime;
+	trRefEntity_t *entity = backEnd.currentEntity;
+	tess.shaderTime = refdef->floatTime - shader->timeOffset;
+	backEnd.currentEntity = &tr.worldEntity;
+
+	for ( s = 0; s < mat->num_stages && s < MAX_RTX_STAGES; s++ )
+	{
+		const shaderStage_t *pStage = shader->stages[s];
+
+		if ( !pStage || !pStage->active )
+			break;
+
+		for ( j = 0; j < NUM_TEXTURE_BUNDLES; j++ )
+		{
+			const textureBundle_t *bundle = &pStage->bundle[j];
+			MaterialBundle *out = &mat->stage[s].bundle[j];
+
+			vk_compute_tex_mods( bundle, matrix, offTurb );
+			offTurb[3] -= floorf( offTurb[3] );	// the phase is periodic
+			color = vk_rtx_bundle_color( bundle );
+
+			if ( !memcmp( out->tc_matrix, matrix, sizeof( matrix ) ) && !memcmp( out->tc_offset, offTurb, sizeof( offTurb ) ) && out->color == color )
+				continue;
+
+			Com_Memcpy( out->tc_matrix, matrix, sizeof( matrix ) );
+			Com_Memcpy( out->tc_offset, offTurb, sizeof( offTurb ) );	// zw: turbulence amplitude and phase
+			out->color = color;
+			changed = qtrue;
+
+			for ( k = mat->anim_first; k != 0 && k <= MATERIAL_INDEX_MASK; k = rtx_materials[k].anim_first )
+			{
+				MaterialBundle *frame = &rtx_materials[k].stage[s].bundle[j];
+
+				Com_Memcpy( frame->tc_matrix, out->tc_matrix, sizeof( out->tc_matrix ) );
+				Com_Memcpy( frame->tc_offset, out->tc_offset, sizeof( out->tc_offset ) );
+				frame->color = out->color;
+				Com_Memset( rtx_materials[k].uploaded, 0, sizeof( rtx_materials[k].uploaded ) );
+			}
+		}
+	}
+
+	tess.shaderTime = shaderTime;
+	backEnd.currentEntity = entity;
+
+	return changed;
+}
+
 void vk_rtx_animate_materials( const trRefdef_t *refdef )
 {
 	int i;
@@ -809,6 +933,9 @@ void vk_rtx_animate_materials( const trRefdef_t *refdef )
 				changed = qtrue;
 			}
 		}
+
+		if ( vk_rtx_bundle_gens( shader, mat, refdef ) )
+			changed = qtrue;
 
 		if ( rescale && mat->glow_emissive )
 			changed = qtrue;

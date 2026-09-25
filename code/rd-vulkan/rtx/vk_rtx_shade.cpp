@@ -409,46 +409,97 @@ static int dlight_cluster( world_t *worldData, vec3_t origin, float probe )
 	return cluster;
 }
 
-// ReSTIR matches a light to its previous-frame self by this hash (see
+// ReSTIR matches a light to its previous-frame self by this id (see
 // update_mlight_prev_to_current and reproject_light_index), so it has to identify the
-// light, not the slot it happens to occupy. refdef->dlights is rebuilt every frame and
-// its order shifts as lights come and go, so hashing the loop index handed a reservoir
-// built for one light to whatever landed in that slot next - a bolt's colour and weight
-// applied to an unrelated light, held for as many frames as pt_restir_m_clamp allows.
-// Everything else already hashes a real identity: entities use e.id, sabers their entity
-// index. Hash the light's position and colour instead. A light that moves fails to match
-// and simply loses its history, which costs noise and nothing else.
-static uint32_t dlight_identity( const dlight_t *dlight )
+// light, not its slot or its position: refdef->dlights is rebuilt every frame in any
+// order, and a blaster bolt moves every frame. Each dlight takes the id of the nearest
+// dlight of the previous frame with the same hue, within DLIGHT_TRACK_DISTANCE. A light
+// that matches nothing gets a new id.
+#define DLIGHT_TRACK_DISTANCE	192.0f
+#define DLIGHT_TRACK_MAX		128
+
+typedef struct {
+	vec3_t		origin;
+	vec3_t		hue;		// colour / peak: an impact flash fades by scaling its colour
+	uint32_t	id;
+} dlight_track_t;
+
+static dlight_track_t	dlight_track_prev[DLIGHT_TRACK_MAX];
+static int				dlight_track_prev_count;
+static uint32_t			dlight_track_next_id = 1;
+
+static void dlight_hue( const dlight_t *dlight, vec3_t hue )
 {
-	uint32_t h = 2166136261u;	// FNV-1a
-	int i;
-
-	// Quantised so float jitter on a light that is holding still still matches.
-	for ( i = 0; i < 3; i++ )
-	{
-		int q = (int)floor( dlight->origin[i] * 0.25f );
-
-		h = ( h ^ (uint32_t)( q & 0xff ) ) * 16777619u;
-		h = ( h ^ (uint32_t)( ( q >> 8 ) & 0xff ) ) * 16777619u;
-	}
-
-	// Hue rather than magnitude: an impact flash fades by scaling its colour down, and
-	// that must not read as a different light.
-	float peak = MAX( dlight->color[0], MAX( dlight->color[1], dlight->color[2] ) );
+	const float peak = MAX( dlight->color[0], MAX( dlight->color[1], dlight->color[2] ) );
 
 	if ( peak > 0.0f )
+		VectorScale( dlight->color, 1.0f / peak, hue );
+	else
+		VectorClear( hue );
+}
+
+// hash.entity is 14 bits, and 0 means "no identity" to update_mlight_prev_to_current.
+static void dlight_track_ids( const dlight_t *dlights, int num_dlights, uint32_t *ids )
+{
+	dlight_track_t	cur[DLIGHT_TRACK_MAX];
+	qboolean		claimed[DLIGHT_TRACK_MAX];
+	int				i, j;
+
+	num_dlights = MIN( num_dlights, DLIGHT_TRACK_MAX );
+	Com_Memset( claimed, 0, sizeof( claimed ) );
+
+	for ( i = 0; i < num_dlights; i++ )
 	{
-		for ( i = 0; i < 3; i++ )
-			h = ( h ^ (uint32_t)( dlight->color[i] / peak * 15.0f ) ) * 16777619u;
+		const dlight_t *dlight = dlights + i;
+		float best = DLIGHT_TRACK_DISTANCE * DLIGHT_TRACK_DISTANCE;
+		int match = -1;
+
+		VectorCopy( dlight->origin, cur[i].origin );
+		dlight_hue( dlight, cur[i].hue );
+
+		for ( j = 0; j < dlight_track_prev_count; j++ )
+		{
+			const dlight_track_t *prev = &dlight_track_prev[j];
+
+			if ( claimed[j] )
+				continue;
+			if ( fabsf( prev->hue[0] - cur[i].hue[0] ) > 0.1f || fabsf( prev->hue[1] - cur[i].hue[1] ) > 0.1f || fabsf( prev->hue[2] - cur[i].hue[2] ) > 0.1f )
+				continue;
+
+			const float d = DistanceSquared( prev->origin, cur[i].origin );
+			if ( d < best )
+			{
+				best = d;
+				match = j;
+			}
+		}
+
+		if ( match >= 0 )
+		{
+			claimed[match] = qtrue;
+			cur[i].id = dlight_track_prev[match].id;
+		}
+		else
+		{
+			cur[i].id = dlight_track_next_id;
+			dlight_track_next_id = ( dlight_track_next_id % 16383u ) + 1u;
+		}
+
+		ids[i] = cur[i].id;
 	}
 
-	// hash.entity is 14 bits, and 0 means "no identity" to update_mlight_prev_to_current.
-	return ( h % 16383u ) + 1u;
+	Com_Memcpy( dlight_track_prev, cur, sizeof( dlight_track_t ) * num_dlights );
+	dlight_track_prev_count = num_dlights;
 }
 
 static void
 add_dlights(const dlight_t* dlights, int num_dlights, light_poly_t* light_list, int* num_lights, int max_lights, world_t *worldData, int* light_entity_ids)
 {
+	uint32_t ids[DLIGHT_TRACK_MAX];
+
+	num_dlights = MIN( num_dlights, DLIGHT_TRACK_MAX );
+	dlight_track_ids( dlights, num_dlights, ids );
+
 	for (int i = 0; i < num_dlights; i++)
 	{
 		if (*num_lights >= max_lights)
@@ -474,7 +525,7 @@ add_dlights(const dlight_t* dlights, int num_dlights, light_poly_t* light_list, 
 		entity_hash_t hash;
 		Com_Memset( &hash, 0, sizeof(hash) );
 
-		hash.entity = dlight_identity( dlight );
+		hash.entity = ids[i];
 		hash.mesh = 0xAA;
 
 		if(light->cluster >= 0)
@@ -685,6 +736,9 @@ static void process_bsp_entity(
 #endif
 
 	ModelInstance* mi = uniform_instance_buffer->model_instances + current_instance_idx;
+	// calc_color reads the entity color here; without it a brush model got the data another
+	// instance left at this index.
+	fill_model_instance_shader_data( uniform_instance_buffer, current_instance_idx, entity, NULL );
 	memcpy(&mi->transform, transform, sizeof(transform));
 	memcpy(&mi->transform_prev, transform, sizeof(transform));
 	mi->material = 0;
@@ -1132,6 +1186,26 @@ static void vk_rtx_process_render_feedback( ref_feedback_t *feedback, mnode_t *v
 								sh->name, view_material_override, (int)sh->sort, sh->contentFlags,
 								RB_IsTransparent( (shader_t *)sh ) ? "transparent" :
 								RB_IsMasked( (shader_t *)sh ) ? "masked" : "opaque" );
+
+							// The stages as the tracer composes them.
+							const rtx_material_t *mat = vk_rtx_get_material( (uint32_t)material_id );
+							for ( uint32_t s = 0; mat && s < mat->num_stages && s < MAX_RTX_STAGES; s++ )
+							{
+								const MaterialStage *st = &mat->stage[s];
+								const shaderStage_t *pStage = sh->stages[s];
+
+								ri.Printf( PRINT_ALL, "  stage %u: blend 0x%02x%s  mode %u  bundles %u  glow %i  emissive %i\n",
+									s, st->blend & GLS_BLEND_BITS, ( st->blend & STAGE_BLEND_LIGHTMAP ) ? " (lightmap, skipped)" : "",
+									st->tex_mode, st->tex_count + 1, pStage ? (int)pStage->glow : -1, (int)mat->glow_emissive );
+
+								for ( uint32_t j = 0; pStage && j <= st->tex_count && j < NUM_TEXTURE_BUNDLES; j++ )
+								{
+									const textureBundle_t *b = &pStage->bundle[j];
+									ri.Printf( PRINT_ALL, "    bundle %u: %s%s  rgbGen %u alphaGen %u color 0x%08x  tcMods %i\n",
+										j, b->image[0] ? b->image[0]->imgName : "(none)", b->isLightmap ? " (lightmap)" : "",
+										st->bundle[j].rgbGen, st->bundle[j].alphaGen & ~( BUNDLE_SKIP | BUNDLE_GLOW ), st->bundle[j].color, (int)b->numTexMods );
+								}
+							}
 						}
 					}
 				}

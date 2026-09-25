@@ -1839,8 +1839,13 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 		if ( pStage->tessFlags & TESS_RGBA0 )
 			ComputeColors( 0, tess.svars.colors[0], pStage, 0 );
 
+		// The tracer applies the tcMods at each frame (MaterialBundle tc_matrix).
 		if ( pStage->tessFlags & TESS_ST0 )
-			ComputeTexCoords( 0, &pStage->bundle[0] );
+		{
+			textureBundle_t bundle = pStage->bundle[0];
+			bundle.numTexMods = 0;
+			ComputeTexCoords( 0, &bundle );
+		}
 
 		primitives_out = base_primitive;
 		for ( uint32_t prim = 0; prim < numTris; ++prim ) 
@@ -2591,7 +2596,19 @@ void R_PreparePT( world_t &worldData )
 		collect_light_polys( worldData, i, &bmodel->num_light_polys, &bmodel->allocated_light_polys, &bmodel->light_polys );
 	
 		bmodel->transparent = false; // is_model_transparent(wm, model);
-		bmodel->masked = false; // is_model_masked(wm, model);
+		// One BLAS holds the whole brush model. With a masked surface in it (a func_ grate)
+		// it takes the masked any-hit, which keeps every hit on the other surfaces.
+		bmodel->masked = false;
+		for ( int s = 0; s < bmodel->numSurfaces; s++ )
+		{
+			const msurface_t *surf = bmodel->firstSurface + s;
+
+			if ( !surf->skip && surf->shader && RB_IsMasked( tr.shaders[surf->shader->index] ) )
+			{
+				bmodel->masked = true;
+				break;
+			}
+		}
 		vk_debug( "rtx world: bmodel %i, %i light polys\n", i, bmodel->num_light_polys );
 	}
 

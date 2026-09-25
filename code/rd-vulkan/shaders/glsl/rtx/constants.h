@@ -54,6 +54,15 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define STORAGE_SCALE_HDR 128
 
 #define MAX_RTX_STAGES 4
+#define MAX_BLENDED_LAYERS 4	// blended surfaces a primary ray goes through
+
+// MaterialStage.blend, above the GLS blend bits
+#define STAGE_BLEND_ACTIVE		0x80000000u	// the stage exists
+#define STAGE_BLEND_LIGHTMAP	0x20000000u	// a lightmap stage: the tracer lights the surface itself
+
+// MaterialBundle.alphaGen, above the alphaGen_t value
+#define BUNDLE_SKIP				0x80000000u	// a lightmap bundle: not in the albedo
+#define BUNDLE_GLOW				0x40000000u	// a glow bundle: in the glow pass
 
 // texture
 #define TEXTURE_DEFAULT 							0x00000000

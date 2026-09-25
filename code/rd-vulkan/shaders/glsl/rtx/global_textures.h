@@ -75,8 +75,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	IMG_DO(PT_GEO_NORMAL2,            34, R32_UINT,            r32ui,   IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
 	IMG_DO(FSR_EASU_OUTPUT,           35, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
 	IMG_DO(FSR_RCAS_OUTPUT,           36, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(PT_GLOW,                   37, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
 
-#define RTX_IMG_NUM_STATIC 37
+#define RTX_IMG_NUM_STATIC 38
 
 #define LIST_IMAGES_A_B \
 	IMG_DO( PT_VISBUF_PRIM_A,			  RTX_IMG_NUM_STATIC + 0,  R32G32_UINT,	rg32ui, IMG_WIDTH_MGPU,      IMG_HEIGHT ) \

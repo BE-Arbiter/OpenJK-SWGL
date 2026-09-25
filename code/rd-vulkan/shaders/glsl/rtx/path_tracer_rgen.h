@@ -846,7 +846,7 @@ vec4 unpack_rgba8(uint p)
 
 vec4 calc_color( in uint instance_index, in MaterialStage stage, in uint bundle ) 
 {
-	vec4 base_color = vec4(1.0);
+	vec4 base_color = unpack_rgba8(stage.bundle[bundle].color);
 	vec4 shaderRGBA = vec4(0.0);
 	uint forceRGBGen = 0u;
 
@@ -867,139 +867,275 @@ vec4 calc_color( in uint instance_index, in MaterialStage stage, in uint bundle 
 	return base_color;
 }
 
+// The tcMods of the bundle move the stage UV.
+vec4 sample_bundle(MaterialBundle bundle, vec3 position, vec2 uv, vec2 uvx, vec2 uvy, float mip)
+{
+	mat2 m = mat2(bundle.tc_matrix.xy, bundle.tc_matrix.zw);
+	uv = m * uv + bundle.tc_offset.xy;
+
+	// tcMod turb, as ModTexCoords in gen_vert.tmpl
+	if (bundle.tc_offset.z != 0.0)
+		uv += sin(vec2(position.x + position.z, position.y) * (2.0 * M_PI / 1024.0) + vec2(bundle.tc_offset.w * 2.0 * M_PI)) * bundle.tc_offset.z;
+
+	if (mip >= 0.0)
+		return global_textureLod(bundle.image, uv, mip);
+
+	return global_textureGrad(bundle.image, uv, m * uvx, m * uvy);
+}
+
+// One bundle onto the bundles before it, with the multitexture mode of the stage.
+vec4 combine_bundle(vec4 acc, vec4 c, uint tex_mode)
+{
+	switch (tex_mode)
+	{
+		default:
+		case 0u: // MODULATE
+			return acc * c;
+		case 1u: // ADD_IDENTITY
+		case 2u: // ADD
+		case 3u: // ALPHA
+		case 4u: // ONE_MINUS_ALPHA
+			return vec4(acc.rgb + c.rgb, acc.a * c.a);
+		case 5u: // MIX_ALPHA
+			return mix(acc, c, c.a);
+		case 6u: // MIX_ONE_MINUS_ALPHA
+			return mix(c, acc, c.a);
+		case 7u: // DST_COLOR_SRC_ALPHA
+			return (c + c.a) * acc;
+	}
+}
+
+// The bundles of a stage combined with the multitexture mode. A lightmap bundle (BUNDLE_SKIP)
+// is not in the albedo. glow is the same stage in the glow pass: the bundles without
+// BUNDLE_GLOW are black there.
 vec4 sample_material_stage(
 	uint instance_index,
 	uint stage_idx,
-    MaterialStage stage,
-    vec2 uv,
-    vec2 uvx,
-    vec2 uvy,
-    float mip)
+	MaterialStage stage,
+	vec3 position,
+	vec2 uv,
+	vec2 uvx,
+	vec2 uvy,
+	float mip,
+	out vec4 glow)
 {
-#define SAMPLE_TEX(img) \
-    ((mip >= 0.0) ? \
-        global_textureLod(img, uv, mip) : \
-        global_textureGrad(img, uv, uvx, uvy))
+	vec4 acc = vec4(1.0);
+	glow = vec4(0.0);
+	bool first = true;
 
-    vec4 c0 = calc_color(instance_index, stage, 0);
-    vec4 c1 = calc_color(instance_index, stage, 1);
-    vec4 c2 = calc_color(instance_index, stage, 2);
+	for (uint b = 0u; b <= min(stage.tex_count, 2u); b++)
+	{
+		if ((stage.bundle[b].alphaGen & BUNDLE_SKIP) != 0u)
+			continue;
 
-    if (stage.bundle[0].image != 0u)
-        c0 *= SAMPLE_TEX(stage.bundle[0].image);
+		vec4 c = calc_color(instance_index, stage, b);
+		if (stage.bundle[b].image != 0u)
+			c *= sample_bundle(stage.bundle[b], position, uv, uvx, uvy, mip);
 
-    if (stage.tex_count >= 1u && stage.bundle[1].image != 0u)
-        c1 *= SAMPLE_TEX(stage.bundle[1].image);
+		if (stage.tex_mode == 3u)			// ALPHA
+			c.rgb *= c.a;
+		else if (stage.tex_mode == 4u)		// ONE_MINUS_ALPHA
+			c.rgb *= 1.0 - c.a;
 
-    if (stage.tex_count >= 2u && stage.bundle[2].image != 0u)
-        c2 *= SAMPLE_TEX(stage.bundle[2].image);
+		vec4 g = ((stage.bundle[b].alphaGen & BUNDLE_GLOW) != 0u) ? c : vec4(0.0, 0.0, 0.0, c.a);
 
-#undef SAMPLE_TEX
+		if (first)
+		{
+			acc = c;
+			glow = g;
+			first = false;
+			continue;
+		}
 
-    switch (stage.tex_mode)
-    {
-        default:
-        case 0u: // MODULATE
-            if (stage.tex_count == 0u)
-                return c0;
-            if (stage.tex_count == 1u)
-                return c0 * c1;
-            return c0 * c1 * c2;
+		acc = combine_bundle(acc, c, stage.tex_mode);
+		glow = combine_bundle(glow, g, stage.tex_mode);
+	}
 
-        case 1u: // ADD_IDENTITY
-        case 2u: // ADD
-            if (stage.tex_count == 0u)
-                return c0;
-
-            if (stage.tex_count == 1u)
-            {
-                return vec4(
-                    c0.rgb + c1.rgb,
-                    c0.a * c1.a);
-            }
-
-            return vec4(
-                c0.rgb + c1.rgb + c2.rgb,
-                c0.a * c1.a * c2.a);
-
-        case 3u: // ALPHA
-            c0 *= c0.a;
-
-            if (stage.tex_count == 0u)
-                return c0;
-
-            c1 *= c1.a;
-
-            if (stage.tex_count == 1u)
-            {
-                return vec4(
-                    c0.rgb + c1.rgb,
-                    c0.a * c1.a);
-            }
-
-            c2 *= c2.a;
-
-            return vec4(
-                c0.rgb + c1.rgb + c2.rgb,
-                c0.a * c1.a * c2.a);
-
-        case 4u: // ONE_MINUS_ALPHA
-            c0 *= (1.0 - c0.a);
-
-            if (stage.tex_count == 0u)
-                return c0;
-
-            c1 *= (1.0 - c1.a);
-
-            if (stage.tex_count == 1u)
-            {
-                return vec4(
-                    c0.rgb + c1.rgb,
-                    c0.a * c1.a);
-            }
-
-            c2 *= (1.0 - c2.a);
-
-            return vec4(
-                c0.rgb + c1.rgb + c2.rgb,
-                c0.a * c1.a * c2.a);
-
-        case 5u: // MIX_ALPHA
-            if (stage.tex_count == 0u)
-                return c0;
-
-            if (stage.tex_count == 1u)
-                return mix(c0, c1, c1.a);
-
-            return mix(
-                mix(c0, c1, c1.a),
-                c2,
-                c2.a);
-
-        case 6u: // MIX_ONE_MINUS_ALPHA
-            if (stage.tex_count == 0u)
-                return c0;
-
-            if (stage.tex_count == 1u)
-                return mix(c1, c0, c1.a);
-
-            return mix(
-                c2,
-                mix(c1, c0, c1.a),
-                c2.a);
-
-        case 7u: // DST_COLOR_SRC_ALPHA
-            if (stage.tex_count == 0u)
-                return c0;
-
-            if (stage.tex_count == 1u)
-                return (c1 + c1.a) * c0;
-
-            return (c2 + c2.a) * (c1 + c1.a) * c0;
-    }
+	return acc;
 }
 
-void get_material( 
+// GL blend factor of a GLS_SRCBLEND_* (src = true) or GLS_DSTBLEND_* value, shifted to 1-9.
+vec4 blend_factor( uint f, bool src, vec4 s, vec4 d )
+{
+	switch ( f )
+	{
+		case 1u: return vec4( 0.0 );
+		case 2u: return vec4( 1.0 );
+		case 3u: return src ? d : s;
+		case 4u: return src ? 1.0 - d : 1.0 - s;
+		case 5u: return vec4( s.a );
+		case 6u: return vec4( 1.0 - s.a );
+		case 7u: return vec4( d.a );
+		case 8u: return vec4( 1.0 - d.a );
+		case 9u: return vec4( vec3( min( s.a, 1.0 - d.a ) ), 1.0 );
+	}
+	return vec4( 1.0 );
+}
+
+// The albedo is the stages blended the way the rasterizer does. The tracer lights the surface
+// itself, so the lightmap stages are left out. The glow is the glow pass of the rasterizer:
+// the same blends, with the bundles that do not glow drawn in black.
+vec4 compose_material_stages(
+	uint instance_index,
+	MaterialInfo minfo,
+	vec3 position,
+	vec2 tex_coord[4],
+	vec2 tex_coord_x[4],
+	vec2 tex_coord_y[4],
+	float mip_level,
+	out vec3 glow )
+{
+	vec4 dst = vec4( 1.0 );
+	vec4 glow_dst = vec4( 0.0 );
+	bool first = true;
+
+	for ( uint s = 0u; s < MAX_RTX_STAGES; s++ )
+	{
+		MaterialStage stage = minfo.stage[s];
+
+		if ( ( stage.blend & STAGE_BLEND_ACTIVE ) == 0u )
+			break;
+		if ( ( stage.blend & STAGE_BLEND_LIGHTMAP ) != 0u )
+			continue;
+
+		vec4 glow_src;
+		vec4 src = sample_material_stage( instance_index, s, stage, position, tex_coord[s], tex_coord_x[s], tex_coord_y[s], mip_level, glow_src );
+
+		uint sf = stage.blend & 0x0fu;
+		uint df = ( stage.blend >> 4 ) & 0x0fu;
+
+		// The first stage, or a stage without blendFunc, replaces the color.
+		if ( first || ( sf == 0u && df == 0u ) )
+		{
+			dst = src;
+			glow_dst = glow_src;
+		}
+		else
+		{
+			dst = src * blend_factor( sf, true, src, dst ) + dst * blend_factor( df, false, src, dst );
+			glow_dst = glow_src * blend_factor( sf, true, glow_src, glow_dst ) + glow_dst * blend_factor( df, false, glow_src, glow_dst );
+		}
+
+		first = false;
+	}
+
+	glow = clamp( glow_dst.rgb, vec3( 0.0 ), vec3( 1.0 ) );
+	return clamp( dst, vec4( 0.0 ), vec4( 1.0 ) );
+}
+
+// A surface blended onto the framebuffer: stage 0 blends and the alpha test is off. The
+// rasterizer draws it over what is behind, so the primary ray goes through it.
+bool is_blended_surface( uint material_id )
+{
+	uint kind = material_id & MATERIAL_KIND_MASK;
+	if ( kind != 0u && kind != MATERIAL_KIND_REGULAR )
+		return false;
+
+	MaterialInfo minfo = get_material_info( material_id );
+
+	return minfo.blend_mode != RTX_BLEND_OPAQUE && minfo.alpha_test_func == 0u;
+}
+
+// One stage with its GL blend: out = L + T * dst. The destination alpha counts as 1.
+void blend_stage_layer( uint blend, vec4 src, inout vec3 L, inout vec3 T )
+{
+	uint sf = blend & 0x0fu;
+	uint df = ( blend >> 4 ) & 0x0fu;
+
+	// No blendFunc: the stage replaces the color.
+	if ( sf == 0u && df == 0u )
+	{
+		L = src.rgb;
+		T = vec3( 0.0 );
+		return;
+	}
+
+	vec3 Ls = vec3( 0.0 );
+	vec3 Ts = vec3( 0.0 );
+
+	switch ( df )
+	{
+		case 2u: Ts = vec3( 1.0 );			break;	// ONE
+		case 3u: Ts = src.rgb;				break;	// SRC_COLOR
+		case 4u: Ts = 1.0 - src.rgb;		break;	// ONE_MINUS_SRC_COLOR
+		case 5u: Ts = vec3( src.a );		break;	// SRC_ALPHA
+		case 6u: Ts = vec3( 1.0 - src.a );	break;	// ONE_MINUS_SRC_ALPHA
+		case 7u: Ts = vec3( 1.0 );			break;	// DST_ALPHA
+	}
+
+	switch ( sf )
+	{
+		case 2u: Ls = src.rgb;						break;	// ONE
+		case 3u: Ts += src.rgb;						break;	// DST_COLOR
+		case 4u: Ls = src.rgb; Ts -= src.rgb;		break;	// ONE_MINUS_DST_COLOR
+		case 5u: Ls = src.rgb * src.a;				break;	// SRC_ALPHA
+		case 6u: Ls = src.rgb * ( 1.0 - src.a );	break;	// ONE_MINUS_SRC_ALPHA
+		case 7u: Ls = src.rgb;						break;	// DST_ALPHA
+	}
+
+	L = Ls + Ts * L;
+	T = Ts * T;
+}
+
+// The stages of a blended surface, in screen units: out = L + T * behind.
+void blended_surface_layer(
+	uint instance_index,
+	Triangle triangle,
+	vec3 bary,
+	out vec3 L,
+	out vec3 T )
+{
+	MaterialInfo minfo = get_material_info( triangle.material_id );
+	vec3 position = triangle.positions * bary;
+	vec2 tex_coord[4];
+	tex_coord[0] = triangle.tex_coords0 * bary;
+	tex_coord[1] = triangle.tex_coords1 * bary;
+	tex_coord[2] = triangle.tex_coords2 * bary;
+	tex_coord[3] = triangle.tex_coords3 * bary;
+
+	L = vec3( 0.0 );
+	T = vec3( 1.0 );
+
+	for ( uint s = 0u; s < MAX_RTX_STAGES; s++ )
+	{
+		MaterialStage stage = minfo.stage[s];
+
+		if ( ( stage.blend & STAGE_BLEND_ACTIVE ) == 0u )
+			break;
+		if ( ( stage.blend & STAGE_BLEND_LIGHTMAP ) != 0u )
+			continue;
+
+		vec4 glow_src;
+		vec4 src = sample_material_stage( instance_index, s, stage, position, tex_coord[s], vec2( 0.0 ), vec2( 0.0 ), 0.0, glow_src );
+		blend_stage_layer( stage.blend, src, L, T );
+	}
+
+	T = clamp( T, vec3( 0.0 ), vec3( 1.0 ) );
+	L = max( L, vec3( 0.0 ) );
+}
+
+// Screen units (what the tone mapper shows as 1) to HDR units, at the current exposure.
+float screen_to_hdr()
+{
+	if ( global_ubo.prev_adapted_luminance <= 0.0 )
+		return 0.0;
+
+	return global_ubo.prev_adapted_luminance / exp2( global_ubo.tm_exposure_bias - 2.0 );
+}
+
+// The blended layers in front of the primary surface (L, T in HDR units) over the
+// transparent image, which is premultiplied and goes over the lit surface.
+vec4 apply_blended_layers( vec4 transparent, vec3 L, vec3 T )
+{
+	float t = dot( T, vec3( 1.0 / 3.0 ) );
+
+	transparent.rgb = L + T * transparent.rgb;
+	transparent.a = 1.0 - t * ( 1.0 - transparent.a );
+
+	return transparent;
+}
+
+void get_material(
 	uint instance_index,
 	Triangle triangle,
 	vec3 bary,
@@ -1076,17 +1212,10 @@ void get_material(
 	metallic = 0;
     roughness = 1;
 
-	// no multi-stage support yet
-	vec4 stage0 = sample_material_stage(
-		instance_index,
-		0,
-		minfo.stage[0],
-		tex_coord[0],
-		tex_coord_x[0],
-		tex_coord_y[0],
-		mip_level);
+	vec3 glow;
+	vec4 albedo = compose_material_stages( instance_index, minfo, triangle.positions * bary, tex_coord, tex_coord_x, tex_coord_y, mip_level, glow );
 
-	base_color = stage0.rgb * minfo.base_factor;
+	base_color = albedo.rgb * minfo.base_factor;
 	base_color = clamp(base_color, vec3(0.0), vec3(1.0));
 
 	float spec_mix_bias = 0.08;
@@ -1154,7 +1283,11 @@ void get_material(
 
 	if (triangle.emissive_factor > 0)
 	{
-		emissive = sample_emissive_texture( triangle.material_id, minfo, tex_coord[0], tex_coord_x[0], tex_coord_y[0], mip_level );
+		// A glow material emits its glow pass, not its first glow texture on the whole surface.
+		if ( is_glow_material( triangle.material_id ) )
+			emissive = correct_emissive( triangle.material_id, glow ) * minfo.emissive_factor;
+		else
+			emissive = sample_emissive_texture( triangle.material_id, minfo, tex_coord[0], tex_coord_x[0], tex_coord_y[0], mip_level );
 		emissive *= triangle.emissive_factor;
 	}
 	else
@@ -1173,7 +1306,7 @@ void compute_anisotropic_texture_gradients(
 	vec3 ray_direction,
 	float cone_radius,
 	mat3 positions,
-	mat3x2 tex_coords,
+	mat3x2 tex_coords[4],
 	vec2 tex_coords_at_intersection[4],
 	out vec2 texGradient1[4],
 	out vec2 texGradient2[4],
@@ -1197,14 +1330,16 @@ void compute_anisotropic_texture_gradients(
 	eP = delta + a1;
 	float u1 = dot(normal, cross(eP, e2)) * inv_tri_area;
 	float v1 = dot(normal, cross(e1, eP)) * inv_tri_area;
-	texGradient1[0] = (1.0-u1-v1) * tex_coords[0] + u1 * tex_coords[1] +
-		v1 * tex_coords[2] - tex_coords_at_intersection[0];
+	for (int s = 0; s < 4; s++)
+		texGradient1[s] = (1.0-u1-v1) * tex_coords[s][0] + u1 * tex_coords[s][1] +
+			v1 * tex_coords[s][2] - tex_coords_at_intersection[s];
 
 	eP = delta + a2;
 	float u2 = dot(normal, cross(eP, e2)) * inv_tri_area;
 	float v2 = dot(normal, cross(e1, eP)) * inv_tri_area;
-	texGradient2[0] = (1.0-u2-v2) * tex_coords[0] + u2 * tex_coords[1] +
-		v2 * tex_coords[2] - tex_coords_at_intersection[0];
+	for (int s = 0; s < 4; s++)
+		texGradient2[s] = (1.0-u2-v2) * tex_coords[s][0] + u2 * tex_coords[s][1] +
+			v2 * tex_coords[s][2] - tex_coords_at_intersection[s];
 
 	fwidth_depth = 1.0 / max(0.1, abs(dot(a1, ray_direction)) + abs(dot(a2, ray_direction)));
 }

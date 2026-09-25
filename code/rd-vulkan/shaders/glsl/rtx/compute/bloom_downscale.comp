@@ -48,7 +48,8 @@ void main()
 	if(any(greaterThanEqual(ipos, bloom_extent)))
 		return;
 
-	// The tone mapper shows lum * 2^(bias - 2) / adapted luminance. Work in those units.
+	// The tone mapper shows an HDR value h as about h * 2^(bias - 2) / adapted luminance.
+	// TAA_OUTPUT holds h * STORAGE_SCALE_HDR, PT_GLOW holds h. Work in screen units.
 	// Before the first exposure there is nothing to measure against.
 	if (global_ubo.prev_adapted_luminance <= 0.0)
 	{
@@ -75,18 +76,48 @@ void main()
 			if (any(isnan(c)) || any(isinf(c)))
 				continue;
 
-			float lum = luminance(c) * to_display;
+			c *= to_display / STORAGE_SCALE_HDR;
+
+			float lum = luminance(c);
 			float excess = lum - push.threshold;
 
 			if (excess <= 0.0)
 				continue;
 
-			bright += c * ((excess / (1.0 + excess)) / lum);
+			bright += c * ((excess / (1.0 + excess)) / lum) * 0.25;
 		}
 	}
 
-	// Back to the tone mapper input units, so the composite adds it to the HDR image.
-	bright *= 0.25 / to_display;
+	// The glow stages, as the dynamic glow of the rasterizer: their color on the screen, blurred
+	// and added. The glow image has the render size, not the TAA output size.
+	// The primary rays store it in two checkerboard fields side by side, as
+	// checkerboard_interleave.comp reads it.
+	vec2 to_render = vec2(global_ubo.width, global_ubo.height) / vec2(global_ubo.taa_output_width, global_ubo.taa_output_height);
+
+	for (int y = 0; y < 4; y++)
+	{
+		for (int x = 0; x < 4; x++)
+		{
+			ivec2 flat_pos = ivec2((base + vec2(x, y) + 0.5) * to_render);
+			bool is_even_checkerboard = (flat_pos.x & 1) == (flat_pos.y & 1);
+			if (global_ubo.pt_swap_checkerboard != 0)
+				is_even_checkerboard = !is_even_checkerboard;
+
+			ivec2 field_pos = ivec2(flat_pos.x / 2, flat_pos.y);
+			if (!is_even_checkerboard)
+				field_pos.x += global_ubo.width / 2;
+
+			vec3 g = texelFetch(TEX_PT_GLOW, field_pos, 0).rgb;
+
+			if (any(isnan(g)) || any(isinf(g)))
+				continue;
+
+			bright += min(g * to_display, vec3(1.0)) * (1.0 / 16.0);
+		}
+	}
+
+	// Back to the units of TAA_OUTPUT, so the composite adds it to the HDR image.
+	bright *= STORAGE_SCALE_HDR / to_display;
 
 	imageStore(IMG_BLOOM_VBLUR, ipos, vec4(bright, 1));
 }

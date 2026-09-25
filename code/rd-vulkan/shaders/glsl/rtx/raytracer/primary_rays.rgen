@@ -150,13 +150,46 @@ main()
 		readback.sky_luminance = sun_color_ubo.sky_luminance;
 	}
 
+	// The blended layers in front of the primary surface, in screen units.
+	vec3 layer_L = vec3(0);
+	vec3 layer_T = vec3(1);
+	vec3 layer_glow = vec3(0);
+	uint first_layer_material = 0u;	// pt_verbose "rtx view" names the first layer
+
 	{
 		int cull_mask = PRIMARY_RAY_CULL_MASK;
 		
 		if(global_ubo.pt_show_sky != 0)
 			cull_mask |= AS_FLAG_CUSTOM_SKY;
 
-		trace_geometry_ray(ray, true, cull_mask);
+		// A blended world surface (a force field, an additive decal) is a layer in front of
+		// what the ray hits next: out = L + T * behind, as the rasterizer blends it.
+		const float t_min = ray.t_min;
+		for (int layer = 0; layer < MAX_BLENDED_LAYERS; layer++)
+		{
+			trace_geometry_ray(ray, true, cull_mask);
+
+			if (!found_intersection(ray_payload_geometry))
+				break;
+
+			Triangle layer_triangle = get_hit_triangle(ray_payload_geometry);
+			if (layer == MAX_BLENDED_LAYERS - 1 || !is_blended_surface(layer_triangle.material_id))
+				break;
+
+			if (layer == 0)
+				first_layer_material = layer_triangle.material_id;
+
+			vec3 L, T;
+			blended_surface_layer(get_instance_index(ray_payload_geometry), layer_triangle, get_hit_barycentric(ray_payload_geometry), L, T);
+
+			layer_L += layer_T * L;
+			if (is_glow_material(layer_triangle.material_id))
+				layer_glow += layer_T * L;
+			layer_T *= T;
+
+			ray.t_min = ray_payload_geometry.hit_distance + 0.01;
+		}
+		ray.t_min = t_min;
 	}
 
 	Triangle triangle;
@@ -183,7 +216,7 @@ main()
 
 		if(is_readback_pixel)
 		{
-			readback.material = ~0u;
+			readback.material = (first_layer_material != 0u) ? first_layer_material : ~0u;
 			readback.cluster = ~0u;
 		}
 
@@ -205,7 +238,9 @@ main()
 		imageStore(IMG_PT_VISBUF_PRIM_A, ipos, uvec4(0));
 		imageStore(IMG_PT_VISBUF_BARY_A, ipos, vec4(0));
 		imageStore(IMG_PT_BASE_COLOR_A, ipos, vec4(0));
+		transparent = apply_blended_layers(transparent, layer_L * screen_to_hdr(), layer_T);
 		imageStore(IMG_PT_TRANSPARENT, ipos, transparent);
+		imageStore(IMG_PT_GLOW, ipos, vec4(layer_glow * screen_to_hdr(), 0));
 #ifdef USE_RTX_INSPECT_TANGENTS
 		imageStore( IMG_PT_TANGENT_A,			ipos, uvec4(0) );
 #endif
@@ -224,7 +259,7 @@ main()
 
 	if(is_readback_pixel)
 	{
-		readback.material = triangle.material_id;
+		readback.material = (first_layer_material != 0u) ? first_layer_material : triangle.material_id;
 		readback.cluster = triangle.cluster;
 	}
 
@@ -232,19 +267,19 @@ main()
 	vec2 tex_coord[4];
 	{  // for stage ..
 		tex_coord[0] = triangle.tex_coords0 * bary;
+		tex_coord[1] = triangle.tex_coords1 * bary;
+		tex_coord[2] = triangle.tex_coords2 * bary;
+		tex_coord[3] = triangle.tex_coords3 * bary;
 	}
 	vec3 geo_normal = normalize( triangle.normals * bary );
 
 	vec3 flat_normal  = normalize(cross(
 		triangle.positions[1] - triangle.positions[0],
 		triangle.positions[2] - triangle.positions[1]));
-#if 0
-	//float flat_normal_sign = (global_ubo.weapon_left_handed != 0 && (triangle.material_id & MATERIAL_FLAG_WEAPON) != 0) ? -1.0 : 1.0;
-	float flat_normal_sign = -1.0;
-
-	if (dot(flat_normal , direction) * flat_normal_sign > 0)
-		geo_normal  = -geo_normal ;
-#endif
+	// A surface seen from its back (a grate with cull none, seen from below) is lit on the
+	// side that faces the viewer.
+	if (dot(geo_normal, direction) > 0)
+		geo_normal = -geo_normal;
 
 	/* compute view-space derivatives of depth and motion vectors */
 	Ray ray_0 = get_primary_ray(inUV);
@@ -258,13 +293,18 @@ main()
 	float fwidth_depth;
 	compute_anisotropic_texture_gradients(position, flat_normal, ray.direction, 
 		ray_payload_geometry.hit_distance * half_cone_angle, triangle.positions, 
-		triangle.tex_coords0, tex_coord, tex_coord_x, tex_coord_y, fwidth_depth);
+		mat3x2[4]( triangle.tex_coords0, triangle.tex_coords1, triangle.tex_coords2, triangle.tex_coords3 ), tex_coord, tex_coord_x, tex_coord_y, fwidth_depth);
 
 	if(global_ubo.pt_texture_lod_bias != 0)
 	{
 		// sunny, do all tex coords once its supported ..
 		tex_coord_x[0] *= pow(2.0, global_ubo.pt_texture_lod_bias);
 		tex_coord_y[0] *= pow(2.0, global_ubo.pt_texture_lod_bias);
+		for ( int s = 1; s < 4; s++ )
+		{
+			tex_coord_x[s] *= pow(2.0, global_ubo.pt_texture_lod_bias);
+			tex_coord_y[s] *= pow(2.0, global_ubo.pt_texture_lod_bias);
+		}
 	}
 
 	vec3 pos_ws_curr = position;
@@ -424,6 +464,8 @@ main()
 	imageStore(IMG_PT_BASE_COLOR_A, ipos, vec4(primary_base_color, primary_specular_factor));
 	imageStore(IMG_PT_METALLIC_A, ipos, vec4(primary_metallic, primary_roughness, 0, 0));
 	imageStore(IMG_PT_GODRAYS_THROUGHPUT_DIST, ipos, vec4(1, 1, 1, distance_curr));
+	// The glow stages give the bloom its halo, as the dynamic glow of the rasterizer does.
+	imageStore(IMG_PT_GLOW, ipos, vec4((is_glow_material(material_id) ? primary_emissive * layer_T : vec3(0)) + layer_glow * screen_to_hdr(), 0));
 #ifdef USE_RTX_INSPECT_TANGENTS
 	imageStore( IMG_PT_TANGENT_A,			ipos, uvec4( encode_normal( geo_tangent ) ) );
 #endif
@@ -473,5 +515,6 @@ main()
 	transparent.rgb += effects.additive;
 #endif
 
+	transparent = apply_blended_layers(transparent, layer_L * screen_to_hdr(), layer_T);
 	imageStore(IMG_PT_TRANSPARENT, ipos, transparent);
 }

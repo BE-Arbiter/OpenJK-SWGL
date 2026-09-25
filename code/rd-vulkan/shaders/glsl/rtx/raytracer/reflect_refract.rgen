@@ -559,6 +559,9 @@ main()
 	vec2 tex_coord[4];
 	{ // for stage ..
 		tex_coord[0]    = triangle.tex_coords0 * bary;
+		tex_coord[1] = triangle.tex_coords1 * bary;
+		tex_coord[2] = triangle.tex_coords2 * bary;
+		tex_coord[3] = triangle.tex_coords3 * bary;
 	}
 	vec3 new_position = triangle.positions * bary;
 	vec3 new_pos_prev = triangle.positions_prev * bary;
@@ -569,10 +572,9 @@ main()
 	vec3 new_flat_normal = normalize(cross(
 		triangle.positions[1] - triangle.positions[0],
 		triangle.positions[2] - triangle.positions[1]));
-#if 0
-	if (dot(new_flat_normal, direction) > 0)
+	// A surface seen from its back is lit on the side that faces the ray.
+	if (dot(new_geo_normal, direction) > 0)
 		new_geo_normal = -new_geo_normal;
-#endif
 	// Compute the LOD for the texture on the reflected/refracted surface.
 	// We don't have texture gradients here, so just estimate the LOD
 	// based on the ray "cone size" and distance. The "cone size" is computed
@@ -586,13 +588,18 @@ main()
 	float fwidth_depth;
 	compute_anisotropic_texture_gradients(new_position, new_flat_normal, direction, 
 		optical_path_length * half_cone_angle, triangle.positions, 
-		triangle.tex_coords0, tex_coord, tex_coord_x, tex_coord_y, fwidth_depth);
+		mat3x2[4]( triangle.tex_coords0, triangle.tex_coords1, triangle.tex_coords2, triangle.tex_coords3 ), tex_coord, tex_coord_x, tex_coord_y, fwidth_depth);
 
 	if(global_ubo.pt_texture_lod_bias != 0)
 	{
 		// sunny, do all tex coords once its supported ..
 		tex_coord_x[0] *= pow(2.0, global_ubo.pt_texture_lod_bias);
 		tex_coord_y[0] *= pow(2.0, global_ubo.pt_texture_lod_bias);
+		for ( int s = 1; s < 4; s++ )
+		{
+			tex_coord_x[s] *= pow(2.0, global_ubo.pt_texture_lod_bias);
+			tex_coord_y[s] *= pow(2.0, global_ubo.pt_texture_lod_bias);
+		}
 	}
 
 	if(correct_motion_vector == 1 && spec_bounce_index == 0 || correct_motion_vector == 2)

@@ -96,7 +96,9 @@ STRUCT (
 	UINT	( image )
 	UINT	( rgbGen )
 	UINT	( alphaGen )
-	UINT	( pad2 )
+	UINT	( color )		// rgba8: rgbGen and alphaGen that do not come from the entity or the vertex
+	VEC4	( tc_matrix )	// tcMods: u' = x * u + z * v + offset.x, v' = y * u + w * v + offset.y
+	VEC4	( tc_offset )
 , MaterialBundle )
 #define MATERIALBUNDLE(n) MaterialBundle n;
 
@@ -104,7 +106,7 @@ STRUCT (
 	MATERIALBUNDLE	( bundle[3] )
 	UINT			( tex_mode )
 	UINT			( tex_count )
-	UINT			( pad0 )
+	UINT			( blend )		// GLS blend bits 0-7; STAGE_BLEND_ACTIVE, STAGE_BLEND_LIGHTMAP
 	UINT			( pad1 )
 , MaterialStage )
 #define MATERIALSTAGE(n) MaterialStage n;
@@ -466,9 +468,10 @@ store_triangle(Triangle t, uint buffer_idx, uint prim_id)
 	prim.tangents.y = encode_normal(t.tangents[1]);
 	prim.tangents.z = encode_normal(t.tangents[2]);
 
-	prim.uv0[0] = packHalf2x16(t.tex_coords0[0]);
-	prim.uv1[0] = packHalf2x16(t.tex_coords0[1]);
-	prim.uv2[0] = packHalf2x16(t.tex_coords0[2]);
+	// A model has one set of texture coordinates: every stage uses it.
+	prim.uv0 = uvec4(packHalf2x16(t.tex_coords0[0]));
+	prim.uv1 = uvec4(packHalf2x16(t.tex_coords0[1]));
+	prim.uv2 = uvec4(packHalf2x16(t.tex_coords0[2]));
 
 	prim.material_id = t.material_id;
 	prim.shell = t.shell;
@@ -525,6 +528,18 @@ uint animate_material( uint material, int frame )
 		index = ( get_material_uint( index, 4 ) >> 12 ) & MATERIAL_INDEX_MASK;
 
 	return ( material & ~MATERIAL_INDEX_MASK ) | index;
+}
+
+// The emissive of this material comes from a glow stage (word 5, bits 8-15: pt_glow_scale).
+bool is_glow_material( uint material_id )
+{
+	uint material_index = material_id & MATERIAL_INDEX_MASK;
+	uint remapped = get_material_uint( material_index, 4 ) & MATERIAL_INDEX_MASK;
+
+	if ( remapped > 0 )
+		material_index = remapped;
+
+	return ( ( get_material_uint( material_index, 5 ) >> 8 ) & 0xffu ) != 0u;
 }
 
 MaterialStage get_material_stage( in uint material_index, in uint stage )

@@ -2636,6 +2636,7 @@ void	RB_CalcDisintegrateVertDeform( void );
 
 void	RB_CalcScaleTexMatrix( const float scale[2], float *matrix );
 void	RB_CalcScrollTexMatrix( const float scrollSpeed[2], float *matrix );
+void	vk_compute_tex_mods( const textureBundle_t *bundle, float *outMatrix, float *outOffTurb );
 void	RB_CalcRotateTexMatrix( float degsPerSecond, float *matrix );
 void	RB_CalcTurbulentFactors( const waveForm_t *wf, float *amplitude, float *now );
 void	RB_CalcTransformTexMatrix( const texModInfo_t *tmi, float *matrix  );
