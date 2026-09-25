@@ -44,7 +44,7 @@ void vkpt_light_buffer_reset_counts( void )	// not used yet
 }
 
 static inline void
-copy_light(const light_poly_t* light, float* vblight, const float* sky_radiance)
+copy_light(const light_poly_t* light, float* vblight, const float* sky_radiance, qboolean world)
 {
 	float style_scale = 1.f;
 	float prev_style = 1.f;
@@ -61,8 +61,8 @@ copy_light(const light_poly_t* light, float* vblight, const float* sky_radiance)
 #endif
 
 	// The light cast by a glow stage and by a q3map_surfacelight surface have their own scale.
-	// pt_glow_scale only sets how bright the glow surface is seen. The entity lights and the
-	// dynamic lights have no material: pt_light_scale_entity and pt_light_scale_dlight set them.
+	// pt_glow_scale only sets how bright the glow surface is seen. In the world, a light without
+	// material is a light entity. add_dlights applies pt_light_scale_dlight.
 	static cvar_t *pt_light_scale_glow, *pt_light_scale_surface;
 	if ( !pt_light_scale_glow )
 	{
@@ -73,6 +73,8 @@ copy_light(const light_poly_t* light, float* vblight, const float* sky_radiance)
 	float mat_scale = 10.f;
 	if ( light->material )
 		mat_scale = MAX( 0.f, light->material->glow_emissive ? pt_light_scale_glow->value : pt_light_scale_surface->value );
+	else if ( world )
+		mat_scale = 10.f * MAX( 0.f, pt_light_scale_entity->value );
 
 	VectorCopy(light->positions + 0, vblight + 0);
 	VectorCopy(light->positions + 3, vblight + 4);
@@ -494,14 +496,14 @@ VkResult vkpt_light_buffer_upload_to_staging( qboolean render_world,
 		{
 			light_poly_t* light = world->light_polys + nlight;
 			float* vblight = *(lbo->light_polys + nlight * LIGHT_POLY_VEC4S);
-			copy_light(light, vblight, sky_radiance);
+			copy_light(light, vblight, sky_radiance, qtrue);
 		}
 
 		for (int nlight = 0; nlight < num_model_lights && nlight + model_light_offset < MAX_LIGHT_POLYS; nlight++)
 		{
 			light_poly_t* light = transformed_model_lights + nlight;
 			float* vblight = *(lbo->light_polys + (nlight + model_light_offset) * LIGHT_POLY_VEC4S);
-			copy_light(light, vblight, sky_radiance);
+			copy_light(light, vblight, sky_radiance, qfalse);
 		}
 	}
 	else

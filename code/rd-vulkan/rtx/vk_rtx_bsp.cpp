@@ -1478,9 +1478,9 @@ static int collect_entity_lights( world_t &worldData )
 		light->positions[3] = ENTITY_LIGHT_RADIUS;
 
 		// A sphere light's irradiance is colour * r^2 / d^2, so dividing the colour by
-		// r^2 here makes the emitter's size irrelevant at a distance and leaves
-		// pt_light_scale_entity as the only thing setting the level.
-		VectorScale( color, pt_light_scale_entity->value * intensity
+		// r^2 here makes the emitter's size irrelevant at a distance. copy_light applies
+		// pt_light_scale_entity at each frame.
+		VectorScale( color, intensity
 			/ ( ENTITY_LIGHT_RADIUS * ENTITY_LIGHT_RADIUS ), light->color );
 
 		light->cluster = cluster;
