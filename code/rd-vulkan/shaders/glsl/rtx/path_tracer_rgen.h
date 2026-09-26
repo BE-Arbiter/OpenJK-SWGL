@@ -1070,8 +1070,6 @@ vec4 blend_factor( uint f, bool src, vec4 s, vec4 d )
 // with its blendFunc, except x2 (GL_DST_COLOR GL_SRC_COLOR), which undoes the overbright shift
 // of the GL lightmap and only multiplies by the light. The glow is the glow pass of the
 // rasterizer: the same blends, with the bundles that do not glow drawn in black.
-// Without split (a q3map_surfacelight surface) the lightmap stages are left out and all of
-// the colour is the albedo.
 vec4 compose_material_stages(
 	StageContext ctx,
 	MaterialInfo minfo,
@@ -1079,7 +1077,6 @@ vec4 compose_material_stages(
 	vec2 tex_coord_x[4],
 	vec2 tex_coord_y[4],
 	float mip_level,
-	bool split,
 	out vec3 glow,
 	out vec3 emission )
 {
@@ -1102,9 +1099,6 @@ vec4 compose_material_stages(
 
 		if ( ( stage.blend & STAGE_BLEND_LIGHTMAP ) != 0u )
 		{
-			if ( !split )
-				continue;
-
 			const vec4 light0 = vec4( 0.0, 0.0, 0.0, 1.0 );
 			const vec4 light1 = vec4( 1.0 );
 
@@ -1126,8 +1120,6 @@ vec4 compose_material_stages(
 
 		vec4 src0, src1, glow_src;
 		sample_material_stage_light( ctx, s, stage, tex_coord[s], tex_coord_x[s], tex_coord_y[s], mip_level, src0, src1, glow_src );
-		if ( !split )
-			src0 = src1;
 
 		if ( glow_first || no_blend )
 			glow_dst = glow_src;
@@ -1150,13 +1142,6 @@ vec4 compose_material_stages(
 	}
 
 	glow = clamp( glow_dst.rgb, vec3( 0.0 ), vec3( 1.0 ) );
-
-	if ( !split )
-	{
-		emission = vec3( 0.0 );
-		return clamp( dst1, vec4( 0.0 ), vec4( 1.0 ) );
-	}
-
 	emission = max( dst0.rgb, vec3( 0.0 ) );
 	return vec4( clamp( dst1.rgb - dst0.rgb, vec3( 0.0 ), vec3( 1.0 ) ), clamp( dst1.a, 0.0, 1.0 ) );
 }
@@ -1366,12 +1351,11 @@ void get_material(
 	metallic = 0;
     roughness = 1;
 
-	// A q3map_surfacelight surface without glow stage keeps its emissive texture (radiance).
-	const bool surface_light = triangle.emissive_factor > 0 && !is_glow_material( triangle.material_id );
-
+	// A q3map_surfacelight surface too: GL draws it like any other surface. Its light polys light
+	// the scene.
 	vec3 glow, emission;
 	StageContext ctx = stage_context( instance_index, triangle, bary, geo_normal );
-	vec4 albedo = compose_material_stages( ctx, minfo, tex_coord, tex_coord_x, tex_coord_y, mip_level, !surface_light, glow, emission );
+	vec4 albedo = compose_material_stages( ctx, minfo, tex_coord, tex_coord_x, tex_coord_y, mip_level, glow, emission );
 
 	base_color = albedo.rgb * minfo.base_factor;
 	base_color = clamp(base_color, vec3(0.0), vec3(1.0));
@@ -1443,10 +1427,7 @@ void get_material(
 	// the screen: 1 is the white of the screen at this exposure. A fixed radiance saturates in a
 	// dark room, and the soft halo of a glow texture becomes a flat shape. pt_glow_scale is
 	// relative to that.
-	if ( surface_light )
-		emissive = sample_emissive_texture( triangle.material_id, minfo, tex_coord[0], tex_coord_x[0], tex_coord_y[0], mip_level ) * triangle.emissive_factor;
-	else
-		emissive = correct_emissive( triangle.material_id, emission ) * screen_to_hdr() * minfo.emission_scale;
+	emissive = correct_emissive( triangle.material_id, emission ) * screen_to_hdr() * minfo.emission_scale;
 
 	emissive += get_emissive_shell(triangle.material_id, triangle.shell) * base_color * (1 - metallic * 0.9);
 }
