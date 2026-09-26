@@ -523,9 +523,11 @@ void vk_rtx_create_images( void )
 	img_info[RTX_IMG_ASVGF_TAA_A].sampler = vk.tex_sampler;
 	img_info[RTX_IMG_ASVGF_TAA_B].sampler = vk.tex_sampler;
 	img_info[RTX_IMG_TAA_OUTPUT].sampler = vk.tex_sampler;
-	// The bloom blur reads between two texels to take both weights in one fetch.
-	img_info[RTX_IMG_BLOOM_HBLUR].sampler = vk.tex_sampler;
-	img_info[RTX_IMG_BLOOM_VBLUR].sampler = vk.tex_sampler;
+	// The bloom blur reads between two texels to take both weights in one fetch. Clamped: at
+	// the screen edge a repeat sampler takes the texel of the opposite edge, and a light on
+	// one side of the screen put a halo on the other.
+	img_info[RTX_IMG_BLOOM_HBLUR].sampler = vk.tex_sampler_linear_clamp;
+	img_info[RTX_IMG_BLOOM_VBLUR].sampler = vk.tex_sampler_linear_clamp;
 
 	VkWriteDescriptorSet output_img_write[NUM_RTX_IMAGES * 2];
 
