@@ -112,7 +112,14 @@ void main()
 			if (any(isnan(g)) || any(isinf(g)))
 				continue;
 
-			bright += min(g * to_display, vec3(1.0)) * (1.0 / 16.0);
+			// At most 1, as the glow buffer of the rasterizer, but divided by its largest channel:
+			// a clamp per channel turns a bright red to pink.
+			vec3 screen = g * to_display;
+			float peak = max(screen.r, max(screen.g, screen.b));
+			if (peak > 1.0)
+				screen /= peak;
+
+			bright += screen * (1.0 / 16.0);
 		}
 	}
 
