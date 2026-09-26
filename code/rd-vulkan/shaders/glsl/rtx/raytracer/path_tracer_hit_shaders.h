@@ -155,7 +155,10 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
         return make_empty_hit();
 
     vec4 shaderRGBA = unpack_rgba8(info.y);
-    vec4 vertex_color = vec4(1.0);
+
+    // The corners of a sprite take the entity colour (RB_AddQuadStamp), those of a scene poly
+    // their own colour.
+    vec4 corner_color = shaderRGBA;
 
     if (info.z == 1u)
     {
@@ -163,27 +166,28 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
         uvec4 colors = texelFetch(sprite_texure_buffer, sprite_index * 3 + 2);
 
         uv = unpackHalf2x16(uvs.x) * barycentric.x + unpackHalf2x16(uvs.y) * barycentric.y + unpackHalf2x16(uvs.z) * barycentric.z;
-        vec4 c = unpack_rgba8(colors.x) * barycentric.x + unpack_rgba8(colors.y) * barycentric.y + unpack_rgba8(colors.z) * barycentric.z;
-
-        // The vertex colour counts as the rasterizer counts it: rgbGen and alphaGen vertex.
-        uint rgb_gen = minfo.stage[0].bundle[0].rgbGen;
-        uint alpha_gen = minfo.stage[0].bundle[0].alphaGen & 0xffffu;
-        if (rgb_gen == 5u || rgb_gen == 6u)		// CGEN_EXACT_VERTEX, CGEN_VERTEX
-            vertex_color.rgb = c.rgb;
-        if (alpha_gen == 4u)					// AGEN_VERTEX
-            vertex_color.a = c.a;
+        corner_color = unpack_rgba8(colors.x) * barycentric.x + unpack_rgba8(colors.y) * barycentric.y + unpack_rgba8(colors.z) * barycentric.z;
     }
 
-    vec4 color = global_textureLod(minfo.base_texture, uv, 0) * vertex_color;
+    // The colour as the rasterizer computes it: the vertex and entity rgbGen and alphaGen, else
+    // the colour of the bundle (const, wave, identityLighting). A rgbGen identity stage ignores
+    // the entity colour.
+    MaterialBundle bundle = minfo.stage[0].bundle[0];
+    vec4 stage_color = unpack_rgba8(bundle.color);
+    uint rgb_gen = bundle.rgbGen;
+    uint alpha_gen = bundle.alphaGen & 0xffu;
 
-    // entity tint
-    color.rgb *= shaderRGBA.rgb;
+    if (rgb_gen == 5u || rgb_gen == 6u)		// CGEN_EXACT_VERTEX, CGEN_VERTEX
+        stage_color.rgb = corner_color.rgb;
+    else if (rgb_gen == 3u)					// CGEN_ENTITY
+        stage_color.rgb = shaderRGBA.rgb;
 
-    if (shaderRGBA.a > 0.0)
-    {
-        color.rgb *= shaderRGBA.a;
-        color.a   *= shaderRGBA.a;
-    }
+    if (alpha_gen == 4u)					// AGEN_VERTEX
+        stage_color.a = corner_color.a;
+    else if (alpha_gen == 2u)				// AGEN_ENTITY
+        stage_color.a = shaderRGBA.a;
+
+    vec4 color = global_textureLod(minfo.base_texture, uv, 0) * stage_color;
 
     // alpha test uses texture alpha (unchanged)
     bool pass = true;
