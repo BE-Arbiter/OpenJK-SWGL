@@ -1490,6 +1490,21 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 	ubo->screen_image_height = vk.extent_screen_images.height;
 	//ubo->water_normal_texture = water_normal_texture - r_images;
 	ubo->pt_swap_checkerboard = 0;
+
+	// The tone mapping as tone_mapping_apply does it: the tracer inverts it for the colours in
+	// screen units (screen_to_hdr_color).
+	{
+		static cvar_t *tm_per_channel, *tm_contrast;
+		if ( !tm_per_channel )
+		{
+			tm_per_channel = ri.Cvar_Get( "tm_per_channel", "1", CVAR_ARCHIVE_ND );
+			tm_contrast = ri.Cvar_Get( "tm_contrast", "1", CVAR_ARCHIVE_ND );
+		}
+
+		ubo->tonemap_hdr = vk.rtx_surf_is_hdr ? 1 : 0;
+		ubo->tonemap_per_channel = Com_Clamp( 0.f, 1.f, tm_per_channel->value );
+		ubo->tonemap_contrast = Com_Clamp( 0.5f, 2.f, tm_contrast->value );
+	}
 	ubo->restir_m_clamp = pt_restir_m_clamp->integer;
 	if (pt_restir->integer == 3)
 	{

@@ -1448,7 +1448,7 @@ void get_material(
 	// the screen: 1 is the white of the screen at this exposure. A fixed radiance saturates in a
 	// dark room, and the soft halo of a glow texture becomes a flat shape. pt_glow_scale is
 	// relative to that.
-	emissive = correct_emissive( triangle.material_id, emission ) * screen_to_hdr() * minfo.emission_scale;
+	emissive = screen_to_hdr_color( correct_emissive( triangle.material_id, emission ) * minfo.emission_scale );
 
 	emissive += get_emissive_shell(triangle.material_id, triangle.shell) * base_color * (1 - metallic * 0.9);
 }

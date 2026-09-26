@@ -252,10 +252,10 @@ main()
 		imageStore(IMG_PT_VISBUF_PRIM_A, ipos, uvec4(0));
 		imageStore(IMG_PT_VISBUF_BARY_A, ipos, vec4(0));
 		imageStore(IMG_PT_BASE_COLOR_A, ipos, vec4(0));
-		transparent = apply_blended_layers(transparent, layer_L * screen_to_hdr(), layer_T);
+		transparent = apply_blended_layers(transparent, screen_to_hdr_color(layer_L), layer_T);
 		imageStore(IMG_PT_TRANSPARENT, ipos, transparent);
 		// Alpha: the luminance of what the tracer does not light, which the exposure leaves out.
-		imageStore(IMG_PT_GLOW, ipos, vec4(layer_glow * screen_to_hdr() + effects.glow, luminance(layer_L * screen_to_hdr() + effects.additive)));
+		imageStore(IMG_PT_GLOW, ipos, vec4(layer_glow * screen_to_hdr() + effects.glow, luminance(screen_to_hdr_color(layer_L) + effects.additive)));
 #ifdef USE_RTX_INSPECT_TANGENTS
 		imageStore( IMG_PT_TANGENT_A,			ipos, uvec4(0) );
 #endif
@@ -476,7 +476,7 @@ main()
 	// with a glow stage (saber blades, bolts) are in it too, as in the glow pass.
 	// Alpha: the luminance of what the tracer does not light (the emission in screen units, the
 	// blended layers, the additive effects). The exposure leaves it out: see tone_mapping_histogram.
-	vec3 unlit = primary_emissive * layer_T + layer_L * screen_to_hdr() + effects.additive;
+	vec3 unlit = primary_emissive * layer_T + screen_to_hdr_color(layer_L) + effects.additive;
 	imageStore(IMG_PT_GLOW, ipos, vec4((is_glow_material(material_id) ? primary_emissive * layer_T : vec3(0)) + layer_glow * screen_to_hdr() + effects.glow,
 		luminance(unlit)));
 #ifdef USE_RTX_INSPECT_TANGENTS
@@ -528,6 +528,6 @@ main()
 	transparent.rgb += effects.additive;
 #endif
 
-	transparent = apply_blended_layers(transparent, layer_L * screen_to_hdr(), layer_T);
+	transparent = apply_blended_layers(transparent, screen_to_hdr_color(layer_L), layer_T);
 	imageStore(IMG_PT_TRANSPARENT, ipos, transparent);
 }

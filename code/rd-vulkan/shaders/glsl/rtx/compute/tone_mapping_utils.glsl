@@ -32,6 +32,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 // These constants determine how we convert from floating-point to fixed-point
 // when performing atomic additions in the histogram computation code.
+#ifndef TONE_MAPPING_UTILS_GLSL_
+#define TONE_MAPPING_UTILS_GLSL_
+
 #define FIXED_POINT_FRAC_BITS 7
 #define FIXED_POINT_FRAC_MULTIPLIER (1 << FIXED_POINT_FRAC_BITS)
 
@@ -49,3 +52,5 @@ const float max_log_luminance = 8;
 // then we can compute f(x) using a single fused multiply-add instruction.
 const float log_luminance_scale = 1.0 / (max_log_luminance - min_log_luminance);
 const float log_luminance_bias = -min_log_luminance * log_luminance_scale;
+
+#endif // TONE_MAPPING_UTILS_GLSL_

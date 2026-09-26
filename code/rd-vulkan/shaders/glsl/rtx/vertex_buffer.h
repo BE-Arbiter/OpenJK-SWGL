@@ -603,7 +603,81 @@ MaterialInfo get_material_info( uint material_id )
 	return minfo;
 }
 
-// One stage with its GL blend: out = L + T * dst. The destination alpha counts as 1.
+#include "compute/tone_mapping_utils.glsl"
+
+// The display value of a value v of the image, as tone_mapping_apply maps it: the adaptive
+// curve (and its knee in SDR), blended with Reinhard by tm_reinhard, then tm_contrast. Before
+// the clamp in SDR and the nits scale in HDR.
+float tone_map_value( float v )
+{
+	v = max( v, exp2( min_log_luminance ) );
+
+	float bin = clamp( ( log2( v ) * log_luminance_scale + log_luminance_bias ) * HISTOGRAM_BINS, 0.0, HISTOGRAM_BINS - 1.001 );
+	uint left = uint( bin );
+	float mapped = exp2( mix( tonemap_buffer.curve[left], tonemap_buffer.curve[left + 1], fract( bin ) ) + global_ubo.tm_exposure_bias );
+
+	if ( global_ubo.tonemap_hdr == 0 && mapped >= global_ubo.tm_knee_start )
+	{
+		float knee_start = global_ubo.tm_knee_start;
+		float knee_w = ( knee_start * ( knee_start - 2.0 ) + global_ubo.tm_white_point ) / ( global_ubo.tm_white_point - 1.0 );
+		mapped = ( knee_w * mapped - knee_start * knee_start ) / max( 1e-6, mapped + knee_w - 2.0 * knee_start );
+	}
+
+	float s = exp2( global_ubo.tm_exposure_bias - 2.0 ) * v / max( tonemap_buffer.adapted_luminance, 1e-9 );
+	float white_point = ( global_ubo.tonemap_hdr != 0 ) ? max( global_ubo.tm_white_point, global_ubo.tm_hdr_peak_nits / 80.0 ) : global_ubo.tm_white_point;
+	float reinhard = s * ( 1.0 + s / ( white_point * white_point ) ) / ( 1.0 + s );
+
+	float m = mix( mapped, reinhard, global_ubo.tm_reinhard );
+
+	if ( global_ubo.tonemap_contrast != 1.0 )
+		m = 0.18 * pow( max( m, 0.0 ) / 0.18, global_ubo.tonemap_contrast );
+
+	return m;
+}
+
+// The value of the image that tone_mapping_apply shows as d. The mapping rises: bisection.
+float inverse_tone_map_value( float d )
+{
+	if ( d <= 0.0 )
+		return 0.0;
+
+	float lo = min_log_luminance, hi = max_log_luminance;
+	for ( int i = 0; i < 24; i++ )
+	{
+		float mid = 0.5 * ( lo + hi );
+		if ( tone_map_value( exp2( mid ) ) < d )
+			lo = mid;
+		else
+			hi = mid;
+	}
+
+	return exp2( 0.5 * ( lo + hi ) );
+}
+
+// A colour in screen units (what the rasterizer writes to the screen) to the HDR value that the
+// tone mapper shows as this colour: the inverse of the tone mapping, not a scale. On the
+// luminance, which keeps the hue, and on each channel with tm_per_channel, as the tone mapper.
+vec3 screen_to_hdr_color( vec3 v )
+{
+	v = max( v, vec3( 0.0 ) );
+
+	vec3 hdr = vec3( 0.0 );
+	float per_channel = global_ubo.tonemap_per_channel;
+
+	if ( per_channel < 1.0 )
+	{
+		float d = luminance( v );
+		if ( d > 0.0 )
+			hdr = v * ( inverse_tone_map_value( d ) / d );
+	}
+
+	if ( per_channel > 0.0 )
+		hdr = mix( hdr, vec3( inverse_tone_map_value( v.r ), inverse_tone_map_value( v.g ), inverse_tone_map_value( v.b ) ), per_channel );
+
+	return hdr;
+}
+
+// One stage with its GL blend: out = L + T * dst.The destination alpha counts as 1.
 void blend_stage_layer( uint blend, vec4 src, inout vec3 L, inout vec3 T )
 {
 	uint sf = blend & 0x0fu;

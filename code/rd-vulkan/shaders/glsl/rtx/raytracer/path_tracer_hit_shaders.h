@@ -226,10 +226,12 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
     if (all(lessThanEqual(L, vec3(0.0))) && all(greaterThanEqual(T, vec3(1.0))))
         return make_empty_hit();
 
-    // The rasterizer draws the effects in screen units: 1 is the white of the screen at this
-    // exposure (screen_to_hdr). pt_glow_scale scales it, as all that the tracer adds in screen
-    // units. The texture is already linear.
-    float to_hdr = global_ubo.prev_adapted_luminance / exp2(global_ubo.tm_exposure_bias - 2.0) * minfo.emission_scale;
+    // The rasterizer draws the effects in screen units: the HDR value is the one the tone mapper
+    // shows as this colour (screen_to_hdr_color). pt_glow_scale scales it, as all that the tracer
+    // adds in screen units. The glow goes to the bloom, which takes it back to screen units with
+    // the exposure only.
+    vec3 hdr = screen_to_hdr_color(max(L, vec3(0.0)) * minfo.emission_scale);
+    float glow_to_hdr = global_ubo.prev_adapted_luminance / exp2(global_ubo.tm_exposure_bias - 2.0) * minfo.emission_scale;
 
-    return TransparencyHit(max(L, vec3(0.0)) * to_hdr, clamp(T, vec3(0.0), vec3(2.0)), max(glow_L, vec3(0.0)) * to_hdr, true);
+    return TransparencyHit(hdr, clamp(T, vec3(0.0), vec3(2.0)), max(glow_L, vec3(0.0)) * glow_to_hdr, true);
 }
