@@ -116,7 +116,8 @@ void main()
 		}
 	}
 
-	// In screen units: the tone mapper adds it after the tone curve.
+	// Back to the units of TAA_OUTPUT, so the composite adds it to the HDR image.
+	bright *= STORAGE_SCALE_HDR / to_display;
 
 	imageStore(IMG_BLOOM_VBLUR, ipos, vec4(bright, 1));
 }

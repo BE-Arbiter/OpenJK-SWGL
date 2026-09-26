@@ -236,14 +236,6 @@ void main()
     if(push.contrast != 1.0)
         mapped_color = 0.18 * pow(max(mapped_color, vec3(0)) / 0.18, vec3(push.contrast));
 
-    // The bloom is in screen units and goes on top of the tone mapped image, as JKA adds its
-    // dynamic glow to the screen. BLOOM_VBLUR has a quarter of the size.
-    if(global_ubo.bloom_intensity > 0.0)
-    {
-        vec2 uv = clamp((vec2(ipos) + 0.5) / vec2(global_ubo.taa_image_width, global_ubo.taa_image_height), 0.0, 1.0);
-        mapped_color += textureLod(TEX_BLOOM_VBLUR, uv, 0).rgb * global_ubo.bloom_intensity;
-    }
-
     if(spec_tone_mapping_hdr == 0)
     {
         // Clip to [0,1]:
