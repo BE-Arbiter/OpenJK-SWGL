@@ -1815,6 +1815,12 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 		primitives_out->tangents[1] = encode_normal( tess.qtangent[i1] );
 		primitives_out->tangents[2] = encode_normal( tess.qtangent[i2] );
 
+		// The texture coordinates of the surface. The tracer computes those of each bundle from
+		// its tcGen and tcMods.
+		primitives_out->uv0[0] = floatToHalf( tess.texCoords[0][i0][0] ) | ( floatToHalf( tess.texCoords[0][i0][1] ) << 16 );
+		primitives_out->uv1[0] = floatToHalf( tess.texCoords[0][i1][0] ) | ( floatToHalf( tess.texCoords[0][i1][1] ) << 16 );
+		primitives_out->uv2[0] = floatToHalf( tess.texCoords[0][i2][0] ) | ( floatToHalf( tess.texCoords[0][i2][1] ) << 16 );
+
 		primitives_out->material_id = material_id; //(material_flags & ~MATERIAL_INDEX_MASK) | (material_index & MATERIAL_INDEX_MASK);
 		primitives_out->emissive_and_alpha = emissive_and_alpha;
 		primitives_out->instance = 0;
@@ -1833,18 +1839,6 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 		// vertex alpha, which the tracer reads for alphaGen vertex and for the blended surfaces.
 		ComputeColors( 0, tess.svars.colors[0], pStage, 0 );
 
-		// The tracer applies the tcMods at each frame (MaterialBundle tc_matrix). FinishShader removes
-		// TESS_ST0 when the raster can reuse the UVs of the stage before; the tracer cannot.
-		// An env-mapped stage has TCGEN_BAD and no UVs.
-		const qboolean has_uv = ( pStage->bundle[0].tcGen != TCGEN_BAD ) ? qtrue : qfalse;
-
-		if ( has_uv )
-		{
-			textureBundle_t bundle = pStage->bundle[0];
-			bundle.numTexMods = 0;
-			ComputeTexCoords( 0, &bundle );
-		}
-
 		primitives_out = base_primitive;
 		for ( uint32_t prim = 0; prim < numTris; ++prim ) 
 		{
@@ -1853,13 +1847,6 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 			i0 = tess.indexes[idx_base + 0];
 			i1 = tess.indexes[idx_base + 1];
 			i2 = tess.indexes[idx_base + 2];
-
-			if ( has_uv )
-			{
-				primitives_out->uv0[stage] = floatToHalf(tess.svars.texcoordPtr[0][i0][0]) | (floatToHalf(tess.svars.texcoordPtr[0][i0][1]) << 16);
-				primitives_out->uv1[stage] = floatToHalf(tess.svars.texcoordPtr[0][i1][0]) | (floatToHalf(tess.svars.texcoordPtr[0][i1][1]) << 16);
-				primitives_out->uv2[stage] = floatToHalf(tess.svars.texcoordPtr[0][i2][0]) | (floatToHalf(tess.svars.texcoordPtr[0][i2][1]) << 16);
-			}
 
 			{
 				primitives_out->color0[stage] = tess.svars.colors[0][i0][0] | tess.svars.colors[0][i0][1] << 8 | tess.svars.colors[0][i0][2] << 16 | tess.svars.colors[0][i0][3] << 24;

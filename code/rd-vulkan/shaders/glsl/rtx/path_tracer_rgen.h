@@ -848,7 +848,7 @@ vec4 unpack_rgba8(uint p)
 // The rgbGen of the bundle, or the one the entity forces.
 uint bundle_rgb_gen( in uint instance_index, in MaterialStage stage, in uint bundle )
 {
-	uint forceRGBGen = (instance_index != ~0u) ? get_model_instance_shader_uint(instance_index, 1) : 0u;
+	uint forceRGBGen = (instance_index != ~0u) ? (get_model_instance_shader_uint(instance_index, 1) & 0xffu) : 0u;
 
 	return (forceRGBGen != 0u) ? forceRGBGen : stage.bundle[bundle].rgbGen;
 }
@@ -918,14 +918,25 @@ struct StageContext
 	vec3	normal;
 	vec4	vertex_color[MAX_RTX_STAGES];	// bundle 0 of each stage (BSP surfaces only)
 	bool	vertex_colors;
+	vec2	uv;								// the texture coordinates of the surface
+	vec2	uv_x, uv_y;						// their gradients
+	vec3	footprint_x, footprint_y;		// the pixel on the surface, in world units
+	float	mip;							// < 0: sample with the gradients
 };
 
-StageContext stage_context( uint instance_index, Triangle triangle, vec3 bary, vec3 normal )
+StageContext stage_context( uint instance_index, Triangle triangle, vec3 bary, vec3 normal,
+	vec2 uv, vec2 uv_x, vec2 uv_y, vec3 footprint_x, vec3 footprint_y, float mip )
 {
 	StageContext ctx;
 	ctx.instance_index = instance_index;
 	ctx.position = triangle.positions * bary;
 	ctx.normal = normal;
+	ctx.uv = uv;
+	ctx.uv_x = uv_x;
+	ctx.uv_y = uv_y;
+	ctx.footprint_x = footprint_x;
+	ctx.footprint_y = footprint_y;
+	ctx.mip = mip;
 	ctx.vertex_color[0] = triangle.color0 * bary;
 	ctx.vertex_color[1] = triangle.color1 * bary;
 	ctx.vertex_color[2] = triangle.color2 * bary;
@@ -970,6 +981,63 @@ float bundle_alpha( StageContext ctx, uint s, MaterialStage stage, uint b, float
 	return a;
 }
 
+// RB_CalcEnvironmentTexCoords of vanilla at the point p, in the space of the model as the
+// rasterizer computes it. A first person model reflects the light of its entity instead of the
+// view (word 1 of the instance data, bit 8).
+vec2 environment_uv( StageContext ctx, vec3 p )
+{
+	vec3 normal = ctx.normal;
+	vec3 viewer = normalize( global_ubo.cam_pos.xyz - p );
+
+	if ( ctx.instance_index != ~0u )
+	{
+		mat3 to_model = transpose( mat3( instance_buffer.model_instances[ctx.instance_index].transform ) );
+		normal = normalize( to_model * normal );
+
+		if ( ( get_model_instance_shader_uint( ctx.instance_index, 1 ) & 0x100u ) != 0u )
+		{
+			vec3 light_dir = decode_normal( get_model_instance_shader_uint( ctx.instance_index, 2 ) );
+			float dl = dot( normal, light_dir );
+			return normal.xy * dl - light_dir.xy;
+		}
+
+		viewer = normalize( to_model * viewer );
+	}
+
+	float d = dot( normal, viewer );
+	return normal.xy * d - 0.5 * viewer.xy;
+}
+
+// The texture coordinates of a bundle from its tcGen, as ComputeTexCoords, and their
+// gradients over the pixel. The tcMods come after, in sample_bundle.
+vec2 bundle_uv( StageContext ctx, MaterialBundle bundle, out vec2 uv_x, out vec2 uv_y )
+{
+	switch ( uint( bundle.tc_gen_s.w ) )
+	{
+		case 1u:	// TCGEN_IDENTITY
+			uv_x = uv_y = vec2( 0.0 );
+			return vec2( 0.0 );
+
+		case 7u:	// TCGEN_ENVIRONMENT_MAPPED
+		{
+			vec2 uv = environment_uv( ctx, ctx.position );
+			uv_x = environment_uv( ctx, ctx.position + ctx.footprint_x ) - uv;
+			uv_y = environment_uv( ctx, ctx.position + ctx.footprint_y ) - uv;
+			return uv;
+		}
+
+		case 9u:	// TCGEN_VECTOR
+			uv_x = vec2( dot( ctx.footprint_x, bundle.tc_gen_s.xyz ), dot( ctx.footprint_x, bundle.tc_gen_t.xyz ) );
+			uv_y = vec2( dot( ctx.footprint_y, bundle.tc_gen_s.xyz ), dot( ctx.footprint_y, bundle.tc_gen_t.xyz ) );
+			return vec2( dot( ctx.position, bundle.tc_gen_s.xyz ), dot( ctx.position, bundle.tc_gen_t.xyz ) );
+	}
+
+	// TCGEN_TEXTURE. A lightmap bundle is not sampled.
+	uv_x = ctx.uv_x;
+	uv_y = ctx.uv_y;
+	return ctx.uv;
+}
+
 // The light of the rasterizer for stage s of a blended surface, which the tracer does not
 // light: the vertex light of a BSP surface (rgbGen exactVertex under RTX), else 1.
 vec3 raster_light( StageContext ctx, uint s )
@@ -984,10 +1052,6 @@ void sample_material_stage_light(
 	StageContext ctx,
 	uint s,
 	MaterialStage stage,
-	vec2 uv,
-	vec2 uvx,
-	vec2 uvy,
-	float mip,
 	out vec4 src0,
 	out vec4 src1,
 	out vec4 glow)
@@ -1012,7 +1076,11 @@ void sample_material_stage_light(
 			vec4 c = calc_color(ctx.instance_index, stage, b);
 			c.a = bundle_alpha(ctx, s, stage, b, c.a);
 			if (stage.bundle[b].image != 0u)
-				c *= sample_bundle(stage.bundle[b], ctx.position, uv, uvx, uvy, mip);
+			{
+				vec2 uv_x, uv_y;
+				vec2 uv = bundle_uv(ctx, stage.bundle[b], uv_x, uv_y);
+				c *= sample_bundle(stage.bundle[b], ctx.position, uv, uv_x, uv_y, ctx.mip);
+			}
 
 			if (stage.tex_mode == 3u)			// ALPHA
 				c.rgb *= c.a;
@@ -1073,10 +1141,6 @@ vec4 blend_factor( uint f, bool src, vec4 s, vec4 d )
 vec4 compose_material_stages(
 	StageContext ctx,
 	MaterialInfo minfo,
-	vec2 tex_coord[4],
-	vec2 tex_coord_x[4],
-	vec2 tex_coord_y[4],
-	float mip_level,
 	out vec3 glow,
 	out vec3 emission )
 {
@@ -1119,7 +1183,7 @@ vec4 compose_material_stages(
 		}
 
 		vec4 src0, src1, glow_src;
-		sample_material_stage_light( ctx, s, stage, tex_coord[s], tex_coord_x[s], tex_coord_y[s], mip_level, src0, src1, glow_src );
+		sample_material_stage_light( ctx, s, stage, src0, src1, glow_src );
 
 		if ( glow_first || no_blend )
 			glow_dst = glow_src;
@@ -1210,12 +1274,8 @@ void blended_surface_layer(
 	out vec3 T )
 {
 	MaterialInfo minfo = get_material_info( triangle.material_id );
-	StageContext ctx = stage_context( instance_index, triangle, bary, normalize( triangle.normals * bary ) );
-	vec2 tex_coord[4];
-	tex_coord[0] = triangle.tex_coords0 * bary;
-	tex_coord[1] = triangle.tex_coords1 * bary;
-	tex_coord[2] = triangle.tex_coords2 * bary;
-	tex_coord[3] = triangle.tex_coords3 * bary;
+	StageContext ctx = stage_context( instance_index, triangle, bary, normalize( triangle.normals * bary ),
+		triangle.tex_coords0 * bary, vec2( 0.0 ), vec2( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), 0.0 );
 
 	L = vec3( 0.0 );
 	T = vec3( 1.0 );
@@ -1243,7 +1303,7 @@ void blended_surface_layer(
 		}
 
 		vec4 src0, src1, glow_src;
-		sample_material_stage_light( ctx, s, stage, tex_coord[s], vec2( 0.0 ), vec2( 0.0 ), 0.0, src0, src1, glow_src );
+		sample_material_stage_light( ctx, s, stage, src0, src1, glow_src );
 		blend_stage_layer( stage.blend, vec4( src0.rgb + light * ( src1.rgb - src0.rgb ), src1.a ), L, T );
 	}
 
@@ -1278,9 +1338,11 @@ void get_material(
 	uint instance_index,
 	Triangle triangle,
 	vec3 bary,
-	vec2 tex_coord[4],
-	vec2 tex_coord_x[4],
-	vec2 tex_coord_y[4],
+	vec2 tex_coord,
+	vec2 tex_coord_x,
+	vec2 tex_coord_y,
+	vec3 footprint_x,
+	vec3 footprint_y,
 	float mip_level,
 	vec3 geo_normal,
 	out vec3 geo_tangent,
@@ -1301,9 +1363,9 @@ void get_material(
 		vec3 n;
 
 		if ( mip_level >= 0 )
-			n = global_textureLod( minfo.normals_texture, tex_coord[0], mip_level ).agb;
+			n = global_textureLod( minfo.normals_texture, tex_coord, mip_level ).agb;
 		else 
-			n = global_textureGrad( minfo.normals_texture, tex_coord[0], tex_coord_x[0], tex_coord_y[0] ).agb;
+			n = global_textureGrad( minfo.normals_texture, tex_coord, tex_coord_x, tex_coord_y ).agb;
 
 		vec3 local_normal = rgbToNormal(n, normalMapLen);
 
@@ -1336,8 +1398,8 @@ void get_material(
     	if (effective_mip < 0)
     	{
         	ivec2 texSize = global_textureSize(minfo.normals_texture, 0);
-        	vec2 tx = tex_coord_x[0] * texSize;
-        	vec2 ty = tex_coord_y[0] * texSize;
+        	vec2 tx = tex_coord_x * texSize;
+        	vec2 ty = tex_coord_y * texSize;
         	float d = max(dot(tx, tx), dot(ty, ty));
         	effective_mip = 0.5 * log2(d);
         }
@@ -1354,8 +1416,8 @@ void get_material(
 	// A q3map_surfacelight surface too: GL draws it like any other surface. Its light polys light
 	// the scene.
 	vec3 glow, emission;
-	StageContext ctx = stage_context( instance_index, triangle, bary, geo_normal );
-	vec4 albedo = compose_material_stages( ctx, minfo, tex_coord, tex_coord_x, tex_coord_y, mip_level, glow, emission );
+	StageContext ctx = stage_context( instance_index, triangle, bary, geo_normal, tex_coord, tex_coord_x, tex_coord_y, footprint_x, footprint_y, mip_level );
+	vec4 albedo = compose_material_stages( ctx, minfo, glow, emission );
 
 	base_color = albedo.rgb * minfo.base_factor;
 	base_color = clamp(base_color, vec3(0.0), vec3(1.0));
@@ -1370,9 +1432,9 @@ void get_material(
 		vec4 ORMS;
 
 		if ( mip_level >= 0 )
-			ORMS = global_textureLod( minfo.physical_texture, tex_coord[0], mip_level );
+			ORMS = global_textureLod( minfo.physical_texture, tex_coord, mip_level );
 		else 
-			ORMS = global_textureGrad( minfo.physical_texture, tex_coord[0], tex_coord_x[0], tex_coord_y[0] );
+			ORMS = global_textureGrad( minfo.physical_texture, tex_coord, tex_coord_x, tex_coord_y );
 
 		//
 		// specularScale <rgb> <gloss>
@@ -1442,10 +1504,12 @@ void compute_anisotropic_texture_gradients(
 	vec3 ray_direction,
 	float cone_radius,
 	mat3 positions,
-	mat3x2 tex_coords[4],
-	vec2 tex_coords_at_intersection[4],
-	out vec2 texGradient1[4],
-	out vec2 texGradient2[4],
+	mat3x2 tex_coords,
+	vec2 tex_coords_at_intersection,
+	out vec2 texGradient1,
+	out vec2 texGradient2,
+	out vec3 footprint1,		// the axes of the pixel on the surface, in world units: the
+	out vec3 footprint2,		// gradients of the other tcGens (bundle_uv)
 	out float fwidth_depth)
 {
 	// Compute ellipse axes.
@@ -1466,16 +1530,17 @@ void compute_anisotropic_texture_gradients(
 	eP = delta + a1;
 	float u1 = dot(normal, cross(eP, e2)) * inv_tri_area;
 	float v1 = dot(normal, cross(e1, eP)) * inv_tri_area;
-	for (int s = 0; s < 4; s++)
-		texGradient1[s] = (1.0-u1-v1) * tex_coords[s][0] + u1 * tex_coords[s][1] +
-			v1 * tex_coords[s][2] - tex_coords_at_intersection[s];
+	texGradient1 = (1.0-u1-v1) * tex_coords[0] + u1 * tex_coords[1] +
+		v1 * tex_coords[2] - tex_coords_at_intersection;
 
 	eP = delta + a2;
 	float u2 = dot(normal, cross(eP, e2)) * inv_tri_area;
 	float v2 = dot(normal, cross(e1, eP)) * inv_tri_area;
-	for (int s = 0; s < 4; s++)
-		texGradient2[s] = (1.0-u2-v2) * tex_coords[s][0] + u2 * tex_coords[s][1] +
-			v2 * tex_coords[s][2] - tex_coords_at_intersection[s];
+	texGradient2 = (1.0-u2-v2) * tex_coords[0] + u2 * tex_coords[1] +
+		v2 * tex_coords[2] - tex_coords_at_intersection;
+
+	footprint1 = a1;
+	footprint2 = a2;
 
 	fwidth_depth = 1.0 / max(0.1, abs(dot(a1, ray_direction)) + abs(dot(a2, ray_direction)));
 }

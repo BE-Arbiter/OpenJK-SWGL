@@ -577,6 +577,19 @@ rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
 			if ( pStage->bundle[j].glow )
 				mat->stage[i].bundle[j].alphaGen |= BUNDLE_GLOW;
 
+			// The tracer computes the texture coordinates of each bundle from its tcGen, as the
+			// raster does (bundle_uv). rd-vulkan moves a tcGen environment of bundle 0 to TESS_ENV.
+			texCoordGen_t tcGen = pStage->bundle[j].tcGen;
+			if ( j == 0 && ( pStage->tessFlags & TESS_ENV ) )
+				tcGen = TCGEN_ENVIRONMENT_MAPPED;
+
+			mat->stage[i].bundle[j].tc_gen_s[3] = (float)tcGen;
+			if ( tcGen == TCGEN_VECTOR && pStage->bundle[j].tcGenVectors )
+			{
+				VectorCopy( pStage->bundle[j].tcGenVectors[0], mat->stage[i].bundle[j].tc_gen_s );
+				VectorCopy( pStage->bundle[j].tcGenVectors[1], mat->stage[i].bundle[j].tc_gen_t );
+			}
+
 			if ( pStage->bundle[j].image[0] == NULL )
 				continue;
 

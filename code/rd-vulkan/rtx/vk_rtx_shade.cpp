@@ -320,7 +320,9 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 		| ((uint32_t)entity->e.shaderRGBA[1] <<  8)
 		| ((uint32_t)entity->e.shaderRGBA[2] << 16)
 		| ((uint32_t)entity->e.shaderRGBA[3] << 24);
-	data[1] = forceRGBGen;
+	// Bits 0-7: the forced rgbGen. Bit 8: a first person model, whose tcGen environment reflects
+	// the light of the entity (RB_CalcEnvironmentTexCoords).
+	data[1] = forceRGBGen | ( ( entity->e.renderfx & RF_FIRST_PERSON ) ? 0x100u : 0u );
 
 	// alphaGen lightingSpecular reflects the light of the entity, as RB_CalcSpecularAlpha.
 	R_SetupEntityLighting( refdef, entity );

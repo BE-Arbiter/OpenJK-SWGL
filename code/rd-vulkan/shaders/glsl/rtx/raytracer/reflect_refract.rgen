@@ -556,13 +556,7 @@ main()
 
 	vec3 bary         = get_hit_barycentric(ray_payload_geometry);
 	vec3 geo_tangent;
-	vec2 tex_coord[4];
-	{ // for stage ..
-		tex_coord[0]    = triangle.tex_coords0 * bary;
-		tex_coord[1] = triangle.tex_coords1 * bary;
-		tex_coord[2] = triangle.tex_coords2 * bary;
-		tex_coord[3] = triangle.tex_coords3 * bary;
-	}
+	vec2 tex_coord = triangle.tex_coords0 * bary;
 	vec3 new_position = triangle.positions * bary;
 	vec3 new_pos_prev = triangle.positions_prev * bary;
 	vec3 new_geo_normal = normalize(triangle.normals * bary);
@@ -583,23 +577,20 @@ main()
 
 	float half_cone_angle = texelFetch(TEX_PT_BOUNCE_THROUGHPUT, ipos, 0).a;
 	
-	// no multi-stage support yet
-	vec2 tex_coord_x[4], tex_coord_y[4];
+	vec2 tex_coord_x, tex_coord_y;
+	vec3 footprint_x, footprint_y;
 	float fwidth_depth;
-	compute_anisotropic_texture_gradients(new_position, new_flat_normal, direction, 
-		optical_path_length * half_cone_angle, triangle.positions, 
-		mat3x2[4]( triangle.tex_coords0, triangle.tex_coords1, triangle.tex_coords2, triangle.tex_coords3 ), tex_coord, tex_coord_x, tex_coord_y, fwidth_depth);
+	compute_anisotropic_texture_gradients(new_position, new_flat_normal, direction,
+		optical_path_length * half_cone_angle, triangle.positions,
+		triangle.tex_coords0, tex_coord, tex_coord_x, tex_coord_y, footprint_x, footprint_y, fwidth_depth);
 
 	if(global_ubo.pt_texture_lod_bias != 0)
 	{
-		// sunny, do all tex coords once its supported ..
-		tex_coord_x[0] *= pow(2.0, global_ubo.pt_texture_lod_bias);
-		tex_coord_y[0] *= pow(2.0, global_ubo.pt_texture_lod_bias);
-		for ( int s = 1; s < 4; s++ )
-		{
-			tex_coord_x[s] *= pow(2.0, global_ubo.pt_texture_lod_bias);
-			tex_coord_y[s] *= pow(2.0, global_ubo.pt_texture_lod_bias);
-		}
+		float lod_scale = pow(2.0, global_ubo.pt_texture_lod_bias);
+		tex_coord_x *= lod_scale;
+		tex_coord_y *= lod_scale;
+		footprint_x *= lod_scale;
+		footprint_y *= lod_scale;
 	}
 
 	if(correct_motion_vector == 1 && spec_bounce_index == 0 || correct_motion_vector == 2)
@@ -666,9 +657,11 @@ main()
 		instance_index,
 		triangle, 
 		bary,
-		tex_coord, 
-		tex_coord_x, 
-		tex_coord_y, 
+		tex_coord,
+		tex_coord_x,
+		tex_coord_y,
+		footprint_x,
+		footprint_y,
 		-1, 
 		geo_normal, 
 		geo_tangent,

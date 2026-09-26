@@ -99,6 +99,8 @@ STRUCT (
 	UINT	( color )		// rgba8: rgbGen and alphaGen that do not come from the entity or the vertex
 	VEC4	( tc_matrix )	// tcMods: u' = x * u + z * v + offset.x, v' = y * u + w * v + offset.y
 	VEC4	( tc_offset )
+	VEC4	( tc_gen_s )	// w: the tcGen (texCoordGen_t). tcGen vector: s = dot(position, xyz)
+	VEC4	( tc_gen_t )	// tcGen vector: t = dot(position, xyz)
 , MaterialBundle )
 #define MATERIALBUNDLE(n) MaterialBundle n;
 
@@ -295,10 +297,7 @@ layout( set = VERTEX_BUFFER_DESC_SET_IDX, binding = BINDING_OFFSET_MDXM_BONE_BUF
 struct Triangle {
 	mat3 positions;		// mat3x3
 	mat3 positions_prev;// mat3x3
-	mat3x2 tex_coords0;
-	mat3x2 tex_coords1;
-	mat3x2 tex_coords2;
-	mat3x2 tex_coords3;
+	mat3x2 tex_coords0;	// the texture coordinates; each bundle has its tcGen (bundle_uv)
 	mat3x3 normals;
 	mat3x3 tangents;
 	//mat3x3 binormal;
@@ -351,18 +350,6 @@ load_triangle(uint buffer_idx, uint prim_id)
 	t.tex_coords0[0] = get_uv( prim.uv0, 0 );
 	t.tex_coords0[1] = get_uv( prim.uv1, 0 );
 	t.tex_coords0[2] = get_uv( prim.uv2, 0 );
-
-	t.tex_coords1[0] = get_uv( prim.uv0, 1 );
-	t.tex_coords1[1] = get_uv( prim.uv1, 1 );
-	t.tex_coords1[2] = get_uv( prim.uv2, 1 );
-
-	t.tex_coords2[0] = get_uv( prim.uv0, 2 );
-	t.tex_coords2[1] = get_uv( prim.uv1, 2 );
-	t.tex_coords2[2] = get_uv( prim.uv2, 2 );
-
-	t.tex_coords3[0] = get_uv( prim.uv0, 3 );
-	t.tex_coords3[1] = get_uv( prim.uv1, 3 );
-	t.tex_coords3[2] = get_uv( prim.uv2, 3 );
 
 	t.material_id = prim.material_id;
 	t.shell = prim.shell;
@@ -485,7 +472,7 @@ store_triangle(Triangle t, uint buffer_idx, uint prim_id)
 	prim.tangents.y = encode_normal(t.tangents[1]);
 	prim.tangents.z = encode_normal(t.tangents[2]);
 
-	// A model has one set of texture coordinates: every stage uses it.
+	// Only the first slot holds texture coordinates: each bundle has its tcGen (bundle_uv).
 	prim.uv0 = uvec4(packHalf2x16(t.tex_coords0[0]));
 	prim.uv1 = uvec4(packHalf2x16(t.tex_coords0[1]));
 	prim.uv2 = uvec4(packHalf2x16(t.tex_coords0[2]));
