@@ -483,8 +483,11 @@ main()
 	// with a glow stage (saber blades, bolts) are in it too, as in the glow pass.
 	// Alpha: the luminance of what the tracer does not light (the emission in screen units, the
 	// blended layers, the additive effects). The exposure leaves it out: see tone_mapping_histogram.
+	// A q3map_surfacelight surface emits a radiance, as a lamp: it stays in the exposure.
+	const bool surface_light = triangle.emissive_factor > 0 && !is_glow_material(material_id);
+	vec3 unlit = ( surface_light ? vec3(0) : primary_emissive * layer_T ) + layer_L * screen_to_hdr() + effects.additive;
 	imageStore(IMG_PT_GLOW, ipos, vec4((is_glow_material(material_id) ? primary_emissive * layer_T : vec3(0)) + layer_glow * screen_to_hdr() + effects.glow,
-		luminance(primary_emissive * layer_T + layer_L * screen_to_hdr() + effects.additive)));
+		luminance(unlit)));
 #ifdef USE_RTX_INSPECT_TANGENTS
 	imageStore( IMG_PT_TANGENT_A,			ipos, uvec4( encode_normal( geo_tangent ) ) );
 #endif
