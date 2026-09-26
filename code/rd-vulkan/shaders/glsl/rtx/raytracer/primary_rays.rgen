@@ -254,7 +254,8 @@ main()
 		imageStore(IMG_PT_BASE_COLOR_A, ipos, vec4(0));
 		transparent = apply_blended_layers(transparent, layer_L * screen_to_hdr(), layer_T);
 		imageStore(IMG_PT_TRANSPARENT, ipos, transparent);
-		imageStore(IMG_PT_GLOW, ipos, vec4(layer_glow * screen_to_hdr() + effects.glow, 0));
+		// Alpha: the luminance of what the tracer does not light, which the exposure leaves out.
+		imageStore(IMG_PT_GLOW, ipos, vec4(layer_glow * screen_to_hdr() + effects.glow, luminance(layer_L * screen_to_hdr() + effects.additive)));
 #ifdef USE_RTX_INSPECT_TANGENTS
 		imageStore( IMG_PT_TANGENT_A,			ipos, uvec4(0) );
 #endif
@@ -480,7 +481,10 @@ main()
 	imageStore(IMG_PT_GODRAYS_THROUGHPUT_DIST, ipos, vec4(1, 1, 1, distance_curr));
 	// The glow stages give the bloom its halo, as the dynamic glow of the rasterizer does. The additive effects
 	// with a glow stage (saber blades, bolts) are in it too, as in the glow pass.
-	imageStore(IMG_PT_GLOW, ipos, vec4((is_glow_material(material_id) ? primary_emissive * layer_T : vec3(0)) + layer_glow * screen_to_hdr() + effects.glow, 0));
+	// Alpha: the luminance of what the tracer does not light (the emission in screen units, the
+	// blended layers, the additive effects). The exposure leaves it out: see tone_mapping_histogram.
+	imageStore(IMG_PT_GLOW, ipos, vec4((is_glow_material(material_id) ? primary_emissive * layer_T : vec3(0)) + layer_glow * screen_to_hdr() + effects.glow,
+		luminance(primary_emissive * layer_T + layer_L * screen_to_hdr() + effects.additive)));
 #ifdef USE_RTX_INSPECT_TANGENTS
 	imageStore( IMG_PT_TANGENT_A,			ipos, uvec4( encode_normal( geo_tangent ) ) );
 #endif
