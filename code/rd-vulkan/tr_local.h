@@ -358,6 +358,9 @@ typedef struct image_s {
 	VkDescriptorSet			descriptor_set;
 #ifdef USE_RTX
 	VkSampler				sampler;
+	// The tracer samples an sRGB texture through this view, decoded to linear. The raster
+	// uses view, UNORM, and reads the bytes as vanilla does. Equal to view otherwise.
+	VkImageView				rtx_view;
     byte					*pix_data;
     vec3_t					light_color; // use this color if this is a light source
 	vec2_t					min_light_texcoord;

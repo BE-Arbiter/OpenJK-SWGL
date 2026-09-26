@@ -289,14 +289,14 @@ void vk_rtx_initialize( void )
 
 			// A hole below updateSize would make the whole array write invalid, so an
 			// image without a view still gets a slot - pointing at the white image.
-			if ( !img || img->view == VK_NULL_HANDLE || img->sampler == VK_NULL_HANDLE ) {
-				if ( tr.whiteImage && tr.whiteImage->view != VK_NULL_HANDLE )
-					vk_rtx_bind_descriptor_image_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, tr.whiteImage->sampler, tr.whiteImage->view, n );
+			if ( !img || img->rtx_view == VK_NULL_HANDLE || img->sampler == VK_NULL_HANDLE ) {
+				if ( tr.whiteImage && tr.whiteImage->rtx_view != VK_NULL_HANDLE )
+					vk_rtx_bind_descriptor_image_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, tr.whiteImage->sampler, tr.whiteImage->rtx_view, n );
 				else
 					continue;
 			}
 			else {
-				vk_rtx_bind_descriptor_image_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, img->sampler, img->view, img->index );
+				vk_rtx_bind_descriptor_image_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, img->sampler, img->rtx_view, img->index );
 			}
 
 			if ( n + 1 > highest )

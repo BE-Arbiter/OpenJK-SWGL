@@ -234,7 +234,7 @@ void vk_texture_mode( const char *string, const qboolean init ) {
 			// The samplers were just destroyed and remade, so the tracer's array holds
 			// dangling ones until it is rebound.
 			if ( vk.rtxActive ) {
-				vk_rtx_bind_descriptor_image_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, img->sampler, img->view, img->index );
+				vk_rtx_bind_descriptor_image_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, img->sampler, img->rtx_view, img->index );
 				vk.imageDescriptor.needsUpdate = qtrue;
 			}
 #endif
@@ -1321,6 +1321,16 @@ void vk_update_descriptor_set( image_t *image, qboolean mipmap ) {
 
 void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 	VkFormat format = (VkFormat)image->internalFormat;
+#ifdef USE_RTX
+	// An sRGB texture is for the tracer. The raster reads it through a UNORM view, as vanilla.
+	const qboolean srgb = ( format == VK_FORMAT_R8G8B8A8_SRGB ) ? qtrue : qfalse;
+
+	if ( image->rtx_view && image->rtx_view != image->view )
+		qvkDestroyImageView( vk.device, image->rtx_view, NULL );
+	image->rtx_view = VK_NULL_HANDLE;
+#else
+	const qboolean srgb = qfalse;
+#endif
 
 	if ( image->handle ) {
 		qvkDestroyImage( vk.device, image->handle, NULL );
@@ -1336,7 +1346,7 @@ void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 		VkImageCreateInfo desc;
 		desc.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		desc.pNext = NULL;
-		desc.flags = 0;
+		desc.flags = srgb ? VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT : 0;
 		desc.imageType = VK_IMAGE_TYPE_2D;
 		desc.format = format;
 		desc.extent.width = width;
@@ -1364,7 +1374,7 @@ void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 		desc.flags = 0;
 		desc.image = image->handle;
 		desc.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		desc.format = format;
+		desc.format = srgb ? VK_FORMAT_R8G8B8A8_UNORM : format;
 		desc.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 		desc.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 		desc.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -1375,6 +1385,16 @@ void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 		desc.subresourceRange.baseArrayLayer = 0;
 		desc.subresourceRange.layerCount = 1;
 		VK_CHECK( qvkCreateImageView( vk.device, &desc, NULL, &image->view ) );
+
+#ifdef USE_RTX
+		if ( srgb )
+		{
+			desc.format = format;
+			VK_CHECK( qvkCreateImageView( vk.device, &desc, NULL, &image->rtx_view ) );
+		}
+		else
+			image->rtx_view = image->view;
+#endif
 	}
 
 #ifndef USE_RTX
@@ -1401,7 +1421,7 @@ void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 	// Every game texture also goes into the tracer's bindless array, indexed by
 	// image->index; without this the closest-hit shaders have nothing to sample.
 	if ( vk.rtxActive ) {
-		vk_rtx_bind_descriptor_image_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, image->sampler, image->view, image->index );
+		vk_rtx_bind_descriptor_image_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, image->sampler, image->rtx_view, image->index );
 		vk_rtx_set_descriptor_update_size( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, image->index + 1 );
 		vk.imageDescriptor.needsUpdate = qtrue;
 	}
@@ -1440,6 +1460,11 @@ void vk_delete_textures( void ) {
 
 	for (i = 0; i < tr.images.count; i++) {
 		image_t *img = tr.images.items[i];
+#ifdef USE_RTX
+		if ( img->rtx_view && img->rtx_view != img->view )
+			qvkDestroyImageView( vk.device, img->rtx_view, NULL );
+		img->rtx_view = VK_NULL_HANDLE;
+#endif
 		vk_destroy_image_resources( &img->handle, &img->view );
 
 		// img->descriptor will be released with pool reset
@@ -1505,6 +1530,9 @@ image_t *R_CreateImage( const char *name, byte *pic, int width, int height, imgF
 
 	image->handle = VK_NULL_HANDLE;
 	image->view = VK_NULL_HANDLE;
+#ifdef USE_RTX
+	image->rtx_view = VK_NULL_HANDLE;
+#endif
 	image->descriptor_set = VK_NULL_HANDLE;
 
     vk_upload_image( image, pic );
