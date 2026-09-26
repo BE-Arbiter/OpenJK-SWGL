@@ -24,8 +24,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #define LIST_BLOOM_SHADERS \
 	SHADER_MODULE_DO( SHADER_BLOOM_DOWNSCALE_COMP,	bloom_downscale_comp ) \
-	SHADER_MODULE_DO( SHADER_BLOOM_BLUR_COMP,		bloom_blur_comp ) \
-	SHADER_MODULE_DO( SHADER_BLOOM_COMPOSITE_COMP,	bloom_composite_comp )
+	SHADER_MODULE_DO( SHADER_BLOOM_BLUR_COMP,		bloom_blur_comp )
 
 // shaders
 enum {
@@ -39,7 +38,6 @@ enum {
 enum {
 	BLOOM_DOWNSCALE,
 	BLOOM_BLUR,
-	BLOOM_COMPOSITE,
 	BLOOM_NUM_PIPELINES
 };
 

@@ -75,9 +75,10 @@ static void vk_rtx_bloom_register_cvars( void )
 	cvar_bloom_threshold	= ri.Cvar_Get( "pt_bloom_threshold",	"1.0",		CVAR_ARCHIVE_ND );	// in tone mapper units: 1 is the level of a lightmap value of 1
 }
 
+// The tone mapper adds BLOOM_VBLUR when bloom_intensity is not 0.
 void vk_rtx_bloom_update( vkUniformRTX_t *ubo )
 {
-	ubo->bloom_intensity = cvar_bloom_intensity->value;
+	ubo->bloom_intensity = cvar_bloom_enable->integer ? cvar_bloom_intensity->value : 0.f;
 }
 
 static void vk_create_bloom_pipeline( uint32_t pipeline_index, uint32_t shader_index, uint32_t push_size )
@@ -103,7 +104,6 @@ void vk_rtx_create_bloom_pipelines( void )
 
 	vk_create_bloom_pipeline( BLOOM_DOWNSCALE,	SHADER_BLOOM_DOWNSCALE_COMP,	sizeof(float) );
 	vk_create_bloom_pipeline( BLOOM_BLUR,		SHADER_BLOOM_BLUR_COMP,			sizeof(bloomBlurPushConstants_t) );
-	vk_create_bloom_pipeline( BLOOM_COMPOSITE,	SHADER_BLOOM_COMPOSITE_COMP,	0 );
 }
 
 void vk_rtx_destroy_bloom_pipelines( void )
@@ -128,7 +128,8 @@ static void vk_rtx_bloom_bind( VkCommandBuffer cmd_buf, const vkpipeline_t *pipe
 		pipeline->layout, 0, ARRAY_LEN(desc_sets), desc_sets, 0, 0 );
 }
 
-// Records the bloom into VKPT_IMG_TAA_OUTPUT, in place. Runs before the tone mapper.
+// Records the bloom into BLOOM_VBLUR, in screen units. The tone mapper adds it to its output,
+// as JKA adds its dynamic glow to the screen: the halo does not go through the tone curve.
 void vk_rtx_bloom_record_cmd_buffer( VkCommandBuffer cmd_buf )
 {
 	const VkExtent2D extent = vk.extent_taa_output;
@@ -151,7 +152,6 @@ void vk_rtx_bloom_record_cmd_buffer( VkCommandBuffer cmd_buf )
 
 	const vkpipeline_t *downscale = &vk.bloom_pipeline[BLOOM_DOWNSCALE];
 	const vkpipeline_t *blur = &vk.bloom_pipeline[BLOOM_BLUR];
-	const vkpipeline_t *composite = &vk.bloom_pipeline[BLOOM_COMPOSITE];
 
 	IMAGE_BARRIER( cmd_buf, taa_output, range,
 		VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
@@ -186,11 +186,4 @@ void vk_rtx_bloom_record_cmd_buffer( VkCommandBuffer cmd_buf )
 		VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 		VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL );
 
-	// Add BLOOM_VBLUR to the TAA output.
-	vk_rtx_bloom_bind( cmd_buf, composite );
-	qvkCmdDispatch( cmd_buf, ( extent.width + 15 ) / 16, ( extent.height + 15 ) / 16, 1 );
-
-	IMAGE_BARRIER( cmd_buf, taa_output, range,
-		VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-		VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL );
 }
