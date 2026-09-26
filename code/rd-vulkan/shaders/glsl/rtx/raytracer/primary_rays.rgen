@@ -167,7 +167,21 @@ main()
 		const float t_min = ray.t_min;
 		for (int layer = 0; layer < MAX_BLENDED_LAYERS; layer++)
 		{
-			trace_geometry_ray(ray, true, cull_mask);
+			// Behind a blended layer, the back faces are culled as the rasterizer culls them. The back
+			// of a force field box is often coplanar with the wall behind it, and would hide it.
+			// The Q3 winding is the reverse of the Vulkan one: its back faces are "front facing".
+			if (layer == 0)
+				trace_geometry_ray(ray, true, cull_mask);
+			else
+			{
+				ray_payload_geometry.barycentric = vec2(0);
+				ray_payload_geometry.primitive_id = ~0u;
+				ray_payload_geometry.buffer_and_instance_idx = 0;
+				ray_payload_geometry.hit_distance = 0;
+
+				traceRayEXT(topLevelAS[TLAS_INDEX_GEOMETRY], gl_RayFlagsCullFrontFacingTrianglesEXT | gl_RayFlagsSkipProceduralPrimitives, cull_mask,
+					SBT_RCHIT_GEOMETRY, 0, SBT_RMISS_EMPTY, ray.origin, ray.t_min, ray.direction, ray.t_max, RT_PAYLOAD_GEOMETRY);
+			}
 
 			if (!found_intersection(ray_payload_geometry))
 				break;
