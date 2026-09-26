@@ -248,7 +248,8 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
             // The rasterizer adds the texture to the screen, so it is in screen units: 1 is
             // the white of the screen at this exposure (screen_to_hdr). The texture is
             // already linear. A curve on top of it removed the red glow of a saber blade.
-            color.rgb *= global_ubo.prev_adapted_luminance / exp2(global_ubo.tm_exposure_bias - 2.0);
+            // pt_glow_scale scales it, as all that the tracer adds in screen units.
+            color.rgb *= global_ubo.prev_adapted_luminance / exp2(global_ubo.tm_exposure_bias - 2.0) * minfo.emission_scale;
 
             // additive has no coverage
             color.a = 0.0;

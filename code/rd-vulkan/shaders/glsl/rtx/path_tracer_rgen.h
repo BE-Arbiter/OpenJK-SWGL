@@ -1262,8 +1262,10 @@ void blended_surface_layer(
 		blend_stage_layer( stage.blend, vec4( src0.rgb + light * ( src1.rgb - src0.rgb ), src1.a ), L, T );
 	}
 
+	// What the layer adds is drawn without the light of the tracer: pt_glow_scale, as the
+	// emission of the opaque surfaces.
 	T = clamp( T, vec3( 0.0 ), vec3( 1.0 ) );
-	L = max( L, vec3( 0.0 ) );
+	L = max( L, vec3( 0.0 ) ) * minfo.emission_scale;
 }
 
 // Screen units (what the tone mapper shows as 1) to HDR units, at the current exposure.
