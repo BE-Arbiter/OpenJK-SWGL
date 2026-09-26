@@ -255,6 +255,14 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
             // pt_glow_scale scales it, as all that the tracer adds in screen units.
             color.rgb *= global_ubo.prev_adapted_luminance / exp2(global_ubo.tm_exposure_bias - 2.0) * minfo.emission_scale;
 
+            // The source factor of the blendFunc, as GL applies it (GL_SRC_ALPHA GL_ONE adds
+            // colour x alpha). The factors that read the destination are not applied.
+            uint src_factor = minfo.stage[0].blend & 0x0fu;
+            if (src_factor == 5u)			// GLS_SRCBLEND_SRC_ALPHA
+                color.rgb *= color.a;
+            else if (src_factor == 6u)		// GLS_SRCBLEND_ONE_MINUS_SRC_ALPHA
+                color.rgb *= 1.0 - color.a;
+
             // additive has no coverage
             color.a = 0.0;
 
