@@ -910,62 +910,80 @@ vec4 combine_bundle(vec4 acc, vec4 c, uint tex_mode)
 	}
 }
 
-// The bundles of a stage combined with the multitexture mode. A lightmap bundle (BUNDLE_SKIP)
-// is not in the albedo. glow is the same stage in the glow pass: the bundles without
-// BUNDLE_GLOW are black there.
-vec4 sample_material_stage(
-	uint instance_index,
-	uint stage_idx,
-	MaterialStage stage,
-	vec3 position,
-	vec2 uv,
-	vec2 uvx,
-	vec2 uvy,
-	float mip,
-	out vec4 glow)
+// What a stage needs to know about the hit point.
+struct StageContext
 {
-	vec4 acc = vec4(1.0);
-	glow = vec4(0.0);
-	bool first = true;
+	uint	instance_index;
+	vec3	position;
+	vec3	normal;
+	vec4	vertex_color[MAX_RTX_STAGES];	// bundle 0 of each stage (BSP surfaces only)
+	bool	vertex_colors;
+};
 
-	for (uint b = 0u; b <= min(stage.tex_count, 2u); b++)
+StageContext stage_context( uint instance_index, Triangle triangle, vec3 bary, vec3 normal )
+{
+	StageContext ctx;
+	ctx.instance_index = instance_index;
+	ctx.position = triangle.positions * bary;
+	ctx.normal = normal;
+	ctx.vertex_color[0] = triangle.color0 * bary;
+	ctx.vertex_color[1] = triangle.color1 * bary;
+	ctx.vertex_color[2] = triangle.color2 * bary;
+	ctx.vertex_color[3] = triangle.color3 * bary;
+	ctx.vertex_colors = triangle.vertex_colors;
+	return ctx;
+}
+
+// RB_CalcSpecularAlpha: the light reflected to the viewer, to the 4th power. A model reflects
+// the light of its entity, the world a fixed light.
+float specular_alpha( StageContext ctx )
+{
+	vec3 light_dir = ( ctx.instance_index != ~0u )
+		? decode_normal( get_model_instance_shader_uint( ctx.instance_index, 2 ) )
+		: normalize( vec3( -960.0, 1980.0, 96.0 ) - ctx.position );
+
+	vec3 reflected = ctx.normal * ( 2.0 * dot( ctx.normal, light_dir ) ) - light_dir;
+	float l = dot( reflected, normalize( global_ubo.cam_pos.xyz - ctx.position ) );
+
+	if ( l < 0.0 )
+		return 0.0;
+
+	l *= l;
+	return min( l * l, 1.0 );
+}
+
+// The alphaGen that depend on the vertex, the entity or the view. vk_rtx_bundle_color leaves
+// them at 1.
+float bundle_alpha( StageContext ctx, uint s, MaterialStage stage, uint b, float a )
+{
+	float entity_alpha = ( ctx.instance_index != ~0u ) ? unpack_rgba8( get_model_instance_shader_uint( ctx.instance_index, 0 ) ).a : 1.0;
+
+	switch ( stage.bundle[b].alphaGen & 0xffu )
 	{
-		if ((stage.bundle[b].alphaGen & BUNDLE_SKIP) != 0u)
-			continue;
-
-		vec4 c = calc_color(instance_index, stage, b);
-		if (stage.bundle[b].image != 0u)
-			c *= sample_bundle(stage.bundle[b], position, uv, uvx, uvy, mip);
-
-		if (stage.tex_mode == 3u)			// ALPHA
-			c.rgb *= c.a;
-		else if (stage.tex_mode == 4u)		// ONE_MINUS_ALPHA
-			c.rgb *= 1.0 - c.a;
-
-		vec4 g = ((stage.bundle[b].alphaGen & BUNDLE_GLOW) != 0u) ? c : vec4(0.0, 0.0, 0.0, c.a);
-
-		if (first)
-		{
-			acc = c;
-			glow = g;
-			first = false;
-			continue;
-		}
-
-		acc = combine_bundle(acc, c, stage.tex_mode);
-		glow = combine_bundle(glow, g, stage.tex_mode);
+		case 2u: return entity_alpha;										// AGEN_ENTITY
+		case 3u: return 1.0 - entity_alpha;									// AGEN_ONE_MINUS_ENTITY
+		case 4u: return ctx.vertex_colors ? ctx.vertex_color[s].a : a;		// AGEN_VERTEX
+		case 5u: return ctx.vertex_colors ? 1.0 - ctx.vertex_color[s].a : a;	// AGEN_ONE_MINUS_VERTEX
+		case 6u: return specular_alpha( ctx );								// AGEN_LIGHTING_SPECULAR
+		case 8u: return clamp( length( ctx.position - global_ubo.cam_pos.xyz ) * stage.portal_range_r, 0.0, 1.0 );	// AGEN_PORTAL
 	}
+	return a;
+}
 
-	return acc;
+// The light of the rasterizer for stage s of a blended surface, which the tracer does not
+// light: the vertex light of a BSP surface (rgbGen exactVertex under RTX), else 1.
+vec3 raster_light( StageContext ctx, uint s )
+{
+	return ctx.vertex_colors ? ctx.vertex_color[s].rgb : vec3( 1.0 );
 }
 
 // A stage as the rasterizer draws it, with its light at 0 (src0) and at 1 (src1). The light is
 // a lightmap bundle, or the vertex colour or diffuse light of the rgbGen: under RTX the world
 // is vertex lit, so the rgbGen of the lit texture is exactVertex. glow is the glow pass.
 void sample_material_stage_light(
-	uint instance_index,
+	StageContext ctx,
+	uint s,
 	MaterialStage stage,
-	vec3 position,
 	vec2 uv,
 	vec2 uvx,
 	vec2 uvy,
@@ -991,9 +1009,10 @@ void sample_material_stage_light(
 		}
 		else
 		{
-			vec4 c = calc_color(instance_index, stage, b);
+			vec4 c = calc_color(ctx.instance_index, stage, b);
+			c.a = bundle_alpha(ctx, s, stage, b, c.a);
 			if (stage.bundle[b].image != 0u)
-				c *= sample_bundle(stage.bundle[b], position, uv, uvx, uvy, mip);
+				c *= sample_bundle(stage.bundle[b], ctx.position, uv, uvx, uvy, mip);
 
 			if (stage.tex_mode == 3u)			// ALPHA
 				c.rgb *= c.a;
@@ -1002,7 +1021,7 @@ void sample_material_stage_light(
 
 			// CGEN_EXACT_VERTEX, CGEN_VERTEX, CGEN_LIGHTING_DIFFUSE(_ENTITY): the colour times the
 			// light. CGEN_ONE_MINUS_VERTEX: the colour times 1 - the light.
-			uint gen = bundle_rgb_gen(instance_index, stage, b);
+			uint gen = bundle_rgb_gen(ctx.instance_index, stage, b);
 			vec4 unlit = vec4(0.0, 0.0, 0.0, c.a);
 			bool lit = gen == 5u || gen == 6u || gen == 9u || gen == 10u;
 			c0 = lit ? unlit : c;
@@ -1047,16 +1066,15 @@ vec4 blend_factor( uint f, bool src, vec4 s, vec4 d )
 // The stages blended the way the rasterizer blends them, with the light of the rasterizer at 0
 // and at 1. The result is L * A + B: with L = 0 it is B, what the rasterizer draws without
 // light (glow and additive stages, fullbright stages), and with L = 1 it is A + B. A is the
-// albedo the tracer lights and B the emission, in screen units. A lightmap stage is the light:
-// first it replaces the colour, later it multiplies it, whatever its blendFunc (x2 undoes the
-// overbright shift). The glow is the glow pass of the rasterizer: the same blends, with the
-// bundles that do not glow drawn in black.
+// albedo the tracer lights and B the emission, in screen units. A lightmap stage is the light
+// with its blendFunc, except x2 (GL_DST_COLOR GL_SRC_COLOR), which undoes the overbright shift
+// of the GL lightmap and only multiplies by the light. The glow is the glow pass of the
+// rasterizer: the same blends, with the bundles that do not glow drawn in black.
 // Without split (a q3map_surfacelight surface) the lightmap stages are left out and all of
 // the colour is the albedo.
 vec4 compose_material_stages(
-	uint instance_index,
+	StageContext ctx,
 	MaterialInfo minfo,
-	vec3 position,
 	vec2 tex_coord[4],
 	vec2 tex_coord_x[4],
 	vec2 tex_coord_y[4],
@@ -1087,19 +1105,27 @@ vec4 compose_material_stages(
 			if ( !split )
 				continue;
 
+			const vec4 light0 = vec4( 0.0, 0.0, 0.0, 1.0 );
+			const vec4 light1 = vec4( 1.0 );
+
 			if ( first || no_blend )
 			{
-				dst0 = vec4( 0.0, 0.0, 0.0, 1.0 );
-				dst1 = vec4( 1.0 );
+				dst0 = light0;
+				dst1 = light1;
 			}
-			else
+			else if ( sf == 3u && df == 3u )
 				dst0.rgb = vec3( 0.0 );
+			else
+			{
+				dst0 = light0 * blend_factor( sf, true, light0, dst0 ) + dst0 * blend_factor( df, false, light0, dst0 );
+				dst1 = light1 * blend_factor( sf, true, light1, dst1 ) + dst1 * blend_factor( df, false, light1, dst1 );
+			}
 			first = false;
 			continue;
 		}
 
 		vec4 src0, src1, glow_src;
-		sample_material_stage_light( instance_index, stage, position, tex_coord[s], tex_coord_x[s], tex_coord_y[s], mip_level, src0, src1, glow_src );
+		sample_material_stage_light( ctx, s, stage, tex_coord[s], tex_coord_x[s], tex_coord_y[s], mip_level, src0, src1, glow_src );
 		if ( !split )
 			src0 = src1;
 
@@ -1189,7 +1215,8 @@ void blend_stage_layer( uint blend, vec4 src, inout vec3 L, inout vec3 T )
 	T = Ts * T;
 }
 
-// The stages of a blended surface, in screen units: out = L + T * behind.
+// The stages of a blended surface, in screen units: out = L + T * behind. The tracer does not
+// light the layer: its stages take the light of the rasterizer (raster_light).
 void blended_surface_layer(
 	uint instance_index,
 	Triangle triangle,
@@ -1198,7 +1225,7 @@ void blended_surface_layer(
 	out vec3 T )
 {
 	MaterialInfo minfo = get_material_info( triangle.material_id );
-	vec3 position = triangle.positions * bary;
+	StageContext ctx = stage_context( instance_index, triangle, bary, normalize( triangle.normals * bary ) );
 	vec2 tex_coord[4];
 	tex_coord[0] = triangle.tex_coords0 * bary;
 	tex_coord[1] = triangle.tex_coords1 * bary;
@@ -1214,12 +1241,25 @@ void blended_surface_layer(
 
 		if ( ( stage.blend & STAGE_BLEND_ACTIVE ) == 0u )
 			break;
-		if ( ( stage.blend & STAGE_BLEND_LIGHTMAP ) != 0u )
-			continue;
 
-		vec4 glow_src;
-		vec4 src = sample_material_stage( instance_index, s, stage, position, tex_coord[s], vec2( 0.0 ), vec2( 0.0 ), 0.0, glow_src );
-		blend_stage_layer( stage.blend, src, L, T );
+		vec3 light = raster_light( ctx, s );
+
+		if ( ( stage.blend & STAGE_BLEND_LIGHTMAP ) != 0u )
+		{
+			// x2 only multiplies by the light, as in compose_material_stages.
+			if ( ( stage.blend & 0xffu ) == 0x33u )
+			{
+				L *= light;
+				T *= light;
+			}
+			else
+				blend_stage_layer( stage.blend, vec4( light, 1.0 ), L, T );
+			continue;
+		}
+
+		vec4 src0, src1, glow_src;
+		sample_material_stage_light( ctx, s, stage, tex_coord[s], vec2( 0.0 ), vec2( 0.0 ), 0.0, src0, src1, glow_src );
+		blend_stage_layer( stage.blend, vec4( src0.rgb + light * ( src1.rgb - src0.rgb ), src1.a ), L, T );
 	}
 
 	T = clamp( T, vec3( 0.0 ), vec3( 1.0 ) );
@@ -1328,7 +1368,8 @@ void get_material(
 	const bool surface_light = triangle.emissive_factor > 0 && !is_glow_material( triangle.material_id );
 
 	vec3 glow, emission;
-	vec4 albedo = compose_material_stages( instance_index, minfo, triangle.positions * bary, tex_coord, tex_coord_x, tex_coord_y, mip_level, !surface_light, glow, emission );
+	StageContext ctx = stage_context( instance_index, triangle, bary, geo_normal );
+	vec4 albedo = compose_material_stages( ctx, minfo, tex_coord, tex_coord_x, tex_coord_y, mip_level, !surface_light, glow, emission );
 
 	base_color = albedo.rgb * minfo.base_factor;
 	base_color = clamp(base_color, vec3(0.0), vec3(1.0));

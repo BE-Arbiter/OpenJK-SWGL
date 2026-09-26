@@ -4032,7 +4032,18 @@ shader_t *FinishShader( void )
 	{
 		if ( shader.lightmapIndex[0] == LIGHTMAP_BY_VERTEX )
 		{
+#ifdef USE_RTX
+			// Under RTX the world has no lightmaps. Only a filter over the lightmap is the same as
+			// the texture with rgbGen exactVertex: for any other blendFunc, the lightmap stage
+			// stays and gives the vertex light (GL: $lightmap + GL_ONE GL_ONE adds the texture).
+			const int nextBlend = ( lmStage + 1 < MAX_SHADER_STAGES ) ? ( stages[lmStage + 1].stateBits & GLS_BLEND_BITS ) : 0;
+			const qboolean filter = ( nextBlend == ( GLS_SRCBLEND_DST_COLOR | GLS_DSTBLEND_ZERO ) || nextBlend == ( GLS_SRCBLEND_ZERO | GLS_DSTBLEND_SRC_COLOR )
+				|| nextBlend == ( GLS_SRCBLEND_DST_COLOR | GLS_DSTBLEND_SRC_COLOR ) ) ? qtrue : qfalse;
+
+			if ( lmStage == 0 && ( filter || !vk.rtxActive || !stages[1].active ) )
+#else
 			if ( lmStage == 0 )	//< MAX_SHADER_STAGES-1)
+#endif
 			{//copy the rest down over the lightmap slot
 				memmove(&stages[lmStage], &stages[lmStage+1], sizeof(shaderStage_t) * ( MAX_SHADER_STAGES - lmStage - 1 ));
 				memset(&stages[MAX_SHADER_STAGES-1], 0, sizeof(shaderStage_t));

@@ -555,6 +555,7 @@ rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
 
 		// The tracer composes the stages as the raster blends them (see the shader).
 		mat->stage[i].blend = STAGE_BLEND_ACTIVE | ( pStage->stateBits & GLS_BLEND_BITS );
+		mat->stage[i].portal_range_r = shader->portalRangeR;
 
 		// vk_rtx_animate_materials sets the tcMods and the colors.
 		for ( j = 0; j < NUM_TEXTURE_BUNDLES; j++ ) {

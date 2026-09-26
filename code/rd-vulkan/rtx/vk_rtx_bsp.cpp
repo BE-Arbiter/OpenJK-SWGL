@@ -1815,10 +1815,6 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 		primitives_out->tangents[1] = encode_normal( tess.qtangent[i1] );
 		primitives_out->tangents[2] = encode_normal( tess.qtangent[i2] );
 
-		primitives_out->color0[0] = tess.svars.colors[0][i0][0] | tess.svars.colors[0][i0][1] << 8 | tess.svars.colors[0][i0][2] << 16 | tess.svars.colors[0][i0][3] << 24;
-		primitives_out->color1[0] = tess.svars.colors[0][i1][0] | tess.svars.colors[0][i1][1] << 8 | tess.svars.colors[0][i1][2] << 16 | tess.svars.colors[0][i1][3] << 24;
-		primitives_out->color2[0] = tess.svars.colors[0][i2][0] | tess.svars.colors[0][i2][1] << 8 | tess.svars.colors[0][i2][2] << 16 | tess.svars.colors[0][i2][3] << 24;
-
 		primitives_out->material_id = material_id; //(material_flags & ~MATERIAL_INDEX_MASK) | (material_index & MATERIAL_INDEX_MASK);
 		primitives_out->emissive_and_alpha = emissive_and_alpha;
 		primitives_out->instance = 0;
@@ -1833,11 +1829,9 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 		if ( !pStage || !pStage->active )
 			break;
 
-		//
-		// only compute bundle 0 for now
-		//
-		if ( pStage->tessFlags & TESS_RGBA0 )
-			ComputeColors( 0, tess.svars.colors[0], pStage, 0 );
+		// The colour of bundle 0 of every stage: the vertex light of rgbGen exactVertex and the
+		// vertex alpha, which the tracer reads for alphaGen vertex and for the blended surfaces.
+		ComputeColors( 0, tess.svars.colors[0], pStage, 0 );
 
 		// The tracer applies the tcMods at each frame (MaterialBundle tc_matrix). FinishShader removes
 		// TESS_ST0 when the raster can reuse the UVs of the stage before; the tracer cannot.
@@ -1867,7 +1861,6 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 				primitives_out->uv2[stage] = floatToHalf(tess.svars.texcoordPtr[0][i2][0]) | (floatToHalf(tess.svars.texcoordPtr[0][i2][1]) << 16);
 			}
 
-			if ( pStage->tessFlags & TESS_RGBA0 ) 
 			{
 				primitives_out->color0[stage] = tess.svars.colors[0][i0][0] | tess.svars.colors[0][i0][1] << 8 | tess.svars.colors[0][i0][2] << 16 | tess.svars.colors[0][i0][3] << 24;
 				primitives_out->color1[stage] = tess.svars.colors[0][i1][0] | tess.svars.colors[0][i1][1] << 8 | tess.svars.colors[0][i1][2] << 16 | tess.svars.colors[0][i1][3] << 24;

@@ -300,7 +300,7 @@ static inline void transform_point(const float* p, const float* matrix, float* r
 	VectorCopy(transformed, result); // vec4 -> vec3
 }
 
-static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_buffer, int current_instance_index, const trRefEntity_t* entity, shader_t *shader )
+static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_buffer, int current_instance_index, const trRefdef_t *refdef, trRefEntity_t* entity, shader_t *shader )
 {
 	uint32_t forceRGBGen = 0;
 
@@ -321,6 +321,10 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 		| ((uint32_t)entity->e.shaderRGBA[2] << 16)
 		| ((uint32_t)entity->e.shaderRGBA[3] << 24);
 	data[1] = forceRGBGen;
+
+	// alphaGen lightingSpecular reflects the light of the entity, as RB_CalcSpecularAlpha.
+	R_SetupEntityLighting( refdef, entity );
+	data[2] = encode_normal( entity->lightDir );
 }
 
 static void fill_model_instance( ModelInstance* instance, const trRefEntity_t* entity, const maliasmesh_t *mesh, shader_t *shader,
@@ -745,7 +749,7 @@ static void process_bsp_entity(
 	ModelInstance* mi = uniform_instance_buffer->model_instances + current_instance_idx;
 	// calc_color reads the entity color here; without it a brush model got the data another
 	// instance left at this index.
-	fill_model_instance_shader_data( uniform_instance_buffer, current_instance_idx, entity, NULL );
+	fill_model_instance_shader_data( uniform_instance_buffer, current_instance_idx, refdef, entity, NULL );
 	memcpy(&mi->transform, transform, sizeof(transform));
 	memcpy(&mi->transform_prev, transform, sizeof(transform));
 	mi->material = 0;
@@ -874,7 +878,7 @@ static void process_regular_entity(
 		//ModelInstance* mi = uniform_instance_buffer->model_instances + current_instance_index;
 		ModelInstance* mi = &uniform_instance_buffer->model_instances[current_instance_index];
 
-		fill_model_instance_shader_data( uniform_instance_buffer, current_instance_index, entity,  entity_mesh->shader );
+		fill_model_instance_shader_data( uniform_instance_buffer, current_instance_index, refdef, entity,  entity_mesh->shader );
 		fill_model_instance( mi, entity, entity_mesh->mesh, 
 							  entity_mesh->shader,  transform, is_viewer_weapon, is_double_sided, 
 							  material_id, entity_mesh->bone_offset 

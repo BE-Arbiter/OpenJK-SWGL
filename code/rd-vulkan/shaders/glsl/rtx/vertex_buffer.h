@@ -107,7 +107,7 @@ STRUCT (
 	UINT			( tex_mode )
 	UINT			( tex_count )
 	UINT			( blend )		// GLS blend bits 0-7; STAGE_BLEND_ACTIVE, STAGE_BLEND_LIGHTMAP
-	UINT			( pad1 )
+	FLOAT			( portal_range_r )	// 1 / portalRange of the shader, for alphaGen portal
 , MaterialStage )
 #define MATERIALSTAGE(n) MaterialStage n;
 
@@ -302,10 +302,11 @@ struct Triangle {
 	mat3x3 normals;
 	mat3x3 tangents;
 	//mat3x3 binormal;
-	mat3x4 color0;
+	mat3x4 color0;		// the colour of bundle 0 of each stage at each vertex (BSP surfaces only)
 	mat3x4 color1;
 	mat3x4 color2;
 	mat3x4 color3;
+	bool   vertex_colors;	// color0-3 are valid
 	uint tex0;
 	uint tex1;
 	uint   shell;
@@ -368,6 +369,21 @@ load_triangle(uint buffer_idx, uint prim_id)
 	t.cluster = prim.cluster;
 	t.instance_index = prim.instance;
 	t.instance_prim = 0;
+
+	// create_poly writes the stage colours of the BSP surfaces. The models have none.
+	t.vertex_colors = buffer_idx == VERTEX_BUFFER_WORLD || buffer_idx == VERTEX_BUFFER_WORLD_D_MATERIAL
+		|| buffer_idx == VERTEX_BUFFER_WORLD_D_GEOMETRY || buffer_idx == VERTEX_BUFFER_SUB_MODELS;
+	if (t.vertex_colors)
+	{
+		t.color0 = mat3x4(unpackUnorm4x8(prim.color0[0]), unpackUnorm4x8(prim.color1[0]), unpackUnorm4x8(prim.color2[0]));
+		t.color1 = mat3x4(unpackUnorm4x8(prim.color0[1]), unpackUnorm4x8(prim.color1[1]), unpackUnorm4x8(prim.color2[1]));
+		t.color2 = mat3x4(unpackUnorm4x8(prim.color0[2]), unpackUnorm4x8(prim.color1[2]), unpackUnorm4x8(prim.color2[2]));
+		t.color3 = mat3x4(unpackUnorm4x8(prim.color0[3]), unpackUnorm4x8(prim.color1[3]), unpackUnorm4x8(prim.color2[3]));
+	}
+	else
+	{
+		t.color0 = t.color1 = t.color2 = t.color3 = mat3x4(vec4(1.0), vec4(1.0), vec4(1.0));
+	}
 	
 	vec2 emissive_and_alpha = unpackHalf2x16(prim.emissive_and_alpha);
 	t.emissive_factor = emissive_and_alpha.x;
