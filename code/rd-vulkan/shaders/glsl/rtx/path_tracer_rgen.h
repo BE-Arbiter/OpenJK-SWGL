@@ -331,7 +331,7 @@ trace_effects_ray(Ray ray, bool skip_procedural)
 	
 	uint instance_mask = AS_FLAG_EFFECTS;
 
-	ray_payload_effects.transparency = uvec2(0);
+	ray_payload_effects.transparency = packHalf4x16(vec4(1));	// T: nothing in front
 	ray_payload_effects.additive     = uvec2(0);
 	ray_payload_effects.glow         = uvec2(0);
 	ray_payload_effects.distances = 0;
@@ -1221,47 +1221,6 @@ bool is_blended_surface( uint material_id )
 	MaterialInfo minfo = get_material_info( material_id );
 
 	return minfo.blend_mode != RTX_BLEND_OPAQUE && minfo.alpha_test_func == 0u;
-}
-
-// One stage with its GL blend: out = L + T * dst. The destination alpha counts as 1.
-void blend_stage_layer( uint blend, vec4 src, inout vec3 L, inout vec3 T )
-{
-	uint sf = blend & 0x0fu;
-	uint df = ( blend >> 4 ) & 0x0fu;
-
-	// No blendFunc: the stage replaces the color.
-	if ( sf == 0u && df == 0u )
-	{
-		L = src.rgb;
-		T = vec3( 0.0 );
-		return;
-	}
-
-	vec3 Ls = vec3( 0.0 );
-	vec3 Ts = vec3( 0.0 );
-
-	switch ( df )
-	{
-		case 2u: Ts = vec3( 1.0 );			break;	// ONE
-		case 3u: Ts = src.rgb;				break;	// SRC_COLOR
-		case 4u: Ts = 1.0 - src.rgb;		break;	// ONE_MINUS_SRC_COLOR
-		case 5u: Ts = vec3( src.a );		break;	// SRC_ALPHA
-		case 6u: Ts = vec3( 1.0 - src.a );	break;	// ONE_MINUS_SRC_ALPHA
-		case 7u: Ts = vec3( 1.0 );			break;	// DST_ALPHA
-	}
-
-	switch ( sf )
-	{
-		case 2u: Ls = src.rgb;						break;	// ONE
-		case 3u: Ts += src.rgb;						break;	// DST_COLOR
-		case 4u: Ls = src.rgb; Ts -= src.rgb;		break;	// ONE_MINUS_DST_COLOR
-		case 5u: Ls = src.rgb * src.a;				break;	// SRC_ALPHA
-		case 6u: Ls = src.rgb * ( 1.0 - src.a );	break;	// ONE_MINUS_SRC_ALPHA
-		case 7u: Ls = src.rgb;						break;	// DST_ALPHA
-	}
-
-	L = Ls + Ts * L;
-	T = Ts * T;
 }
 
 // The stages of a blended surface, in screen units: out = L + T * behind. The tracer does not

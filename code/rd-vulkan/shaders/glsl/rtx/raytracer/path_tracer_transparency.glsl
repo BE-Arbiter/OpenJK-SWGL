@@ -57,49 +57,39 @@ void blend_fogs(in RayPayloadEffects rp, float t1, float t2, inout vec4 accumula
 	}
 }
 
-void update_payload_transparency( inout RayPayloadEffects rp, vec4 color, uint blend_mode, float hitT ) {
-    vec4 alpha_accum    = unpackHalf4x16(rp.transparency);
-    vec4 additive_accum = unpackHalf4x16(rp.additive);
-    vec2 distances      = unpackHalf2x16(rp.distances);
+// One more effect on the ray: out = L + T * behind. The any-hits come in any order: an effect
+// nearer than all the others goes in front, else behind.
+void update_payload_transparency( inout RayPayloadEffects rp, vec3 L, vec3 T, float hitT ) {
+    vec3 acc_T     = unpackHalf4x16(rp.transparency).rgb;
+    vec3 acc_L     = unpackHalf4x16(rp.additive).rgb;
+    vec2 distances = unpackHalf2x16(rp.distances);
 
-    // ADDITIVE: order independent
-    if (blend_mode == RTX_BLEND_ADDITIVE)
-    {
-        additive_accum.rgb += color.rgb;
-
-        rp.additive = packHalf4x16(additive_accum);
-
-        if (distances.x == 0.0)
-            distances.x = hitT;
-
-        distances.y = max(distances.y, hitT);
-
-        rp.distances = packHalf2x16(distances);
-        return;
-    }
-
-    // ALPHA: ordered OIT
     if (hitT < distances.x || distances.x == 0.0)
     {
-        alpha_accum = alpha_blend_premultiplied(color, alpha_accum);
+        acc_L = L + T * acc_L;
+        acc_T = T * acc_T;
         distances.x = hitT;
     }
     else
     {
-        alpha_accum = alpha_blend_premultiplied(alpha_accum, color);
+        acc_L += acc_T * L;
+        acc_T *= T;
     }
 
     distances.y = max(distances.y, hitT);
 
-    rp.transparency = packHalf4x16(alpha_accum);
-    rp.additive     = packHalf4x16(additive_accum);
+    rp.transparency = packHalf4x16(vec4(acc_T, 0));
+    rp.additive     = packHalf4x16(vec4(acc_L, 0));
     rp.distances    = packHalf2x16(distances);
 }
 
+// The effects as a layer over the image: the colour T becomes a coverage (its mean), and L is
+// added.
 EffectsResult get_payload_transparency(in RayPayloadEffects rp)
 {
 	EffectsResult result;
-    result.alpha    = unpackHalf4x16(rp.transparency);
+    vec3 T          = unpackHalf4x16(rp.transparency).rgb;
+    result.alpha    = vec4(0, 0, 0, 1.0 - dot(T, vec3(1.0 / 3.0)));
     result.additive = unpackHalf4x16(rp.additive).rgb;
     result.glow     = unpackHalf4x16(rp.glow).rgb;
 
@@ -119,7 +109,8 @@ EffectsResult get_payload_transparency_with_fog(in RayPayloadEffects rp, float t
     {
         blend_fogs(rp, distances.y, t_max, alpha_accumulator);
 
-        vec4 ray_transparency = unpackHalf4x16(rp.transparency);
+        vec3 T = unpackHalf4x16(rp.transparency).rgb;
+        vec4 ray_transparency = vec4(0, 0, 0, 1.0 - dot(T, vec3(1.0 / 3.0)));
         alpha_accumulator = alpha_blend_premultiplied( ray_transparency, alpha_accumulator);
 
         current_dist = distances.x;

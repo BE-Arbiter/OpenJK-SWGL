@@ -603,6 +603,47 @@ MaterialInfo get_material_info( uint material_id )
 	return minfo;
 }
 
+// One stage with its GL blend: out = L + T * dst. The destination alpha counts as 1.
+void blend_stage_layer( uint blend, vec4 src, inout vec3 L, inout vec3 T )
+{
+	uint sf = blend & 0x0fu;
+	uint df = ( blend >> 4 ) & 0x0fu;
+
+	// No blendFunc: the stage replaces the color.
+	if ( sf == 0u && df == 0u )
+	{
+		L = src.rgb;
+		T = vec3( 0.0 );
+		return;
+	}
+
+	vec3 Ls = vec3( 0.0 );
+	vec3 Ts = vec3( 0.0 );
+
+	switch ( df )
+	{
+		case 2u: Ts = vec3( 1.0 );			break;	// ONE
+		case 3u: Ts = src.rgb;				break;	// SRC_COLOR
+		case 4u: Ts = 1.0 - src.rgb;		break;	// ONE_MINUS_SRC_COLOR
+		case 5u: Ts = vec3( src.a );		break;	// SRC_ALPHA
+		case 6u: Ts = vec3( 1.0 - src.a );	break;	// ONE_MINUS_SRC_ALPHA
+		case 7u: Ts = vec3( 1.0 );			break;	// DST_ALPHA
+	}
+
+	switch ( sf )
+	{
+		case 2u: Ls = src.rgb;						break;	// ONE
+		case 3u: Ts += src.rgb;						break;	// DST_COLOR
+		case 4u: Ls = src.rgb; Ts -= src.rgb;		break;	// ONE_MINUS_DST_COLOR
+		case 5u: Ls = src.rgb * src.a;				break;	// SRC_ALPHA
+		case 6u: Ls = src.rgb * ( 1.0 - src.a );	break;	// ONE_MINUS_SRC_ALPHA
+		case 7u: Ls = src.rgb;						break;	// DST_ALPHA
+	}
+
+	L = Ls + Ts * L;
+	T = Ts * T;
+}
+
 LightPolygon
 get_light_polygon(uint index)
 {
