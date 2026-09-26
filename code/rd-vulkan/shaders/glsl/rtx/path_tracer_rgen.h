@@ -845,19 +845,23 @@ vec4 unpack_rgba8(uint p)
     ) * (1.0 / 255.0);
 }
 
-vec4 calc_color( in uint instance_index, in MaterialStage stage, in uint bundle ) 
+// The rgbGen of the bundle, or the one the entity forces.
+uint bundle_rgb_gen( in uint instance_index, in MaterialStage stage, in uint bundle )
+{
+	uint forceRGBGen = (instance_index != ~0u) ? get_model_instance_shader_uint(instance_index, 1) : 0u;
+
+	return (forceRGBGen != 0u) ? forceRGBGen : stage.bundle[bundle].rgbGen;
+}
+
+vec4 calc_color( in uint instance_index, in MaterialStage stage, in uint bundle )
 {
 	vec4 base_color = unpack_rgba8(stage.bundle[bundle].color);
 	vec4 shaderRGBA = vec4(0.0);
-	uint forceRGBGen = 0u;
 
 	if (instance_index != ~0u)
-	{
 		shaderRGBA = unpack_rgba8(get_model_instance_shader_uint(instance_index, 0));
-		forceRGBGen = get_model_instance_shader_uint(instance_index, 1);
-	}
 
-	uint rgbGen = (forceRGBGen != 0u) ? forceRGBGen : stage.bundle[bundle].rgbGen;
+	uint rgbGen = bundle_rgb_gen(instance_index, stage, bundle);
 
 	// CGEN_ENTITY || CGEN_LIGHTING_DIFFUSE_ENTITY
 	if (rgbGen == 3 || rgbGen == 10)
@@ -955,6 +959,73 @@ vec4 sample_material_stage(
 	return acc;
 }
 
+// A stage as the rasterizer draws it, with its light at 0 (src0) and at 1 (src1). The light is
+// a lightmap bundle, or the vertex colour or diffuse light of the rgbGen: under RTX the world
+// is vertex lit, so the rgbGen of the lit texture is exactVertex. glow is the glow pass.
+void sample_material_stage_light(
+	uint instance_index,
+	MaterialStage stage,
+	vec3 position,
+	vec2 uv,
+	vec2 uvx,
+	vec2 uvy,
+	float mip,
+	out vec4 src0,
+	out vec4 src1,
+	out vec4 glow)
+{
+	src0 = vec4(1.0);
+	src1 = vec4(1.0);
+	glow = vec4(0.0);
+	bool first = true;
+	bool glow_first = true;
+
+	for (uint b = 0u; b <= min(stage.tex_count, 2u); b++)
+	{
+		vec4 c0, c1;
+
+		if ((stage.bundle[b].alphaGen & BUNDLE_SKIP) != 0u)
+		{
+			c0 = vec4(0.0, 0.0, 0.0, 1.0);
+			c1 = vec4(1.0);
+		}
+		else
+		{
+			vec4 c = calc_color(instance_index, stage, b);
+			if (stage.bundle[b].image != 0u)
+				c *= sample_bundle(stage.bundle[b], position, uv, uvx, uvy, mip);
+
+			if (stage.tex_mode == 3u)			// ALPHA
+				c.rgb *= c.a;
+			else if (stage.tex_mode == 4u)		// ONE_MINUS_ALPHA
+				c.rgb *= 1.0 - c.a;
+
+			// CGEN_EXACT_VERTEX, CGEN_VERTEX, CGEN_LIGHTING_DIFFUSE(_ENTITY): the colour times the
+			// light. CGEN_ONE_MINUS_VERTEX: the colour times 1 - the light.
+			uint gen = bundle_rgb_gen(instance_index, stage, b);
+			vec4 unlit = vec4(0.0, 0.0, 0.0, c.a);
+			bool lit = gen == 5u || gen == 6u || gen == 9u || gen == 10u;
+			c0 = lit ? unlit : c;
+			c1 = (gen == 7u) ? unlit : c;
+
+			vec4 g = ((stage.bundle[b].alphaGen & BUNDLE_GLOW) != 0u) ? c : unlit;
+			glow = glow_first ? g : combine_bundle(glow, g, stage.tex_mode);
+			glow_first = false;
+		}
+
+		if (first)
+		{
+			src0 = c0;
+			src1 = c1;
+			first = false;
+			continue;
+		}
+
+		src0 = combine_bundle(src0, c0, stage.tex_mode);
+		src1 = combine_bundle(src1, c1, stage.tex_mode);
+	}
+}
+
 // GL blend factor of a GLS_SRCBLEND_* (src = true) or GLS_DSTBLEND_* value, shifted to 1-9.
 vec4 blend_factor( uint f, bool src, vec4 s, vec4 d )
 {
@@ -973,9 +1044,15 @@ vec4 blend_factor( uint f, bool src, vec4 s, vec4 d )
 	return vec4( 1.0 );
 }
 
-// The albedo is the stages blended the way the rasterizer does. The tracer lights the surface
-// itself, so the lightmap stages are left out. The glow is the glow pass of the rasterizer:
-// the same blends, with the bundles that do not glow drawn in black.
+// The stages blended the way the rasterizer blends them, with the light of the rasterizer at 0
+// and at 1. The result is L * A + B: with L = 0 it is B, what the rasterizer draws without
+// light (glow and additive stages, fullbright stages), and with L = 1 it is A + B. A is the
+// albedo the tracer lights and B the emission, in screen units. A lightmap stage is the light:
+// first it replaces the colour, later it multiplies it, whatever its blendFunc (x2 undoes the
+// overbright shift). The glow is the glow pass of the rasterizer: the same blends, with the
+// bundles that do not glow drawn in black.
+// Without split (a q3map_surfacelight surface) the lightmap stages are left out and all of
+// the colour is the albedo.
 vec4 compose_material_stages(
 	uint instance_index,
 	MaterialInfo minfo,
@@ -984,11 +1061,15 @@ vec4 compose_material_stages(
 	vec2 tex_coord_x[4],
 	vec2 tex_coord_y[4],
 	float mip_level,
-	out vec3 glow )
+	bool split,
+	out vec3 glow,
+	out vec3 emission )
 {
-	vec4 dst = vec4( 1.0 );
+	vec4 dst0 = vec4( 1.0 );
+	vec4 dst1 = vec4( 1.0 );
 	vec4 glow_dst = vec4( 0.0 );
 	bool first = true;
+	bool glow_first = true;
 
 	for ( uint s = 0u; s < MAX_RTX_STAGES; s++ )
 	{
@@ -996,32 +1077,62 @@ vec4 compose_material_stages(
 
 		if ( ( stage.blend & STAGE_BLEND_ACTIVE ) == 0u )
 			break;
-		if ( ( stage.blend & STAGE_BLEND_LIGHTMAP ) != 0u )
-			continue;
-
-		vec4 glow_src;
-		vec4 src = sample_material_stage( instance_index, s, stage, position, tex_coord[s], tex_coord_x[s], tex_coord_y[s], mip_level, glow_src );
 
 		uint sf = stage.blend & 0x0fu;
 		uint df = ( stage.blend >> 4 ) & 0x0fu;
+		bool no_blend = sf == 0u && df == 0u;
+
+		if ( ( stage.blend & STAGE_BLEND_LIGHTMAP ) != 0u )
+		{
+			if ( !split )
+				continue;
+
+			if ( first || no_blend )
+			{
+				dst0 = vec4( 0.0, 0.0, 0.0, 1.0 );
+				dst1 = vec4( 1.0 );
+			}
+			else
+				dst0.rgb = vec3( 0.0 );
+			first = false;
+			continue;
+		}
+
+		vec4 src0, src1, glow_src;
+		sample_material_stage_light( instance_index, stage, position, tex_coord[s], tex_coord_x[s], tex_coord_y[s], mip_level, src0, src1, glow_src );
+		if ( !split )
+			src0 = src1;
+
+		if ( glow_first || no_blend )
+			glow_dst = glow_src;
+		else
+			glow_dst = glow_src * blend_factor( sf, true, glow_src, glow_dst ) + glow_dst * blend_factor( df, false, glow_src, glow_dst );
+		glow_first = false;
 
 		// The first stage, or a stage without blendFunc, replaces the color.
-		if ( first || ( sf == 0u && df == 0u ) )
+		if ( first || no_blend )
 		{
-			dst = src;
-			glow_dst = glow_src;
+			dst0 = src0;
+			dst1 = src1;
 		}
 		else
 		{
-			dst = src * blend_factor( sf, true, src, dst ) + dst * blend_factor( df, false, src, dst );
-			glow_dst = glow_src * blend_factor( sf, true, glow_src, glow_dst ) + glow_dst * blend_factor( df, false, glow_src, glow_dst );
+			dst0 = src0 * blend_factor( sf, true, src0, dst0 ) + dst0 * blend_factor( df, false, src0, dst0 );
+			dst1 = src1 * blend_factor( sf, true, src1, dst1 ) + dst1 * blend_factor( df, false, src1, dst1 );
 		}
-
 		first = false;
 	}
 
 	glow = clamp( glow_dst.rgb, vec3( 0.0 ), vec3( 1.0 ) );
-	return clamp( dst, vec4( 0.0 ), vec4( 1.0 ) );
+
+	if ( !split )
+	{
+		emission = vec3( 0.0 );
+		return clamp( dst1, vec4( 0.0 ), vec4( 1.0 ) );
+	}
+
+	emission = max( dst0.rgb, vec3( 0.0 ) );
+	return vec4( clamp( dst1.rgb - dst0.rgb, vec3( 0.0 ), vec3( 1.0 ) ), clamp( dst1.a, 0.0, 1.0 ) );
 }
 
 // A surface blended onto the framebuffer: stage 0 blends and the alpha test is off. The
@@ -1213,8 +1324,11 @@ void get_material(
 	metallic = 0;
     roughness = 1;
 
-	vec3 glow;
-	vec4 albedo = compose_material_stages( instance_index, minfo, triangle.positions * bary, tex_coord, tex_coord_x, tex_coord_y, mip_level, glow );
+	// A q3map_surfacelight surface without glow stage keeps its emissive texture (radiance).
+	const bool surface_light = triangle.emissive_factor > 0 && !is_glow_material( triangle.material_id );
+
+	vec3 glow, emission;
+	vec4 albedo = compose_material_stages( instance_index, minfo, triangle.positions * bary, tex_coord, tex_coord_x, tex_coord_y, mip_level, !surface_light, glow, emission );
 
 	base_color = albedo.rgb * minfo.base_factor;
 	base_color = clamp(base_color, vec3(0.0), vec3(1.0));
@@ -1282,20 +1396,14 @@ void get_material(
 
 	base_color.rgb = AO * base_color.rgb;
 
-	if (triangle.emissive_factor > 0)
-	{
-		// A glow material emits its glow pass, not its first glow texture on the whole surface.
-		// The rasterizer adds the glow to the screen, so it is in screen units: 1 is the white of
-		// the screen at this exposure. A fixed radiance saturates in a dark room, and the soft
-		// halo of a glow texture becomes a flat shape. pt_glow_scale is relative to that.
-		if ( is_glow_material( triangle.material_id ) )
-			emissive = correct_emissive( triangle.material_id, glow ) * screen_to_hdr() * minfo.emissive_factor;
-		else
-			emissive = sample_emissive_texture( triangle.material_id, minfo, tex_coord[0], tex_coord_x[0], tex_coord_y[0], mip_level );
-		emissive *= triangle.emissive_factor;
-	}
+	// What the rasterizer draws without light is in screen units, as the rasterizer adds it to
+	// the screen: 1 is the white of the screen at this exposure. A fixed radiance saturates in a
+	// dark room, and the soft halo of a glow texture becomes a flat shape. pt_glow_scale is
+	// relative to that.
+	if ( surface_light )
+		emissive = sample_emissive_texture( triangle.material_id, minfo, tex_coord[0], tex_coord_x[0], tex_coord_y[0], mip_level ) * triangle.emissive_factor;
 	else
-		emissive = vec3(0);
+		emissive = correct_emissive( triangle.material_id, emission ) * screen_to_hdr() * minfo.emission_scale;
 
 	emissive += get_emissive_shell(triangle.material_id, triangle.shell) * base_color * (1 - metallic * 0.9);
 }

@@ -220,6 +220,7 @@ STRUCT (
 	//FLOAT	( specular_factor )
 	VEC4	( specular_scale )	// contains the commented above see stage->specularScale
 	FLOAT	( emissive_factor )
+	FLOAT	( emission_scale )	// pt_glow_scale, for what the rasterizer draws without light
 	FLOAT	( base_factor )
 	FLOAT	( light_style_scale )
 	UINT	( num_frames )
@@ -530,7 +531,7 @@ uint animate_material( uint material, int frame )
 	return ( material & ~MATERIAL_INDEX_MASK ) | index;
 }
 
-// The emissive of this material comes from a glow stage (word 5, bits 8-15: pt_glow_scale).
+// The material has a glow stage (word 5, bit 5). Its emission goes to the bloom.
 bool is_glow_material( uint material_id )
 {
 	uint material_index = material_id & MATERIAL_INDEX_MASK;
@@ -539,7 +540,7 @@ bool is_glow_material( uint material_id )
 	if ( remapped > 0 )
 		material_index = remapped;
 
-	return ( ( get_material_uint( material_index, 5 ) >> 8 ) & 0xffu ) != 0u;
+	return ( get_material_uint( material_index, 5 ) & 0x20u ) != 0u;
 }
 
 MaterialStage get_material_stage( in uint material_index, in uint stage )
@@ -590,9 +591,11 @@ MaterialInfo get_material_info( uint material_id )
 	minfo.blend_mode       = (at >> 2u) & uint(RTX_BLEND_MASK);
 	minfo.alpha_test_value = unpackHalf2x16(at).y;
 
-	// Bits 8-15: emissive factor e, 2^((e - 128) / 16), 0 for 1.0 (pt_glow_scale for glow stages).
+	// Bits 8-15: pt_glow_scale as e, 2^((e - 128) / 16), 0 for 1.0. Bit 5: a glow material, whose
+	// emissive texture takes the scale too.
 	uint emissive_code = (at >> 8u) & 0xffu;
-	minfo.emissive_factor = (emissive_code == 0u) ? 1.0 : exp2((float(emissive_code) - 128.0) / 16.0);
+	minfo.emission_scale  = (emissive_code == 0u) ? 1.0 : exp2((float(emissive_code) - 128.0) / 16.0);
+	minfo.emissive_factor = ((at & 0x20u) != 0u) ? minfo.emission_scale : 1.0;
 
 	return minfo;
 }

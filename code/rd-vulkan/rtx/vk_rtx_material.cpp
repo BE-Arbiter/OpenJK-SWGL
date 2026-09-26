@@ -311,6 +311,10 @@ uint32_t vk_get_rtx_material_stage_tex_mode( Vk_Pipeline_Def *def )
     switch ( def->shader_type ) {
         case TYPE_MULTI_TEXTURE_MUL2:
         case TYPE_MULTI_TEXTURE_MUL2_ENV:
+        case TYPE_MULTI_TEXTURE_MUL2_IDENTITY:
+        case TYPE_MULTI_TEXTURE_MUL2_IDENTITY_ENV:
+        case TYPE_MULTI_TEXTURE_MUL2_FIXED_COLOR:
+        case TYPE_MULTI_TEXTURE_MUL2_FIXED_COLOR_ENV:
         case TYPE_MULTI_TEXTURE_MUL3:
         case TYPE_MULTI_TEXTURE_MUL3_ENV:
         case TYPE_BLEND2_MUL:
@@ -322,6 +326,10 @@ uint32_t vk_get_rtx_material_stage_tex_mode( Vk_Pipeline_Def *def )
 
         case TYPE_MULTI_TEXTURE_ADD2_IDENTITY:
         case TYPE_MULTI_TEXTURE_ADD2_IDENTITY_ENV:
+        case TYPE_MULTI_TEXTURE_ADD2_FIXED_COLOR:
+        case TYPE_MULTI_TEXTURE_ADD2_FIXED_COLOR_ENV:
+        case TYPE_MULTI_TEXTURE_ADD2_1_1:
+        case TYPE_MULTI_TEXTURE_ADD2_1_1_ENV:
         case TYPE_MULTI_TEXTURE_ADD3_1_1:
         case TYPE_MULTI_TEXTURE_ADD3_1_1_ENV:
             return 1;
@@ -384,10 +392,18 @@ uint32_t vk_get_rtx_material_stage_tex_count( const Vk_Pipeline_Def *def )
     switch ( def->shader_type ) {
 
         case TYPE_MULTI_TEXTURE_MUL2:
+        case TYPE_MULTI_TEXTURE_MUL2_IDENTITY:
+        case TYPE_MULTI_TEXTURE_MUL2_FIXED_COLOR:
         case TYPE_MULTI_TEXTURE_ADD2_IDENTITY:
+        case TYPE_MULTI_TEXTURE_ADD2_FIXED_COLOR:
+        case TYPE_MULTI_TEXTURE_ADD2_1_1:
         case TYPE_MULTI_TEXTURE_ADD2:
         case TYPE_MULTI_TEXTURE_MUL2_ENV:
+        case TYPE_MULTI_TEXTURE_MUL2_IDENTITY_ENV:
+        case TYPE_MULTI_TEXTURE_MUL2_FIXED_COLOR_ENV:
         case TYPE_MULTI_TEXTURE_ADD2_IDENTITY_ENV:
+        case TYPE_MULTI_TEXTURE_ADD2_FIXED_COLOR_ENV:
+        case TYPE_MULTI_TEXTURE_ADD2_1_1_ENV:
         case TYPE_MULTI_TEXTURE_ADD2_ENV:
 
         case TYPE_BLEND2_MUL:
@@ -649,8 +665,8 @@ rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
 	return mat;
 }
 
-// JKA adds a glow stage on top of the lit texture. The tracer emits it in screen units (see
-// get_material): 1 is the brightness of the rasterizer.
+// What the rasterizer draws without light (glow and additive stages, fullbright stages) is
+// emitted in screen units (see get_material): 1 is the brightness of the rasterizer.
 static cvar_t *vk_rtx_glow_scale( void )
 {
 	static cvar_t *pt_glow_scale;
@@ -696,12 +712,15 @@ VkResult vk_rtx_upload_materials( LightBuffer *lbo )
 		data[5] |= (mat->blend_mode & RTX_BLEND_MASK) << 2;	// bits 2-4
 		data[5] |= floatToHalf(mat->alpha_test_value) << 16;
 
-		// Bits 8-15: emissive factor e, 2^((e - 128) / 16), 0 for 1.0. See get_material_info.
-		if ( mat->emissive && mat->glow_emissive )
+		// Bits 8-15: pt_glow_scale as e, 2^((e - 128) / 16). Bit 5: a glow material. See
+		// get_material_info.
 		{
 			const float scale = vk_rtx_glow_scale()->value;
 			const int e = ( scale > 0.f ) ? (int)floorf( log2f( scale ) * 16.f + 128.5f ) : 1;
 			data[5] |= (uint32_t)Com_Clampi( 1, 255, e ) << 8;
+
+			if ( mat->emissive && mat->glow_emissive )
+				data[5] |= 0x20u;
 		}
 
 		mat->uploaded[vk.current_frame_index] = qtrue;
@@ -883,7 +902,7 @@ void vk_rtx_animate_materials( const trRefdef_t *refdef )
 	int i;
 	uint32_t s, j, f;
 
-	// A new pt_glow_scale is in every glow material.
+	// A new pt_glow_scale is in every material.
 	const qboolean rescale = vk_rtx_glow_scale()->modified;
 	vk_rtx_glow_scale()->modified = qfalse;
 
@@ -938,7 +957,7 @@ void vk_rtx_animate_materials( const trRefdef_t *refdef )
 		if ( vk_rtx_bundle_gens( shader, mat, refdef ) )
 			changed = qtrue;
 
-		if ( rescale && mat->glow_emissive )
+		if ( rescale )
 			changed = qtrue;
 
 		if ( changed )
