@@ -23,20 +23,23 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "tr_local.h"
+#include "conversion.h"
 
 
 #define MAX_SABER_LIGHTS 128
 
 #define TR_PARTICLE_MAX_NUM    16384
 #define TR_BEAM_MAX_NUM        1024
-#define TR_SPRITE_MAX_NUM      1024
+#define TR_SPRITE_MAX_NUM      4096
 #define TR_VERTEX_MAX_NUM      ((TR_PARTICLE_MAX_NUM + TR_SPRITE_MAX_NUM) * 4)
 #define TR_INDEX_MAX_NUM       ((TR_PARTICLE_MAX_NUM + TR_SPRITE_MAX_NUM) * 6)
 #define TR_BEAM_AABB_SIZE      sizeof(VkAabbPositionsKHR)
 #define TR_POSITION_SIZE       (3 * sizeof(float))
 #define TR_COLOR_SIZE          (4 * sizeof(float))
 #define TR_BEAM_INTERSECT_SIZE (12 * sizeof(float))
-#define TR_SPRITE_INFO_SIZE    (2 * sizeof(float))
+// Three uvec4 per sprite: material, entity colour, kind; the UVs of a poly triangle; its vertex colours.
+#define TR_SPRITE_INFO_UINTS   12
+#define TR_SPRITE_INFO_SIZE    (TR_SPRITE_INFO_UINTS * sizeof(uint32_t))
 
 #define LENGTH(a) ((sizeof (a)) / (sizeof(*(a))))
 
@@ -132,7 +135,7 @@ bool initialize_transparency()
 	const size_t beam_intersect_size = TR_BEAM_MAX_NUM * TR_BEAM_INTERSECT_SIZE;
 	const size_t beam_data_size = beam_aabb_max_size + beam_color_size + beam_intersect_size;
 
-	const size_t sprite_vertex_position_max_size = TR_SPRITE_MAX_NUM * TR_POSITION_SIZE;
+	const size_t sprite_vertex_position_max_size = TR_SPRITE_MAX_NUM * 4 * TR_POSITION_SIZE;
 	const size_t sprite_info_size = TR_SPRITE_MAX_NUM * TR_SPRITE_INFO_SIZE;
 	const size_t sprite_data_size = sprite_vertex_position_max_size + sprite_info_size;
 	
@@ -211,9 +214,17 @@ void update_transparency(VkCommandBuffer command_buffer, const trRefdef_t *refde
 				radius += 0.017f;
 			}
 
-			++sprite_num; 
+			++sprite_num;
 		}
 	}
+
+	// A scene poly (a saber trail, an effect) is a fan of triangles, one sprite slot each.
+	for ( int i = 0; i < refdef->numPolys && r_drawentities->integer; i++ )
+	{
+		if ( refdef->polys[i].numVerts >= 3 )
+			sprite_num += refdef->polys[i].numVerts - 2;
+	}
+
 	beam_num = MIN(beam_num, TR_BEAM_MAX_NUM);
 	sprite_num = MIN(sprite_num, TR_SPRITE_MAX_NUM);
 
@@ -440,12 +451,31 @@ static void do_line( vec3_t *vertex_positions, const vec3_t start, const vec3_t 
 
 static inline void write_sprite_info( uint32_t *sprite_info, const rtx_material_t *mat, const refEntity_t *e )
 {
+	Com_Memset( sprite_info, 0, TR_SPRITE_INFO_SIZE );
     sprite_info[0] = mat->flags;
     sprite_info[1] =
         ((uint32_t)e->shaderRGBA[0]      ) |
         ((uint32_t)e->shaderRGBA[1] <<  8) |
         ((uint32_t)e->shaderRGBA[2] << 16) |
         ((uint32_t)e->shaderRGBA[3] << 24);
+}
+
+// One triangle of a scene poly: kind 1, then the UVs and the vertex colours of its corners.
+static inline void write_poly_info( uint32_t *sprite_info, const rtx_material_t *mat, const polyVert_t *v0, const polyVert_t *v1, const polyVert_t *v2 )
+{
+	const polyVert_t *v[3] = { v0, v1, v2 };
+
+	Com_Memset( sprite_info, 0, TR_SPRITE_INFO_SIZE );
+	sprite_info[0] = mat->flags;
+	sprite_info[1] = 0xffffffffu;
+	sprite_info[2] = 1u;
+
+	for ( int k = 0; k < 3; k++ )
+	{
+		sprite_info[4 + k] = floatToHalf( v[k]->st[0] ) | ( (uint32_t)floatToHalf( v[k]->st[1] ) << 16 );
+		sprite_info[8 + k] = (uint32_t)v[k]->modulate[0] | ( (uint32_t)v[k]->modulate[1] << 8 )
+			| ( (uint32_t)v[k]->modulate[2] << 16 ) | ( (uint32_t)v[k]->modulate[3] << 24 );
+	}
 }
 
 // borrowed from CG_RGBForSaberColor in cg_palyer.c
@@ -559,6 +589,7 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 	uint32_t* sprite_info = (uint32_t*)(transparency.host_buffer_shadow + transparency.sprite_info_host_offset);
 
 	int sprite_count = 0;
+	const int budget = (int)transparency.sprite_num;
 	shader_t *shader;
 	rtx_material_t *mat;
 	uint32_t i;
@@ -631,8 +662,8 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 
 				radius += 0.017f;
 
-				if (++sprite_count >= TR_SPRITE_MAX_NUM)
-					return;
+				if (++sprite_count >= budget)
+					goto done;
 			}
 
 			write_sprite_info(sprite_info, mat, &entity->e);
@@ -642,8 +673,49 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 			sprite_info += TR_SPRITE_INFO_SIZE / sizeof(uint32_t);
 		}
 
-		if (++sprite_count >= TR_SPRITE_MAX_NUM)
-			return;
+		if (++sprite_count >= budget)
+			goto done;
+	}
+
+	// The scene polys, as fans. The second triangle of the slot is degenerate: v3 = v0.
+	for ( i = 0; i < (uint32_t)refdef->numPolys; i++ )
+	{
+		const srfPoly_t *poly = refdef->polys + i;
+
+		if ( poly->numVerts < 3 )
+			continue;
+
+		shader = R_GetShaderByHandle( poly->hShader );
+		mat = vk_rtx_shader_to_material( shader );
+
+		if ( !mat || !mat->active || !mat->stage[0].bundle[0].image )
+			continue;
+
+		for ( int k = 1; k + 1 < poly->numVerts; k++ )
+		{
+			if ( sprite_count >= budget )
+				goto done;
+
+			write_poly_info( sprite_info, mat, &poly->verts[0], &poly->verts[k], &poly->verts[k + 1] );
+			VectorCopy( poly->verts[0].xyz, vertex_positions[0] );
+			VectorCopy( poly->verts[k].xyz, vertex_positions[1] );
+			VectorCopy( poly->verts[k + 1].xyz, vertex_positions[2] );
+			VectorCopy( poly->verts[0].xyz, vertex_positions[3] );
+
+			vertex_positions += 4;
+			sprite_info += TR_SPRITE_INFO_UINTS;
+			sprite_count++;
+		}
+	}
+
+done:
+	// The slots counted but not written (a material not ready yet) keep no stale sprite.
+	for ( ; sprite_count < budget; sprite_count++ )
+	{
+		Com_Memset( vertex_positions, 0, 4 * sizeof( vec3_t ) );
+		Com_Memset( sprite_info, 0, TR_SPRITE_INFO_SIZE );
+		vertex_positions += 4;
+		sprite_info += TR_SPRITE_INFO_UINTS;
 	}
 }
 
@@ -861,7 +933,7 @@ static void create_buffer_views(void)
 	sprite_info_view_info.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
 	sprite_info_view_info.pNext = NULL;
 	sprite_info_view_info.buffer = transparency.sprite_info_buffer.buffer;
-	sprite_info_view_info.format = VK_FORMAT_R32G32_UINT;
+	sprite_info_view_info.format = VK_FORMAT_R32G32B32A32_UINT;
 	sprite_info_view_info.range = TR_SPRITE_MAX_NUM * TR_SPRITE_INFO_SIZE;
 
 	VkBufferViewCreateInfo beam_intersect_view_info;

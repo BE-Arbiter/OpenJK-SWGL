@@ -146,15 +146,35 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
 
     const int sprite_index = primitiveID / 2;
 
-    uvec4 info = texelFetch(sprite_texure_buffer, sprite_index);
+    // Three texels per sprite: material, entity colour, kind (1: a triangle of a scene
+    // poly); the UVs of its corners; their colours.
+    uvec4 info = texelFetch(sprite_texure_buffer, sprite_index * 3);
     MaterialInfo minfo = get_material_info(info.x);
 
     if (minfo.base_texture == 0)
         return make_empty_hit();
 
     vec4 shaderRGBA = unpack_rgba8(info.y);
+    vec4 vertex_color = vec4(1.0);
 
-    vec4 color = global_textureLod(minfo.base_texture, uv, 0);
+    if (info.z == 1u)
+    {
+        uvec4 uvs = texelFetch(sprite_texure_buffer, sprite_index * 3 + 1);
+        uvec4 colors = texelFetch(sprite_texure_buffer, sprite_index * 3 + 2);
+
+        uv = unpackHalf2x16(uvs.x) * barycentric.x + unpackHalf2x16(uvs.y) * barycentric.y + unpackHalf2x16(uvs.z) * barycentric.z;
+        vec4 c = unpack_rgba8(colors.x) * barycentric.x + unpack_rgba8(colors.y) * barycentric.y + unpack_rgba8(colors.z) * barycentric.z;
+
+        // The vertex colour counts as the rasterizer counts it: rgbGen and alphaGen vertex.
+        uint rgb_gen = minfo.stage[0].bundle[0].rgbGen;
+        uint alpha_gen = minfo.stage[0].bundle[0].alphaGen & 0xffffu;
+        if (rgb_gen == 5u || rgb_gen == 6u)		// CGEN_EXACT_VERTEX, CGEN_VERTEX
+            vertex_color.rgb = c.rgb;
+        if (alpha_gen == 4u)					// AGEN_VERTEX
+            vertex_color.a = c.a;
+    }
+
+    vec4 color = global_textureLod(minfo.base_texture, uv, 0) * vertex_color;
 
     // entity tint
     color.rgb *= shaderRGBA.rgb;
@@ -225,21 +245,10 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
 
         case RTX_BLEND_ADDITIVE:
         {
-            vec3 c = color.rgb;
-
-            float lum = luminance(c);
-            if (lum > 0.0)
-            {
-                float lum2 = pow(lum, 2.2);
-
-                // reshape energy distribution (preserves hue but adjusts intensity curve)
-                c *= (lum2 / lum);
-
-                // entity/texture alpha already folded into color.rgb earlier
-                c *= global_ubo.prev_adapted_luminance * 2000.0;
-            }
-
-            color.rgb = c;
+            // The rasterizer adds the texture to the screen, so it is in screen units: 1 is
+            // the white of the screen at this exposure (screen_to_hdr). The texture is
+            // already linear. A curve on top of it removed the red glow of a saber blade.
+            color.rgb *= global_ubo.prev_adapted_luminance / exp2(global_ubo.tm_exposure_bias - 2.0);
 
             // additive has no coverage
             color.a = 0.0;

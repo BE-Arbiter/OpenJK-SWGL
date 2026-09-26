@@ -101,6 +101,7 @@ EffectsResult get_payload_transparency(in RayPayloadEffects rp)
 	EffectsResult result;
     result.alpha    = unpackHalf4x16(rp.transparency);
     result.additive = unpackHalf4x16(rp.additive).rgb;
+    result.glow     = unpackHalf4x16(rp.glow).rgb;
 
     return result;
 }
@@ -128,6 +129,7 @@ EffectsResult get_payload_transparency_with_fog(in RayPayloadEffects rp, float t
 
     result.alpha = alpha_accumulator;
     result.additive = unpackHalf4x16(rp.additive).rgb;
+    result.glow     = unpackHalf4x16(rp.glow).rgb;
 
     return result;
 }

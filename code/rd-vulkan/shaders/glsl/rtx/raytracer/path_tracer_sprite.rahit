@@ -42,6 +42,16 @@ void main()
 	if (transparency.blend_mode != RTX_BLEND_SKIP)
 	{
 		update_payload_transparency(ray_payload, transparency.color, transparency.blend_mode, gl_HitTEXT);
+
+		// The glow pass of the rasterizer draws only the glow stages: the red glow of a
+		// saber blade blooms, its white core does not.
+		uint material = texelFetch(sprite_texure_buffer, (gl_PrimitiveID / 2) * 3).x;
+		if (transparency.blend_mode == RTX_BLEND_ADDITIVE && is_glow_material(material))
+		{
+			vec4 glow = unpackHalf4x16(ray_payload.glow);
+			glow.rgb += transparency.color.rgb;
+			ray_payload.glow = packHalf4x16(glow);
+		}
 	}
 
 	ignoreIntersectionEXT;
