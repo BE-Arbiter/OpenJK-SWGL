@@ -1285,8 +1285,11 @@ void get_material(
 	if (triangle.emissive_factor > 0)
 	{
 		// A glow material emits its glow pass, not its first glow texture on the whole surface.
+		// The rasterizer adds the glow to the screen, so it is in screen units: 1 is the white of
+		// the screen at this exposure. A fixed radiance saturates in a dark room, and the soft
+		// halo of a glow texture becomes a flat shape. pt_glow_scale is relative to that.
 		if ( is_glow_material( triangle.material_id ) )
-			emissive = correct_emissive( triangle.material_id, glow ) * minfo.emissive_factor;
+			emissive = correct_emissive( triangle.material_id, glow ) * screen_to_hdr() * minfo.emissive_factor;
 		else
 			emissive = sample_emissive_texture( triangle.material_id, minfo, tex_coord[0], tex_coord_x[0], tex_coord_y[0], mip_level );
 		emissive *= triangle.emissive_factor;
