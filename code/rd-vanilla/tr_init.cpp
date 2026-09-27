@@ -1513,6 +1513,7 @@ static consoleCommand_t	commands[] = {
 	{ "screenshot",			R_ScreenShot_f },
 	{ "screenshot_png",		R_ScreenShotPNG_f },
 	{ "screenshot_tga",		R_ScreenShotTGA_f },
+	{ "r_capturePortrait",	R_CapturePortrait_f },
 	{ "gfxinfo",			GfxInfo_f },
 	{ "r_atihack",			R_AtiHackToggle_f },
 	{ "r_we",				R_WorldEffect_f },
@@ -2186,6 +2187,7 @@ extern "C" Q_EXPORT refexport_t* QDECL GetRefAPI ( int apiVersion, refimport_t *
 	G2EX(RemoveSurface);
 	G2EX(SaveGhoul2Models);
 	G2EX(SetAnimIndex);
+	G2EX(SetAnimOverride);
 	G2EX(SetBoneAnim);
 	G2EX(SetBoneAnimIndex);
 	G2EX(SetBoneAngles);

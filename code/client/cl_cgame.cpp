@@ -1149,6 +1149,10 @@ Ghoul2 Insert End
 		Menus_OpenByName((const char *) VMA(1));
 		return 0;
 
+	case CG_UI_RUN_COMMAND:
+		UI_RunMenuCommand((const char *) VMA(1));
+		return 0;
+
 	case CG_UI_MENU_RESET:
 		Menu_Reset();
 		return 0;

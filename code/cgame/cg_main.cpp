@@ -26,6 +26,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "../client/vmachine.h"
 #include "g_local.h"
+#include "cg_characters.h"
 
 #include "../qcommon/sstring.h"
 #include "qcommon/ojk_saved_game_helper.h"
@@ -89,7 +90,6 @@ int	force_icons[NUM_FORCE_POWERS];
 void CG_DrawDataPadHUD( centity_t *cent );
 void CG_DrawDataPadLoadoutFrame( centity_t *cent );
 void CG_DrawDataPadObjectives(const centity_t *cent );
-void CG_DrawDataPadIconBackground(const int backgroundType);
 void CG_DrawDataPadWeaponSelect( void );
 void CG_LDO_DrawWeapons( void );
 void CG_DrawDataPadForceSelect( void );
@@ -221,29 +221,31 @@ Ghoul2 Insert End
 	case CG_DRAW_DATAPAD_WEAPONS:
 		if (cg.snap)
 		{
-			CG_DrawDataPadIconBackground(ICON_WEAPONS);
 			CG_DrawDataPadWeaponSelect();
 		}
 		return 0;
 	case CG_DRAW_DATAPAD_LOADOUT:
 		if (cg.snap)
 		{
-			CG_DrawDataPadIconBackground(ICON_INVENTORY);
 			CG_LDO_DrawWeapons();
 		}
 		return 0;
 	case CG_DRAW_DATAPAD_INVENTORY:
 		if (cg.snap)
 		{
-			CG_DrawDataPadIconBackground(ICON_INVENTORY);
 			CG_DrawDataPadInventorySelect();
 		}
 		return 0;
 	case CG_DRAW_DATAPAD_FORCEPOWERS:
 		if (cg.snap)
 		{
-			CG_DrawDataPadIconBackground(ICON_FORCE);
 			CG_DrawDataPadForceSelect();
+		}
+		return 0;
+	case CG_DRAW_CHARACTERS:
+		if (cg.snap)
+		{
+			CG_DrawCharactersMenu();
 		}
 		return 0;
 	}
@@ -456,6 +458,12 @@ vmCvar_t		ui_weaponFive_label;
 vmCvar_t		ui_weaponSix;
 vmCvar_t		ui_weaponSix_label;
 
+vmCvar_t		ui_c_filter_name;
+vmCvar_t		ui_character_screen;
+vmCvar_t		ui_character_selected;
+vmCvar_t		ui_character_page;
+vmCvar_t		ui_character_index;
+
 
 
 
@@ -621,6 +629,11 @@ static cvarTable_t cvarTable[] = {
 	{ &ui_weaponFive_label, "ui_weaponFive_label","None",CVAR_ARCHIVE},
 	{ &ui_weaponSix, "ui_weaponSix","WP_NONE",CVAR_ARCHIVE},
 	{ &ui_weaponSix_label, "ui_weaponSix_label","None",CVAR_ARCHIVE},
+	{ &ui_c_filter_name, "ui_c_filter_name","",CVAR_ARCHIVE},
+	{ &ui_character_screen, "ui_character_screen","",CVAR_ARCHIVE},
+	{ &ui_character_selected, "ui_character_selected","",CVAR_ARCHIVE},
+	{ &ui_character_page, "ui_character_page","",CVAR_ARCHIVE},
+	{ &ui_character_index, "ui_character_index","",CVAR_ARCHIVE},
 };
 
 static const size_t cvarTableSize = ARRAY_LEN( cvarTable );
@@ -2350,6 +2363,7 @@ void CG_Init( int serverCommandSequence ) {
 
 	cgs.media.qhFontSmall = cgi_R_RegisterFont("ocr_a");
 	cgs.media.qhFontMedium= cgi_R_RegisterFont("ergoec");
+	cgs.media.qhFontTitle = cgi_R_RegisterFont("anewhope");
 
 	cgs.media.whiteShader   = cgi_R_RegisterShader( "white" );
 	cgs.media.loadTick		= cgi_R_RegisterShaderNoMip( "gfx/hud/load_tick" );

@@ -1,5 +1,6 @@
 /*
 ===========================================================================
+Copyright (C) 1999 - 2005, Id Software, Inc.
 Copyright (C) 2000 - 2013, Raven Software, Inc.
 Copyright (C) 2001 - 2013, Activision, Inc.
 Copyright (C) 2013 - 2015, OpenJK contributors
@@ -20,47 +21,26 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 ===========================================================================
 */
 
-//
-// gameinfo.c
-//
+#ifndef __CG_CHARACTERS_H__
+#define __CG_CHARACTERS_H__
 
-// *** This file is used by both the game and the user interface ***
-
-#include "gameinfo.h"
-#include "../game/weapons.h"
 #include "../game/g_characters.h"
-
-/* Define the differents data associated with weapons */
-int weaponCount;
-int ammoCount = AMMO_HC_MAX;
-weaponIndexes_t weaponIndexes[MAX_WEAPONS];
-int weaponBuckets[WEAPON_BUCKETS_SIZE]; //WB_NPC is the last entry (values are negatives so -)
-weaponData_t weaponData[MAX_WEAPONS];
-ammoData_t ammoData[MAX_AMMO];
-
-extern void WP_LoadWeaponParms (void);
-extern void CHA_ParseFactionFiles();
-extern void CHA_ParseCharacterFiles();
+#include "../qcommon/q_shared.h"
 
 
-//
-// Initialization - Read in files and parse into infos
-//
+extern characterInfo_t selectedCharacters[MAX_CHARACTERS];
 
-/*
-===============
-GI_Init
-===============
-*/
-void GI_Init( gameinfo_import_t *import ) {
+void CG_DrawCharactersMenu();
 
-	/* Load Weapons*/
-	WP_LoadWeaponParms ();
+void CG_Characters_CharacterClick_f();
+void CG_Characters_VariantClick_f();
+void CG_Characters_VariantPreviousPage_f();
+void CG_Characters_VariantNextPage_f();
+void CG_Characters_PreviousPage_f();
+void CG_Characters_NextPage_f();
+void CG_Characters_SearchChanged_f();
+void CG_Characters_Portraits_f();
+void CG_Characters_Portrait_f();
+void CG_DrawCharacterPortrait();
 
-	/* Load Factions */
-	CHA_ParseFactionFiles();
-
-	/* Load Characters */
-	CHA_ParseCharacterFiles();
-
-}
+#endif //__CG_CHARACTERS_H__

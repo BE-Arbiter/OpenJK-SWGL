@@ -85,6 +85,7 @@ static void Item_TextScroll_BuildLines ( itemDef_t* item );
 //static qboolean debugMode = qfalse;
 static qboolean g_waitingForKey = qfalse;
 static qboolean g_editingField = qfalse;
+qboolean Item_HandleAccept(itemDef_t * item);
 
 static itemDef_t *g_bindItem = NULL;
 static itemDef_t *g_editItem = NULL;
@@ -162,6 +163,14 @@ const char *styles [] = {
 "WINDOW_STYLE_SHADER",
 "WINDOW_STYLE_TEAMCOLOR",
 "WINDOW_STYLE_CINEMATIC",
+NULL
+};
+
+// keep in sync with the BACKGROUND_* defines in menudef.h
+const char *backgroundStyles [] = {
+"BACKGROUND_NONE",
+"BACKGROUND_NINE_PATCH_STRETCH",
+"BACKGROUND_NINE_PATCH_REPEAT",
 NULL
 };
 
@@ -3239,6 +3248,8 @@ ItemParse_asset_model
 	asset_model <string>
 ===============
 */
+extern void UI_SaberAttachToChar( itemDef_t *item );
+
 qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name )
 {
 	modelDef_t *modelPtr;
@@ -3247,6 +3258,8 @@ qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name )
 
 	if (!Q_stricmp(&name[strlen(name) - 4], ".glm"))
 	{ //it's a ghoul2 model then
+		// Sabers in slots 1+ are bolted to model 0; a new model 0 invalidates their bolt index.
+		const qboolean hadSabers = (qboolean)((item->flags & ITF_ISCHARACTER) && item->ghoul2.size() > 1);
 		if ( item->ghoul2.size() && item->ghoul2[0].mModelindex >= 0)
 		{
 			DC->g2_RemoveGhoul2Model( item->ghoul2, 0 );
@@ -3264,6 +3277,10 @@ qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name )
 			if ( modelPtr->g2skin )
 			{
 				DC->g2_SetSkin( &item->ghoul2[0], 0, modelPtr->g2skin );//this is going to set the surfs on/off matching the skin file
+			}
+			if ( hadSabers )
+			{
+				UI_SaberAttachToChar( item );
 			}
 		}
 	}
@@ -3635,6 +3652,25 @@ qboolean ItemParse_notselectable( itemDef_t *item )
 	if (item->type == ITEM_TYPE_LISTBOX && listPtr)
 	{
 		listPtr->notselectable = qtrue;
+	}
+	return qtrue;
+}
+
+/*
+===============
+ItemParse_scrollbarsize
+	scrollbarsize <width>: width of the scrollbar of a list box
+===============
+*/
+qboolean ItemParse_scrollbarsize( itemDef_t *item )
+{
+	listBoxDef_t *listPtr;
+	Item_ValidateTypeData(item);
+	listPtr = (listBoxDef_t*)item->typeData;
+
+	if (item->type != ITEM_TYPE_LISTBOX || !listPtr || PC_ParseFloat(&listPtr->scrollbarSize))
+	{
+		return qfalse;
 	}
 	return qtrue;
 }
@@ -4205,6 +4241,103 @@ qboolean ItemParse_background( itemDef_t *item)
 		return qfalse;
 	}
 	item->window.background = ui.R_RegisterShaderNoMip(temp);
+	Q_strncpyz(item->window.backgroundName, temp, sizeof(item->window.backgroundName));
+	return qtrue;
+}
+
+/*
+===============
+ItemParse_backgroundStyle
+	backgroundStyle <BACKGROUND_NONE | BACKGROUND_NINE_PATCH_STRETCH | BACKGROUND_NINE_PATCH_REPEAT>
+===============
+*/
+qboolean ItemParse_backgroundStyle( itemDef_t *item)
+{
+	int			i;
+	const char	*tempStr;
+
+	if (PC_ParseString(&tempStr))
+	{
+		return qfalse;
+	}
+
+	// "NONE" on its own is accepted as a shorthand for BACKGROUND_NONE
+	if (!Q_stricmp(tempStr,"NONE"))
+	{
+		item->window.backgroundStyle = BACKGROUND_NONE;
+		return qtrue;
+	}
+
+	i=0;
+	while (backgroundStyles[i])
+	{
+		if (Q_stricmp(tempStr,backgroundStyles[i])==0)
+		{
+			item->window.backgroundStyle = i;
+			break;
+		}
+		i++;
+	}
+
+	if (backgroundStyles[i] == NULL)
+	{
+		PC_ParseWarning(va("Unknown background style value '%s'",tempStr));
+	}
+
+	return qtrue;
+}
+
+/*
+===============
+ItemParse_backgroundOffset
+	backgroundOffset <top> <right> <bottom> <left>, in pixels of the background shader
+===============
+*/
+qboolean ItemParse_backgroundOffset( itemDef_t *item)
+{
+	int		i;
+
+	for (i = 0; i < 4; i++)
+	{
+		if (PC_ParseFloat(&item->window.backgroundOffset[i]))
+		{
+			return qfalse;
+		}
+
+		if (item->window.backgroundOffset[i] < 0.0f)
+		{
+			PC_ParseWarning(va("Negative background offset %f",item->window.backgroundOffset[i]));
+			item->window.backgroundOffset[i] = 0.0f;
+		}
+	}
+
+	return qtrue;
+}
+
+/*
+===============
+ItemParse_backgroundSize
+	backgroundSize <width> <height>, optional override when the image file cannot be read
+===============
+*/
+qboolean ItemParse_backgroundSize( itemDef_t *item)
+{
+	if (PC_ParseFloat(&item->window.backgroundSize[0]))
+	{
+		return qfalse;
+	}
+
+	if (PC_ParseFloat(&item->window.backgroundSize[1]))
+	{
+		return qfalse;
+	}
+
+	if (item->window.backgroundSize[0] <= 0.0f || item->window.backgroundSize[1] <= 0.0f)
+	{
+		PC_ParseWarning("Background size must be positive");
+		item->window.backgroundSize[0] = item->window.backgroundSize[1] = 0.0f;
+	}
+
 	return qtrue;
 }
 
@@ -5011,6 +5144,9 @@ keywordHash_t itemParseKeywords[] = {
 	{"autowrapped",		ItemParse_autowrapped,		},
 	{"backcolor",		ItemParse_backcolor,		},
 	{"background",		ItemParse_background,		},
+	{"backgroundStyle",	ItemParse_backgroundStyle,	},
+	{"backgroundOffset",ItemParse_backgroundOffset,	},
+	{"backgroundSize",	ItemParse_backgroundSize,	},
 	{"border",			ItemParse_border,			},
 	{"bordercolor",		ItemParse_bordercolor,		},
 	{"bordersize",		ItemParse_bordersize,		},
@@ -5061,6 +5197,7 @@ keywordHash_t itemParseKeywords[] = {
 	{"notselectable",	ItemParse_notselectable,	},
 //JLF
 	{"scrollhidden",	ItemParse_scrollhidden, 	},
+	{"scrollbarsize",	ItemParse_scrollbarsize,	},
 //JLF END
 	{"onFocus",			ItemParse_onFocus,			},
 	{"outlinecolor",	ItemParse_outlinecolor,		},
@@ -5376,6 +5513,27 @@ qboolean String_Parse(const char **p, const char **out)
 		return (qboolean)(*out != NULL);
 	}
 	return qfalse;
+}
+
+/*
+===============
+UI_RunMenuCommand
+	runs .menu action commands from cgame; a token absent from commandList falls
+	through to the uiScript handler
+===============
+*/
+void UI_RunMenuCommand(const char *command)
+{
+	// carries the menu via parent; static because itemDef_t holds a CGhoul2Info_v
+	static itemDef_t	context;
+
+	if (!command || !command[0])
+	{
+		return;
+	}
+
+	context.parent = Menu_GetFocused();
+	Item_RunScript(&context, command);
 }
 
 /*
@@ -6987,6 +7145,18 @@ void Item_TextScroll_Paint(itemDef_t *item)
 }
 
 /*
+===============
+Item_ListBox_ScrollbarSize
+	width of the scrollbar of a list box: the "scrollbarsize" keyword, else SCROLLBAR_SIZE
+===============
+*/
+float Item_ListBox_ScrollbarSize(itemDef_t *item)
+{
+	const listBoxDef_t *listPtr = (const listBoxDef_t *)item->typeData;
+	return (listPtr && listPtr->scrollbarSize > 0) ? listPtr->scrollbarSize : SCROLLBAR_SIZE;
+}
+
+/*
 =================
 Item_ListBox_Paint
 =================
@@ -7026,20 +7196,20 @@ void Item_ListBox_Paint(itemDef_t *item)
 			if (Item_ListBox_MaxScroll(item) > 0)
 			{
 				x = item->window.rect.x + 1;
-				y = item->window.rect.y + item->window.rect.h - SCROLLBAR_SIZE - 1;
-				DC->drawHandlePic(x, y, SCROLLBAR_SIZE, SCROLLBAR_SIZE, DC->Assets.scrollBarArrowLeft);
-				x += SCROLLBAR_SIZE - 1;
-				size = item->window.rect.w - (SCROLLBAR_SIZE * 2);
-				DC->drawHandlePic(x, y, size+1, SCROLLBAR_SIZE, DC->Assets.scrollBar);
+				y = item->window.rect.y + item->window.rect.h - Item_ListBox_ScrollbarSize(item) - 1;
+				DC->drawHandlePic(x, y, Item_ListBox_ScrollbarSize(item), Item_ListBox_ScrollbarSize(item), DC->Assets.scrollBarArrowLeft);
+				x += Item_ListBox_ScrollbarSize(item) - 1;
+				size = item->window.rect.w - (Item_ListBox_ScrollbarSize(item) * 2);
+				DC->drawHandlePic(x, y, size+1, Item_ListBox_ScrollbarSize(item), DC->Assets.scrollBar);
 				x += size - 1;
-				DC->drawHandlePic(x, y, SCROLLBAR_SIZE, SCROLLBAR_SIZE, DC->Assets.scrollBarArrowRight);
+				DC->drawHandlePic(x, y, Item_ListBox_ScrollbarSize(item), Item_ListBox_ScrollbarSize(item), DC->Assets.scrollBarArrowRight);
 				// thumb
 				thumb = Item_ListBox_ThumbDrawPosition(item);//Item_ListBox_ThumbPosition(item);
-				if (thumb > x - SCROLLBAR_SIZE - 1)
+				if (thumb > x - Item_ListBox_ScrollbarSize(item) - 1)
 				{
-					thumb = x - SCROLLBAR_SIZE - 1;
+					thumb = x - Item_ListBox_ScrollbarSize(item) - 1;
 				}
-				DC->drawHandlePic(thumb, y, SCROLLBAR_SIZE, SCROLLBAR_SIZE, DC->Assets.scrollBarThumb);
+				DC->drawHandlePic(thumb, y, Item_ListBox_ScrollbarSize(item), Item_ListBox_ScrollbarSize(item), DC->Assets.scrollBarThumb);
 			}
 			else if (listPtr->startPos > 0)
 			{
@@ -7074,6 +7244,10 @@ void Item_ListBox_Paint(itemDef_t *item)
 						ui.R_SetColor(color);
 					}
 					DC->drawHandlePic(x+1, y+1, listPtr->elementWidth - 2, listPtr->elementHeight - 2, image);
+					if (item->window.flags & WINDOW_PLAYERCOLOR)
+					{	// or the tint leaks into everything painted after the list
+						ui.R_SetColor(NULL);
+					}
 				}
 
 				if (i == item->cursorPos)
@@ -7125,26 +7299,26 @@ void Item_ListBox_Paint(itemDef_t *item)
 		{
 
 			// draw scrollbar to right side of the window
-			x = item->window.rect.x + item->window.rect.w - SCROLLBAR_SIZE - 1;
+			x = item->window.rect.x + item->window.rect.w - Item_ListBox_ScrollbarSize(item) - 1;
 
 			if ((int)item->special == FEEDER_Q3HEADS || (int)item->special == FEEDER_MODEL_SKINS)
 				x -= 2;
 
 			y = item->window.rect.y + 1;
-			DC->drawHandlePic(x, y, SCROLLBAR_SIZE, SCROLLBAR_SIZE, DC->Assets.scrollBarArrowUp);
-			y += SCROLLBAR_SIZE - 1;
+			DC->drawHandlePic(x, y, Item_ListBox_ScrollbarSize(item), Item_ListBox_ScrollbarSize(item), DC->Assets.scrollBarArrowUp);
+			y += Item_ListBox_ScrollbarSize(item) - 1;
 
 			listPtr->endPos = listPtr->startPos;
-			sizeHeight = item->window.rect.h - (SCROLLBAR_SIZE * 2);
-			DC->drawHandlePic(x, y, SCROLLBAR_SIZE, sizeHeight + 1, DC->Assets.scrollBar);
+			sizeHeight = item->window.rect.h - (Item_ListBox_ScrollbarSize(item) * 2);
+			DC->drawHandlePic(x, y, Item_ListBox_ScrollbarSize(item), sizeHeight + 1, DC->Assets.scrollBar);
 			y += sizeHeight - 1;
-			DC->drawHandlePic(x, y, SCROLLBAR_SIZE, SCROLLBAR_SIZE, DC->Assets.scrollBarArrowDown);
+			DC->drawHandlePic(x, y, Item_ListBox_ScrollbarSize(item), Item_ListBox_ScrollbarSize(item), DC->Assets.scrollBarArrowDown);
 			// thumb
 			thumb = Item_ListBox_ThumbDrawPosition(item);//Item_ListBox_ThumbPosition(item);
-			if (thumb > y - SCROLLBAR_SIZE - 1) {
-				thumb = y - SCROLLBAR_SIZE - 1;
+			if (thumb > y - Item_ListBox_ScrollbarSize(item) - 1) {
+				thumb = y - Item_ListBox_ScrollbarSize(item) - 1;
 			}
-			DC->drawHandlePic(x, thumb, SCROLLBAR_SIZE, SCROLLBAR_SIZE, DC->Assets.scrollBarThumb);
+			DC->drawHandlePic(x, thumb, Item_ListBox_ScrollbarSize(item), Item_ListBox_ScrollbarSize(item), DC->Assets.scrollBarThumb);
 		}
 		//JLF end
 
@@ -7189,6 +7363,10 @@ void Item_ListBox_Paint(itemDef_t *item)
 									ui.R_SetColor(color);
 								}
 								DC->drawHandlePic(x + 1, y + 1, listPtr->elementWidth - 2, listPtr->elementHeight - 2, image);
+								if (item->window.flags & WINDOW_PLAYERCOLOR)
+								{	// or the tint leaks into everything painted after the list
+									ui.R_SetColor(NULL);
+								}
 							}
 							else
 							{
@@ -7259,6 +7437,10 @@ void Item_ListBox_Paint(itemDef_t *item)
 										ui.R_SetColor(color);
 									}
 									DC->drawHandlePic(x + 1, y + 1, listPtr->elementWidth - 2, listPtr->elementHeight - 2, image);
+									if (item->window.flags & WINDOW_PLAYERCOLOR)
+									{	// or the tint leaks into everything painted after the list
+										ui.R_SetColor(NULL);
+									}
 								}
 
 								if (i == item->cursorPos)
@@ -7394,7 +7576,7 @@ void Item_ListBox_Paint(itemDef_t *item)
 
 					if (i == item->cursorPos)
 					{
-						DC->fillRect(x + 2, y + listPtr->elementHeight + 2, item->window.rect.w - SCROLLBAR_SIZE - 4, listPtr->elementHeight, item->window.outlineColor);
+						DC->fillRect(x + 2, y + listPtr->elementHeight + 2, item->window.rect.w - Item_ListBox_ScrollbarSize(item) - 4, listPtr->elementHeight, item->window.outlineColor);
 					}
 
 					sizeHeight -= listPtr->elementHeight;
@@ -7416,23 +7598,23 @@ void Item_ListBox_Paint(itemDef_t *item)
 		if (!listPtr->scrollhidden)
 		{
 			// draw scrollbar to right side of the window
-			x = item->window.rect.x + item->window.rect.w - SCROLLBAR_SIZE - 1;
+			x = item->window.rect.x + item->window.rect.w - Item_ListBox_ScrollbarSize(item) - 1;
 			y = item->window.rect.y + 1;
-			DC->drawHandlePic(x, y, SCROLLBAR_SIZE, SCROLLBAR_SIZE, DC->Assets.scrollBarArrowUp);
-			y += SCROLLBAR_SIZE - 1;
+			DC->drawHandlePic(x, y, Item_ListBox_ScrollbarSize(item), Item_ListBox_ScrollbarSize(item), DC->Assets.scrollBarArrowUp);
+			y += Item_ListBox_ScrollbarSize(item) - 1;
 
 			listPtr->endPos = listPtr->startPos;
-			size = item->window.rect.h - (SCROLLBAR_SIZE * 2);
-			DC->drawHandlePic(x, y, SCROLLBAR_SIZE, size+1, DC->Assets.scrollBar);
+			size = item->window.rect.h - (Item_ListBox_ScrollbarSize(item) * 2);
+			DC->drawHandlePic(x, y, Item_ListBox_ScrollbarSize(item), size+1, DC->Assets.scrollBar);
 			y += size - 1;
-			DC->drawHandlePic(x, y, SCROLLBAR_SIZE, SCROLLBAR_SIZE, DC->Assets.scrollBarArrowDown);
+			DC->drawHandlePic(x, y, Item_ListBox_ScrollbarSize(item), Item_ListBox_ScrollbarSize(item), DC->Assets.scrollBarArrowDown);
 			// thumb
 			thumb = Item_ListBox_ThumbDrawPosition(item);//Item_ListBox_ThumbPosition(item);
-			if (thumb > y - SCROLLBAR_SIZE - 1)
+			if (thumb > y - Item_ListBox_ScrollbarSize(item) - 1)
 			{
-				thumb = y - SCROLLBAR_SIZE - 1;
+				thumb = y - Item_ListBox_ScrollbarSize(item) - 1;
 			}
-			DC->drawHandlePic(x, thumb, SCROLLBAR_SIZE, SCROLLBAR_SIZE, DC->Assets.scrollBarThumb);
+			DC->drawHandlePic(x, thumb, Item_ListBox_ScrollbarSize(item), Item_ListBox_ScrollbarSize(item), DC->Assets.scrollBarThumb);
 		}
 //JLF end
 		// adjust size for item painting
@@ -7542,7 +7724,7 @@ void Item_ListBox_Paint(itemDef_t *item)
 				// The chosen text
 				if (i == item->cursorPos)
 				{
-					DC->fillRect(x + 2, y + listPtr->elementHeight + 2, item->window.rect.w - SCROLLBAR_SIZE - 4, listPtr->elementHeight+2, item->window.outlineColor);
+					DC->fillRect(x + 2, y + listPtr->elementHeight + 2, item->window.rect.w - Item_ListBox_ScrollbarSize(item) - 4, listPtr->elementHeight+2, item->window.outlineColor);
 				}
 
 				size -= listPtr->elementHeight;
@@ -8361,11 +8543,11 @@ int Item_ListBox_ThumbDrawPosition(itemDef_t *item)
 	{
 		if (item->window.flags & WINDOW_HORIZONTAL)
 		{
-			min = item->window.rect.x + SCROLLBAR_SIZE + 1;
-			max = item->window.rect.x + item->window.rect.w - 2*SCROLLBAR_SIZE - 1;
-			if (DC->cursorx >= min + SCROLLBAR_SIZE/2 && DC->cursorx <= max + SCROLLBAR_SIZE/2)
+			min = item->window.rect.x + Item_ListBox_ScrollbarSize(item) + 1;
+			max = item->window.rect.x + item->window.rect.w - 2*Item_ListBox_ScrollbarSize(item) - 1;
+			if (DC->cursorx >= min + Item_ListBox_ScrollbarSize(item)/2 && DC->cursorx <= max + Item_ListBox_ScrollbarSize(item)/2)
 			{
-				return DC->cursorx - SCROLLBAR_SIZE/2;
+				return DC->cursorx - Item_ListBox_ScrollbarSize(item)/2;
 			}
 			else
 			{
@@ -8374,11 +8556,11 @@ int Item_ListBox_ThumbDrawPosition(itemDef_t *item)
 		}
 		else
 		{
-			min = item->window.rect.y + SCROLLBAR_SIZE + 1;
-			max = item->window.rect.y + item->window.rect.h - 2*SCROLLBAR_SIZE - 1;
-			if (DC->cursory >= min + SCROLLBAR_SIZE/2 && DC->cursory <= max + SCROLLBAR_SIZE/2)
+			min = item->window.rect.y + Item_ListBox_ScrollbarSize(item) + 1;
+			max = item->window.rect.y + item->window.rect.h - 2*Item_ListBox_ScrollbarSize(item) - 1;
+			if (DC->cursory >= min + Item_ListBox_ScrollbarSize(item)/2 && DC->cursory <= max + Item_ListBox_ScrollbarSize(item)/2)
 			{
-				return DC->cursory - SCROLLBAR_SIZE/2;
+				return DC->cursory - Item_ListBox_ScrollbarSize(item)/2;
 			}
 			else
 			{
@@ -9192,6 +9374,210 @@ void GradientBar_Paint(rectDef_t *rect, vec4_t color)
 
 /*
 =================
+Window_ResolveBackgroundSize
+=================
+*/
+static qboolean Window_ResolveBackgroundSize(Window *w)
+{
+	byte	*pic = NULL;
+	int		width = 0, height = 0;
+
+	if (w->backgroundSize[0] > 0.0f && w->backgroundSize[1] > 0.0f)
+	{
+		return qtrue;
+	}
+
+	if (w->backgroundSize[0] < 0.0f)
+	{	// looked it up already and came up empty
+		return qfalse;
+	}
+
+	if (re.R_LoadImage && w->backgroundName[0])
+	{
+		re.R_LoadImage(w->backgroundName, &pic, &width, &height);
+		if (pic)
+		{
+			Z_Free(pic);
+		}
+	}
+
+	if (width <= 0 || height <= 0)
+	{
+		Com_Printf(S_COLOR_YELLOW "WARNING: no image size for background '%s', set backgroundSize in the menu to use a nine patch\n",
+			w->backgroundName);
+		w->backgroundSize[0] = -1.0f;
+		return qfalse;
+	}
+
+	w->backgroundSize[0] = (float)width;
+	w->backgroundSize[1] = (float)height;
+	return qtrue;
+}
+
+#define NINEPATCH_MAX_TILES 64		// cap on tiles per axis
+
+/*
+=================
+Window_PaintPatchRegion
+	a tile size of zero stretches the piece over that axis, anything else repeats it
+=================
+*/
+static void Window_PaintPatchRegion(float x, float y, float w, float h,
+									float s1, float t1, float s2, float t2,
+									float tileW, float tileH, qhandle_t shader)
+{
+	float	ox, oy, tw, th, ts2, tt2;
+
+	if (w <= 0.0f || h <= 0.0f)
+	{
+		return;
+	}
+
+	if (tileW <= 0.0f)
+	{
+		tileW = w;
+	}
+	if (tileH <= 0.0f)
+	{
+		tileH = h;
+	}
+
+	if (tileW * NINEPATCH_MAX_TILES < w)
+	{
+		tileW = w / NINEPATCH_MAX_TILES;
+	}
+	if (tileH * NINEPATCH_MAX_TILES < h)
+	{
+		tileH = h / NINEPATCH_MAX_TILES;
+	}
+
+	for (oy = 0.0f; oy < h - 0.01f; oy += tileH)
+	{
+		th = (h - oy < tileH) ? h - oy : tileH;
+		tt2 = t1 + (t2 - t1) * (th / tileH);
+
+		for (ox = 0.0f; ox < w - 0.01f; ox += tileW)
+		{
+			tw = (w - ox < tileW) ? w - ox : tileW;
+			ts2 = s1 + (s2 - s1) * (tw / tileW);
+
+			ui.R_DrawStretchPic(x + ox, y + oy, tw, th, s1, t1, ts2, tt2, shader);
+		}
+	}
+}
+
+/*
+=================
+Window_PaintNinePatch
+=================
+*/
+static void Window_PaintNinePatch(Window *w, const rectDef_t *rect)
+{
+	float	top, right, bottom, left;	// border widths on screen
+	float	sw, sh;						// background shader size, in pixels
+	float	s[4], t[4];					// where the cuts fall in the shader
+	float	sStart[4], sEnd[4];			// the same cuts, pulled off the seam (see below)
+	float	tStart[4], tEnd[4];
+	float	x[4], y[4];					// where they fall on screen
+	float	scale, tileW, tileH, hu, hv;
+
+	sw = w->backgroundSize[0];
+	sh = w->backgroundSize[1];
+
+	top		= w->backgroundOffset[0];
+	right	= w->backgroundOffset[1];
+	bottom	= w->backgroundOffset[2];
+	left	= w->backgroundOffset[3];
+
+	// squash both borders when the item is too small for them
+	if (left + right > rect->w && left + right > 0.0f)
+	{
+		scale = rect->w / (left + right);
+		left *= scale;
+		right *= scale;
+	}
+	if (top + bottom > rect->h && top + bottom > 0.0f)
+	{
+		scale = rect->h / (top + bottom);
+		top *= scale;
+		bottom *= scale;
+	}
+
+	// the cuts stay put in the shader even when squashed on screen
+	s[0] = 0.0f;
+	s[1] = w->backgroundOffset[3] / sw;
+	s[2] = 1.0f - w->backgroundOffset[1] / sw;
+	s[3] = 1.0f;
+	t[0] = 0.0f;
+	t[1] = w->backgroundOffset[0] / sh;
+	t[2] = 1.0f - w->backgroundOffset[2] / sh;
+	t[3] = 1.0f;
+
+	// offsets wider than the shader itself would turn the middle inside out
+	if (s[1] > s[2])
+	{
+		s[1] = s[2] = (s[1] + s[2]) * 0.5f;
+	}
+	if (t[1] > t[2])
+	{
+		t[1] = t[2] = (t[1] + t[2]) * 0.5f;
+	}
+
+	// half a texel off each seam, or the bilinear filter bleeds the border into the middle
+	hu = 0.5f / sw;
+	hv = 0.5f / sh;
+
+	sStart[0] = sEnd[0] = 0.0f;
+	sStart[3] = sEnd[3] = 1.0f;
+	sStart[1] = (s[1] > 0.0f) ? s[1] + hu : 0.0f;
+	sEnd[1]   = (s[1] > 0.0f) ? s[1] - hu : 0.0f;
+	sStart[2] = (s[2] < 1.0f) ? s[2] + hu : 1.0f;
+	sEnd[2]   = (s[2] < 1.0f) ? s[2] - hu : 1.0f;
+
+	tStart[0] = tEnd[0] = 0.0f;
+	tStart[3] = tEnd[3] = 1.0f;
+	tStart[1] = (t[1] > 0.0f) ? t[1] + hv : 0.0f;
+	tEnd[1]   = (t[1] > 0.0f) ? t[1] - hv : 0.0f;
+	tStart[2] = (t[2] < 1.0f) ? t[2] + hv : 1.0f;
+	tEnd[2]   = (t[2] < 1.0f) ? t[2] - hv : 1.0f;
+
+	x[0] = rect->x;
+	x[1] = rect->x + left;
+	x[2] = rect->x + rect->w - right;
+	x[3] = rect->x + rect->w;
+	y[0] = rect->y;
+	y[1] = rect->y + top;
+	y[2] = rect->y + rect->h - bottom;
+	y[3] = rect->y + rect->h;
+
+	if (w->backgroundStyle == BACKGROUND_NINE_PATCH_REPEAT)
+	{	// one tile = the shader's middle at its authored size
+		tileW = sw - w->backgroundOffset[3] - w->backgroundOffset[1];
+		tileH = sh - w->backgroundOffset[0] - w->backgroundOffset[2];
+	}
+	else
+	{
+		tileW = tileH = 0.0f;
+	}
+
+	// corners
+	Window_PaintPatchRegion(x[0], y[0], x[1]-x[0], y[1]-y[0], sStart[0],tStart[0],sEnd[1],tEnd[1], 0.0f,  0.0f,  w->background);
+	Window_PaintPatchRegion(x[2], y[0], x[3]-x[2], y[1]-y[0], sStart[2],tStart[0],sEnd[3],tEnd[1], 0.0f,  0.0f,  w->background);
+	Window_PaintPatchRegion(x[0], y[2], x[1]-x[0], y[3]-y[2], sStart[0],tStart[2],sEnd[1],tEnd[3], 0.0f,  0.0f,  w->background);
+	Window_PaintPatchRegion(x[2], y[2], x[3]-x[2], y[3]-y[2], sStart[2],tStart[2],sEnd[3],tEnd[3], 0.0f,  0.0f,  w->background);
+
+	// edges
+	Window_PaintPatchRegion(x[1], y[0], x[2]-x[1], y[1]-y[0], sStart[1],tStart[0],sEnd[2],tEnd[1], tileW, 0.0f,  w->background);
+	Window_PaintPatchRegion(x[1], y[2], x[2]-x[1], y[3]-y[2], sStart[1],tStart[2],sEnd[2],tEnd[3], tileW, 0.0f,  w->background);
+	Window_PaintPatchRegion(x[0], y[1], x[1]-x[0], y[2]-y[1], sStart[0],tStart[1],sEnd[1],tEnd[2], 0.0f,  tileH, w->background);
+	Window_PaintPatchRegion(x[2], y[1], x[3]-x[2], y[2]-y[1], sStart[2],tStart[1],sEnd[3],tEnd[2], 0.0f,  tileH, w->background);
+
+	// middle
+	Window_PaintPatchRegion(x[1], y[1], x[2]-x[1], y[2]-y[1], sStart[1],tStart[1],sEnd[2],tEnd[2], tileW, tileH, w->background);
+}
+
+/*
+=================
 Window_Paint
 =================
 */
@@ -9255,7 +9641,14 @@ void Window_Paint(Window *w, float fadeAmount, float fadeClamp, float fadeCycle)
 		{
 			DC->setColor(w->foreColor);
 		}
-		DC->drawHandlePic(fillRect.x, fillRect.y, fillRect.w, fillRect.h, w->background);
+		if (w->backgroundStyle != BACKGROUND_NONE && Window_ResolveBackgroundSize(w))
+		{
+			Window_PaintNinePatch(w, &fillRect);
+		}
+		else
+		{
+			DC->drawHandlePic(fillRect.x, fillRect.y, fillRect.w, fillRect.h, w->background);
+		}
 		DC->setColor(NULL);
 	}
 
@@ -9663,31 +10056,31 @@ int Item_ListBox_ThumbPosition(itemDef_t *item)
 	max = Item_ListBox_MaxScroll(item);
 	if (item->window.flags & WINDOW_HORIZONTAL) {
 
-		size = item->window.rect.w - (SCROLLBAR_SIZE * 2) - 2;
+		size = item->window.rect.w - (Item_ListBox_ScrollbarSize(item) * 2) - 2;
 		if (max > 0)
 		{
-			pos = (size-SCROLLBAR_SIZE) / (float) max;
+			pos = (size-Item_ListBox_ScrollbarSize(item)) / (float) max;
 		}
 		else
 		{
 			pos = 0;
 		}
 		pos *= listPtr->startPos;
-		return item->window.rect.x + 1 + SCROLLBAR_SIZE + pos;
+		return item->window.rect.x + 1 + Item_ListBox_ScrollbarSize(item) + pos;
 	}
 	else
 	{
-		size = item->window.rect.h - (SCROLLBAR_SIZE * 2) - 2;
+		size = item->window.rect.h - (Item_ListBox_ScrollbarSize(item) * 2) - 2;
 		if (max > 0)
 		{
-			pos = (size-SCROLLBAR_SIZE) / (float) max;
+			pos = (size-Item_ListBox_ScrollbarSize(item)) / (float) max;
 		}
 		else
 		{
 			pos = 0;
 		}
 		pos *= listPtr->startPos;
-		return item->window.rect.y + 1 + SCROLLBAR_SIZE + pos;
+		return item->window.rect.y + 1 + Item_ListBox_ScrollbarSize(item) + pos;
 	}
 }
 
@@ -9707,14 +10100,14 @@ int Item_ListBox_OverLB(itemDef_t *item, float x, float y)
 	{
 		// check if on left arrow
 		r.x = item->window.rect.x;
-		r.y = item->window.rect.y + item->window.rect.h - SCROLLBAR_SIZE;
-		r.h = r.w = SCROLLBAR_SIZE;
+		r.y = item->window.rect.y + item->window.rect.h - Item_ListBox_ScrollbarSize(item);
+		r.h = r.w = Item_ListBox_ScrollbarSize(item);
 		if (Rect_ContainsPoint(&r, x, y))
 		{
 			return WINDOW_LB_LEFTARROW;
 		}
 		// check if on right arrow
-		r.x = item->window.rect.x + item->window.rect.w - SCROLLBAR_SIZE;
+		r.x = item->window.rect.x + item->window.rect.w - Item_ListBox_ScrollbarSize(item);
 		if (Rect_ContainsPoint(&r, x, y))
 		{
 			return WINDOW_LB_RIGHTARROW;
@@ -9726,14 +10119,14 @@ int Item_ListBox_OverLB(itemDef_t *item, float x, float y)
 		{
 			return WINDOW_LB_THUMB;
 		}
-		r.x = item->window.rect.x + SCROLLBAR_SIZE;
+		r.x = item->window.rect.x + Item_ListBox_ScrollbarSize(item);
 		r.w = thumbstart - r.x;
 		if (Rect_ContainsPoint(&r, x, y))
 		{
 			return WINDOW_LB_PGUP;
 		}
-		r.x = thumbstart + SCROLLBAR_SIZE;
-		r.w = item->window.rect.x + item->window.rect.w - SCROLLBAR_SIZE;
+		r.x = thumbstart + Item_ListBox_ScrollbarSize(item);
+		r.w = item->window.rect.x + item->window.rect.w - Item_ListBox_ScrollbarSize(item);
 		if (Rect_ContainsPoint(&r, x, y))
 		{
 			return WINDOW_LB_PGDN;
@@ -9745,15 +10138,15 @@ int Item_ListBox_OverLB(itemDef_t *item, float x, float y)
 		// Multiple rows and columns (since it's more than twice as wide as an element)
 		if ((item->window.rect.w > (listPtr->elementWidth * 2)) && (listPtr->elementStyle == LISTBOX_IMAGE))
 		{
-			r.x = item->window.rect.x + item->window.rect.w - SCROLLBAR_SIZE;
+			r.x = item->window.rect.x + item->window.rect.w - Item_ListBox_ScrollbarSize(item);
 			r.y = item->window.rect.y;
-			r.h = r.w = SCROLLBAR_SIZE;
+			r.h = r.w = Item_ListBox_ScrollbarSize(item);
 			if (Rect_ContainsPoint(&r, x, y))
 			{
 				return WINDOW_LB_PGUP;
 			}
 
-			r.y = item->window.rect.y + item->window.rect.h - SCROLLBAR_SIZE;
+			r.y = item->window.rect.y + item->window.rect.h - Item_ListBox_ScrollbarSize(item);
 			if (Rect_ContainsPoint(&r, x, y))
 			{
 				return WINDOW_LB_PGDN;
@@ -9769,15 +10162,15 @@ int Item_ListBox_OverLB(itemDef_t *item, float x, float y)
 		}
 		else
 		{
-			r.x = item->window.rect.x + item->window.rect.w - SCROLLBAR_SIZE;
+			r.x = item->window.rect.x + item->window.rect.w - Item_ListBox_ScrollbarSize(item);
 			r.y = item->window.rect.y;
-			r.h = r.w = SCROLLBAR_SIZE;
+			r.h = r.w = Item_ListBox_ScrollbarSize(item);
 			if (Rect_ContainsPoint(&r, x, y))
 			{
 				return WINDOW_LB_LEFTARROW;
 			}
 
-			r.y = item->window.rect.y + item->window.rect.h - SCROLLBAR_SIZE;
+			r.y = item->window.rect.y + item->window.rect.h - Item_ListBox_ScrollbarSize(item);
 			if (Rect_ContainsPoint(&r, x, y))
 			{
 				return WINDOW_LB_RIGHTARROW;
@@ -9790,15 +10183,15 @@ int Item_ListBox_OverLB(itemDef_t *item, float x, float y)
 				return WINDOW_LB_THUMB;
 			}
 
-			r.y = item->window.rect.y + SCROLLBAR_SIZE;
+			r.y = item->window.rect.y + Item_ListBox_ScrollbarSize(item);
 			r.h = thumbstart - r.y;
 			if (Rect_ContainsPoint(&r, x, y))
 			{
 				return WINDOW_LB_PGUP;
 			}
 
-			r.y = thumbstart + SCROLLBAR_SIZE;
-			r.h = item->window.rect.y + item->window.rect.h - SCROLLBAR_SIZE;
+			r.y = thumbstart + Item_ListBox_ScrollbarSize(item);
+			r.h = item->window.rect.y + item->window.rect.h - Item_ListBox_ScrollbarSize(item);
 			if (Rect_ContainsPoint(&r, x, y))
 			{
 				return WINDOW_LB_PGDN;
@@ -9807,14 +10200,14 @@ int Item_ListBox_OverLB(itemDef_t *item, float x, float y)
 	}
 	else
 	{
-		r.x = item->window.rect.x + item->window.rect.w - SCROLLBAR_SIZE;
+		r.x = item->window.rect.x + item->window.rect.w - Item_ListBox_ScrollbarSize(item);
 		r.y = item->window.rect.y;
-		r.h = r.w = SCROLLBAR_SIZE;
+		r.h = r.w = Item_ListBox_ScrollbarSize(item);
 		if (Rect_ContainsPoint(&r, x, y))
 		{
 			return WINDOW_LB_LEFTARROW;
 		}
-		r.y = item->window.rect.y + item->window.rect.h - SCROLLBAR_SIZE;
+		r.y = item->window.rect.y + item->window.rect.h - Item_ListBox_ScrollbarSize(item);
 		if (Rect_ContainsPoint(&r, x, y))
 		{
 			return WINDOW_LB_RIGHTARROW;
@@ -9825,14 +10218,14 @@ int Item_ListBox_OverLB(itemDef_t *item, float x, float y)
 		{
 			return WINDOW_LB_THUMB;
 		}
-		r.y = item->window.rect.y + SCROLLBAR_SIZE;
+		r.y = item->window.rect.y + Item_ListBox_ScrollbarSize(item);
 		r.h = thumbstart - r.y;
 		if (Rect_ContainsPoint(&r, x, y))
 		{
 			return WINDOW_LB_PGUP;
 		}
-		r.y = thumbstart + SCROLLBAR_SIZE;
-		r.h = item->window.rect.y + item->window.rect.h - SCROLLBAR_SIZE;
+		r.y = thumbstart + Item_ListBox_ScrollbarSize(item);
+		r.h = item->window.rect.y + item->window.rect.h - Item_ListBox_ScrollbarSize(item);
 		if (Rect_ContainsPoint(&r, x, y))
 		{
 			return WINDOW_LB_PGDN;
@@ -9863,7 +10256,7 @@ void Item_ListBox_MouseEnter(itemDef_t *item, float x, float y)
 			{
 				r.x = item->window.rect.x;
 				r.y = item->window.rect.y;
-				r.h = item->window.rect.h - SCROLLBAR_SIZE;
+				r.h = item->window.rect.h - Item_ListBox_ScrollbarSize(item);
 				r.w = item->window.rect.w - listPtr->drawPadding;
 				if (Rect_ContainsPoint(&r, x, y))
 				{
@@ -9884,7 +10277,7 @@ void Item_ListBox_MouseEnter(itemDef_t *item, float x, float y)
 	{
 		r.x = item->window.rect.x;
 		r.y = item->window.rect.y;
-		r.w = item->window.rect.w - SCROLLBAR_SIZE;
+		r.w = item->window.rect.w - Item_ListBox_ScrollbarSize(item);
 		r.h = item->window.rect.h - listPtr->drawPadding;
 		if (Rect_ContainsPoint(&r, x, y))
 		{
@@ -11355,13 +11748,13 @@ static void Scroll_ListBox_ThumbFunc(void *p)
 		{
 			return;
 		}
-		r.x = si->item->window.rect.x + SCROLLBAR_SIZE + 1;
-		r.y = si->item->window.rect.y + si->item->window.rect.h - SCROLLBAR_SIZE - 1;
-		r.h = SCROLLBAR_SIZE;
-		r.w = si->item->window.rect.w - (SCROLLBAR_SIZE*2) - 2;
+		r.x = si->item->window.rect.x + Item_ListBox_ScrollbarSize(si->item) + 1;
+		r.y = si->item->window.rect.y + si->item->window.rect.h - Item_ListBox_ScrollbarSize(si->item) - 1;
+		r.h = Item_ListBox_ScrollbarSize(si->item);
+		r.w = si->item->window.rect.w - (Item_ListBox_ScrollbarSize(si->item)*2) - 2;
 		max = Item_ListBox_MaxScroll(si->item);
 		//
-		pos = (DC->cursorx - r.x - SCROLLBAR_SIZE/2) * max / (r.w - SCROLLBAR_SIZE);
+		pos = (DC->cursorx - r.x - Item_ListBox_ScrollbarSize(si->item)/2) * max / (r.w - Item_ListBox_ScrollbarSize(si->item));
 		if (pos < 0)
 		{
 			pos = 0;
@@ -11376,13 +11769,13 @@ static void Scroll_ListBox_ThumbFunc(void *p)
 	else if (DC->cursory != si->yStart)
 	{
 
-		r.x = si->item->window.rect.x + si->item->window.rect.w - SCROLLBAR_SIZE - 1;
-		r.y = si->item->window.rect.y + SCROLLBAR_SIZE + 1;
-		r.h = si->item->window.rect.h - (SCROLLBAR_SIZE*2) - 2;
-		r.w = SCROLLBAR_SIZE;
+		r.x = si->item->window.rect.x + si->item->window.rect.w - Item_ListBox_ScrollbarSize(si->item) - 1;
+		r.y = si->item->window.rect.y + Item_ListBox_ScrollbarSize(si->item) + 1;
+		r.h = si->item->window.rect.h - (Item_ListBox_ScrollbarSize(si->item)*2) - 2;
+		r.w = Item_ListBox_ScrollbarSize(si->item);
 		max = Item_ListBox_MaxScroll(si->item);
 		//
-		pos = (DC->cursory - r.y - SCROLLBAR_SIZE/2) * max / (r.h - SCROLLBAR_SIZE);
+		pos = (DC->cursory - r.y - Item_ListBox_ScrollbarSize(si->item)/2) * max / (r.h - Item_ListBox_ScrollbarSize(si->item));
 		if (pos < 0)
 		{
 			pos = 0;
@@ -12219,17 +12612,22 @@ void Menu_HandleKey(menuDef_t *menu, int key, qboolean down)
 
 	if (g_editingField && down)
 	{
+		// The "accept" script of an edit field runs when the edit ends (enter, escape or click).
 		if (!Item_TextField_HandleKey(g_editItem, key))
 		{
+			itemDef_t *editItem = g_editItem;
 			g_editingField = qfalse;
 			g_editItem = NULL;
+			Item_HandleAccept(editItem);
 			inHandler = qfalse;
 			return;
 		}
 		else if (key == A_MOUSE1 || key == A_MOUSE2 || key == A_MOUSE3)
 		{
+			itemDef_t *editItem = g_editItem;
 			g_editingField = qfalse;
 			g_editItem = NULL;
+			Item_HandleAccept(editItem);
 			Display_MouseMove(NULL, DC->cursorx, DC->cursory);
 		}
 		else if (key == A_TAB || key == A_CURSOR_UP || key == A_CURSOR_DOWN)
@@ -12315,7 +12713,7 @@ void Menu_HandleKey(menuDef_t *menu, int key, qboolean down)
 	}
 
 	// Special SwglSystem key handling
-	if (!(key & K_CHAR_FLAG))
+	if (!(key & K_CHAR_FLAG) && !g_editingField)
 	{	//only check keys not chars
 		char	b[256];
 		DC->getBindingBuf(key, b, 256);

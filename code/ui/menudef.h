@@ -64,6 +64,11 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define WINDOW_STYLE_TEAMCOLOR 4          // team color
 #define WINDOW_STYLE_CINEMATIC 5          // cinematic
 
+// how a WINDOW_STYLE_SHADER background is fitted to the item rectangle
+#define BACKGROUND_NONE 0                    // stretch the whole shader over the rectangle
+#define BACKGROUND_NINE_PATCH_STRETCH 1      // keep the borders, stretch the edges and the center
+#define BACKGROUND_NINE_PATCH_REPEAT 2       // keep the borders, tile the edges and the center
+
 #define MENU_TRUE 1                       // uh.. true
 #define MENU_FALSE 0                      // and false
 
@@ -104,6 +109,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define FEEDER_MISSION						0x1a			// Mission List
 #define FEEDER_ATTR_DISABLED				0x1b			// Disabled Npc Attributes
 #define FEEDER_ATTR_ENABLED 				0x1c			// Enabled Npc Attributes
+#define FEEDER_CHAR_CONFIGS					0x1d			// Saved configurations of the character (character menu)
 
 #define UI_VERSION				200
 #define UI_HANDICAP				200
@@ -171,3 +177,4 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define UI_PLAYER_WEAPON_LABEL_4 262
 #define UI_PLAYER_WEAPON_LABEL_5 263
 #define UI_PLAYER_WEAPON_LABEL_6 264
+#define UI_DATAPAD_CHARACTERS	 265

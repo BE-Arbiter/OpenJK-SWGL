@@ -28,6 +28,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "cg_headers.h"
 
 #include "cg_media.h"
+#include "cg_characters.h"
 #include "FxScheduler.h"
 #include "../game/wp_saber.h"
 #include "../game/g_vehicles.h"
@@ -2402,6 +2403,7 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 		CGS_STOP( cgs_draw );
 	}
 
+	CG_DrawCharacterPortrait();
 	CGS_SPAN_STOP();
 	CG_ReportSpeeds();
 	/*
