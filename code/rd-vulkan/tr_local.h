@@ -1136,6 +1136,18 @@ typedef struct {
 #define	VERTEX_COLOR		( 5 + ( MAXLIGHTMAPS * 2 ) )
 #define	VERTEX_FINAL_COLOR	( 5 + ( MAXLIGHTMAPS * 3 ) )
 
+// drawVert_t of the renderer, with the tangent of the vertex (xyz, w the bitangent sign).
+typedef struct srfVert_s {
+	vec3_t		xyz;
+	float		st[2];
+	float		lightmap[MAXLIGHTMAPS][2];
+	vec3_t		normal;
+#ifdef USE_VK_PBR
+	vec4_t		qtangent;
+#endif
+	byte		color[MAXLIGHTMAPS][4];
+} srfVert_t;
+
 
 #ifdef _G2_GORE
 typedef struct
@@ -1193,7 +1205,7 @@ typedef struct srfGridMesh_s {
 	int				width, height;
 	float			*widthLodError;
 	float			*heightLodError;
-	drawVert_t		verts[1];				// variable sized
+	srfVert_t		verts[1];				// variable sized
 } srfGridMesh_t;
 
 typedef struct srfSurfaceFace_s {
@@ -1204,6 +1216,9 @@ typedef struct srfSurfaceFace_s {
 	int				vboItemIndex;
 #endif
 	float			*normals;
+#ifdef USE_VK_PBR
+	float			*qtangents;				// vec4_t for each point
+#endif
 
 	// triangle definitions (no normals at points)
 	int				numPoints;
@@ -1231,8 +1246,7 @@ typedef struct srfTriangles_s {
 	int				*indexes;
 
 	int				numVerts;
-	drawVert_t		*verts;
-//	vec3_t			*tangents;
+	srfVert_t		*verts;
 } srfTriangles_t;
 
 extern	void (*rb_surfaceTable[SF_NUM_SURFACE_TYPES])(void *);
@@ -2289,6 +2303,13 @@ image_t		*R_GetLoadedImage( const char *name, imgFlags_t flags );
 qboolean	vk_create_normal_texture( shaderStage_t *stage, const char *name, imgFlags_t flags );
 qboolean	vk_create_phyisical_texture( shaderStage_t *stage, const char *name, imgFlags_t flags );
 #endif
+#ifdef USE_VK_PBR
+// MikkTSpace tangents, vk_mikktspace.cpp
+void		vk_mikkt_bsp_tri_generate( srfTriangles_t *tri );
+void		vk_mikkt_bsp_face_generate( srfSurfaceFace_t *cv );
+void		vk_mikkt_mdxm_generate( const mdxmSurface_t *surf, vec4_t *tangents );
+void		vk_mikkt_mdv_generate( const mdvSurface_t *surf, vec4_t *tangents );
+#endif
 #ifdef VK_COMPUTE_NORMALMAP
 // normal maps computed from the diffuse texture, vk_normalmap.cpp
 void		vk_create_compute_normalmap_pipelines( void );
@@ -2518,7 +2539,7 @@ CURVE TESSELATION
 ============================================================
 */
 
-srfGridMesh_t	*R_SubdividePatchToGrid( int width, int height, drawVert_t points[MAX_PATCH_SIZE * MAX_PATCH_SIZE] );
+srfGridMesh_t	*R_SubdividePatchToGrid( int width, int height, srfVert_t points[MAX_PATCH_SIZE * MAX_PATCH_SIZE] );
 srfGridMesh_t	*R_GridInsertColumn( srfGridMesh_t *grid, int column, int row, vec3_t point, float loderror );
 srfGridMesh_t	*R_GridInsertRow( srfGridMesh_t *grid, int row, int column, vec3_t point, float loderror );
 void			R_FreeSurfaceGridMesh( srfGridMesh_t *grid );

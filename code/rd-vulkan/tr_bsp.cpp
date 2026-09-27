@@ -692,6 +692,10 @@ static void ParseFace( const dsurface_t *ds, const mapVert_t *verts, msurface_t 
 	SetPlaneSignbits( &cv->plane );
 	cv->plane.type = PlaneTypeForNormal( cv->plane.normal );
 
+#ifdef USE_VK_PBR
+	vk_mikkt_bsp_face_generate( cv );
+#endif
+
 	surf->data = (surfaceType_t *)cv;
 }
 
@@ -704,7 +708,7 @@ static void ParseMesh ( const dsurface_t *ds, const mapVert_t *verts, msurface_t
 	srfGridMesh_t			*grid;
 	int						i, j;
 	int						width, height, numPoints;
-	drawVert_t				points[MAX_PATCH_SIZE*MAX_PATCH_SIZE];
+	srfVert_t				points[MAX_PATCH_SIZE*MAX_PATCH_SIZE];
 	int						lightmapNum[MAXLIGHTMAPS];
 	vec3_t					bounds[2];
 	vec3_t					tmpVec;
@@ -828,7 +832,7 @@ static void ParseTriSurf( const dsurface_t *ds, const mapVert_t *verts, msurface
 	tri->surfaceType = SF_TRIANGLES;
 	tri->numVerts = numVerts;
 	tri->numIndexes = numIndexes;
-	tri->verts = (drawVert_t *)(tri + 1);
+	tri->verts = (srfVert_t *)(tri + 1);
 	tri->indexes = (int *)(tri->verts + tri->numVerts );
 
 	surf->data = (surfaceType_t *)tri;
@@ -866,6 +870,10 @@ static void ParseTriSurf( const dsurface_t *ds, const mapVert_t *verts, msurface
 			Com_Error( ERR_DROP, "Bad index in triangle surface" );
 		}
 	}
+
+#ifdef USE_VK_PBR
+	vk_mikkt_bsp_tri_generate( tri );
+#endif
 }
 
 /*
@@ -1607,7 +1615,7 @@ static void R_MovePatchSurfacesToHunk( world_t &worldData ) {
 			continue;
 		//
 		n = grid->width * grid->height - 1;
-		size = n * sizeof( drawVert_t ) + sizeof( *grid );
+		size = n * sizeof( srfVert_t ) + sizeof( *grid );
 
 		for (j = 0; j < n; j++) {
 			for (k = 0; k < 3; k++) {

@@ -1073,7 +1073,11 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 			}
 
 			// Build tangent space
-			//VBO_CalculateTangentsMDXM( surf, tangentsf + baseVertexes[n] );
+#ifdef USE_VK_PBR
+			vk_mikkt_mdxm_generate( surf, tangentsf + baseVertexes[n] );
+#else
+			Com_Memset( tangentsf + baseVertexes[n], 0, sizeof( vec4_t ) * surf->numVerts );
+#endif
 
 			surf = (mdxmSurface_t *)((byte *)surf + surf->ofsEnd);
 		}
@@ -1290,7 +1294,11 @@ void R_BuildMD3( model_t *mod, mdvModel_t *mdvModel )
 	for (i = 0; i < mdvModel->numSurfaces; i++, surf++)
 	{
 		vec4_t *tangentsf = (vec4_t *)Hunk_AllocateTempMemory(sizeof(vec4_t) * surf->numVerts);
-		//VBO_CalculateTangentsMD3( surf, tangentsf + 0 );
+#ifdef USE_VK_PBR
+		vk_mikkt_mdv_generate( surf, tangentsf );
+#else
+		Com_Memset( tangentsf, 0, sizeof( vec4_t ) * surf->numVerts );
+#endif
 
 		for ( k = 0; k < surf->numIndexes; k++)
 		{

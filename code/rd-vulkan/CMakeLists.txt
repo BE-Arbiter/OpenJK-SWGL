@@ -81,6 +81,7 @@ set(SPVulkanRendererFiles
 	"${SPDir}/rd-vulkan/vk_frame.cpp"
 	"${SPDir}/rd-vulkan/vk_image.cpp"
 	"${SPDir}/rd-vulkan/vk_normalmap.cpp"
+	"${SPDir}/rd-vulkan/vk_mikktspace.cpp"
 	"${SPDir}/rd-vulkan/vk_image_process.cpp"
 	"${SPDir}/rd-vulkan/vk_info.cpp"
 	"${SPDir}/rd-vulkan/vk_init.cpp"
@@ -148,6 +149,12 @@ set(SPVulkanRendererUtils
 	"${SPDir}/rd-vulkan/utils/stb_image.h")
 source_group("renderer\\utils" FILES ${SPVulkanRendererUtils})
 set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererUtils})
+
+set(SPVulkanRendererUtilsMikktFiles
+	"${SPDir}/rd-vulkan/utils/mikktspace/mikktspace.h"
+	"${SPDir}/rd-vulkan/utils/mikktspace/mikktspace.c")
+source_group("renderer\\utils\\mikktspace" FILES ${SPVulkanRendererUtilsMikktFiles})
+set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererUtilsMikktFiles})
 
 # Path tracer, ported from JKSunny/EternalJK rtx-update (itself from NVIDIA's Q2RTX).
 # Compiled in only when USE_RTX is defined; the raster path is untouched either way.
