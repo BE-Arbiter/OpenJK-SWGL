@@ -1747,6 +1747,7 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.G2API_GetAnimRangeIndex				= G2API_GetAnimRangeIndex;
 	re.G2API_PauseBoneAnimIndex				= G2API_PauseBoneAnimIndex;
 	re.G2API_SetAnimIndex					= G2API_SetAnimIndex;
+	re.G2API_SetAnimOverride				= G2API_SetAnimOverride;
 	re.G2API_SetBoneAnglesIndex				= G2API_SetBoneAnglesIndex;
 	re.G2API_SetBoneAnglesMatrix				= G2API_SetBoneAnglesMatrix;
 	re.G2API_SetBoneAnglesMatrixIndex		= G2API_SetBoneAnglesMatrixIndex;

@@ -109,6 +109,12 @@ qboolean CModelCacheManager::LoadFile( const char *pFileName, void **ppFileBuffe
 		return qtrue;
 	}
 
+	// _humanoid*.gla files and the animation override GLAs get merged frames.
+	if (R_LoadMergedGLA(path, ppFileBuffer))
+	{
+		return qtrue;
+	}
+
 	int len = ri.FS_ReadFile(path, ppFileBuffer);
 	if ( len == -1 || *ppFileBuffer == NULL )
 	{

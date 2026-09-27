@@ -4528,6 +4528,18 @@ qboolean R_LoadMDXM( model_t *mod, void *buffer, const char *mod_name, qboolean 
 		}
 	}
 
+	// Use the virtual GLA of the animation override of this model, if it has one.
+	// Register it after the cinematic GLA: R_GetAnimModelByHandle needs a higher handle.
+	const char *overrideGLA = R_GetAnimOverrideGLA(mod_name, mdxm->animName);
+	if (overrideGLA)
+	{
+		const qhandle_t overrideIndex = RE_RegisterModel(overrideGLA);
+		if (overrideIndex)
+		{
+			mdxm->animIndex = overrideIndex;
+		}
+	}
+
 	if (!mdxm->animIndex)
 	{
 		ri.Printf( PRINT_ALL, S_COLOR_YELLOW  "R_LoadMDXM: missing animation file %s for mesh %s\n", mdxm->animName, mdxm->name);

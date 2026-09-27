@@ -106,9 +106,11 @@ set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererGhoul2Files
 
 set(SPVulkanRendererRdCommonFiles
 	"${SPDir}/rd-common/mdx_format.h"
+	"${SPDir}/rd-common/mdx_merge.h"
 	"${SPDir}/rd-common/tr_common.h"
 	"${SPDir}/rd-common/tr_font.cpp"
 	"${SPDir}/rd-common/tr_font.h"
+	"${SPDir}/rd-common/tr_glamerge.cpp"
 	"${SPDir}/rd-common/tr_image_load.cpp"
 	"${SPDir}/rd-common/tr_image_jpg.cpp"
 	"${SPDir}/rd-common/tr_image_tga.cpp"
