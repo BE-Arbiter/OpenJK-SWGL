@@ -28,6 +28,19 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // everything it adds is guarded by this and the raster path never sees it.
 #define USE_RTX
 
+// PBR materials, ported from JKSunny/EternalJK (branch pbr): normal and physical maps from the
+// shader keywords or found next to the diffuse texture, and normal maps computed from the
+// diffuse texture (r_genNormalMaps).
+#define USE_VK_PBR
+
+#ifdef USE_VK_PBR
+	#define VK_COMPUTE_NORMALMAP
+
+	#ifdef VK_COMPUTE_NORMALMAP
+		#define MAX_BATCH_COMPUTE_NORMALMAPS 1024
+	#endif
+#endif
+
 #define USE_VBO					// store static world geometry in VBO
 
 #ifdef USE_VBO
@@ -317,6 +330,7 @@ typedef enum
 	IMGFLAG_NOSCALE			= 0x0080,
 	IMGFLAG_RGB				= 0x0100,
 	IMGFLAG_COLORSHIFT		= 0x0200,
+	IMGFLAG_STORAGE			= 0x0800,	// written by a compute shader
 } imgFlags_t;
 
 #if defined( _WIN32 )
@@ -370,6 +384,7 @@ typedef struct image_s {
 #endif
 	qboolean				isLightmap;
 	uint32_t				mipLevels;		// gl texture binding
+	uint32_t				type;			// index in textureMapTypes: the swizzle of the view
 	VkSamplerAddressMode	wrapClampMode;	
 } image_t;
 
@@ -714,9 +729,8 @@ typedef struct shaderStage_s {
 	uint32_t		rgb_offset[NUM_TEXTURE_BUNDLES]; // within current shader
 	uint32_t		tex_offset[NUM_TEXTURE_BUNDLES]; // within current shader
 #endif
-#ifdef USE_RTX
-	// Material inputs the path tracer reads. They come from the PBR branch, which is not
-	// ported yet; left null they make its materials diffuse-only rather than broken.
+#ifdef USE_VK_PBR
+	// The PBR maps of the stage (PBR_HAS_*), which the path tracer reads.
 	uint32_t		vk_pbr_flags;
 	image_t			*normalMap;
 	image_t			*physicalMap;
@@ -1942,6 +1956,14 @@ typedef struct trGlobals_s {
 	int						numFogs; // read before parsing shaders
 
 	vec4_t					clearColor;
+#ifdef VK_COMPUTE_NORMALMAP
+	// Normal maps to compute from their diffuse texture at the next frame.
+	struct {
+		image_t			*normal;
+		VkDescriptorSet	descriptor_set;
+	}						compute_normalmaps[MAX_BATCH_COMPUTE_NORMALMAPS];
+	uint32_t				compute_normalmaps_batch_num;
+#endif
 } trGlobals_t;
 
 struct glconfigExt_t
@@ -2066,6 +2088,15 @@ extern cvar_t	*r_DynamicGlowHeight;
 extern cvar_t	*r_DynamicGlowScale;
 
 extern cvar_t	*r_smartpicmip;
+#ifdef USE_VK_PBR
+extern cvar_t	*r_baseNormalX;
+extern cvar_t	*r_baseNormalY;
+extern cvar_t	*r_baseParallax;
+extern cvar_t	*r_baseSpecular;
+#endif
+#ifdef VK_COMPUTE_NORMALMAP
+extern cvar_t	*r_genNormalMaps;
+#endif
 
 extern	cvar_t	*r_nobind;				// turns off binding to appropriate textures
 extern	cvar_t	*r_singleShader;		// make most world faces use default shader
@@ -2250,6 +2281,22 @@ void    	R_Init( void );
 
 image_t		*R_FindImageFile( const char *name, imgFlags_t flags );
 image_t		*R_CreateImage( const char *name, byte *pic, int width, int height, imgFlags_t flags );
+// With the type of a map (PHYS_*), which gives the swizzle of its view (textureMapTypes).
+image_t		*R_FindImageFileType( const char *name, imgFlags_t flags, uint32_t type );
+image_t		*R_CreateImageType( const char *name, byte *pic, int width, int height, imgFlags_t flags, uint32_t type );
+image_t		*R_GetLoadedImage( const char *name, imgFlags_t flags );
+#ifdef USE_VK_PBR
+qboolean	vk_create_normal_texture( shaderStage_t *stage, const char *name, imgFlags_t flags );
+qboolean	vk_create_phyisical_texture( shaderStage_t *stage, const char *name, imgFlags_t flags );
+#endif
+#ifdef VK_COMPUTE_NORMALMAP
+// normal maps computed from the diffuse texture, vk_normalmap.cpp
+void		vk_create_compute_normalmap_pipelines( void );
+void		vk_destroy_compute_normalmap_pipelines( void );
+void		vk_dispatch_compute_normalmaps( void );
+void		vk_clear_compute_normalmaps( void );
+void		vk_add_compute_normalmap( shaderStage_t *stage, image_t *albedo, imgFlags_t flags );
+#endif
 
 textureMode_t *GetTextureMode( const char *name );
 qboolean	R_GetModeInfo( int *width, int *height, int mode );

@@ -80,6 +80,7 @@ set(SPVulkanRendererFiles
 	"${SPDir}/rd-vulkan/vk_flares.cpp"
 	"${SPDir}/rd-vulkan/vk_frame.cpp"
 	"${SPDir}/rd-vulkan/vk_image.cpp"
+	"${SPDir}/rd-vulkan/vk_normalmap.cpp"
 	"${SPDir}/rd-vulkan/vk_image_process.cpp"
 	"${SPDir}/rd-vulkan/vk_info.cpp"
 	"${SPDir}/rd-vulkan/vk_init.cpp"

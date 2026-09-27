@@ -648,6 +648,9 @@ void vk_initialize( void )
 	vk_create_indirect_buffer( vk.indirect_buffer_size_new );
 	vk_create_storage_buffer( &vk.storage, MAX_FLARES * vk.storage_alignment, "storage (flares)" );
 	vk_create_shader_modules();
+#ifdef VK_COMPUTE_NORMALMAP
+	vk_create_compute_normalmap_pipelines();
+#endif
 
 	{
 		VkPipelineCacheCreateInfo ci;
@@ -753,6 +756,9 @@ void vk_shutdown( void )
 	vk_clean_surface_sprites();
 #endif
 
+#ifdef VK_COMPUTE_NORMALMAP
+	vk_destroy_compute_normalmap_pipelines();
+#endif
     vk_destroy_shader_modules();
 
 	R_DestroyImageScratch();

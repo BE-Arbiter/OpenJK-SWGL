@@ -156,6 +156,10 @@ void vk_create_shader_modules( void )
 #endif
 
     vk.shaders.color_fs = SHADER_MODULE(color_frag_spv);
+#ifdef VK_COMPUTE_NORMALMAP
+    vk.shaders.normalmap = SHADER_MODULE(normalmap_comp_spv);
+    VK_SET_OBJECT_NAME(vk.shaders.normalmap, "normal map compute module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+#endif
     vk.shaders.color_vs = SHADER_MODULE(color_vert_spv);
     VK_SET_OBJECT_NAME(vk.shaders.color_vs, "refraction vertex module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
     VK_SET_OBJECT_NAME(vk.shaders.color_fs, "refraction fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
@@ -340,6 +344,10 @@ void vk_destroy_shader_modules( void )
     qvkDestroyShaderModule(vk.device, vk.shaders.frag.gen0_df, NULL);
 
     qvkDestroyShaderModule(vk.device, vk.shaders.color_fs, NULL);
+#ifdef VK_COMPUTE_NORMALMAP
+    qvkDestroyShaderModule(vk.device, vk.shaders.normalmap, NULL);
+    vk.shaders.normalmap = VK_NULL_HANDLE;
+#endif
     qvkDestroyShaderModule(vk.device, vk.shaders.color_vs, NULL);
 
     for ( i = 0; i < 3; i++ )

@@ -1201,8 +1201,16 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 	const char *token;
 	int depthMaskBits = GLS_DEPTHMASK_TRUE, blendSrcBits = 0, blendDstBits = 0, atestBits = 0, depthFuncBits = 0;
 	qboolean depthMaskExplicit = qfalse;
+#ifdef USE_VK_PBR
+	char bufferNormalTextureName[MAX_QPATH];
+	char bufferPackedTextureName[MAX_QPATH];
+#endif
 
 	stage->active = qtrue;
+#ifdef USE_VK_PBR
+	stage->normalMapType = PHYS_NONE;
+	stage->physicalMapType = PHYS_NONE;
+#endif
 
 	while (1)
 	{
@@ -1286,6 +1294,84 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 				}
 			}
 		}
+#ifdef USE_VK_PBR
+		//
+		// normalMap <name> || normalHeightMap <name>
+		//
+		else if ( !Q_stricmp( token, "normalMap" ) || !Q_stricmp( token, "normalHeightMap" ) )
+		{
+			const qboolean height = !Q_stricmp( token, "normalHeightMap" ) ? qtrue : qfalse;
+
+			token = COM_ParseExt( text, qfalse );
+			if ( !token[0] )
+			{
+				ri.Printf( PRINT_WARNING, "WARNING: missing parameter for 'normalMap' keyword in shader '%s'\n", shader.name );
+				return qfalse;
+			}
+
+			stage->normalMapType = height ? PHYS_NORMALHEIGHT : PHYS_NORMAL;
+			Q_strncpyz( bufferNormalTextureName, token, sizeof( bufferNormalTextureName ) );
+
+			VectorSet4( stage->normalScale, r_baseNormalX->value, r_baseNormalY->value, 1.0f, r_baseParallax->value );
+		}
+		//
+		// specMap <name> || specularMap <name>
+		//
+		else if ( !Q_stricmp( token, "specMap" ) || !Q_stricmp( token, "specularMap" ) )
+		{
+			token = COM_ParseExt( text, qfalse );
+			if ( !token[0] )
+			{
+				ri.Printf( PRINT_WARNING, "WARNING: missing parameter for 'specularMap' keyword in shader '%s'\n", shader.name );
+				return qfalse;
+			}
+
+			stage->physicalMapType = PHYS_SPECGLOSS;
+			VectorSet4( stage->specularScale, 1.0f, 1.0f, 1.0f, 0.0f );
+
+			if ( !Q_stricmp( token, "$whiteimage" ) )
+			{
+				stage->physicalMap = tr.whiteImage;
+				stage->vk_pbr_flags |= PBR_HAS_SPECULARMAP;
+				continue;
+			}
+
+			Q_strncpyz( bufferPackedTextureName, token, sizeof( bufferPackedTextureName ) );
+		}
+		//
+		// rmoMap <name> || rmosMap <name> || moxrMap <name> || mosrMap <name> || ormMap <name> || ormsMap <name>
+		//
+		else if ( !Q_stricmp( token, "rmoMap" ) || !Q_stricmp( token, "rmosMap" )
+			|| !Q_stricmp( token, "moxrMap" ) || !Q_stricmp( token, "mosrMap" )
+			|| !Q_stricmp( token, "ormMap" ) || !Q_stricmp( token, "ormsMap" ) )
+		{
+			uint32_t type;
+
+			if ( !Q_stricmp( token, "rmoMap" ) )		type = PHYS_RMO;
+			else if ( !Q_stricmp( token, "rmosMap" ) )	type = PHYS_RMOS;
+			else if ( !Q_stricmp( token, "moxrMap" ) )	type = PHYS_MOXR;
+			else if ( !Q_stricmp( token, "mosrMap" ) )	type = PHYS_MOSR;
+			else if ( !Q_stricmp( token, "ormMap" ) )	type = PHYS_ORM;
+			else										type = PHYS_ORMS;
+
+			token = COM_ParseExt( text, qfalse );
+			if ( !token[0] )
+			{
+				ri.Printf( PRINT_WARNING, "WARNING: missing parameter for physical map keyword in shader '%s'\n", shader.name );
+				return qfalse;
+			}
+
+			stage->physicalMapType = type;
+
+			if ( !Q_stricmp( token, "$whiteimage" ) )
+			{
+				stage->physicalMap = tr.whiteImage;
+				continue;
+			}
+
+			Q_strncpyz( bufferPackedTextureName, token, sizeof( bufferPackedTextureName ) );
+		}
+#endif
 		//
 		// clampmap <name>
 		//
@@ -1840,6 +1926,31 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 			return qfalse;
 		}
 	}
+
+#ifdef USE_VK_PBR
+	// The maps the keywords name. A normal map is not compressed.
+	if ( stage->physicalMapType != PHYS_NONE || stage->normalMapType != PHYS_NONE )
+	{
+		imgFlags_t flags = IMGFLAG_NOLIGHTSCALE;
+
+		if ( !shader.noMipMaps )
+			flags |= IMGFLAG_MIPMAP;
+
+		if ( !shader.noPicMip )
+			flags |= IMGFLAG_PICMIP;
+
+		if ( shader.noTC )
+			flags |= IMGFLAG_NO_COMPRESSION;
+
+		if ( !stage->physicalMap && stage->physicalMapType != PHYS_NONE )
+			vk_create_phyisical_texture( stage, bufferPackedTextureName, flags );
+
+		flags |= IMGFLAG_NO_COMPRESSION;
+
+		if ( stage->normalMapType != PHYS_NONE )
+			vk_create_normal_texture( stage, bufferNormalTextureName, flags );
+	}
+#endif
 
 	//
 	// if cgen isn't explicitly specified, use either identity or identitylighting
@@ -2939,6 +3050,18 @@ static void ScanAndLoadShaderFiles( void )
 		char filename[MAX_QPATH];
 
 		Com_sprintf(filename, sizeof(filename), "shaders/%s", shaderFiles[i]);
+#ifdef USE_VK_PBR
+		// a .mtr file (materials) in place of the .shader file
+		{
+			char *ext = strrchr( filename, '.' );
+			if ( ext )
+			{
+				strcpy( ext, ".mtr" );
+				if ( ri.FS_ReadFile( filename, NULL ) <= 0 )
+					Com_sprintf( filename, sizeof( filename ), "shaders/%s", shaderFiles[i] );
+			}
+		}
+#endif
 		vk_debug("...loading '%s'\n", filename);
 		summand = ri.FS_ReadFile(filename, (void**)&buffers[i]);
 
@@ -3122,6 +3245,14 @@ static void InitShader( const char *name, const int *lightmapIndex, const byte *
 	for (i = 0; i < MAX_SHADER_STAGES; i++) {
 		stages[i].bundle[0].texMods = texMods[i];
 		stages[i].bundle[0].mGLFogColorOverride = GLFOGOVERRIDE_NONE;
+#ifdef USE_VK_PBR
+		// default normal/specular
+		VectorSet4( stages[i].normalScale, 0.0f, 0.0f, 0.0f, 0.0f );
+		stages[i].specularScale[0] =
+		stages[i].specularScale[1] =
+		stages[i].specularScale[2] = r_baseSpecular->value;
+		stages[i].specularScale[3] = 0.99f;
+#endif
 	}
 
 	shader.contentFlags = CONTENTS_SOLID | CONTENTS_OPAQUE;
@@ -3531,6 +3662,17 @@ static int CollapseMultitexture( unsigned int st0bits, shaderStage_t *st0, shade
 
 	if( st1->glow )
 		st0->glow = true;
+
+#ifdef USE_VK_PBR
+	if ( st1->vk_pbr_flags )
+	{
+		st0->vk_pbr_flags = st1->vk_pbr_flags;
+		st0->normalMap = st1->normalMap;
+		st0->physicalMap = st1->physicalMap;
+		VectorCopy4( st1->specularScale, st0->specularScale );
+		VectorCopy4( st1->normalScale, st0->normalScale );
+	}
+#endif
 
 	//
 	// move down subsequent shaders
@@ -4599,6 +4741,80 @@ shader_t *FinishShader( void )
 				def.face_culling = CT_TWO_SIDED;
 			}
 
+#ifdef USE_VK_PBR
+			// A lit stage without the maps in its shader takes those next to its diffuse
+			// texture (textureMapTypes suffixes), or r_genNormalMaps computes its normal map.
+			{
+				image_t *albedo = pStage->bundle[0].image[0];
+				const colorGen_t rgbGen = pStage->bundle[0].rgbGen;
+				const qboolean lit = ( ( pStage->numTexBundles > 1 && pStage->bundle[1].isLightmap )
+					|| rgbGen == CGEN_LIGHTING_DIFFUSE || rgbGen == CGEN_LIGHTING_DIFFUSE_ENTITY
+					|| rgbGen == CGEN_VERTEX || rgbGen == CGEN_EXACT_VERTEX ) ? qtrue : qfalse;
+
+				if ( def.shader_type >= TYPE_GENERIC_BEGIN && lit && !pStage->bundle[0].isLightmap && albedo )
+				{
+					char imageName[MAX_QPATH];
+					imgFlags_t flags = IMGFLAG_NOLIGHTSCALE;
+					uint32_t j;
+
+					if ( !shader.noMipMaps )	flags |= IMGFLAG_MIPMAP;
+					if ( !shader.noPicMip )		flags |= IMGFLAG_PICMIP;
+					if ( shader.noTC )			flags |= IMGFLAG_NO_COMPRESSION;
+
+					if ( !pStage->physicalMap )
+					{
+						for ( j = 0; j < ARRAY_LEN( textureMapTypes ); j++ )
+						{
+							COM_StripExtension( albedo->imgName, imageName, MAX_QPATH );
+							Q_strcat( imageName, MAX_QPATH, textureMapTypes[j].suffix );
+							pStage->physicalMapType = textureMapTypes[j].type;
+
+							if ( vk_create_phyisical_texture( pStage, imageName, flags ) )
+								break;
+						}
+
+						if ( !pStage->physicalMap )
+							pStage->physicalMapType = PHYS_NONE;
+					}
+
+					flags |= IMGFLAG_NO_COMPRESSION;
+
+					if ( !pStage->normalMap )
+					{
+						for ( j = 0; j < ARRAY_LEN( textureMapTypes ); j++ )
+						{
+							COM_StripExtension( albedo->imgName, imageName, MAX_QPATH );
+							Q_strcat( imageName, MAX_QPATH, textureMapTypes[j].suffix );
+							pStage->normalMapType = textureMapTypes[j].type;
+
+							if ( vk_create_normal_texture( pStage, imageName, flags ) )
+								break;
+						}
+
+						if ( !pStage->normalMap )
+							pStage->normalMapType = PHYS_NONE;
+					}
+
+#ifdef VK_COMPUTE_NORMALMAP
+					if ( !pStage->normalMap && r_genNormalMaps->integer )
+						vk_add_compute_normalmap( pStage, albedo, flags );
+#endif
+
+					// A normal map without physical map: white, occlusion and roughness 1,
+					// metalness 0 (specularScale[0]).
+					if ( pStage->normalMap && !pStage->physicalMap )
+					{
+						pStage->specularScale[0] = 0.0f;
+						pStage->specularScale[2] =
+						pStage->specularScale[3] = 1.0f;
+						pStage->specularScale[1] = 0.5f;
+						pStage->physicalMap = tr.whiteImage;
+						pStage->physicalMapType = PHYS_RMO;
+						pStage->vk_pbr_flags |= PBR_HAS_PHYSICALMAP;
+					}
+				}
+			}
+#endif
 
 			def.mirror = qfalse;
 			pStage->vk_pipeline[0] = vk_find_pipeline_ext(0, &def, qtrue);

@@ -1700,6 +1700,11 @@ void vk_begin_frame( void )
 	vk_flush_staging_buffer( qtrue );
 #endif
 
+#ifdef VK_COMPUTE_NORMALMAP
+	// the normal maps the shaders loaded since the last frame
+	vk_dispatch_compute_normalmaps();
+#endif
+
 #ifdef USE_RTX
 	vk.current_frame_index = vk.frame_counter % NUM_COMMAND_BUFFERS;
 #endif

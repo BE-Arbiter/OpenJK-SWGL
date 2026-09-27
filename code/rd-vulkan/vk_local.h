@@ -840,6 +840,50 @@ typedef struct vk_tess_s {
 // This structure is initialized/deinitialized by vk_initialize/vk_shutdown functions correspondingly.
 
 #ifdef USE_RTX
+#ifdef USE_VK_PBR
+#define PBR_HAS_NORMALMAP				( 1 )
+#define PBR_HAS_PHYSICALMAP				( 2 )
+#define PBR_HAS_SPECULARMAP				( 4 )
+#define PBR_HAS_DELUXEMAP				( 8 )
+
+#define PHYS_NONE						( 1 )
+#define PHYS_RMO						( 2 )
+#define PHYS_RMOS						( 4 )
+#define PHYS_MOXR						( 8 )
+#define PHYS_MOSR						( 16 )
+#define PHYS_ORM						( 32 )
+#define PHYS_ORMS						( 64 )
+#define PHYS_NORMAL						( 128 )
+#define PHYS_NORMALHEIGHT				( 256 )
+#define PHYS_SPECGLOSS					( 512 )
+
+#define ByteToFloat(a)					((float)(a) * 1.0f/255.0f)
+#define FloatToByte(a)					(byte)((a) * 255.0f)
+#define sRGBtoRGB(a)					(((a) <= 0.04045f) ? ((a) / 12.92f) : (pow((((a) + 0.055f) / 1.055f), 2.4)))
+#endif
+
+// A PBR map: the suffix it has next to the diffuse texture, and the swizzle of its view. The
+// physical maps are read as occlusion, roughness, metalness, specular; the normal maps as .agb.
+typedef struct textureMapType_s {
+	uint32_t			type;
+	const char			*suffix;
+	VkComponentMapping	swizzle;
+} textureMapType_t;
+
+const textureMapType_t textureMapTypes[] = {
+	{ 0,					"",			{ VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY } },
+#ifdef USE_VK_PBR
+	{ PHYS_RMO,				"_rmo",		{ VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_ONE } },
+	{ PHYS_RMOS,			"_rmos",	{ VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_A } },
+	{ PHYS_MOXR,			"_moxr",	{ VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ONE } },
+	{ PHYS_MOSR,			"_mosr",	{ VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_B } },
+	{ PHYS_ORM,				"_orm",		{ VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY } },
+	{ PHYS_ORMS,			"_orms",	{ VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY } },
+	{ PHYS_NORMAL,			"_n",		{ VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_R } },
+	{ PHYS_NORMALHEIGHT,	"_nh",		{ VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_R } },
+#endif
+};
+
 #include "rtx/vk_rtx.h"
 
 typedef struct shader_s shader_t;
@@ -1255,6 +1299,11 @@ typedef struct {
 	VkDeviceSize		indirect_buffer_size_new;
 
 	VkDescriptorPool		descriptor_pool;
+#ifdef VK_COMPUTE_NORMALMAP
+	VkDescriptorSetLayout	set_layout_compute_normalmap;
+	VkPipelineLayout		pipeline_layout_compute_normalmap;
+	VkPipeline				compute_normalmap_pipeline;
+#endif
 	VkDescriptorSetLayout	set_layout_sampler;		// combined image sampler
 	VkDescriptorSetLayout	set_layout_uniform;		// dynamic uniform buffer
 	VkDescriptorSetLayout	set_layout_storage;		// feedback buffer
@@ -1411,6 +1460,9 @@ typedef struct {
 
 		VkShaderModule color_vs;
 		VkShaderModule color_fs;
+#ifdef VK_COMPUTE_NORMALMAP
+		VkShaderModule normalmap;
+#endif
 
 		VkShaderModule bloom_fs;
 		VkShaderModule blur_fs;

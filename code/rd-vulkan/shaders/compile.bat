@@ -46,6 +46,12 @@ for %%f in (%glsl%*.frag) do (
     del /Q "%tmpf%"
 )
 
+for %%f in (%glsl%*.comp) do (
+    "%cl%" -S comp -V -o "%tmpf%" "%%f"
+    "%bh%" "%tmpf%" %outf% %%~nf_comp_spv
+    del /Q "%tmpf%"
+)
+
 @rem single-texture fragment, depth-fragment
 
 "%cl%" -S frag -V -o "%tmpf%" %glsl%gen_frag.tmpl -DUSE_CLX_IDENT -DUSE_ATEST -DUSE_DF

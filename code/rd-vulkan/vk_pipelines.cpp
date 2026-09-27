@@ -88,7 +88,7 @@ void vk_create_descriptor_layout( void )
     // Like command buffers, descriptor sets are allocated from a pool. 
     // So we must first create the Descriptor pool.
     {
-        VkDescriptorPoolSize pool_size[3];
+        VkDescriptorPoolSize pool_size[4];
         VkDescriptorPoolCreateInfo desc;
         uint32_t i, maxSets;
 
@@ -102,6 +102,14 @@ void vk_create_descriptor_layout( void )
         pool_size[2].descriptorCount = 1;
 #ifdef USE_VBO_SS
         pool_size[2].descriptorCount += (MAX_SUB_BSP + 1);
+#endif
+
+        // the normal maps computed from their diffuse texture: a sampler and a storage image each
+        pool_size[3].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        pool_size[3].descriptorCount = 1;
+#ifdef VK_COMPUTE_NORMALMAP
+        pool_size[0].descriptorCount += MAX_BATCH_COMPUTE_NORMALMAPS;
+        pool_size[3].descriptorCount += MAX_BATCH_COMPUTE_NORMALMAPS;
 #endif
 
         for (i = 0, maxSets = 0; i < ARRAY_LEN(pool_size); i++) {
