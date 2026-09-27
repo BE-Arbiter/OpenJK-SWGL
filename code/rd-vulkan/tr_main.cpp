@@ -1356,6 +1356,11 @@ void R_AddDrawSurf( surfaceType_t *surface, shader_t *shader,
 	}
 #endif
 
+	if ( tr.refdef.doLAGoggles && tr.world && !( tr.refdef.rdflags & RDF_NOWORLDMODEL ) )
+	{
+		fogIndex = tr.world->numfogs;
+	}
+
 #if defined(SURF_FORCESIGHT) && defined(RDF_ForceSightOn)
 	if ((shader->surfaceFlags & SURF_FORCESIGHT) && !(tr.refdef.rdflags & RDF_ForceSightOn))
 	{	//if shader is only seen with ForceSight and we don't have ForceSight on, then don't draw
@@ -1480,6 +1485,11 @@ static void R_AddEntitySurfaces( void ) {
 		// preshift the value we are going to OR into the drawsurf sort
 		tr.shiftedEntityNum = tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
 
+		// RF_ALPHA_FADE must sort after everything else, including the regular alpha
+		// surfaces - rd-vanilla does the same, deliberately avoiding the top bit.
+		if ( ent->e.renderfx & RF_ALPHA_FADE )
+			tr.shiftedEntityNum |= 0x80000000;
+
 		//
 		// the weapon model must be handled special --
 		// we don't want the hacked weapon position showing in
@@ -1501,6 +1511,11 @@ static void R_AddEntitySurfaces( void ) {
 		case RT_ORIENTEDLINE:
 		case RT_CYLINDER:
 		case RT_SABER_GLOW:
+		// SP-only, and absent from this switch since the port: a map holding either one
+		// died on "Bad reType" below before anything was drawn. See RB_SurfaceLathe and
+		// RB_SurfaceClouds in tr_surface.cpp.
+		case RT_LATHE:
+		case RT_CLOUDS:
 			// self blood sprites, talk balloons, etc should not be drawn in the primary
 			// view.  We can't just do this check for all entities, because md3
 			// entities may still want to cast shadows from them

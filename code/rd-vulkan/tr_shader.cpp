@@ -4964,8 +4964,11 @@ static void CreateInternalShaders( void )
 	stages[0].stateBits = GLS_DEFAULT;
 	shader.sort = SS_BLEND0;
 
-	if ( vk.refractionActive ) 
+	if ( vk.refractionActive )
 	{
+		// Two stages for the two full-screen passes of rd-vanilla's RB_DistortionFill.
+		// ComputeDistortionPass (vk_shade_geometry.cpp) sets the parameters of each pass.
+		stages[1] = stages[0];
 		shader.defaultShader = qfalse;
 		tr.distortionShader = FinishShader();
 		tr.distortionShader->useDistortion = qtrue;

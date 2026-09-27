@@ -321,7 +321,12 @@ else()
 endif()
 
 set(SharedDefines ${SharedDefines} "$<$<CONFIG:Debug>:_DEBUG>")
-set(SharedDefines ${SharedDefines} "$<$<NOT:$<CONFIG:Debug>>:FINAL_BUILD>")
+
+# RelWithDebInfo is deliberately left out of FINAL_BUILD. Debug is the only configuration
+# that keeps the timers and diagnostics, and it is also the only one without optimisation,
+# so measuring anything meant building unoptimised code. This gives one configuration that
+# is optimised and still instrumented.
+set(SharedDefines ${SharedDefines} "$<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:FINAL_BUILD>")
 
 if(BuildPortableVersion)
 	set(BUILD_PORTABLE ON)

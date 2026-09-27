@@ -319,6 +319,39 @@ void RE_RotatePic2 ( float x, float y, float w, float h,
 	cmd->a = a;
 }
 
+/*
+=============
+RE_LAGoggles
+
+SP light amp goggles. The next scene draws every surface in the fog slot
+past numfogs, with white lightmaps. The fog depth pulses with time.
+=============
+*/
+void RE_LAGoggles( void )
+{
+	if ( !tr.world ) {
+		return;
+	}
+
+	tr.refdef.doLAGoggles = qtrue;
+
+	fog_t *fog = &tr.world->fogs[tr.world->numfogs];
+
+	fog->parms.color[0] = 0.75f;
+	fog->parms.color[1] = 0.42f + Q_flrand(0.0f, 1.0f) * 0.025f;
+	fog->parms.color[2] = 0.07f;
+	fog->colorInt = ColorBytes4( fog->parms.color[0], fog->parms.color[1], fog->parms.color[2], 1.0f );
+	for ( int n = 0; n < 4; n++ ) {
+		fog->color[n] = ( ( fog->colorInt >> ( n * 8 ) ) & 255 ) / 255.0f;
+	}
+
+	// rd-vanilla: depthForOpaque 10000 with tcScale 2 / (depth * pulse). Express
+	// the same result as a plain depth, so the CPU and GPU fog paths agree.
+	fog->parms.depthForOpaque = 10000.0f * ( 1.0f + cos( tr.refdef.floatTime ) * 0.1f ) / 16.0f;
+	fog->tcScale = 1.0f / ( fog->parms.depthForOpaque * 8.0f );
+	fog->hasSurface = qfalse;
+}
+
 void RE_RenderWorldEffects( void )
 {
 	drawBufferCommand_t	*cmd;

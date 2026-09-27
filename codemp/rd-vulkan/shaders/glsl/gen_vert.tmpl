@@ -90,6 +90,7 @@ layout(set = 0, binding = 0) uniform UBO {
 		vec4 u_ambientLight;
 		vec4 u_directedLight;
 		vec4 u_LocalLightOrigin;
+		vec4 u_ModelLightDir;
 		vec4 u_localViewOrigin;
 		mat4 u_ModelMatrix;
 	};
@@ -176,8 +177,23 @@ out gl_PerVertex {
 };
 
 #if defined(USE_VBO_MODEL)
+// Models carry no per-vertex colour stream, so generators that read one work off
+// an implicit white. The diffuse ones are lit here, the way RB_CalcDiffuseColor
+// does on the CPU - normal and u_ModelLightDir are both in model space.
+vec4 CalcVertexColor( int rgbGen, in vec3 normal ) {
+	if ( rgbGen != 9 && rgbGen != 10 )	// CGEN_LIGHTING_DIFFUSE, CGEN_LIGHTING_DIFFUSE_ENTITY
+		return vec4( 1.0 );
+
+	float incoming = dot( normal, u_ModelLightDir.xyz );
+	if ( incoming <= 0.0 )
+		return vec4( u_ambientLight.rgb, 1.0 );
+
+	return vec4( min( u_ambientLight.rgb + incoming * u_directedLight.rgb, vec3( 1.0 ) ), 1.0 );
+}
+
 vec4 CalcColor( int index, in vec3 position, in vec3 normal ) {
-	vec4 color = ( u_bundle[index].vertColor * vec4( 0.0 ) ) + u_bundle[index].baseColor;		// skip vertColor?
+	vec4 color = u_bundle[index].vertColor * CalcVertexColor( u_bundle[index].rgbGen, normal )
+			   + u_bundle[index].baseColor;
 
 	switch ( u_bundle[index].rgbGen ) {
 		case 14:// CGEN_DISINTEGRATION_1

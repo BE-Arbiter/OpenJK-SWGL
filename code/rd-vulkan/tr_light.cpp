@@ -423,3 +423,25 @@ int R_LightForPoint( vec3_t point, vec3_t ambientLight, vec3_t directedLight, ve
 
 	return qtrue;
 }
+
+// SP refexport: the cgame and the NPC senses read the light level at a point.
+// Always fill the outputs, the callers do not check the return value.
+qboolean RE_GetLighting( const vec3_t origin, vec3_t ambientLight, vec3_t directedLight, vec3_t lightDir )
+{
+	trRefEntity_t tr_ent;
+
+	if ( !tr.world || !tr.world->lightGridData ) {
+		VectorSet( ambientLight, 255.0f, 255.0f, 255.0f );
+		VectorSet( directedLight, 255.0f, 255.0f, 255.0f );
+		VectorCopy( tr.sunDirection, lightDir );
+		return qfalse;
+	}
+
+	memset( &tr_ent, 0, sizeof( tr_ent ) );
+	VectorCopy( origin, tr_ent.e.origin );
+	R_SetupEntityLightingGrid( &tr_ent );
+	VectorCopy( tr_ent.ambientLight, ambientLight );
+	VectorCopy( tr_ent.directedLight, directedLight );
+	VectorCopy( tr_ent.lightDir, lightDir );
+	return qtrue;
+}

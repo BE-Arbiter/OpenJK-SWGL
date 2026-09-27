@@ -169,7 +169,9 @@ void vk_create_render_passes()
     attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     //attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[1].stencilLoadOp = glConfig.stencilBits ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    if ( vk.bloomActive || vk.dglowActive || vk.refractionActive ) {
+    if ( vk.bloomActive || vk.dglowActive || vk.refractionActive || vk.gbufferActive ) {
+        // gbufferActive: needs to survive past this render pass instance's end so the
+        // no-clear "resume" pass (vk.render_pass.main_resume) below can LOAD it back.
         attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE; // keep it for post-bloom/dynamic-glow pass
         //attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
         attachments[1].stencilStoreOp = glConfig.stencilBits ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -217,7 +219,7 @@ void vk_create_render_passes()
 #endif
 
 
-        if ( vk.bloomActive || vk.dglowActive || vk.refractionActive ) {
+        if ( vk.bloomActive || vk.dglowActive || vk.refractionActive || vk.gbufferActive ) {
             attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE; // keep it for post-bloom/dynamic-glow pass
         }
         else {
@@ -291,7 +293,40 @@ void vk_create_render_passes()
 
     VK_CHECK(qvkCreateRenderPass(device, &desc, NULL, &vk.render_pass.main));
     VK_SET_OBJECT_NAME(vk.render_pass.main, "render pass - main", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT);
-    
+
+    // main pass resume (r_depthPrepass): same attachment format/sample-count shape as
+    // vk.render_pass.main - hence compatible with the same vk.framebuffers.main[] per
+    // the Vulkan render pass compatibility rules (load/store ops don't affect
+    // compatibility) - but LOAD instead of CLEAR/DONT_CARE, so RB_DrawSurfs can end the
+    // main pass instance for the gbuffer extraction detour and reopen it afterward
+    // without discarding whatever was already drawn into it (portal/mirror sub-views
+    // queued ahead of the primary view - see RB_BeginDrawingView's comment).
+    if ( vk.gbufferActive )
+    {
+        // REVERTED: an earlier version of this block added a dedicated depth/stencil
+        // subpass dependency here on the theory that main_resume's LOAD_OP_LOAD had a
+        // synchronization gap. That was applied without visual confirmation and made
+        // an unrelated (still unexplained) rendering artifact worse, so it's been
+        // backed out. main_resume currently inherits deps[0]/deps[1] from
+        // vk.render_pass.main's own creation above, same as before that change.
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+
+        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        attachments[1].stencilLoadOp = glConfig.stencilBits ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+
+        if ( vk.msaaActive ) {
+            attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        }
+
+        VK_CHECK( qvkCreateRenderPass( device, &desc, NULL, &vk.render_pass.main_resume ) );
+        VK_SET_OBJECT_NAME( vk.render_pass.main_resume, "render pass - main resume (no clear)", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT );
+
+        // No need to restore attachments[0]/[1]/[2] here: the refraction block right
+        // below unconditionally re-sets every field it uses (loadOp, storeOp,
+        // stencilLoadOp, stencilStoreOp) before creating its own render pass, and
+        // every block after that does the same for whatever it touches next.
+    }
+
     // refraction
     {
         // color buffer
@@ -558,6 +593,159 @@ void vk_create_render_passes()
 
     VK_CHECK(qvkCreateRenderPass(device, &desc, NULL, &vk.render_pass.screenmap));
     VK_SET_OBJECT_NAME(vk.render_pass.screenmap, "render pass - screenmap", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT);
+
+    // depth+normal G-buffer extraction pass (r_depthPrepass).
+    // Fully self-contained (own normal + depth attachments, not shared with vk.render_pass.main)
+    // so it cannot disturb any existing render path; runs ahead of the main pass in the frame.
+    if ( vk.gbufferActive )
+    {
+        // gbuffer-local color attachment refs: [0] normal, [1] motion vectors (optional)
+        VkAttachmentReference gbuffer_color_refs[2];
+
+        attachments[0].flags = 0;
+        attachments[0].format = vk.normal_format;
+        attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[0].initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        attachments[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        // Stencil ops are unconditionally DONT_CARE: this pass has stencilTestEnable off in
+        // every pipeline, and its depth format is stencil-free so a consumer can sample it.
+        // The subpass reference below still uses ATTACHMENT_OPTIMAL - only the layout the
+        // attachment rests in between passes is the readable one.
+        attachments[1].flags = 0;
+        attachments[1].format = vk.gbuffer_depth_format;
+        attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[1].initialLayout = vk.gbufferDepthSampled ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        attachments[1].finalLayout = attachments[1].initialLayout;
+
+        gbuffer_color_refs[0].attachment = 0;
+        gbuffer_color_refs[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        depth_attachment_ref.attachment = 1;
+        depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        Com_Memset( &desc, 0, sizeof(desc) );
+        desc.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        desc.pNext = NULL;
+        desc.flags = 0;
+        desc.pAttachments = attachments;
+        desc.attachmentCount = 2;
+        desc.subpassCount = 1;
+
+        // deps[2] only covers COLOR_ATTACHMENT_OUTPUT, which is not enough here: the depth
+        // attachment now rests in DEPTH_STENCIL_READ_ONLY_OPTIMAL and is cleared at
+        // EARLY_FRAGMENT_TESTS, and on the way out a consumer samples it in the fragment
+        // stage. Without both halves declared the clear races the previous frame's reads.
+        deps[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+        deps[0].dstSubpass = 0;
+        deps[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        deps[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        deps[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        deps[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+                              | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        deps[0].dependencyFlags = 0;
+
+        deps[1].srcSubpass = 0;
+        deps[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+        deps[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        deps[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        deps[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        deps[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        deps[1].dependencyFlags = 0;
+
+        desc.dependencyCount = 2;
+        desc.pDependencies = &deps[0];
+
+        if ( vk.velocityActive )
+        {
+            attachments[2].flags = 0;
+            attachments[2].format = vk.velocity_format;
+            attachments[2].samples = VK_SAMPLE_COUNT_1_BIT;
+            attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+            attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            attachments[2].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            attachments[2].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+            attachments[2].initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            attachments[2].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+            gbuffer_color_refs[1].attachment = 2;
+            gbuffer_color_refs[1].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+            desc.attachmentCount = 3;
+        }
+
+        Com_Memset( &subpass, 0, sizeof(subpass) );
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachmentCount = vk.velocityActive ? 2 : 1;
+        subpass.pColorAttachments = gbuffer_color_refs;
+        subpass.pDepthStencilAttachment = &depth_attachment_ref;
+
+        desc.pSubpasses = &subpass;
+
+        VK_CHECK( qvkCreateRenderPass( device, &desc, NULL, &vk.render_pass.gbuffer.extract ) );
+        VK_SET_OBJECT_NAME( vk.render_pass.gbuffer.extract, "render pass - gbuffer extract", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT );
+    }
+
+    // GTAO: one R8 colour target, no depth. Reads the gbuffer attachments as textures, so
+    // its in-dependency has to wait on their writes, not just on colour output.
+    if ( vk.ssaoActive )
+    {
+        VkAttachmentReference ssao_color_ref;
+
+        attachments[0].flags = 0;
+        attachments[0].format = vk.ssao_format;
+        attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;   // every pixel is written
+        attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[0].initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        attachments[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        ssao_color_ref.attachment = 0;
+        ssao_color_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        deps[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+        deps[0].dstSubpass = 0;
+        deps[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        deps[0].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        deps[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        deps[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        deps[0].dependencyFlags = 0;
+
+        deps[1].srcSubpass = 0;
+        deps[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+        deps[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        deps[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        deps[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        deps[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        deps[1].dependencyFlags = 0;
+
+        Com_Memset( &subpass, 0, sizeof(subpass) );
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachmentCount = 1;
+        subpass.pColorAttachments = &ssao_color_ref;
+
+        Com_Memset( &desc, 0, sizeof(desc) );
+        desc.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        desc.pAttachments = attachments;
+        desc.attachmentCount = 1;
+        desc.subpassCount = 1;
+        desc.pSubpasses = &subpass;
+        desc.dependencyCount = 2;
+        desc.pDependencies = &deps[0];
+
+        VK_CHECK( qvkCreateRenderPass( device, &desc, NULL, &vk.render_pass.ssao ) );
+        VK_SET_OBJECT_NAME( vk.render_pass.ssao, "render pass - ssao", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT );
+    }
 }
 
 void vk_create_framebuffers()
@@ -646,6 +834,37 @@ void vk_create_framebuffers()
 
             VK_CHECK(qvkCreateFramebuffer(vk.device, &desc, NULL, &vk.framebuffers.refraction.extract));
             VK_SET_OBJECT_NAME(vk.framebuffers.refraction.extract, "framebuffer - refraction extract", VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT);
+        }
+
+        // depth+normal G-buffer extraction pass (r_depthPrepass)
+        if ( vk.gbufferActive )
+        {
+            desc.renderPass = vk.render_pass.gbuffer.extract;
+            desc.attachmentCount = 2;
+            desc.width = glConfig.vidWidth;
+            desc.height = glConfig.vidHeight;
+
+            attachments[0] = vk.gbuffer_normal_image_view;
+            attachments[1] = vk.gbuffer_depth_image_view;
+
+            if ( vk.velocityActive )
+            {
+                desc.attachmentCount = 3;
+                attachments[2] = vk.gbuffer_velocity_image_view;
+            }
+
+            VK_CHECK( qvkCreateFramebuffer( vk.device, &desc, NULL, &vk.framebuffers.gbuffer.extract ) );
+            VK_SET_OBJECT_NAME( vk.framebuffers.gbuffer.extract, "framebuffer - gbuffer extract", VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT );
+
+            if ( vk.ssaoActive )
+            {
+                desc.renderPass = vk.render_pass.ssao;
+                desc.attachmentCount = 1;
+                attachments[0] = vk.ssao_image_view;
+
+                VK_CHECK( qvkCreateFramebuffer( vk.device, &desc, NULL, &vk.framebuffers.ssao ) );
+                VK_SET_OBJECT_NAME( vk.framebuffers.ssao, "framebuffer - ssao", VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT );
+            }
         }
 
         // screenmap
@@ -778,6 +997,11 @@ void vk_destroy_render_passes( void )
         vk.render_pass.main = VK_NULL_HANDLE;
     }
 
+    if ( vk.render_pass.main_resume != VK_NULL_HANDLE ) {
+        qvkDestroyRenderPass( vk.device, vk.render_pass.main_resume, NULL );
+        vk.render_pass.main_resume = VK_NULL_HANDLE;
+    }
+
     if ( vk.render_pass.bloom.extract != VK_NULL_HANDLE ) {
         qvkDestroyRenderPass( vk.device, vk.render_pass.bloom.extract, NULL );
         vk.render_pass.bloom.extract = VK_NULL_HANDLE;
@@ -830,6 +1054,16 @@ void vk_destroy_render_passes( void )
     if ( vk.render_pass.dglow.blend != VK_NULL_HANDLE ) {
         qvkDestroyRenderPass( vk.device, vk.render_pass.dglow.blend, NULL );
         vk.render_pass.dglow.blend = VK_NULL_HANDLE;
+    }
+
+    if ( vk.render_pass.ssao != VK_NULL_HANDLE ) {
+        qvkDestroyRenderPass( vk.device, vk.render_pass.ssao, NULL );
+        vk.render_pass.ssao = VK_NULL_HANDLE;
+    }
+
+    if ( vk.render_pass.gbuffer.extract != VK_NULL_HANDLE ) {
+        qvkDestroyRenderPass( vk.device, vk.render_pass.gbuffer.extract, NULL );
+        vk.render_pass.gbuffer.extract = VK_NULL_HANDLE;
     }
 }
 
@@ -885,6 +1119,16 @@ void vk_destroy_framebuffers( void )
             qvkDestroyFramebuffer( vk.device, vk.framebuffers.dglow.blur[i], NULL );
             vk.framebuffers.dglow.blur[i] = VK_NULL_HANDLE;
         }
+    }
+
+    if ( vk.framebuffers.ssao != VK_NULL_HANDLE ) {
+        qvkDestroyFramebuffer( vk.device, vk.framebuffers.ssao, NULL );
+        vk.framebuffers.ssao = VK_NULL_HANDLE;
+    }
+
+    if ( vk.framebuffers.gbuffer.extract != VK_NULL_HANDLE ) {
+        qvkDestroyFramebuffer( vk.device, vk.framebuffers.gbuffer.extract, NULL );
+        vk.framebuffers.gbuffer.extract = VK_NULL_HANDLE;
     }
 }
 
@@ -984,9 +1228,16 @@ static void vk_begin_screenmap_render_pass( void )
     vk_begin_render_pass(vk.render_pass.screenmap, frameBuffer, qtrue, vk.renderWidth, vk.renderHeight);
 }
 
-void vk_begin_main_render_pass( void )
+void vk_begin_main_render_pass( qboolean clearValues )
 {
     VkFramebuffer frameBuffer = vk.framebuffers.main[vk.cmd->swapchain_image_index];
+    // vk.render_pass.main bakes VK_ATTACHMENT_LOAD_OP_CLEAR into its depth attachment
+    // (and color, depending on MSAA/USE_BUFFER_CLEAR) unconditionally - load ops are
+    // fixed at render-pass-creation time, not per vkCmdBeginRenderPass call, so passing
+    // clearValues=qfalse here alone can't stop it from clearing. main_resume is a
+    // separate, LOAD-instead-of-CLEAR render pass compatible with the same framebuffer
+    // (see vk_create_render_passes()) - use that one instead when not clearing.
+    VkRenderPass renderPass = clearValues ? vk.render_pass.main : vk.render_pass.main_resume;
 
     vk.renderPassIndex = RENDER_PASS_MAIN;
 
@@ -994,7 +1245,7 @@ void vk_begin_main_render_pass( void )
     vk.renderHeight = glConfig.vidHeight;
     vk.renderScaleX = vk.renderScaleY = 1.0f;
 
-    vk_begin_render_pass(vk.render_pass.main, frameBuffer, qtrue, vk.renderWidth, vk.renderHeight);
+    vk_begin_render_pass(renderPass, frameBuffer, clearValues, vk.renderWidth, vk.renderHeight);
 }
 
 void vk_begin_post_blend_render_pass( VkRenderPass renderpass, qboolean clearValues )
@@ -1144,6 +1395,212 @@ void vk_begin_post_refraction_extract_render_pass( void )
     vk.renderScaleX = vk.renderScaleY = 1.0;
 
     vk_begin_render_pass( vk.render_pass.refraction.extract, frameBuffer, qfalse, vk.renderWidth, vk.renderHeight );
+}
+
+// depth+normal(+velocity) G-buffer extraction pass (r_depthPrepass / r_velocityBuffer).
+// Opens/clears the dedicated render pass; RB_DrawSurfs() calls this and then feeds it
+// through RB_RenderGBufferSurfList(), once per displayed frame, primary view only.
+//
+// Doesn't reuse the generic vk_begin_render_pass() clear-value helper: that one sizes
+// clearValueCount off the *global* vk.msaaActive flag, which assumes every render pass
+// mirrors the main pass's attachment layout (color[, msaa] + depth). This pass has its
+// own, independent attachment count (2, or 3 with r_velocityBuffer) that has nothing to
+// do with MSAA, so clearValueCount is computed from that instead.
+void vk_begin_gbuffer_extract_render_pass( void )
+{
+    VkRenderPassBeginInfo render_pass_begin_info;
+    VkClearValue clear_values[3]; // [0] normal, [1] depth/stencil, [2] velocity (optional)
+
+    vk.renderPassIndex = RENDER_PASS_GBUFFER;
+
+    vk.renderWidth = glConfig.vidWidth;
+    vk.renderHeight = glConfig.vidHeight;
+    vk.renderScaleX = vk.renderScaleY = 1.0;
+
+    Com_Memset( clear_values, 0, sizeof( clear_values ) );
+#ifndef USE_REVERSED_DEPTH
+    clear_values[1].depthStencil.depth = 1.0f;
+#endif
+    // clear_values[0] (normal) and [2] (velocity) are left at zero: "no surface here" / "no motion"
+
+    render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    render_pass_begin_info.pNext = NULL;
+    render_pass_begin_info.renderPass = vk.render_pass.gbuffer.extract;
+    render_pass_begin_info.framebuffer = vk.framebuffers.gbuffer.extract;
+    render_pass_begin_info.renderArea.offset.x = 0;
+    render_pass_begin_info.renderArea.offset.y = 0;
+    render_pass_begin_info.renderArea.extent.width = vk.renderWidth;
+    render_pass_begin_info.renderArea.extent.height = vk.renderHeight;
+    render_pass_begin_info.clearValueCount = vk.velocityActive ? 3 : 2;
+    render_pass_begin_info.pClearValues = clear_values;
+
+    qvkCmdBeginRenderPass( vk.cmd->command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE );
+    vk.cmd->depth_range = DEPTH_RANGE_COUNT;
+}
+
+// GTAO over the gbuffer's depth + normal (r_ssao 2). Runs once per displayed frame, between
+// the gbuffer extraction pass ending and the main pass resuming - see RB_DrawSurfs().
+// A full-screen draw with no vertex buffer, like every other post-process pass here.
+void vk_render_ssao( const void *viewParms_ )
+{
+    const viewParms_t *viewParms = (const viewParms_t *)viewParms_;
+    const float *p = viewParms->projectionMatrix;
+    VkRenderPassBeginInfo begin_info;
+    VkDescriptorSet sets[2];
+    vkSSAOPushConstants_t push;
+
+    vk.renderPassIndex = RENDER_PASS_GBUFFER;
+    vk.renderWidth = glConfig.vidWidth;
+    vk.renderHeight = glConfig.vidHeight;
+    vk.renderScaleX = vk.renderScaleY = 1.0f;
+
+    begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    begin_info.pNext = NULL;
+    begin_info.renderPass = vk.render_pass.ssao;
+    begin_info.framebuffer = vk.framebuffers.ssao;
+    begin_info.renderArea.offset.x = 0;
+    begin_info.renderArea.offset.y = 0;
+    begin_info.renderArea.extent.width = vk.renderWidth;
+    begin_info.renderArea.extent.height = vk.renderHeight;
+    begin_info.clearValueCount = 0;
+    begin_info.pClearValues = NULL;
+
+    qvkCmdBeginRenderPass( vk.cmd->command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE );
+    vk.cmd->depth_range = DEPTH_RANGE_COUNT;
+
+    // p5 is passed unflipped; ssao.frag undoes the Vulkan Y flip itself rather than
+    // having it baked in, so this stays the matrix R_SetupProjection() actually built.
+    push.p0  = p[0];
+    push.p5  = p[5];
+    push.p8  = p[8];
+    push.p9  = p[9];
+    push.p10 = p[10];
+    push.p14 = p[14];
+
+    push.invScreenX = 1.0f / (float)vk.renderWidth;
+    push.invScreenY = 1.0f / (float)vk.renderHeight;
+
+    push.radius     = r_ssaoRadius->value;
+    push.intensity  = r_ssaoIntensity->value;
+    push.frameNoise = (float)( tr.frameCount & 63 ) * 0.0625f;
+    push.sliceCount = r_ssaoSlices->integer;
+    push.stepCount  = r_ssaoSteps->integer;
+
+    if ( r_contactShadows->integer ) {
+        // tr.sunDirection points toward the sun in world space (default, or q3map_sun from
+        // the sky shader). Rotate it into view space with the same world->view matrix the
+        // gbuffer shaders use; it is a direction, so the translation column is ignored.
+        const float *v = viewParms->world.modelViewMatrix;
+
+        push.lightX = v[0] * tr.sunDirection[0] + v[4] * tr.sunDirection[1] + v[8]  * tr.sunDirection[2];
+        push.lightY = v[1] * tr.sunDirection[0] + v[5] * tr.sunDirection[1] + v[9]  * tr.sunDirection[2];
+        push.lightZ = v[2] * tr.sunDirection[0] + v[6] * tr.sunDirection[1] + v[10] * tr.sunDirection[2];
+
+        push.csLength    = r_contactShadowLength->value;
+        push.csThickness = r_contactShadowThickness->value;
+        push.csStrength  = r_contactShadowIntensity->value;
+        push.csSteps     = r_contactShadowSteps->integer;
+    }
+    else {
+        // csLength 0 makes ContactShadow() return 1 immediately, so the G channel stays
+        // fully lit and ssao_apply.frag's multiply is a no-op for it.
+        push.lightX = push.lightY = push.lightZ = 0.0f;
+        push.csLength = 0.0f;
+        push.csThickness = 0.0f;
+        push.csStrength = 0.0f;
+        push.csSteps = 0;
+    }
+
+    sets[0] = vk.gbuffer_depth_descriptor;
+    sets[1] = vk.gbuffer_normal_descriptor;
+
+    qvkCmdBindPipeline( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.ssao_pipeline );
+    qvkCmdBindDescriptorSets( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        vk.pipeline_layout_ssao, 0, 2, sets, 0, NULL );
+    qvkCmdPushConstants( vk.cmd->command_buffer, vk.pipeline_layout_ssao,
+        VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( push ), &push );
+
+    {
+        VkViewport viewport;
+        VkRect2D scissor;
+
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = (float)vk.renderWidth;
+        viewport.height = (float)vk.renderHeight;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        scissor.offset.x = 0;
+        scissor.offset.y = 0;
+        scissor.extent.width = vk.renderWidth;
+        scissor.extent.height = vk.renderHeight;
+
+        qvkCmdSetViewport( vk.cmd->command_buffer, 0, 1, &viewport );
+        qvkCmdSetScissor( vk.cmd->command_buffer, 0, 1, &scissor );
+    }
+
+    qvkCmdDraw( vk.cmd->command_buffer, 4, 1, 0, 0 );
+
+    vk_end_render_pass();
+
+    // This pass bound descriptor sets with pipeline_layout_ssao, which is not compatible
+    // with vk.pipeline_layout - so whatever the main pass had bound is now disturbed.
+    // Force the tracker to rebind everything rather than trust its cached state.
+    {
+        uint32_t i;
+        for ( i = 0; i < VK_DESC_COUNT; i++ )
+            vk_reset_descriptor( i );
+
+        vk.cmd->descriptor_set.end = 0;
+        vk.cmd->descriptor_set.start = ~0U;
+        vk.cmd->last_pipeline = VK_NULL_HANDLE;
+    }
+}
+
+// Multiplies the AO buffer into the scene. Issued from inside the main render pass, from
+// RB_RenderDrawSurfList() at the point the sort order leaves SS_OPAQUE - so opaque
+// geometry is darkened and translucent surfaces, the HUD and 2D are not.
+void vk_apply_ssao( void )
+{
+    VkViewport viewport;
+    VkRect2D scissor;
+    uint32_t i;
+
+    if ( vk.ssao_apply_pipeline == VK_NULL_HANDLE )
+        return;
+
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (float)vk.renderWidth;
+    viewport.height = (float)vk.renderHeight;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = vk.renderWidth;
+    scissor.extent.height = vk.renderHeight;
+
+    qvkCmdSetViewport( vk.cmd->command_buffer, 0, 1, &viewport );
+    qvkCmdSetScissor( vk.cmd->command_buffer, 0, 1, &scissor );
+
+    qvkCmdBindPipeline( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.ssao_apply_pipeline );
+    qvkCmdBindDescriptorSets( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        vk.pipeline_layout_post_process, 0, 1, &vk.ssao_descriptor, 0, NULL );
+
+    qvkCmdDraw( vk.cmd->command_buffer, 4, 1, 0, 0 );
+
+    // pipeline_layout_post_process is not compatible with vk.pipeline_layout, so that bind
+    // disturbed whatever the surface draws had bound. Everything below has to rebind, and
+    // the cached viewport/depth range no longer describes what is set.
+    for ( i = 0; i < VK_DESC_COUNT; i++ )
+        vk_reset_descriptor( i );
+
+    vk.cmd->descriptor_set.end = 0;
+    vk.cmd->descriptor_set.start = ~0U;
+    vk.cmd->last_pipeline = VK_NULL_HANDLE;
+    vk.cmd->depth_range = DEPTH_RANGE_COUNT;
 }
 
 void vk_begin_frame( void )
@@ -1447,9 +1904,29 @@ void vk_end_frame( void )
                 vk.renderScaleX = vk.renderScaleY = 1.0;
 
                 vk_begin_render_pass( vk.render_pass.gamma, vk.framebuffers.gamma[vk.cmd->swapchain_image_index], qfalse, vk.renderWidth, vk.renderHeight );
-                qvkCmdBindPipeline( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.gamma_pipeline );
-                //qvkCmdBindDescriptorSets( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.pipeline_layout_post_process, 0, 1, &vk.dglow_image_descriptor[0], 0, NULL );
-                qvkCmdBindDescriptorSets( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.pipeline_layout_post_process, 0, 1, &vk.color_descriptor, 0, NULL );
+
+                // r_showGBuffer replaces the scene with a full-screen view of one gbuffer
+                // attachment. Same render pass, framebuffer and layout as the gamma blit -
+                // only the pipeline and the source image change. Falls through to the normal
+                // blit whenever the requested mode has no pipeline (depth without a
+                // sampleable format, velocity without r_velocityBuffer).
+                VkPipeline      postPipeline = vk.gamma_pipeline;
+                VkDescriptorSet postSource   = vk.color_descriptor;
+
+                if ( vk.gbufferActive && r_showGBuffer->integer > 0 && r_showGBuffer->integer <= 5 ) {
+                    const int mode = r_showGBuffer->integer - 1;
+
+                    if ( vk.gbuffer_debug_pipeline[mode] != VK_NULL_HANDLE ) {
+                        postPipeline = vk.gbuffer_debug_pipeline[mode];
+                        postSource   = ( mode == 0 ) ? vk.gbuffer_depth_descriptor
+                                     : ( mode == 1 ) ? vk.gbuffer_normal_descriptor
+                                     : ( mode == 2 ) ? vk.gbuffer_velocity_descriptor
+                                                     : vk.ssao_descriptor; // modes 4 and 5 share it
+                    }
+                }
+
+                qvkCmdBindPipeline( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, postPipeline );
+                qvkCmdBindDescriptorSets( vk.cmd->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.pipeline_layout_post_process, 0, 1, &postSource, 0, NULL );
 
                 qvkCmdDraw( vk.cmd->command_buffer, 4, 1, 0, 0 );
             }

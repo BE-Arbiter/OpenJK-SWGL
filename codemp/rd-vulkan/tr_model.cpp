@@ -1198,6 +1198,7 @@ void R_ModelInit( void )
 
 	// leave a space for NULL model
 	tr.numModels = 0;
+	tr.modelEpoch++;
 
 	CModelCache->DeleteAll();
 
@@ -1210,6 +1211,7 @@ void RE_HunkClearCrap( void )
 { //get your dirty sticky assets off me, you damn dirty hunk!
 	KillTheShaderHashTable();
 	tr.numModels = 0;
+	tr.modelEpoch++;
 	CModelCache->DeleteAll();
 	tr.numShaders = 0;
 	tr.numSkins = 0;

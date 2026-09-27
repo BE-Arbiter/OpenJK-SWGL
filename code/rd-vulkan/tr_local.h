@@ -802,6 +802,7 @@ typedef struct trRefdef_s {
 	int					time;						// time in milliseconds for shader effects and other time dependent rendering issues
 	int					frametime;
 	int					rdflags;					// RDF_NOWORLDMODEL, etc
+	qboolean			doLAGoggles;				// SP light amp goggles, set by RE_LAGoggles, cleared by RE_ClearScene
 
 	// 1 bits will prevent the associated area from rendering at all
 	byte				areamask[MAX_MAP_AREA_BYTES];
@@ -1660,6 +1661,7 @@ typedef struct trGlobals_s {
 
 	int						visCount;			// incremented every time a new vis cluster is entered
 	int						frameCount;			// incremented every frame
+	int						modelEpoch;			// incremented by R_ModelInit; invalidates resolved ghoul2 model pointers
 	int						sceneCount;			// incremented every scene
 	int						viewCount;			// incremented every view (twice a scene if portaled)
 												// and every R_MarkFragments call
@@ -2019,6 +2021,20 @@ extern cvar_t	*r_bloom_threshold;
 extern cvar_t	*r_bloom_intensity;
 extern cvar_t	*r_bloom_threshold_mode;
 extern cvar_t	*r_bloom_modulate;
+extern cvar_t	*r_depthPrepass;
+extern cvar_t	*r_velocityBuffer;
+extern cvar_t	*r_showGBuffer;
+extern cvar_t	*r_distortionStyle;
+extern cvar_t	*r_ssao;
+extern cvar_t	*r_ssaoRadius;
+extern cvar_t	*r_ssaoIntensity;
+extern cvar_t	*r_ssaoSlices;
+extern cvar_t	*r_ssaoSteps;
+extern cvar_t	*r_contactShadows;
+extern cvar_t	*r_contactShadowLength;
+extern cvar_t	*r_contactShadowThickness;
+extern cvar_t	*r_contactShadowSteps;
+extern cvar_t	*r_contactShadowIntensity;
 extern cvar_t	*r_renderWidth;
 extern cvar_t	*r_renderHeight;
 extern cvar_t	*r_renderScale;
@@ -2282,6 +2298,14 @@ void R_DlightBmodel( bmodel_t *bmodel, bool NoLight );
 void R_SetupEntityLighting( const trRefdef_t *refdef, trRefEntity_t *ent );
 void R_TransformDlights( int count, dlight_t *dl, orientationr_t *ori );
 int	R_LightForPoint( vec3_t point, vec3_t ambientLight, vec3_t directedLight, vec3_t lightDir );
+qboolean RE_GetLighting( const vec3_t origin, vec3_t ambientLight, vec3_t directedLight, vec3_t lightDir );
+void RE_LAGoggles( void );
+byte *RE_TempRawImage_ReadFromFile( const char *psLocalFilename, int *piWidth, int *piHeight, byte *pbReSampleBuffer, qboolean qbVertFlip );
+void RE_TempRawImage_CleanUp( void );
+extern float tr_distortionAlpha;
+extern float tr_distortionStretch;
+extern qboolean tr_distortionPrePost;
+extern qboolean tr_distortionNegate;
 
 /*
 ============================================================
@@ -2491,6 +2515,7 @@ RENDERER BACK END FUNCTIONS
 =============================================================
 */
 void RB_ExecuteRenderCommands( const void *data );
+qboolean R_DistortionScreenCrop( const trRefEntity_t *ent, vec4_t crop );
 
 /*
 =============================================================

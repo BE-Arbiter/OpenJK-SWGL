@@ -205,7 +205,21 @@ cvar_t	*r_bloom;
 cvar_t	*r_bloom_threshold;
 cvar_t	*r_bloom_intensity;
 cvar_t	*r_bloom_threshold_mode;
-cvar_t	*r_bloom_modulate; 
+cvar_t	*r_bloom_modulate;
+cvar_t	*r_depthPrepass;
+cvar_t	*r_velocityBuffer;
+cvar_t	*r_showGBuffer;
+cvar_t	*r_distortionStyle;
+cvar_t	*r_ssao;
+cvar_t	*r_ssaoRadius;
+cvar_t	*r_ssaoIntensity;
+cvar_t	*r_ssaoSlices;
+cvar_t	*r_ssaoSteps;
+cvar_t	*r_contactShadows;
+cvar_t	*r_contactShadowLength;
+cvar_t	*r_contactShadowThickness;
+cvar_t	*r_contactShadowSteps;
+cvar_t	*r_contactShadowIntensity;
 cvar_t	*r_renderWidth;
 cvar_t	*r_renderHeight;
 cvar_t	*r_renderScale;
@@ -877,7 +891,8 @@ void R_Register( void )
 	r_ext_alpha_to_coverage				= Cvar_Get("r_ext_alpha_to_coverage",			"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
 	ri.Cvar_CheckRange(r_ext_alpha_to_coverage, 0, 1, qtrue);
 	r_fbo								= Cvar_Get("r_fbo",								"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
-	r_hdr								= Cvar_Get("r_hdr",								"1",						CVAR_ARCHIVE | CVAR_LATCH, "");
+	r_hdr								= Cvar_Get("r_hdr",								"1",						CVAR_ARCHIVE | CVAR_LATCH, "Colour buffer format: 0 = 8-bit, 1 = 16-bit precision. Both clamp at white; a float target would break the destination-reading blend modes this renderer uses - see get_hdr_format()");
+	ri.Cvar_CheckRange(r_hdr, -1, 1, qtrue);
 	r_mapGreyScale						= Cvar_Get("r_mapGreyScale",						"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
 	ri.Cvar_CheckRange(r_mapGreyScale, -1, 1, qfalse);
 	r_ext_max_anisotropy				= Cvar_Get("r_ext_max_anisotropy",				"2",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
@@ -896,6 +911,34 @@ void R_Register( void )
 	r_bloom_intensity					= Cvar_Get("r_bloom_intensity",					"0.15",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Final bloom blend factor, default is 0.15");
 	ri.Cvar_CheckRange(r_bloom_intensity, 0.01f, 2, qfalse);
 	r_bloom_modulate					= Cvar_Get("r_bloom_modulate",					"0",						CVAR_ARCHIVE_ND, "Modulate extracted color:\n 0: off (color = color, i.e. no changes)\n 1: by itself (color = color * color)\n 2: by intensity (color = color * luma(color))");
+	r_depthPrepass						= Cvar_Get("r_depthPrepass",						"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Render a depth+normal G-buffer extraction pass ahead of the main pass, for use by later screen-space techniques\nRequires " S_COLOR_CYAN "\\r_fbo 1");
+	ri.Cvar_CheckRange(r_depthPrepass, 0, 1, qtrue);
+	r_velocityBuffer					= Cvar_Get("r_velocityBuffer",					"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Add a per-pixel screen-space motion vector attachment to the G-buffer extraction pass\nRequires " S_COLOR_CYAN "\\r_depthPrepass 1");
+	ri.Cvar_CheckRange(r_velocityBuffer, 0, 1, qtrue);
+	r_showGBuffer						= Cvar_Get("r_showGBuffer",						"0",						CVAR_CHEAT, "Show the G-buffer extraction pass full-screen instead of the scene: 1 = depth, 2 = normal, 3 = motion vectors, 4 = ambient occlusion, 5 = contact shadows. Requires r_depthPrepass 1");
+	ri.Cvar_CheckRange(r_showGBuffer, 0, 5, qtrue);
+	r_distortionStyle					= Cvar_Get("r_distortionStyle",					"1",						CVAR_ARCHIVE_ND, "How RF_DISTORTION effects are drawn (force push/pull): 0 = per-pixel refraction, 1 = SP's screen-region capture");
+	ri.Cvar_CheckRange(r_distortionStyle, 0, 1, qtrue);
+	r_ssao								= Cvar_Get("r_ssao",							"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Screen-space ambient occlusion over the G-buffer: 0 = off, 1 = hemisphere SSAO (cheaper, blunter), 2 = GTAO (horizon search, cosine-weighted). Requires r_depthPrepass 1");
+	ri.Cvar_CheckRange(r_ssao, 0, 2, qtrue);
+	r_ssaoRadius						= Cvar_Get("r_ssaoRadius",					"48",						CVAR_ARCHIVE_ND, "Ambient occlusion sampling radius, in world units");
+	ri.Cvar_CheckRange(r_ssaoRadius, 1, 512, qfalse);
+	r_ssaoIntensity						= Cvar_Get("r_ssaoIntensity",				"1.0",						CVAR_ARCHIVE_ND, "Ambient occlusion power curve; higher darkens");
+	ri.Cvar_CheckRange(r_ssaoIntensity, 0.1, 8, qfalse);
+	r_ssaoSlices						= Cvar_Get("r_ssaoSlices",					"3",						CVAR_ARCHIVE_ND, "r_ssao 2: direction slices per pixel. With r_ssao 1, slices x steps is the sample count");
+	ri.Cvar_CheckRange(r_ssaoSlices, 1, 8, qtrue);
+	r_ssaoSteps							= Cvar_Get("r_ssaoSteps",					"6",						CVAR_ARCHIVE_ND, "r_ssao 2: horizon search steps per slice. With r_ssao 1, slices x steps is the sample count");
+	ri.Cvar_CheckRange(r_ssaoSteps, 1, 16, qtrue);
+	r_contactShadows					= Cvar_Get("r_contactShadows",				"0",						CVAR_ARCHIVE_ND, "Screen-space contact shadows from the map sun. Shares the GTAO pass, so it requires r_ssao 2");
+	ri.Cvar_CheckRange(r_contactShadows, 0, 1, qtrue);
+	r_contactShadowLength				= Cvar_Get("r_contactShadowLength",			"8",						CVAR_ARCHIVE_ND, "Contact shadow ray length, in world units");
+	ri.Cvar_CheckRange(r_contactShadowLength, 1, 512, qfalse);
+	r_contactShadowThickness			= Cvar_Get("r_contactShadowThickness",		"16",						CVAR_ARCHIVE_ND, "How deep behind a surface a contact shadow hit still counts, in world units");
+	ri.Cvar_CheckRange(r_contactShadowThickness, 1, 256, qfalse);
+	r_contactShadowSteps				= Cvar_Get("r_contactShadowSteps",			"16",						CVAR_ARCHIVE_ND, "Contact shadow ray march steps");
+	ri.Cvar_CheckRange(r_contactShadowSteps, 2, 32, qtrue);
+	r_contactShadowIntensity			= Cvar_Get("r_contactShadowIntensity",		"0.6",						CVAR_ARCHIVE_ND, "How much of a pixel a full contact shadow may take away; 1 would black it out entirely");
+	ri.Cvar_CheckRange(r_contactShadowIntensity, 0, 1, qfalse);
 #ifdef USE_PMLIGHT
 	r_dlightMode						= Cvar_Get("r_dlightMode",						"2",						CVAR_ARCHIVE, "");
 	ri.Cvar_CheckRange(r_dlightMode, 0, 2, qtrue);
@@ -1194,15 +1237,11 @@ extern qboolean gG2_GBMUseSPMethod;
 static void G2API_BoltMatrixReconstruction( qboolean reconstruct ) { gG2_GBMNoReconstruct = (qboolean)!reconstruct; }
 static void G2API_BoltMatrixSPMethod( qboolean spMethod ) { gG2_GBMUseSPMethod = spMethod; }
 
-//extern float tr_distortionAlpha; //opaque
-//extern float tr_distortionStretch; //no stretch override
-//extern qboolean tr_distortionPrePost; //capture before postrender phase?
-//extern qboolean tr_distortionNegate; //negative blend mode
 static void SetRefractionProperties( float distortionAlpha, float distortionStretch, qboolean distortionPrePost, qboolean distortionNegate ) {
-	//tr_distortionAlpha = distortionAlpha;
-	//tr_distortionStretch = distortionStretch;
-	//tr_distortionPrePost = distortionPrePost;
-	//tr_distortionNegate = distortionNegate;
+	tr_distortionAlpha = distortionAlpha;
+	tr_distortionStretch = distortionStretch;
+	tr_distortionPrePost = distortionPrePost;
+	tr_distortionNegate = distortionNegate;
 }
 
 static float GetDistanceCull( void ) { return tr.distanceCull; }
@@ -1255,20 +1294,14 @@ void C_LevelLoadEnd( void )
 // signature differs from what SP's refexport_t expects, and minimal
 // no-op stubs (matching the pattern already used by code/rd-rend2's own
 // GetRefAPI, see code/rd-rend2/tr_init.cpp) for SP-only concepts this
-// renderer has never implemented (save-game screenshots, screen-wipe
-// dissolve transitions, etc). None of these are called by the base game
-// unless a specific feature (e.g. dissolve transitions) is exercised.
+// renderer does not implement. In a JKA build, only the dissolve wipes and
+// the refraction properties have callers; the screenshot and raw image
+// functions are used by JK2_MODE code only.
 // ---------------------------------------------------------------------
 
 // Defined in G2_API.cpp (ported from code/rd-vanilla) -- no header declares
 // it for RENDERER since SP's ghoul2/G2.h only has the MP-named ...Rag variant.
 extern void G2API_AnimateG2Models(CGhoul2Info_v &ghoul2, int AcurrentTime, CRagDollUpdateParams *params);
-
-// R_GetWindVector/R_GetWindGusting/R_IsShaking (tr_WorldEffects.cpp) take
-// fewer params than SP's refexport_t signature -- thin adapters.
-static bool RE_GetWindVector( vec3_t windVector, vec3_t atPoint ) { return R_GetWindVector( windVector ); }
-static bool RE_GetWindGusting( vec3_t atpoint ) { return R_GetWindGusting(); }
-static bool RE_IsShaking( vec3_t pos ) { return R_IsShaking(); }
 
 // SP's refexport_t wants a 3rd (bAllowScreenDissolve) param that MP's
 // RegisterMedia_LevelLoadBegin doesn't have -- C_LevelLoadBegin (shared,
@@ -1289,16 +1322,16 @@ static unsigned int RE_AnyLanguage_ReadCharFromString2( char **psText, qboolean 
 	return advance2;
 }
 
-// No fog-distortion system implemented in this renderer yet.
-static float stub_tr_distortionAlpha = 1.0f;
-static float stub_tr_distortionStretch = 0.0f;
-static qboolean stub_tr_distortionPrePost = qfalse;
-static qboolean stub_tr_distortionNegate = qfalse;
-static float *stub_get_tr_distortionAlpha( void ) { return &stub_tr_distortionAlpha; }
-static float *stub_get_tr_distortionStretch( void ) { return &stub_tr_distortionStretch; }
-static qboolean *stub_get_tr_distortionPrePost( void ) { return &stub_tr_distortionPrePost; }
-static qboolean *stub_get_tr_distortionNegate( void ) { return &stub_tr_distortionNegate; }
-static bool stub_SetTempGlobalFogColor( vec3_t color ) { return false; }
+// Cloak distortion properties, set by cgame through cgi_R_SetRefractProp.
+// Read by ComputeDistortionPass (vk_shade_geometry.cpp).
+float tr_distortionAlpha = 1.0f;
+float tr_distortionStretch = 0.0f;
+qboolean tr_distortionPrePost = qfalse;
+qboolean tr_distortionNegate = qfalse;
+static float *get_tr_distortionAlpha( void ) { return &tr_distortionAlpha; }
+static float *get_tr_distortionStretch( void ) { return &tr_distortionStretch; }
+static qboolean *get_tr_distortionPrePost( void ) { return &tr_distortionPrePost; }
+static qboolean *get_tr_distortionNegate( void ) { return &tr_distortionNegate; }
 
 static void stub_R_ClearStuffToStopGhoul2CrashingThings( void ) {}
 
@@ -1345,15 +1378,10 @@ static int RE_GetAnimationCFG( const char *psCFGFilename, char *psDest, int iDes
 
 	return 0;
 }
-static void stub_R_LoadImage( const char *name, byte **pic, int *width, int *height ) { *pic = NULL; *width = 0; *height = 0; }
-static qboolean stub_GetLighting( const vec3_t org, vec3_t ambientLight, vec3_t directedLight, vec3_t lightDir ) { return qfalse; }
-static void stub_LAGoggles( void ) {}
 static void stub_Scissor( float x, float y, float w, float h ) {}
 static qboolean stub_ProcessDissolve( void ) { return qfalse; }
 static qboolean stub_InitDissolve( qboolean bForceCircularExtroWipe ) { return qfalse; }
 static void stub_GetScreenShot( byte *data, int w, int h ) {}
-static byte *stub_TempRawImage_ReadFromFile( const char *psLocalFilename, int *piWidth, int *piHeight, byte *pbReSampleBuffer, qboolean qbVertFlip ) { return NULL; }
-static void stub_TempRawImage_CleanUp( void ) {}
 static void stub_GetModelBounds( refEntity_t *refEnt, vec3_t bounds1, vec3_t bounds2 ) { VectorClear(bounds1); VectorClear(bounds2); }
 
 #ifdef G2_PERFORMANCE_ANALYSIS
@@ -1400,14 +1428,14 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.RegisterShader						= RE_RegisterShader;
 	re.RegisterShaderNoMip					= RE_RegisterShaderNoMip;
 	re.LoadWorld							= RE_LoadWorldMap;
-	re.R_LoadImage							= stub_R_LoadImage;
+	re.R_LoadImage							= R_LoadImage;
 	re.SetWorldVisData						= RE_SetWorldVisData;
 	re.EndRegistration						= RE_EndRegistration;
 
 	re.ClearScene							= RE_ClearScene;
 	re.AddRefEntityToScene					= RE_AddRefEntityToScene;
-	re.GetLighting							= stub_GetLighting;
-	re.LAGoggles							= stub_LAGoggles;
+	re.GetLighting							= RE_GetLighting;
+	re.LAGoggles							= RE_LAGoggles;
 	re.AddPolyToScene						= RE_AddPolyToScene;
 	re.AddLightToScene						= RE_AddLightToScene;
 	re.RenderScene							= RE_RenderScene;
@@ -1426,8 +1454,8 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.InitDissolve							= stub_InitDissolve;
 	re.GetScreenShot						= stub_GetScreenShot;
 
-	re.TempRawImage_ReadFromFile			= stub_TempRawImage_ReadFromFile;
-	re.TempRawImage_CleanUp					= stub_TempRawImage_CleanUp;
+	re.TempRawImage_ReadFromFile			= RE_TempRawImage_ReadFromFile;
+	re.TempRawImage_CleanUp					= RE_TempRawImage_CleanUp;
 
 	re.MarkFragments						= R_MarkFragments;
 	re.GetModelBounds						= stub_GetModelBounds;
@@ -1449,11 +1477,11 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.SetLightStyle						= RE_SetLightStyle;
 	re.GetBModelVerts						= RE_GetBModelVerts;
 
-	re.tr_distortionAlpha					= stub_get_tr_distortionAlpha;
-	re.tr_distortionStretch					= stub_get_tr_distortionStretch;
-	re.tr_distortionPrePost					= stub_get_tr_distortionPrePost;
-	re.tr_distortionNegate					= stub_get_tr_distortionNegate;
-	re.SetTempGlobalFogColor				= stub_SetTempGlobalFogColor;
+	re.tr_distortionAlpha					= get_tr_distortionAlpha;
+	re.tr_distortionStretch					= get_tr_distortionStretch;
+	re.tr_distortionPrePost					= get_tr_distortionPrePost;
+	re.tr_distortionNegate					= get_tr_distortionNegate;
+	re.SetTempGlobalFogColor				= R_SetTempGlobalFogColor;
 
 	re.SetRangedFog							= SetRangedFog;
 
@@ -1537,9 +1565,9 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	// this list must stay in sync with code/rd-common/tr_public.h.
 	re.AddWeatherZone						= RE_AddWeatherZone;
 	re.WorldEffectCommand					= RE_WorldEffectCommand;
-	re.GetWindVector						= RE_GetWindVector;
-	re.GetWindGusting						= RE_GetWindGusting;
-	re.IsShaking							= RE_IsShaking;
+	re.GetWindVector						= R_GetWindVector;
+	re.GetWindGusting						= R_GetWindGusting;
+	re.IsShaking							= R_IsShaking;
 	re.IsOutside							= R_IsOutside;
 	re.IsOutsideCausingPain					= R_IsOutsideCausingPain;
 	re.GetChanceOfSaberFizz					= R_GetChanceOfSaberFizz;

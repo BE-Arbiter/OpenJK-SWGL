@@ -2013,8 +2013,103 @@ extern void CG_BuildSolidList( void );
 extern void CG_ClearHealthBarEnts( void );
 extern vec3_t	serverViewOrg;
 static qboolean cg_rangedFogging = qfalse; //so we know if we should go back to normal fog
+
+/*
+=================
+cg_speeds
+
+The engine's com_speeds stops at "cl", which lumps every cgame phase into one number, so
+a frame dominated by the client says nothing about which part of the client. These split
+the phases of CG_DrawActiveFrame that can actually cost anything.
+
+Timed with __rdtsc(), summed over a second and printed as a share of the phases measured -
+a ratio needs no knowledge of the clock rate. "draw" also covers the renderer's own
+frontend, since CG_DrawActive() is what calls it; com_speeds reports that part as "rf".
+=================
+*/
+#include "../qcommon/timing.h"
+
+static timing_c	cgs_timer, cgs_spanTimer;
+
+// Cycles are useless on their own: rdtsc counts at the CPU's nominal rate, which is not the
+// rate it runs at, so converting to milliseconds by assuming a clock was guesswork. Time the
+// whole reporting interval against cg.time instead and derive the rate from that.
+static unsigned long long	cgs_wallStart;
+static int					cgs_wallStartTime;
+
+// 64-bit: a second of accumulation reaches ~1e9 cycles, and the x100 in the percentages
+// overflows a signed int long before that.
+static int64_t	cgs_ents, cgs_misc, cgs_fx, cgs_local, cgs_draw, cgs_span;
+static int		cgs_frames, cgs_nextPrint;
+
+#define CGS_START()			if ( cg_speeds.integer ) { cgs_timer.Start(); }
+#define CGS_STOP( x )		if ( cg_speeds.integer ) { (x) += cgs_timer.End(); }
+#define CGS_SPAN_START()	if ( cg_speeds.integer ) { cgs_spanTimer.Start(); }
+#define CGS_SPAN_STOP()		if ( cg_speeds.integer ) { cgs_span += cgs_spanTimer.End(); }
+
+static int CG_SpeedsPercent( int64_t part, int64_t whole )
+{
+	if ( whole <= 0 )
+		return 0;
+
+	return (int)( ( part * 100 ) / whole );
+}
+
+static void CG_ReportSpeeds( void )
+{
+	if ( !cg_speeds.integer )
+		return;
+
+	cgs_frames++;
+
+	if ( cg.time < cgs_nextPrint && cg.time + 1000 >= cgs_nextPrint )
+		return;
+
+	// The first interval spans the load frame, which is worth hundreds of Mcy and drowns
+	// everything else in "other". Throw it away rather than print a misleading line.
+	static qboolean cgs_primed = qfalse;
+
+	if ( !cgs_primed )
+	{
+		cgs_primed = qtrue;
+	}
+	else if ( cgs_span > 0 && cgs_frames > 0 )
+	{
+		const int64_t measured = cgs_ents + cgs_misc + cgs_fx + cgs_local + cgs_draw;
+		const int elapsedMs = cg.time - cgs_wallStartTime;
+		const unsigned long long wallCycles = __rdtsc() - cgs_wallStart;
+
+		if ( elapsedMs > 0 && wallCycles > 0 )
+		{
+			// cycles -> ms per frame, self-calibrated against the interval just elapsed
+			const double perFrame = (double)elapsedMs / (double)wallCycles / (double)cgs_frames;
+
+			CG_Printf( "cgame: ents %.2f  fx %.2f  local %.2f  misc %.2f  draw %.2f  other %.2f  = %.2f ms/frame (%i%% of frame)\n",
+				(double)cgs_ents  * perFrame,
+				(double)cgs_fx    * perFrame,
+				(double)cgs_local * perFrame,
+				(double)cgs_misc  * perFrame,
+				(double)cgs_draw  * perFrame,
+				(double)( cgs_span - measured ) * perFrame,
+				(double)cgs_span  * perFrame,
+				CG_SpeedsPercent( cgs_span, (int64_t)wallCycles ) );
+		}
+	}
+
+	cgs_ents = cgs_misc = cgs_fx = cgs_local = cgs_draw = cgs_span = 0;
+	cgs_frames = 0;
+	cgs_nextPrint = cg.time + 1000;
+	cgs_wallStartTime = cg.time;
+	cgs_wallStart = __rdtsc();
+}
+
 void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 	qboolean	inwater = qfalse;
+
+	// The whole function, so "other" accounts for the phases before the render lists are
+	// built - CG_BuildSolidList and CG_ProcessSnapshots both walk the entities. Frames that
+	// take an early return never reach the stop and simply contribute nothing.
+	CGS_SPAN_START();
 
 	cg.time = serverTime;
 
@@ -2178,9 +2273,14 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 
 	// build the render lists
 	if ( !cg.hyperspace ) {
+		CGS_START();
 		CG_AddPacketEntities(qfalse);			// adter calcViewValues, so predicted player state is correct
+		CGS_STOP( cgs_ents );
+
+		CGS_START();
 		CG_AddMarks();
 		CG_DrawMiscEnts();
+		CGS_STOP( cgs_misc );
 	}
 
 	//check for opaque water
@@ -2241,7 +2341,9 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 	if ( !cg.hyperspace && fx_freeze.integer<2 )
 	{
 		//Add all effects
+		CGS_START();
 		theFxScheduler.AddScheduledEffects( false );
+		CGS_STOP( cgs_fx );
 	}
 
 	// finish up the rest of the refdef
@@ -2250,7 +2352,9 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 	}
 
 	if ( !cg.hyperspace ) {
+		CGS_START();
 		CG_AddLocalEntities();
+		CGS_STOP( cgs_local );
 	}
 
 	memcpy( cg.refdef.areamask, cg.snap->areamask, sizeof( cg.refdef.areamask ) );
@@ -2293,8 +2397,13 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 		cg.levelShot = qfalse;
 	} 	else {
 		// actually issue the rendering calls
+		CGS_START();
 		CG_DrawActive( stereoView );
+		CGS_STOP( cgs_draw );
 	}
+
+	CGS_SPAN_STOP();
+	CG_ReportSpeeds();
 	/*
 	if ( in_camera && !cg_skippingcin.integer )
 	{
