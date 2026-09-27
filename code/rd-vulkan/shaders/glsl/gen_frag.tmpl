@@ -220,6 +220,7 @@ layout (constant_id = 11) const int acff = 0; // NONE, RGB, RGBA, ALPHA
 	layout (set = 6, binding = 0) uniform sampler2D normal_texture;
 	layout (set = 7, binding = 0) uniform sampler2D physical_texture;
 	layout (set = 8, binding = 0) uniform samplerCube env_texture;
+	layout (set = 9, binding = 0) uniform sampler2D deluxe_texture;
 
 	#include "pbr.glsl"
 #endif
@@ -670,6 +671,14 @@ void main() {
 		ambientColor = u_ambientLight.rgb;
 	#endif
 		L = normalize( var_LightDir.xyz );
+	#if defined(USE_LIGHTMAP)
+		if ( deluxe_mapping > 0 ) {
+			// the deluxe map holds the world light direction as 0.5 + 0.5 * dir
+			vec3 dir = texture( deluxe_texture, frag_tex_coord1 ).rgb - vec3( 0.5 );
+			if ( dot( dir, dir ) > 1e-4 )
+				L = normalize( dir );
+		}
+	#endif
 		base.rgb = CalcPBR( albedo, lightColor, ambientColor, L, frag_tex_coord0 );
 	}
 #elif !defined(USE_CLX_IDENT) && defined(USE_VBO_MODEL)

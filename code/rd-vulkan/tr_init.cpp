@@ -132,6 +132,8 @@ cvar_t	*r_normalMapping;
 cvar_t	*r_specularMapping;
 #ifdef VK_CUBEMAP
 cvar_t	*r_cubeMapping;
+cvar_t	*r_deluxeMapping;
+cvar_t	*r_deluxeSpecular;
 #endif
 #endif
 
@@ -841,6 +843,8 @@ void R_Register( void )
 	r_normalMapping = Cvar_Get( "r_normalMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "PBR shading of the lit stages with their normal maps" );
 	r_specularMapping = Cvar_Get( "r_specularMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "PBR shading of the lit stages with their specular / physical maps" );
 #ifdef VK_CUBEMAP
+	r_deluxeMapping = Cvar_Get( "r_deluxeMapping", "1", CVAR_ARCHIVE_ND | CVAR_LATCH, "Light direction of the PBR lightmap stages from the deluxe maps of maps compiled with q3map2 -deluxe" );
+	r_deluxeSpecular = Cvar_Get( "r_deluxeSpecular", "1", CVAR_ARCHIVE_ND | CVAR_LATCH, "Scale of the specular light of the stages with a deluxe map" );
 	r_cubeMapping = Cvar_Get( "r_cubeMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "Reflections of the PBR stages from the cubemaps of the map probes" );
 #endif
 #endif

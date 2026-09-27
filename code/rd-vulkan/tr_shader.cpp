@@ -1255,6 +1255,9 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 				else
 				{
 					stage->bundle[0].image[0] = tr.lightmaps[shader.lightmapIndex[0]];
+#ifdef USE_VK_PBR
+					stage->bundle[0].deluxeMap = tr.deluxemaps ? tr.deluxemaps[shader.lightmapIndex[0]] : NULL;
+#endif
 				}
 				continue;
 			}
@@ -4227,6 +4230,9 @@ shader_t *FinishShader( void )
 				}
 				else {
 					pStage->bundle[0].image[0] = tr.lightmaps[shader.lightmapIndex[i+1]];
+#ifdef USE_VK_PBR
+					pStage->bundle[0].deluxeMap = tr.deluxemaps ? tr.deluxemaps[shader.lightmapIndex[i+1]] : NULL;
+#endif
 					pStage->bundle[0].tcGen = (texCoordGen_t)( TCGEN_LIGHTMAP + i + 1 );
 				}
 
@@ -5195,6 +5201,9 @@ void R_CreateDefaultShadingCmds( image_t *image )
 	{
 		// two pass lightmap
 		stages[0].bundle[0].image[0] = tr.lightmaps[shader.lightmapIndex[0]];
+#ifdef USE_VK_PBR
+		stages[0].bundle[0].deluxeMap = tr.deluxemaps ? tr.deluxemaps[shader.lightmapIndex[0]] : NULL;
+#endif
 		stages[0].bundle[0].isLightmap = qtrue;
 		stages[0].active = qtrue;
 		stages[0].bundle[0].rgbGen = CGEN_IDENTITY;	// lightmaps are scaled on creation for identitylight

@@ -682,6 +682,9 @@ struct SurfaceSpriteBlock
 
 typedef struct textureBundle_s {
 	image_t			*image[MAX_IMAGE_ANIMATIONS];
+#ifdef USE_VK_PBR
+	image_t			*deluxeMap;			// light directions of a lightmap bundle, or NULL
+#endif
 
 	texCoordGen_t	tcGen;
 	vec3_t			*tcGenVectors;
@@ -1914,6 +1917,10 @@ typedef struct trGlobals_s {
 
 	int						numLightmaps;
 	image_t					**lightmaps;
+#ifdef USE_VK_PBR
+	image_t					**deluxemaps;			// NULL when the map has none or r_deluxeMapping is 0
+	qboolean				worldDeluxeMapping;		// each lightmap is followed by its deluxe map
+#endif
 
 	int						lightmapAtlasSize[2];
 	int						lightmapsPerAtlasSide[2];
@@ -2163,6 +2170,8 @@ extern cvar_t	*r_specularMapping;
 #endif
 #ifdef VK_CUBEMAP
 extern cvar_t	*r_cubeMapping;
+extern cvar_t	*r_deluxeMapping;
+extern cvar_t	*r_deluxeSpecular;
 #endif
 
 extern	cvar_t	*r_nobind;				// turns off binding to appropriate textures

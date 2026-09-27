@@ -177,6 +177,54 @@ R_LoadLightmaps
 #define	DEFAULT_LIGHTMAP_SIZE	128
 #define MAX_LIGHTMAP_PAGES 2
 
+#ifdef USE_VK_PBR
+/*
+Loads the deluxe map after lightmap i: from the lump, or from the next lm_*.tga file.
+The directions are not color shifted.
+*/
+static void R_LoadDeluxemap( const byte *buf, int i, int xoff, int yoff, int lightmapSize, const world_t &worldData )
+{
+	byte	*externalLightmap = NULL;
+	const byte *buf_p;
+	int		width = lightmapSize, height = lightmapSize;
+	int		numComponents = 3;
+	byte	*image;
+	int		j;
+
+	if ( buf )
+	{
+		buf_p = buf + ( i * 2 + 1 ) * lightmapSize * lightmapSize * 3;
+	}
+	else
+	{
+		R_LoadImage( va( "maps/%s/lm_%04d.tga", worldData.baseName, i * 2 + 1 ), &externalLightmap, &width, &height );
+		if ( !externalLightmap )
+			return;
+		buf_p = externalLightmap;
+		numComponents = 4;
+	}
+
+	image = (byte *)Z_Malloc( width * height * 4, TAG_BSP, qfalse );
+
+	for ( j = 0; j < width * height; j++ )
+	{
+		image[j * 4 + 0] = buf_p[j * numComponents + 0];
+		image[j * 4 + 1] = buf_p[j * numComponents + 1];
+		image[j * 4 + 2] = buf_p[j * numComponents + 2];
+		image[j * 4 + 3] = 255;
+	}
+
+	if ( tr.worldInternalLightmapping )
+		vk_upload_image_data( tr.deluxemaps[0], xoff, yoff, width, height, 1, image, width * height * 4, qtrue );
+	else
+		tr.deluxemaps[i] = R_CreateImage( va( "*deluxemap%d", i ), image, width, height, lightmapFlags );
+
+	Z_Free( image );
+	if ( externalLightmap )
+		Z_Free( externalLightmap );
+}
+#endif
+
 static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 	byte		*buf, *buf_p;
 	dsurface_t  *surf;
@@ -189,6 +237,10 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 
 	const int lightmapSize = DEFAULT_LIGHTMAP_SIZE;
 	tr.worldInternalLightmapping = qfalse;
+#ifdef USE_VK_PBR
+	tr.worldDeluxeMapping = qfalse;
+	tr.deluxemaps = NULL;
+#endif
 
 	len = l->filelen;
 	// test for external lightmaps
@@ -212,6 +264,33 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 
 	if ( numLightmaps == 0 )
 		return;
+
+#ifdef USE_VK_PBR
+	// q3map2 -deluxe puts a deluxe map after each lightmap: no surface uses an odd lightmap.
+	if ( numLightmaps > 1 )
+	{
+		tr.worldDeluxeMapping = qtrue;
+		for ( i = 0, surf = (dsurface_t *)(fileBase + surfs->fileofs);
+			tr.worldDeluxeMapping && i < surfs->filelen / sizeof(dsurface_t);
+			i++, surf++ )
+		{
+			for ( j = 0; j < MAXLIGHTMAPS; j++ )
+			{
+				const int lightmapNum = LittleLong( surf->lightmapNum[j] );
+
+				if ( lightmapNum >= 0 && ( lightmapNum & 1 ) ) {
+					tr.worldDeluxeMapping = qfalse;
+					break;
+				}
+			}
+		}
+		if ( tr.worldDeluxeMapping && !len )
+			numLightmaps++;
+	}
+
+	if ( tr.worldDeluxeMapping )
+		numLightmaps >>= 1;
+#endif
 
 	// we are about to upload textures
 	//R_IssuePendingRenderCommands();
@@ -243,6 +322,11 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 
 	tr.lightmaps = (image_t **)Hunk_Alloc( tr.numLightmaps * sizeof(image_t *), h_low );
 
+#ifdef USE_VK_PBR
+	if ( tr.worldDeluxeMapping && r_deluxeMapping->integer )
+		tr.deluxemaps = (image_t **)Hunk_Alloc( tr.numLightmaps * sizeof(image_t *), h_low );
+#endif
+
 	if ( tr.worldInternalLightmapping )
 	{
 		for ( i = 0; i < tr.numLightmaps; i++ )
@@ -254,8 +338,24 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 				tr.lightmapAtlasSize[1],
 				lightmapFlags
 				);
+#ifdef USE_VK_PBR
+			if ( tr.deluxemaps )
+				tr.deluxemaps[i] = R_CreateImage(
+					va("_deluxeatlas%d", i),
+					NULL,
+					tr.lightmapAtlasSize[0],
+					tr.lightmapAtlasSize[1],
+					lightmapFlags
+					);
+#endif
 		}
 	}
+
+#ifdef USE_VK_PBR
+	const int lightmapStep = tr.worldDeluxeMapping ? 2 : 1;
+#else
+	const int lightmapStep = 1;
+#endif
 
 	for ( i = 0; i < numLightmaps; i++ )
 	{
@@ -281,7 +381,7 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 			
 			if (!tr.worldInternalLightmapping)
 			{
-				Com_sprintf(filename, sizeof(filename), "maps/%s/lm_%04d.tga", worldData.baseName, i );
+				Com_sprintf(filename, sizeof(filename), "maps/%s/lm_%04d.tga", worldData.baseName, i * lightmapStep );
 
 				R_LoadImage(filename, &externalLightmap, &lightmapWidth, &lightmapHeight);
 			}
@@ -318,7 +418,7 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 			}
 			else if ( buf )
 			{
-				buf_p = buf + i * lightmapSize * lightmapSize * 3;
+				buf_p = buf + i * lightmapStep * lightmapSize * lightmapSize * 3;
 			}
 			else
 			{
@@ -387,6 +487,11 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 			if ( externalLightmap )
 				Z_Free( externalLightmap );
 		}
+
+#ifdef USE_VK_PBR
+		if ( tr.deluxemaps )
+			R_LoadDeluxemap( buf, i, xoff, yoff, lightmapSize, worldData );
+#endif
 	}
 
 	if ( r_lightmap->integer == 2 )	{
@@ -400,6 +505,11 @@ static float FatPackU( float input, int lightmapnum )
 {
 	if ( lightmapnum < 0 )
 		return input;
+
+#ifdef USE_VK_PBR
+	if ( tr.worldDeluxeMapping )
+		lightmapnum >>= 1;
+#endif
 
 	if ( tr.lightmapAtlasSize[0] > 0 )
 	{
@@ -417,6 +527,11 @@ static float FatPackV( float input, int lightmapnum )
 	if ( lightmapnum < 0 )
 		return input;
 
+#ifdef USE_VK_PBR
+	if ( tr.worldDeluxeMapping )
+		lightmapnum >>= 1;
+#endif
+
 	if ( tr.lightmapAtlasSize[1] > 0 )
 	{
 		const int lightmapYOffset = lightmapnum / tr.lightmapsPerAtlasSide[0];
@@ -433,6 +548,11 @@ static int FatLightmap(int lightmapnum)
 {
 	if (lightmapnum < 0)
 		return lightmapnum;
+
+#ifdef USE_VK_PBR
+	if ( tr.worldDeluxeMapping )
+		lightmapnum >>= 1;
+#endif
 
 	if (tr.lightmapAtlasSize[0] > 0)
 		return 0;

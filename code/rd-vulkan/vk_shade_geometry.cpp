@@ -2733,6 +2733,8 @@ void RB_StageIteratorGeneric( void )
 			if ( vk.pbrActive ) {
 				def.vk_light_flags = vk_draw_light_flags( pStage, &def, is_refraction );
 				def.vk_pbr_flags = def.vk_light_flags ? pStage->vk_pbr_flags : 0;
+				if ( ( def.vk_light_flags & LIGHTDEF_USE_LIGHTMAP ) && pStage->bundle[1].deluxeMap )
+					def.vk_pbr_flags |= PBR_HAS_DELUXEMAP;
 			}
 #endif
 
@@ -2753,6 +2755,8 @@ void RB_StageIteratorGeneric( void )
 			vk_update_descriptor( VK_DESC_PBR_NORMAL, ( pStage->vk_pbr_flags & PBR_HAS_NORMALMAP )
 				? pStage->normalMap->descriptor_set : tr.whiteImage->descriptor_set );
 			vk_update_descriptor( VK_DESC_PBR_PHYSICAL, physical ? pStage->physicalMap->descriptor_set : tr.whiteImage->descriptor_set );
+			vk_update_descriptor( VK_DESC_PBR_DELUXE, ( vk.pipelines[pipeline].def.vk_pbr_flags & PBR_HAS_DELUXEMAP )
+				? pStage->bundle[1].deluxeMap->descriptor_set : tr.whiteImage->descriptor_set );
 #ifdef VK_CUBEMAP
 			// no reflections in the capture itself
 			vk_update_descriptor( VK_DESC_PBR_CUBEMAP, backEnd.viewParms.targetCube

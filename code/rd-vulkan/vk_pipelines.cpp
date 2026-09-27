@@ -167,6 +167,7 @@ void vk_create_pipeline_layout( void )
     set_layouts[VK_DESC_PBR_NORMAL] = vk.set_layout_sampler;
     set_layouts[VK_DESC_PBR_PHYSICAL] = vk.set_layout_sampler;
     set_layouts[VK_DESC_PBR_CUBEMAP] = vk.set_layout_sampler;
+    set_layouts[VK_DESC_PBR_DELUXE] = vk.set_layout_sampler;
 #endif
 
     desc.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -1333,8 +1334,13 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
 #else
     frag_spec_data.env_texture_set = -1;
 #endif
-    frag_spec_data.deluxe_mapping = -1;
-    frag_spec_data.deluxe_specular_scale = 1.0f;
+    if ( def->vk_pbr_flags & PBR_HAS_DELUXEMAP ) {
+        frag_spec_data.deluxe_mapping = 1;
+        frag_spec_data.deluxe_specular_scale = r_deluxeSpecular->value;
+    } else {
+        frag_spec_data.deluxe_mapping = -1;
+        frag_spec_data.deluxe_specular_scale = 1.0f;
+    }
     #define FRAG_SS_ENTRY 17
 #else
     #define FRAG_SS_ENTRY 12

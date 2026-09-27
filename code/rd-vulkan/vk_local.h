@@ -108,7 +108,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define VK_DESC_PBR_NORMAL				6
 #define VK_DESC_PBR_PHYSICAL			7
 #define VK_DESC_PBR_CUBEMAP				8
-#define VK_DESC_COUNT					9
+#define VK_DESC_PBR_DELUXE				9
+#define VK_DESC_COUNT					10
 #else
 #define VK_DESC_COUNT					5
 #endif
