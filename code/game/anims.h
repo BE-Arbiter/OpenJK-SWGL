@@ -1757,6 +1757,7 @@ typedef enum //# animNumber_e
 	TORSO_D_PISTOL,
 	TORSO_D_IDLE,
 	TORSO_Z6_AIM,
+	TORSO_PLX_AIM,
 
 	//======================================================
 	//cinematic anims

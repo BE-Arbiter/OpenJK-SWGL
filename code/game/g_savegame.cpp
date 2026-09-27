@@ -1353,6 +1353,10 @@ void ReadLevel(qboolean qbAutosave, qboolean qbLoadTransition)
 	/////////////
 
 	ReadGEntities(qbAutosave);
+
+	extern void G_RestoreAnimOverrides(void);
+	G_RestoreAnimOverrides();
+
 	Quake3Game()->VariableLoad();
 	G_LoadSave_ReadMiscData();
 
