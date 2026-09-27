@@ -353,6 +353,7 @@ set(SPGameFiles ${SPGameFiles} ${SPGameG2Files})
 
 set(SPGameRendererFiles
 	"${SPDir}/rd-common/mdx_format.h"
+	"${SPDir}/rd-common/mdx_merge.h"
 	"${SPDir}/rd-common/tr_types.h"
 	)
 source_group("renderer" FILES ${SPGameRendererFiles})

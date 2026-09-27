@@ -472,6 +472,8 @@ public:
 	intptr_t		*mTransformedVertsArray;	// used to create an array of pointers to transformed verts per surface for collision detection
 	CBoneCache		*mBoneCache;
 	int				mSkin;
+	// GLA of this instance, in place of the GLA of its model (G2API_SetAnimOverride). Not saved: the game sets it again on load.
+	char			mAnimOverride[MAX_QPATH];
 
 	// these occasionally are not valid (like after a vid_restart)
 	// call the questionably efficient G2_SetupModelPointers(this) to insure validity
@@ -510,6 +512,7 @@ public:
 	aHeader(0)
 	{
 		mFileName[0] = 0;
+		mAnimOverride[0] = 0;
 	}
 
 
