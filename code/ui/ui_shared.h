@@ -86,6 +86,7 @@ typedef struct listBoxDef_s {
 	qboolean	notselectable;
 //JLF MPMOVED
 	qboolean	scrollhidden;
+	float		scrollbarSize;		// "scrollbarsize" keyword; 0 = SCROLLBAR_SIZE
 } listBoxDef_t;
 
 
@@ -327,6 +328,10 @@ typedef struct {
 	vec4_t		borderColor;				// border color
 	vec4_t		outlineColor;				// border color
 	qhandle_t	background;					// background asset
+	char		backgroundName[MAX_QPATH];	// background asset name, kept around for the nine patch size lookup
+	int			backgroundStyle;			// BACKGROUND_NONE or one of the nine patch modes
+	float		backgroundOffset[4];		// nine patch border widths in shader pixels: top right bottom left
+	float		backgroundSize[2];			// shader size in pixels, 0 = not looked up yet, -1 = lookup failed
 } windowDef_t;
 
 typedef windowDef_t Window;
@@ -502,6 +507,7 @@ itemDef_t *Menu_GetMatchingItemByNumber(menuDef_t *menu, int index, const char *
 void		Menu_HandleKey(menuDef_t *menu, int key, qboolean down);
 void		Menu_New(char *buffer);
 void		Menus_OpenByName(const char *p);
+void		UI_RunMenuCommand(const char *command);
 void		Menu_PaintAll(void);
 void		Menu_Reset(void);
 void		PC_EndParseSession(char *buffer);

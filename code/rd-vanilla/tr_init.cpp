@@ -1512,6 +1512,7 @@ static consoleCommand_t	commands[] = {
 	{ "screenshot",			R_ScreenShot_f },
 	{ "screenshot_png",		R_ScreenShotPNG_f },
 	{ "screenshot_tga",		R_ScreenShotTGA_f },
+	{ "r_capturePortrait",	R_CapturePortrait_f },
 	{ "gfxinfo",			GfxInfo_f },
 	{ "r_atihack",			R_AtiHackToggle_f },
 	{ "r_we",				R_WorldEffect_f },

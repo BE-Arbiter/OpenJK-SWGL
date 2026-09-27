@@ -1352,6 +1352,7 @@ qboolean	R_GetModeInfo( int *width, int *height, int mode );
 
 void		R_SetColorMappings( void );
 void		R_GammaCorrect( byte *buffer, int bufSize );
+void		R_CapturePortrait_f( void );
 
 void	R_ImageList_f( void );
 void	R_SkinList_f( void );
