@@ -5999,6 +5999,9 @@ void PM_TorsoAnimation(void)
 			else if (weaponData[weapon].weaponCategory == WC_MINIGUN) {
 				PM_SetAnim(pm, SETANIM_TORSO, TORSO_Z6_AIM, SETANIM_FLAG_NORMAL);
 			}
+			else if (weaponData[weapon].weaponCategory == WC_SHOULDER) {
+				PM_SetAnim(pm, SETANIM_TORSO, TORSO_PLX_AIM, SETANIM_FLAG_NORMAL);
+			}
 			else if (weaponData[weapon].weaponCategory == WC_PISTOL)
 			{
 				if (pm->gent && pm->gent->weaponModel[1] > 0)
@@ -6245,6 +6248,9 @@ void PM_TorsoAnimation(void)
 		}
 		else if (weaponData[weapon].weaponCategory == WC_MINIGUN) {
 			PM_SetAnim(pm, SETANIM_TORSO, TORSO_Z6_AIM, SETANIM_FLAG_NORMAL);
+		}
+		else if (weaponData[weapon].weaponCategory == WC_SHOULDER) {
+			PM_SetAnim(pm, SETANIM_TORSO, TORSO_PLX_AIM, SETANIM_FLAG_NORMAL);
 		}
 		//Pistol Animations
 		else if (weaponData[weapon].weaponCategory == WC_PISTOL)

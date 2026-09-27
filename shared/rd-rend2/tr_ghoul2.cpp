@@ -4280,6 +4280,16 @@ qboolean R_LoadMDXM(model_t *mod, void *buffer, const char *mod_name, qboolean &
 		}
 	}
 
+	// Use the virtual GLA of the animation override of this model, if it has one.
+	const char *overrideGLA = R_GetAnimOverrideGLA(mod_name, mdxm->animName);
+	if (overrideGLA)
+	{
+		const qhandle_t overrideIndex = RE_RegisterModel(overrideGLA);
+		if (overrideIndex)
+		{
+			mdxm->animIndex = overrideIndex;
+		}
+	}
 #endif
 
 	if (!mdxm->animIndex)

@@ -1618,6 +1618,11 @@ static inline qboolean G_RagWantsHumanoidsOnly( CGhoul2Info *ghlInfo )
 	{//only _humanoid skeleton is expected to have these
 		return qtrue;
 	}
+	// Animation override: "models/players/_humanoid_o_<name>/_humanoid" has the _humanoid skeleton.
+	if ( !Q_stricmpn( "models/players/_humanoid_o_", GLAName, 27 ) )
+	{
+		return qtrue;
+	}
 	if (!Q_stricmp("models/players/JK2anims/JK2anims", GLAName))
 	{//only _humanoid skeleton is expected to have these
 		return qtrue;

@@ -11846,6 +11846,7 @@ void PM_CheckKickBehavior(void)
 		(g_kickBehavior->integer == 3 &&
 			(weaponData[pm->ps->weapon].weaponCategory == WC_HEAVY
 				|| weaponData[pm->ps->weapon].weaponCategory == WC_MINIGUN
+				|| weaponData[pm->ps->weapon].weaponCategory == WC_SHOULDER
 				|| weaponData[pm->ps->weapon].weaponCategory == WC_SNIPER)
 			)
 		)
@@ -13973,6 +13974,9 @@ static void PM_Weapon( void )
 		}
 		else if (weaponData[weapon].weaponCategory == WC_MINIGUN) {
 			PM_SetAnim(pm, SETANIM_TORSO, TORSO_Z6_AIM, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
+		}
+		else if (weaponData[weapon].weaponCategory == WC_SHOULDER) {
+			PM_SetAnim(pm, SETANIM_TORSO, TORSO_PLX_AIM, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 		}
 		else if (weaponData[weapon].weaponCategory == WC_PISTOL)
 		{

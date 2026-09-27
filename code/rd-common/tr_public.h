@@ -336,6 +336,7 @@ typedef struct {
 	qboolean	(*G2API_RemoveSurface)(CGhoul2Info *ghlInfo, const int index);
 	void		(*G2API_SaveGhoul2Models)(CGhoul2Info_v &ghoul2);
 	qboolean	(*G2API_SetAnimIndex)(CGhoul2Info *ghlInfo, const int index);
+	qboolean	(*G2API_SetAnimOverride)(CGhoul2Info *ghlInfo, const char *glaName);
 	qboolean	(*G2API_SetBoneAnim)(CGhoul2Info *ghlInfo, const char *boneName, const int startFrame, const int endFrame,
 					const int flags, const float animSpeed, const int AcurrentTime, const float setFrame, const int blendTime);
 	qboolean	(*G2API_SetBoneAnimIndex)(CGhoul2Info *ghlInfo, const int index, const int startFrame, const int endFrame,

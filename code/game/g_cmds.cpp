@@ -1496,6 +1496,34 @@ void Cmd_FlushSpawnerFile_f(gentity_t* ent)
 	gi.FlushSpawnerFile();
 }
 
+/*
+=================
+Cmd_AnimOverride_f
+
+animoverride <name>: forces the animation override <name> on the player.
+animoverride none: removes it. The player uses the override of its model again, if it has one.
+animoverride: shows the animation file set of the player.
+=================
+*/
+extern qboolean G_SetAnimOverride(gentity_t *ent, const char *overrideName);
+void Cmd_AnimOverride_f(gentity_t *ent)
+{
+	if (gi.argc() < 2)
+	{
+		const int fileIndex = ent->client->clientInfo.animFileIndex;
+		const char *fileSet = (fileIndex >= 0 && fileIndex < level.numKnownAnimFileSets) ? level.knownAnimFileSets[fileIndex].filename : "none";
+		gi.SendServerCommand(ent - g_entities, va("print \"Animation file set: %s\nUsage: animoverride <name> | none\n\"", fileSet));
+		return;
+	}
+
+	char overrideName[MAX_QPATH];
+	Q_strncpyz(overrideName, gi.argv(1), sizeof(overrideName));
+	if (!G_SetAnimOverride(ent, Q_stricmp(overrideName, "none") ? overrideName : ""))
+	{
+		gi.SendServerCommand(ent - g_entities, va("print \"animoverride: %s is not used, see the console\n\"", overrideName));
+	}
+}
+
 void G_Taunt( gentity_t *ent )
 {
 	if ( ent->client )
@@ -2256,6 +2284,10 @@ void ClientCommand( int clientNum ) {
 			static_cam->value = 0;
 		}
 	}
+	else if (Q_stricmp(cmd, "animoverride") == 0)
+	{
+		Cmd_AnimOverride_f(ent);
+	}
 	else if (Q_stricmp(cmd, "applycharweapons") == 0)
 	{
 		ent = G_GetSelfForPlayerCmd();
@@ -2455,6 +2487,7 @@ const char* getStringValueForweaponCategory(const weaponCategory_t* wc)
 	case WC_GRENADE:    return "WC_GRENADE";
 	case WC_EXPLOSIVE:  return "WC_EXPLOSIVE";
 	case WC_MINIGUN:    return "WC_MINIGUN";
+	case WC_SHOULDER:   return "WC_SHOULDER";
 	default:            return "WC_UNKNOWN";
 	}
 }
