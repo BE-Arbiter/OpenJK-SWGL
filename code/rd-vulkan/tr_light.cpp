@@ -435,6 +435,37 @@ void R_LightDirForPoint( const vec3_t point, const vec3_t normal, const world_t 
 }
 #endif
 
+#ifdef VK_CUBEMAP
+/*
+=================
+R_CubemapForPoint
+
+1 + index of the nearest probe, 0 for none.
+=================
+*/
+int R_CubemapForPoint( const vec3_t point )
+{
+	float shortest = (float)WORLD_SIZE * (float)WORLD_SIZE;
+	int i, cubemapIndex = -1;
+
+	for ( i = 0; i < tr.numCubemaps; i++ )
+	{
+		vec3_t diff;
+		float length;
+
+		VectorSubtract( point, tr.cubemaps[i].origin, diff );
+		length = DotProduct( diff, diff );
+
+		if ( length < shortest ) {
+			shortest = length;
+			cubemapIndex = i;
+		}
+	}
+
+	return cubemapIndex + 1;
+}
+#endif
+
 int R_LightForPoint( vec3_t point, vec3_t ambientLight, vec3_t directedLight, vec3_t lightDir )
 {
 	trRefEntity_t ent;

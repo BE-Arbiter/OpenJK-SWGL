@@ -2387,6 +2387,178 @@ qboolean R_GetEntityToken( char *buffer, int size ) {
 	}
 }
 
+#ifdef VK_CUBEMAP
+/*
+=================
+R_LoadCubemapEntities
+
+The probes are the entities of one class: the first class of the list that the map has.
+=================
+*/
+static void R_LoadCubemapEntities( const world_t *worldData )
+{
+	static const char *cubemapClasses[] = {
+		"misc_cubemap",
+		"info_player_deathmatch",
+		"info_player_start",
+		"info_player_duel",
+		"info_player_intermission",
+	};
+	cubemap_t probes[MAX_CUBEMAPS];
+	int numProbes[ARRAY_LEN( cubemapClasses )];
+	char classname[MAX_QPATH], name[MAX_QPATH];
+	const char *p, *token;
+	char keyname[MAX_TOKEN_CHARS];
+	vec3_t origin;
+	float radius;
+	qboolean originSet;
+	int i, c;
+
+	tr.numCubemaps = 0;
+	tr.cubemaps = NULL;
+
+	if ( !worldData->entityString )
+		return;
+
+	// the probes of the first class, but the count of every class
+	Com_Memset( numProbes, 0, sizeof( numProbes ) );
+	c = -1;
+
+	COM_BeginParseSession( "R_LoadCubemapEntities" );
+	p = worldData->entityString;
+
+	while ( 1 )
+	{
+		token = COM_ParseExt( &p, qtrue );
+		if ( !*token || *token != '{' )
+			break;
+
+		classname[0] = name[0] = '\0';
+		originSet = qfalse;
+		radius = 1000.0f;
+
+		while ( 1 )
+		{
+			token = COM_ParseExt( &p, qtrue );
+			if ( !*token || *token == '}' )
+				break;
+			Q_strncpyz( keyname, token, sizeof( keyname ) );
+
+			token = COM_ParseExt( &p, qtrue );
+			if ( !*token || *token == '}' )
+				break;
+
+			if ( !Q_stricmp( keyname, "classname" ) )
+				Q_strncpyz( classname, token, sizeof( classname ) );
+			else if ( !Q_stricmp( keyname, "name" ) )
+				Q_strncpyz( name, token, sizeof( name ) );
+			else if ( !Q_stricmp( keyname, "origin" ) )
+				originSet = (qboolean)( sscanf( token, "%f %f %f", &origin[0], &origin[1], &origin[2] ) == 3 );
+			else if ( !Q_stricmp( keyname, "radius" ) )
+				sscanf( token, "%f", &radius );
+		}
+
+		if ( !originSet )
+			continue;
+
+		for ( i = 0; i < (int)ARRAY_LEN( cubemapClasses ); i++ )
+		{
+			if ( Q_stricmp( classname, cubemapClasses[i] ) )
+				continue;
+
+			// a class before the kept one: the probes restart with it
+			if ( c < 0 || i < c ) {
+				c = i;
+				tr.numCubemaps = 0;
+			}
+
+			if ( i == c && tr.numCubemaps < MAX_CUBEMAPS ) {
+				cubemap_t *cubemap = &probes[tr.numCubemaps++];
+				Q_strncpyz( cubemap->name, name, sizeof( cubemap->name ) );
+				VectorCopy( origin, cubemap->origin );
+				cubemap->parallaxRadius = radius;
+			}
+
+			numProbes[i]++;
+			break;
+		}
+	}
+
+	COM_EndParseSession();
+
+	if ( !tr.numCubemaps )
+		return;
+
+	if ( numProbes[c] > MAX_CUBEMAPS )
+		ri.Printf( PRINT_WARNING, "%i %s probes, only %i cubemaps\n", numProbes[c], cubemapClasses[c], MAX_CUBEMAPS );
+
+	tr.cubemaps = (cubemap_t *)Hunk_Alloc( tr.numCubemaps * sizeof( *tr.cubemaps ), h_low );
+	Com_Memcpy( tr.cubemaps, probes, tr.numCubemaps * sizeof( *tr.cubemaps ) );
+	tr.numCubemapsCaptured = 0;
+
+	ri.Printf( PRINT_ALL, "...%i cubemaps (%s)\n", tr.numCubemaps, cubemapClasses[c] );
+}
+
+// The nearest probe of the center of each surface.
+static void R_AssignCubemapsToSurfaces( world_t *worldData )
+{
+	msurface_t *surf;
+	vec3_t center;
+	int i, j;
+
+	for ( i = 0, surf = worldData->surfaces; i < worldData->numsurfaces; i++, surf++ )
+	{
+		surf->cubemapIndex = 0;
+
+		switch ( *surf->data )
+		{
+			case SF_FACE: {
+				const srfSurfaceFace_t *face = (const srfSurfaceFace_t *)surf->data;
+				if ( face->numPoints <= 0 )
+					continue;
+				VectorClear( center );
+				for ( j = 0; j < face->numPoints; j++ )
+					VectorAdd( center, face->points[j], center );
+				VectorScale( center, 1.0f / face->numPoints, center );
+				break;
+			}
+			case SF_GRID: {
+				const srfGridMesh_t *grid = (const srfGridMesh_t *)surf->data;
+				VectorAdd( grid->meshBounds[0], grid->meshBounds[1], center );
+				VectorScale( center, 0.5f, center );
+				break;
+			}
+			case SF_TRIANGLES: {
+				const srfTriangles_t *tri = (const srfTriangles_t *)surf->data;
+				VectorAdd( tri->bounds[0], tri->bounds[1], center );
+				VectorScale( center, 0.5f, center );
+				break;
+			}
+			default:
+				continue;
+		}
+
+		surf->cubemapIndex = R_CubemapForPoint( center );
+	}
+}
+
+// index 0 finds the probes of the map; a sub-BSP uses the probes of the world.
+void R_LoadCubemaps( world_t *worldData, int index )
+{
+	if ( !vk.cubemapActive ) {
+		if ( !index )
+			tr.numCubemaps = 0;
+		return;
+	}
+
+	if ( !index )
+		R_LoadCubemapEntities( worldData );
+
+	if ( tr.numCubemaps )
+		R_AssignCubemapsToSurfaces( worldData );
+}
+#endif
+
 /*
 =================
 RE_LoadWorldMap
@@ -2488,6 +2660,9 @@ void RE_LoadWorldMap_Actual( const char *name, world_t &worldData, int index )
 #ifdef USE_VK_PBR
 	// A sub-BSP has no light grid: it uses the grid of the world.
 	vk_generate_light_directions( worldData, index ? tr.world : &worldData );
+#endif
+#ifdef VK_CUBEMAP
+	R_LoadCubemaps( &worldData, index );
 #endif
 
 #ifdef USE_VBO

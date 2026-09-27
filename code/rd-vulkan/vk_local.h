@@ -510,6 +510,9 @@ typedef enum {
 	RENDER_PASS_DGLOW,
 	RENDER_PASS_REFRACTION,
 	RENDER_PASS_GBUFFER,
+#ifdef VK_CUBEMAP
+	RENDER_PASS_CUBEMAP,
+#endif
 	RENDER_PASS_COUNT
 } renderPass_t;
 
@@ -1487,6 +1490,10 @@ typedef struct {
 #ifdef VK_COMPUTE_NORMALMAP
 		VkShaderModule normalmap;
 #endif
+#ifdef VK_CUBEMAP
+		VkShaderModule filtercube_vs;
+		VkShaderModule prefilterenvmap_fs;
+#endif
 
 		VkShaderModule bloom_fs;
 		VkShaderModule blur_fs;
@@ -1571,6 +1578,42 @@ typedef struct {
 		VkImageView		empty_cube_view;
 		VkDescriptorSet	empty_cube_descriptor;
 	} pbr;
+#endif
+#ifdef VK_CUBEMAP
+	qboolean cubemapActive;	// r_cubeMapping: reflections of the map probes on the PBR stages
+
+	// environment cubemaps, vk_cubemap.cpp
+	struct {
+		// the capture target: the faces of mip 0 are the color attachments, the mips feed the prefilter
+		VkImage			color_image;
+		VkDeviceMemory	color_memory;
+		VkImageView		color_face_view[6];
+		VkImageView		color_cube_view;
+		VkDescriptorSet	color_descriptor;
+		VkImage			depth_image;
+		VkDeviceMemory	depth_memory;
+		VkImageView		depth_view;
+		VkRenderPass	render_pass;
+		VkFramebuffer	framebuffer[6];
+		renderPass_t	resumeRenderPass;	// the pass that the capture interrupts
+
+		// the prefilter: one face of the scratch image at a time, then a copy into the mip of the probe
+		VkImage			scratch_image;
+		VkDeviceMemory	scratch_memory;
+		VkImageView		scratch_face_view[6];
+		VkFramebuffer	scratch_framebuffer[6];
+		VkRenderPass	prefilter_render_pass;
+		VkPipelineLayout prefilter_layout;
+		VkPipeline		prefilter_pipeline;
+
+		// the prefiltered cubemap of each probe, released with the map
+		struct {
+			VkImage			image;
+			VkDeviceMemory	memory;
+			VkImageView		view;
+			VkDescriptorSet	descriptor;
+		} probe[MAX_CUBEMAPS];
+	} cubemap;
 #endif
 qboolean gbufferActive; // depth+normal G-buffer extraction pass (r_depthPrepass)
 	qboolean velocityActive; // motion vector attachment on the gbuffer extraction pass (r_velocityBuffer)
@@ -1764,6 +1807,11 @@ void		vk_end_render_pass( void );
 // resume the pass after a mid-frame detour (e.g. the gbuffer extraction pass) without
 // discarding content already drawn into it (portal/mirror sub-views, in particular).
 void		vk_begin_main_render_pass( qboolean clearValues = qtrue );
+#ifdef VK_CUBEMAP
+void		vk_begin_cubemap_render_pass( int face );
+void		vk_end_cubemap_render_pass( void );
+void		vk_resume_render_pass( renderPass_t pass );
+#endif
 void		vk_get_pipeline_def( uint32_t pipeline, Vk_Pipeline_Def *def );
 uint32_t	vk_append_uniform( const void *uniform, size_t size, uint32_t min_offset );
 

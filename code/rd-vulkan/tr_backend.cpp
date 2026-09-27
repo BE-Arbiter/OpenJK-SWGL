@@ -787,7 +787,13 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 							&& !backEnd.isGlowPass
 							&& !backEnd.refractionFill
 							&& backEnd.viewParms.portalView == PV_NONE
+#ifdef VK_CUBEMAP
+							&& !backEnd.viewParms.targetCube
+#endif
 							&& !( backEnd.refdef.rdflags & RDF_NOWORLDMODEL ) );
+#ifdef VK_CUBEMAP
+	int				oldCubemapIndex = -1;
+#endif
 
 #ifdef USE_VANILLA_SHADOWFINISH
 	qboolean		didShadowPass = qfalse;
@@ -847,7 +853,11 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 			}
 		}
 
-		if (drawSurf->sort == oldSort && backEnd.refractionFill == shader->useDistortion ) {
+		if (drawSurf->sort == oldSort && backEnd.refractionFill == shader->useDistortion
+#ifdef VK_CUBEMAP
+			&& drawSurf->cubemapIndex == oldCubemapIndex
+#endif
+			) {
 			// fast path, same as previous sort
 			rb_surfaceTable[*drawSurf->surface](drawSurf->surface);
 			continue;
@@ -866,6 +876,9 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 
 		//if (((oldSort ^ drawSurf->sort) & ~QSORT_REFENTITYNUM_MASK) || !shader->entityMergable) {
 		if ( shader != oldShader || fogNum != oldFogNum || dlighted != oldDlighted
+#ifdef VK_CUBEMAP
+			|| drawSurf->cubemapIndex != oldCubemapIndex
+#endif
 			|| ( entityNum != oldEntityNum && ( !tess.entityMergable || reType != oldReType ) ) )
 		{
 			//if (oldShader != NULL) {
@@ -904,6 +917,10 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 			oldFogNum = fogNum;
 			oldDlighted = dlighted;
 			oldReType = reType;
+#ifdef VK_CUBEMAP
+			tess.cubemapIndex = drawSurf->cubemapIndex;
+			oldCubemapIndex = drawSurf->cubemapIndex;
+#endif
 
 			push_constant = qtrue;
 		}
@@ -1688,6 +1705,18 @@ const void	*RB_DrawSurfs( const void *data ) {
 
 	RB_UpdateUniformConstants( &backEnd.refdef, &backEnd.viewParms );
 
+#ifdef VK_CUBEMAP
+	// one face of a probe: its own pass, and no post-processing
+	if ( backEnd.viewParms.targetCube ) {
+		vk_begin_cubemap_render_pass( backEnd.viewParms.targetCubeFace );
+		RB_BeginDrawingView();
+		RB_RenderDrawSurfList( cmd->drawSurfs, cmd->numDrawSurfs );
+		vk_end_cubemap_render_pass();
+		tess.cubemapIndex = 0;
+		return (const void *)(cmd + 1);
+	}
+#endif
+
 	// clear the z buffer, set the modelview, etc
 	RB_BeginDrawingView();
 
@@ -1809,6 +1838,25 @@ const void	*RB_DrawSurfs( const void *data ) {
 
 	return (const void*)(cmd + 1);
 }
+
+#ifdef VK_CUBEMAP
+/*
+=============
+RB_ConvolveCubemap
+
+The prefilter of a probe, after the six faces of its capture.
+=============
+*/
+static const void *RB_ConvolveCubemap( const void *data ) {
+	const convolveCubemapCommand_t *cmd = (const convolveCubemapCommand_t *)data;
+
+	RB_EndSurface();
+
+	vk_prefilter_cubemap( cmd->cubemapIndex );
+
+	return (const void *)(cmd + 1);
+}
+#endif
 
 /*
 =============
@@ -2046,6 +2094,11 @@ void RB_ExecuteRenderCommands( const void *data ) {
 		case RC_CLEARCOLOR:
 			data = RB_ClearColor(data);
 			break;
+#ifdef VK_CUBEMAP
+		case RC_CONVOLVECUBEMAP:
+			data = RB_ConvolveCubemap(data);
+			break;
+#endif
 		case RC_END_OF_LIST:
 		default:
 			// stop rendering

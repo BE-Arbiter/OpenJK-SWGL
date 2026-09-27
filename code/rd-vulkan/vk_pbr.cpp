@@ -248,6 +248,10 @@ void vk_init_pbr_descriptors( void )
 	desc.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	desc.pImageInfo = &info;
 	qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
+
+#ifdef VK_CUBEMAP
+	vk_init_cubemap_descriptors();
+#endif
 }
 
 /*

@@ -1232,7 +1232,19 @@ static qboolean vk_find_screenmap_drawsurfs( void )
             break;
         case RC_DRAW_SURFS:
             ds_cmd = (const drawSurfsCommand_t*)curCmd;
+#ifdef VK_CUBEMAP
+            // the cubemap captures have their own pass: look at the view after them
+            if ( ds_cmd->viewParms.targetCube ) {
+                curCmd = (const void*)(ds_cmd + 1);
+                break;
+            }
+#endif
             return ds_cmd->refdef.needScreenMap;
+#ifdef VK_CUBEMAP
+        case RC_CONVOLVECUBEMAP:
+            curCmd = (const void*)((const convolveCubemapCommand_t*)curCmd + 1);
+            break;
+#endif
         default:
             return qfalse;
         }
@@ -1312,6 +1324,39 @@ static void vk_begin_screenmap_render_pass( void )
 
     vk_begin_render_pass(vk.render_pass.screenmap, frameBuffer, qtrue, vk.renderWidth, vk.renderHeight);
 }
+
+#ifdef VK_CUBEMAP
+// The capture of one cubemap face. The frame starts with the captures, so the interrupted
+// pass (main or screenmap) holds no drawing yet.
+void vk_begin_cubemap_render_pass( int face )
+{
+    vk.cubemap.resumeRenderPass = vk.renderPassIndex;
+    vk_end_render_pass();
+
+    vk.renderPassIndex = RENDER_PASS_CUBEMAP;
+
+    vk.renderWidth = REF_CUBEMAP_SIZE;
+    vk.renderHeight = REF_CUBEMAP_SIZE;
+    vk.renderScaleX = vk.renderScaleY = 1.0f;
+
+    vk_begin_render_pass( vk.cubemap.render_pass, vk.cubemap.framebuffer[face], qtrue, vk.renderWidth, vk.renderHeight );
+}
+
+void vk_end_cubemap_render_pass( void )
+{
+    vk_end_render_pass();
+    vk_resume_render_pass( vk.cubemap.resumeRenderPass );
+}
+
+// Opens again the pass that a cubemap capture or prefilter interrupted.
+void vk_resume_render_pass( renderPass_t pass )
+{
+    if ( pass == RENDER_PASS_SCREENMAP )
+        vk_begin_screenmap_render_pass();
+    else
+        vk_begin_main_render_pass( qfalse );
+}
+#endif
 
 void vk_begin_main_render_pass( qboolean clearValues )
 {
@@ -1908,6 +1953,9 @@ void vk_release_resources( void ) {
 #ifdef USE_VBO
 	vk_release_world_vbo();
 	vk_release_model_vbo();
+#endif
+#ifdef VK_CUBEMAP
+    vk_release_cubemaps();
 #endif
     // vk_destroy_samplers();
 

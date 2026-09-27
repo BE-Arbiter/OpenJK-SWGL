@@ -2753,7 +2753,13 @@ void RB_StageIteratorGeneric( void )
 			vk_update_descriptor( VK_DESC_PBR_NORMAL, ( pStage->vk_pbr_flags & PBR_HAS_NORMALMAP )
 				? pStage->normalMap->descriptor_set : tr.whiteImage->descriptor_set );
 			vk_update_descriptor( VK_DESC_PBR_PHYSICAL, physical ? pStage->physicalMap->descriptor_set : tr.whiteImage->descriptor_set );
+#ifdef VK_CUBEMAP
+			// no reflections in the capture itself
+			vk_update_descriptor( VK_DESC_PBR_CUBEMAP, backEnd.viewParms.targetCube
+				? vk.pbr.empty_cube_descriptor : vk_cubemap_descriptor( tess.cubemapIndex ) );
+#else
 			vk_update_descriptor( VK_DESC_PBR_CUBEMAP, vk.pbr.empty_cube_descriptor );
+#endif
 
 			VectorCopy4( pStage->normalScale, uniform_global.normalScale );
 

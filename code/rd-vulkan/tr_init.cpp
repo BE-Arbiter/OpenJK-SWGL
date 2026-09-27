@@ -130,6 +130,9 @@ cvar_t	*r_genNormalMaps;
 #ifdef USE_VK_PBR
 cvar_t	*r_normalMapping;
 cvar_t	*r_specularMapping;
+#ifdef VK_CUBEMAP
+cvar_t	*r_cubeMapping;
+#endif
 #endif
 
 cvar_t	*r_ignoreGLErrors;
@@ -837,6 +840,9 @@ void R_Register( void )
 #ifdef USE_VK_PBR
 	r_normalMapping = Cvar_Get( "r_normalMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "PBR shading of the lit stages with their normal maps" );
 	r_specularMapping = Cvar_Get( "r_specularMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "PBR shading of the lit stages with their specular / physical maps" );
+#ifdef VK_CUBEMAP
+	r_cubeMapping = Cvar_Get( "r_cubeMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "Reflections of the PBR stages from the cubemaps of the map probes" );
+#endif
 #endif
 	r_colorMipLevels					= Cvar_Get( "r_colorMipLevels",					"0",						CVAR_LATCH, "" );
 	r_detailTextures					= Cvar_Get( "r_detailtextures",					"1",						CVAR_ARCHIVE_ND|CVAR_LATCH, "" );

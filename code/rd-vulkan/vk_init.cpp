@@ -580,6 +580,11 @@ void vk_initialize( void )
 	if ( ( r_normalMapping->integer || r_specularMapping->integer ) && vk.maxBoundDescriptorSets >= VK_DESC_COUNT )
 		vk.pbrActive = qtrue;
 #endif
+#ifdef VK_CUBEMAP
+	// reflections of the map probes: the path tracer has its own
+	if ( vk.pbrActive && vk.fboActive && r_cubeMapping->integer && !vk.rtxActive )
+		vk.cubemapActive = qtrue;
+#endif
 
 	// depth+normal G-buffer extraction pass, foundation for later screen-space techniques
 	if ( vk.fboActive && r_depthPrepass->integer )
@@ -679,6 +684,9 @@ void vk_initialize( void )
 	vk_create_attachments();
 	vk_create_render_passes();
 	vk_create_framebuffers();
+#ifdef VK_CUBEMAP
+	vk_create_cubemap_resources();
+#endif
 
 #ifdef USE_RTX
 	// Everything the tracer owns is built here: its buffers, images, pipelines and
@@ -770,6 +778,9 @@ void vk_shutdown( void )
 #endif
 #ifdef USE_VK_PBR
 	vk_destroy_pbr_resources();
+#endif
+#ifdef VK_CUBEMAP
+	vk_destroy_cubemap_resources();
 #endif
     vk_destroy_shader_modules();
 

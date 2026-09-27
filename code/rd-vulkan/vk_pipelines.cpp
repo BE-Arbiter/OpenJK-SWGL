@@ -102,6 +102,9 @@ void vk_create_descriptor_layout( void )
 #ifdef USE_VK_PBR
         pool_size[0].descriptorCount += 1; // empty cubemap
 #endif
+#ifdef VK_CUBEMAP
+        pool_size[0].descriptorCount += 1 + MAX_CUBEMAPS; // capture, prefiltered probes
+#endif
 
         pool_size[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
         pool_size[1].descriptorCount = VK_DESC_UNIFORM_COUNT * NUM_COMMAND_BUFFERS;
@@ -1173,6 +1176,13 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
         frag_spec_data.alpha_to_coverage = 1;
         alphaToCoverage = VK_TRUE;
     }
+#ifdef VK_CUBEMAP
+    // the cubemap capture has one sample: the alpha test discards
+    if ( renderPassIndex == RENDER_PASS_CUBEMAP ) {
+        frag_spec_data.alpha_to_coverage = 0;
+        alphaToCoverage = VK_FALSE;
+    }
+#endif
 
     // constant color
     switch ( def->shader_type ) {
@@ -1318,7 +1328,11 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
 
     frag_spec_data.normal_texture_set = ( def->vk_pbr_flags & PBR_HAS_NORMALMAP ) ? 0 : -1;
     frag_spec_data.physical_texture_set = ( def->vk_pbr_flags & PBR_HAS_SPECULARMAP ) ? 0 : -1;
+#ifdef VK_CUBEMAP
+    frag_spec_data.env_texture_set = vk.cubemapActive ? 0 : -1;
+#else
     frag_spec_data.env_texture_set = -1;
+#endif
     frag_spec_data.deluxe_mapping = -1;
     frag_spec_data.deluxe_specular_scale = 1.0f;
     #define FRAG_SS_ENTRY 17
@@ -1464,6 +1478,10 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
     multisample_state.pNext = NULL;
     multisample_state.flags = 0;
     multisample_state.rasterizationSamples = (renderPassIndex == RENDER_PASS_SCREENMAP) ? (VkSampleCountFlagBits)vk.screenMapSamples : (VkSampleCountFlagBits)vkSamples;
+#ifdef VK_CUBEMAP
+    if ( renderPassIndex == RENDER_PASS_CUBEMAP )
+        multisample_state.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+#endif
     multisample_state.sampleShadingEnable = VK_FALSE;
     multisample_state.minSampleShading = 1.0f;
     multisample_state.pSampleMask = NULL;
@@ -1615,6 +1633,10 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
         create_info.renderPass = vk.render_pass.screenmap;
     else if ( renderPassIndex == RENDER_PASS_REFRACTION )
         create_info.renderPass = vk.render_pass.refraction.extract;
+#ifdef VK_CUBEMAP
+    else if ( renderPassIndex == RENDER_PASS_CUBEMAP )
+        create_info.renderPass = vk.cubemap.render_pass;
+#endif
     else
         create_info.renderPass = vk.render_pass.main;
 
