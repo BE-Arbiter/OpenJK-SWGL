@@ -79,7 +79,8 @@ projected_sphere_area(mat3 positions, vec3 p, vec3 n, vec3 V, float phong_exp, f
 	float specular = phong(n, L, V, phong_exp) * phong_scale;
 	float brdf = mix(1.0, specular, phong_weight);
 
-	float irradiance = 2 * (1 - sqrt(max(0, 1 - square(sphere_radius * rdist))));
+	// positions[1].z: the minimum distance of a dlight (add_dlights), 0 on other lights.
+	float irradiance = 2 * (1 - sqrt(max(0, 1 - square(sphere_radius / max(dist, positions[1].z)))));
 	irradiance = min(irradiance,  2 * M_PI); //max solid angle
 
 	return irradiance * brdf;
@@ -247,7 +248,7 @@ sample_projected_sphere(vec3 p, mat3 positions, vec2 rnd, out vec3 light_normal,
 	float rdist = 1.0 / dist;
 	vec3 L = position * rdist;
 
-	float projected_area = 2 * (1 - sqrt(max(0, 1 - square(sphere_radius * rdist))));
+	float projected_area = 2 * (1 - sqrt(max(0, 1 - square(sphere_radius / max(dist, positions[1].z)))));
 	projected_area = min(projected_area,  2 * M_PI); //max solid angle
 	pdfw = 1.0 / projected_area;
 

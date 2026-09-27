@@ -241,6 +241,7 @@ cvar_t	*pt_restir_m_clamp;
 cvar_t	*pt_debug_image;
 cvar_t	*pt_verbose;
 cvar_t	*pt_dlight_radius;
+cvar_t	*pt_dlight_min_dist;
 cvar_t	*pt_light_scale_entity;
 cvar_t	*pt_lightgen_scale;
 
@@ -1024,6 +1025,7 @@ void R_Register( void )
 	 * only softer shadows, so keep it small. 0 makes the emitter as big as the light's
 	 * reach, which is what the port used to do. */
 	pt_dlight_radius					= ri.Cvar_Get("pt_dlight_radius",					"2",	CVAR_NONE);
+	pt_dlight_min_dist					= ri.Cvar_Get("pt_dlight_min_dist",					"0.433",	CVAR_NONE);	// fraction of the raster radius, 0 disables it
 	/* Overall level of the lights read from the map's entity lump. q3map2's `light` key
 	 * is an inverse-square strength with no absolute unit, so the conversion to the
 	 * tracer's radiance needs calibrating by eye. Read at map load only. */

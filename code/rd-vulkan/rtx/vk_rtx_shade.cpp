@@ -584,6 +584,12 @@ add_dlights(const dlight_t* dlights, int num_dlights, light_poly_t* light_list, 
 					// this switch would leave the previous occupant's type and cone.
 					light->type = LIGHT_SPHERE;
 					hash.model = 0xFE;
+
+					// The raster peaks at the dlight colour. Below this distance the light stays at
+					// its level there. A small emitter near a surface is then not a hot spot of noise.
+					light->positions[4] = 0.0f;
+					light->positions[5] = pt_dlight_min_dist->value
+						* ( r_dlightScale->value > 0.0f ? falloff_radius / r_dlightScale->value : falloff_radius );
 					break;
 			}
 

@@ -3093,6 +3093,7 @@ extern  cvar_t  *pt_restir_m_clamp;
 extern  cvar_t  *pt_debug_image;
 extern  cvar_t  *pt_verbose;
 extern  cvar_t  *pt_dlight_radius;
+extern  cvar_t  *pt_dlight_min_dist;
 extern  cvar_t  *pt_light_scale_entity;
 extern  cvar_t  *pt_lightgen_scale;
 
