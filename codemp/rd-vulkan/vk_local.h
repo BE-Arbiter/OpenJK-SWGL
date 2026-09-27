@@ -91,7 +91,10 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define USE_DEDICATED_ALLOCATION
 #endif
 // depth + msaa + msaa-resolve + screenmap.msaa + screenmap.resolve + screenmap.depth + (bloom_extract + blur pairs + dglow_extract + blur pairs) + dglow-msaa
-#define MAX_ATTACHMENTS_IN_POOL			( 6 + ( ( 1 + VK_NUM_BLUR_PASSES * 2 ) * 2 ) + 1  ) 
+// The trailing + 4 is the G-buffer family: normal, depth, motion vectors (r_velocityBuffer)
+// and the ambient occlusion target (r_ssao). They are allocated from this same pool, and
+// leaving the count at its pre-G-buffer value overflowed it as soon as bloom was also on.
+#define MAX_ATTACHMENTS_IN_POOL			( 6 + ( ( 1 + VK_NUM_BLUR_PASSES * 2 ) * 2 ) + 1 + 4 ) 
 
 #define VK_DESC_STORAGE					0
 #define VK_DESC_UNIFORM					0
@@ -459,6 +462,7 @@ typedef enum {
 	RENDER_PASS_POST_BLEND,
 	RENDER_PASS_DGLOW,
 	RENDER_PASS_REFRACTION,
+	RENDER_PASS_GBUFFER,
 	RENDER_PASS_COUNT
 } renderPass_t;
 
@@ -564,7 +568,71 @@ typedef struct vkDeform_s {
 
 typedef struct vkUniformCamera_s {
 	vec4_t viewOrigin;
+	// proj_prev * view_prev of the last displayed frame, carrying the same reversed-depth
+	// Y flip vk_get_mvp_transform() applies (r_velocityBuffer only; identity-equivalent to
+	// this frame's transform before any history exists, so the first frame reports zero
+	// motion rather than a bogus delta).
+	//
+	// Lives here rather than in a push constant because the skinned gbuffer pipeline has to
+	// stay on vk.pipeline_layout: a dedicated layout with a wider push constant range would
+	// not be push-constant compatible with it, which disturbs the descriptor set bindings
+	// vk_bind_descriptor_sets() makes with vk.pipeline_layout - the exact trap that produced
+	// the corruption on bolted Ghoul2 models. Only gbuffer_skinned_vel.vert reads this field;
+	// every other shader declaring the Camera block stops at viewOrigin, which is legal - the
+	// binding's range simply covers more than they access.
+	mat4_t prevViewProjection;
+	// World->view for this frame. Lets the skinned gbuffer shaders emit view-space
+	// normals like every other gbuffer shader does, instead of the world-space ones they
+	// used to write - a consumer reading the normal attachment cannot tell the two apart,
+	// so characters and the world around them have to agree.
+	mat4_t viewMatrix;
 } vkUniformCamera_t;
+
+// push constants for the gbuffer extraction pass (vk.pipeline_layout_gbuffer /
+// _gbuffer_ghoul2); 128 bytes, exactly the Vulkan-guaranteed minimum maxPushConstantsSize.
+typedef struct vkGBufferPushConstants_s {
+	mat4_t mvp;			// proj * modelview - same value the main pass pushes for this surface
+	mat4_t modelView;	// modelview alone, to bring the normal into view space
+	// x: 1 when this surface belongs to an entity that already casts a stencil shadow
+	// (r_shadows 2), 0 otherwise. Written to the normal attachment's alpha, which nothing
+	// else uses, so a consumer can tell the two apart. vec4-sized to keep the block
+	// 16-byte aligned and leave room for further per-surface flags.
+	vec4_t surfaceFlags;
+} vkGBufferPushConstants_t;
+
+// push constants for the velocity-capable gbuffer variants
+// (vk.pipeline_layout_gbuffer_velocity); 192 bytes, exceeds the guaranteed minimum
+// so vk.velocityActive additionally requires maxPushConstantsSize >= sizeof(this) -
+// see vk_initialize(). Used by every rigid surface (world, brush models, MDV);
+// Ghoul2 (skinned) surfaces stay on the 128-byte layout above and leave the velocity
+// attachment at its clear value - see RB_RenderGBufferSurfList().
+typedef struct vkGBufferVelocityPushConstants_s {
+	mat4_t mvp;
+	mat4_t modelView;
+	mat4_t prevMvp;		// proj_prev * view_prev * model_now, for this frame's object-space position
+	vec4_t surfaceFlags;	// see vkGBufferPushConstants_t
+} vkGBufferVelocityPushConstants_t;
+
+// Push constants for the GTAO pass (vk.pipeline_layout_ssao), 52 bytes. Field order
+// matches ssao.frag's Params block exactly: all members are 4-byte, and invScreen lands
+// at offset 24, which already satisfies a vec2's 8-byte alignment - so no explicit
+// padding is needed and none must be added without changing the shader to match.
+typedef struct vkGTAOPushConstants_s {
+	float	p0, p5, p8, p9, p10, p14;	// viewParms.projectionMatrix terms, p5 unflipped
+	float	invScreenX, invScreenY;
+	float	radius;						// world units
+	float	intensity;					// power curve on the result
+	float	frameNoise;					// per-frame rotation of the slice pattern
+	int32_t	sliceCount;
+	int32_t	stepCount;
+	// Contact shadows. Loose floats, not a vec3: a vec3 here would align to 16 and add
+	// padding ssao.frag's block would have to mirror exactly. Points TOWARD the light.
+	float	lightX, lightY, lightZ;
+	float	csLength;		// world units; 0 disables
+	float	csThickness;
+	float	csStrength;		// upper bound on the darkening; a contact shadow never takes the whole pixel
+	int32_t	csSteps;
+} vkSSAOPushConstants_t;
 
 typedef struct vkUniformEntity_s {
 	vec4_t ambientLight;
@@ -573,6 +641,12 @@ typedef struct vkUniformEntity_s {
 	vec4_t modelLightDir;
 	vec4_t localViewOrigin;
 	mat4_t modelMatrix;
+	// x: 1 when this entity already casts a stencil shadow volume. The skinned gbuffer
+	// shaders read it from here rather than from a push constant, because they ride
+	// vk.pipeline_layout whose push range is only the 64-byte mvp - and per-entity is
+	// exactly the granularity the flag has. Shaders declaring this block without the
+	// field are unaffected; the binding's range simply covers more than they read.
+	vec4_t surfaceFlags;
 } vkUniformEntity_t;
 
 typedef struct vkUniformGlobal_s {
@@ -585,6 +659,16 @@ typedef struct vkUniformGlobal_s {
 
 typedef struct vkUniformBones_s {
 	mat3x4_t boneMatrices[72];
+	// Last frame's pose and model->world placement (r_velocityBuffer), so
+	// gbuffer_skinned_vel.vert can skin the vertex a second time with last frame's
+	// bones and place it with last frame's transform - the two terms a camera-only
+	// motion vector misses. Carried in this block rather than a new binding because
+	// it is already keyed by CBoneCache, which is what owns the history; shaders that
+	// declare only boneMatrices[72] are unaffected, they just read less than the
+	// binding's range. Costs the block its size again per cache per frame, out of the
+	// shared geometry buffer, which grows on demand.
+	mat3x4_t prevBoneMatrices[72];
+	mat4_t   prevModelMatrix;
 } vkUniformBones_t;
 #endif
 
@@ -648,6 +732,20 @@ typedef struct {
 
 	// MVP
 	float modelview_transform[16]  QALIGN(16);
+
+	// depth+normal(+velocity) G-buffer extraction pass (r_velocityBuffer). Previous
+	// *displayed* frame's primary-view world (camera-only) transform, committed once
+	// per real frame in RB_DrawSurfs, used to compute world-geometry motion vectors.
+	// Reinitialized along with the rest of Vk_World on map change, so a restart can't
+	// diff against a stale camera position from a different scene.
+	float		prevWorldModelView[16]	QALIGN(16);
+	float		prevProjection[16]		QALIGN(16);
+	qboolean	prevViewValid;			// qfalse until the first frame has committed one
+	// Previous frame's camera position. Sky surfaces need it: a sky is at infinity, so its
+	// only real screen motion is rotation, and its previous position is this frame's world
+	// position shifted by (prevViewOrigin - viewOrigin). Baking that translation into
+	// prevMvp cancels the parallax the finite sky brushes would otherwise report.
+	vec3_t		prevViewOrigin;
 } Vk_World;
 
 typedef struct vk_tess_s {
@@ -758,6 +856,36 @@ typedef struct {
 	VkImageView		refraction_extract_image_view;
 	VkDescriptorSet	refraction_extract_descriptor;
 
+	// depth+normal G-buffer extraction pass (r_depthPrepass); self-contained, not shared with vk.depth_image.
+	// All three are created with VK_IMAGE_USAGE_SAMPLED_BIT and left in
+	// VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, but nothing samples them yet: the
+	// consumer (SSAO/TAA/motion blur/...) is still to be written, and it is what should
+	// allocate the descriptor sets for them - see vk_create_attachments().
+	VkImage			gbuffer_normal_image;
+	VkImageView		gbuffer_normal_image_view;
+
+	VkImage			gbuffer_depth_image;
+	VkImageView		gbuffer_depth_image_view;
+
+	// screen-space motion vectors (r_velocityBuffer); 2nd color attachment of the gbuffer extract pass
+	VkImage			gbuffer_velocity_image;
+	VkImageView		gbuffer_velocity_image_view;
+
+	// Sampler descriptors over the three attachments above, for whatever consumes the
+	// G-buffer (r_showGBuffer today). Allocated alongside vk.color_descriptor.
+	VkDescriptorSet	gbuffer_normal_descriptor;
+	VkDescriptorSet	gbuffer_depth_descriptor;
+	VkDescriptorSet	gbuffer_velocity_descriptor;
+
+	// GTAO (r_ssao 2): single-channel visibility over the gbuffer's depth + normal.
+	// Its own attachment, consumed today only by the r_showGBuffer debug view.
+	VkImage			ssao_image;
+	VkImageView		ssao_image_view;
+	VkDescriptorSet	ssao_descriptor;
+	VkFormat		ssao_format;
+	qboolean		ssaoActive;	// the AO pass exists at all (either mode)
+	int				ssaoMode;	// r_ssao: 1 = hemisphere SSAO, 2 = GTAO. Selects a spec constant.
+
 	VkImage			bloom_image[1 + VK_NUM_BLUR_PASSES * 2];
 	VkImageView		bloom_image_view[1 + VK_NUM_BLUR_PASSES * 2];
 
@@ -782,6 +910,7 @@ typedef struct {
 	// render passes
 	struct {
 		VkRenderPass main;
+		VkRenderPass main_resume;	// r_depthPrepass: same attachment shape as main, LOAD instead of CLEAR - see vk_create_render_passes()
 		VkRenderPass gamma;
 		VkRenderPass screenmap;
 		VkRenderPass capture;
@@ -801,6 +930,14 @@ typedef struct {
 			VkRenderPass extract;
 			VkRenderPass blend;
 		} dglow;
+
+		struct {
+			VkRenderPass extract; // depth+normal G-buffer extraction pass (r_depthPrepass)
+		} gbuffer;
+
+		// Consumes the gbuffer rather than belonging to it, so it sits alongside the other
+		// top-level passes instead of inside the gbuffer group.
+		VkRenderPass ssao; // ambient occlusion over the gbuffer (r_ssao 2)
 	} render_pass;
 
 	struct {
@@ -829,6 +966,12 @@ typedef struct {
 			VkFramebuffer blur[VK_NUM_BLUR_PASSES * 2];
 			VkFramebuffer extract;
 		} dglow;
+
+		struct {
+			VkFramebuffer extract; // depth+normal G-buffer extraction pass (r_depthPrepass)
+		} gbuffer;
+
+		VkFramebuffer ssao; // ambient occlusion over the gbuffer (r_ssao 2)
 	} framebuffers;
 
 #ifdef USE_UPLOAD_QUEUE
@@ -899,11 +1042,63 @@ typedef struct {
 #endif
 	VkPipelineLayout pipeline_layout_post_process;	// post-processing
 	VkPipelineLayout pipeline_layout_blend;			// post-processing
-	VkPipelineLayout pipeline_layout_shadow_volume;	// GPU shadow volume extrusion (vk.geometryShader only)
-	VkPipeline shadow_volume_adjacency_pipeline[2][2];	// [cull][mirror] - lazily created, targets vk.render_pass.main; reset in vk_destroy_pipelines()
+	VkPipelineLayout pipeline_layout_shadow_volume;	// GPU stencil shadow silhouette extrusion (vk.geometryShader only)
+	VkPipeline shadow_volume_adjacency_pipeline[2][2];	// [cull: front/back][mirror] - lazily (re)created, always targets vk.render_pass.main; reset in vk_destroy_pipelines()
 #ifdef _DEBUG
 	VkPipeline shadow_volume_debug_pipeline[2];	// [cull] parity map for r_g2_shadowdebug 2
 #endif
+
+	// depth+normal(+velocity) G-buffer extraction pass (r_depthPrepass); no descriptor
+	// sets, push-constant only (mvp + modelview) - see vk_create_gbuffer_pipeline().
+	VkPipelineLayout pipeline_layout_gbuffer;
+	// Every pipeline below is indexed by cullType_t (CT_FRONT_SIDED/CT_BACK_SIDED/
+	// CT_TWO_SIDED), the same per-shader cull mode the main pass picks in
+	// create_pipeline(): one hardcoded back-face mode dropped every CT_BACK_SIDED
+	// surface out of the G-buffer and lost the back half of every CT_TWO_SIDED one.
+	VkPipeline gbuffer_world_pipeline[3];	// SF_FACE/SF_GRID/SF_TRIANGLES/SF_MDV (world VBO or immediate), and CPU-skinned SF_MDX
+	VkPipeline gbuffer_mdv_pipeline[3];	// SF_VBO_MDVMESH (rigid model VBO, own vertex stride)
+
+	// Ghoul2 (skinned) variant of the above: uses vk.pipeline_layout instead of its
+	// own (needs the same Entity+Bones UBOs, sets 0 bindings 2+3, that every other
+	// Ghoul2 draw already binds via vk_update_descriptor_offset()/vk_bind_descriptor_sets()
+	// - see gbuffer_skinned.vert and RB_RenderGBufferSurfList()).
+	VkPipeline gbuffer_ghoul2_pipeline[3];
+
+	// Velocity-capable variants: real per-pixel motion vectors need a previous-frame
+	// mvp too (192-byte push constant, see vkGBufferVelocityPushConstants_t), which
+	// exceeds the guaranteed-minimum 128 bytes the other gbuffer layouts stay within -
+	// so these are additionally gated on a maxPushConstantsSize check (see
+	// vk_initialize()). They replace the two rigid pipelines above whenever
+	// vk.velocityActive. Ghoul2 is not in here: it keeps its single pipeline handle and
+	// swaps shader stages instead, taking proj_prev * view_prev from the Camera UBO so it
+	// can stay on vk.pipeline_layout - see vkUniformCamera_t and gbuffer_skinned_vel.vert.
+	VkPipelineLayout pipeline_layout_gbuffer_velocity;
+	VkPipeline gbuffer_rigid_velocity_pipeline[3];	// SF_FACE/SF_GRID/SF_TRIANGLES/SF_MDV, and CPU-skinned SF_MDX
+	VkPipeline gbuffer_mdv_velocity_pipeline[3];	// SF_VBO_MDVMESH
+	// Sky (SS_ENVIRONMENT) when r_velocityBuffer is on: same shaders as the rigid velocity
+	// pipelines but with depth writes off, so the depth attachment stays cleared over the
+	// sky and GTAO's "nothing here" early-out keeps holding.
+	VkPipeline gbuffer_sky_velocity_pipeline[3];
+
+	// Alpha-tested rigid surfaces (grates, fences, foliage). Their own layouts because they
+	// are the only gbuffer pipelines that sample a texture, and so the only ones needing a
+	// descriptor set on top of the push constants.
+	VkPipelineLayout pipeline_layout_gbuffer_at;
+	VkPipelineLayout pipeline_layout_gbuffer_at_velocity;
+	VkPipeline gbuffer_at_pipeline[3];
+	VkPipeline gbuffer_at_velocity_pipeline[3];
+
+	// r_showGBuffer full-screen debug view, indexed by r_showGBuffer - 1
+	// (0 = depth, 1 = normal, 2 = velocity). Drawn in the gamma pass, see vk_end_frame().
+	VkPipeline gbuffer_debug_pipeline[5];
+
+	// GTAO: two sampler sets (depth, normal) plus a push constant range, so it cannot
+	// reuse pipeline_layout_post_process (one set, no push constants).
+	VkPipelineLayout pipeline_layout_ssao;
+	VkPipeline ssao_pipeline;
+	// Multiplies the AO into the scene from inside the main render pass, so its sample
+	// count has to match the main pass's - unlike ssao_pipeline, which owns its own.
+	VkPipeline ssao_apply_pipeline;
 
 	VkPipeline gamma_pipeline;
 	VkPipeline bloom_extract_pipeline;
@@ -989,10 +1184,6 @@ typedef struct {
 		VkShaderModule gamma_fs;
 		VkShaderModule gamma_vs;
 
-		// GPU shadow volume extrusion, only created when vk.geometryShader is set.
-		VkShaderModule shadow_volume_vs;
-		VkShaderModule shadow_volume_gs;
-
 		VkShaderModule color_vs;
 		VkShaderModule color_fs;
 
@@ -1002,12 +1193,40 @@ typedef struct {
 
 		VkShaderModule refraction_vs[3];
 		VkShaderModule refraction_fs;
+
+		// GPU stencil shadow volume silhouette extrusion (only created when
+		// vk.geometryShader is true; see shadow_volume.vert/.geom).
+		VkShaderModule shadow_volume_vs;
+		VkShaderModule shadow_volume_gs;
+
+		// depth+normal(+velocity) G-buffer extraction pass (r_depthPrepass); see gbuffer.vert/.frag.
+		VkShaderModule gbuffer_vs;
+		VkShaderModule gbuffer_fs;
+		VkShaderModule gbuffer_skinned_vs;	// Ghoul2 variant; see gbuffer_skinned.vert
+		VkShaderModule gbuffer_skinned_velocity_vs;	// Ghoul2 + r_velocityBuffer; see gbuffer_skinned_vel.vert
+
+		// World-only, velocity-capable variant; see gbuffer_velocity.vert/.frag and
+		// vk.pipeline_layout_gbuffer_velocity.
+		VkShaderModule gbuffer_velocity_vs;
+		VkShaderModule gbuffer_velocity_fs;
+
+		VkShaderModule gbuffer_debug_fs;	// r_showGBuffer; see gbuffer_debug.frag
+		VkShaderModule ssao_fs;				// r_ssao 2; see ssao.frag
+		VkShaderModule ssao_apply_fs;		// r_ssao 2; see ssao_apply.frag
+		VkShaderModule shadow_volume_self_fs;	// self-shadow exclusion; see shadow_volume_self.frag
+
+		// Alpha-tested gbuffer variants; see gbuffer_at.vert / gbuffer_atvel.vert.
+		VkShaderModule gbuffer_at_vs;
+		VkShaderModule gbuffer_at_fs;
+		VkShaderModule gbuffer_at_velocity_vs;
+		VkShaderModule gbuffer_at_velocity_fs;
 	} shaders;
 
 	uint32_t frame_count;
 	qboolean shaderStorageImageMultisample;
 	qboolean samplerAnisotropy;
 	qboolean fragmentStores;
+	qboolean geometryShader;		// enables GPU-side stencil shadow volume silhouette extrusion; CPU fallback otherwise
 	qboolean dedicatedAllocation;
 	qboolean debugMarkers;
 	qboolean wideLines;
@@ -1016,7 +1235,6 @@ typedef struct {
 	qboolean blitEnabled;
 
 	qboolean vboWorldActive;
-	qboolean geometryShader;		// enables the GPU shadow volume path (cg_shadows 4); CPU fallback otherwise
 	qboolean vboGhoul2Active;
 	qboolean vboMdvActive;
 
@@ -1028,6 +1246,13 @@ typedef struct {
 	VkFormat bloom_format;
 	VkFormat capture_format;
 	VkFormat compressed_format;
+	VkFormat normal_format; // G-buffer extraction pass normal attachment (r_depthPrepass)
+	VkFormat velocity_format; // G-buffer extraction pass motion vector attachment (r_velocityBuffer)
+	// Stencil-free so the depth attachment can be sampled by a consumer (one aspect per
+	// sampled view). Falls back to depth_format, with gbufferDepthSampled qfalse, if the
+	// driver has no suitable format - see get_gbuffer_depth_format().
+	VkFormat gbuffer_depth_format;
+	qboolean gbufferDepthSampled;
 
 	VkImageLayout initSwapchainLayout;
 
@@ -1036,6 +1261,8 @@ typedef struct {
 	qboolean bloomActive;
 	qboolean dglowActive;
 	qboolean refractionActive;
+	qboolean gbufferActive; // depth+normal G-buffer extraction pass (r_depthPrepass)
+	qboolean velocityActive; // motion vector attachment on the gbuffer extraction pass (r_velocityBuffer)
 
 	qboolean	offscreenRender;
 	qboolean	windowAdjusted;
@@ -1209,6 +1436,7 @@ void		vk_reset_descriptor( int index);
 void		vk_update_uniform_descriptor( VkDescriptorSet descriptor, VkBuffer buffer );
 void		vk_create_storage_buffer( vk_storage_buffer_t *out, uint32_t size, const char *name );
 void		vk_update_descriptor_offset( int index, uint32_t offset );
+void		vk_bind_descriptor_sets( void );
 void		vk_init_descriptors( void );
 void		vk_create_vertex_buffer( VkDeviceSize size );
 void		vk_create_indirect_buffer( VkDeviceSize size );
@@ -1221,7 +1449,10 @@ VkPipeline	vk_get_shadow_volume_adjacency_pipeline( int cullIndex, qboolean mirr
 VkPipeline	vk_get_shadow_volume_debug_pipeline( int cullIndex );	// parity map, r_g2_shadowdebug 2
 #endif
 void		vk_end_render_pass( void );
-void		vk_begin_main_render_pass( void );
+// clearValues defaults to qtrue for the normal top-of-frame case; pass qfalse to
+// resume the pass after a mid-frame detour (e.g. the gbuffer extraction pass) without
+// discarding content already drawn into it (portal/mirror sub-views, in particular).
+void		vk_begin_main_render_pass( qboolean clearValues = qtrue );
 void		vk_get_pipeline_def( uint32_t pipeline, Vk_Pipeline_Def *def );
 uint32_t	vk_append_uniform( const void *uniform, size_t size, uint32_t min_offset );
 
@@ -1259,6 +1490,11 @@ void		vk_begin_post_refraction_extract_render_pass( void );
 void		vk_begin_dglow_extract_render_pass( void );
 void		vk_begin_dglow_blur_render_pass( uint32_t index );
 qboolean	vk_begin_dglow_blur( void );
+
+// depth+normal G-buffer extraction pass (r_depthPrepass)
+void		vk_begin_gbuffer_extract_render_pass( void );
+void		vk_render_ssao( const void *viewParms );
+void		vk_apply_ssao( void );
 
 // info
 const char	*vk_format_string( VkFormat format );

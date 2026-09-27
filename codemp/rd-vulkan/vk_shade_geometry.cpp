@@ -549,6 +549,36 @@ void vk_update_attachment_descriptors( void ) {
 			qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
 		}
 
+		// gbuffer attachments. The depth one rests in DEPTH_STENCIL_READ_ONLY_OPTIMAL
+		// rather than SHADER_READ_ONLY_OPTIMAL - that is the layout its render pass leaves
+		// it in, and what the descriptor has to name.
+		if ( vk.gbufferActive )
+		{
+			info.imageView = vk.gbuffer_normal_image_view;
+			desc.dstSet = vk.gbuffer_normal_descriptor;
+			qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
+
+			if ( vk.gbufferDepthSampled ) {
+				info.imageView = vk.gbuffer_depth_image_view;
+				info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+				desc.dstSet = vk.gbuffer_depth_descriptor;
+				qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
+				info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			}
+
+			if ( vk.velocityActive ) {
+				info.imageView = vk.gbuffer_velocity_image_view;
+				desc.dstSet = vk.gbuffer_velocity_descriptor;
+				qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
+			}
+
+			if ( vk.ssaoActive ) {
+				info.imageView = vk.ssao_image_view;
+				desc.dstSet = vk.ssao_descriptor;
+				qvkUpdateDescriptorSets( vk.device, 1, &desc, 0, NULL );
+			}
+		}
+
 		// screenmap
 		sd.gl_mag_filter = sd.gl_min_filter = GL_LINEAR;
 		sd.max_lod_1_0 = qfalse;
@@ -649,6 +679,20 @@ void vk_init_descriptors( void ) {
 		if ( vk.bloomActive ) {
 			for ( i = 0; i < ARRAY_LEN( vk.bloom_image_descriptor ); i++ )
 				VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.bloom_image_descriptor[i] ) );
+		}
+
+		// gbuffer attachments
+		if ( vk.gbufferActive ) {
+			VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.gbuffer_normal_descriptor ) );
+
+			if ( vk.gbufferDepthSampled )
+				VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.gbuffer_depth_descriptor ) );
+
+			if ( vk.velocityActive )
+				VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.gbuffer_velocity_descriptor ) );
+
+			if ( vk.ssaoActive )
+				VK_CHECK( qvkAllocateDescriptorSets( vk.device, &alloc, &vk.ssao_descriptor ) );
 		}
 
 		// dglow images
@@ -960,6 +1004,10 @@ void ComputeColors( const int b, color4ub_t *dest, const shaderStage_t *pStage, 
 	int			i;
 	qboolean killGen = qfalse;
 	alphaGen_t forceAlphaGen = pStage->bundle[b].alphaGen;//set this up so we can override below
+
+	// RF_ALPHA_FADE takes its alpha straight from the entity - see rd-vanilla's ComputeColors
+	if ( (backEnd.currentEntity->e.renderfx & RF_ALPHA_FADE) && backEnd.currentEntity->e.shaderRGBA[3] < 255 )
+		forceAlphaGen = AGEN_ENTITY;
 
 	if (!tess.numVertexes)
 		return;
@@ -1797,6 +1845,10 @@ static void vk_compute_colors( const int b, const shaderStage_t *pStage, int for
 	int rgbGen = forceRGBGen;
 	int alphaGen = pStage->bundle[b].alphaGen;
 
+	// same RF_ALPHA_FADE override as ComputeColors(), for the GPU vertex-colour path
+	if ( (backEnd.currentEntity->e.renderfx & RF_ALPHA_FADE) && backEnd.currentEntity->e.shaderRGBA[3] < 255 )
+		alphaGen = AGEN_ENTITY;
+
 	baseColor = (float*)uniform_global.bundle[b].baseColor;
 	vertColor = (float*)uniform_global.bundle[b].vertColor;
 
@@ -2351,6 +2403,68 @@ void RB_SurfaceSpritesVBO( srfSprites_t *surf )
 }
 #endif
 
+/*
+==================
+ComputeDistortionPass
+
+The internal distortion shader (cloak) has two stages, one for each full-screen
+pass of rd-vanilla's RB_DistortionFill. Each pass samples the screen behind the
+surface, zoomed toward the centre by an animated amount. Pass 1 exists only when
+the cgame did not override alpha or stretch (cgi_R_SetRefractProp).
+Returns qfalse when the stage must not draw.
+==================
+*/
+static qboolean ComputeDistortionPass( int stage, vec4_t params, uint32_t *stateBits )
+{
+	const float	t = backEnd.refdef.time;
+	float		stretchX, stretchY, alpha;
+
+	if ( stage == 0 )
+	{
+		alpha = tr_distortionAlpha;
+
+		if ( tr_distortionStretch )
+		{
+			stretchX = stretchY = tr_distortionStretch;
+		}
+		else
+		{
+			stretchY = fabs( sin( t * 0.0005f ) ) * 0.2f;
+			stretchX = fabs( sin( t * 0.0005f ) ) * 0.08f;
+		}
+
+		*stateBits = GLS_DEPTHMASK_TRUE | GLS_SRCBLEND_SRC_ALPHA
+			| ( alpha != 1.0f ? GLS_DSTBLEND_SRC_ALPHA : GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA );
+	}
+	else if ( stage == 1 && tr_distortionAlpha == 1.0f && tr_distortionStretch == 0.0f )
+	{
+		if ( tr_distortionNegate )
+		{
+			alpha = 0.8f;
+			*stateBits = GLS_SRCBLEND_ZERO | GLS_DSTBLEND_ONE_MINUS_SRC_COLOR;
+		}
+		else
+		{
+			alpha = 0.5f;
+			*stateBits = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_SRC_ALPHA;
+		}
+
+		stretchY = fabs( sin( t * 0.0008f ) ) * 0.08f;
+		stretchX = fabs( sin( t * 0.0008f ) ) * 0.2f;
+	}
+	else
+	{
+		return qfalse;
+	}
+
+	// rd-vanilla maps the screen texture from s to 1 - s, a scale of 1 - 2s around the centre
+	params[0] = 1.0f - 2.0f * stretchX;
+	params[1] = 1.0f - 2.0f * stretchY;
+	params[2] = alpha;
+	params[3] = 0.0f;
+	return qtrue;
+}
+
 static ss_input ssInput;
 void RB_StageIteratorGeneric( void )
 {
@@ -2423,15 +2537,34 @@ void RB_StageIteratorGeneric( void )
 		}
 	}
 
+	// refraction.tmpl bends its sampling offset around the view direction, and neither
+	// fogCollapse nor TESS_VPOS is guaranteed on a distortion surface
+	if ( tess.shader->useDistortion ||
+		( backEnd.currentEntity && ( backEnd.currentEntity->e.renderfx & RF_DISTORTION ) ) )
+	{
+		VectorCopy( backEnd.ori.viewOrigin, uniform.eyePos );
+		push_uniform = qtrue;
+	}
+
 	for ( stage = 0; stage < MAX_SHADER_STAGES; stage++ )
 	{
 		int			forceRGBGen = 0;
 		qboolean	is_refraction = qfalse;
+		qboolean	is_distortion_pass = qfalse;
+		vec4_t		distortionParams;
+		uint32_t	distortionStateBits = 0;
 
 		pStage = tess.xstages[stage];
 
 		if ( !pStage || !pStage->active )
 			break;
+
+		if ( tess.shader == tr.distortionShader && tess.shader->useDistortion )
+		{
+			if ( !ComputeDistortionPass( stage, distortionParams, &distortionStateBits ) )
+				continue;
+			is_distortion_pass = qtrue;
+		}
 
 #ifdef USE_VBO
 		tess.vboStage = stage;
@@ -2556,9 +2689,17 @@ void RB_StageIteratorGeneric( void )
 				def.state_bits = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA | GLS_DEPTHMASK_TRUE | GLS_ATEST_GE_C0;
 
 			// only force blend on the internal distortion shader
-			if ( tess.shader == tr.distortionShader )
+			if ( is_distortion_pass )
+				def.state_bits = distortionStateBits;
+			else if ( tess.shader == tr.distortionShader )
 				def.state_bits = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA | GLS_DEPTHMASK_TRUE;
-	
+
+			// SP never uses the marker shader above: its one RF_DISTORTION effect passes
+			// effects/refraction as a customShader and marks the entity RF_ALPHA_FADE, so
+			// without this the refraction dome draws opaque - see CG_ForcePushRefraction.
+			if ( (backEnd.currentEntity->e.renderfx & RF_ALPHA_FADE) && backEnd.currentEntity->e.shaderRGBA[3] < 255 )
+				def.state_bits = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA;
+
 			if ( backEnd.currentEntity->e.renderfx & RF_FORCE_ENT_ALPHA ) {
 				ForceAlpha( (unsigned char *) tess.svars.colors, backEnd.currentEntity->e.shaderRGBA[3] );
 				
@@ -2610,8 +2751,42 @@ void RB_StageIteratorGeneric( void )
 			if ( !tess.vbo_model ) // else is set earlier
 			{
 				vk_compute_tex_coords( &pStage->bundle[0], &uniform.refraction.tcMod, &uniform.refraction.tcGen );
-				
+
 				set_model_matrix = qtrue;
+			}
+
+			// r_distortionStyle 1 reproduces SP: the effect is textured with a crop of the
+			// screen taken around the entity instead of refracted per pixel. tcMod is
+			// already a 2x2 matrix plus an offset, so the crop composes straight into it
+			// and both styles share one pipeline - eyePos.w picks which the shader emits.
+			uniform.eyePos[3] = 0.0f;
+
+			if ( is_distortion_pass )
+			{
+				Vector4Copy( distortionParams, uniform.lightVector );
+				uniform.eyePos[3] = 2.0f;
+			}
+			else if ( r_distortionStyle->integer == 1 && backEnd.currentEntity )
+			{
+				vec4_t crop;
+
+				if ( R_DistortionScreenCrop( backEnd.currentEntity, crop ) )
+				{
+#ifdef USE_VBO
+					vktcMod_t *tcMod = tess.vbo_model ? &uniform_global.bundle[0].tcMod
+													  : &uniform.refraction.tcMod;
+#else
+					vktcMod_t *tcMod = &uniform.refraction.tcMod;
+#endif
+					tcMod->matrix[0] *= crop[0];
+					tcMod->matrix[2] *= crop[0];
+					tcMod->matrix[1] *= crop[1];
+					tcMod->matrix[3] *= crop[1];
+					tcMod->offTurb[0] = tcMod->offTurb[0] * crop[0] + crop[2];
+					tcMod->offTurb[1] = tcMod->offTurb[1] * crop[1] + crop[3];
+
+					uniform.eyePos[3] = 1.0f;
+				}
 			}
 
 			push_uniform = qtrue;
