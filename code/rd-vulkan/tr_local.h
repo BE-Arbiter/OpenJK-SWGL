@@ -2027,6 +2027,7 @@ typedef struct trGlobals_s {
 	// Normal maps to compute from their diffuse texture at the next frame.
 	struct {
 		image_t			*normal;
+		VkImageView		storage_view;		// level 0 of the normal map
 		VkDescriptorSet	descriptor_set;
 	}						compute_normalmaps[MAX_BATCH_COMPUTE_NORMALMAPS];
 	uint32_t				compute_normalmaps_batch_num;

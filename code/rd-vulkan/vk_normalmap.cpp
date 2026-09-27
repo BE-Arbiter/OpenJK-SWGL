@@ -32,7 +32,8 @@ Normal maps computed from the diffuse texture (r_genNormalMaps), from JKSunny/Et
    normal map. It creates the storage image of the normal map and a descriptor set with the
    two images, and puts them in a batch.
 2. vk_begin_frame() runs the batch: vk_dispatch_compute_normalmaps() dispatches the compute
-   shader (normalmap.comp) for each normal map, then frees its descriptor set.
+   shader (normalmap.comp) for each normal map, blits its mip chain, then frees its
+   descriptor set and its storage view.
 3. A map change drops the batch (vk_clear_compute_normalmaps): its images are deleted and its
    descriptor sets go with the pool reset.
 
@@ -93,6 +94,18 @@ void vk_create_compute_normalmap_pipelines( void )
 	VK_CHECK( qvkCreateComputePipelines( vk.device, VK_NULL_HANDLE, 1, &info, NULL, &vk.compute_normalmap_pipeline ) );
 }
 
+static void vk_destroy_normalmap_storage_views( void )
+{
+	uint32_t i;
+
+	for ( i = 0; i < tr.compute_normalmaps_batch_num; i++ ) {
+		if ( tr.compute_normalmaps[i].storage_view != VK_NULL_HANDLE ) {
+			qvkDestroyImageView( vk.device, tr.compute_normalmaps[i].storage_view, NULL );
+			tr.compute_normalmaps[i].storage_view = VK_NULL_HANDLE;
+		}
+	}
+}
+
 void vk_destroy_compute_normalmap_pipelines( void )
 {
 	if ( vk.compute_normalmap_pipeline != VK_NULL_HANDLE ) {
@@ -110,12 +123,14 @@ void vk_destroy_compute_normalmap_pipelines( void )
 		vk.set_layout_compute_normalmap = VK_NULL_HANDLE;
 	}
 
+	vk_destroy_normalmap_storage_views();
 	tr.compute_normalmaps_batch_num = 0;
 }
 
 // The images of the batch are deleted with the textures, its descriptor sets with the pool.
 void vk_clear_compute_normalmaps( void )
 {
+	vk_destroy_normalmap_storage_views();
 	tr.compute_normalmaps_batch_num = 0;
 }
 
@@ -164,8 +179,21 @@ void vk_add_compute_normalmap( shaderStage_t *stage, image_t *albedo, imgFlags_t
 		image_info.imageView = albedo->view;
 		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+		// A storage descriptor takes a view of one level.
+		VkImageViewCreateInfo view_desc;
+		VkImageView storage_view;
+		Com_Memset( &view_desc, 0, sizeof( view_desc ) );
+		view_desc.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		view_desc.image = normal->handle;
+		view_desc.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		view_desc.format = (VkFormat)normal->internalFormat;
+		view_desc.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		view_desc.subresourceRange.levelCount = 1;
+		view_desc.subresourceRange.layerCount = 1;
+		VK_CHECK( qvkCreateImageView( vk.device, &view_desc, NULL, &storage_view ) );
+
 		normal_info.sampler = VK_NULL_HANDLE;
-		normal_info.imageView = normal->view;
+		normal_info.imageView = storage_view;
 		normal_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
 		VkDescriptorSetAllocateInfo alloc;
@@ -196,6 +224,7 @@ void vk_add_compute_normalmap( shaderStage_t *stage, image_t *albedo, imgFlags_t
 		qvkUpdateDescriptorSets( vk.device, 2, writes, 0, NULL );
 
 		tr.compute_normalmaps[tr.compute_normalmaps_batch_num].normal = normal;
+		tr.compute_normalmaps[tr.compute_normalmaps_batch_num].storage_view = storage_view;
 		tr.compute_normalmaps[tr.compute_normalmaps_batch_num].descriptor_set = descriptor_set;
 		tr.compute_normalmaps_batch_num++;
 	}
@@ -206,7 +235,78 @@ void vk_add_compute_normalmap( shaderStage_t *stage, image_t *albedo, imgFlags_t
 	VectorSet4( stage->normalScale, r_baseNormalX->value, r_baseNormalY->value, 1.0f, r_baseParallax->value );
 }
 
-// The normal maps of the batch: the compute shader writes their level 0.
+static void vk_normalmap_level_barrier( VkCommandBuffer command_buffer, VkImage image, uint32_t level,
+	VkImageLayout old_layout, VkImageLayout new_layout,
+	VkPipelineStageFlags src_stage, VkAccessFlags src_access, VkAccessFlags dst_access )
+{
+	VkImageMemoryBarrier barrier;
+
+	Com_Memset( &barrier, 0, sizeof( barrier ) );
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.srcAccessMask = src_access;
+	barrier.dstAccessMask = dst_access;
+	barrier.oldLayout = old_layout;
+	barrier.newLayout = new_layout;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = image;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.baseMipLevel = level;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.layerCount = 1;
+
+	qvkCmdPipelineBarrier( command_buffer, src_stage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, &barrier );
+}
+
+// Level 0 goes down the mip chain. Without the mips a distant surface samples
+// level 0 and its normals alias into noise.
+static void vk_blit_normalmap_mips( VkCommandBuffer command_buffer, const image_t *normal )
+{
+	int32_t w = normal->uploadWidth;
+	int32_t h = normal->uploadHeight;
+	uint32_t level;
+
+	vk_normalmap_level_barrier( command_buffer, normal->handle, 0, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT );
+
+	for ( level = 1; w > 1 || h > 1; level++ )
+	{
+		VkImageBlit region;
+		const int32_t mw = ( w > 1 ) ? ( w >> 1 ) : 1;
+		const int32_t mh = ( h > 1 ) ? ( h >> 1 ) : 1;
+
+		vk_normalmap_level_barrier( command_buffer, normal->handle, level, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_ACCESS_TRANSFER_WRITE_BIT );
+
+		Com_Memset( &region, 0, sizeof( region ) );
+		region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.srcSubresource.mipLevel = level - 1;
+		region.srcSubresource.layerCount = 1;
+		region.srcOffsets[1].x = w;
+		region.srcOffsets[1].y = h;
+		region.srcOffsets[1].z = 1;
+		region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.dstSubresource.mipLevel = level;
+		region.dstSubresource.layerCount = 1;
+		region.dstOffsets[1].x = mw;
+		region.dstOffsets[1].y = mh;
+		region.dstOffsets[1].z = 1;
+
+		qvkCmdBlitImage( command_buffer, normal->handle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			normal->handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_LINEAR );
+
+		vk_normalmap_level_barrier( command_buffer, normal->handle, level, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT );
+
+		w = mw;
+		h = mh;
+	}
+
+	vk_record_image_layout_transition( command_buffer, normal->handle, VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, 0 );
+}
+
+// The normal maps of the batch: the compute shader writes their level 0, a blit chain the mips.
 void vk_dispatch_compute_normalmaps( void )
 {
 	uint32_t i;
@@ -230,8 +330,11 @@ void vk_dispatch_compute_normalmaps( void )
 
 		qvkCmdDispatch( command_buffer, ( normal->uploadWidth + 7 ) / 8, ( normal->uploadHeight + 7 ) / 8, 1 );
 
-		vk_record_image_layout_transition( command_buffer, normal->handle, VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, 0 );
+		if ( normal->flags & IMGFLAG_MIPMAP )
+			vk_blit_normalmap_mips( command_buffer, normal );
+		else
+			vk_record_image_layout_transition( command_buffer, normal->handle, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, 0 );
 	}
 
 	// waits for the queue
@@ -240,6 +343,7 @@ void vk_dispatch_compute_normalmaps( void )
 	for ( i = 0; i < tr.compute_normalmaps_batch_num; i++ )
 		qvkFreeDescriptorSets( vk.device, vk.descriptor_pool, 1, &tr.compute_normalmaps[i].descriptor_set );
 
+	vk_destroy_normalmap_storage_views();
 	tr.compute_normalmaps_batch_num = 0;
 }
 

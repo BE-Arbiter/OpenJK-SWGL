@@ -734,6 +734,17 @@ void vk_generate_image_upload_data(image_t* image, byte* data, Image_Upload_Data
 	if (data == NULL) {
 		Com_Memset(upload_data->buffer, 0, upload_data->buffer_size);
 		upload_data->mip_levels = 1;
+
+		// A mipmapped storage image gets all its levels. Its compute pass fills them.
+		if ( mipmap && ( image->flags & IMGFLAG_STORAGE ) ) {
+			width = scaled_width;
+			height = scaled_height;
+			while ( width > 1 || height > 1 ) {
+				width = ( width > 1 ) ? ( width >> 1 ) : 1;
+				height = ( height > 1 ) ? ( height >> 1 ) : 1;
+				upload_data->mip_levels++;
+			}
+		}
 		return;
 	}
 
