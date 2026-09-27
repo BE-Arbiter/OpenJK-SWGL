@@ -1,8 +1,16 @@
 #version 450
+#extension GL_GOOGLE_include_directive : enable
 
 #if defined(USE_VBO_GHOUL2) || defined(USE_VBO_MDV)
 	#define USE_VBO_MODEL
 #endif
+
+// PBR shading of a lit stage: USE_LIGHTMAP, USE_LIGHT_VERTEX or USE_LIGHT_VECTOR (pbr.glsl)
+#if defined(USE_LIGHTMAP) || defined(USE_LIGHT_VECTOR) || defined(USE_LIGHT_VERTEX)
+	#define PER_PIXEL_LIGHTING
+#endif
+
+#define M_PI 3.1415926535897932384626433832795
 
 #ifdef USE_TX2
 #define USE_TX1
@@ -49,7 +57,7 @@
 	};
 #endif
 
-#if !defined(USE_CLX_IDENT) && defined(USE_VBO_MODEL)
+#if ( !defined(USE_CLX_IDENT) && defined(USE_VBO_MODEL) ) || defined(PER_PIXEL_LIGHTING)
 	struct tcMod_t {
 		vec4	matrix;
 		vec4	offTurb;
@@ -93,6 +101,7 @@
 		vec4 u_ambientLight;
 		vec4 u_directedLight;
 		vec4 u_LocalLightOrigin;
+		vec4 u_ModelLightDir;
 		vec4 u_localViewOrigin;
 		mat4 u_ModelMatrix;
 	};
@@ -106,11 +115,16 @@
 		vkDisintegration_t	u_disintegration;
 		vkDeform_t			u_deform;
 		float				u_portalRange;
-	};	
+		vec4				u_normalScale;		// PBR: x, y normal map scale
+		vec4				u_specularScale;	// PBR: specular / physical map scale
+	};
 
 	layout(location = 7) in vec4 var_Normal;
 	layout(location = 8) in vec4 var_LightDir;
-	//layout(location = 9) in vec4 var_ViewDir;
+#ifdef PER_PIXEL_LIGHTING
+	layout(location = 9) in vec4 var_ViewDir;
+	layout(location = 10) in vec4 var_Tangent;
+#endif
 
 	bool needsShading( in int rgbType ) {
 		return ( rgbType >= 9 && rgbType != 11 && rgbType != 12 && rgbType != 13 ) ? true : false;
@@ -193,6 +207,21 @@ layout (constant_id = 10) const float identity_alpha = 1.0;
 
 #ifdef USE_FOG
 layout (constant_id = 11) const int acff = 0; // NONE, RGB, RGBA, ALPHA
+#endif
+
+#ifdef PER_PIXEL_LIGHTING
+	layout (constant_id = 18) const int normal_texture_set = 0;		// -1: no normal map
+	layout (constant_id = 19) const int physical_texture_set = 0;	// -1: ORMS map, else specular gloss map
+	layout (constant_id = 20) const int env_texture_set = 0;		// -1: no environment cubemap
+	layout (constant_id = 21) const int deluxe_mapping = -1;		// -1: off, 0: light grid, 1: deluxe map
+	layout (constant_id = 22) const float deluxe_specular_scale = 1.0;
+
+	layout (set = 5, binding = 0) uniform sampler2D brdflut_texture;
+	layout (set = 6, binding = 0) uniform sampler2D normal_texture;
+	layout (set = 7, binding = 0) uniform sampler2D physical_texture;
+	layout (set = 8, binding = 0) uniform samplerCube env_texture;
+
+	#include "pbr.glsl"
 #endif
 
 #ifdef USE_ATEST
@@ -622,7 +651,28 @@ void main() {
 	base = color0;
 #endif
 
-#if !defined(USE_CLX_IDENT) && defined(USE_VBO_MODEL)
+#if defined(PER_PIXEL_LIGHTING)
+	{
+	#if defined(USE_LIGHTMAP)
+		// texture * color * lightmap: the lightmap is the light
+		vec4 albedo = color0;
+		lightColor = texture( texture1, frag_tex_coord1 ).rgb;
+		ambientColor = vec3( 0.0 );
+	#elif defined(USE_LIGHT_VERTEX)
+		// texture * vertex color: the vertex color is the light
+		vec4 albedo = vec4( texture( texture0, frag_tex_coord0 ).rgb, base.a );
+		lightColor = frag_color0.rgb;
+		ambientColor = vec3( 0.0 );
+	#else
+		// texture * entity color, lit by the light grid of the entity
+		vec4 albedo = base;
+		lightColor = u_directedLight.rgb;
+		ambientColor = u_ambientLight.rgb;
+	#endif
+		L = normalize( var_LightDir.xyz );
+		base.rgb = CalcPBR( albedo, lightColor, ambientColor, L, frag_tex_coord0 );
+	}
+#elif !defined(USE_CLX_IDENT) && defined(USE_VBO_MODEL)
 	L = var_LightDir.xyz;
 	float sqrLightDist = dot(L, L);
 	L /= sqrt(sqrLightDist);

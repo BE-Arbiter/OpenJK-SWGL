@@ -2051,6 +2051,10 @@ static void R_CreateBuiltinImages( void ) {
 	Com_Memset(data, 255, sizeof(data));
 	tr.whiteImage = R_CreateImage("*white", (byte*)data, 8, 8, IMGFLAG_NONE);
 
+#ifdef USE_VK_PBR
+	vk_create_brdf_lut();
+#endif
+
 	Com_Memset(data, 0, sizeof(data));
 	tr.blackImage = R_CreateImage("*black", (byte*)data, 8, 8, IMGFLAG_NONE);
 

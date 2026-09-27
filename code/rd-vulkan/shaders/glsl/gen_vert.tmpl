@@ -6,6 +6,11 @@
 	#define USE_VBO_MODEL
 #endif
 
+// PBR shading of a lit stage: USE_LIGHTMAP, USE_LIGHT_VERTEX or USE_LIGHT_VECTOR (pbr.glsl)
+#if defined(USE_LIGHTMAP) || defined(USE_LIGHT_VECTOR) || defined(USE_LIGHT_VERTEX)
+	#define PER_PIXEL_LIGHTING
+#endif
+
 #ifdef USE_TX2
 #define USE_TX1
 #endif
@@ -40,7 +45,7 @@ layout(set = 0, binding = 0) uniform UBO {
 };
 #endif
 
-#if defined(USE_FOG)
+#if defined(USE_FOG) || defined(PER_PIXEL_LIGHTING)
 	layout(set = 0, binding = 1) uniform Camera {
 		vec4 u_ViewOrigin;
 	};
@@ -106,9 +111,33 @@ layout(set = 0, binding = 0) uniform UBO {
 		float				u_portalRange;
 	};
 
+#endif
+
+#if defined(USE_VBO_MODEL) || defined(PER_PIXEL_LIGHTING)
 	layout(location = 7) out vec4 var_Normal;
 	layout(location = 8) out vec4 var_LightDir;
-	//layout(location = 9) out vec4 var_ViewDir;
+#endif
+
+#ifdef PER_PIXEL_LIGHTING
+	layout(location = 9) out vec4 var_ViewDir;
+	layout(location = 10) out vec4 var_Tangent;
+
+	layout(location = 10) in vec4 in_tangent;
+
+	#if !defined(USE_VBO_MODEL)
+		// the light direction of the world vertices, from the light grid
+		layout(location = 11) in vec4 in_lightdir;
+
+		// named: the fog UBO of the world shaders has a u_ModelMatrix too
+		layout(set = 0, binding = 2) uniform Entity {
+			vec4 ambientLight;
+			vec4 directedLight;
+			vec4 lightOrigin;
+			vec4 modelLightDir;
+			vec4 localViewOrigin;
+			mat4 modelMatrix;
+		} u_entity;
+	#endif
 #endif
 
 layout(location = 0) in vec3 in_position;
@@ -124,7 +153,7 @@ layout(location = 3) in vec2 in_tex_coord1;
 layout(location = 4) in vec2 in_tex_coord2;
 #endif
 
-#if defined(USE_ENV) || defined(USE_VBO_MODEL)
+#if defined(USE_ENV) || defined(USE_VBO_MODEL) || defined(PER_PIXEL_LIGHTING)
 layout(location = 5) in vec3 in_normal;
 #endif
 
@@ -181,7 +210,11 @@ out gl_PerVertex {
 // an implicit white. The diffuse ones are lit here, the way RB_CalcDiffuseColor
 // does on the CPU - normal and u_ModelLightDir are both in model space.
 vec4 CalcVertexColor( int rgbGen, in vec3 normal ) {
-	if ( rgbGen != 9 && rgbGen != 10 )	// CGEN_LIGHTING_DIFFUSE, CGEN_LIGHTING_DIFFUSE_ENTITY
+#ifdef PER_PIXEL_LIGHTING
+	// the fragment shader lights the stage
+	return vec4( 1.0 );
+#endif
+if ( rgbGen != 9 && rgbGen != 10 )	// CGEN_LIGHTING_DIFFUSE, CGEN_LIGHTING_DIFFUSE_ENTITY
 		return vec4( 1.0 );
 
 	float incoming = dot( normal, u_ModelLightDir.xyz );
@@ -437,6 +470,9 @@ void main() {
 #if defined(USE_VBO_MDV)
 	vec3 position = in_position;
 	vec3 normal = normalize(in_normal);
+	#ifdef PER_PIXEL_LIGHTING
+		vec4 tangent = in_tangent;
+	#endif
 
 	if ( u_deform.type != 0 ){ // !DEFORM_NONE
 		position	= DeformPosition( position, normal, frag_tex_coord0 );
@@ -451,6 +487,9 @@ void main() {
 
 	vec3 position = skin_matrix * vec4(in_position, 1.0);
 	vec3 normal = normalize(skin_matrix * vec4(in_normal, 0.0));
+	#ifdef PER_PIXEL_LIGHTING
+		vec4 tangent = vec4( normalize( skin_matrix * vec4( in_tangent.xyz, 0.0 ) ), in_tangent.w );
+	#endif
 
 	if ( u_deform.type != 0 ){ // !DEFORM_NONE
 		position	= DeformPosition( position, normal, frag_tex_coord0 );
@@ -458,8 +497,11 @@ void main() {
 	}
 #else
 	vec3 position = in_position;
-	#if defined(USE_ENV)
+	#if defined(USE_ENV) || defined(PER_PIXEL_LIGHTING)
 		vec3 normal = in_normal;
+	#endif
+	#ifdef PER_PIXEL_LIGHTING
+		vec4 tangent = in_tangent;
 	#endif
 #endif
 
@@ -572,7 +614,23 @@ void main() {
 	}
 #endif
 
-#if !defined(USE_CLX_IDENT) && defined(USE_VBO_MODEL)
+#if defined(PER_PIXEL_LIGHTING)
+	// world space
+	#if defined(USE_VBO_MODEL)
+		mat4 modelMatrix = u_ModelMatrix;
+		vec3 L = u_LocalLightOrigin.xyz;	// the direction to the light (w = 0)
+	#else
+		mat4 modelMatrix = u_entity.modelMatrix;
+		vec3 L = mat3( modelMatrix ) * in_lightdir.xyz;
+	#endif
+
+	position = ( modelMatrix * vec4( position, 1.0 ) ).xyz;
+
+	var_Normal		= vec4( normalize( mat3( modelMatrix ) * normal ), 0.0 );
+	var_Tangent		= vec4( normalize( mat3( modelMatrix ) * tangent.xyz ), tangent.w );
+	var_LightDir	= vec4( L, 0.0 );
+	var_ViewDir		= vec4( u_ViewOrigin.xyz - position, 0.0 );
+#elif !defined(USE_CLX_IDENT) && defined(USE_VBO_MODEL)
 	position		= (u_ModelMatrix * vec4(position, 1.0)).xyz;
 	normal			= normalize(mat3(u_ModelMatrix) * normal);
 

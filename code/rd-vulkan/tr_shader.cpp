@@ -4816,6 +4816,27 @@ shader_t *FinishShader( void )
 			}
 #endif
 
+#ifdef USE_VK_PBR
+			// PBR shading: the world light types here, LIGHTDEF_USE_LIGHT_VECTOR at the model VBO draw
+			def.vk_light_flags = 0;
+			def.vk_pbr_flags = 0;
+			pStage->vk_light_flags = 0;
+
+			if ( vk.pbrActive ) {
+				pStage->vk_light_flags = vk_stage_light_flags( pStage, def.shader_type );
+
+				if ( pStage->vk_light_flags & ( LIGHTDEF_USE_LIGHTMAP | LIGHTDEF_USE_LIGHT_VERTEX ) ) {
+					// the PBR shaders read the color of the stage
+					if ( pStage->vk_light_flags & LIGHTDEF_USE_LIGHTMAP )
+						def.shader_type = TYPE_MULTI_TEXTURE_MUL2;
+
+					def.vk_light_flags = pStage->vk_light_flags;
+					def.vk_pbr_flags = pStage->vk_pbr_flags;
+					pStage->tessFlags |= TESS_RGBA0 | TESS_NNN | TESS_QTANGENT | TESS_LIGHTDIR;
+				}
+			}
+#endif
+
 			def.mirror = qfalse;
 			pStage->vk_pipeline[0] = vk_find_pipeline_ext(0, &def, qtrue);
 			def.mirror = qtrue;

@@ -103,7 +103,15 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define VK_DESC_TEXTURE1				2
 #define VK_DESC_TEXTURE2				3
 #define VK_DESC_FOG_COLLAPSE			4
+#ifdef USE_VK_PBR
+#define VK_DESC_PBR_BRDFLUT				5
+#define VK_DESC_PBR_NORMAL				6
+#define VK_DESC_PBR_PHYSICAL			7
+#define VK_DESC_PBR_CUBEMAP				8
+#define VK_DESC_COUNT					9
+#else
 #define VK_DESC_COUNT					5
+#endif
 
 #define VK_DESC_TEXTURE_BASE			VK_DESC_TEXTURE0
 #define VK_DESC_FOG_ONLY				VK_DESC_TEXTURE1
@@ -150,6 +158,13 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define TESS_NNN   						( 128 )
 #define TESS_VPOS  						( 256 )	// uniform with eyePos
 #define TESS_ENV   						( 512 )	// mark shader stage with environment mapping
+#define TESS_QTANGENT					( 1024 )	// PBR: tangents, binding 10
+#define TESS_LIGHTDIR					( 2048 )	// PBR: light grid directions, binding 11
+
+// the light of a PBR stage (pbr.glsl)
+#define LIGHTDEF_USE_LIGHTMAP			0x0001	// texture * lightmap
+#define LIGHTDEF_USE_LIGHT_VECTOR		0x0002	// lightingDiffuse model VBO
+#define LIGHTDEF_USE_LIGHT_VERTEX		0x0004	// texture * vertex color
 
 // extra math
 #define DotProduct4( a , b )			((a)[0]*(b)[0] + (a)[1]*(b)[1] + (a)[2]*(b)[2] + (a)[3]*(b)[3])
@@ -352,6 +367,7 @@ extern PFN_vkCmdBlitImage								qvkCmdBlitImage;
 extern PFN_vkCmdClearAttachments						qvkCmdClearAttachments;
 extern PFN_vkCmdCopyBuffer								qvkCmdCopyBuffer;
 extern PFN_vkCmdCopyBufferToImage						qvkCmdCopyBufferToImage;
+extern PFN_vkCmdClearColorImage						qvkCmdClearColorImage;
 extern PFN_vkCmdCopyImage								qvkCmdCopyImage;
 extern PFN_vkCmdCopyImageToBuffer                       qvkCmdCopyImageToBuffer;
 extern PFN_vkCmdDraw									qvkCmdDraw;
@@ -521,6 +537,10 @@ typedef struct {
 		byte rgb;
 		byte alpha;
 	} color;
+#ifdef USE_VK_PBR
+	uint32_t vk_light_flags;	// LIGHTDEF_*: PBR shading
+	uint32_t vk_pbr_flags;		// PBR_HAS_*
+#endif
 } Vk_Pipeline_Def;
 
 typedef struct VK_Pipeline {
@@ -686,6 +706,8 @@ typedef struct vkUniformGlobal_s {
 	vkDeform_t			deform;
 	float				portalRange;
 	vec3_t				pad0;
+	vec4_t				normalScale;		// PBR
+	vec4_t				specularScale;		// PBR
 } vkUniformGlobal_t;
 
 typedef struct vkUniformBones_s {
@@ -813,8 +835,8 @@ typedef struct vk_tess_s {
 	VkDeviceSize		indirect_buffer_offset;
 
 	VkDescriptorSet		uniform_descriptor;
-	VkDeviceSize		buf_offset[8];
-	VkDeviceSize		vbo_offset[10];
+	VkDeviceSize		buf_offset[12];
+	VkDeviceSize		vbo_offset[12];
 
 	VkBuffer			curr_index_buffer;
 	uint32_t			curr_index_offset;
@@ -1438,6 +1460,7 @@ typedef struct {
 			VkShaderModule fixed[3][2][2][2];
 			VkShaderModule light[2]; // fog[0,1]
 			VkShaderModule fog[3][2];	// vbo[0,1,2], fog mode[0,1]
+			VkShaderModule pbr[3][3][2];	// vbo[0,1,2], light[lightmap,vector,vertex], fog[0,1]
 		}	vert;
 
 		struct {
@@ -1447,6 +1470,7 @@ typedef struct {
 			VkShaderModule fixed[3][2][2];  // tx[0,1], fog[0,1]
 			VkShaderModule light[2][2]; // linear[0,1] fog[0,1]
 			VkShaderModule fog[2];	// vbo[0,1,2], fog mode[0,1]
+			VkShaderModule pbr[3][2];	// light[lightmap,vector,vertex], fog[0,1]
 		}	frag;
 
 		VkShaderModule surface_sprite_fs[2];
@@ -1538,7 +1562,17 @@ typedef struct {
 	qboolean bloomActive;
 	qboolean dglowActive;
 	qboolean refractionActive;
-	qboolean gbufferActive; // depth+normal G-buffer extraction pass (r_depthPrepass)
+#ifdef USE_VK_PBR
+	qboolean pbrActive;		// r_normalMapping or r_specularMapping: PBR shading of the lit stages
+
+	struct {
+		VkImage			empty_cube;
+		VkDeviceMemory	empty_cube_memory;
+		VkImageView		empty_cube_view;
+		VkDescriptorSet	empty_cube_descriptor;
+	} pbr;
+#endif
+qboolean gbufferActive; // depth+normal G-buffer extraction pass (r_depthPrepass)
 	qboolean velocityActive; // motion vector attachment on the gbuffer extraction pass (r_velocityBuffer)
 
 	qboolean	offscreenRender;

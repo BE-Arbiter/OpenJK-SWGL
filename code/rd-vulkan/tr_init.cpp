@@ -127,6 +127,10 @@ cvar_t	*r_baseSpecular;
 #ifdef VK_COMPUTE_NORMALMAP
 cvar_t	*r_genNormalMaps;
 #endif
+#ifdef USE_VK_PBR
+cvar_t	*r_normalMapping;
+cvar_t	*r_specularMapping;
+#endif
 
 cvar_t	*r_ignoreGLErrors;
 cvar_t	*r_logFile;
@@ -829,6 +833,10 @@ void R_Register( void )
 #endif
 #ifdef VK_COMPUTE_NORMALMAP
 	r_genNormalMaps						= Cvar_Get( "r_genNormalMaps",						"0",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Approximate normal maps from baked diffuse (albedo) textures" );
+#endif
+#ifdef USE_VK_PBR
+	r_normalMapping = Cvar_Get( "r_normalMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "PBR shading of the lit stages with their normal maps" );
+	r_specularMapping = Cvar_Get( "r_specularMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "PBR shading of the lit stages with their specular / physical maps" );
 #endif
 	r_colorMipLevels					= Cvar_Get( "r_colorMipLevels",					"0",						CVAR_LATCH, "" );
 	r_detailTextures					= Cvar_Get( "r_detailtextures",					"1",						CVAR_ARCHIVE_ND|CVAR_LATCH, "" );

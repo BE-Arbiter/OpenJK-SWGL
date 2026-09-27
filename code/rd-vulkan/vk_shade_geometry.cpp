@@ -23,7 +23,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 
-static VkBuffer shade_bufs[10];
+static VkBuffer shade_bufs[12];
 static int bind_base;
 static int bind_count;
 
@@ -238,11 +238,12 @@ static void vk_vbo_bind_geometry_mdv( int32_t flags )
 	if (flags & TESS_ST2)
 		vk.cmd->vbo_offset[4] = vbo->offsets[2];
 
-	/*if (flags & TESS_QTANGENT)
-		vk.cmd->vbo_offset[8] = vbo->offsets[8];*/
+	shade_bufs[10] = shade_bufs[11] = vbo->buffer;
+	vk.cmd->vbo_offset[10] = vbo->offsets[10];	// tangents
+	vk.cmd->vbo_offset[11] = 0;
 
 	bind_base = 0;
-	bind_count = 10;
+	bind_count = 12;
 
 	qvkCmdBindVertexBuffers(vk.cmd->command_buffer, bind_base, bind_count, shade_bufs, vk.cmd->vbo_offset + bind_base);
 
@@ -270,11 +271,12 @@ static void vk_vbo_bind_geometry_ghoul2( uint32_t flags )
 	if (flags & TESS_ST2)
 		vk.cmd->vbo_offset[4] = vbo->offsets[2];
 
-	/*if (flags & TESS_QTANGENT)
-		vk.cmd->vbo_offset[8] = vbo->offsets[8];*/
+	shade_bufs[10] = shade_bufs[11] = vbo->buffer;
+	vk.cmd->vbo_offset[10] = vbo->offsets[10];	// tangents
+	vk.cmd->vbo_offset[11] = 0;
 
 	bind_base = 0;
-	bind_count = 10;
+	bind_count = 12;
 
 	qvkCmdBindVertexBuffers(vk.cmd->command_buffer, bind_base, bind_count, shade_bufs, vk.cmd->vbo_offset + bind_base);
 }
@@ -326,6 +328,7 @@ void vk_bind_geometry( uint32_t flags )
 	if (tess.vbo_world_index) {
 
 		shade_bufs[0] = shade_bufs[1] = shade_bufs[2] = shade_bufs[3] = shade_bufs[4] = shade_bufs[5] = shade_bufs[6] = shade_bufs[7] = vk.vbo.vertex_buffer;
+		shade_bufs[8] = shade_bufs[9] = shade_bufs[10] = shade_bufs[11] = vk.vbo.vertex_buffer;
 
 
 		if (flags & TESS_XYZ) {  // 0
@@ -367,12 +370,24 @@ void vk_bind_geometry( uint32_t flags )
 			vk.cmd->vbo_offset[7] = tess.shader->stages[tess.vboStage]->rgb_offset[2];
 			vk_bind_index_attr(7);
 		}
+#ifdef USE_VK_PBR
+		if (flags & TESS_QTANGENT) { // 10
+			vk.cmd->vbo_offset[10] = tess.shader->qtangentOffset;
+			vk_bind_index_attr(10);
+		}
+
+		if (flags & TESS_LIGHTDIR) { // 11
+			vk.cmd->vbo_offset[11] = tess.shader->lightdirOffset;
+			vk_bind_index_attr(11);
+		}
+#endif
 		qvkCmdBindVertexBuffers(vk.cmd->command_buffer, bind_base, bind_count, shade_bufs, vk.cmd->vbo_offset + bind_base);
 	}
 	else
 #endif // USE_VBO
 	{
 		shade_bufs[0] = shade_bufs[1] = shade_bufs[2] = shade_bufs[3] = shade_bufs[4] = shade_bufs[5] = shade_bufs[6] = shade_bufs[7] = vk.cmd->vertex_buffer;
+		shade_bufs[8] = shade_bufs[9] = shade_bufs[10] = shade_bufs[11] = vk.cmd->vertex_buffer;
 
 		if (flags & TESS_XYZ)
 			vk_bind_attr(0, sizeof(tess.xyz[0]), &tess.xyz[0]);
@@ -397,6 +412,14 @@ void vk_bind_geometry( uint32_t flags )
 
 		if (flags & TESS_RGBA2)
 			vk_bind_attr(7, sizeof(color4ub_t), tess.svars.colors[2]);
+
+#ifdef USE_VK_PBR
+		if (flags & TESS_QTANGENT)
+			vk_bind_attr(10, sizeof(tess.qtangent[0]), tess.qtangent);
+
+		if (flags & TESS_LIGHTDIR)
+			vk_bind_attr(11, sizeof(tess.lightdir[0]), tess.lightdir);
+#endif
 
 		qvkCmdBindVertexBuffers(vk.cmd->command_buffer, bind_base, bind_count, shade_bufs, vk.cmd->buf_offset + bind_base);
 	}
@@ -706,6 +729,10 @@ void vk_init_descriptors( void ) {
 
 		vk_update_attachment_descriptors();
 	}
+
+#ifdef USE_VK_PBR
+	vk_init_pbr_descriptors();
+#endif
 }
 
 void vk_create_indirect_buffer( VkDeviceSize size )
@@ -2409,6 +2436,40 @@ void RB_SurfaceSpritesVBO( srfSprites_t *surf )
 #endif
 
 static ss_input ssInput;
+
+#ifdef USE_VK_PBR
+/*
+The light of a PBR stage for this draw (LIGHTDEF_*), or 0 for the GL chain: the lightmapped
+and vertex-lit world stages, and the lightingDiffuse stages of the model VBOs. The models
+drawn by the CPU have lit vertex colors and no tangents.
+*/
+static uint32_t vk_draw_light_flags( const shaderStage_t *pStage, const Vk_Pipeline_Def *def, qboolean is_refraction )
+{
+	const trRefEntity_t *ent = backEnd.currentEntity;
+
+	if ( is_refraction || backEnd.isGlowPass || backEnd.projection2D )
+		return 0;
+
+	if ( def->shader_type != TYPE_SINGLE_TEXTURE && def->shader_type != TYPE_MULTI_TEXTURE_MUL2 )
+		return 0;
+
+	if ( tess.vbo_model )
+		return pStage->vk_light_flags & LIGHTDEF_USE_LIGHT_VECTOR;
+
+	if ( !( pStage->vk_light_flags & ( LIGHTDEF_USE_LIGHTMAP | LIGHTDEF_USE_LIGHT_VERTEX ) ) )
+		return 0;
+
+	if ( ent == NULL || ent == &tr.worldEntity )
+		return pStage->vk_light_flags;
+
+	// brush models: world surfaces with their entity transform
+	if ( ent->e.reType == RT_MODEL && R_GetModelByHandle( ent->e.hModel )->type == MOD_BRUSH )
+		return pStage->vk_light_flags;
+
+	return 0;
+}
+#endif
+
 void RB_StageIteratorGeneric( void )
 {
 	const shaderStage_t		*pStage;
@@ -2608,6 +2669,9 @@ void RB_StageIteratorGeneric( void )
 
 				// use an excisting pipeline with the same def or create a new one.
 				def.face_culling = CT_TWO_SIDED;
+#ifdef USE_VK_PBR
+				def.vk_light_flags = def.vk_pbr_flags = 0;
+#endif
 				tess.xstages[stage]->vk_2d_pipeline = vk_find_pipeline_ext(0, &def, qfalse);
 			}
 
@@ -2665,12 +2729,42 @@ void RB_StageIteratorGeneric( void )
 			def.vbo_ghoul2 = is_ghoul2_vbo;
 			def.vbo_mdv = is_mdv_vbo;
 
+#ifdef USE_VK_PBR
+			if ( vk.pbrActive ) {
+				def.vk_light_flags = vk_draw_light_flags( pStage, &def, is_refraction );
+				def.vk_pbr_flags = def.vk_light_flags ? pStage->vk_pbr_flags : 0;
+			}
+#endif
+
 			pipeline = vk_find_pipeline_ext( 0, &def, qfalse );
 		}
 	
 		
 
 		qboolean set_model_matrix = qfalse;
+
+#ifdef USE_VK_PBR
+		const qboolean pbr = ( vk.pipelines[pipeline].def.vk_light_flags != 0 ) ? qtrue : qfalse;
+
+		if ( pbr ) {
+			const qboolean physical = ( pStage->vk_pbr_flags & ( PBR_HAS_PHYSICALMAP | PBR_HAS_SPECULARMAP ) ) ? qtrue : qfalse;
+
+			vk_update_descriptor( VK_DESC_PBR_BRDFLUT, tr.brdfLutImage->descriptor_set );
+			vk_update_descriptor( VK_DESC_PBR_NORMAL, ( pStage->vk_pbr_flags & PBR_HAS_NORMALMAP )
+				? pStage->normalMap->descriptor_set : tr.whiteImage->descriptor_set );
+			vk_update_descriptor( VK_DESC_PBR_PHYSICAL, physical ? pStage->physicalMap->descriptor_set : tr.whiteImage->descriptor_set );
+			vk_update_descriptor( VK_DESC_PBR_CUBEMAP, vk.pbr.empty_cube_descriptor );
+
+			VectorCopy4( pStage->normalScale, uniform_global.normalScale );
+
+			if ( physical ) {
+				VectorCopy4( pStage->specularScale, uniform_global.specularScale );
+			} else {
+				// white ORMS map: occlusion 1, roughness 1, metalness 0, specular 0.04
+				Vector4Set( uniform_global.specularScale, 0.0f, 0.5f, 1.0f, 1.0f );
+			}
+		}
+#endif
 
 		if ( is_refraction ) 
 		{
@@ -2748,7 +2842,11 @@ void RB_StageIteratorGeneric( void )
 			vk_update_descriptor_offset( VK_DESC_UNIFORM_FOGS_BINDING, vk.cmd->fogs_ubo_offset );
 
 #ifdef USE_VBO
+#ifdef USE_VK_PBR
+		if ( tess.vbo_model || pbr ) {
+#else
 		if ( tess.vbo_model  ) {
+#endif
 			vk_push_uniform_global( &uniform_global );
 		}
 

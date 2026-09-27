@@ -251,6 +251,13 @@ static qboolean isStaticShader(shader_t *shader)
 	return qtrue;
 }
 
+// the per-vertex data of the world VBO besides the stage data
+#ifdef USE_VK_PBR
+#define VBO_VERTEX_SIZE ( sizeof(tess.xyz[0]) + sizeof(tess.normal[0]) + sizeof(tess.qtangent[0]) + sizeof(tess.lightdir[0]) )
+#else
+#define VBO_VERTEX_SIZE ( sizeof(tess.xyz[0]) + sizeof(tess.normal[0]) )
+#endif
+
 static void VBO_AddGeometry(vbo_t *vbo, vbo_item_t *vi, shaderCommands_t *input)
 {
 	uint32_t size, offs;
@@ -276,6 +283,13 @@ static void VBO_AddGeometry(vbo_t *vbo, vbo_item_t *vi, shaderCommands_t *input)
 
 		// go to first color offset
 		offs = input->shader->normalOffset + input->shader->numVertexes * sizeof(input->normal[0]);
+
+#ifdef USE_VK_PBR
+		// tangents and light directions after the stage data
+		input->shader->qtangentOffset = vbo->vbo_offset;
+		input->shader->lightdirOffset = input->shader->qtangentOffset + input->shader->numVertexes * sizeof(input->qtangent[0]);
+		vbo->vbo_offset += input->shader->numVertexes * ( sizeof(input->qtangent[0]) + sizeof(input->lightdir[0]) );
+#endif
 
 		for (i = 0; i < MAX_VBO_STAGES; i++)
 		{
@@ -377,6 +391,22 @@ static void VBO_AddGeometry(vbo_t *vbo, vbo_item_t *vi, shaderCommands_t *input)
 	}
 	//Com_Printf( "v offs=%i size=%i\n", offs, size );
 	memcpy(vbo->vbo_buffer + offs, input->normal, size);
+
+#ifdef USE_VK_PBR
+	offs = input->shader->qtangentOffset + input->shader->curVertexes * sizeof(input->qtangent[0]);
+	size = input->numVertexes * sizeof(input->qtangent[0]);
+	if (offs + size > vbo->vbo_size) {
+		ri.Error(ERR_DROP, "Tangents overflow");
+	}
+	memcpy(vbo->vbo_buffer + offs, input->qtangent, size);
+
+	offs = input->shader->lightdirOffset + input->shader->curVertexes * sizeof(input->lightdir[0]);
+	size = input->numVertexes * sizeof(input->lightdir[0]);
+	if (offs + size > vbo->vbo_size) {
+		ri.Error(ERR_DROP, "Light directions overflow");
+	}
+	memcpy(vbo->vbo_buffer + offs, input->lightdir, size);
+#endif
 
 	vi->num_indexes += input->numIndexes;
 	vi->num_vertexes += input->numVertexes;
@@ -1172,7 +1202,7 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 		vbo->offsets[2] = ofsTexcoords;
 		vbo->offsets[8] = ofsBoneRefs;
 		vbo->offsets[9] = ofsWeights;
-		//vbo->offsets[8] = ofsTangents;
+		vbo->offsets[10] = ofsTangents;
 
 		surf = (mdxmSurface_t *)((byte *)lod + sizeof (mdxmLOD_t) + (mdxm->numSurfaces * sizeof (mdxmLODSurfOffset_t)));
 
@@ -1344,7 +1374,7 @@ void R_BuildMD3( model_t *mod, mdvModel_t *mdvModel )
 	vbo->offsets[0] = ofsPosition;
 	vbo->offsets[5] = ofsNormals;
 	vbo->offsets[2] = ofsTexcoords;
-	vbo->offsets[8] = ofsTangents;
+	vbo->offsets[10] = ofsTangents;
 
 	surf = mdvModel->surfaces;
 	for ( i = 0; i < mdvModel->numSurfaces; i++, surf++, vboSurf++ )
@@ -1446,6 +1476,7 @@ void R_CreateGoreVBO( void )
 	tr.goreVBO->offsets[2] = offsetof(g2GoreVert_t, texcoords);
 	tr.goreVBO->offsets[8] = offsetof(g2GoreVert_t, bonerefs);
 	tr.goreVBO->offsets[9] = offsetof(g2GoreVert_t, weights);
+	tr.goreVBO->offsets[10] = offsetof(g2GoreVert_t, tangents);
 #endif
 	//tr.goreVBO->offsets[8] = ofsTangents;
 
@@ -1530,7 +1561,7 @@ void R_BuildWorldVBO(msurface_t *surf, int surfCount)
 			numStaticVertexes += face->numPoints;
 			numStaticIndexes += face->numIndices;
 
-			vbo_size += face->numPoints * (sf->shader->svarsSize + sizeof(tess.xyz[0]) + sizeof(tess.normal[0]));
+			vbo_size += face->numPoints * (sf->shader->svarsSize + VBO_VERTEX_SIZE);
 			sf->shader->numVertexes += face->numPoints;
 			sf->shader->numIndexes += face->numIndices;
 			continue;
@@ -1541,7 +1572,7 @@ void R_BuildWorldVBO(msurface_t *surf, int surfCount)
 			numStaticVertexes += tris->numVerts;
 			numStaticIndexes += tris->numIndexes;
 
-			vbo_size += tris->numVerts * (sf->shader->svarsSize + sizeof(tess.xyz[0]) + sizeof(tess.normal[0]));
+			vbo_size += tris->numVerts * (sf->shader->svarsSize + VBO_VERTEX_SIZE);
 			sf->shader->numVertexes += tris->numVerts;
 			sf->shader->numIndexes += tris->numIndexes;
 			continue;
@@ -1554,7 +1585,7 @@ void R_BuildWorldVBO(msurface_t *surf, int surfCount)
 			numStaticVertexes += grid->vboExpectVertices;
 			numStaticIndexes += grid->vboExpectIndices;
 
-			vbo_size += grid->vboExpectVertices * (sf->shader->svarsSize + sizeof(tess.xyz[0]) + sizeof(tess.normal[0]));
+			vbo_size += grid->vboExpectVertices * (sf->shader->svarsSize + VBO_VERTEX_SIZE);
 			sf->shader->numVertexes += grid->vboExpectVertices;
 			sf->shader->numIndexes += grid->vboExpectIndices;
 			continue;

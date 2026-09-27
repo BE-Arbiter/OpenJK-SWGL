@@ -575,6 +575,12 @@ void vk_initialize( void )
 	if ( vk.fboActive && glConfig.maxActiveTextures >= 4 )
 		vk.refractionActive = qtrue;
 
+#ifdef USE_VK_PBR
+	// PBR shading of the lit stages: descriptor sets 5 to 8
+	if ( ( r_normalMapping->integer || r_specularMapping->integer ) && vk.maxBoundDescriptorSets >= VK_DESC_COUNT )
+		vk.pbrActive = qtrue;
+#endif
+
 	// depth+normal G-buffer extraction pass, foundation for later screen-space techniques
 	if ( vk.fboActive && r_depthPrepass->integer )
 		vk.gbufferActive = qtrue;
@@ -641,6 +647,9 @@ void vk_initialize( void )
 	vk_create_command_buffer();
 	vk_create_descriptor_layout();
 	vk_create_pipeline_layout();
+#ifdef USE_VK_PBR
+	vk_create_pbr_resources();
+#endif
 
 	vk.geometry_buffer_size_new = vk.defaults.geometry_size;
 	vk.indirect_buffer_size_new = sizeof(VkDrawIndexedIndirectCommand) * 1024 * 1024;
@@ -758,6 +767,9 @@ void vk_shutdown( void )
 
 #ifdef VK_COMPUTE_NORMALMAP
 	vk_destroy_compute_normalmap_pipelines();
+#endif
+#ifdef USE_VK_PBR
+	vk_destroy_pbr_resources();
 #endif
     vk_destroy_shader_modules();
 

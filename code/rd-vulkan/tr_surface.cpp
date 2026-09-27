@@ -492,6 +492,7 @@ void RB_SurfaceTriangles( const srfTriangles_t *srf ) {
 
 #ifdef USE_VK_PBR
 		VectorCopy4( dv->qtangent, tess.qtangent[tess.numVertexes + i] );
+		VectorCopy4( dv->lightdir, tess.lightdir[tess.numVertexes + i] );
 #endif
 
 		texCoords0[0] = dv->st[0];
@@ -1692,6 +1693,8 @@ void RB_SurfaceFace( srfSurfaceFace_t *surf ) {
 
 #ifdef USE_VK_PBR
 	memcpy( &tess.qtangent[ tess.numVertexes ], surf->qtangents, numPoints * sizeof( vec4_t ) );
+	if ( surf->lightdir )
+		memcpy( &tess.lightdir[ tess.numVertexes ], surf->lightdir, numPoints * sizeof( vec4_t ) );
 #endif
 
 	for ( i = 0, v = surf->points[0], ndx = tess.numVertexes; i < numPoints; i++, v += VERTEXSIZE, ndx++ )
@@ -2006,6 +2009,7 @@ void RB_SurfaceGrid( srfGridMesh_t *cv ) {
 
 #ifdef USE_VK_PBR
 				VectorCopy4( dv->qtangent, tess.qtangent[numVertexes + i * lodWidth + j] );
+				VectorCopy4( dv->lightdir, tess.lightdir[numVertexes + i * lodWidth + j] );
 #endif
 
 				*(unsigned *)color = ComputeFinalVertexColor((byte *)dv->color);

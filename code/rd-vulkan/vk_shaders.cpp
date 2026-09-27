@@ -256,6 +256,27 @@ void vk_destroy_shader_modules( void )
 {
     int i, j, k, l, m, sh_count;
 
+#ifdef USE_VK_PBR
+    for ( i = 0; i < 3; i++ ) {
+        for ( j = 0; j < 3; j++ ) {
+            for ( k = 0; k < 2; k++ ) {
+                if ( vk.shaders.vert.pbr[i][j][k] != VK_NULL_HANDLE ) {
+                    qvkDestroyShaderModule( vk.device, vk.shaders.vert.pbr[i][j][k], NULL );
+                    vk.shaders.vert.pbr[i][j][k] = VK_NULL_HANDLE;
+                }
+            }
+        }
+    }
+    for ( j = 0; j < 3; j++ ) {
+        for ( k = 0; k < 2; k++ ) {
+            if ( vk.shaders.frag.pbr[j][k] != VK_NULL_HANDLE ) {
+                qvkDestroyShaderModule( vk.device, vk.shaders.frag.pbr[j][k], NULL );
+                vk.shaders.frag.pbr[j][k] = VK_NULL_HANDLE;
+            }
+        }
+    }
+#endif
+
     sh_count = 1;
 #ifdef USE_VBO_GHOUL2
     sh_count++;

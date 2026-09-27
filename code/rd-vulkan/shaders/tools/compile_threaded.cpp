@@ -357,6 +357,39 @@ static void compile_and_convert_template_shaders( void )
             }
         }
     }
+
+    // PBR shading of the lit stages (pbr.glsl): the world has lightmap and vertex, the model VBOs light vector
+    const char* light_flags[]       = { "-DUSE_TX1 -DUSE_LIGHTMAP", "-DUSE_LIGHT_VECTOR", "-DUSE_LIGHT_VERTEX" };
+    const char* light_ids[]         = { "lightmap", "vector", "vertex" };
+
+    for ( i = 0; i < ARRAY_LEN(vbo_flags); ++i ) { // vbo
+        for ( j = 0; j < ARRAY_LEN(light_flags); ++j ) { // light
+            if ( ( i == 0 ) == ( j == 1 ) )
+                continue;
+
+            for ( l = 0; l < ARRAY_LEN(fog_flags); ++l ) { // fog
+                defines = join_flags({ vbo_flags[i], light_flags[j], fog_flags[l] });
+                name    = "vert_" + std::string(vbo_ids[i]) + "pbr_" + light_ids[j] + fog_ids[l];
+                ids     = join_indexes("vk.shaders.vert.pbr", { i, j, l });
+
+                create_shader_task("gen_vert.tmpl", "vert", name.c_str(), ids.c_str(), defines.c_str());
+            }
+        }
+    }
+
+    for ( j = 0; j < ARRAY_LEN(light_flags); ++j ) { // light
+        for ( l = 0; l < ARRAY_LEN(fog_flags); ++l ) { // fog
+            defines = join_flags({ light_flags[j], fog_flags[l] });
+
+            if ( j != 0 )
+                defines += " -DUSE_ATEST";
+
+            name    = "frag_pbr_" + std::string(light_ids[j]) + fog_ids[l];
+            ids     = join_indexes("vk.shaders.frag.pbr", { j, l });
+
+            create_shader_task("gen_frag.tmpl", "frag", name.c_str(), ids.c_str(), defines.c_str());
+        }
+    }
 }
 
 static void compile_and_convert_individual_shaders( void )

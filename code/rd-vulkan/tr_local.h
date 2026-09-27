@@ -732,6 +732,7 @@ typedef struct shaderStage_s {
 #ifdef USE_VK_PBR
 	// The PBR maps of the stage (PBR_HAS_*), which the path tracer reads.
 	uint32_t		vk_pbr_flags;
+	uint32_t		vk_light_flags;		// LIGHTDEF_*: the light type of a lit stage
 	image_t			*normalMap;
 	image_t			*physicalMap;
 	uint32_t		normalMapType;
@@ -845,6 +846,10 @@ typedef struct shader_s {
 	int			iboOffset;
 	int			vboOffset;
 	int			normalOffset;
+#ifdef USE_VK_PBR
+	int			qtangentOffset;
+	int			lightdirOffset;
+#endif
 	int			numIndexes;
 	int			numVertexes;
 	int			curVertexes;
@@ -1144,6 +1149,7 @@ typedef struct srfVert_s {
 	vec3_t		normal;
 #ifdef USE_VK_PBR
 	vec4_t		qtangent;
+	vec4_t		lightdir;		// world space direction to the light, from the light grid
 #endif
 	byte		color[MAXLIGHTMAPS][4];
 } srfVert_t;
@@ -1218,6 +1224,7 @@ typedef struct srfSurfaceFace_s {
 	float			*normals;
 #ifdef USE_VK_PBR
 	float			*qtangents;				// vec4_t for each point
+	float			*lightdir;				// vec4_t for each point
 #endif
 
 	// triangle definitions (no normals at points)
@@ -1853,6 +1860,9 @@ typedef struct trGlobals_s {
 	image_t					*dlightImage;		// inverse-quare highlight for projective adding
 	image_t					*flareImage;
 	image_t					*whiteImage;		// full of 0xff
+#ifdef USE_VK_PBR
+	image_t					*brdfLutImage;		// PBR environment BRDF
+#endif
 	image_t					*blackImage;			
 	image_t					*identityLightImage;// full of tr.identityLightByte
 
@@ -2111,6 +2121,10 @@ extern cvar_t	*r_baseSpecular;
 #ifdef VK_COMPUTE_NORMALMAP
 extern cvar_t	*r_genNormalMaps;
 #endif
+#ifdef USE_VK_PBR
+extern cvar_t	*r_normalMapping;
+extern cvar_t	*r_specularMapping;
+#endif
 
 extern	cvar_t	*r_nobind;				// turns off binding to appropriate textures
 extern	cvar_t	*r_singleShader;		// make most world faces use default shader
@@ -2309,6 +2323,13 @@ void		vk_mikkt_bsp_tri_generate( srfTriangles_t *tri );
 void		vk_mikkt_bsp_face_generate( srfSurfaceFace_t *cv );
 void		vk_mikkt_mdxm_generate( const mdxmSurface_t *surf, vec4_t *tangents );
 void		vk_mikkt_mdv_generate( const mdvSurface_t *surf, vec4_t *tangents );
+void		R_LightDirForPoint( const vec3_t point, const vec3_t normal, const world_t *world, vec4_t lightDir );
+// PBR shading of the raster renderer, vk_pbr.cpp
+void		vk_create_pbr_resources( void );
+void		vk_destroy_pbr_resources( void );
+void		vk_init_pbr_descriptors( void );
+void		vk_create_brdf_lut( void );
+uint32_t	vk_stage_light_flags( const shaderStage_t *pStage, Vk_Shader_Type type );
 #endif
 #ifdef VK_COMPUTE_NORMALMAP
 // normal maps computed from the diffuse texture, vk_normalmap.cpp
@@ -2397,6 +2418,9 @@ struct shaderCommands_s
 	vec4_t			normal[SHADER_MAX_VERTEXES]						QALIGN(16);
 #ifdef USE_RTX
 	vec4_t			qtangent[SHADER_MAX_VERTEXES]					QALIGN(16);
+#ifdef USE_VK_PBR
+	vec4_t			lightdir[SHADER_MAX_VERTEXES]					QALIGN(16);
+#endif
 #endif
 	vec2_t			texCoords[NUM_TEX_COORDS][SHADER_MAX_VERTEXES]	QALIGN(16);
 	vec2_t			texCoords00[SHADER_MAX_VERTEXES]				QALIGN(16);

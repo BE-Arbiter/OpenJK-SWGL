@@ -876,6 +876,59 @@ static void ParseTriSurf( const dsurface_t *ds, const mapVert_t *verts, msurface
 #endif
 }
 
+#ifdef USE_VK_PBR
+/*
+===============
+vk_generate_light_directions
+
+The light grid direction at each vertex of the world surfaces, for the PBR shading of the
+lightmapped and vertex-lit stages.
+===============
+*/
+static void vk_generate_light_directions( world_t &worldData, const world_t *grid )
+{
+	msurface_t	*sf;
+	int			i, j;
+
+	for ( i = 0, sf = worldData.surfaces; i < worldData.numsurfaces; i++, sf++ )
+	{
+		switch ( *sf->data )
+		{
+			case SF_FACE:
+			{
+				srfSurfaceFace_t *face = (srfSurfaceFace_t *)sf->data;
+
+				face->lightdir = (float *)Hunk_Alloc( face->numPoints * sizeof( vec4_t ), h_low );
+
+				for ( j = 0; j < face->numPoints; j++ ) {
+					const float *normal = face->normals ? face->normals + j * 4 : face->plane.normal;
+					R_LightDirForPoint( face->points[j], normal, grid, face->lightdir + j * 4 );
+				}
+				break;
+			}
+			case SF_TRIANGLES:
+			{
+				srfTriangles_t *tri = (srfTriangles_t *)sf->data;
+
+				for ( j = 0; j < tri->numVerts; j++ )
+					R_LightDirForPoint( tri->verts[j].xyz, tri->verts[j].normal, grid, tri->verts[j].lightdir );
+				break;
+			}
+			case SF_GRID:
+			{
+				srfGridMesh_t *mesh = (srfGridMesh_t *)sf->data;
+
+				for ( j = 0; j < mesh->width * mesh->height; j++ )
+					R_LightDirForPoint( mesh->verts[j].xyz, mesh->verts[j].normal, grid, mesh->verts[j].lightdir );
+				break;
+			}
+			default:
+				break;
+		}
+	}
+}
+#endif
+
 /*
 ===============
 ParseFlare
@@ -2424,6 +2477,19 @@ void RE_LoadWorldMap_Actual( const char *name, world_t &worldData, int index )
 	R_LoadSubmodels (&header->lumps[LUMP_MODELS], worldData, index);
 	R_LoadVisibility( &header->lumps[LUMP_VISIBILITY], worldData );
 
+	// The light grid is loaded before the world VBO: the VBO holds the light directions.
+	if (!index)
+	{
+		R_LoadEntities( &header->lumps[LUMP_ENTITIES], worldData );
+		R_LoadLightGrid( &header->lumps[LUMP_LIGHTGRID], worldData );
+		R_LoadLightGridArray( &header->lumps[LUMP_LIGHTARRAY], worldData );
+	}
+
+#ifdef USE_VK_PBR
+	// A sub-BSP has no light grid: it uses the grid of the world.
+	vk_generate_light_directions( worldData, index ? tr.world : &worldData );
+#endif
+
 #ifdef USE_VBO
 	R_BuildWorldVBO(s_worldData.surfaces, s_worldData.numsurfaces);
 #endif
@@ -2432,10 +2498,6 @@ void RE_LoadWorldMap_Actual( const char *name, world_t &worldData, int index )
 
 	if (!index)
 	{
-		R_LoadEntities( &header->lumps[LUMP_ENTITIES], worldData );
-		R_LoadLightGrid( &header->lumps[LUMP_LIGHTGRID], worldData );
-		R_LoadLightGridArray( &header->lumps[LUMP_LIGHTARRAY], worldData );
-
 		// only set tr.world now that we know the entire level has loaded properly
 		tr.world = &worldData;
 
