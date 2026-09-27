@@ -118,6 +118,24 @@ cvar_t	*r_DynamicGlowHeight;
 cvar_t	*r_DynamicGlowScale;
 
 cvar_t	*r_smartpicmip;
+#ifdef USE_VK_PBR
+cvar_t	*r_baseNormalX;
+cvar_t	*r_baseNormalY;
+cvar_t	*r_baseParallax;
+cvar_t	*r_baseSpecular;
+#endif
+#ifdef VK_COMPUTE_NORMALMAP
+cvar_t	*r_genNormalMaps;
+#endif
+#ifdef USE_VK_PBR
+cvar_t	*r_normalMapping;
+cvar_t	*r_specularMapping;
+#ifdef VK_CUBEMAP
+cvar_t	*r_cubeMapping;
+cvar_t	*r_deluxeMapping;
+cvar_t	*r_deluxeSpecular;
+#endif
+#endif
 
 cvar_t	*r_ignoreGLErrors;
 cvar_t	*r_logFile;
@@ -812,6 +830,24 @@ void R_Register( void )
 	r_picmip							= Cvar_Get( "r_picmip",							"0",						CVAR_ARCHIVE|CVAR_LATCH, "" );
 	ri.Cvar_CheckRange( r_picmip, 0, 16, qtrue );
 	r_smartpicmip						= Cvar_Get( "r_smartpicmip",						"1",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Applies r_picmip setting to map textures only." );
+#ifdef USE_VK_PBR
+	r_baseNormalX						= Cvar_Get( "r_baseNormalX",						"1.0",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Scale of the x of the normal maps." );
+	r_baseNormalY						= Cvar_Get( "r_baseNormalY",						"1.0",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Scale of the y of the normal maps." );
+	r_baseParallax						= Cvar_Get( "r_baseParallax",						"0.05",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Depth of the parallax of the normal height maps." );
+	r_baseSpecular						= Cvar_Get( "r_baseSpecular",						"0.04",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Specular of the stages without physical map." );
+#endif
+#ifdef VK_COMPUTE_NORMALMAP
+	r_genNormalMaps						= Cvar_Get( "r_genNormalMaps",						"0",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Approximate normal maps from baked diffuse (albedo) textures" );
+#endif
+#ifdef USE_VK_PBR
+	r_normalMapping = Cvar_Get( "r_normalMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "PBR shading of the lit stages with their normal maps" );
+	r_specularMapping = Cvar_Get( "r_specularMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "PBR shading of the lit stages with their specular / physical maps" );
+#ifdef VK_CUBEMAP
+	r_deluxeMapping = Cvar_Get( "r_deluxeMapping", "1", CVAR_ARCHIVE_ND | CVAR_LATCH, "Light direction of the PBR lightmap stages from the deluxe maps of maps compiled with q3map2 -deluxe" );
+	r_deluxeSpecular = Cvar_Get( "r_deluxeSpecular", "1", CVAR_ARCHIVE_ND | CVAR_LATCH, "Scale of the specular light of the stages with a deluxe map" );
+	r_cubeMapping = Cvar_Get( "r_cubeMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "Reflections of the PBR stages from the cubemaps of the map probes" );
+#endif
+#endif
 	r_colorMipLevels					= Cvar_Get( "r_colorMipLevels",					"0",						CVAR_LATCH, "" );
 	r_detailTextures					= Cvar_Get( "r_detailtextures",					"1",						CVAR_ARCHIVE_ND|CVAR_LATCH, "" );
 	r_texturebits						= Cvar_Get( "r_texturebits",						"0",						CVAR_ARCHIVE_ND|CVAR_LATCH, "" );

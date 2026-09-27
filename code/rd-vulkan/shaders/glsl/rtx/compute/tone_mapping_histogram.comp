@@ -170,6 +170,32 @@ layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 shared uint s_Histogram[HISTOGRAM_BINS];
 
+// The luminance of what the tracer does not light at this pixel of the TAA output: the emission
+// in screen units (PT_GLOW alpha, see primary_rays) and the bloom. JKA shows it at a fixed level,
+// so it must not move the exposure; with it, the exposure followed the emission that it converts.
+float unlit_luminance(ivec2 ipos)
+{
+	// PT_GLOW has the render size, in two checkerboard fields side by side (bloom_downscale.comp).
+	vec2 to_render = vec2(global_ubo.width, global_ubo.height) / vec2(global_ubo.taa_output_width, global_ubo.taa_output_height);
+	ivec2 flat_pos = ivec2((vec2(ipos) + 0.5) * to_render);
+	bool is_even_checkerboard = (flat_pos.x & 1) == (flat_pos.y & 1);
+	if (global_ubo.pt_swap_checkerboard != 0)
+		is_even_checkerboard = !is_even_checkerboard;
+
+	ivec2 field_pos = ivec2(flat_pos.x / 2, flat_pos.y);
+	if (!is_even_checkerboard)
+		field_pos.x += global_ubo.width / 2;
+
+	float emission = texelFetch(TEX_PT_GLOW, field_pos, 0).a;
+
+	// bloom_composite added BLOOM_VBLUR (in the units of TAA_OUTPUT) to the image.
+	vec2 uv = clamp((vec2(ipos) + 0.5) / vec2(global_ubo.taa_image_width, global_ubo.taa_image_height), 0.0, 1.0);
+	float bloom = luminance(textureLod(TEX_BLOOM_VBLUR, uv, 0).rgb) * global_ubo.bloom_intensity / STORAGE_SCALE_HDR;
+
+	float unlit = emission + bloom;
+	return (isnan(unlit) || isinf(unlit)) ? 0.0 : unlit;
+}
+
 void main()
 {
     const ivec2 ipos = ivec2(gl_GlobalInvocationID);
@@ -192,13 +218,16 @@ void main()
     // Thread sync
     barrier();
 
-    // Ignore completely black pixels
-    if(validThread && luminance(input_color) > 0)
+    // The lit part of the pixel only. Ignore completely black pixels, and the pixels that only
+    // emit.
+    const float lit_luminance = validThread ? luminance(input_color) - unlit_luminance(ipos) : 0.0;
+
+    if(validThread && lit_luminance > 0)
     {
         // Compute histogram bin (based on photographic stops)
         // This is (log2(lum) - min_log_luminance)/(max_log_luminance - min_log_luminance),
         // but phrased as a fused multiply-add:
-        const float lum = max(luminance(input_color), exp2(min_log_luminance));
+        const float lum = max(lit_luminance, exp2(min_log_luminance));
         const float log_luminance = log2(lum);
         const float biased_log_luminance = log_luminance * log_luminance_scale + log_luminance_bias;
         const float histogram_bin = clamp(biased_log_luminance * HISTOGRAM_BINS, 0.0, HISTOGRAM_BINS - 1.0);

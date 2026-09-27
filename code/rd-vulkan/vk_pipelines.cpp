@@ -34,8 +34,13 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define INIT_SPEC_ENTRY_FRAG( index, member ) \
     ALLOC_SPEC_ENTRY( frag_spec_entries, index, struct FragSpecData, frag_spec_data, member )
 
-static VkVertexInputBindingDescription bindings[10];
-static VkVertexInputAttributeDescription attribs[8];
+// an entry whose constant id is not its index
+#define INIT_SPEC_ENTRY_FRAG_ID( index, id, member ) \
+    ALLOC_SPEC_ENTRY( frag_spec_entries, index, struct FragSpecData, frag_spec_data, member ) \
+    frag_spec_entries[index].constantID = (id);
+
+static VkVertexInputBindingDescription bindings[12];
+static VkVertexInputAttributeDescription attribs[12];
 static uint32_t num_binds;
 static uint32_t num_attrs;
 #ifdef USE_VBO
@@ -88,12 +93,18 @@ void vk_create_descriptor_layout( void )
     // Like command buffers, descriptor sets are allocated from a pool. 
     // So we must first create the Descriptor pool.
     {
-        VkDescriptorPoolSize pool_size[3];
+        VkDescriptorPoolSize pool_size[4];
         VkDescriptorPoolCreateInfo desc;
         uint32_t i, maxSets;
 
         pool_size[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         pool_size[0].descriptorCount = MAX_DRAWIMAGES + 1 + 1 + 1 + ( VK_NUM_BLUR_PASSES * 4 ) + 1;
+#ifdef USE_VK_PBR
+        pool_size[0].descriptorCount += 1; // empty cubemap
+#endif
+#ifdef VK_CUBEMAP
+        pool_size[0].descriptorCount += 1 + MAX_CUBEMAPS; // capture, prefiltered probes
+#endif
 
         pool_size[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
         pool_size[1].descriptorCount = VK_DESC_UNIFORM_COUNT * NUM_COMMAND_BUFFERS;
@@ -102,6 +113,14 @@ void vk_create_descriptor_layout( void )
         pool_size[2].descriptorCount = 1;
 #ifdef USE_VBO_SS
         pool_size[2].descriptorCount += (MAX_SUB_BSP + 1);
+#endif
+
+        // the normal maps computed from their diffuse texture: a sampler and a storage image each
+        pool_size[3].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        pool_size[3].descriptorCount = 1;
+#ifdef VK_COMPUTE_NORMALMAP
+        pool_size[0].descriptorCount += MAX_BATCH_COMPUTE_NORMALMAPS;
+        pool_size[3].descriptorCount += MAX_BATCH_COMPUTE_NORMALMAPS;
 #endif
 
         for (i = 0, maxSets = 0; i < ARRAY_LEN(pool_size); i++) {
@@ -129,7 +148,7 @@ void vk_create_descriptor_layout( void )
 void vk_create_pipeline_layout( void )
 {
     // Pipeline layouts
-    VkDescriptorSetLayout set_layouts[6];
+    VkDescriptorSetLayout set_layouts[VK_DESC_COUNT > 6 ? VK_DESC_COUNT : 6];
     VkPipelineLayoutCreateInfo desc;
     VkPushConstantRange push_range;
     
@@ -143,6 +162,13 @@ void vk_create_pipeline_layout( void )
     set_layouts[2] = vk.set_layout_sampler; // lightmap / fog-only
     set_layouts[3] = vk.set_layout_sampler; // blend
     set_layouts[4] = vk.set_layout_sampler; // collapsed fog texture
+#ifdef USE_VK_PBR
+    set_layouts[VK_DESC_PBR_BRDFLUT] = vk.set_layout_sampler;
+    set_layouts[VK_DESC_PBR_NORMAL] = vk.set_layout_sampler;
+    set_layouts[VK_DESC_PBR_PHYSICAL] = vk.set_layout_sampler;
+    set_layouts[VK_DESC_PBR_CUBEMAP] = vk.set_layout_sampler;
+    set_layouts[VK_DESC_PBR_DELUXE] = vk.set_layout_sampler;
+#endif
 
     desc.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     desc.pNext = NULL;
@@ -385,6 +411,17 @@ static void vk_push_attr( uint32_t location, uint32_t binding, VkFormat format )
 // descriptions as part of graphics pipeline creation	
 // A vertex binding describes at which rate to load data
 // from memory throughout the vertices
+#ifdef USE_VK_PBR
+// The PBR shading replaces the generic shaders of these stage types only.
+static qboolean vk_def_is_pbr( const Vk_Pipeline_Def *def )
+{
+    if ( !def->vk_light_flags )
+        return qfalse;
+
+    return ( def->shader_type == TYPE_SINGLE_TEXTURE || def->shader_type == TYPE_MULTI_TEXTURE_MUL2 ) ? qtrue : qfalse;
+}
+#endif
+
 static void vk_push_vertex_input_binding_attribute( const Vk_Pipeline_Def *def ) {
     num_binds = num_attrs = 0; // reset
 #ifdef USE_VBO
@@ -717,6 +754,19 @@ static void vk_push_vertex_input_binding_attribute( const Vk_Pipeline_Def *def )
         }
     }
 #endif
+
+#ifdef USE_VK_PBR
+    if ( vk_def_is_pbr( def ) ) {
+        if ( !def->vbo_ghoul2 && !def->vbo_mdv ) {
+            vk_push_bind( 5, sizeof( vec4_t ) );        // normals
+            vk_push_attr( 5, 5, VK_FORMAT_R32G32B32A32_SFLOAT );
+            vk_push_bind( 11, sizeof( vec4_t ) );       // light grid directions
+            vk_push_attr( 11, 11, VK_FORMAT_R32G32B32A32_SFLOAT );
+        }
+        vk_push_bind( 10, sizeof( vec4_t ) );           // tangents
+        vk_push_attr( 10, 10, VK_FORMAT_R32G32B32A32_SFLOAT );
+    }
+#endif
 }
 
 static void vk_set_pipeline_color_blend_attachment_factor( const Vk_Pipeline_Def *def, 
@@ -851,11 +901,18 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
         float   identity_color;
         float   identity_alpha;
         int32_t acff;
+#ifdef USE_VK_PBR
+        int32_t normal_texture_set;
+        int32_t physical_texture_set;
+        int32_t env_texture_set;
+        int32_t deluxe_mapping;
+        float   deluxe_specular_scale;
+#endif
 #ifdef USE_VBO_SS
         SurfaceSpritesData ss;
 #endif
-    } frag_spec_data; 
-    VkSpecializationMapEntry frag_spec_entries[18];
+    } frag_spec_data;
+    VkSpecializationMapEntry frag_spec_entries[23];
     VkSpecializationInfo frag_spec_info;
 
     VkBool32 alphaToCoverage = VK_FALSE;
@@ -1047,6 +1104,19 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
     }
 #endif
 
+#ifdef USE_VK_PBR
+    // the PBR shading of a lit stage (pbr.glsl)
+    if ( vk_def_is_pbr( def ) ) {
+        const int light = ( def->vk_light_flags & LIGHTDEF_USE_LIGHTMAP ) ? 0 : ( def->vk_light_flags & LIGHTDEF_USE_LIGHT_VECTOR ) ? 1 : 2;
+
+        vs_module = &vk.shaders.vert.pbr[vbo][light][0];
+        fs_module = &vk.shaders.frag.pbr[light][0];
+
+        if ( *vs_module == VK_NULL_HANDLE || *fs_module == VK_NULL_HANDLE )
+            ri.Error( ERR_DROP, "create_pipeline: no PBR shader for vbo %i light %i\n", vbo, light );
+    }
+#endif
+
     if ( def->fog_stage ) {
         switch ( def->shader_type ) {
             case TYPE_FOG_ONLY:
@@ -1107,6 +1177,13 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
         frag_spec_data.alpha_to_coverage = 1;
         alphaToCoverage = VK_TRUE;
     }
+#ifdef VK_CUBEMAP
+    // the cubemap capture has one sample: the alpha test discards
+    if ( renderPassIndex == RENDER_PASS_CUBEMAP ) {
+        frag_spec_data.alpha_to_coverage = 0;
+        alphaToCoverage = VK_FALSE;
+    }
+#endif
 
     // constant color
     switch ( def->shader_type ) {
@@ -1242,6 +1319,33 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
     INIT_SPEC_ENTRY_FRAG( 10,   identity_alpha )
     INIT_SPEC_ENTRY_FRAG( 11,   acff )
 
+    // PBR: constant ids 18 to 22, the entries before the surface sprites ones
+#ifdef USE_VK_PBR
+    INIT_SPEC_ENTRY_FRAG_ID( 12, 18, normal_texture_set )
+    INIT_SPEC_ENTRY_FRAG_ID( 13, 19, physical_texture_set )
+    INIT_SPEC_ENTRY_FRAG_ID( 14, 20, env_texture_set )
+    INIT_SPEC_ENTRY_FRAG_ID( 15, 21, deluxe_mapping )
+    INIT_SPEC_ENTRY_FRAG_ID( 16, 22, deluxe_specular_scale )
+
+    frag_spec_data.normal_texture_set = ( def->vk_pbr_flags & PBR_HAS_NORMALMAP ) ? 0 : -1;
+    frag_spec_data.physical_texture_set = ( def->vk_pbr_flags & PBR_HAS_SPECULARMAP ) ? 0 : -1;
+#ifdef VK_CUBEMAP
+    frag_spec_data.env_texture_set = vk.cubemapActive ? 0 : -1;
+#else
+    frag_spec_data.env_texture_set = -1;
+#endif
+    if ( def->vk_pbr_flags & PBR_HAS_DELUXEMAP ) {
+        frag_spec_data.deluxe_mapping = 1;
+        frag_spec_data.deluxe_specular_scale = r_deluxeSpecular->value;
+    } else {
+        frag_spec_data.deluxe_mapping = -1;
+        frag_spec_data.deluxe_specular_scale = 1.0f;
+    }
+    #define FRAG_SS_ENTRY 17
+#else
+    #define FRAG_SS_ENTRY 12
+#endif
+
     frag_spec_info.mapEntryCount = ARRAY_LEN( frag_spec_entries );
     frag_spec_info.pMapEntries = frag_spec_entries;
     frag_spec_info.dataSize = sizeof( frag_spec_data );
@@ -1266,12 +1370,12 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
         INIT_SPEC_ENTRY_VERT( 5,   ss.kAdditive )
         INIT_SPEC_ENTRY_VERT( 6,   ss.kUseFog )
 
-        INIT_SPEC_ENTRY_FRAG( 12,   ss.kFaceCamera )
-        INIT_SPEC_ENTRY_FRAG( 13,   ss.kFaceUp )
-        INIT_SPEC_ENTRY_FRAG( 14,   ss.kFaceFlattened )
-        INIT_SPEC_ENTRY_FRAG( 15,   ss.kFxSprite )
-        INIT_SPEC_ENTRY_FRAG( 16,   ss.kAdditive )
-        INIT_SPEC_ENTRY_FRAG( 17,   ss.kUseFog )
+        INIT_SPEC_ENTRY_FRAG_ID( FRAG_SS_ENTRY + 0, 12, ss.kFaceCamera )
+        INIT_SPEC_ENTRY_FRAG_ID( FRAG_SS_ENTRY + 1, 13, ss.kFaceUp )
+        INIT_SPEC_ENTRY_FRAG_ID( FRAG_SS_ENTRY + 2, 14, ss.kFaceFlattened )
+        INIT_SPEC_ENTRY_FRAG_ID( FRAG_SS_ENTRY + 3, 15, ss.kFxSprite )
+        INIT_SPEC_ENTRY_FRAG_ID( FRAG_SS_ENTRY + 4, 16, ss.kAdditive )
+        INIT_SPEC_ENTRY_FRAG_ID( FRAG_SS_ENTRY + 5, 17, ss.kUseFog )
     }
     else
     {
@@ -1380,6 +1484,10 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
     multisample_state.pNext = NULL;
     multisample_state.flags = 0;
     multisample_state.rasterizationSamples = (renderPassIndex == RENDER_PASS_SCREENMAP) ? (VkSampleCountFlagBits)vk.screenMapSamples : (VkSampleCountFlagBits)vkSamples;
+#ifdef VK_CUBEMAP
+    if ( renderPassIndex == RENDER_PASS_CUBEMAP )
+        multisample_state.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+#endif
     multisample_state.sampleShadingEnable = VK_FALSE;
     multisample_state.minSampleShading = 1.0f;
     multisample_state.pSampleMask = NULL;
@@ -1531,6 +1639,10 @@ VkPipeline vk_create_pipeline( const Vk_Pipeline_Def *def, renderPass_t renderPa
         create_info.renderPass = vk.render_pass.screenmap;
     else if ( renderPassIndex == RENDER_PASS_REFRACTION )
         create_info.renderPass = vk.render_pass.refraction.extract;
+#ifdef VK_CUBEMAP
+    else if ( renderPassIndex == RENDER_PASS_CUBEMAP )
+        create_info.renderPass = vk.cubemap.render_pass;
+#endif
     else
         create_info.renderPass = vk.render_pass.main;
 

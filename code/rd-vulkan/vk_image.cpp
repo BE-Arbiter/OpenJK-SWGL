@@ -34,6 +34,17 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 static image_t *hashTable[FILE_HASH_SIZE];
 
+// The index in textureMapTypes of a map type (PHYS_*): its swizzle. 0 is the identity.
+static uint32_t vk_find_texture_type( const uint32_t type )
+{
+	for ( uint32_t i = 0; i < ARRAY_LEN( textureMapTypes ); i++ ) {
+		if ( textureMapTypes[i].type == type )
+			return i;
+	}
+
+	return 0;
+}
+
 int		gl_filter_min = GL_LINEAR_MIPMAP_NEAREST;
 int		gl_filter_max = GL_LINEAR;
 
@@ -500,6 +511,11 @@ void vk_record_image_layout_transition( VkCommandBuffer cmdBuf, VkImage image,
 			src_stage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
 			break;
+		case VK_IMAGE_LAYOUT_GENERAL:
+			// A storage image, written by a compute shader.
+			src_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+			barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+			break;
 		default:
 			ri.Error( ERR_DROP, "unsupported old layout %i", old_layout );
 			src_stage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
@@ -537,6 +553,11 @@ void vk_record_image_layout_transition( VkCommandBuffer cmdBuf, VkImage image,
 			// a consumer, and read back as a depth attachment when its own pass reopens.
 			dst_stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_GENERAL:
+			// A storage image, for a compute shader.
+			dst_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+			barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
 			break;
 		default:
 			ri.Error( ERR_DROP, "unsupported new layout %i", new_layout);
@@ -713,6 +734,17 @@ void vk_generate_image_upload_data(image_t* image, byte* data, Image_Upload_Data
 	if (data == NULL) {
 		Com_Memset(upload_data->buffer, 0, upload_data->buffer_size);
 		upload_data->mip_levels = 1;
+
+		// A mipmapped storage image gets all its levels. Its compute pass fills them.
+		if ( mipmap && ( image->flags & IMGFLAG_STORAGE ) ) {
+			width = scaled_width;
+			height = scaled_height;
+			while ( width > 1 || height > 1 ) {
+				width = ( width > 1 ) ? ( width >> 1 ) : 1;
+				height = ( height > 1 ) ? ( height >> 1 ) : 1;
+				upload_data->mip_levels++;
+			}
+		}
 		return;
 	}
 
@@ -1357,6 +1389,8 @@ void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 		desc.samples = VK_SAMPLE_COUNT_1_BIT;
 		desc.tiling = VK_IMAGE_TILING_OPTIMAL;
 		desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		if ( image->flags & IMGFLAG_STORAGE )
+			desc.usage |= VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		desc.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		desc.queueFamilyIndexCount = 0;
 		desc.pQueueFamilyIndices = NULL;
@@ -1375,10 +1409,7 @@ void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 		desc.image = image->handle;
 		desc.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		desc.format = srgb ? VK_FORMAT_R8G8B8A8_UNORM : format;
-		desc.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		desc.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		desc.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		desc.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		desc.components = textureMapTypes[image->type].swizzle;	// the channels of a PBR map
 		desc.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		desc.subresourceRange.baseMipLevel = 0;
 		desc.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
@@ -1454,6 +1485,11 @@ void vk_delete_textures( void ) {
 
 	vk_wait_idle();
 
+#ifdef VK_COMPUTE_NORMALMAP
+	// the normal maps still to compute go with their images
+	vk_clear_compute_normalmaps();
+#endif
+
 	if ( tr.images.count == 0 ) {
 		return;
 	}
@@ -1476,7 +1512,12 @@ void vk_delete_textures( void ) {
 	Com_Memset(glState.currenttextures, 0, sizeof(glState.currenttextures));
 }
 
-image_t *R_CreateImage( const char *name, byte *pic, int width, int height, imgFlags_t flags ){
+image_t *R_CreateImage( const char *name, byte *pic, int width, int height, imgFlags_t flags )
+{
+	return R_CreateImageType( name, pic, width, height, flags, 0 );
+}
+
+image_t *R_CreateImageType( const char *name, byte *pic, int width, int height, imgFlags_t flags, uint32_t type ){
     image_t				*image;
     int					namelen;
     long				hash;
@@ -1510,8 +1551,9 @@ image_t *R_CreateImage( const char *name, byte *pic, int width, int height, imgF
     image->flags = flags;
     image->width = width;
     image->height = height;
+    image->type = vk_find_texture_type( type );
 
-    if (namelen > 6 && Q_stristr(image->imgName, "maps/") == image->imgName && Q_stristr(image->imgName + 6, "/lm_") != NULL) {
+    if (namelen > 6 && Q_stristr(image->imgName, "maps/") == image->imgName&& Q_stristr(image->imgName + 6, "/lm_") != NULL) {
         // external lightmap atlases stored in maps/<mapname>/lm_XXXX textures
         //image->flags = IMGFLAG_NOLIGHTSCALE | IMGFLAG_NO_COMPRESSION | IMGFLAG_NOSCALE | IMGFLAG_COLORSHIFT;
 		image->flags |= IMGFLAG_NO_COMPRESSION | IMGFLAG_NOSCALE;
@@ -1546,7 +1588,28 @@ image_t *R_CreateImage( const char *name, byte *pic, int width, int height, imgF
     return image;
 }
 
-image_t *R_FindImageFile( const char *name, imgFlags_t flags ){
+image_t *R_FindImageFile( const char *name, imgFlags_t flags )
+{
+	return R_FindImageFileType( name, flags, 0 );
+}
+
+// The image already loaded under this name, or NULL.
+image_t *R_GetLoadedImage( const char *name, imgFlags_t flags )
+{
+	image_t *image;
+
+	for ( image = hashTable[generateHashValue( name )]; image; image = image->next ) {
+		if ( !Q_stricmp( name, image->imgName ) ) {
+			if ( strcmp( name, "*white" ) && image->flags != flags )
+				ri.Printf( PRINT_DEVELOPER, "WARNING: reused image %s with mixed flags (%i vs %i)\n", name, image->flags, flags );
+			return image;
+		}
+	}
+
+	return NULL;
+}
+
+image_t *R_FindImageFileType( const char *name, imgFlags_t flags, uint32_t type ){
         image_t		*image;
         int			width, height;
         byte		*pic;
@@ -1614,10 +1677,148 @@ image_t *R_FindImageFile( const char *name, imgFlags_t flags ){
             }
 		}
 
-        image = R_CreateImage(name, pic, width, height, flags);
+        image = R_CreateImageType(name, pic, width, height, flags, type);
         ri.Z_Free(pic);
         return image;
 }
+
+#ifdef USE_VK_PBR
+// A spec/gloss map (specMap) with its colour taken from sRGB to linear, as the physical map.
+static image_t *R_BuildSDRSpecGlossImage( shaderStage_t *stage, const char *specImageName, imgFlags_t flags )
+{
+	char	sdrName[MAX_QPATH];
+	int		specWidth, specHeight;
+	byte	*specPic;
+	image_t *image;
+
+	if ( !specImageName )
+		return NULL;
+
+	COM_StripExtension( specImageName, sdrName, sizeof( sdrName ) );
+	Q_strcat( sdrName, sizeof( sdrName ), "_SDR" );
+
+	image = R_GetLoadedImage( sdrName, flags );
+	if ( image != NULL )
+		return image;
+
+	R_LoadImage( specImageName, &specPic, &specWidth, &specHeight );
+	if ( specPic == NULL )
+		return NULL;
+
+	byte *sdrSpecPic = (byte *)R_Malloc( sizeof( unsigned ) * specWidth * specHeight, TAG_TEMP_WORKSPACE, qfalse );
+	for ( int i = 0; i < specWidth * specHeight * 4; i += 4 )
+	{
+		vec3_t c;
+		c[0] = ByteToFloat( specPic[i + 0] );
+		c[1] = ByteToFloat( specPic[i + 1] );
+		c[2] = ByteToFloat( specPic[i + 2] );
+
+		const float sum = c[0] + c[1] + c[2];
+		const float ratio = ( sum > 0.0f ) ? ( sRGBtoRGB( c[0] ) + sRGBtoRGB( c[1] ) + sRGBtoRGB( c[2] ) ) / sum : 0.0f;
+
+		sdrSpecPic[i + 0] = FloatToByte( c[0] * ratio );
+		sdrSpecPic[i + 1] = FloatToByte( c[1] * ratio );
+		sdrSpecPic[i + 2] = FloatToByte( c[2] * ratio );
+		sdrSpecPic[i + 3] = specPic[i + 3];
+	}
+	ri.Z_Free( specPic );
+
+	image = R_CreateImageType( sdrName, sdrSpecPic, specWidth, specHeight, flags, stage->physicalMapType );
+	ri.Z_Free( sdrSpecPic );
+
+	return image;
+}
+
+// The normal map of the stage (normalMap, normalHeightMap, or found next to the diffuse
+// texture).
+qboolean vk_create_normal_texture( shaderStage_t *stage, const char *name, imgFlags_t flags )
+{
+	switch ( stage->normalMapType ) {
+		case PHYS_NORMAL:
+		case PHYS_NORMALHEIGHT:
+			break;
+		default:
+			return qfalse;
+	}
+
+	stage->normalMap = R_FindImageFileType( name, flags, stage->normalMapType );
+
+	if ( !stage->normalMap )
+		return qfalse;
+
+	stage->vk_pbr_flags |= PBR_HAS_NORMALMAP;
+
+	VectorSet4( stage->normalScale, r_baseNormalX->value, r_baseNormalY->value, 1.0f, r_baseParallax->value );
+
+	return qtrue;
+}
+
+// The physical map of the stage: a packed map (rmo, rmos, moxr, mosr, orm, orms) or a
+// spec/gloss map.
+qboolean vk_create_phyisical_texture( shaderStage_t *stage, const char *name, imgFlags_t flags )
+{
+	char	packedName[MAX_QPATH];
+	int		packedWidth, packedHeight;
+	byte	*packedPic;
+	image_t *image;
+
+	if ( !name )
+		return qfalse;
+
+	switch ( stage->physicalMapType ) {
+		case PHYS_RMO:
+		case PHYS_RMOS:
+		case PHYS_MOXR:
+		case PHYS_MOSR:
+		case PHYS_ORM:
+		case PHYS_ORMS:
+			break;
+		case PHYS_SPECGLOSS:
+			stage->physicalMap = R_BuildSDRSpecGlossImage( stage, name, flags );
+			if ( !stage->physicalMap )
+				return qfalse;
+			stage->vk_pbr_flags |= PBR_HAS_SPECULARMAP;
+			return qtrue;
+		default:
+			return qfalse;
+	}
+
+	COM_StripExtension( name, packedName, sizeof( packedName ) );
+	Q_strcat( packedName, sizeof( packedName ), "_ORMS" );
+
+	image = R_GetLoadedImage( packedName, flags );
+	if ( image == NULL )
+	{
+		R_LoadImage( name, &packedPic, &packedWidth, &packedHeight );
+		if ( packedPic == NULL )
+			return qfalse;
+
+		image = R_CreateImageType( packedName, packedPic, packedWidth, packedHeight, flags, stage->physicalMapType );
+		ri.Z_Free( packedPic );
+	}
+
+	switch ( stage->physicalMapType )
+	{
+		case PHYS_RMOS:
+		case PHYS_MOSR:
+		case PHYS_ORMS:
+			stage->specularScale[1] = 1.0f;	// the map has the specular
+			break;
+		default:
+			stage->specularScale[1] = 0.5f;	// base specular 0.04, the shader assumes 0.08
+			break;
+	}
+
+	// occlusion, roughness and metalness are not scaled
+	stage->specularScale[0] =
+	stage->specularScale[2] =
+	stage->specularScale[3] = 1.0f;
+
+	stage->physicalMap = image;
+	stage->vk_pbr_flags |= PBR_HAS_PHYSICALMAP;
+	return qtrue;
+}
+#endif // USE_VK_PBR
 
 void RE_UploadCinematic( int cols, int rows, const byte *data, int client, qboolean dirty )
 {
@@ -1860,6 +2061,10 @@ static void R_CreateBuiltinImages( void ) {
 	// we use a solid white image instead of disabling texturing
 	Com_Memset(data, 255, sizeof(data));
 	tr.whiteImage = R_CreateImage("*white", (byte*)data, 8, 8, IMGFLAG_NONE);
+
+#ifdef USE_VK_PBR
+	vk_create_brdf_lut();
+#endif
 
 	Com_Memset(data, 0, sizeof(data));
 	tr.blackImage = R_CreateImage("*black", (byte*)data, 8, 8, IMGFLAG_NONE);

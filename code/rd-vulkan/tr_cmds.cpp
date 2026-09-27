@@ -191,6 +191,26 @@ void	R_AddDrawSurfCmd( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	}
 }
 
+#ifdef VK_CUBEMAP
+/*
+=============
+R_AddConvolveCubemapCmd
+
+The prefilter of a probe, after the six views of its capture.
+=============
+*/
+void R_AddConvolveCubemapCmd( int cubemapIndex ) {
+	convolveCubemapCommand_t *cmd;
+
+	cmd = (convolveCubemapCommand_t *)R_GetCommandBuffer( sizeof( *cmd ) );
+	if ( !cmd ) {
+		return;
+	}
+	cmd->commandId = RC_CONVOLVECUBEMAP;
+	cmd->cubemapIndex = cubemapIndex;
+}
+#endif
+
 /*
 =============
 RE_SetColor

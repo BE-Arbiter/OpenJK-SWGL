@@ -24,13 +24,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #ifndef VK_RTX_H
 #define VK_RTX_H
 
-// PBR material flags, from the branch this path tracer expects. Nothing sets them until
-// that branch is ported; the path tracer then treats every material as diffuse-only.
-#define PBR_HAS_NORMALMAP				( 1 )
-#define PBR_HAS_PHYSICALMAP				( 2 )
-#define PBR_HAS_SPECULARMAP				( 4 )
-#define PBR_HAS_DELUXEMAP				( 8 )
-
 
 #include "dds.h"
 #include "shaders/glsl/rtx/sky.h"
@@ -626,6 +619,7 @@ qboolean	RB_IsMasked( shader_t *shader );
 void		vk_rtx_update_shader_material( shader_t *shader, shader_t *updatedShader );
 rtx_material_t	*vk_rtx_shader_to_material( shader_t *shader );
 VkResult	vk_rtx_upload_materials( LightBuffer *lbo );
+uint32_t	encode_normal( const vec3_t normal );
 
 // image
 void		vk_rtx_create_image( const char *name, vkimage_t *image, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, uint32_t mipLevels );

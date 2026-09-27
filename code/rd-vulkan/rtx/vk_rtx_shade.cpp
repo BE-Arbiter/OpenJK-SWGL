@@ -300,7 +300,7 @@ static inline void transform_point(const float* p, const float* matrix, float* r
 	VectorCopy(transformed, result); // vec4 -> vec3
 }
 
-static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_buffer, int current_instance_index, const trRefEntity_t* entity, shader_t *shader )
+static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_buffer, int current_instance_index, const trRefdef_t *refdef, trRefEntity_t* entity, shader_t *shader )
 {
 	uint32_t forceRGBGen = 0;
 
@@ -320,7 +320,13 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 		| ((uint32_t)entity->e.shaderRGBA[1] <<  8)
 		| ((uint32_t)entity->e.shaderRGBA[2] << 16)
 		| ((uint32_t)entity->e.shaderRGBA[3] << 24);
-	data[1] = forceRGBGen;
+	// Bits 0-7: the forced rgbGen. Bit 8: a first person model, whose tcGen environment reflects
+	// the light of the entity (RB_CalcEnvironmentTexCoords).
+	data[1] = forceRGBGen | ( ( entity->e.renderfx & RF_FIRST_PERSON ) ? 0x100u : 0u );
+
+	// alphaGen lightingSpecular reflects the light of the entity, as RB_CalcSpecularAlpha.
+	R_SetupEntityLighting( refdef, entity );
+	data[2] = encode_normal( entity->lightDir );
 }
 
 static void fill_model_instance( ModelInstance* instance, const trRefEntity_t* entity, const maliasmesh_t *mesh, shader_t *shader,
@@ -745,7 +751,7 @@ static void process_bsp_entity(
 	ModelInstance* mi = uniform_instance_buffer->model_instances + current_instance_idx;
 	// calc_color reads the entity color here; without it a brush model got the data another
 	// instance left at this index.
-	fill_model_instance_shader_data( uniform_instance_buffer, current_instance_idx, entity, NULL );
+	fill_model_instance_shader_data( uniform_instance_buffer, current_instance_idx, refdef, entity, NULL );
 	memcpy(&mi->transform, transform, sizeof(transform));
 	memcpy(&mi->transform_prev, transform, sizeof(transform));
 	mi->material = 0;
@@ -874,7 +880,7 @@ static void process_regular_entity(
 		//ModelInstance* mi = uniform_instance_buffer->model_instances + current_instance_index;
 		ModelInstance* mi = &uniform_instance_buffer->model_instances[current_instance_index];
 
-		fill_model_instance_shader_data( uniform_instance_buffer, current_instance_index, entity,  entity_mesh->shader );
+		fill_model_instance_shader_data( uniform_instance_buffer, current_instance_index, refdef, entity,  entity_mesh->shader );
 		fill_model_instance( mi, entity, entity_mesh->mesh, 
 							  entity_mesh->shader,  transform, is_viewer_weapon, is_double_sided, 
 							  material_id, entity_mesh->bone_offset 
@@ -1484,6 +1490,21 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 	ubo->screen_image_height = vk.extent_screen_images.height;
 	//ubo->water_normal_texture = water_normal_texture - r_images;
 	ubo->pt_swap_checkerboard = 0;
+
+	// The tone mapping as tone_mapping_apply does it: the tracer inverts it for the colours in
+	// screen units (screen_to_hdr_color).
+	{
+		static cvar_t *tm_per_channel, *tm_contrast;
+		if ( !tm_per_channel )
+		{
+			tm_per_channel = ri.Cvar_Get( "tm_per_channel", "1", CVAR_ARCHIVE_ND );
+			tm_contrast = ri.Cvar_Get( "tm_contrast", "1", CVAR_ARCHIVE_ND );
+		}
+
+		ubo->tonemap_hdr = vk.rtx_surf_is_hdr ? 1 : 0;
+		ubo->tonemap_per_channel = Com_Clamp( 0.f, 1.f, tm_per_channel->value );
+		ubo->tonemap_contrast = Com_Clamp( 0.5f, 2.f, tm_contrast->value );
+	}
 	ubo->restir_m_clamp = pt_restir_m_clamp->integer;
 	if (pt_restir->integer == 3)
 	{

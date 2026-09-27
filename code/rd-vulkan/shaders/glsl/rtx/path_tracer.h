@@ -157,15 +157,18 @@ struct EffectsResult
     vec3 glow;
 };
 
+// An effect as the rasterizer blends it onto the screen: out = L + T * behind (HDR units).
 struct TransparencyHit
 {
-    vec4 color;
-    uint blend_mode;
+    vec3 L;
+    vec3 T;
+    vec3 glow;		// the glow pass
+    bool hit;
 };
 
 struct RayPayloadEffects {
-   uvec2 transparency; // alpha-blended layers
-   uvec2 additive;     // additive emission
+   uvec2 transparency; // half4: rgb = T, the transmittance of the effects: out = L + T * behind
+   uvec2 additive;     // half4: rgb = L, what the effects add
    uvec2 glow;         // the additive emission of the glow stages, for the bloom
    uint distances; // half2x16 - min and max
    uvec4 fog1; // half8x16: .xy = color.rgba; .z = t_min, t_max; .w = density: a and b for (a*t + b)

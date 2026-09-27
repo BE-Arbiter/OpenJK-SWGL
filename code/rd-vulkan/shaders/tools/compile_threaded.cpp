@@ -357,12 +357,45 @@ static void compile_and_convert_template_shaders( void )
             }
         }
     }
+
+    // PBR shading of the lit stages (pbr.glsl): the world has lightmap and vertex, the model VBOs light vector
+    const char* light_flags[]       = { "-DUSE_TX1 -DUSE_LIGHTMAP", "-DUSE_LIGHT_VECTOR", "-DUSE_LIGHT_VERTEX" };
+    const char* light_ids[]         = { "lightmap", "vector", "vertex" };
+
+    for ( i = 0; i < ARRAY_LEN(vbo_flags); ++i ) { // vbo
+        for ( j = 0; j < ARRAY_LEN(light_flags); ++j ) { // light
+            if ( ( i == 0 ) == ( j == 1 ) )
+                continue;
+
+            for ( l = 0; l < ARRAY_LEN(fog_flags); ++l ) { // fog
+                defines = join_flags({ vbo_flags[i], light_flags[j], fog_flags[l] });
+                name    = "vert_" + std::string(vbo_ids[i]) + "pbr_" + light_ids[j] + fog_ids[l];
+                ids     = join_indexes("vk.shaders.vert.pbr", { i, j, l });
+
+                create_shader_task("gen_vert.tmpl", "vert", name.c_str(), ids.c_str(), defines.c_str());
+            }
+        }
+    }
+
+    for ( j = 0; j < ARRAY_LEN(light_flags); ++j ) { // light
+        for ( l = 0; l < ARRAY_LEN(fog_flags); ++l ) { // fog
+            defines = join_flags({ light_flags[j], fog_flags[l] });
+
+            if ( j != 0 )
+                defines += " -DUSE_ATEST";
+
+            name    = "frag_pbr_" + std::string(light_ids[j]) + fog_ids[l];
+            ids     = join_indexes("vk.shaders.frag.pbr", { j, l });
+
+            create_shader_task("gen_frag.tmpl", "frag", name.c_str(), ids.c_str(), defines.c_str());
+        }
+    }
 }
 
 static void compile_and_convert_individual_shaders( void )
 {
-    const char *stages[] = { "vert", "frag", "geom" };
-    const char *stage_exts[] = { ".vert", ".frag", ".geom" };
+    const char *stages[] = { "vert", "frag", "geom", "comp" };
+    const char *stage_exts[] = { ".vert", ".frag", ".geom", ".comp" };
 
     char find_pattern[256];
     struct _finddata_t f;
@@ -370,7 +403,7 @@ static void compile_and_convert_individual_shaders( void )
 
     char input_file[256], cmd[512], array_name[128];
 
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < (int)(sizeof(stages) / sizeof(stages[0])); ++i) {
         snprintf(find_pattern, sizeof(find_pattern), "%s\\*%s", glsl_root_path.c_str(), stage_exts[i]);
         handle = _findfirst(find_pattern, &f);
 

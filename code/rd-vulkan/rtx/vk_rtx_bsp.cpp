@@ -1229,7 +1229,7 @@ static void collect_grid_light_polys( srfGridMesh_t *cv, shader_t *shader,
     for (int h = 0; h < lodHeight; ++h) {
         for (int w = 0; w < lodWidth; ++w) {
             int gridIndex = heightTable[h] * cv->width + widthTable[w];
-            drawVert_t *dv = &cv->verts[gridIndex];
+            srfVert_t *dv = &cv->verts[gridIndex];
 
             VectorCopy(dv->xyz, vertices[vertIndex].position);
             VectorCopy2(dv->st, vertices[vertIndex].st); 
@@ -1815,9 +1815,11 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 		primitives_out->tangents[1] = encode_normal( tess.qtangent[i1] );
 		primitives_out->tangents[2] = encode_normal( tess.qtangent[i2] );
 
-		primitives_out->color0[0] = tess.svars.colors[0][i0][0] | tess.svars.colors[0][i0][1] << 8 | tess.svars.colors[0][i0][2] << 16 | tess.svars.colors[0][i0][3] << 24;
-		primitives_out->color1[0] = tess.svars.colors[0][i1][0] | tess.svars.colors[0][i1][1] << 8 | tess.svars.colors[0][i1][2] << 16 | tess.svars.colors[0][i1][3] << 24;
-		primitives_out->color2[0] = tess.svars.colors[0][i2][0] | tess.svars.colors[0][i2][1] << 8 | tess.svars.colors[0][i2][2] << 16 | tess.svars.colors[0][i2][3] << 24;
+		// The texture coordinates of the surface. The tracer computes those of each bundle from
+		// its tcGen and tcMods.
+		primitives_out->uv0[0] = floatToHalf( tess.texCoords[0][i0][0] ) | ( floatToHalf( tess.texCoords[0][i0][1] ) << 16 );
+		primitives_out->uv1[0] = floatToHalf( tess.texCoords[0][i1][0] ) | ( floatToHalf( tess.texCoords[0][i1][1] ) << 16 );
+		primitives_out->uv2[0] = floatToHalf( tess.texCoords[0][i2][0] ) | ( floatToHalf( tess.texCoords[0][i2][1] ) << 16 );
 
 		primitives_out->material_id = material_id; //(material_flags & ~MATERIAL_INDEX_MASK) | (material_index & MATERIAL_INDEX_MASK);
 		primitives_out->emissive_and_alpha = emissive_and_alpha;
@@ -1833,23 +1835,9 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 		if ( !pStage || !pStage->active )
 			break;
 
-		//
-		// only compute bundle 0 for now
-		//
-		if ( pStage->tessFlags & TESS_RGBA0 )
-			ComputeColors( 0, tess.svars.colors[0], pStage, 0 );
-
-		// The tracer applies the tcMods at each frame (MaterialBundle tc_matrix). FinishShader removes
-		// TESS_ST0 when the raster can reuse the UVs of the stage before; the tracer cannot.
-		// An env-mapped stage has TCGEN_BAD and no UVs.
-		const qboolean has_uv = ( pStage->bundle[0].tcGen != TCGEN_BAD ) ? qtrue : qfalse;
-
-		if ( has_uv )
-		{
-			textureBundle_t bundle = pStage->bundle[0];
-			bundle.numTexMods = 0;
-			ComputeTexCoords( 0, &bundle );
-		}
+		// The colour of bundle 0 of every stage: the vertex light of rgbGen exactVertex and the
+		// vertex alpha, which the tracer reads for alphaGen vertex and for the blended surfaces.
+		ComputeColors( 0, tess.svars.colors[0], pStage, 0 );
 
 		primitives_out = base_primitive;
 		for ( uint32_t prim = 0; prim < numTris; ++prim ) 
@@ -1860,14 +1848,6 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 			i1 = tess.indexes[idx_base + 1];
 			i2 = tess.indexes[idx_base + 2];
 
-			if ( has_uv )
-			{
-				primitives_out->uv0[stage] = floatToHalf(tess.svars.texcoordPtr[0][i0][0]) | (floatToHalf(tess.svars.texcoordPtr[0][i0][1]) << 16);
-				primitives_out->uv1[stage] = floatToHalf(tess.svars.texcoordPtr[0][i1][0]) | (floatToHalf(tess.svars.texcoordPtr[0][i1][1]) << 16);
-				primitives_out->uv2[stage] = floatToHalf(tess.svars.texcoordPtr[0][i2][0]) | (floatToHalf(tess.svars.texcoordPtr[0][i2][1]) << 16);
-			}
-
-			if ( pStage->tessFlags & TESS_RGBA0 ) 
 			{
 				primitives_out->color0[stage] = tess.svars.colors[0][i0][0] | tess.svars.colors[0][i0][1] << 8 | tess.svars.colors[0][i0][2] << 16 | tess.svars.colors[0][i0][3] << 24;
 				primitives_out->color1[stage] = tess.svars.colors[0][i1][0] | tess.svars.colors[0][i1][1] << 8 | tess.svars.colors[0][i1][2] << 16 | tess.svars.colors[0][i1][3] << 24;
@@ -2020,9 +2000,81 @@ static void vk_rtx_collect_surfaces( uint32_t *prim_ctr, vk_geometry_data_t *geo
 	}	
 }
 
+static void vk_rtx_face_bounds( const srfSurfaceFace_t *face, vec3_t mins, vec3_t maxs )
+{
+	ClearBounds( mins, maxs );
+	for ( int i = 0; i < face->numPoints; i++ )
+		AddPointToBounds( face->points[i], mins, maxs );
+}
+
+// GL draws the coplanar faces of brush models in sort order with a LEQUAL depth test, so the
+// face drawn last is visible (kejim_post: display_green over display_none). The tracer hits one
+// of them at random. The result is the distance to move the face along its normal: one step for
+// each face on the same plane in another brush model that GL draws before it.
+static float vk_rtx_coplanar_offset( world_t &worldData, int model, const msurface_t *surf )
+{
+	const float step = 0.01f;
+
+	if ( *surf->data != SF_FACE )
+		return 0.f;
+
+	const srfSurfaceFace_t *face = (const srfSurfaceFace_t *)surf->data;
+	vec3_t mins, maxs;
+	vk_rtx_face_bounds( face, mins, maxs );
+
+	int rank = 0;
+
+	for ( int m = 1; m < worldData.num_bmodels; m++ )
+	{
+		const bmodel_t *other = &worldData.bmodels[m];
+
+		if ( m == model )
+			continue;
+		if ( other->bounds[0][0] > maxs[0] || other->bounds[0][1] > maxs[1] || other->bounds[0][2] > maxs[2]
+			|| other->bounds[1][0] < mins[0] || other->bounds[1][1] < mins[1] || other->bounds[1][2] < mins[2] )
+			continue;
+
+		for ( int i = 0; i < other->numSurfaces; i++ )
+		{
+			const msurface_t *surf2 = other->firstSurface + i;
+
+			if ( *surf2->data != SF_FACE )
+				continue;
+
+			// GL sort key: the shader, then the entity.
+			const int a = surf->shader->sortedIndex, b = surf2->shader->sortedIndex;
+			if ( b > a || ( b == a && m > model ) )
+				continue;
+
+			const srfSurfaceFace_t *face2 = (const srfSurfaceFace_t *)surf2->data;
+			if ( DotProduct( face->plane.normal, face2->plane.normal ) < 0.999f || fabsf( face->plane.dist - face2->plane.dist ) > 0.1f )
+				continue;
+
+			// The faces must overlap on the plane, not only touch.
+			vec3_t mins2, maxs2;
+			vk_rtx_face_bounds( face2, mins2, maxs2 );
+
+			int overlap = 0;
+			for ( int k = 0; k < 3; k++ )
+			{
+				const float lo = MAX( mins[k], mins2[k] ), hi = MIN( maxs[k], maxs2[k] );
+				if ( hi < lo )
+					break;
+				if ( hi - lo > 0.1f )
+					overlap++;
+			}
+			if ( overlap >= 2 )
+				rank++;
+		}
+	}
+
+	return rank * step;
+}
+
 static void vk_rtx_collect_bmodel_surfaces( uint32_t *prim_ctr, world_t &worldData, vk_geometry_data_t *geom, int type, bmodel_t *bmodel )
 {
 	msurface_t	*surf;
+	const int	model = (int)( bmodel - worldData.bmodels );
 
 	for ( int i = 0; i < bmodel->numSurfaces; i++ ) 
 	{
@@ -2050,6 +2102,19 @@ static void vk_rtx_collect_bmodel_surfaces( uint32_t *prim_ctr, world_t &worldDa
 
 		VboPrimitive* surface_prims = geom->primitives + *prim_ctr;
 		uint32_t prims_in_surface = create_poly( geom, mat, material_id, surface_prims );
+
+		const float offset = vk_rtx_coplanar_offset( worldData, model, surf );
+		if ( offset > 0.f )
+		{
+			const float *normal = ( (const srfSurfaceFace_t *)surf->data )->plane.normal;
+
+			for ( uint32_t k = 0; k < prims_in_surface; ++k )
+			{
+				VectorMA( surface_prims[k].pos0, offset, normal, surface_prims[k].pos0 );
+				VectorMA( surface_prims[k].pos1, offset, normal, surface_prims[k].pos1 );
+				VectorMA( surface_prims[k].pos2, offset, normal, surface_prims[k].pos2 );
+			}
+		}
 
 		for (uint32_t k = 0; k < prims_in_surface; ++k) {
 			//if (model_idx < 0) world, sub bmodels have sep collector

@@ -75,9 +75,10 @@ static void vk_rtx_bloom_register_cvars( void )
 	cvar_bloom_threshold	= ri.Cvar_Get( "pt_bloom_threshold",	"1.0",		CVAR_ARCHIVE_ND );	// in tone mapper units: 1 is the level of a lightmap value of 1
 }
 
+// The histogram takes the bloom out of the image when bloom_intensity is not 0.
 void vk_rtx_bloom_update( vkUniformRTX_t *ubo )
 {
-	ubo->bloom_intensity = cvar_bloom_intensity->value;
+	ubo->bloom_intensity = cvar_bloom_enable->integer ? cvar_bloom_intensity->value : 0.f;
 }
 
 static void vk_create_bloom_pipeline( uint32_t pipeline_index, uint32_t shader_index, uint32_t push_size )

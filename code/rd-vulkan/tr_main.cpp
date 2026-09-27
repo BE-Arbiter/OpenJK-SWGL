@@ -702,7 +702,7 @@ R_PlaneForSurface
 static void R_PlaneForSurface( const surfaceType_t *surfType, cplane_t *plane ) {
 	srfTriangles_t	*tri;
 	srfPoly_t		*poly;
-	drawVert_t		*v1, *v2, *v3;
+	srfVert_t		*v1, *v2, *v3;
 	vec4_t			plane4;
 
 	if (!surfType) {
@@ -1345,7 +1345,7 @@ R_AddDrawSurf
 =================
 */
 void R_AddDrawSurf( surfaceType_t *surface, shader_t *shader,
-	int fogIndex, int dlightMap )
+	int fogIndex, int dlightMap, int cubemapIndex )
 {
 	int			index;
 
@@ -1371,6 +1371,11 @@ void R_AddDrawSurf( surfaceType_t *surface, shader_t *shader,
 	tr.refdef.drawSurfs[index].sort = (shader->sortedIndex << QSORT_SHADERNUM_SHIFT)
 		| tr.shiftedEntityNum | (fogIndex << QSORT_FOGNUM_SHIFT) | (int)dlightMap;
 	tr.refdef.drawSurfs[index].surface = surface;
+#ifdef VK_CUBEMAP
+	if ( cubemapIndex < 0 )
+		cubemapIndex = ( tr.currentEntityNum == REFENTITYNUM_WORLD ) ? 0 : tr.currentEntity->cubemapIndex;
+	tr.refdef.drawSurfs[index].cubemapIndex = cubemapIndex;
+#endif
 	tr.refdef.numDrawSurfs++;
 }
 
@@ -1423,6 +1428,13 @@ void R_SortDrawSurfs( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 		if (shader->sort == SS_BAD) {
 			Com_Error(ERR_DROP, "Shader '%s'with sort == SS_BAD", shader->name);
 		}
+
+#ifdef VK_CUBEMAP
+		// no mirror or portal view in a cubemap capture
+		if ( tr.viewParms.targetCube ) {
+			break;
+		}
+#endif
 
 		// if the mirror was completely clipped away, we may need to check another surface
 		if (R_MirrorViewBySurface((drawSurfs + i), entityNum)) {
@@ -1477,6 +1489,9 @@ static void R_AddEntitySurfaces( void ) {
 		ent = tr.currentEntity = &tr.refdef.entities[tr.currentEntityNum];
 
 		assert(ent->e.renderfx >= 0);
+#ifdef VK_CUBEMAP
+		ent->cubemapIndex = R_CubemapForPoint( ent->e.origin );
+#endif
 		// preshift the value we are going to OR into the drawsurf sort
 		tr.shiftedEntityNum = tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
 

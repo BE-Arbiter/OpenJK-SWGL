@@ -28,6 +28,29 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // everything it adds is guarded by this and the raster path never sees it.
 #define USE_RTX
 
+// PBR materials, ported from JKSunny/EternalJK (branch pbr): normal and physical maps from the
+// shader keywords or found next to the diffuse texture, and normal maps computed from the
+// diffuse texture (r_genNormalMaps).
+#define USE_VK_PBR
+
+#ifdef USE_VK_PBR
+	#define VK_COMPUTE_NORMALMAP
+
+	#ifdef VK_COMPUTE_NORMALMAP
+		#define MAX_BATCH_COMPUTE_NORMALMAPS 1024
+	#endif
+
+	// environment cubemaps of the map probes, for the PBR reflections (r_cubeMapping)
+	#define VK_CUBEMAP
+
+	#ifdef VK_CUBEMAP
+		#define REF_CUBEMAP_SIZE		256
+		#define REF_CUBEMAP_MIPS		7		// pbr.glsl reads lod = roughness * 6
+		#define MAX_CUBEMAPS			64
+		#define CUBEMAPS_PER_FRAME		4		// probes captured in one frame
+	#endif
+#endif
+
 #define USE_VBO					// store static world geometry in VBO
 
 #ifdef USE_VBO
@@ -286,7 +309,18 @@ typedef struct trRefEntity_s {
 	vec3_t		shadowLightDir;	// normalized direction towards light
 #endif
 	qboolean	intShaderTime;
+#ifdef VK_CUBEMAP
+	int			cubemapIndex;	// 1 + index of the nearest cubemap, 0 for none
+#endif
 } trRefEntity_t;
+
+#ifdef VK_CUBEMAP
+typedef struct cubemap_s {
+	char		name[MAX_QPATH];
+	vec3_t		origin;
+	float		parallaxRadius;
+} cubemap_t;
+#endif
 
 
 typedef struct orientationr_s {
@@ -317,6 +351,7 @@ typedef enum
 	IMGFLAG_NOSCALE			= 0x0080,
 	IMGFLAG_RGB				= 0x0100,
 	IMGFLAG_COLORSHIFT		= 0x0200,
+	IMGFLAG_STORAGE			= 0x0800,	// written by a compute shader
 } imgFlags_t;
 
 #if defined( _WIN32 )
@@ -370,6 +405,7 @@ typedef struct image_s {
 #endif
 	qboolean				isLightmap;
 	uint32_t				mipLevels;		// gl texture binding
+	uint32_t				type;			// index in textureMapTypes: the swizzle of the view
 	VkSamplerAddressMode	wrapClampMode;	
 } image_t;
 
@@ -646,6 +682,9 @@ struct SurfaceSpriteBlock
 
 typedef struct textureBundle_s {
 	image_t			*image[MAX_IMAGE_ANIMATIONS];
+#ifdef USE_VK_PBR
+	image_t			*deluxeMap;			// light directions of a lightmap bundle, or NULL
+#endif
 
 	texCoordGen_t	tcGen;
 	vec3_t			*tcGenVectors;
@@ -714,10 +753,10 @@ typedef struct shaderStage_s {
 	uint32_t		rgb_offset[NUM_TEXTURE_BUNDLES]; // within current shader
 	uint32_t		tex_offset[NUM_TEXTURE_BUNDLES]; // within current shader
 #endif
-#ifdef USE_RTX
-	// Material inputs the path tracer reads. They come from the PBR branch, which is not
-	// ported yet; left null they make its materials diffuse-only rather than broken.
+#ifdef USE_VK_PBR
+	// The PBR maps of the stage (PBR_HAS_*), which the path tracer reads.
 	uint32_t		vk_pbr_flags;
+	uint32_t		vk_light_flags;		// LIGHTDEF_*: the light type of a lit stage
 	image_t			*normalMap;
 	image_t			*physicalMap;
 	uint32_t		normalMapType;
@@ -831,6 +870,10 @@ typedef struct shader_s {
 	int			iboOffset;
 	int			vboOffset;
 	int			normalOffset;
+#ifdef USE_VK_PBR
+	int			qtangentOffset;
+	int			lightdirOffset;
+#endif
 	int			numIndexes;
 	int			numVertexes;
 	int			curVertexes;
@@ -982,6 +1025,10 @@ typedef struct viewParms_s {
 	unsigned int	num_dlights;
 	struct dlight_s	*dlights;
 #endif
+#ifdef VK_CUBEMAP
+	int				targetCube;				// 1 + index of the cubemap that the view captures, 0 for none
+	int				targetCubeFace;
+#endif
 } viewParms_t;
 
 /*
@@ -1016,6 +1063,9 @@ typedef struct drawSurf_s {
 	surfaceType_t		*surface;		// any of surface*_t
 #ifdef USE_RTX
 	vk_blas_t			*blas;
+#endif
+#ifdef VK_CUBEMAP
+	int					cubemapIndex;	// 1 + index of the cubemap, 0 for none
 #endif
 } drawSurf_t;
 
@@ -1122,6 +1172,19 @@ typedef struct {
 #define	VERTEX_COLOR		( 5 + ( MAXLIGHTMAPS * 2 ) )
 #define	VERTEX_FINAL_COLOR	( 5 + ( MAXLIGHTMAPS * 3 ) )
 
+// drawVert_t of the renderer, with the tangent of the vertex (xyz, w the bitangent sign).
+typedef struct srfVert_s {
+	vec3_t		xyz;
+	float		st[2];
+	float		lightmap[MAXLIGHTMAPS][2];
+	vec3_t		normal;
+#ifdef USE_VK_PBR
+	vec4_t		qtangent;
+	vec4_t		lightdir;		// world space direction to the light, from the light grid
+#endif
+	byte		color[MAXLIGHTMAPS][4];
+} srfVert_t;
+
 
 #ifdef _G2_GORE
 typedef struct
@@ -1179,7 +1242,7 @@ typedef struct srfGridMesh_s {
 	int				width, height;
 	float			*widthLodError;
 	float			*heightLodError;
-	drawVert_t		verts[1];				// variable sized
+	srfVert_t		verts[1];				// variable sized
 } srfGridMesh_t;
 
 typedef struct srfSurfaceFace_s {
@@ -1190,6 +1253,10 @@ typedef struct srfSurfaceFace_s {
 	int				vboItemIndex;
 #endif
 	float			*normals;
+#ifdef USE_VK_PBR
+	float			*qtangents;				// vec4_t for each point
+	float			*lightdir;				// vec4_t for each point
+#endif
 
 	// triangle definitions (no normals at points)
 	int				numPoints;
@@ -1217,8 +1284,7 @@ typedef struct srfTriangles_s {
 	int				*indexes;
 
 	int				numVerts;
-	drawVert_t		*verts;
-//	vec3_t			*tangents;
+	srfVert_t		*verts;
 } srfTriangles_t;
 
 extern	void (*rb_surfaceTable[SF_NUM_SURFACE_TYPES])(void *);
@@ -1257,6 +1323,9 @@ typedef struct msurface_s {
 	qboolean			added;
 	qboolean			skip;
 	qboolean			notBrush;
+#endif
+#ifdef VK_CUBEMAP
+	int					cubemapIndex;	// 1 + index of the nearest cubemap, 0 for none
 #endif
 	surfaceType_t		*data;			// any of srf*_t
 } msurface_t;
@@ -1825,6 +1894,14 @@ typedef struct trGlobals_s {
 	image_t					*dlightImage;		// inverse-quare highlight for projective adding
 	image_t					*flareImage;
 	image_t					*whiteImage;		// full of 0xff
+#ifdef USE_VK_PBR
+	image_t					*brdfLutImage;		// PBR environment BRDF
+#endif
+#ifdef VK_CUBEMAP
+	int						numCubemaps;
+	cubemap_t				*cubemaps;
+	int						numCubemapsCaptured;
+#endif
 	image_t					*blackImage;			
 	image_t					*identityLightImage;// full of tr.identityLightByte
 
@@ -1840,6 +1917,10 @@ typedef struct trGlobals_s {
 
 	int						numLightmaps;
 	image_t					**lightmaps;
+#ifdef USE_VK_PBR
+	image_t					**deluxemaps;			// NULL when the map has none or r_deluxeMapping is 0
+	qboolean				worldDeluxeMapping;		// each lightmap is followed by its deluxe map
+#endif
 
 	int						lightmapAtlasSize[2];
 	int						lightmapsPerAtlasSide[2];
@@ -1942,6 +2023,15 @@ typedef struct trGlobals_s {
 	int						numFogs; // read before parsing shaders
 
 	vec4_t					clearColor;
+#ifdef VK_COMPUTE_NORMALMAP
+	// Normal maps to compute from their diffuse texture at the next frame.
+	struct {
+		image_t			*normal;
+		VkImageView		storage_view;		// level 0 of the normal map
+		VkDescriptorSet	descriptor_set;
+	}						compute_normalmaps[MAX_BATCH_COMPUTE_NORMALMAPS];
+	uint32_t				compute_normalmaps_batch_num;
+#endif
 } trGlobals_t;
 
 struct glconfigExt_t
@@ -2066,6 +2156,24 @@ extern cvar_t	*r_DynamicGlowHeight;
 extern cvar_t	*r_DynamicGlowScale;
 
 extern cvar_t	*r_smartpicmip;
+#ifdef USE_VK_PBR
+extern cvar_t	*r_baseNormalX;
+extern cvar_t	*r_baseNormalY;
+extern cvar_t	*r_baseParallax;
+extern cvar_t	*r_baseSpecular;
+#endif
+#ifdef VK_COMPUTE_NORMALMAP
+extern cvar_t	*r_genNormalMaps;
+#endif
+#ifdef USE_VK_PBR
+extern cvar_t	*r_normalMapping;
+extern cvar_t	*r_specularMapping;
+#endif
+#ifdef VK_CUBEMAP
+extern cvar_t	*r_cubeMapping;
+extern cvar_t	*r_deluxeMapping;
+extern cvar_t	*r_deluxeSpecular;
+#endif
 
 extern	cvar_t	*r_nobind;				// turns off binding to appropriate textures
 extern	cvar_t	*r_singleShader;		// make most world faces use default shader
@@ -2209,7 +2317,8 @@ void		R_RenderView( const viewParms_t *parms );
 void		R_AddMD3Surfaces( trRefEntity_t *e );
 void		R_AddPolygonSurfaces( void );
 void		R_DecomposeSort( unsigned sort, int *entityNum, shader_t **shader, int *fogNum, int *dlightMap );
-void		R_AddDrawSurf( surfaceType_t *surface, shader_t *shader, int fogIndex, int dlightMap );
+// cubemapIndex -1: the cubemap of the current entity
+void		R_AddDrawSurf( surfaceType_t *surface, shader_t *shader, int fogIndex, int dlightMap, int cubemapIndex = -1 );
 #ifdef USE_PMLIGHT
 void		R_DecomposeLitSort( unsigned sort, int* entityNum, shader_t** shader, int* fogNum );
 void		R_AddLitSurf( surfaceType_t* surface, shader_t* shader, int fogIndex );
@@ -2250,6 +2359,49 @@ void    	R_Init( void );
 
 image_t		*R_FindImageFile( const char *name, imgFlags_t flags );
 image_t		*R_CreateImage( const char *name, byte *pic, int width, int height, imgFlags_t flags );
+// With the type of a map (PHYS_*), which gives the swizzle of its view (textureMapTypes).
+image_t		*R_FindImageFileType( const char *name, imgFlags_t flags, uint32_t type );
+image_t		*R_CreateImageType( const char *name, byte *pic, int width, int height, imgFlags_t flags, uint32_t type );
+image_t		*R_GetLoadedImage( const char *name, imgFlags_t flags );
+#ifdef USE_VK_PBR
+qboolean	vk_create_normal_texture( shaderStage_t *stage, const char *name, imgFlags_t flags );
+qboolean	vk_create_phyisical_texture( shaderStage_t *stage, const char *name, imgFlags_t flags );
+#endif
+#ifdef USE_VK_PBR
+// MikkTSpace tangents, vk_mikktspace.cpp
+void		vk_mikkt_bsp_tri_generate( srfTriangles_t *tri );
+void		vk_mikkt_bsp_face_generate( srfSurfaceFace_t *cv );
+void		vk_mikkt_mdxm_generate( const mdxmSurface_t *surf, vec4_t *tangents );
+void		vk_mikkt_mdv_generate( const mdvSurface_t *surf, vec4_t *tangents );
+void		R_LightDirForPoint( const vec3_t point, const vec3_t normal, const world_t *world, vec4_t lightDir );
+// PBR shading of the raster renderer, vk_pbr.cpp
+void		vk_create_pbr_resources( void );
+void		vk_destroy_pbr_resources( void );
+void		vk_init_pbr_descriptors( void );
+void		vk_create_brdf_lut( void );
+uint32_t	vk_stage_light_flags( const shaderStage_t *pStage, Vk_Shader_Type type );
+#endif
+#ifdef VK_CUBEMAP
+// environment cubemaps, tr_bsp.cpp, tr_light.cpp, tr_scene.cpp, vk_cubemap.cpp
+void		R_LoadCubemaps( world_t *worldData, int index );
+int			R_CubemapForPoint( const vec3_t point );
+void		R_RenderCubemaps( void );
+void		R_AddConvolveCubemapCmd( int cubemapIndex );
+void		vk_create_cubemap_resources( void );
+void		vk_destroy_cubemap_resources( void );
+void		vk_release_cubemaps( void );
+void		vk_prefilter_cubemap( int cubemapIndex );
+void		vk_init_cubemap_descriptors( void );
+VkDescriptorSet vk_cubemap_descriptor( int cubemapIndex );
+#endif
+#ifdef VK_COMPUTE_NORMALMAP
+// normal maps computed from the diffuse texture, vk_normalmap.cpp
+void		vk_create_compute_normalmap_pipelines( void );
+void		vk_destroy_compute_normalmap_pipelines( void );
+void		vk_dispatch_compute_normalmaps( void );
+void		vk_clear_compute_normalmaps( void );
+void		vk_add_compute_normalmap( shaderStage_t *stage, image_t *albedo, imgFlags_t flags );
+#endif
 
 textureMode_t *GetTextureMode( const char *name );
 qboolean	R_GetModeInfo( int *width, int *height, int mode );
@@ -2329,6 +2481,9 @@ struct shaderCommands_s
 	vec4_t			normal[SHADER_MAX_VERTEXES]						QALIGN(16);
 #ifdef USE_RTX
 	vec4_t			qtangent[SHADER_MAX_VERTEXES]					QALIGN(16);
+#ifdef USE_VK_PBR
+	vec4_t			lightdir[SHADER_MAX_VERTEXES]					QALIGN(16);
+#endif
 #endif
 	vec2_t			texCoords[NUM_TEX_COORDS][SHADER_MAX_VERTEXES]	QALIGN(16);
 	vec2_t			texCoords00[SHADER_MAX_VERTEXES]				QALIGN(16);
@@ -2349,6 +2504,9 @@ struct shaderCommands_s
 	shader_t		*shader;
 	float			shaderTime;
 	int				fogNum;
+#ifdef VK_CUBEMAP
+	int				cubemapIndex;
+#endif
 	bool			entityMergable;
 	int				numIndexes;
 	int				numVertexes;
@@ -2471,7 +2629,7 @@ CURVE TESSELATION
 ============================================================
 */
 
-srfGridMesh_t	*R_SubdividePatchToGrid( int width, int height, drawVert_t points[MAX_PATCH_SIZE * MAX_PATCH_SIZE] );
+srfGridMesh_t	*R_SubdividePatchToGrid( int width, int height, srfVert_t points[MAX_PATCH_SIZE * MAX_PATCH_SIZE] );
 srfGridMesh_t	*R_GridInsertColumn( srfGridMesh_t *grid, int column, int row, vec3_t point, float loderror );
 srfGridMesh_t	*R_GridInsertRow( srfGridMesh_t *grid, int row, int column, vec3_t point, float loderror );
 void			R_FreeSurfaceGridMesh( srfGridMesh_t *grid );
@@ -2727,6 +2885,13 @@ typedef struct
 	int			commandId;
 } clearColorCommand_t;
 
+#ifdef VK_CUBEMAP
+typedef struct {
+	int			commandId;
+	int			cubemapIndex;
+} convolveCubemapCommand_t;
+#endif
+
 
 typedef enum {
 	RC_END_OF_LIST = 0,
@@ -2740,7 +2905,8 @@ typedef enum {
 	RC_WORLD_EFFECTS,
 	RC_AUTO_MAP,
 	RC_VIDEOFRAME,
-	RC_CLEARCOLOR
+	RC_CLEARCOLOR,
+	RC_CONVOLVECUBEMAP
 } renderCommand_t;
 
 // all of the information needed by the back end must be

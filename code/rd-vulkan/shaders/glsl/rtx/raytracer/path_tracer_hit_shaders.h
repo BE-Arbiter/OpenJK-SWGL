@@ -131,7 +131,7 @@ vec4 unpack_rgba8(uint p)
 
 TransparencyHit make_empty_hit()
 {
-    return TransparencyHit(vec4(0.0), RTX_BLEND_SKIP);
+    return TransparencyHit(vec3(0.0), vec3(1.0), vec3(0.0), false);
 }
 
 TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
@@ -155,7 +155,10 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
         return make_empty_hit();
 
     vec4 shaderRGBA = unpack_rgba8(info.y);
-    vec4 vertex_color = vec4(1.0);
+
+    // The corners of a sprite take the entity colour (RB_AddQuadStamp), those of a scene poly
+    // their own colour.
+    vec4 corner_color = shaderRGBA;
 
     if (info.z == 1u)
     {
@@ -163,99 +166,72 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
         uvec4 colors = texelFetch(sprite_texure_buffer, sprite_index * 3 + 2);
 
         uv = unpackHalf2x16(uvs.x) * barycentric.x + unpackHalf2x16(uvs.y) * barycentric.y + unpackHalf2x16(uvs.z) * barycentric.z;
-        vec4 c = unpack_rgba8(colors.x) * barycentric.x + unpack_rgba8(colors.y) * barycentric.y + unpack_rgba8(colors.z) * barycentric.z;
+        corner_color = unpack_rgba8(colors.x) * barycentric.x + unpack_rgba8(colors.y) * barycentric.y + unpack_rgba8(colors.z) * barycentric.z;
+    }
 
-        // The vertex colour counts as the rasterizer counts it: rgbGen and alphaGen vertex.
-        uint rgb_gen = minfo.stage[0].bundle[0].rgbGen;
-        uint alpha_gen = minfo.stage[0].bundle[0].alphaGen & 0xffffu;
+    // The stages as the rasterizer blends them onto the screen, in screen units:
+    // out = L + T * behind (blend_stage_layer). The glow pass takes the glow bundles only.
+    vec3 L = vec3(0.0), T = vec3(1.0);
+    vec3 glow_L = vec3(0.0), glow_T = vec3(1.0);
+
+    for (uint s = 0u; s < MAX_RTX_STAGES; s++)
+    {
+        MaterialStage stage = minfo.stage[s];
+
+        if ((stage.blend & STAGE_BLEND_ACTIVE) == 0u)
+            break;
+
+        // The colour as the rasterizer computes it: the vertex and entity rgbGen and alphaGen,
+        // else the colour of the bundle (const, wave, identityLighting). A rgbGen identity
+        // stage ignores the entity colour.
+        MaterialBundle bundle = stage.bundle[0];
+        vec4 color = unpack_rgba8(bundle.color);
+        uint rgb_gen = bundle.rgbGen;
+        uint alpha_gen = bundle.alphaGen & 0xffu;
+
         if (rgb_gen == 5u || rgb_gen == 6u)		// CGEN_EXACT_VERTEX, CGEN_VERTEX
-            vertex_color.rgb = c.rgb;
+            color.rgb = corner_color.rgb;
+        else if (rgb_gen == 3u)					// CGEN_ENTITY
+            color.rgb = shaderRGBA.rgb;
+
         if (alpha_gen == 4u)					// AGEN_VERTEX
-            vertex_color.a = c.a;
+            color.a = corner_color.a;
+        else if (alpha_gen == 2u)				// AGEN_ENTITY
+            color.a = shaderRGBA.a;
+
+        if (bundle.image != 0u)
+            color *= global_textureLod(bundle.image, mat2(bundle.tc_matrix.xy, bundle.tc_matrix.zw) * uv + bundle.tc_offset.xy, 0);
+
+        // The alpha test of the shader is on its first stage.
+        if (s == 0u)
+        {
+            bool pass = true;
+            switch (minfo.alpha_test_func)
+            {
+                case 1u: pass = color.a > 0.0; break;
+                case 2u: pass = color.a < minfo.alpha_test_value; break;
+                case 3u: pass = color.a >= minfo.alpha_test_value; break;
+            }
+
+            if (!pass)
+                return make_empty_hit();
+        }
+
+        blend_stage_layer(stage.blend, color, L, T);
+
+        bool glows = (bundle.alphaGen & BUNDLE_GLOW) != 0u;
+        blend_stage_layer(stage.blend, glows ? color : vec4(0.0, 0.0, 0.0, color.a), glow_L, glow_T);
     }
 
-    vec4 color = global_textureLod(minfo.base_texture, uv, 0) * vertex_color;
-
-    // entity tint
-    color.rgb *= shaderRGBA.rgb;
-
-    if (shaderRGBA.a > 0.0)
-    {
-        color.rgb *= shaderRGBA.a;
-        color.a   *= shaderRGBA.a;
-    }
-
-    // alpha test uses texture alpha (unchanged)
-    bool pass = true;
-    switch (minfo.alpha_test_func)
-    {
-        case 1u: pass = color.a > 0.0; break;
-        case 2u: pass = color.a < minfo.alpha_test_value; break;
-        case 3u: pass = color.a >= minfo.alpha_test_value; break;
-    }
-
-    if (!pass)
+    if (all(lessThanEqual(L, vec3(0.0))) && all(greaterThanEqual(T, vec3(1.0))))
         return make_empty_hit();
 
-    switch (minfo.blend_mode)
-    {
-        case RTX_BLEND_OPAQUE:
-        {
-            // An opaque stage ignores the source alpha, so the quad covers whatever is
-            // behind it. Taking the texture's alpha here instead left effect sprites
-            // half-covering the background with unpremultiplied colour.
-            color.a = 1.0;
-            break;
-        }
+    // The rasterizer draws the effects in screen units: the HDR value is the one the tone mapper
+    // shows as this colour (screen_to_hdr_color). pt_glow_scale scales it, as all that the tracer
+    // adds in screen units. The glow goes to the bloom, which takes it back to screen units with
+    // the exposure only.
+    vec3 hdr = screen_to_hdr_color(max(L, vec3(0.0)) * minfo.emission_scale);
+    float glow_to_hdr = global_ubo.prev_adapted_luminance / exp2(global_ubo.tm_exposure_bias - 2.0) * minfo.emission_scale;
 
-        case RTX_BLEND_ALPHA:
-        {
-            if (color.a <= 0.0)
-                return make_empty_hit();
-
-            // correct premultiplied alpha
-            color.rgb *= color.a;
-            break;
-        }
-
-        case RTX_BLEND_ALPHA_PREMUL:
-        {
-            // GL_ONE means the colour is already premultiplied; scaling it again here
-            // would darken the sprite by its own alpha a second time.
-            if (color.a <= 0.0 && dot(color.rgb, color.rgb) <= 0.0)
-                return make_empty_hit();
-
-            break;
-        }
-
-        case RTX_BLEND_MODULATE:
-        {
-            // dst * src. There is no multiply in the effects composite, but for the
-            // greyscale filters this is used for - scorch marks, darkening smoke - an
-            // alpha blend towards black with coverage 1 - luminance matches it.
-            float lum = clamp(luminance(color.rgb), 0.0, 1.0);
-
-            if (lum >= 1.0)
-                return make_empty_hit();
-
-            color.rgb = vec3(0.0);
-            color.a = 1.0 - lum;
-            break;
-        }
-
-        case RTX_BLEND_ADDITIVE:
-        {
-            // The rasterizer adds the texture to the screen, so it is in screen units: 1 is
-            // the white of the screen at this exposure (screen_to_hdr). The texture is
-            // already linear. A curve on top of it removed the red glow of a saber blade.
-            color.rgb *= global_ubo.prev_adapted_luminance / exp2(global_ubo.tm_exposure_bias - 2.0);
-
-            // additive has no coverage
-            color.a = 0.0;
-
-            break;
-        }
-    }
-
-    return TransparencyHit(color, minfo.blend_mode);
+    return TransparencyHit(hdr, clamp(T, vec3(0.0), vec3(2.0)), max(glow_L, vec3(0.0)) * glow_to_hdr, true);
 }

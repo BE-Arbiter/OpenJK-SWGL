@@ -156,6 +156,16 @@ void vk_create_shader_modules( void )
 #endif
 
     vk.shaders.color_fs = SHADER_MODULE(color_frag_spv);
+#ifdef VK_COMPUTE_NORMALMAP
+    vk.shaders.normalmap = SHADER_MODULE(normalmap_comp_spv);
+    VK_SET_OBJECT_NAME(vk.shaders.normalmap, "normal map compute module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+#endif
+#ifdef VK_CUBEMAP
+    vk.shaders.filtercube_vs = SHADER_MODULE(filtercube_vert_spv);
+    vk.shaders.prefilterenvmap_fs = SHADER_MODULE(prefilterenvmap_frag_spv);
+    VK_SET_OBJECT_NAME(vk.shaders.filtercube_vs, "cubemap filter vertex module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+    VK_SET_OBJECT_NAME(vk.shaders.prefilterenvmap_fs, "cubemap prefilter fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
+#endif
     vk.shaders.color_vs = SHADER_MODULE(color_vert_spv);
     VK_SET_OBJECT_NAME(vk.shaders.color_vs, "refraction vertex module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
     VK_SET_OBJECT_NAME(vk.shaders.color_fs, "refraction fragment module", VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT);
@@ -252,6 +262,27 @@ void vk_destroy_shader_modules( void )
 {
     int i, j, k, l, m, sh_count;
 
+#ifdef USE_VK_PBR
+    for ( i = 0; i < 3; i++ ) {
+        for ( j = 0; j < 3; j++ ) {
+            for ( k = 0; k < 2; k++ ) {
+                if ( vk.shaders.vert.pbr[i][j][k] != VK_NULL_HANDLE ) {
+                    qvkDestroyShaderModule( vk.device, vk.shaders.vert.pbr[i][j][k], NULL );
+                    vk.shaders.vert.pbr[i][j][k] = VK_NULL_HANDLE;
+                }
+            }
+        }
+    }
+    for ( j = 0; j < 3; j++ ) {
+        for ( k = 0; k < 2; k++ ) {
+            if ( vk.shaders.frag.pbr[j][k] != VK_NULL_HANDLE ) {
+                qvkDestroyShaderModule( vk.device, vk.shaders.frag.pbr[j][k], NULL );
+                vk.shaders.frag.pbr[j][k] = VK_NULL_HANDLE;
+            }
+        }
+    }
+#endif
+
     sh_count = 1;
 #ifdef USE_VBO_GHOUL2
     sh_count++;
@@ -340,6 +371,16 @@ void vk_destroy_shader_modules( void )
     qvkDestroyShaderModule(vk.device, vk.shaders.frag.gen0_df, NULL);
 
     qvkDestroyShaderModule(vk.device, vk.shaders.color_fs, NULL);
+#ifdef VK_COMPUTE_NORMALMAP
+    qvkDestroyShaderModule(vk.device, vk.shaders.normalmap, NULL);
+    vk.shaders.normalmap = VK_NULL_HANDLE;
+#endif
+#ifdef VK_CUBEMAP
+    qvkDestroyShaderModule(vk.device, vk.shaders.filtercube_vs, NULL);
+    qvkDestroyShaderModule(vk.device, vk.shaders.prefilterenvmap_fs, NULL);
+    vk.shaders.filtercube_vs = VK_NULL_HANDLE;
+    vk.shaders.prefilterenvmap_fs = VK_NULL_HANDLE;
+#endif
     qvkDestroyShaderModule(vk.device, vk.shaders.color_vs, NULL);
 
     for ( i = 0; i < 3; i++ )

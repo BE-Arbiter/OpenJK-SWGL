@@ -99,6 +99,8 @@ STRUCT (
 	UINT	( color )		// rgba8: rgbGen and alphaGen that do not come from the entity or the vertex
 	VEC4	( tc_matrix )	// tcMods: u' = x * u + z * v + offset.x, v' = y * u + w * v + offset.y
 	VEC4	( tc_offset )
+	VEC4	( tc_gen_s )	// w: the tcGen (texCoordGen_t). tcGen vector: s = dot(position, xyz)
+	VEC4	( tc_gen_t )	// tcGen vector: t = dot(position, xyz)
 , MaterialBundle )
 #define MATERIALBUNDLE(n) MaterialBundle n;
 
@@ -107,7 +109,7 @@ STRUCT (
 	UINT			( tex_mode )
 	UINT			( tex_count )
 	UINT			( blend )		// GLS blend bits 0-7; STAGE_BLEND_ACTIVE, STAGE_BLEND_LIGHTMAP
-	UINT			( pad1 )
+	FLOAT			( portal_range_r )	// 1 / portalRange of the shader, for alphaGen portal
 , MaterialStage )
 #define MATERIALSTAGE(n) MaterialStage n;
 
@@ -220,6 +222,7 @@ STRUCT (
 	//FLOAT	( specular_factor )
 	VEC4	( specular_scale )	// contains the commented above see stage->specularScale
 	FLOAT	( emissive_factor )
+	FLOAT	( emission_scale )	// pt_glow_scale, for what the rasterizer draws without light
 	FLOAT	( base_factor )
 	FLOAT	( light_style_scale )
 	UINT	( num_frames )
@@ -294,17 +297,15 @@ layout( set = VERTEX_BUFFER_DESC_SET_IDX, binding = BINDING_OFFSET_MDXM_BONE_BUF
 struct Triangle {
 	mat3 positions;		// mat3x3
 	mat3 positions_prev;// mat3x3
-	mat3x2 tex_coords0;
-	mat3x2 tex_coords1;
-	mat3x2 tex_coords2;
-	mat3x2 tex_coords3;
+	mat3x2 tex_coords0;	// the texture coordinates; each bundle has its tcGen (bundle_uv)
 	mat3x3 normals;
 	mat3x3 tangents;
 	//mat3x3 binormal;
-	mat3x4 color0;
+	mat3x4 color0;		// the colour of bundle 0 of each stage at each vertex (BSP surfaces only)
 	mat3x4 color1;
 	mat3x4 color2;
 	mat3x4 color3;
+	bool   vertex_colors;	// color0-3 are valid
 	uint tex0;
 	uint tex1;
 	uint   shell;
@@ -350,23 +351,26 @@ load_triangle(uint buffer_idx, uint prim_id)
 	t.tex_coords0[1] = get_uv( prim.uv1, 0 );
 	t.tex_coords0[2] = get_uv( prim.uv2, 0 );
 
-	t.tex_coords1[0] = get_uv( prim.uv0, 1 );
-	t.tex_coords1[1] = get_uv( prim.uv1, 1 );
-	t.tex_coords1[2] = get_uv( prim.uv2, 1 );
-
-	t.tex_coords2[0] = get_uv( prim.uv0, 2 );
-	t.tex_coords2[1] = get_uv( prim.uv1, 2 );
-	t.tex_coords2[2] = get_uv( prim.uv2, 2 );
-
-	t.tex_coords3[0] = get_uv( prim.uv0, 3 );
-	t.tex_coords3[1] = get_uv( prim.uv1, 3 );
-	t.tex_coords3[2] = get_uv( prim.uv2, 3 );
-
 	t.material_id = prim.material_id;
 	t.shell = prim.shell;
 	t.cluster = prim.cluster;
 	t.instance_index = prim.instance;
 	t.instance_prim = 0;
+
+	// create_poly writes the stage colours of the BSP surfaces. The models have none.
+	t.vertex_colors = buffer_idx == VERTEX_BUFFER_WORLD || buffer_idx == VERTEX_BUFFER_WORLD_D_MATERIAL
+		|| buffer_idx == VERTEX_BUFFER_WORLD_D_GEOMETRY || buffer_idx == VERTEX_BUFFER_SUB_MODELS;
+	if (t.vertex_colors)
+	{
+		t.color0 = mat3x4(unpackUnorm4x8(prim.color0[0]), unpackUnorm4x8(prim.color1[0]), unpackUnorm4x8(prim.color2[0]));
+		t.color1 = mat3x4(unpackUnorm4x8(prim.color0[1]), unpackUnorm4x8(prim.color1[1]), unpackUnorm4x8(prim.color2[1]));
+		t.color2 = mat3x4(unpackUnorm4x8(prim.color0[2]), unpackUnorm4x8(prim.color1[2]), unpackUnorm4x8(prim.color2[2]));
+		t.color3 = mat3x4(unpackUnorm4x8(prim.color0[3]), unpackUnorm4x8(prim.color1[3]), unpackUnorm4x8(prim.color2[3]));
+	}
+	else
+	{
+		t.color0 = t.color1 = t.color2 = t.color3 = mat3x4(vec4(1.0), vec4(1.0), vec4(1.0));
+	}
 	
 	vec2 emissive_and_alpha = unpackHalf2x16(prim.emissive_and_alpha);
 	t.emissive_factor = emissive_and_alpha.x;
@@ -468,7 +472,7 @@ store_triangle(Triangle t, uint buffer_idx, uint prim_id)
 	prim.tangents.y = encode_normal(t.tangents[1]);
 	prim.tangents.z = encode_normal(t.tangents[2]);
 
-	// A model has one set of texture coordinates: every stage uses it.
+	// Only the first slot holds texture coordinates: each bundle has its tcGen (bundle_uv).
 	prim.uv0 = uvec4(packHalf2x16(t.tex_coords0[0]));
 	prim.uv1 = uvec4(packHalf2x16(t.tex_coords0[1]));
 	prim.uv2 = uvec4(packHalf2x16(t.tex_coords0[2]));
@@ -530,7 +534,7 @@ uint animate_material( uint material, int frame )
 	return ( material & ~MATERIAL_INDEX_MASK ) | index;
 }
 
-// The emissive of this material comes from a glow stage (word 5, bits 8-15: pt_glow_scale).
+// The material has a glow stage (word 5, bit 5). Its emission goes to the bloom.
 bool is_glow_material( uint material_id )
 {
 	uint material_index = material_id & MATERIAL_INDEX_MASK;
@@ -539,7 +543,7 @@ bool is_glow_material( uint material_id )
 	if ( remapped > 0 )
 		material_index = remapped;
 
-	return ( ( get_material_uint( material_index, 5 ) >> 8 ) & 0xffu ) != 0u;
+	return ( get_material_uint( material_index, 5 ) & 0x20u ) != 0u;
 }
 
 MaterialStage get_material_stage( in uint material_index, in uint stage )
@@ -590,11 +594,128 @@ MaterialInfo get_material_info( uint material_id )
 	minfo.blend_mode       = (at >> 2u) & uint(RTX_BLEND_MASK);
 	minfo.alpha_test_value = unpackHalf2x16(at).y;
 
-	// Bits 8-15: emissive factor e, 2^((e - 128) / 16), 0 for 1.0 (pt_glow_scale for glow stages).
+	// Bits 8-15: pt_glow_scale as e, 2^((e - 128) / 16), 0 for 1.0. Bit 5: a glow material, whose
+	// emissive texture takes the scale too.
 	uint emissive_code = (at >> 8u) & 0xffu;
-	minfo.emissive_factor = (emissive_code == 0u) ? 1.0 : exp2((float(emissive_code) - 128.0) / 16.0);
+	minfo.emission_scale  = (emissive_code == 0u) ? 1.0 : exp2((float(emissive_code) - 128.0) / 16.0);
+	minfo.emissive_factor = ((at & 0x20u) != 0u) ? minfo.emission_scale : 1.0;
 
 	return minfo;
+}
+
+#include "compute/tone_mapping_utils.glsl"
+
+// The display value of a value v of the image, as tone_mapping_apply maps it: the adaptive
+// curve (and its knee in SDR), blended with Reinhard by tm_reinhard, then tm_contrast. Before
+// the clamp in SDR and the nits scale in HDR.
+float tone_map_value( float v )
+{
+	v = max( v, exp2( min_log_luminance ) );
+
+	float bin = clamp( ( log2( v ) * log_luminance_scale + log_luminance_bias ) * HISTOGRAM_BINS, 0.0, HISTOGRAM_BINS - 1.001 );
+	uint left = uint( bin );
+	float mapped = exp2( mix( tonemap_buffer.curve[left], tonemap_buffer.curve[left + 1], fract( bin ) ) + global_ubo.tm_exposure_bias );
+
+	if ( global_ubo.tonemap_hdr == 0 && mapped >= global_ubo.tm_knee_start )
+	{
+		float knee_start = global_ubo.tm_knee_start;
+		float knee_w = ( knee_start * ( knee_start - 2.0 ) + global_ubo.tm_white_point ) / ( global_ubo.tm_white_point - 1.0 );
+		mapped = ( knee_w * mapped - knee_start * knee_start ) / max( 1e-6, mapped + knee_w - 2.0 * knee_start );
+	}
+
+	float s = exp2( global_ubo.tm_exposure_bias - 2.0 ) * v / max( tonemap_buffer.adapted_luminance, 1e-9 );
+	float white_point = ( global_ubo.tonemap_hdr != 0 ) ? max( global_ubo.tm_white_point, global_ubo.tm_hdr_peak_nits / 80.0 ) : global_ubo.tm_white_point;
+	float reinhard = s * ( 1.0 + s / ( white_point * white_point ) ) / ( 1.0 + s );
+
+	float m = mix( mapped, reinhard, global_ubo.tm_reinhard );
+
+	if ( global_ubo.tonemap_contrast != 1.0 )
+		m = 0.18 * pow( max( m, 0.0 ) / 0.18, global_ubo.tonemap_contrast );
+
+	return m;
+}
+
+// The value of the image that tone_mapping_apply shows as d. The mapping rises: bisection.
+float inverse_tone_map_value( float d )
+{
+	if ( d <= 0.0 )
+		return 0.0;
+
+	float lo = min_log_luminance, hi = max_log_luminance;
+	for ( int i = 0; i < 24; i++ )
+	{
+		float mid = 0.5 * ( lo + hi );
+		if ( tone_map_value( exp2( mid ) ) < d )
+			lo = mid;
+		else
+			hi = mid;
+	}
+
+	return exp2( 0.5 * ( lo + hi ) );
+}
+
+// A colour in screen units (what the rasterizer writes to the screen) to the HDR value that the
+// tone mapper shows as this colour: the inverse of the tone mapping, not a scale. On the
+// luminance, which keeps the hue, and on each channel with tm_per_channel, as the tone mapper.
+vec3 screen_to_hdr_color( vec3 v )
+{
+	v = max( v, vec3( 0.0 ) );
+
+	vec3 hdr = vec3( 0.0 );
+	float per_channel = global_ubo.tonemap_per_channel;
+
+	if ( per_channel < 1.0 )
+	{
+		float d = luminance( v );
+		if ( d > 0.0 )
+			hdr = v * ( inverse_tone_map_value( d ) / d );
+	}
+
+	if ( per_channel > 0.0 )
+		hdr = mix( hdr, vec3( inverse_tone_map_value( v.r ), inverse_tone_map_value( v.g ), inverse_tone_map_value( v.b ) ), per_channel );
+
+	return hdr;
+}
+
+// One stage with its GL blend: out = L + T * dst.The destination alpha counts as 1.
+void blend_stage_layer( uint blend, vec4 src, inout vec3 L, inout vec3 T )
+{
+	uint sf = blend & 0x0fu;
+	uint df = ( blend >> 4 ) & 0x0fu;
+
+	// No blendFunc: the stage replaces the color.
+	if ( sf == 0u && df == 0u )
+	{
+		L = src.rgb;
+		T = vec3( 0.0 );
+		return;
+	}
+
+	vec3 Ls = vec3( 0.0 );
+	vec3 Ts = vec3( 0.0 );
+
+	switch ( df )
+	{
+		case 2u: Ts = vec3( 1.0 );			break;	// ONE
+		case 3u: Ts = src.rgb;				break;	// SRC_COLOR
+		case 4u: Ts = 1.0 - src.rgb;		break;	// ONE_MINUS_SRC_COLOR
+		case 5u: Ts = vec3( src.a );		break;	// SRC_ALPHA
+		case 6u: Ts = vec3( 1.0 - src.a );	break;	// ONE_MINUS_SRC_ALPHA
+		case 7u: Ts = vec3( 1.0 );			break;	// DST_ALPHA
+	}
+
+	switch ( sf )
+	{
+		case 2u: Ls = src.rgb;						break;	// ONE
+		case 3u: Ts += src.rgb;						break;	// DST_COLOR
+		case 4u: Ls = src.rgb; Ts -= src.rgb;		break;	// ONE_MINUS_DST_COLOR
+		case 5u: Ls = src.rgb * src.a;				break;	// SRC_ALPHA
+		case 6u: Ls = src.rgb * ( 1.0 - src.a );	break;	// ONE_MINUS_SRC_ALPHA
+		case 7u: Ls = src.rgb;						break;	// DST_ALPHA
+	}
+
+	L = Ls + Ts * L;
+	T = Ts * T;
 }
 
 LightPolygon
