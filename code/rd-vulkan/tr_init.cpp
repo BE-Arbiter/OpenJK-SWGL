@@ -1057,7 +1057,7 @@ void R_Register( void )
 	sun_gamepad					= ri.Cvar_Get( "sun_gamepad",				"0",	0);
 
     // sky
-    physical_sky				= ri.Cvar_Get( "physical_sky",				"1",	0);
+    physical_sky				= ri.Cvar_Get( "physical_sky",				"0",	CVAR_ARCHIVE);
     physical_sky_draw_clouds	= ri.Cvar_Get( "physical_sky_draw_clouds",	"1",	0);
     physical_sky_space			= ri.Cvar_Get( "physical_sky_space",		"0",	0);
 	physical_sky_brightness		= ri.Cvar_Get( "physical_sky_brightness",	"0",	0);
