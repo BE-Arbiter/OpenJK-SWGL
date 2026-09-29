@@ -813,7 +813,7 @@ struct portraitJob_t
 {
 	char	model[64];
 	char	skin[MAX_QPATH];	// skin name for messages, e.g. "model_red"
-	char	skinPath[128];		// skin given to the renderer: a .skin file or "models/players/<model>/|head|torso|lower"
+	char	skinPath[128];		// skin given to the renderer: a .skin file or "models/players/<model>/|head|torso|lower"; empty: shaders of the .glm
 	char	file[MAX_QPATH];	// output TGA
 	byte	color[3];			// tint of the model (menu RGB colors)
 };
@@ -838,7 +838,8 @@ static struct
 	float			frameSide;		// lateral position of the center of the shot
 	float			frameWidth;		// width of the shot, in model units
 	qboolean		single;			// "charportrait": one portrait with a frame from the command line
-	float			singleX;		// "charportrait" frame: center offset from *head_top (right, down) and size
+	qboolean		singleMeasure;	// "charportrait" on a model without *head_top: the head top comes from the silhouette
+	float			singleX;		// "charportrait" frame: center offset from the head top (right, down) and size
 	float			singleY;
 	float			singleWidth;
 	float			singleHeight;
@@ -893,19 +894,12 @@ static void Portrait_WideFrame(void)
 	portrait.frameWidth = portrait.frameTop - portrait.frameBottom;
 }
 
-// "charportrait" frame: center at *head_top plus (X right, Y down), size W x H, in model units.
-static void Portrait_SingleFrame(void)
+// "charportrait" frame: center at the head top plus (X right, Y down), size W x H, in model units.
+static void Portrait_SingleFrame(float headTop, float headSide)
 {
-	vec3_t head = { 0, 0, 42 };
-
-	if (!Portrait_BoltPosition("*head_top", head) && Portrait_BoltPosition("cranium", head))
-	{
-		head[2] += 8;
-	}
-
 	// Image right is -y in the view.
-	const float centerZ = head[2] - portrait.singleY;
-	portrait.frameSide = head[1] - portrait.singleX;
+	const float centerZ = headTop - portrait.singleY;
+	portrait.frameSide = headSide - portrait.singleX;
 	portrait.frameTop = centerZ + 0.5f * portrait.singleHeight;
 	portrait.frameBottom = centerZ - 0.5f * portrait.singleHeight;
 	portrait.frameWidth = portrait.singleWidth;
@@ -948,6 +942,13 @@ static portraitFrame_t Portrait_CloseFrame(void)
 		portrait.frameBottom -= 0.125f * wide;
 		portrait.frameWidth = portrait.frameTop - portrait.frameBottom;
 		return PORTRAIT_FRAME_RETRY;
+	}
+
+	// Image left is +y in the view.
+	if (portrait.single)
+	{
+		Portrait_SingleFrame(portrait.frameTop - headLine * wide, portrait.frameSide + (0.5f - centerLine) * wide);
+		return PORTRAIT_FRAME_OK;
 	}
 
 	if (!portrait.humanoid)
@@ -996,16 +997,20 @@ static qboolean Portrait_Load(const portraitJob_t *job)
 
 	// 0: the skin file is missing or broken (skip this job), or the renderer skin table is full
 	// (load the map again). Only a .skin file that exists can mean a full table.
-	portrait.skin = cgi_R_RegisterSkin(job->skinPath);
-	if (!portrait.skin)
+	portrait.skin = NULL_HANDLE;
+	if (job->skinPath[0])
 	{
-		if (!strchr(job->skinPath, '|') && gi.FS_ReadFile(job->skinPath, NULL) > 0)
+		portrait.skin = cgi_R_RegisterSkin(job->skinPath);
+		if (!portrait.skin)
 		{
-			portrait.tableFull = qtrue;
+			if (!strchr(job->skinPath, '|') && gi.FS_ReadFile(job->skinPath, NULL) > 0)
+			{
+				portrait.tableFull = qtrue;
+			}
+			return qfalse;
 		}
-		return qfalse;
+		gi.G2API_SetSkin(&portrait.ghoul2[0], portrait.skin, portrait.skin);
 	}
-	gi.G2API_SetSkin(&portrait.ghoul2[0], portrait.skin, portrait.skin);
 
 	// Freeze the model on the first frame of BOTH_STAND1.
 	char *glaName = gi.G2API_GetGLAName(&portrait.ghoul2[0]);
@@ -1031,9 +1036,12 @@ static qboolean Portrait_Load(const portraitJob_t *job)
 		gi.G2API_SetBoneAnim(&portrait.ghoul2[0], "model_root", anim->firstFrame, anim->firstFrame + 1,
 			BONE_ANIM_OVERRIDE_FREEZE, 1.0f, cg.time, anim->firstFrame, 0);
 	}
-	if (portrait.single)
+	// Models without *head_top (droids, creatures): measure the silhouette in a wide shot first.
+	vec3_t head;
+	portrait.singleMeasure = (qboolean)(portrait.single && !Portrait_BoltPosition("*head_top", head));
+	if (portrait.single && !portrait.singleMeasure)
 	{
-		Portrait_SingleFrame();
+		Portrait_SingleFrame(head[2], head[1]);
 	}
 	else
 	{
@@ -1126,6 +1134,10 @@ static void Portrait_BuildJobs(void)
 				Q_strncpyz(job.model, model, sizeof(job.model));
 				Q_strncpyz(job.skin, skin.c_str(), sizeof(job.skin));
 				Com_sprintf(job.skinPath, sizeof(job.skinPath), "models/players/%s/%s.skin", model, job.skin);
+				if (gi.FS_ReadFile(job.skinPath, NULL) <= 0)
+				{
+					job.skinPath[0] = '\0';	// model without .skin files (mark1, mark2)
+				}
 				Com_sprintf(job.file, sizeof(job.file), "portraits/%s/%s.tga", model, job.skin + 6);	// no "model_" prefix
 				job.color[0] = job.color[1] = job.color[2] = 255;
 				portraitJobs.push_back(job);
@@ -1259,7 +1271,13 @@ void CG_Characters_Portrait_f(void)
 	Q_strncpyz(job.skin, head, sizeof(job.skin));
 	// Same skin string as UI_UpdateCharacterSkin.
 	Com_sprintf(job.skinPath, sizeof(job.skinPath), "models/players/%s/|%s|%s|%s", model, head, torso, lower);
-	if (!Q_stricmp(head, torso) && !Q_stricmp(head, lower))
+	if (gi.FS_ReadFile(va("models/players/%s/%s.skin", model, head), NULL) <= 0)
+	{
+		// Model without .skin files: the menu cvars keep the skin of the previous character.
+		job.skinPath[0] = '\0';
+		Com_sprintf(job.file, sizeof(job.file), "portraits/%s/default.tga", model);
+	}
+	else if (!Q_stricmp(head, torso) && !Q_stricmp(head, lower))
 	{
 		Com_sprintf(job.file, sizeof(job.file), "portraits/%s/%s.tga", model, Q_stricmpn(head, "model_", 6) ? head : head + 6);
 	}
@@ -1328,8 +1346,8 @@ void CG_DrawCharacterPortrait(void)
 
 	const portraitJob_t *job = &portraitJobs[portrait.job];
 
-	// "charportrait" has its frame from the command line: no measure.
-	if (portrait.single && portrait.step == PORTRAIT_STEP_MEASURE_BLACK_REQUEST)
+	// "charportrait" on *head_top has its frame from the command line: no measure.
+	if (portrait.single && !portrait.singleMeasure && portrait.step == PORTRAIT_STEP_MEASURE_BLACK_REQUEST)
 	{
 		portrait.step = PORTRAIT_STEP_CLOSE_FRAME + 1;
 	}
