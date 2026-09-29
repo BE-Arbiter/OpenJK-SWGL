@@ -709,8 +709,10 @@ void Console_Key (int key) {
 			g_consoleField.cursor--;
 		}
 
-		// print executed command
-		Com_Printf( "%c%s\n", CONSOLE_PROMPT_CHAR, g_consoleField.buffer );
+		// print executed command with its time in cyan
+		char clock[16];
+		Con_ClockString( clock, sizeof( clock ) );
+		Com_Printf( S_COLOR_WHITE "[" S_COLOR_CYAN "%s" S_COLOR_WHITE "] %s\n", clock, g_consoleField.buffer );
 
 		Cbuf_AddText( g_consoleField.buffer );	// valid command
 		Cbuf_AddText ("\n");
