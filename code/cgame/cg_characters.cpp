@@ -100,7 +100,7 @@ void ChangeCharacter(int characterIndex, int variantIndex = 0)
 	// The page arrows only when the variants do not fit on one page.
 	cgi_UI_Run_Command(GetVariantCount(currentCharacter) > variantsPerPage ? "show variantPages" : "hide variantPages");
 
-	// The character .cfg is ext_data/characters/<g_charKey>_<ui_variant_code>[_def|_NPC].cfg.
+	// The character .cfg is ext_data/characters/<g_charKey>_<ui_variant_code>[_NPC].cfg, the default one ext_data/characters_conf/<g_charKey>_<ui_variant_code>_def.cfg.
 	cgi_Cvar_Set("ui_char_model", variant->model);
 	cgi_Cvar_Set("ui_char_model_angle", "180");
 	cgi_Cvar_Set("g_charKey", currentCharacter->code);

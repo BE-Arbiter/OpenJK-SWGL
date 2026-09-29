@@ -93,6 +93,7 @@ void CG_DrawDataPadObjectives(const centity_t *cent );
 void CG_DrawDataPadWeaponSelect( void );
 void CG_LDO_DrawWeapons( void );
 void CG_DrawDataPadForceSelect( void );
+qboolean CG_GetAmmoName( int ammoIndex, char *name, int nameSize );
 
 /*
 ================
@@ -248,6 +249,8 @@ Ghoul2 Insert End
 			CG_DrawCharactersMenu();
 		}
 		return 0;
+	case CG_GET_AMMO_NAME:
+		return CG_GetAmmoName((int)arg0, (char *)arg1, (int)arg2);
 	}
 	return -1;
 }

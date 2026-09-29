@@ -50,6 +50,8 @@ extern stringID_table_t animTable [MAX_ANIMATIONS+1];
 #include "../qcommon/q_shared.h"
 #include <string>
 #include "../qcommon/game_version.h"
+#include "../rd-common/mdx_merge.h"
+#include "../client/vmachine.h"
 
 extern qboolean ItemParse_model_g2anim_go( itemDef_t *item, const char *animName );
 extern qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name );
@@ -216,6 +218,16 @@ static void UI_LoadCharacterCfg(void);
 static void Com_FlushCharacterFile(void);
 static void UI_LoadCharacterDefaultCfg(void);
 static void UI_RefreshCharConfigs(const char *select);
+static void UI_RefreshAnimOverrides(void);
+
+// Arguments of "animoverride" for FEEDER_ANIM_OVERRIDES: "none", "default", then the override folders.
+static std::vector<std::string> uiAnimOverrides;
+
+// FEEDER_AMMO: the ammo types of the player (ammoData index) and their translated names, from the cgame.
+static void UI_RefreshAmmoTypes(void);
+static void UI_SelectAmmoType(int index);
+static std::vector<int> uiAmmoTypes;
+static std::vector<std::string> uiAmmoNames;
 static void UI_SaveCharConfig(void);
 static void UI_LoadCharConfig(void);
 static void UI_DeleteCharConfig(void);
@@ -1415,6 +1427,32 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 	{
 		return (index >= 0 && index < uiCharConfigCount) ? uiCharConfigs[index] : "";
 	}
+	else if (feederID == FEEDER_AMMO)
+	{
+		return (index >= 0 && index < (int)uiAmmoNames.size()) ? uiAmmoNames[index].c_str() : "";
+	}
+	else if (feederID == FEEDER_ANIM_OVERRIDES)
+	{
+		if (index < 0 || index >= (int)uiAnimOverrides.size())
+		{
+			return "";
+		}
+		if (index == 0)
+		{
+			return "Model default";
+		}
+		if (index == 1)
+		{
+			return "Humanoid";
+		}
+		// "_plx1" and "plx1" are the same override.
+		const char *name = uiAnimOverrides[index].c_str();
+		while (*name == '_')
+		{
+			name++;
+		}
+		return name;
+	}
 	else if (feederID == FEEDER_LANGUAGES)
 	{
 #ifdef JK2_MODE
@@ -2176,6 +2214,14 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if (Q_stricmp(name, "charConfigRefresh") == 0)
 		{
 			UI_RefreshCharConfigs(NULL);
+		}
+		else if (Q_stricmp(name, "animOverrideRefresh") == 0)
+		{
+			UI_RefreshAnimOverrides();
+		}
+		else if (Q_stricmp(name, "ammoRefresh") == 0)
+		{
+			UI_RefreshAmmoTypes();
 		}
 		else if (Q_stricmp(name, "charConfigSave") == 0)
 		{
@@ -3081,6 +3127,14 @@ static int UI_FeederCount(float feederID)
 	{
 		return uiCharConfigCount;
 	}
+	else if (feederID == FEEDER_ANIM_OVERRIDES)
+	{
+		return (int)uiAnimOverrides.size();
+	}
+	else if (feederID == FEEDER_AMMO)
+	{
+		return (int)uiAmmoTypes.size();
+	}
 	else if (feederID == FEEDER_PLAYER_SPECIES)
 	{
 		return uiInfo.playerSpeciesCount;
@@ -3338,6 +3392,18 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 		uiCharConfigSelected = index;
 		Cvar_Set("ui_char_config_name", index > 0 && index < uiCharConfigCount ? uiCharConfigs[index] : "");
 	}
+	else if (feederID == FEEDER_ANIM_OVERRIDES)
+	{
+		if (index >= 0 && index < (int)uiAnimOverrides.size())
+		{
+			Cvar_Set("ui_animoverride", uiAnimOverrides[index].c_str());
+			ui.Cmd_ExecuteText(EXEC_APPEND, va("animoverride %s\n", uiAnimOverrides[index].c_str()));
+		}
+	}
+	else if (feederID == FEEDER_AMMO)
+	{
+		UI_SelectAmmoType(index);
+	}
 	else if (feederID == FEEDER_PLAYER_SKIN_HEAD)
 	{
 		if (index >= 0 && index < uiInfo.playerSpecies[uiInfo.playerSpeciesIndex].SkinHeadCount)
@@ -3453,7 +3519,9 @@ static ui_animFileSet_t	ui_knownAnimFileSets[MAX_ANIM_FILES];
 
 int				ui_numKnownAnimFileSets;
 
-qboolean UI_ParseAnimationFile( const char *af_filename )
+// Parses af_filename into the new file set. frameOffset is added to each first frame (a merged GLA part).
+// initialize clears the file set first.
+static qboolean UI_ParseAnimationFileAt( const char *af_filename, int frameOffset, qboolean initialize )
 {
 	const char		*text_p;
 	int			len;
@@ -3481,7 +3549,7 @@ qboolean UI_ParseAnimationFile( const char *af_filename )
 	//FIXME: have some way of playing anims backwards... negative numFrames?
 
 	//initialize anim array so that from 0 to MAX_ANIMATIONS, set default values of 0 1 0 100
-	for(i = 0; i < MAX_ANIMATIONS; i++)
+	for(i = 0; initialize && i < MAX_ANIMATIONS; i++)
 	{
 		animations[i].firstFrame = 0;
 		animations[i].numFrames = 0;
@@ -3523,7 +3591,7 @@ qboolean UI_ParseAnimationFile( const char *af_filename )
 		{
 			break;
 		}
-		animations[animNum].firstFrame = atoi( token );
+		animations[animNum].firstFrame = atoi( token ) + frameOffset;
 
 		token = COM_Parse( &text_p );
 		if ( !token )
@@ -3565,6 +3633,108 @@ qboolean UI_ParseAnimationFile( const char *af_filename )
 	return qtrue;
 }
 
+qboolean UI_ParseAnimationFile( const char *af_filename )
+{
+	return UI_ParseAnimationFileAt( af_filename, 0, qtrue );
+}
+
+// Reads the header and skeleton of a GLA file, with the checks of the renderer (see mdx_merge.h).
+static const mdxaHeader_t *UI_ReadGLAHeader( const char *path, std::vector<byte> &buf )
+{
+	fileHandle_t	f;
+	mdxaHeader_t	header;
+
+	const int len = ui.FS_FOpenFile( path, &f, FS_READ );
+	if ( len <= 0 || !f )
+	{
+		return NULL;
+	}
+
+	// The skeleton is between the header and the frames.
+	const int skelEnd = ( len >= (int)sizeof( header ) && ui.FS_Read( &header, sizeof( header ), f ) == sizeof( header ) )
+		? LittleLong( header.ofsFrames ) : 0;
+	qboolean readOk = qfalse;
+	if ( skelEnd > (int)sizeof( header ) && skelEnd <= len && LittleLong( header.ofsEnd ) <= len )
+	{
+		buf.resize( skelEnd );
+		memcpy( buf.data(), &header, sizeof( header ) );
+		const int skelBytes = skelEnd - (int)sizeof( header );
+		readOk = (qboolean)( ui.FS_Read( buf.data() + sizeof( header ), skelBytes, f ) == skelBytes );
+	}
+	ui.FS_FCloseFile( f );
+
+	return readOk ? GLA_CheckHeader( buf.data(), skelEnd ) : NULL;
+}
+
+// Parses <dir>/<name>.cfg, else <dir>/animation.cfg, at frameOffset.
+static qboolean UI_ParseAnimationPart( const char *dir, const char *name, int frameOffset )
+{
+	char path[MAX_QPATH];
+
+	Com_sprintf( path, sizeof( path ), "%s/%s.cfg", dir, name );
+	if ( UI_ParseAnimationFileAt( path, frameOffset, qfalse ) )
+	{
+		return qtrue;
+	}
+	Com_sprintf( path, sizeof( path ), "%s/animation.cfg", dir );
+	return UI_ParseAnimationFileAt( path, frameOffset, qfalse );
+}
+
+/*
+=================
+UI_ParseMergedAnimations
+
+Parses the animations of the GLA parts that the renderer appends to the GLA of a skeleton (see mdx_merge.h):
+_weapons.gla if glaPath is a _humanoid*.gla file, then the GLA of the animation override if overrideKey is not NULL.
+The same frame offsets as G_ParseMergedAnimations in the game.
+=================
+*/
+static void UI_ParseMergedAnimations( const char *glaPath, const char *overrideKey )
+{
+	std::vector<byte> baseBuf, weaponsBuf, extraBuf;
+
+	if ( !overrideKey && !GLA_TakesWeapons( glaPath ) )
+	{
+		return;
+	}
+
+	const mdxaHeader_t *base = UI_ReadGLAHeader( glaPath, baseBuf );
+	if ( !base )
+	{
+		return;
+	}
+	int numFrames = LittleLong( base->numFrames );
+
+	const mdxaHeader_t *weapons = GLA_TakesWeapons( glaPath ) ? UI_ReadGLAHeader( GLA_WEAPONS_PATH, weaponsBuf ) : NULL;
+	if ( weapons && GLA_CanMerge( base, numFrames, weapons ) )
+	{
+		UI_ParseAnimationPart( GLA_WEAPONS_DIR, "_weapons", numFrames );
+		numFrames += LittleLong( weapons->numFrames );
+	}
+
+	if ( overrideKey )
+	{
+		// The override GLA is models/players/_<key>/_<key>.gla, else models/players/<key>/<key>.gla.
+		char overrideName[MAX_QPATH];
+		char overridePath[MAX_QPATH];
+		Com_sprintf( overrideName, sizeof( overrideName ), "_%s", overrideKey );
+		Com_sprintf( overridePath, sizeof( overridePath ), "models/players/%s/%s.gla", overrideName, overrideName );
+		const mdxaHeader_t *extra = UI_ReadGLAHeader( overridePath, extraBuf );
+		if ( !extra )
+		{
+			Q_strncpyz( overrideName, overrideKey, sizeof( overrideName ) );
+			Com_sprintf( overridePath, sizeof( overridePath ), "models/players/%s/%s.gla", overrideName, overrideName );
+			extra = UI_ReadGLAHeader( overridePath, extraBuf );
+		}
+		if ( extra && GLA_CanMerge( base, numFrames, extra ) )
+		{
+			char overrideDir[MAX_QPATH];
+			Com_sprintf( overrideDir, sizeof( overrideDir ), "models/players/%s", overrideName );
+			UI_ParseAnimationPart( overrideDir, overrideName, numFrames );
+		}
+	}
+}
+
 qboolean UI_ParseAnimFileSet( const char *animCFG, int *animFileIndex )
 { //Not going to bother parsing the sound config here.
 	char		afilename[MAX_QPATH];
@@ -3602,13 +3772,28 @@ qboolean UI_ParseAnimFileSet( const char *animCFG, int *animFileIndex )
 	//Okay, time to parse in a new one
 	Q_strncpyz( ui_knownAnimFileSets[ui_numKnownAnimFileSets].filename, strippedName, sizeof( ui_knownAnimFileSets[ui_numKnownAnimFileSets].filename ) );
 
+	// An animation override "_humanoid_o_<key>" is a virtual GLA: _humanoid.gla, _weapons.gla, then the override GLA.
+	char overrideKey[MAX_QPATH];
+	char glaPath[MAX_QPATH];
+	Com_sprintf( glaPath, sizeof( glaPath ), "%s/%s.gla", strippedName, COM_SkipPath( strippedName ) );
+	const qboolean isOverride = GLA_GetOverrideName( glaPath, overrideKey, sizeof( overrideKey ) );
+	if ( isOverride )
+	{
+		Q_strncpyz( glaPath, GLA_HUMANOID_PATH, sizeof( glaPath ) );
+	}
+	else
+	{
+		Com_sprintf( glaPath, sizeof( glaPath ), "%s.gla", animCFG );
+	}
+
 	// Load and parse animations.cfg file
-	Com_sprintf( afilename, sizeof( afilename ), "%s/animation.cfg", strippedName );
+	Com_sprintf( afilename, sizeof( afilename ), "%s/animation.cfg", isOverride ? GLA_HUMANOID_DIR : strippedName );
 	if ( !UI_ParseAnimationFile( afilename ) )
 	{
 		*animFileIndex = -1;
 		return qfalse;
 	}
+	UI_ParseMergedAnimations( glaPath, isOverride ? overrideKey : NULL );
 
 	//set index and increment
 	*animFileIndex = ui_numKnownAnimFileSets++;
@@ -9534,7 +9719,7 @@ void UI_LoadCharacterCfg(void)
 
 	// 2. code_variant_default.cfg
 	Com_sprintf(file2, sizeof(file2),
-		"ext_data/characters/%s_%s_def.cfg",
+		"ext_data/characters_conf/%s_%s_def.cfg",
 		code, variant);
 
 	const char* candidates[3] = {
@@ -9574,7 +9759,7 @@ void UI_LoadCharacterDefaultCfg(void)
 
 	// 2. code_variant_default.cfg
 	Com_sprintf(file, sizeof(file),
-		"ext_data/characters/%s_%s_def.cfg",
+		"ext_data/characters_conf/%s_%s_def.cfg",
 		code, variant);
 
 	const char* candidates[2] = {
@@ -9661,6 +9846,140 @@ static void UI_RefreshCharConfigs(const char *select)
 		}
 	}
 	UI_SelectCharConfig(selected);
+}
+
+/*
+=================
+UI_RefreshAnimOverrides
+
+Lists the animation overrides for FEEDER_ANIM_OVERRIDES: each models/players/<name>/<name>.gla
+that the renderer can append to _humanoid.gla (see mdx_merge.h). Selects the value of ui_animoverride.
+=================
+*/
+static void UI_RefreshAnimOverrides(void)
+{
+	std::vector<byte> baseBuf, weaponsBuf, extraBuf;
+	std::vector<std::string> names;
+
+	const mdxaHeader_t *base = UI_ReadGLAHeader(GLA_HUMANOID_PATH, baseBuf);
+	if (base)
+	{
+		// The override frames come after the frames of _humanoid.gla and _weapons.gla.
+		int numFrames = LittleLong(base->numFrames);
+		const mdxaHeader_t *weapons = UI_ReadGLAHeader(GLA_WEAPONS_PATH, weaponsBuf);
+		if (weapons && GLA_CanMerge(base, numFrames, weapons))
+		{
+			numFrames += LittleLong(weapons->numFrames);
+		}
+
+		std::vector<char> dirList(256 * 1024);
+		const int numDirs = ui.FS_GetFileList("models/players", "/", dirList.data(), (int)dirList.size());
+		const char *dir = dirList.data();
+		for (int i = 0; i < numDirs; i++, dir += strlen(dir) + 1)
+		{
+			char name[MAX_QPATH];
+			Q_strncpyz(name, dir, sizeof(name));
+			const size_t len = strlen(name);
+			if (len && name[len - 1] == '/')
+			{
+				name[len - 1] = 0;
+			}
+			// _humanoid*.gla are skeletons, not overrides.
+			if (!name[0] || name[0] == '.' || !Q_stricmpn(name, "_humanoid", 9))
+			{
+				continue;
+			}
+
+			char path[MAX_QPATH];
+			Com_sprintf(path, sizeof(path), "models/players/%s/%s.gla", name, name);
+			const mdxaHeader_t *extra = UI_ReadGLAHeader(path, extraBuf);
+			if (extra && GLA_CanMerge(base, numFrames, extra))
+			{
+				names.push_back(name);
+			}
+		}
+	}
+	std::sort(names.begin(), names.end(), [](const std::string &a, const std::string &b) { return Q_stricmp(a.c_str(), b.c_str()) < 0; });
+
+	uiAnimOverrides.clear();
+	uiAnimOverrides.push_back("none");
+	uiAnimOverrides.push_back("default");
+	uiAnimOverrides.insert(uiAnimOverrides.end(), names.begin(), names.end());
+
+	int selected = 0;
+	const char *current = UI_Cvar_VariableString("ui_animoverride");
+	for (int i = 0; i < (int)uiAnimOverrides.size(); i++)
+	{
+		if (!Q_stricmp(uiAnimOverrides[i].c_str(), current))
+		{
+			selected = i;
+		}
+	}
+
+	menuDef_t *menu = Menus_FindByName("IngameSWGLCheat");
+	itemDef_t *item = menu ? (itemDef_t *)Menu_FindItemByName(menu, "animOverrideList") : NULL;
+	if (item)
+	{
+		item->cursorPos = selected;
+	}
+}
+
+// Selects a line of FEEDER_AMMO: ui_cheats_ammoType gets its ammo type, ui_cheats_ammo the ammo of the player.
+static void UI_SelectAmmoType(int index)
+{
+	if (index < 0 || index >= (int)uiAmmoTypes.size())
+	{
+		return;
+	}
+	const int ammoType = uiAmmoTypes[index];
+	Cvar_Set("ui_cheats_ammoType", va("%d", ammoType));
+
+	const client_t *cl = &svs.clients[0];	// 0 because only ever us as a player
+	if (cl->gentity && cl->gentity->client)
+	{
+		Cvar_Set("ui_cheats_ammo", va("%d", cl->gentity->client->ammo[ammoType]));
+	}
+}
+
+/*
+=================
+UI_RefreshAmmoTypes
+
+Lists the ammo types of the player for FEEDER_AMMO. The ammo data and the names come from the cgame (CG_GET_AMMO_NAME).
+Selects the value of ui_cheats_ammoType.
+=================
+*/
+static void UI_RefreshAmmoTypes(void)
+{
+	uiAmmoTypes.clear();
+	uiAmmoNames.clear();
+	for (int i = 0; i < MAX_AMMO; i++)
+	{
+		char name[128];
+		if (VM_Call(CG_GET_AMMO_NAME, (intptr_t)i, (intptr_t)name, (intptr_t)sizeof(name)) == qtrue)
+		{
+			uiAmmoTypes.push_back(i);
+			uiAmmoNames.push_back(name);
+		}
+	}
+
+	int selected = 0;
+	const int current = Cvar_VariableIntegerValue("ui_cheats_ammoType");
+	for (int i = 0; i < (int)uiAmmoTypes.size(); i++)
+	{
+		if (uiAmmoTypes[i] == current)
+		{
+			selected = i;
+		}
+	}
+	UI_SelectAmmoType(selected);
+
+	menuDef_t *menu = Menus_FindByName("IngameSWGLCheat");
+	itemDef_t *item = menu ? (itemDef_t *)Menu_FindItemByName(menu, "ammoList") : NULL;
+	if (item)
+	{
+		item->cursorPos = selected;
+	}
 }
 
 // A name is valid when it can be a file name on all systems.

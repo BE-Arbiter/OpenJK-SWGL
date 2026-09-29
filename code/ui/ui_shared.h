@@ -87,6 +87,10 @@ typedef struct listBoxDef_s {
 //JLF MPMOVED
 	qboolean	scrollhidden;
 	float		scrollbarSize;		// "scrollbarsize" keyword; 0 = SCROLLBAR_SIZE
+	int			dropdownRows;		// "dropdown" keyword; 0 = normal list box
+	qhandle_t	dropdownArrow;		// "dropdownarrow" keyword; 0 = scrollBarArrowDown
+	qboolean	dropdownList;		// the rect of the item is the open list, not the header
+	float		dropdownBorder;		// border size of a dropdown; the dropdown paints its border, not Window_Paint
 } listBoxDef_t;
 
 

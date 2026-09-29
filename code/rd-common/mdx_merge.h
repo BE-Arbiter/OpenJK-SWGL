@@ -24,8 +24,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 //
 // 1. _weapons.gla is appended to each models/players/*/_humanoid*.gla.
 // 2. A model folder can contain animoverride.cfg with "overridename <name>".
-//    The model then uses models/players/_humanoid_o_<name>/_humanoid_o_<name>.gla,
+//    The model then uses models/players/_humanoid_o_<key>/_humanoid_o_<key>.gla,
 //    a virtual GLA: _humanoid.gla (with _weapons.gla), then <name>.gla.
+//    <key> is <name> without its leading '_': "_plx1" and "plx1" give _humanoid_o_plx1.
 
 #pragma once
 
@@ -109,7 +110,7 @@ inline qboolean GLA_CanMerge( const mdxaHeader_t *base, int baseFrames, const md
 	return qtrue;
 }
 
-// Gets <name> from "models/players/_humanoid_o_<name>/_humanoid_o_<name>.gla".
+// Gets <key> from "models/players/_humanoid_o_<key>/_humanoid_o_<key>.gla".
 // Returns qfalse if 'path' does not have this form.
 inline qboolean GLA_GetOverrideName( const char *path, char *name, int nameSize )
 {
@@ -129,6 +130,22 @@ inline qboolean GLA_GetOverrideName( const char *path, char *name, int nameSize 
 	char file[MAX_QPATH];
 	Com_sprintf( file, sizeof( file ), GLA_OVERRIDE_SKELETON "%s.gla", name );
 	return (qboolean)!Q_stricmp( slash + 1, file );
+}
+
+// Writes the skeleton folder of an override: "_humanoid_o_<key>".
+inline void GLA_OverrideSkeleton( const char *name, char *skeleton, int skeletonSize )
+{
+	while ( *name == '_' )
+		name++;
+	Com_sprintf( skeleton, skeletonSize, GLA_OVERRIDE_SKELETON "%s", name );
+}
+
+// Writes the virtual GLA path of an override: "models/players/_humanoid_o_<key>/_humanoid_o_<key>.gla".
+inline void GLA_OverridePath( const char *name, char *path, int pathSize )
+{
+	char skeleton[MAX_QPATH];
+	GLA_OverrideSkeleton( name, skeleton, sizeof( skeleton ) );
+	Com_sprintf( path, pathSize, "models/players/%s/%s.gla", skeleton, skeleton );
 }
 
 // Returns qtrue for "models/players/<folder>/_humanoid*.gla": _weapons.gla is appended to it.
