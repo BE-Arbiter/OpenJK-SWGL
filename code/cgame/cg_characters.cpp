@@ -43,6 +43,19 @@ static char shownTitle[128];				// name at the top of the character screen (CG_D
 static const int variantsPerPage = 4;		// squares of a page: buttons variantButton1..4 of the menu
 qboolean searchChanged = qtrue;
 
+// Saved configuration of the "My Characters" screen: characters_configs/<code>_<variant code>/<name>.cfg.
+struct myConfig_t
+{
+	int		character;
+	int		variant;
+	char	name[MAX_QPATH];
+};
+#define MAX_MY_CONFIGS 512
+static myConfig_t myConfigs[MAX_MY_CONFIGS];
+static int numMyConfigs;
+static char configDirList[64 * 1024];	// FS_GetFileList output of characters_configs
+static char backScreen[16] = "characters";	// grid that opened the character screen: Back goes to it
+
 static vmCvar_t ui_char_config_error;
 static char configErrorSerial[16];		// serial of the last error shown
 static int configErrorHideTime;			// cgi_Milliseconds() time to hide the error
@@ -82,6 +95,69 @@ static void GetVariantTitle(const characterInfo_t *character, const characterVar
 	{
 		Q_strncpyz(buffer, character->code, bufferSize);
 	}
+}
+#pragma endregion
+
+#pragma region My Characters
+// Find the character and the variant of a folder <code>_<variant code>. Compare the full name: codes can contain "_".
+static qboolean FindConfigVariant(const char *folder, int *character, int *variant)
+{
+	for (int c = 0; c < loadedCharacters; c++)
+	{
+		const characterInfo_t *info = &charactersData[c];
+		const int variantCount = GetVariantCount(info);
+		for (int v = 0; v < variantCount; v++)
+		{
+			if (!Q_stricmp(folder, va("%s_%s", info->code, info->variantList[v].code)))
+			{
+				*character = c;
+				*variant = v;
+				return qtrue;
+			}
+		}
+	}
+	return qfalse;
+}
+
+static int QDECL CompareConfigNames(const void *a, const void *b)
+{
+	return Q_stricmp(((const myConfig_t *)a)->name, ((const myConfig_t *)b)->name);
+}
+
+// characterConfigsRefresh: read the saved configurations of all the variants again.
+void CG_Characters_ConfigsRefresh_f()
+{
+	const int numDirs = gi.FS_GetFileList("characters_configs", "/", configDirList, sizeof(configDirList));
+	const char *dir = configDirList;
+
+	numMyConfigs = 0;
+	for (int i = 0; i < numDirs && numMyConfigs < MAX_MY_CONFIGS; i++, dir += strlen(dir) + 1)
+	{
+		char folder[MAX_QPATH];
+		Q_strncpyz(folder, dir, sizeof(folder));
+		const size_t len = strlen(folder);
+		if (len && folder[len - 1] == '/')
+		{
+			folder[len - 1] = '\0';
+		}
+		int character, variant;
+		if (!folder[0] || folder[0] == '.' || !FindConfigVariant(folder, &character, &variant))
+		{
+			continue;
+		}
+
+		char list[8192];
+		const int count = gi.FS_GetFileList(va("characters_configs/%s", folder), ".cfg", list, sizeof(list));
+		const char *name = list;
+		for (int j = 0; j < count && numMyConfigs < MAX_MY_CONFIGS; j++, name += strlen(name) + 1)
+		{
+			myConfig_t *config = &myConfigs[numMyConfigs++];
+			config->character = character;
+			config->variant = variant;
+			COM_StripExtension(name, config->name, sizeof(config->name));
+		}
+	}
+	qsort(myConfigs, numMyConfigs, sizeof(myConfig_t), CompareConfigNames);
 }
 #pragma endregion
 
@@ -126,6 +202,25 @@ void ChangeCharacter(int characterIndex, int variantIndex = 0)
 	cgi_UI_Run_Command("uiScript charConfigRefresh");
 }
 
+// Go from the selection grid to the character screen. Back goes to this grid again.
+static void ShowCharacterScreen()
+{
+	Q_strncpyz(backScreen, ui_character_screen.string, sizeof(backScreen));
+	cgi_Cvar_Set("ui_character_screen","character");
+	cgi_UI_Run_Command("hide selScreen");
+	cgi_UI_Run_Command("hide searchDisabled");
+	cgi_UI_Run_Command("hide characterButtons");
+	cgi_UI_Run_Command("show charScreen");
+	cgi_UI_Run_Command("hide tabPowers");
+	cgi_UI_Run_Command("hide tabWeapons");
+	cgi_UI_Run_Command("hide saberModels");
+	cgi_UI_Run_Command("hide StatsTabPc");
+	cgi_UI_Run_Command("show PowersTabPc");
+	cgi_UI_Run_Command("show WeaponsTabPc");
+	cgi_UI_Run_Command("show tabStats");
+	cgi_UI_Run_Command("uiScript toggleTeamAvailability");
+}
+
 void CG_Characters_CharacterClick_f()
 {
 	//Update CVAR
@@ -161,21 +256,36 @@ void CG_Characters_CharacterClick_f()
 		}
 		//Change Character (Load Default, Screen)
 		ChangeCharacter(filteredCharactersIndexList[selectedCharacter]);
-		//Update View
-		cgi_Cvar_Set("ui_character_screen","character");
-		cgi_UI_Run_Command("hide selScreen");
-		cgi_UI_Run_Command("hide characterButtons");
-		cgi_UI_Run_Command("show charScreen");
-		cgi_UI_Run_Command("hide tabPowers");
-		cgi_UI_Run_Command("hide tabWeapons");
-		cgi_UI_Run_Command("hide saberModels");
-		cgi_UI_Run_Command("hide StatsTabPc");
-		cgi_UI_Run_Command("show PowersTabPc");
-		cgi_UI_Run_Command("show WeaponsTabPc");
-		cgi_UI_Run_Command("show tabStats");
-		cgi_UI_Run_Command("uiScript toggleTeamAvailability");
-		
+		ShowCharacterScreen();
+		return;
 	}
+	if (Q_stricmp(ui_character_screen.string, "myconfigs") == 0)
+	{
+		const int selectedConfig = (ui_character_page.integer * 15) + ui_character_selected.integer - 1;
+		if (selectedConfig < 0 || selectedConfig >= numMyConfigs)
+		{
+			return;
+		}
+		// Same as a click on the variant, then Load of the configuration.
+		const myConfig_t &config = myConfigs[selectedConfig];
+		ChangeCharacter(config.character, config.variant);
+		cgi_UI_Run_Command(va("uiScript charConfigLoadNamed \"%s\"", config.name));
+		ShowCharacterScreen();
+	}
+}
+
+// characterBack: Back of the character screen. The menu shows the selection screen; this sets its grid.
+void CG_Characters_Back_f()
+{
+	if (Q_stricmp(backScreen, "myconfigs") == 0)
+	{
+		// A configuration can be saved or deleted on the character screen.
+		CG_Characters_ConfigsRefresh_f();
+		// No search on this grid: the menu shows the search field again with the selection screen.
+		cgi_UI_Run_Command("hide searchNameInput");
+		cgi_UI_Run_Command("show searchDisabled");
+	}
+	cgi_Cvar_Set("ui_character_screen", backScreen);
 }
 
 // characterVariantClick <slot 1..4>: show the variant of this square of the page on the screen.
@@ -224,6 +334,10 @@ int getMaxPage() {
 	if (Q_stricmp(ui_character_screen.string, "characters") == 0)
 	{
 		return (filteredCharacters / 15) + 1;
+	}
+	if (Q_stricmp(ui_character_screen.string, "myconfigs") == 0)
+	{
+		return (numMyConfigs / 15) + 1;
 	}
 	return 0;
 }
@@ -483,6 +597,43 @@ void CG_DrawFactions() {
 
 }
 
+// "My Characters" grid: the saved configurations, with the icon of their variant. Same layout as CG_DrawCharacters.
+void CG_DrawMyConfigs() {
+	int marginX = 5, marginY = 4;
+	int startX = 114, startY = 88;
+	int bgSizeX = 94, bgSizeY = 114;
+	int iconSizeX = 90, iconSizeY = 90;
+	int iconOffsetX = 2, iconOffsetY = 2;
+	int nameSizeX = 82, nameSizeY = 16;
+	int nameOffsetX = 6, nameOffsetY = 90;
+	qhandle_t background = cgi_R_RegisterShaderNoMip("gfx/menu/w_character_icon_bg");
+
+	cgi_Cvar_Update(&ui_character_page);
+	int currentPage = ui_character_page.integer;
+	const int maxPage = getMaxPage();
+	if (currentPage >= maxPage)
+	{
+		currentPage = 0;
+		setCurrentPage(0);
+	}
+	const int beginIndex = currentPage * 15;
+	const int endIndex = Q_min(numMyConfigs, beginIndex + 15);
+	for (int i = beginIndex; i < endIndex; i++)
+	{
+		const myConfig_t &config = myConfigs[i];
+		const characterVariant_t *variant = &charactersData[config.character].variantList[config.variant];
+		const int posX = startX + ((i - beginIndex) % 5) * (bgSizeX + marginX);
+		const int posY = startY + ((i - beginIndex) / 5) * (bgSizeY + marginY);
+
+		CG_DrawPic(posX, posY, bgSizeX, bgSizeY, background);
+		CG_DrawPic(posX + iconOffsetX, posY + iconOffsetY, iconSizeX, iconSizeY, cgi_R_RegisterShaderNoMip(variant->icon));
+		CG_DrawTextInBox(posX + nameOffsetX, posY + nameOffsetY, nameSizeX, nameSizeY,
+			config.name, cgs.media.qhFontSmall, colorTable[CT_WHITE]);
+	}
+	CG_DrawTextInBox(114, 441, 490, 18,	// under the grid (x 114 to 604), right-aligned on its right edge
+		va("Page %d of %d (showing %d characters)", currentPage + 1, maxPage, numMyConfigs), cgs.media.qhFontSmall, colorTable[CT_WHITE], ALIGN_RIGHT);
+}
+
 // Variant squares in the frame 13 43 196 76 of the character screen: 2 rows of 5.
 // The buttons variantButton1..10 of IngameSWGLChars.menu have the same rects.
 void CG_DrawVariants() {
@@ -607,6 +758,10 @@ void CG_DrawCharactersMenu() {
 	else if (Q_stricmp(ui_character_screen.string, "characters") == 0)
 	{
 		CG_DrawCharacters();
+	}
+	else if (Q_stricmp(ui_character_screen.string, "myconfigs") == 0)
+	{
+		CG_DrawMyConfigs();
 	}
 	else if (Q_stricmp(ui_character_screen.string, "character") == 0)
 	{

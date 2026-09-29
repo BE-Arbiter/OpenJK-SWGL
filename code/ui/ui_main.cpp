@@ -1921,6 +1921,14 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "characterUpdateSearch\n");
 		}
+		else if (Q_stricmp(name, "characterConfigsRefresh") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterConfigsRefresh\n");
+		}
+		else if (Q_stricmp(name, "characterBack") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterBack\n");
+		}
 		else if (Q_stricmpn(name, "uiPcWeaponNext", 14) == 0)
 		{
 			int weaponNumber = atoi(name + 15);
@@ -2230,6 +2238,16 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if (Q_stricmp(name, "charConfigLoad") == 0)
 		{
 			UI_LoadCharConfig();
+		}
+		else if (Q_stricmp(name, "charConfigLoadNamed") == 0)
+		{
+			// "My Characters" screen: select the configuration <name> of the current variant and load it.
+			const char *configName;
+			if (String_Parse(args, &configName))
+			{
+				UI_RefreshCharConfigs(configName);
+				UI_LoadCharConfig();
+			}
 		}
 		else if (Q_stricmp(name, "charConfigDelete") == 0)
 		{
@@ -9799,7 +9817,8 @@ overwrites a file with the same name). An error goes to the cvar ui_char_config_
 // Path of a configuration of the current variant; an empty name gives the folder.
 static const char *UI_CharConfigPath(const char *name)
 {
-	const char *folder = va("characters_configs/%s_%s", UI_Cvar_VariableString("g_charKey"), UI_Cvar_VariableString("ui_variant_code"));
+	// Not UI_Cvar_VariableString: it has one static buffer, so the second call overwrites the first.
+	const char *folder = va("characters_configs/%s_%s", Cvar_VariableString("g_charKey"), Cvar_VariableString("ui_variant_code"));
 	return name[0] ? va("%s/%s.cfg", folder, name) : folder;
 }
 
