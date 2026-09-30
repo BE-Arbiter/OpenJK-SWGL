@@ -49,6 +49,7 @@ static int			num_model_lights;
 static light_poly_t model_lights[MAX_MODEL_LIGHTS];
 
 static qboolean		temporal_frame_valid = qfalse;
+static int			num_accumulated_frames = 0;
 
 static vec3_t avg_envmap_color = { 0.0, 0.0, 0.0 };
 
@@ -90,6 +91,7 @@ typedef struct reference_mode_s
 void temporal_cvar_changed( void )
 {
 	temporal_frame_valid = qfalse;
+	num_accumulated_frames = 0;
 }
 
 void VK_BeginRenderClear()
@@ -1535,81 +1537,80 @@ static void vk_rtx_process_render_feedback( ref_feedback_t *feedback, mnode_t *v
 	}
 }
 
-static void evaluate_reference_mode( reference_mode_t *ref_mode )
+static float get_num_bounce_rays( void )
 {
-#if 0
-	if (is_accumulation_rendering_active())
+	if ( sun_pt_num_bounce_rays->value == 0.5f )
+		return 0.5f;
+
+	return MAX( 0, MIN( 2, round( sun_pt_num_bounce_rays->value ) ) );
+}
+
+// Returns qtrue when the main view is the same as in the previous frame.
+static qboolean accumulation_view_unchanged( const trRefdef_t *refdef )
+{
+	static vec3_t		prev_vieworg;
+	static matrix3_t	prev_viewaxis;
+	static float		prev_fov_x, prev_fov_y;
+	const float			epsilon = 1e-5f;
+	qboolean			same = qtrue;
+	int					i;
+
+	for ( i = 0; i < 3; i++ )
 	{
+		if ( fabsf( refdef->vieworg[i] - prev_vieworg[i] ) > epsilon )
+			same = qfalse;
+	}
+
+	for ( i = 0; i < 9; i++ )
+	{
+		if ( fabsf( refdef->viewaxis[i / 3][i % 3] - prev_viewaxis[i / 3][i % 3] ) > epsilon )
+			same = qfalse;
+	}
+
+	if ( fabsf( refdef->fov_x - prev_fov_x ) > epsilon || fabsf( refdef->fov_y - prev_fov_y ) > epsilon )
+		same = qfalse;
+
+	VectorCopy( refdef->vieworg, prev_vieworg );
+	Com_Memcpy( prev_viewaxis, refdef->viewaxis, sizeof( prev_viewaxis ) );
+	prev_fov_x = refdef->fov_x;
+	prev_fov_y = refdef->fov_y;
+
+	return same;
+}
+
+static void evaluate_reference_mode( reference_mode_t *ref_mode, const trRefdef_t *refdef )
+{
+	const qboolean view_unchanged = accumulation_view_unchanged( refdef );
+
+	if ( pt_accumulation_rendering->integer > 0 )
+	{
+		const int num_warmup_frames = 5;
+		const int num_frames_to_accumulate = MAX( 1, pt_accumulation_rendering_framenum->integer );
+
+		if ( !view_unchanged )
+			num_accumulated_frames = 0;
+
 		num_accumulated_frames++;
 
-		const int num_warmup_frames = 5;
-		const int num_frames_to_accumulate = get_accumulation_rendering_framenum();
+		// Print once, on the frame that completes the run.
+		if ( num_accumulated_frames - num_warmup_frames == num_frames_to_accumulate )
+			ri.Printf( PRINT_ALL, "rtx accumulation: %d frames done\n", num_frames_to_accumulate );
 
 		ref_mode->enable_accumulation = qtrue;
 		ref_mode->enable_denoiser = qfalse;
-		ref_mode->num_bounce_rays = 2; // todo: https://github.com/res2k/Q2RTX/commit/3c31a67d73b985cd4d698b2e2cdc751a2386748b
-		ref_mode->temporal_blend_factor = 1.f / min(max(1, num_accumulated_frames - num_warmup_frames), num_frames_to_accumulate);
-		ref_mode->reflect_refract = max(4, cvar_pt_reflect_refract->integer);
-
-		switch (cvar_pt_accumulation_rendering->integer)
-		{
-		case 1: {
-			char text[MAX_QPATH];
-			float percentage = powf(max(0.f, (num_accumulated_frames - num_warmup_frames) / (float)num_frames_to_accumulate), 0.5f);
-			Q_snprintf(text, sizeof(text), "Photo mode: accumulating samples... %d%%", (int)(min(1.f, percentage) * 100.f));
-
-			int frames_after_accumulation_finished = num_accumulated_frames - num_warmup_frames - num_frames_to_accumulate;
-			float hud_alpha = max(0.f, min(1.f, (50 - frames_after_accumulation_finished) * 0.02f)); // fade out for 50 frames after accumulation finishes
-
-			int x = r_config.width / 4;
-			int y = 30;
-			R_SetScale(0.5f);
-			R_SetAlphaScale(hud_alpha);
-			draw_shadowed_string(x, y, UI_CENTER, MAX_QPATH, text);
-
-			if (cvar_pt_dof->integer)
-			{
-				x = 5;
-				y = r_config.height / 2 - 55;
-				Q_snprintf(text, sizeof(text), "Focal Distance: %.1f", cvar_pt_focus->value);
-				draw_shadowed_string(x, y, UI_LEFT, MAX_QPATH, text);
-
-				y += 10;
-				Q_snprintf(text, sizeof(text), "Aperture: %.2f", cvar_pt_aperture->value);
-				draw_shadowed_string(x, y, UI_LEFT, MAX_QPATH, text);
-
-				y += 10;
-				draw_shadowed_string(x, y, UI_LEFT, MAX_QPATH, "Use Mouse Wheel, Shift, Ctrl to adjust");
-			}
-
-			R_SetAlphaScale(1.f);
-
-			SCR_SetHudAlpha(hud_alpha);
-			break;
-		}
-		case 2:
-			SCR_SetHudAlpha(0.f);
-			break;
-		}
+		ref_mode->temporal_blend_factor = 1.f / MIN( MAX( 1, num_accumulated_frames - num_warmup_frames ), num_frames_to_accumulate );
 	}
 	else
-#endif
 	{
-		//num_accumulated_frames = 0;
+		num_accumulated_frames = 0;
 
 		ref_mode->enable_accumulation = qfalse;
 		ref_mode->enable_denoiser = (qboolean)sun_flt_enable->integer;
-
-		if ( sun_pt_num_bounce_rays->value == 0.5f )
-			ref_mode->num_bounce_rays = 0.5f;
-		else
-			ref_mode->num_bounce_rays = MAX( 0, MIN( 2, round( sun_pt_num_bounce_rays->value ) ) );
-
 		ref_mode->temporal_blend_factor = 0.f;
-		ref_mode->reflect_refract = MAX( 0, sun_pt_reflect_refract->integer );
 	}
 
-	ref_mode->reflect_refract = MIN(10, ref_mode->reflect_refract);
+	ref_mode->num_bounce_rays = get_num_bounce_rays();
+	ref_mode->reflect_refract = MIN( 10, MAX( 0, sun_pt_reflect_refract->integer ) );
 }
 
 static void evaluate_taa_settings( const reference_mode_t* ref_mode )
@@ -2640,7 +2641,7 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 			sun_light.visible = (qboolean)(sun_light.visible && sun_visible_prev);
 	}
 	
-	evaluate_reference_mode( &ref_mode );
+	evaluate_reference_mode( &ref_mode, refdef );
 	evaluate_taa_settings( &ref_mode );
 
 	num_model_lights = 0;
