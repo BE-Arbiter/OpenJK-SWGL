@@ -231,8 +231,6 @@ indirect_lighting(
 	}
 	trace_geometry_ray( bounce_ray, true, bounce_cull_mask );
 
-	trace_geometry_ray(bounce_ray, true, bounce_cull_mask);
-
 	bounce_contrib = vec3(0);
 
 	if(is_specular_ray)
