@@ -408,6 +408,9 @@ typedef struct {
 	void	*surf;
 	int		cluster;
 	int		fogIndex;
+	uint32_t	prim_offset;	// first primitive of the surface in the geometry
+	uint32_t	prim_count;
+	qboolean	deformed;		// set once the surface has a previous position
 } vk_geometry_dynamic_surf_t;
 
 typedef struct {
@@ -420,12 +423,18 @@ typedef struct {
 
 	uint32_t		surf_count;
 	uint32_t		surf_offset;
+
+	VkBufferCopy	*deform_copies;		// staging ranges written this frame
+	uint32_t		num_deform_copies;
 } vk_geometry_host_t;
 
 typedef struct {
 
 	vkbuffer_t	buffer[NUM_COMMAND_BUFFERS];
 	vkbuffer_t	staging_buffer;
+
+	vkbuffer_t	deform_staging[NUM_COMMAND_BUFFERS];		// per-frame upload of the deformed surfaces
+	uint8_t		*deform_staging_data[NUM_COMMAND_BUFFERS];	// persistent mappings of deform_staging
 
 	VboPrimitive*	primitives;
 	uint32_t		num_primitives_allocated;
@@ -593,7 +602,9 @@ void		vkpt_vertex_buffer_upload_bsp_mesh( world_t &worldData );
 qboolean	RB_IsSky( shader_t *shader );
 qboolean	RB_IsDynamicMaterial( shader_t *shader );
 qboolean	RB_IsDynamicGeometry( shader_t *shader );
-void		vk_rtx_update_dynamic_geometry( VkCommandBuffer cmd_buf, vk_geometry_data_t *geom );
+void		vk_rtx_deform_world_geometry( trRefdef_t *refdef );
+void		vk_rtx_upload_world_deforms( VkCommandBuffer cmd_buf );
+void		vk_rtx_rebuild_world_deforms( VkCommandBuffer cmd_buf );
 mnode_t		*BSP_PointLeaf( mnode_t *node, vec3_t p );
 byte		*BSP_GetPvs( world_t *bsp, int cluster );
 byte		*BSP_GetPvs2( world_t *bsp, int cluster );

@@ -313,6 +313,19 @@ static inline void transform_point(const float* p, const float* matrix, float* r
 // The time since the previous frame, for the previous position of the deformed vertices.
 static float rtx_deform_dt = 0.0f;
 
+// The wave table of a genFunc_t from GF_SIN to GF_INVERSE_SAWTOOTH.
+static const float *deform_table( genFunc_t func )
+{
+	switch ( func )
+	{
+		case GF_SQUARE:				return tr.squareTable;
+		case GF_TRIANGLE:			return tr.triangleTable;
+		case GF_SAWTOOTH:			return tr.sawToothTable;
+		case GF_INVERSE_SAWTOOTH:	return tr.inverseSawToothTable;
+		default:					return tr.sinTable;
+	}
+}
+
 static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_buffer, int current_instance_index, const trRefdef_t *refdef, trRefEntity_t* entity, shader_t *shader )
 {
 	uint32_t forceRGBGen = 0;
@@ -353,9 +366,8 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 
 	if ( shader && shader->numDeforms )
 	{
-		float time = refdef->floatTime - shader->timeOffset;
-		if ( shader->clampTime && time >= shader->clampTime )
-			time = shader->clampTime;
+		// The deforms of rd-vanilla use the time of the entity, not the time of the shader.
+		const float time = refdef->floatTime - entity->e.shaderTime;
 
 		uint32_t count = 0;
 
@@ -366,7 +378,23 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 			uint32_t *slot = &data[RTX_DEFORM_FIRST + count * RTX_DEFORM_UINTS];
 			const qboolean wave_ok = ( wf->func >= GF_SIN && wf->func <= GF_INVERSE_SAWTOOTH ) ? qtrue : qfalse;
 
-			if ( ds->deformation == DEFORM_WAVE && wave_ok )
+			if ( ds->deformation == DEFORM_WAVE && wf->frequency == 0.0f )
+			{
+				// Frequency 0: one scale for all the vertices, with no spread (RB_CalcDeformVertexes).
+				float scale;
+
+				if ( wf->func == GF_NOISE )
+					scale = wf->base + R_NoiseGet4f( 0, 0, 0, 0 ) * wf->amplitude;
+				else if ( wf->func == GF_RAND )
+					scale = wf->base + ( GetNoiseTime( (int)( refdef->time + wf->phase ) ) <= 0.0f ? wf->amplitude : 0.0f );
+				else if ( wave_ok )
+					scale = wf->base + deform_table( wf->func )[Q_ftol( wf->phase * FUNCTABLE_SIZE ) & FUNCTABLE_MASK] * wf->amplitude;
+				else
+					continue;
+
+				slot[0] = 3u | ( (uint32_t)floatToHalf( scale ) << 16 );
+			}
+			else if ( ds->deformation == DEFORM_WAVE && wave_ok )
 			{
 				slot[0] = 1u | ( (uint32_t)wf->func << 4 ) | ( (uint32_t)floatToHalf( wf->base ) << 16 );
 				slot[1] = (uint32_t)floatToHalf( wf->amplitude ) | ( (uint32_t)floatToHalf( wf->phase ) << 16 );
@@ -2395,6 +2423,9 @@ static void vk_begin_trace_rays( world_t &worldData, trRefdef_t *refdef, referen
 		}
 		END_PERF_MARKER( trace_cmd_buf, PROFILER_UPDATE_ENVIRONMENT );
 
+		if ( render_world )
+			vk_rtx_rebuild_world_deforms( trace_cmd_buf );
+
 		BEGIN_PERF_MARKER( trace_cmd_buf, PROFILER_INSTANCE_GEOMETRY );
 		vkpt_instance_geometry( trace_cmd_buf, upload_info->num_instances, qfalse );
 		END_PERF_MARKER( trace_cmd_buf, PROFILER_INSTANCE_GEOMETRY );
@@ -2613,10 +2644,10 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 		vkpt_pt_instance_model_blas( &tr.world->geometry.world_static.geom_transparent,				g_identity_transform, VERTEX_BUFFER_WORLD, -1, 0 );
 		vkpt_pt_instance_model_blas( &tr.world->geometry.world_static.geom_masked,					g_identity_transform, VERTEX_BUFFER_WORLD, -1, 0 );
 		vkpt_pt_instance_model_blas( &tr.world->geometry.world_dynamic_material.geom_opaque,		g_identity_transform, VERTEX_BUFFER_WORLD_D_MATERIAL, -1, 0 );
-		//vkpt_pt_instance_model_blas( &tr.world->geometry.world_dynamic_material.geom_transparent,	g_identity_transform, VERTEX_BUFFER_WORLD_D_MATERIAL, -1, 0 );
+		vkpt_pt_instance_model_blas( &tr.world->geometry.world_dynamic_material.geom_transparent,	g_identity_transform, VERTEX_BUFFER_WORLD_D_MATERIAL, -1, 0 );
 		vkpt_pt_instance_model_blas( &tr.world->geometry.world_dynamic_material.geom_masked,		g_identity_transform, VERTEX_BUFFER_WORLD_D_MATERIAL, -1, 0 );
 		vkpt_pt_instance_model_blas( &tr.world->geometry.world_dynamic_geometry.geom_opaque,		g_identity_transform, VERTEX_BUFFER_WORLD_D_GEOMETRY, -1, 0 );
-		//vkpt_pt_instance_model_blas( &tr.world->geometry.world_dynamic_geometry.geom_transparent,	g_identity_transform, VERTEX_BUFFER_WORLD_D_GEOMETRY, -1, 0 );
+		vkpt_pt_instance_model_blas( &tr.world->geometry.world_dynamic_geometry.geom_transparent,	g_identity_transform, VERTEX_BUFFER_WORLD_D_GEOMETRY, -1, 0 );
 		vkpt_pt_instance_model_blas( &tr.world->geometry.world_dynamic_geometry.geom_masked,		g_identity_transform, VERTEX_BUFFER_WORLD_D_GEOMETRY, -1, 0 );
 		vkpt_pt_instance_model_blas( &tr.world->geometry.sky_static.geom_opaque,					g_identity_transform, VERTEX_BUFFER_SKY, -1, 0 );
 
@@ -2685,6 +2716,9 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 		shadowmap_depth_scale);
 
 	qboolean god_rays_enabled = ( vk_rtx_god_rays_enabled(&sun_light) && render_world) ? qtrue : qfalse;
+
+	if ( render_world )
+		vk_rtx_deform_world_geometry( refdef );
 
 	vk_begin_trace_rays( *tr.world, refdef, &ref_mode, ubo, 
 		drawSurfs, numDrawSurfs, shadowmap_view_proj, 

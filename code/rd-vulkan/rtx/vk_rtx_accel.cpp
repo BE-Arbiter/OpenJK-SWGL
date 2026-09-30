@@ -605,10 +605,10 @@ void build_model_blas(VkCommandBuffer cmd_buf, model_geometry_t* info, size_t fi
 	barrier.pNext = NULL;
 	barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR
 					| VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
-	barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+	barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
 
 
-	VkPipelineStageFlags blas_dst_stage = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+	VkPipelineStageFlags blas_dst_stage = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
 	qvkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 		blas_dst_stage, 0, 1,
 		&barrier, 0, 0, 0, 0);

@@ -1606,7 +1606,7 @@ static int filter_dynamic_geometry(shader_t *shader)
     qboolean is_mat_dynamic = RB_IsDynamicMaterial(shader);
     qboolean is_sky = RB_IsSky(shader);
 
-    if (is_geom_dynamic && !is_mat_dynamic)
+    if (is_geom_dynamic)
         return 1;
 
     return 0;
@@ -1945,14 +1945,17 @@ static void vk_rtx_collect_surfaces( uint32_t *prim_ctr, vk_geometry_data_t *geo
 		if ( tess.numIndexes == 0 ) 
 			continue;
 
+		vk_geometry_dynamic_surf_t *dsurf = NULL;
+
 		if ( geom->dynamic_flags )
 		{
-			vk_geometry_dynamic_surf_t *dsurf = geom->host.dynamic_surfs + geom->host.surf_offset;
+			dsurf = geom->host.dynamic_surfs + geom->host.surf_offset;
 
 			dsurf->surf = surf;
 			dsurf->shader = shader;
 			dsurf->cluster = node->cluster;
 			dsurf->fogIndex = 0;
+			dsurf->prim_offset = *prim_ctr;
 
 			geom->host.surf_offset++;
 			accel->surf_count++;
@@ -1964,6 +1967,9 @@ static void vk_rtx_collect_surfaces( uint32_t *prim_ctr, vk_geometry_data_t *geo
 
 		VboPrimitive* surface_prims = geom->primitives + *prim_ctr;
 		uint32_t prims_in_surface = create_poly( geom, mat, material_id, surface_prims );
+
+		if ( dsurf )
+			dsurf->prim_count = prims_in_surface;
 
 		for (uint32_t k = 0; k < prims_in_surface; ++k) {
 			//if (model_idx < 0) world, sub bmodels have sep collector
@@ -2149,121 +2155,216 @@ static void vk_rtx_collect_bmodel_surfaces( uint32_t *prim_ctr, world_t &worldDa
 	}
 }
 
-// ~sunny, on list to deprecate
-void vk_rtx_update_dynamic_geometry( VkCommandBuffer cmd_buf, vk_geometry_data_t *geom ) 
+// The surface tessellation of the world knows no deforms. The wave and move scale of a surface
+// comes from the current time, so the path tracer deforms each surface again every frame.
+// The autosprite deforms leave the normals and tangents of their quads without a meaning.
+static void vk_rtx_fix_autosprite_frames( const shader_t *shader )
 {
-#if 0
-	uint32_t i, type;
+	vec3_t	tangent;
+	int		i, j;
 
-	if ( !geom->allow_update || !geom->dynamic_flags )
+	for ( i = 0; i < shader->numDeforms; i++ )
+	{
+		const deformStage_t *ds = shader->deforms[i];
+
+		if ( ds->deformation == DEFORM_AUTOSPRITE )
+		{
+			// S runs along -left in RB_AddQuadStamp, which sets the normal.
+			VectorNegate( backEnd.viewParms.ori.axis[1], tangent );
+
+			for ( j = 0; j < tess.numVertexes; j++ )
+			{
+				VectorCopy( tangent, tess.qtangent[j] );
+				tess.qtangent[j][3] = 1.0f;
+			}
+		}
+		else if ( ds->deformation == DEFORM_AUTOSPRITE2 )
+		{
+			// Each quad keeps its vertices and gets a new plane.
+			for ( j = 0; j + 3 < tess.numVertexes; j += 4 )
+			{
+				vec3_t	e1, e2, n;
+				int		k;
+
+				VectorSubtract( tess.xyz[j + 1], tess.xyz[j], e1 );
+				VectorSubtract( tess.xyz[j + 2], tess.xyz[j], e2 );
+				CrossProduct( e1, e2, n );
+
+				if ( VectorNormalize( n ) == 0.0f )
+					continue;
+
+				if ( DotProduct( n, tess.normal[j] ) < 0.0f )
+					VectorNegate( n, n );
+
+				for ( k = 0; k < 4; k++ )
+				{
+					const float d = DotProduct( tess.qtangent[j + k], n );
+
+					VectorCopy( n, tess.normal[j + k] );
+					VectorMA( tess.qtangent[j + k], -d, n, tess.qtangent[j + k] );
+
+					if ( VectorNormalize( tess.qtangent[j + k] ) == 0.0f )
+						VectorCopy( e1, tess.qtangent[j + k] );
+				}
+			}
+		}
+	}
+}
+
+void vk_rtx_deform_world_geometry( trRefdef_t *refdef )
+{
+	static VboPrimitive	*scratch = NULL;
+	static uint32_t		scratch_size = 0;
+
+	vk_geometry_data_t	*geom;
+	vk_geometry_host_t	*host;
+	uint32_t			ring, i, k;
+
+	if ( !tr.world )
 		return;
 
-	const int frame_idx = vk.frame_counter & 1;
+	geom = &tr.world->geometry.world_dynamic_geometry;
+	host = &geom->host;
+	ring = vk.current_frame_index;
+	host->num_deform_copies = 0;
 
-	uint32_t idx_count = 0;
-	uint32_t xyz_count = 0;
-	uint32_t cluster_count = 0;
-	uint32_t num_primitives = 0;
+	if ( !geom->primitives || !host->dynamic_surfs || geom->num_primitives == 0 || geom->buffer[0].buffer == VK_NULL_HANDLE )
+		return;
 
-	// reset
-	geom->host.offset_primitives = 0;
+	if ( !host->deform_copies )
+		host->deform_copies = (VkBufferCopy*)calloc( MAX( 1, host->surf_count ) * 2, sizeof(VkBufferCopy) );
 
-	for ( type = 0; type < BLAS_TYPE_COUNT; ++type ) 
+	if ( geom->deform_staging[ring].buffer == VK_NULL_HANDLE )
 	{
-		if ( !(geom->blas_type_flags & (1 << type) ) )
+		const size_t size = geom->vertex_data_offset + geom->num_primitives * sizeof(prim_positions_t);
+
+		if ( vk_rtx_buffer_create( &geom->deform_staging[ring], size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ) != VK_SUCCESS )
+			return;
+
+		geom->deform_staging_data[ring] = (uint8_t*)buffer_map( &geom->deform_staging[ring] );
+	}
+
+	// The deforms read the entity, the orientation and the times of the backend.
+	trRefEntity_t *saved_entity = backEnd.currentEntity;
+	const orientationr_t saved_ori = backEnd.ori;
+
+	backEnd.currentEntity = &tr.worldEntity;
+	backEnd.ori = backEnd.viewParms.world;
+#ifdef USE_VBO
+	tess.vbo_world_index = 0;
+#endif
+
+	uint8_t *staging = geom->deform_staging_data[ring];
+
+	for ( i = 0; i < host->surf_offset; i++ )
+	{
+		vk_geometry_dynamic_surf_t *dsurf = host->dynamic_surfs + i;
+		shader_t		*shader = (shader_t*)dsurf->shader;
+		msurface_t		*surf = (msurface_t*)dsurf->surf;
+		VboPrimitive	*prims = geom->primitives + dsurf->prim_offset;
+
+		if ( !shader->numDeforms || dsurf->prim_count == 0 )
 			continue;
-	
-		vk_geometry_data_accel_t *accel = &geom->accel[type];
-		msurface_t *surf;
 
-		float originalTime = backEnd.refdef.floatTime;
+		RB_BeginSurface( shader, dsurf->fogIndex );
+		tess.shader = shader;
+		tess.allowVBO = qfalse;
 
-		accel->idx_count		= 0;						// reset
-		accel->xyz_count		= 0;
-		accel->cluster_count	= 0;
-		accel->idx_offset		= geom->host.idx_offset;	// vk_rtx_set_geomertry_accel_offsets()
-		accel->xyz_offset		= geom->host.xyz_offset;
-		accel->cluster_offset	= geom->host.cluster_offset;
+		rb_surfaceTable[*surf->data]( surf->data );
 
-		accel->num_primitives		= 0;
-		accel->offset_primitives	= geom->host.offset_primitives;
+		// A curve can use another level of detail than at the load of the map.
+		if ( (uint32_t)tess.numIndexes / 3 != dsurf->prim_count )
+			continue;
 
-		for ( i = 0; i < accel->surf_count; i++ )
+		RB_DeformTessGeometry();
+		vk_rtx_fix_autosprite_frames( shader );
+
+		if ( (uint32_t)tess.numIndexes / 3 != dsurf->prim_count )
+			continue;
+
+		if ( scratch_size < dsurf->prim_count )
 		{
-			vk_geometry_dynamic_surf_t *dsurf = geom->host.dynamic_surfs + accel->surf_offset + i;
-
-			tess.numVertexes = tess.numIndexes = 0;
-			tess.shader = (shader_t*)dsurf->shader;
-			tess.fogNum = dsurf->fogIndex;
-
-			backEnd.refdef.floatTime = originalTime;
-			tess.shaderTime = backEnd.refdef.floatTime - tess.shader->timeOffset;
-
-			tess.allowVBO = qfalse;
-			surf = (msurface_t*)dsurf->surf;
-			rb_surfaceTable[*surf->data](surf->data);
-
-			if ( geom->dynamic_flags & BLAS_DYNAMIC_FLAG_ALL )
-				RB_DeformTessGeometry();
-
-			const uint32_t num_clusters = (tess.numIndexes / 3);
-
-			assert( geom->host.xyz_offset + tess.numVertexes <= geom->host.xyz_count );
-			assert( geom->host.idx_offset + tess.numIndexes <= geom->host.idx_count );
-			assert( geom->host.cluster_offset + num_clusters <= geom->host.cluster_count );
-
-			if ( geom->dynamic_flags & BLAS_DYNAMIC_FLAG_IDX )
-				vk_rtx_bind_indicies( geom->host.idx + geom->host.idx_offset, accel->xyz_count );
-
-			if ( geom->dynamic_flags & BLAS_DYNAMIC_FLAG_XYZ )
-				vk_rtx_bind_vertices( geom->host.xyz + geom->host.xyz_offset, dsurf->cluster );
-
-			vk_rtx_bind_cluster( geom->host.cluster + geom->host.cluster_offset, num_clusters, dsurf->cluster );
-
-			geom->host.idx_offset += tess.numIndexes;
-			geom->host.xyz_offset += tess.numVertexes;
-			geom->host.cluster_offset += num_clusters;
-
-			accel->idx_count += tess.numIndexes;
-			accel->xyz_count += tess.numVertexes;
-			accel->cluster_count += num_clusters;
-			accel->num_primitives += tess.numIndexes / 3;
-
-			tess.numVertexes = tess.numIndexes = 0;
+			scratch = (VboPrimitive*)realloc( scratch, dsurf->prim_count * sizeof(VboPrimitive) );
+			scratch_size = dsurf->prim_count;
 		}
 
-		idx_count += accel->idx_count;
-		xyz_count += accel->xyz_count;
-		cluster_count += accel->cluster_count;
-		num_primitives += accel->num_primitives;
+		create_poly( geom, vk_rtx_shader_to_material( shader ), prims[0].material_id, scratch );
 
-		backEnd.refdef.floatTime = originalTime;
+		for ( k = 0; k < dsurf->prim_count; k++ )
+		{
+			VboPrimitive		*np = scratch + k;
+			const VboPrimitive	*op = prims + k;
+
+			np->cluster = op->cluster;
+
+			// The motion to the previous position, as half floats like the models.
+			if ( dsurf->deformed )
+			{
+				const float *oldp[3] = { op->pos0, op->pos1, op->pos2 };
+				const float *newp[3] = { np->pos0, np->pos1, np->pos2 };
+				unsigned int *custom[3] = { np->custom0, np->custom1, np->custom2 };
+
+				for ( int v = 0; v < 3; v++ )
+				{
+					custom[v][0] = floatToHalf( oldp[v][0] - newp[v][0] ) | ( floatToHalf( oldp[v][1] - newp[v][1] ) << 16 );
+					custom[v][1] = floatToHalf( oldp[v][2] - newp[v][2] );
+				}
+			}
+		}
+
+		Com_Memcpy( prims, scratch, dsurf->prim_count * sizeof(VboPrimitive) );
+		dsurf->deformed = qtrue;
+
+		Com_Memcpy( staging + dsurf->prim_offset * sizeof(VboPrimitive), prims, dsurf->prim_count * sizeof(VboPrimitive) );
+
+		prim_positions_t *positions = (prim_positions_t*)( staging + geom->vertex_data_offset ) + dsurf->prim_offset;  // NOLINT(clang-diagnostic-cast-align)
+
+		for ( k = 0; k < dsurf->prim_count; k++ )
+		{
+			VectorCopy( prims[k].pos0, positions[k][0] );
+			VectorCopy( prims[k].pos1, positions[k][1] );
+			VectorCopy( prims[k].pos2, positions[k][2] );
+		}
+
+		VkBufferCopy *copy = host->deform_copies + host->num_deform_copies++;
+		copy->srcOffset = copy->dstOffset = dsurf->prim_offset * sizeof(VboPrimitive);
+		copy->size = dsurf->prim_count * sizeof(VboPrimitive);
+
+		copy = host->deform_copies + host->num_deform_copies++;
+		copy->srcOffset = copy->dstOffset = geom->vertex_data_offset + dsurf->prim_offset * sizeof(prim_positions_t);
+		copy->size = dsurf->prim_count * sizeof(prim_positions_t);
 	}
 
-	if ( idx_count <= 0 )
+	tess.numVertexes = tess.numIndexes = 0;
+	backEnd.currentEntity = saved_entity;
+	backEnd.ori = saved_ori;
+}
+
+// Copies the deformed surfaces to the device and builds the BLAS of the geometry again.
+void vk_rtx_rebuild_world_deforms( VkCommandBuffer cmd_buf )
+{
+	vk_geometry_data_t	*geom;
+	const uint32_t		ring = vk.current_frame_index;
+
+	if ( !tr.world )
 		return;
 
-	const uint32_t offset = 0 ;
+	geom = &tr.world->geometry.world_dynamic_geometry;
 
-	if ( geom->dynamic_flags & BLAS_DYNAMIC_FLAG_IDX )
-		vk_rtx_upload_buffer_data_offset( &geom->idx[frame_idx], 0, idx_count * sizeof(uint32_t), (const byte*)geom->host.idx + offset * sizeof(uint32_t) );
-	
-	if ( geom->dynamic_flags & BLAS_DYNAMIC_FLAG_XYZ )
-		vk_rtx_upload_buffer_data_offset( &geom->xyz[frame_idx], 0, xyz_count * sizeof(VertexBuffer), (const byte*)geom->host.xyz + offset * sizeof(VertexBuffer) );
+	if ( geom->host.num_deform_copies == 0 || geom->buffer[0].buffer == VK_NULL_HANDLE )
+		return;
 
-	vk_rtx_upload_buffer_data_offset( &geom->cluster[frame_idx], 0, cluster_count * sizeof(uint32_t), (const byte*)geom->host.cluster + offset * sizeof(uint32_t) );
+	qvkCmdCopyBuffer( cmd_buf, geom->deform_staging[ring].buffer, geom->buffer[0].buffer,
+		geom->host.num_deform_copies, geom->host.deform_copies );
 
-	for ( type = 0; type < BLAS_TYPE_COUNT; ++type ) 
-	{
-		if ( !(geom->blas_type_flags & (1 << type) ) )
-			continue;
-	
-		vk_geometry_data_accel_t *accel = &geom->accel[type];
-		vk_blas_t *blas = &accel->blas[frame_idx];
+	BUFFER_BARRIER( cmd_buf, VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT,
+		geom->buffer[0].buffer, 0, VK_WHOLE_SIZE );
 
-		vk_rtx_update_blas( cmd_buf, geom, accel, blas, blas );
-	}
-#endif
+	build_model_blas( cmd_buf, &geom->geom_opaque, geom->vertex_data_offset, &geom->buffer[0] );
+	build_model_blas( cmd_buf, &geom->geom_transparent, geom->vertex_data_offset, &geom->buffer[0] );
+	build_model_blas( cmd_buf, &geom->geom_masked, geom->vertex_data_offset, &geom->buffer[0] );
 }
 
 static void vk_rtx_reset_world_geometry( vk_geometry_data_t *geom )
@@ -2276,6 +2377,18 @@ static void vk_rtx_reset_world_geometry( vk_geometry_data_t *geom )
 	// host
 	if ( geom->host.dynamic_surfs )
 		free( geom->host.dynamic_surfs );
+
+	if ( geom->host.deform_copies )
+		free( geom->host.deform_copies );
+
+	for ( i = 0; i < NUM_COMMAND_BUFFERS; i++ )
+	{
+		if ( geom->deform_staging_data[i] )
+			buffer_unmap( &geom->deform_staging[i] );
+
+		vk_rtx_buffer_destroy( &geom->deform_staging[i] );
+		geom->deform_staging_data[i] = NULL;
+	}
 
 	if ( geom->primitives )
 		free( geom->primitives );
