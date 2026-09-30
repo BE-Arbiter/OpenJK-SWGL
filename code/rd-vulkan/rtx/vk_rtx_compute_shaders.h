@@ -37,7 +37,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 	SHADER_MODULE_DO( SHADER_SHADOW_MAP_VERT,					shadow_map_vert				 ) \
 	SHADER_MODULE_DO( SHADER_GOD_RAYS_COMP,						god_rays_comp				 ) \
 	SHADER_MODULE_DO( SHADER_GOD_RAYS_FILTER_COMP,				god_rays_filter_comp		 ) \
-	SHADER_MODULE_DO( SHADER_INSTANCE_GEOMETRY_COMP,			instance_geometry_comp		 ) \
+	SHADER_MODULE_DO( SHADER_INSTANCE_GEOMETRY_COMP,			instance_geometry_comp		 ) 	SHADER_MODULE_DO( SHADER_RADIANCE_CACHE_RESOLVE_COMP,		radiance_cache_resolve_comp	 ) 	SHADER_MODULE_DO( SHADER_RADIANCE_CACHE_DEBUG_COMP,			radiance_cache_debug_comp	 ) \
 
 // shaders
 enum {

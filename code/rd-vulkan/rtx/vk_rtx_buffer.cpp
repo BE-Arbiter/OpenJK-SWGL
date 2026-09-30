@@ -726,6 +726,8 @@ void vk_rtx_create_buffers( void )
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );	
 	}
 
+	vk_rtx_radiance_cache_create_buffers();
+
 	// mdxm bones
 	vk_rtx_buffer_create(&vk.buf_mdxm_matrices, sizeof(MDXMMatrixBuffer),
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
@@ -779,6 +781,7 @@ void vk_rtx_destroy_buffers( void )
 	destroy_primbuf();
 
 	vk_rtx_buffer_destroy( &vk.buf_readback );
+	vk_rtx_radiance_cache_destroy_buffers();
 	vk_rtx_buffer_destroy( &vk.buf_tonemap );
 	vk_rtx_buffer_destroy( &vk.buf_light );
 	vk_rtx_buffer_destroy( &vk.buf_mdxm_matrices );

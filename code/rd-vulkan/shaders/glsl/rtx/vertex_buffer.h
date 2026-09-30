@@ -72,6 +72,12 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 // mdxm bones
 #define BINDING_OFFSET_MDXM_BONE_BUFFER					11
 
+// radiance cache
+#define BINDING_OFFSET_RC_TAGS							12
+#define BINDING_OFFSET_RC_ACCUM							13
+#define BINDING_OFFSET_RC_RESOLVED						14
+#define BINDING_OFFSET_RC_LAST_FRAME					15
+
 // debug relations
 #define USE_MULTI_WORLD_BUFFERS
 

@@ -36,6 +36,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "vk_rtx_asvgf.h"
 #include "vk_rtx_tonemap.h"
 #include "vk_rtx_bloom.h"
+#include "vk_rtx_radiance_cache.h"
 #include "vk_rtx_precomputed_sky.h"
 #include "vk_rtx_physical_sky.h"
 
@@ -558,6 +559,7 @@ void		vk_rtx_bind_pipeline_shader( vkpipeline_t *pipeline, vkshader_t *shader );
 void		vk_rtx_bind_pipeline_desc_set_layouts( vkpipeline_t *pipeline, VkDescriptorSetLayout *set_layouts, uint32_t count );
 void		vk_rtx_create_compute_pipeline( vkpipeline_t *pipeline, VkSpecializationInfo *spec, uint32_t push_size );
 void		vk_rtx_create_rt_pipelines( void );
+void		vk_rtx_dispatch_rays( VkCommandBuffer cmd_buf, uint32_t pipeline_index, pt_push_constants_t push, uint32_t width, uint32_t height, uint32_t depth );
 void		vk_rtx_destroy_rt_pipelines( void );
 void		vk_rtx_create_compute_pipelines( void );
 void		vk_rtx_create_standard_compute_pipeline( vkpipeline_t *pipeline, vkshader_t *shader, VkSpecializationInfo *spec, uint32_t push_size );
@@ -824,7 +826,7 @@ void		vk_rtx_GhoulBounds( float *bounds );
 	PROFILER_DO(PROFILER_GOD_RAYS_REFLECT_REFRACT,   1) \
 	PROFILER_DO(PROFILER_GOD_RAYS_FILTER,            1) \
 	PROFILER_DO(PROFILER_SHADOW_MAP,                 1) \
-	PROFILER_DO(PROFILER_COMPOSITING,                1) \
+	PROFILER_DO(PROFILER_COMPOSITING,                1) 	PROFILER_DO(PROFILER_RADIANCE_CACHE_UPDATE,      1) 	PROFILER_DO(PROFILER_RADIANCE_CACHE_RESOLVE,     1) \
 
 enum {
 #define PROFILER_DO(a, ...) a,

@@ -923,6 +923,7 @@ typedef enum {
     PIPELINE_DIRECT_LIGHTING_CAUSTICS,
     PIPELINE_INDIRECT_LIGHTING_FIRST,
     PIPELINE_INDIRECT_LIGHTING_SECOND,
+	PIPELINE_RADIANCE_CACHE_UPDATE,
 
 	PIPELINE_COUNT
 } pipeline_index_t;
@@ -1002,7 +1003,7 @@ typedef struct {
 
 	VkPipelineLayout rt_pipeline_layout;
 	VkPipeline		rt_pipelines[PIPELINE_COUNT];
-	VkShaderModule  shader_modules[6];
+	VkShaderModule  shader_modules[16];	// at least NUM_PATH_TRACER_SHADER_MODULES
 
 	vkpipeline_t	asvgf_pipeline[ASVGF_NUM_PIPELINES];
 	vkshader_t		*compute_shader[NUM_RTX_COMPUTE_SHADER_MODULES];
@@ -1077,6 +1078,13 @@ typedef struct {
 	vkbuffer_t		buf_instances[VK_MAX_SWAPCHAIN_SIZE];
 	
 	vkbuffer_t		buf_readback;
+
+	// radiance cache
+	vkbuffer_t		buf_rc_tags;
+	vkbuffer_t		buf_rc_accum;
+	vkbuffer_t		buf_rc_resolved;
+	vkbuffer_t		buf_rc_last_frame;
+
 	vkbuffer_t		buf_readback_staging[VK_MAX_SWAPCHAIN_SIZE];
 
 	vkbuffer_t      buf_primitive_instanced;

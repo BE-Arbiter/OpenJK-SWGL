@@ -1856,7 +1856,7 @@ static void vk_rtx_setup_rt_pipeline( VkCommandBuffer cmd_buf, VkPipelineBindPoi
 			vk.rt_pipeline_layout, 0, ARRAY_LEN(desc_sets), desc_sets, 0, 0);
 }
 
-static void dispatch_rays( VkCommandBuffer cmd_buf, uint32_t pipeline_index, pt_push_constants_t push, uint32_t height ) 
+void vk_rtx_dispatch_rays( VkCommandBuffer cmd_buf, uint32_t pipeline_index, pt_push_constants_t push, uint32_t width, uint32_t height, uint32_t depth )
 {
 	vk_rtx_setup_rt_pipeline( cmd_buf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline_index );
 
@@ -1886,7 +1886,13 @@ static void dispatch_rays( VkCommandBuffer cmd_buf, uint32_t pipeline_index, pt_
 		&miss_and_hit,
 		&miss_and_hit,
 		&callable,
-		vk.extent_render.width / 2, height, vk.device_count == 1 ? 2 : 1);
+		width, height, depth );
+}
+
+// A launch over the two checkerboard fields of the G-buffer.
+static void dispatch_rays( VkCommandBuffer cmd_buf, uint32_t pipeline_index, pt_push_constants_t push, uint32_t height ) 
+{
+	vk_rtx_dispatch_rays( cmd_buf, pipeline_index, push, vk.extent_render.width / 2, height, vk.device_count == 1 ? 2 : 1 );
 }
 
 static void vk_rtx_trace_primary_rays( VkCommandBuffer cmd_buf )
@@ -2471,6 +2477,9 @@ static void vk_begin_trace_rays( world_t &worldData, trRefdef_t *refdef, referen
 		}
 		vk_rxt_trace_lighting( trace_cmd_buf, ref_mode->num_bounce_rays );
 
+		vk_rtx_radiance_cache_update( trace_cmd_buf );
+		vk_rtx_radiance_cache_resolve( trace_cmd_buf );
+
 		vkpt_submit_command_buffer(
 			trace_cmd_buf,
 			vk.queue_graphics,
@@ -2488,6 +2497,8 @@ static void vk_begin_trace_rays( world_t &worldData, trRefdef_t *refdef, referen
 		BEGIN_PERF_MARKER( post_cmd_buf, PROFILER_ASVGF_FULL );
 		denoiser->filter( post_cmd_buf );
 		END_PERF_MARKER( post_cmd_buf, PROFILER_ASVGF_FULL );
+
+		vk_rtx_radiance_cache_debug( post_cmd_buf );
 
 		vk_rtx_interleave( post_cmd_buf );
 

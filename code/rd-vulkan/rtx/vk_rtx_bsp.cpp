@@ -108,6 +108,10 @@ static void vk_create_vertex_buffer_descriptor( world_t& worldData, uint32_t ind
 	vk_bind_storage_buffer( descriptor, BINDING_OFFSET_TONEMAP_BUFFER,				VK_SHADER_STAGE_ALL, vk.buf_tonemap.buffer );
 	vk_bind_storage_buffer( descriptor, BINDING_OFFSET_SUN_COLOR_BUFFER,			VK_SHADER_STAGE_ALL, vk.buf_sun_color.buffer );
 	vk_bind_storage_buffer( descriptor, BINDING_OFFSET_MDXM_BONE_BUFFER,			VK_SHADER_STAGE_ALL, vk.buf_mdxm_matrices.buffer );
+	vk_bind_storage_buffer( descriptor, BINDING_OFFSET_RC_TAGS,						VK_SHADER_STAGE_ALL, vk.buf_rc_tags.buffer );
+	vk_bind_storage_buffer( descriptor, BINDING_OFFSET_RC_ACCUM,					VK_SHADER_STAGE_ALL, vk.buf_rc_accum.buffer );
+	vk_bind_storage_buffer( descriptor, BINDING_OFFSET_RC_RESOLVED,					VK_SHADER_STAGE_ALL, vk.buf_rc_resolved.buffer );
+	vk_bind_storage_buffer( descriptor, BINDING_OFFSET_RC_LAST_FRAME,				VK_SHADER_STAGE_ALL, vk.buf_rc_last_frame.buffer );
 	vk_bind_uniform_buffer( descriptor, BINDING_OFFSET_SUN_COLOR_UBO,				VK_SHADER_STAGE_ALL, vk.buf_sun_color.buffer );
 
 	// light stats
@@ -201,6 +205,7 @@ static void vk_rtx_create_primary_rays_resources( world_t& worldData )
 	//vkpt_physical_sky_initialize();
 
 	vk_rtx_create_rt_descriptors( worldData);
+	vk_rtx_radiance_cache_invalidate();
 
 	vk_rtx_create_shader_modules();
 	vk_rtx_create_rt_pipelines();

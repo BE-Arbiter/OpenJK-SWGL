@@ -258,4 +258,20 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define STEREOGRAPHIC_ANGLE			0.5
 #define PANINI_D			        1.0		// 0.0 -> rectilinear, 1.0 -> cylindrical stereographic, +inf -> cylindrical orthographic
 
+// Radiance cache: a hash table of cells in world space that hold diffuse lighting without albedo
+#define RC_CAPACITY					(1 << 21)	// number of cells, a power of two
+#define RC_PROBES					8			// consecutive slots a key can use
+#define RC_MAX_LEVEL				15			// the cell size doubles with each level
+#define RC_MAX_BOUNCES				4			// upper limit of pt_rc_bounces
+#define RC_MAX_UPDATE_STRIDE		16			// upper limit of pt_rc_update_stride
+#define RC_INVALID_SLOT				0xffffffffu
+#define RC_RADIANCE_SCALE			8192.0		// fixed point scale of the radiance sums
+#define RC_MAX_SAMPLES_PER_FRAME	256u		// samples one cell takes per frame: 256 * MAX_OUTPUT_VALUE * RC_RADIANCE_SCALE fits a uint
+#define RC_RNG_BOUNCE_BASE			4			// first RNG_* bounce index of the update pass, above all other passes
+#define RC_RESOLVE_GROUP_SIZE		256
+#define RC_DEBUG_OFF				0
+#define RC_DEBUG_RADIANCE			1			// D of the cell times the albedo of the surface
+#define RC_DEBUG_CELL				2			// colour of the cell key
+#define RC_DEBUG_LEVEL				3			// colour of the level
+
 #endif // _CONSTANTS_H_

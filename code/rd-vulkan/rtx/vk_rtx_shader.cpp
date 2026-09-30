@@ -198,7 +198,7 @@ void vk_rtx_destroy_shaders( void )
 	SHADER_MODULE_DO( SHADER_PATH_TRACER_PRIMARY_RAYS_RGEN,			primary_rays_rgen		) \
 	SHADER_MODULE_DO( SHADER_PATH_TRACER_REFLECT_REFRACT_RGEN,		reflect_refract_rgen	) \
 	SHADER_MODULE_DO( SHADER_PATH_TRACER_DIRECT_LIGHTING_RGEN,		direct_lighting_rgen	) \
-	SHADER_MODULE_DO( SHADER_PATH_TRACER_INDIRECT_LIGHTING_RGEN,	indirect_lighting_rgen	) \
+	SHADER_MODULE_DO( SHADER_PATH_TRACER_INDIRECT_LIGHTING_RGEN,	indirect_lighting_rgen	) 	SHADER_MODULE_DO( SHADER_PATH_TRACER_RADIANCE_CACHE_UPDATE_RGEN,radiance_cache_update_rgen) \
 	\
 	SHADER_MODULE_DO( SHADER_PATH_TRACER_RMISS,						path_tracer_rmiss		) \
 	SHADER_MODULE_DO( SHADER_PATH_TRACER_RCHIT,						path_tracer_rchit		) \
@@ -216,6 +216,8 @@ enum {
 #undef SHADER_MODULE_DO
 	NUM_PATH_TRACER_SHADER_MODULES
 };
+
+static_assert( NUM_PATH_TRACER_SHADER_MODULES <= ARRAY_LEN( vk.shader_modules ), "vk.shader_modules is too small" );
 
 void vk_rtx_create_shader_modules( void )
 {
@@ -320,6 +322,10 @@ void vk_rtx_create_pipelines( void )
 		case PIPELINE_INDIRECT_LIGHTING_SECOND:
 			shader_stages[0].module = vk.shader_modules[SHADER_PATH_TRACER_INDIRECT_LIGHTING_RGEN];
 			shader_stages[0].pSpecializationInfo = &specInfo[1];
+			break;
+		case PIPELINE_RADIANCE_CACHE_UPDATE:
+			shader_stages[0].module = vk.shader_modules[SHADER_PATH_TRACER_RADIANCE_CACHE_UPDATE_RGEN];
+			shader_stages[0].pSpecializationInfo = NULL;
 			break;
 		default:
 			assert(!"invalid pipeline index");

@@ -196,6 +196,8 @@ void vk_rtx_create_compute_pipelines( void )
 	vk_rtx_god_rays_update_images();
 
 	vk_rtx_model_vbo_create_pipelines();
+
+	vk_rtx_radiance_cache_create_pipelines();
 }
 
 void vk_rtx_destroy_compute_pipelines( void )
@@ -212,6 +214,8 @@ void vk_rtx_destroy_compute_pipelines( void )
 	vk_rtx_god_rays_destroy_pipelines();
 
 	vk_rtx_model_vbo_destroy_pipelines();
+
+	vk_rtx_radiance_cache_destroy_pipelines();
 }
 
 //
