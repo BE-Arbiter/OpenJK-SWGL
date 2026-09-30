@@ -131,7 +131,7 @@ vk_rtx_god_rays_noop( void )
 void vk_rtx_record_god_rays_trace_command_buffer( VkCommandBuffer command_buffer, int pass )
 {
 	BARRIER_COMPUTE_WRITE( command_buffer, vk.img_rtx[RTX_IMG_PT_GODRAYS_THROUGHPUT_DIST] );
-	BARRIER_COMPUTE_WRITE( command_buffer, vk.img_rtx[RTX_IMG_ASVGF_COLOR] );
+	BARRIER_COMPUTE_WRITE( command_buffer, vk.img_rtx[RTX_IMG_DENOISED_COLOR] );
 
 	qvkCmdBindPipeline( command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, god_rays.pipelines[0] );
 
@@ -155,7 +155,7 @@ void vk_rtx_record_god_rays_trace_command_buffer( VkCommandBuffer command_buffer
 	qvkCmdDispatch( command_buffer, group_num_x, group_num_y, 1 );
 
 	BARRIER_COMPUTE_WRITE( command_buffer, vk.img_rtx[RTX_IMG_PT_GODRAYS_THROUGHPUT_DIST] );
-	BARRIER_COMPUTE_WRITE( command_buffer, vk.img_rtx[RTX_IMG_ASVGF_COLOR] );
+	BARRIER_COMPUTE_WRITE( command_buffer, vk.img_rtx[RTX_IMG_DENOISED_COLOR] );
 }
 
 void vk_rtx_record_god_rays_filter_command_buffer( VkCommandBuffer command_buffer )

@@ -53,11 +53,12 @@ static void vk_rtx_none_filter( VkCommandBuffer cmd_buf )
 
 	END_PERF_MARKER( cmd_buf, PROFILER_COMPOSITING );
 
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_ASVGF_COLOR] );
+	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_DENOISED_COLOR] );
 }
 
 static const denoiser_t denoiser_none = {
 	"none",
+	0,
 	vk_rtx_none_create_pipelines,
 	vk_rtx_none_destroy_pipelines,
 	NULL,

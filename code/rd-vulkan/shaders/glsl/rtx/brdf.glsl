@@ -130,7 +130,7 @@ void get_reflectivity(vec3 base_color, float metallic, out vec3 o_albedo, out ve
 
 vec3 demodulate_specular(vec3 base_reflectivity, vec3 specular)
 {
-    if (global_ubo.flt_enable == 0)
+    if ((global_ubo.pt_denoiser_flags & DENOISER_FLAG_SPEC_DEMODULATE) == 0)
         return specular;
 
     return specular / max(vec3(0.01), base_reflectivity);
@@ -138,7 +138,7 @@ vec3 demodulate_specular(vec3 base_reflectivity, vec3 specular)
 
 vec3 modulate_specular(vec3 base_reflectivity, vec3 filtered_specular)
 {
-    if (global_ubo.flt_enable == 0)
+    if ((global_ubo.pt_denoiser_flags & DENOISER_FLAG_SPEC_DEMODULATE) == 0)
         return filtered_specular;
 
     return filtered_specular * max(vec3(0.01), base_reflectivity);

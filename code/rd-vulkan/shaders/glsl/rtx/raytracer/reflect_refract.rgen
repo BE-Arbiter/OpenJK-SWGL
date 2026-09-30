@@ -91,7 +91,7 @@ main()
 
 	bool is_odd_checkerboard = (gl_LaunchIDEXT.z != 0) || (push_constants.gpu_index == 1);
 
-	rng_seed = texelFetch(TEX_ASVGF_RNG_SEED_A, ipos, 0).r;
+	rng_seed = texelFetch(TEX_PT_RNG_SEED_A, ipos, 0).r;
 
 	vec4 view_direction = imageLoad(IMG_PT_VIEW_DIRECTION, ipos);
 	vec3 direction = view_direction.xyz;
@@ -344,7 +344,7 @@ main()
 		float n_dot_v = dot(direction, -normal);
 		vec3 reflected_direction = reflect(direction, normal);
 
-		if(global_ubo.pt_thick_glass == 2 || global_ubo.pt_thick_glass == 1 && global_ubo.flt_enable == 0)
+		if(global_ubo.pt_thick_glass == 2 || global_ubo.pt_thick_glass == 1 && (global_ubo.pt_denoiser_flags & DENOISER_FLAG_ACTIVE) == 0)
 		{
 			float rand = get_rng(RNG_BRDF_FRESNEL(push_constants.bounce_index));
 					
@@ -381,7 +381,7 @@ main()
 					correction_factor *= 2;
 					checkerboard_flags = CHECKERBOARD_FLAG_REFLECTION | CHECKERBOARD_FLAG_REFRACTION;
 				}
-				else if(global_ubo.flt_enable != 0)
+				else if((global_ubo.pt_denoiser_flags & DENOISER_FLAG_ACTIVE) != 0)
 				{
 					// secondary surface, denoiser enabled - follow the most probable path
 					do_refraction = F < 0.75;

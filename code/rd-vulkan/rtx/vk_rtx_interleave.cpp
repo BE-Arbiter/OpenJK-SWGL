@@ -56,8 +56,8 @@ void vk_rtx_interleave( VkCommandBuffer cmd_buf )
 							extent);
 
 		vkpt_mgpu_image_copy(cmd_buf,
-							VKPT_IMG_ASVGF_COLOR,
-							VKPT_IMG_ASVGF_COLOR,
+							VKPT_IMG_DENOISED_COLOR,
+							VKPT_IMG_DENOISED_COLOR,
 							1,
 							0,
 							offset_left,

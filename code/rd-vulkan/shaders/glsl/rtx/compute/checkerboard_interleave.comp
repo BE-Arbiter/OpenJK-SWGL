@@ -125,7 +125,7 @@ vec4 safe_load(ivec2 pos)
     if(pos.x >= global_ubo.width || pos.y >= global_ubo.height)
         return vec4(0);
 
-    return imageLoad(IMG_ASVGF_COLOR, pos);
+    return imageLoad(IMG_DENOISED_COLOR, pos);
 }
 
 ivec2 get_output_position()
@@ -145,11 +145,11 @@ void main()
         return;
     }
   
-    vec4 center = imageLoad(IMG_ASVGF_COLOR, ipos);
+    vec4 center = imageLoad(IMG_DENOISED_COLOR, ipos);
     vec4 color;
     bool use_center_mv = true;
     int checkerboard_flags = int(center.a);
-    bool is_checkerboarded_surface = (global_ubo.flt_enable != 0) && (bitCount(checkerboard_flags & CHECKERBOARD_FLAG_FIELD_MASK) > 1);
+    bool is_checkerboarded_surface = ((global_ubo.pt_denoiser_flags & DENOISER_FLAG_ACTIVE) != 0) && (bitCount(checkerboard_flags & CHECKERBOARD_FLAG_FIELD_MASK) > 1);
 
     // The alpha channel encodes whether the material uses checkerboard reflections and refractions.
     // Don't do the filter if there is no checkerboarding - which improves sharpness and reduces sparkles.

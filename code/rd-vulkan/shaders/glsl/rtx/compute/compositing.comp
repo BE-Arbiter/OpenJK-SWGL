@@ -18,7 +18,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 // ========================================================================== //
 // This shader performs compositing of lighting calculations into the final
-// color, when the denoiser is disabled (flt_enable = 0).
+// color, when no denoiser runs (DENOISER_NONE).
 // ========================================================================== //
 
 #version 460
@@ -66,6 +66,6 @@ main()
 
 	final_color *= STORAGE_SCALE_HDR;
 	
-	imageStore(IMG_ASVGF_COLOR, ipos, vec4(final_color, checkerboard_flags));
+	imageStore(IMG_DENOISED_COLOR, ipos, vec4(final_color, checkerboard_flags));
 }
 

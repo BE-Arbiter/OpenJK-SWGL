@@ -42,6 +42,12 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #define PRIMARY_RAY_T_MAX 10000
 
+// Output format flags of the active denoiser (denoiser_t.flags)
+#define DENOISER_FLAG_ACTIVE			(1 << 0)	// a denoiser reconstructs the frame: the tracer uses realtime sampling
+#define DENOISER_FLAG_LF_SH				(1 << 1)	// the tracer stores indirect diffuse as SH
+#define DENOISER_FLAG_SPEC_DEMODULATE	(1 << 2)	// the tracer stores specular divided by base reflectivity
+#define DENOISER_FLAG_GRADIENTS			(1 << 3)	// the tracer re-shades the A-SVGF gradient samples
+
 #define AA_MODE_OFF 0
 #define AA_MODE_TAA 1
 #define AA_MODE_UPSCALE 2

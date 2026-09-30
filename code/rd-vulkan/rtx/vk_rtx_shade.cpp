@@ -1785,6 +1785,7 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 
 	ubo->temporal_blend_factor = ref_mode->temporal_blend_factor;	
 	ubo->flt_enable = ref_mode->denoiser != DENOISER_NONE;	
+	ubo->pt_denoiser_flags = vk_rtx_get_denoiser( ref_mode->denoiser )->flags;
 	ubo->flt_taa = vk.effective_aa_mode;
 	ubo->pt_num_bounce_rays = ref_mode->num_bounce_rays;
 	ubo->pt_reflect_refract = ref_mode->reflect_refract;
@@ -1925,7 +1926,7 @@ static void vk_rtx_trace_primary_rays( VkCommandBuffer cmd_buf )
 	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_CLUSTER_A + frame_idx] );
 	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VIEW_DEPTH_A + frame_idx] );
 	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_NORMAL_A + frame_idx] );
-	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_ASVGF_RNG_SEED_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_RNG_SEED_A + frame_idx] );
 #ifdef USE_RTX_INSPECT_TANGENTS
 	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_TANGENT_A + frame_idx] );
 #endif

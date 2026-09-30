@@ -245,7 +245,7 @@ main()
         && all(lessThan(ivec2(pos_prev), ivec2(global_ubo.taa_output_width, global_ubo.taa_output_height) - 1)))
         {
             // Motion vector was valid - sample the previous frame
-            vec3 color_prev = sample_texture_catmull_rom(TEX_ASVGF_TAA_B, pos_prev).rgb;
+            vec3 color_prev = sample_texture_catmull_rom(TEX_TAA_B, pos_prev).rgb;
 
             if(!any(isnan(color_prev)))
             {
@@ -304,6 +304,6 @@ main()
         readback.hdr_color = linear_color_output;
     }
 
-    imageStore(IMG_ASVGF_TAA_A, ipos, vec4(color_output, 0));
+    imageStore(IMG_TAA_A, ipos, vec4(color_output, 0));
 	imageStore(IMG_TAA_OUTPUT, ipos, vec4(linear_color_output, 1));
 }

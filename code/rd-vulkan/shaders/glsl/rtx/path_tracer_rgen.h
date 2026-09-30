@@ -821,7 +821,7 @@ vec3 get_emissive_shell(uint material_id, uint shell)
 
 bool get_is_gradient(ivec2 ipos)
 {
-	if(global_ubo.flt_enable != 0)
+	if((global_ubo.pt_denoiser_flags & DENOISER_FLAG_GRADIENTS) != 0)
 	{
 		uint u = texelFetch(TEX_ASVGF_GRAD_SMPL_POS_A, ipos / GRAD_DWN, 0).r;
 

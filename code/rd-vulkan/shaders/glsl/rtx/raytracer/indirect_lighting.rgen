@@ -41,7 +41,7 @@ indirect_lighting(
 	out vec3 bounce_contrib,
 	out bool is_specular_ray)
 {
-    rng_seed = texelFetch(TEX_ASVGF_RNG_SEED_A, ipos, 0).r;
+    rng_seed = texelFetch(TEX_PT_RNG_SEED_A, ipos, 0).r;
 	
 	uint cluster_idx = ~0u;
 
@@ -181,7 +181,7 @@ indirect_lighting(
 		{
 			vec3 basis_normal, dir_sphere;
 		#if ENABLE_SH
-			if(spec_bounce_index == 0 && global_ubo.flt_enable != 0)
+			if(spec_bounce_index == 0 && (global_ubo.pt_denoiser_flags & DENOISER_FLAG_LF_SH) != 0)
 			{
 				dir_sphere = sample_cos_hemisphere_multi(0, 1, rng3, HEMISPHERE_UNIFORMISH);
 				basis_normal = geo_normal;
@@ -509,7 +509,7 @@ main()
 		SH low_freq = load_SH(TEX_PT_COLOR_LF_SH, TEX_PT_COLOR_LF_COCG, ipos);
 
 	#if ENABLE_SH
-		if(global_ubo.flt_enable == 0)
+		if((global_ubo.pt_denoiser_flags & DENOISER_FLAG_LF_SH) == 0)
 			low_freq.shY.xyz += bounce_contrib;
 		else
 		{

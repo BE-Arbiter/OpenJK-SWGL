@@ -60,7 +60,7 @@ direct_lighting_restir(ivec2 ipos, out vec3 high_freq, out vec3 o_specular)
 	high_freq = vec3(0);
 	o_specular = vec3(0);
 
-	rng_seed = texelFetch(TEX_ASVGF_RNG_SEED_A, ipos, 0).r;
+	rng_seed = texelFetch(TEX_PT_RNG_SEED_A, ipos, 0).r;
 
 	vec3 direct_diffuse, direct_specular;
 	float vis;
@@ -451,7 +451,7 @@ direct_lighting(ivec2 ipos, out vec3 high_freq, out vec3 o_specular)
 	high_freq = vec3(0);
 	o_specular = vec3(0);
 
-	rng_seed = texelFetch(TEX_ASVGF_RNG_SEED_A, ipos, 0).r;
+	rng_seed = texelFetch(TEX_PT_RNG_SEED_A, ipos, 0).r;
 
 
 	vec4 position_material = texelFetch(TEX_PT_SHADING_POSITION, ipos, 0);

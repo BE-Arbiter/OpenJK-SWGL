@@ -100,7 +100,7 @@ static void vk_rtx_asvgf_gradient_reproject( VkCommandBuffer cmd_buf )
 		1 );
 
 
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_ASVGF_RNG_SEED_A + (vk.frame_counter & 1)] );
+	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_RNG_SEED_A + (vk.frame_counter & 1)] );
 	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_ASVGF_GRAD_SMPL_POS_A  + (vk.frame_counter & 1)] );
 }
 
@@ -219,7 +219,7 @@ static void vk_rtx_asvgf_filter( VkCommandBuffer cmd_buf )
 		BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_ASVGF_HIST_COLOR_HF] );
 		BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_ASVGF_ATROUS_PING_LF_SH + !(i & 1)] );
 		BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_ASVGF_ATROUS_PING_LF_COCG + !(i & 1)] );
-		BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_ASVGF_COLOR] );
+		BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_DENOISED_COLOR] );
 	}
 
 	END_PERF_MARKER( cmd_buf, PROFILER_ASVGF_ATROUS );
@@ -227,6 +227,7 @@ static void vk_rtx_asvgf_filter( VkCommandBuffer cmd_buf )
 
 const denoiser_t vk_rtx_denoiser_asvgf = {
 	"asvgf",
+	DENOISER_FLAG_ACTIVE | DENOISER_FLAG_LF_SH | DENOISER_FLAG_SPEC_DEMODULATE | DENOISER_FLAG_GRADIENTS,
 	vk_rtx_asvgf_create_pipelines,
 	vk_rtx_asvgf_destroy_pipelines,
 	vk_rtx_asvgf_invalidate_history,

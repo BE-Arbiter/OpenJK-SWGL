@@ -32,6 +32,7 @@ typedef enum {
 
 typedef struct denoiser_s {
 	const char	*name;
+	uint32_t	flags;										// DENOISER_FLAG_*: the output format the tracer writes
 	void		(*create_pipelines)( void );
 	void		(*destroy_pipelines)( void );
 	void		(*invalidate_history)( void );				// the next frame has no valid history, may be NULL

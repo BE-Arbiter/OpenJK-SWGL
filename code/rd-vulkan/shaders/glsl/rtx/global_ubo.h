@@ -203,7 +203,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	GLOBAL_UBO_VAR_LIST_DO( FLOAT,   cylindrical_hfov				) \
 	GLOBAL_UBO_VAR_LIST_DO( FLOAT,   cylindrical_hfov_prev			) \
 	GLOBAL_UBO_VAR_LIST_DO( FLOAT,	 tonemap_hdr_clamp_strength		) \
-	GLOBAL_UBO_VAR_LIST_DO( INT,	 padding1						) \
+	GLOBAL_UBO_VAR_LIST_DO( INT,	 pt_denoiser_flags				) /* DENOISER_FLAG_* of the active denoiser */ \
 	GLOBAL_UBO_VAR_LIST_DO( INT,	 tonemap_hdr					) /* the tone mapper writes HDR */ \
 	GLOBAL_UBO_VAR_LIST_DO( FLOAT,	 tonemap_per_channel			) /* tm_per_channel, as the tone mapper takes it */ \
 	GLOBAL_UBO_VAR_LIST_DO( FLOAT,	 tonemap_contrast			) /* tm_contrast, as the tone mapper takes it */ \
