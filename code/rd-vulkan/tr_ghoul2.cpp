@@ -5203,6 +5203,39 @@ qboolean R_LoadMDXA( model_t *mod, void *buffer, const char *mod_name, qboolean 
 
 
 #ifdef USE_RTX
+// Mins and maxs of the skinned vertices in model space, or NULL. See vk_rtx_GhoulBounds.
+static float *rtx_g2_bounds = NULL;
+
+void vk_rtx_GhoulBounds( float *bounds )
+{
+	rtx_g2_bounds = bounds;
+}
+
+static void vk_rtx_AddSurfaceBounds( mdxmSurface_t *surface, CBoneCache &bones, float *bounds )
+{
+	const mdxmVertex_t *v = (const mdxmVertex_t *)( (byte *)surface + surface->ofsVerts );
+	const int *boneRefs = (const int *)( (byte *)surface + surface->ofsBoneReferences );
+
+	for ( int i = 0; i < surface->numVerts; i++, v++ )
+	{
+		const int numWeights = G2_GetVertWeights( v );
+		float totalWeight = 0.0f;
+		vec3_t p = { 0.0f, 0.0f, 0.0f };
+
+		for ( int k = 0; k < numWeights; k++ )
+		{
+			const mdxaBone_t &bone = bones.EvalRender( boneRefs[G2_GetVertBoneIndex( v, k )] );
+			const float w = G2_GetVertBoneWeight( v, k, totalWeight, numWeights );
+
+			p[0] += w * ( DotProduct( bone.matrix[0], v->vertCoords ) + bone.matrix[0][3] );
+			p[1] += w * ( DotProduct( bone.matrix[1], v->vertCoords ) + bone.matrix[1][3] );
+			p[2] += w * ( DotProduct( bone.matrix[2], v->vertCoords ) + bone.matrix[2][3] );
+		}
+
+		AddPointToBounds( p, bounds, bounds + 3 );
+	}
+}
+
 static void vk_rtx_RenderSurfaces( CRenderSurface &RS, const trRefEntity_t *ent, int entityNum, int bone_offset ) //also ended up just ripping right from SP.
 {
 	// back track and get the surfinfo struct for this surface
@@ -5263,6 +5296,8 @@ static void vk_rtx_RenderSurfaces( CRenderSurface &RS, const trRefEntity_t *ent,
 #ifdef USE_VBO_GHOUL2
 			vk_set_ghoul2_vbo_mesh( RS, NULL, RS.lod, surface->thisSurfaceIndex, (shader_t*)shader, bone_offset, qtrue );
 #endif
+			if ( rtx_g2_bounds )
+				vk_rtx_AddSurfaceBounds( surface, *RS.boneCache, rtx_g2_bounds );
 
 #if 0
 #ifdef USE_VK_IMGUI

@@ -129,6 +129,11 @@ void vkpt_pt_create_all_dynamic( VkCommandBuffer cmd_buf, int idx, const EntityU
 	vk_rtx_create_blas( &batch, &vk.buf_positions_instanced, offset_vertex,  NULL, offset_index, 		
 		upload_info->masked_prim_count * 3, 0, &vk.model_instance.blas.masked_models[idx], qtrue, qtrue, qfalse, 0, "instanced masked" );
 
+	// viewer models
+	offset_vertex = offset_vertex_base + upload_info->viewer_model_prim_offset * sizeof(prim_positions_t);
+	vk_rtx_create_blas( &batch, &vk.buf_positions_instanced, offset_vertex,  NULL, offset_index,
+		upload_info->viewer_model_prim_count * 3, 0, &vk.model_instance.blas.viewer_models[idx], qtrue, qtrue, qfalse, 0, "instanced viewer models" );
+
 	// sprites / beams
 	vkbuffer_t* buffer_vertex = NULL;
 	vkbuffer_t* buffer_index = NULL;
@@ -248,6 +253,11 @@ static void vkpt_pt_create_toplevel( VkCommandBuffer cmd_buf, uint32_t idx, cons
 		&vk.model_instance.blas.masked_models[idx], VERTEX_BUFFER_INSTANCED, upload_info->masked_prim_offset, 
 		AS_FLAG_OPAQUE, VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR | VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR, SBTO_MASKED );
 
+	// Primary rays only: shadow, bounce and reflection rays leave out AS_FLAG_VIEWER_MODELS.
+	append_blas( g_instances, &g_num_instances,
+		&vk.model_instance.blas.viewer_models[idx], VERTEX_BUFFER_INSTANCED, upload_info->viewer_model_prim_offset,
+		AS_FLAG_VIEWER_MODELS, VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR, SBTO_OPAQUE );
+
 	uint32_t num_instances_geometry = g_num_instances;
 
 	// effects
@@ -300,6 +310,9 @@ static inline void transform_point(const float* p, const float* matrix, float* r
 	VectorCopy(transformed, result); // vec4 -> vec3
 }
 
+// The time since the previous frame, for the previous position of the deformed vertices.
+static float rtx_deform_dt = 0.0f;
+
 static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_buffer, int current_instance_index, const trRefdef_t *refdef, trRefEntity_t* entity, shader_t *shader )
 {
 	uint32_t forceRGBGen = 0;
@@ -321,12 +334,87 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 		| ((uint32_t)entity->e.shaderRGBA[2] << 16)
 		| ((uint32_t)entity->e.shaderRGBA[3] << 24);
 	// Bits 0-7: the forced rgbGen. Bit 8: a first person model, whose tcGen environment reflects
-	// the light of the entity (RB_CalcEnvironmentTexCoords).
-	data[1] = forceRGBGen | ( ( entity->e.renderfx & RF_FIRST_PERSON ) ? 0x100u : 0u );
+	// the light of the entity (RB_CalcEnvironmentTexCoords). Bit 9: a model mesh, not a brush model.
+	data[1] = forceRGBGen | ( ( entity->e.renderfx & RF_FIRST_PERSON ) ? 0x100u : 0u ) | ( shader ? 0x200u : 0u );
 
 	// alphaGen lightingSpecular reflects the light of the entity, as RB_CalcSpecularAlpha.
 	R_SetupEntityLighting( refdef, entity );
 	data[2] = encode_normal( entity->lightDir );
+
+	// The deformVertexes of the shader that the instancing shader applies to the mesh (see
+	// apply_deforms). data[3]: the number of deforms, half of the frame time in the high bits.
+	// data[4]: the shader time. Then RTX_DEFORM_UINTS per deform: type in bits 0-3 of the first
+	// word, wave function in bits 4-7, the first parameter as a half in the high bits; the other
+	// parameters are halves. 1 wave: base, amp, phase, freq, spread. 2 bulge: height, width, speed
+	// and the phase (a float). 3 uniform bulge: height. 4 move: the wave and the vector.
+	// 5 normals: amp, freq.
+	for ( int i = 3; i < INSTANCE_SHADER_UINTS; i++ )
+		data[i] = 0;
+
+	if ( shader && shader->numDeforms )
+	{
+		float time = refdef->floatTime - shader->timeOffset;
+		if ( shader->clampTime && time >= shader->clampTime )
+			time = shader->clampTime;
+
+		uint32_t count = 0;
+
+		for ( int i = 0; i < shader->numDeforms && count < RTX_MAX_DEFORMS; i++ )
+		{
+			const deformStage_t *ds = shader->deforms[i];
+			const waveForm_t *wf = &ds->deformationWave;
+			uint32_t *slot = &data[RTX_DEFORM_FIRST + count * RTX_DEFORM_UINTS];
+			const qboolean wave_ok = ( wf->func >= GF_SIN && wf->func <= GF_INVERSE_SAWTOOTH ) ? qtrue : qfalse;
+
+			if ( ds->deformation == DEFORM_WAVE && wave_ok )
+			{
+				slot[0] = 1u | ( (uint32_t)wf->func << 4 ) | ( (uint32_t)floatToHalf( wf->base ) << 16 );
+				slot[1] = (uint32_t)floatToHalf( wf->amplitude ) | ( (uint32_t)floatToHalf( wf->phase ) << 16 );
+				slot[2] = (uint32_t)floatToHalf( wf->frequency ) | ( (uint32_t)floatToHalf( ds->deformationSpread ) << 16 );
+			}
+			else if ( ds->deformation == DEFORM_MOVE && wave_ok )
+			{
+				slot[0] = 4u | ( (uint32_t)wf->func << 4 ) | ( (uint32_t)floatToHalf( wf->base ) << 16 );
+				slot[1] = (uint32_t)floatToHalf( wf->amplitude ) | ( (uint32_t)floatToHalf( wf->phase ) << 16 );
+				slot[2] = (uint32_t)floatToHalf( wf->frequency );
+				slot[4] = (uint32_t)floatToHalf( ds->moveVector[0] ) | ( (uint32_t)floatToHalf( ds->moveVector[1] ) << 16 );
+				slot[5] = (uint32_t)floatToHalf( ds->moveVector[2] );
+			}
+			else if ( ds->deformation == DEFORM_BULGE )
+			{
+				if ( ds->bulgeSpeed == 0.0f && ds->bulgeWidth == 0.0f )
+				{
+					slot[0] = 3u | ( (uint32_t)floatToHalf( ds->bulgeHeight ) << 16 );
+				}
+				else
+				{
+					// Only the phase of the sine matters: keep the float small.
+					const float now = fmodf( refdef->floatTime * ds->bulgeSpeed, 2.0f * (float)M_PI );
+
+					slot[0] = 2u | ( (uint32_t)floatToHalf( ds->bulgeHeight ) << 16 );
+					slot[1] = (uint32_t)floatToHalf( ds->bulgeWidth );
+					slot[2] = (uint32_t)floatToHalf( ds->bulgeSpeed );
+					memcpy( &slot[3], &now, sizeof( float ) );
+				}
+			}
+			else if ( ds->deformation == DEFORM_NORMALS )
+			{
+				slot[0] = 5u;
+				slot[1] = (uint32_t)floatToHalf( wf->amplitude );
+				slot[2] = (uint32_t)floatToHalf( wf->frequency );
+			}
+			else
+				continue;
+
+			count++;
+		}
+
+		if ( count )
+		{
+			data[3] = count | ( (uint32_t)floatToHalf( rtx_deform_dt ) << 16 );
+			memcpy( &data[4], &time, sizeof( float ) );
+		}
+	}
 }
 
 static void fill_model_instance( ModelInstance* instance, const trRefEntity_t* entity, const maliasmesh_t *mesh, shader_t *shader,
@@ -703,6 +791,46 @@ static qboolean vk_rtx_collect_entity_meshes( const model_t* model, const uint32
 	return entity_mesh_count > 0 ? qtrue : qfalse;
 }
 
+// A third person camera pushed against a wall goes into the player model. The raster clips the
+// model with the near plane and back faces, but its triangles still block the light of the
+// surfaces near the camera: they get a shadow with no visible caster, or go black.
+static qboolean camera_inside_model( const trRefdef_t *refdef, trRefEntity_t *entity, const model_t *model, const uint32_t entityNum,
+	int mdxm_matrix_offset, mat3x4_t *mdxm_matrix_data )
+{
+	if ( model->type != MOD_MDXM )
+		return qfalse;
+
+	float scale = MAX( entity->e.modelScale[0], MAX( entity->e.modelScale[1], entity->e.modelScale[2] ) );
+	if ( scale <= 0.0f )
+		scale = 1.0f;
+
+	const float radius = ( entity->e.radius > 0.0f ? entity->e.radius : 64.0f ) * scale;
+
+	vec3_t delta;
+	VectorSubtract( refdef->vieworg, entity->e.origin, delta );
+
+	if ( DotProduct( delta, delta ) > radius * radius )
+		return qfalse;
+
+	// The bone matrices go where the next process_regular_entity puts the same matrices.
+	vec3_t bounds[2];
+	ClearBounds( bounds[0], bounds[1] );
+	vk_rtx_GhoulBounds( bounds[0] );
+	vk_rtx_collect_entity_meshes( model, entityNum, entity, &mdxm_matrix_offset, mdxm_matrix_data );
+	vk_rtx_GhoulBounds( NULL );
+
+	for ( int k = 0; k < 3; k++ )
+	{
+		const float len2 = DotProduct( entity->e.axis[k], entity->e.axis[k] );
+		const float local = len2 > 0.0f ? DotProduct( delta, entity->e.axis[k] ) / len2 : 0.0f;
+
+		if ( local < bounds[0][k] || local > bounds[1][k] )
+			return qfalse;
+	}
+
+	return qtrue;
+}
+
 static void instance_model_lights(int num_light_polys, const light_poly_t* light_polys, const float* transform)
 {
 	for (int nlight = 0; nlight < num_light_polys; nlight++)
@@ -996,6 +1124,15 @@ static void prepare_entities( EntityUploadInfo *upload_info, const trRefdef_t *r
 
 	entity_frame_num = !entity_frame_num;
 
+	{
+		static float last_float_time = 0.0f;
+
+		rtx_deform_dt = refdef->floatTime - last_float_time;
+		if ( rtx_deform_dt < 0.0f || rtx_deform_dt > 0.1f )
+			rtx_deform_dt = 0.0f;
+		last_float_time = refdef->floatTime;
+	}
+
 	InstanceBuffer *instance_buffer = &vk.uniform_instance_buffer;
 
 	static int transparent_model_indices[MAX_REFENTITIES];
@@ -1089,12 +1226,17 @@ static void prepare_entities( EntityUploadInfo *upload_info, const trRefdef_t *r
 						case MOD_MDXM:
 						case MOD_BAD:
 							{
-								process_regular_entity( i, refdef, entity, model, qfalse, qfalse, &model_instance_idx, &instance_idx, &num_instanced_prim, 
-									MESH_FILTER_OPAQUE, &contains_transparent, &contains_masked, &mdxm_matrix_offset, vk.mdxm_matrices_shadow );
-							
+								// A model around the camera gives its opaque and masked meshes to the viewer pass.
+								const qboolean is_viewer_model = camera_inside_model( refdef, entity, model, i, mdxm_matrix_offset, vk.mdxm_matrices_shadow );
+
+								process_regular_entity( i, refdef, entity, model, qfalse, qfalse, &model_instance_idx, &instance_idx, &num_instanced_prim,
+									is_viewer_model ? 0 : MESH_FILTER_OPAQUE, &contains_transparent, &contains_masked, &mdxm_matrix_offset, vk.mdxm_matrices_shadow );
+
 								if (contains_transparent)
 									transparent_model_indices[transparent_model_num++] = i;
-								if (contains_masked)
+								if (is_viewer_model)
+									viewer_model_indices[viewer_model_num++] = i;
+								else if (contains_masked)
 									masked_model_indices[masked_model_num++] = i;
 
 								if (model->num_light_polys > 0)
@@ -1151,8 +1293,19 @@ static void prepare_entities( EntityUploadInfo *upload_info, const trRefdef_t *r
 
 
 	// viewer models
+	upload_info->viewer_model_prim_offset = num_instanced_prim;
+
+	for (int i = 0; i < viewer_model_num; i++)
 	{
+		const int entityNum = viewer_model_indices[i];
+		trRefEntity_t *entity = refdef->entities + entityNum;
+
+		model_t *model = R_GetModelByHandle( entity->e.hModel );
+		process_regular_entity( entityNum, refdef, entity, model, qfalse, qfalse, &model_instance_idx, &instance_idx, &num_instanced_prim,
+			MESH_FILTER_OPAQUE | MESH_FILTER_MASKED, NULL, NULL, &mdxm_matrix_offset, vk.mdxm_matrices_shadow );
 	}
+
+	upload_info->viewer_model_prim_count = num_instanced_prim - upload_info->viewer_model_prim_offset;
 
 	// viewer weapons
 	{

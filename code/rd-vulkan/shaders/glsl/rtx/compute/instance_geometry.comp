@@ -208,6 +208,112 @@ get_mxdm_triangle(uint model_id, uint prim_id, uint idx_offset, uint vert_offset
 	return t;
 }
 
+// The deformVertexes of the shader of the instance (RB_DeformTessGeometry), in model space, in
+// the order of the shader. See fill_model_instance_shader_data.
+float deform_triangle_half(float x)
+{
+	return x < 0.25 ? 4.0 * x : 2.0 - 4.0 * x;
+}
+
+// One wave function at x (in periods), as the tables of the rasterizer.
+float deform_wave_value(uint func, float x)
+{
+	x = fract(x);
+
+	switch (func)
+	{
+		case 1u:  return sin(x * 2.0 * M_PI);	// GF_SIN
+		case 2u:  return x < 0.5 ? 1.0 : -1.0;	// GF_SQUARE
+		case 3u:  return x < 0.5 ? deform_triangle_half(x) : -deform_triangle_half(x - 0.5);	// GF_TRIANGLE
+		case 4u:  return x;						// GF_SAWTOOTH
+	}
+
+	return 1.0 - x;								// GF_INVERSE_SAWTOOTH
+}
+
+// A smooth noise in [-1, 1] for the wiggle of the normals: R_NoiseGet4f of the rasterizer is a
+// random table, so only its look is kept.
+float deform_hash(vec4 p)
+{
+	return fract(sin(dot(p, vec4(127.1, 311.7, 74.7, 269.5))) * 43758.5453) * 2.0 - 1.0;
+}
+
+float deform_noise(vec4 p)
+{
+	vec4 i = floor(p);
+	vec4 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+
+	float r = 0.0;
+
+	for (int k = 0; k < 16; k++)
+	{
+		vec4 o = vec4(k & 1, (k >> 1) & 1, (k >> 2) & 1, (k >> 3) & 1);
+		vec4 w = mix(1.0 - f, f, o);
+
+		r += deform_hash(i + o) * w.x * w.y * w.z * w.w;
+	}
+
+	return r;
+}
+
+// prev: the vertex at the previous frame, which only moves its position.
+void apply_deforms(uint instance_index, inout vec3 position, inout vec3 normal, vec2 st, bool prev)
+{
+	uint header = get_model_instance_shader_uint(instance_index, 3);
+	uint count = header & 0xffu;
+
+	if (count == 0u)
+		return;
+
+	float dt = prev ? unpackHalf2x16(header).y : 0.0;
+	float time = uintBitsToFloat(get_model_instance_shader_uint(instance_index, 4)) - dt;
+
+	for (uint d = 0u; d < count; d++)
+	{
+		uint base = RTX_DEFORM_FIRST + d * RTX_DEFORM_UINTS;
+		uint w0 = get_model_instance_shader_uint(instance_index, base + 0u);
+		uint type = w0 & 15u;
+		uint func = (w0 >> 4) & 15u;
+		float p0 = unpackHalf2x16(w0).y;
+		vec2 p12 = unpackHalf2x16(get_model_instance_shader_uint(instance_index, base + 1u));
+		vec2 p34 = unpackHalf2x16(get_model_instance_shader_uint(instance_index, base + 2u));
+
+		if (type == 1u)			// wave
+		{
+			float off = (position.x + position.y + position.z) * p34.y;
+			position += normal * (p0 + deform_wave_value(func, p12.y + off + time * p34.x) * p12.x);
+		}
+		else if (type == 2u)	// bulge
+		{
+			float now = uintBitsToFloat(get_model_instance_shader_uint(instance_index, base + 3u)) - dt * p34.x;
+			position += normal * (sin(st.x * p12.x + now) * p0);
+		}
+		else if (type == 3u)	// uniform bulge
+		{
+			position += normal * p0;
+		}
+		else if (type == 4u)	// move
+		{
+			vec2 mxy = unpackHalf2x16(get_model_instance_shader_uint(instance_index, base + 4u));
+			float mz = unpackHalf2x16(get_model_instance_shader_uint(instance_index, base + 5u)).x;
+
+			position += vec3(mxy, mz) * (p0 + deform_wave_value(func, p12.y + time * p34.x) * p12.x);
+		}
+		else if (type == 5u && !prev)	// normals
+		{
+			vec3 q = position * 0.98;
+			float t = time * p34.x;
+			vec3 n = normal + p12.x * vec3(
+				deform_noise(vec4(q, t)),
+				deform_noise(vec4(q + vec3(100.0, 0.0, 0.0), t)),
+				deform_noise(vec4(q + vec3(200.0, 0.0, 0.0), t)));
+
+			normal = normalize(n);
+		}
+	}
+}
+
 #define LOCAL_SIZE_X 512
 
 layout(local_size_x = LOCAL_SIZE_X, local_size_y = 1, local_size_z = 1) in;
@@ -242,6 +348,11 @@ void main()
 			// Apply the model-to-world transform
 			for (int vtx = 0; vtx < 3; vtx++)
 			{
+				// The deformVertexes of the shader, for the current and the previous position
+				vec3 prev_normal = t.normals[vtx];
+				apply_deforms(instance_index, t.positions[vtx], t.normals[vtx], t.tex_coords0[vtx], false);
+				apply_deforms(instance_index, t.positions_prev[vtx], prev_normal, t.tex_coords0[vtx], true);
+
 				// Current position
 				t.positions[vtx] = vec3(mi.transform * vec4(t.positions[vtx], 1.0));
 
@@ -269,15 +380,18 @@ void main()
 			{
 				// Current position
 				t.positions[vtx] = mix(t_a_curr.positions[vtx], t_b_curr.positions[vtx], mi.pose_lerp_curr_frame);
+				vec3 model_normal = normalize(mix(t_a_curr.normals[vtx], t_b_curr.normals[vtx], mi.pose_lerp_curr_frame));
+				vec3 prev_normal = model_normal;
+				apply_deforms(instance_index, t.positions[vtx], model_normal, t_a_curr.tex_coords0[vtx], false);
 				t.positions[vtx] = vec3(mi.transform * vec4(t.positions[vtx], 1.0));
 
 				// Previous position
 				t.positions_prev[vtx] = mix(t_a_prev.positions[vtx], t_b_prev.positions[vtx], mi.pose_lerp_prev_frame);
+				apply_deforms(instance_index, t.positions_prev[vtx], prev_normal, t_a_curr.tex_coords0[vtx], true);
 				t.positions_prev[vtx] = vec3(mi.transform_prev * vec4(t.positions_prev[vtx], 1.0));
 
 				// Current normal
-				t.normals[vtx] = mix(t_a_curr.normals[vtx], t_b_curr.normals[vtx], mi.pose_lerp_curr_frame);
-				t.normals[vtx] = normalize(vec3(mi.transform * vec4(t.normals[vtx], 0.0)));
+				t.normals[vtx] = normalize(vec3(mi.transform * vec4(model_normal, 0.0)));
 
 				// Current tangent
 				t.tangents[vtx] = mix(t_a_curr.tangents[vtx], t_b_curr.tangents[vtx], mi.pose_lerp_curr_frame);

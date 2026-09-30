@@ -131,7 +131,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #define MATERIAL_LIGHT_STYLE_MASK    0x0003f000
 #define MATERIAL_LIGHT_STYLE_SHIFT   12
-#define MATERIAL_INDEX_MASK          0x00000fff	// bits 0–11; just 4095 material indexes? can cause issues some day?
+#define MATERIAL_INDEX_MASK          0x00000fff	// bits 0ï¿½11; just 4095 material indexes? can cause issues some day?
 
 #define CHECKERBOARD_FLAG_PRIMARY    1
 #define CHECKERBOARD_FLAG_REFLECTION 2
@@ -216,7 +216,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #define SHADER_MAX_ENTITIES		1024
 #define SHADER_MAX_BSP_ENTITIES	128
-#define INSTANCE_SHADER_UINTS	3	// shaderRGBA, forced rgbGen, light direction
+#define RTX_MAX_DEFORMS			3
+#define RTX_DEFORM_FIRST		5
+#define RTX_DEFORM_UINTS		6
+#define INSTANCE_SHADER_UINTS	(RTX_DEFORM_FIRST + RTX_MAX_DEFORMS * RTX_DEFORM_UINTS)	// shaderRGBA, forced rgbGen, light direction, deformVertexes
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795

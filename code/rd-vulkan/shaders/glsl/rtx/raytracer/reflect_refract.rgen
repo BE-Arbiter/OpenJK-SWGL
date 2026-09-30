@@ -566,8 +566,11 @@ main()
 	vec3 new_flat_normal = normalize(cross(
 		triangle.positions[1] - triangle.positions[0],
 		triangle.positions[2] - triangle.positions[1]));
-	// A surface seen from its back is lit on the side that faces the ray.
-	if (dot(new_geo_normal, direction) > 0)
+	// A surface seen from its back is lit on the side that faces the ray. The flat normal
+	// decides, as in primary_rays.rgen.
+	if (dot(new_flat_normal, direction) > 0)
+		new_flat_normal = -new_flat_normal;
+	if (dot(new_geo_normal, new_flat_normal) < 0)
 		new_geo_normal = -new_geo_normal;
 	// Compute the LOD for the texture on the reflected/refracted surface.
 	// We don't have texture gradients here, so just estimate the LOD

@@ -65,7 +65,7 @@ uniform accelerationStructureEXT topLevelAS[TLAS_COUNT];
 #define RNG_RESTIR_SPATIAL_X(bounce)	  		(4 + 10 + 12 * bounce)
 #define RNG_RESTIR_SPATIAL_Y(bounce)	  		(4 + 11 + 12 * bounce)
 
-#define PRIMARY_RAY_CULL_MASK        (AS_FLAG_OPAQUE | AS_FLAG_TRANSPARENT | AS_FLAG_VIEWER_WEAPON | AS_FLAG_SKY)
+#define PRIMARY_RAY_CULL_MASK        (AS_FLAG_OPAQUE | AS_FLAG_TRANSPARENT | AS_FLAG_VIEWER_MODELS | AS_FLAG_VIEWER_WEAPON | AS_FLAG_SKY)
 #define REFLECTION_RAY_CULL_MASK     (AS_FLAG_OPAQUE | AS_FLAG_SKY)
 #define BOUNCE_RAY_CULL_MASK         (AS_FLAG_OPAQUE | AS_FLAG_SKY | AS_FLAG_CUSTOM_SKY)
 #define SHADOW_RAY_CULL_MASK         (AS_FLAG_OPAQUE)
@@ -1048,6 +1048,10 @@ vec3 raster_light( StageContext ctx, uint s )
 // A stage as the rasterizer draws it, with its light at 0 (src0) and at 1 (src1). The light is
 // a lightmap bundle, or the vertex colour or diffuse light of the rgbGen: under RTX the world
 // is vertex lit, so the rgbGen of the lit texture is exactVertex. glow is the glow pass.
+// A blended model (an absorb shell) is what the rasterizer blends on the gamma values of the texture: the stages
+// of a layer are sampled as those, not as the linear values of the tracer.
+bool layer_raster_blend = false;
+
 void sample_material_stage_light(
 	StageContext ctx,
 	uint s,
@@ -1079,7 +1083,10 @@ void sample_material_stage_light(
 			{
 				vec2 uv_x, uv_y;
 				vec2 uv = bundle_uv(ctx, stage.bundle[b], uv_x, uv_y);
-				c *= sample_bundle(stage.bundle[b], ctx.position, uv, uv_x, uv_y, ctx.mip);
+				vec4 smp = sample_bundle(stage.bundle[b], ctx.position, uv, uv_x, uv_y, ctx.mip);
+				if (layer_raster_blend)
+					smp.rgb = pow(smp.rgb, vec3(1.0 / 2.2));
+				c *= smp;
 			}
 
 			if (stage.tex_mode == 3u)			// ALPHA
@@ -1238,6 +1245,7 @@ void blended_surface_layer(
 
 	L = vec3( 0.0 );
 	T = vec3( 1.0 );
+	layer_raster_blend = ( instance_index != ~0u ) && ( ( get_model_instance_shader_uint( instance_index, 1 ) & 0x200u ) != 0u );
 
 	for ( uint s = 0u; s < MAX_RTX_STAGES; s++ )
 	{
@@ -1265,6 +1273,8 @@ void blended_surface_layer(
 		sample_material_stage_light( ctx, s, stage, src0, src1, glow_src );
 		blend_stage_layer( stage.blend, vec4( src0.rgb + light * ( src1.rgb - src0.rgb ), src1.a ), L, T );
 	}
+
+	layer_raster_blend = false;
 
 	// What the layer adds is drawn without the light of the tracer: pt_glow_scale, as the
 	// emission of the opaque surfaces.
@@ -1315,7 +1325,7 @@ void get_material(
 	MaterialInfo minfo = get_material_info( triangle.material_id );
 
 	float effective_mip = mip_level;
-	float normalMapLen;
+	float normalMapLen = 0.0;
 
 	if ( minfo.normals_texture != 0 ) 
 	{
@@ -1334,16 +1344,27 @@ void get_material(
 		n.xy *= 1.0;
 		n.z = sqrt(clamp((0.25 - n.x * n.x) - n.y * n.y, 0.0, 1.0));
 		
+		// The vertex normal before the flip to the viewer; the tangent frame is built on it.
+		vec3 vertex_normal = normalize(triangle.normals * bary);
 		geo_tangent = normalize(triangle.tangents * bary);
-#if 0
-		// sunny, binormal is invalid here, we could add it to the triangle struct
-		// and apply skin_matrix in instance_geomtery.comp
-		// or, calculate bitangent from normal and tangent ..
-		n = n.x * geo_tangent + n.y * geo_binormal + n.z * geo_normal;
-#else
-		vec3 bitangent = cross(geo_normal, geo_tangent);
+		geo_tangent = normalize(geo_tangent - vertex_normal * dot(vertex_normal, geo_tangent));
+
+		// The tangent has no handedness: take it from the texture coordinates of the triangle,
+		// as the w of the qtangent of the rasterizer (sign of dot(N x T, dP/dt)).
+		vec3 dp1 = triangle.positions[1] - triangle.positions[0];
+		vec3 dp2 = triangle.positions[2] - triangle.positions[0];
+		vec2 dt1 = triangle.tex_coords0[1] - triangle.tex_coords0[0];
+		vec2 dt2 = triangle.tex_coords0[2] - triangle.tex_coords0[0];
+		float det = dt1.x * dt2.y - dt2.x * dt1.y;
+		float handedness = 1.0;
+		if (abs(det) > 1e-12)
+		{
+			vec3 dp_dt = (dp2 * dt1.x - dp1 * dt2.x) / det;
+			handedness = dot(cross(vertex_normal, geo_tangent), dp_dt) < 0.0 ? -1.0 : 1.0;
+		}
+
+		vec3 bitangent = cross(vertex_normal, geo_tangent) * handedness;
 		n = geo_tangent * n.x + bitangent * n.y + geo_normal * n.z;
-#endif   
 		
 #if 0
 		float bump_scale = global_ubo.pt_bump_scale; //  * minfo.bump_scale;
@@ -1353,6 +1374,11 @@ void get_material(
 		normal = normalize(mix(geo_normal, normal, bump_scale));
 #else
 		normal = normalize(n);
+
+		// A bumped normal below the horizon of the surface lights it from behind and shows black.
+		float horizon = dot(normal, geo_normal);
+		if (horizon < 0.05)
+			normal = normalize(normal + geo_normal * (0.05 - horizon));
 
     	if (effective_mip < 0)
     	{
@@ -1366,6 +1392,7 @@ void get_material(
 	}
 	else 
 	{
+		geo_tangent = normalize(triangle.tangents * bary);
 		normal = geo_normal;
 	}
 

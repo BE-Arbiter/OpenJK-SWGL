@@ -286,8 +286,11 @@ main()
 		triangle.positions[1] - triangle.positions[0],
 		triangle.positions[2] - triangle.positions[1]));
 	// A surface seen from its back (a grate with cull none, seen from below) is lit on the
-	// side that faces the viewer.
-	if (dot(geo_normal, direction) > 0)
+	// side that faces the viewer. The flat normal decides: a smoothed normal at a grazing
+	// angle can point away from the viewer on a face seen from the front.
+	if (dot(flat_normal, direction) > 0)
+		flat_normal = -flat_normal;
+	if (dot(geo_normal, flat_normal) < 0)
 		geo_normal = -geo_normal;
 
 	/* compute view-space derivatives of depth and motion vectors */

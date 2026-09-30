@@ -38,7 +38,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define RESTIR_SPACIAL_SAMPLES  8
 
 #define RESTIR_SAMPLING_M       4
-#define RESTIR_DYNAMIC_M        8
+#define RESTIR_DYNAMIC_M        32
 
 struct Reservoir
 {

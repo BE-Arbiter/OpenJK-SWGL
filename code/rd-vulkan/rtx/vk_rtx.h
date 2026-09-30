@@ -740,6 +740,7 @@ void		vk_rtx_build_mdxm_vbo( model_t *mod, mdxmHeader_t *mdxm );
 void		vk_rtx_add_entity_mesh( maliasmesh_t *mesh, shader_t *shader, int bone_offset );
 void		vk_rtx_AddMD3Surfaces( trRefEntity_t *ent, int entityNum, const model_t *model );
 void		vk_rtx_AddGhoulSurfaces( trRefEntity_t *ent, int entityNum, int *mdxm_matrix_offset, mat3x4_t *mdxm_matrix_data );
+void		vk_rtx_GhoulBounds( float *bounds );
 
 // debug
 #define PROFILER_LIST \

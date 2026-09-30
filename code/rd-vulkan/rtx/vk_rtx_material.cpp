@@ -707,8 +707,9 @@ VkResult vk_rtx_upload_materials( LightBuffer *lbo )
 		memset(data, 0, sizeof(uint32_t) * MATERIAL_UINTS);
 		if ( mat->albedo )		data[0] |= 0u;	// deprecated
 		if ( mat->emissive )	data[0] |= mat->emissive << 16;
-		if ( mat->normals )		data[1] |= mat->normals;
-		if ( mat->phyiscal )	data[1] |= mat->phyiscal << 16;
+		// The tracer perturbs the normal with any normal map it gets; r_normalMapping 0 means none.
+		if ( mat->normals && r_normalMapping->integer )	data[1] |= mat->normals;
+		if ( mat->phyiscal && ( r_specularMapping->integer || r_normalMapping->integer ) )	data[1] |= mat->phyiscal << 16;
 
 		data[2] =	floatToHalf( mat->specular_scale[0] );
 		data[2] |=	floatToHalf( mat->specular_scale[1] ) << 16;
