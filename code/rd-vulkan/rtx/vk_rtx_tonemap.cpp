@@ -61,32 +61,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 
-#define BARRIER_COMPUTE(cmd_buf, img) \
-	do { \
-		VkImageSubresourceRange range; \
-		VkImageMemoryBarrier barrier; \
-		Com_Memset( &barrier, 0, sizeof(VkImageMemoryBarrier) ); \
-		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; \
-		range.baseMipLevel = 0; \
-		range.levelCount = 1; \
-		range.baseArrayLayer = 0; \
-		range.layerCount = 1; \
-		\
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER; \
-		barrier.pNext = NULL; \
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; \
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; \
-		barrier.image = img.handle; \
-		barrier.subresourceRange = range; \
-		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; \
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT; \
-		barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL; \
-		barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL; \
-		qvkCmdPipelineBarrier( cmd_buf, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, \
-				VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, NULL, 0, NULL, \
-				1, &barrier); \
-	} while(0)
-
 static int reset_required = 1; // If 1, recomputes tone curve based only on this frame
 
 // Tells the tone mapper to calculate the next tone curve without blending with

@@ -261,7 +261,7 @@ VkResult vk_rtx_shadow_map_create_pipelines( void )
 	shader_info[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	shader_info[0].pNext = NULL;
 	shader_info[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-	shader_info[0].module = vk.asvgf_shader[SHADER_SHADOW_MAP_VERT]->modules[0];
+	shader_info[0].module = vk.compute_shader[SHADER_SHADOW_MAP_VERT]->modules[0];
 	shader_info[0].pName = "main";
 
 	VkVertexInputBindingDescription vertex_binding_desc;

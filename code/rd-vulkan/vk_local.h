@@ -1005,7 +1005,7 @@ typedef struct {
 	VkShaderModule  shader_modules[6];
 
 	vkpipeline_t	asvgf_pipeline[ASVGF_NUM_PIPELINES];
-	vkshader_t		*asvgf_shader[NUM_ASVGF_SHADER_MODULES];
+	vkshader_t		*compute_shader[NUM_RTX_COMPUTE_SHADER_MODULES];
 
 	vkpipeline_t	tonemap_pipeline[TM_NUM_PIPELINES];
 	vkshader_t		*tonemap_shader[TM_NUM_SHADERS];

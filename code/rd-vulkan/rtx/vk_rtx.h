@@ -31,6 +31,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "shaders/glsl/rtx/global_textures.h"	// contains constants.h, ignored
 #include "shaders/glsl/rtx/vertex_buffer.h"	// contains constants.h, ignored
 #include "shaders/glsl/rtx/inspector.h"
+#include "vk_rtx_compute_shaders.h"
+#include "vk_rtx_denoiser.h"
 #include "vk_rtx_asvgf.h"
 #include "vk_rtx_tonemap.h"
 #include "vk_rtx_bloom.h"
@@ -473,6 +475,34 @@ typedef struct {
 #endif // VK_RTX_H
 
 #ifdef VK_RTX_LINKER
+#define BARRIER_COMPUTE_DST(cmd_buf, img, dst_access) \
+	do { \
+		VkImageSubresourceRange range; \
+		VkImageMemoryBarrier barrier; \
+		Com_Memset( &barrier, 0, sizeof(VkImageMemoryBarrier) ); \
+		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; \
+		range.baseMipLevel = 0; \
+		range.levelCount = 1; \
+		range.baseArrayLayer = 0; \
+		range.layerCount = 1; \
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER; \
+		barrier.pNext = NULL; \
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; \
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; \
+		barrier.image = img.handle; \
+		barrier.subresourceRange = range; \
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; \
+		barrier.dstAccessMask = dst_access; \
+		barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL; \
+		barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL; \
+		qvkCmdPipelineBarrier( cmd_buf, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, \
+				VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, NULL, 0, NULL, \
+				1, &barrier); \
+	} while(0)
+
+#define BARRIER_COMPUTE(cmd_buf, img)		BARRIER_COMPUTE_DST( cmd_buf, img, VK_ACCESS_SHADER_READ_BIT )
+#define BARRIER_COMPUTE_WRITE(cmd_buf, img)	BARRIER_COMPUTE_DST( cmd_buf, img, VK_ACCESS_SHADER_WRITE_BIT )
+
 void		vk_rtx_cvar_handler( void );
 void		vk_rtx_begin_registration( void );
 void		vk_rtx_create_command_pool( void );
@@ -530,6 +560,22 @@ void		vk_rtx_create_compute_pipeline( vkpipeline_t *pipeline, VkSpecializationIn
 void		vk_rtx_create_rt_pipelines( void );
 void		vk_rtx_destroy_rt_pipelines( void );
 void		vk_rtx_create_compute_pipelines( void );
+void		vk_rtx_create_standard_compute_pipeline( vkpipeline_t *pipeline, vkshader_t *shader, VkSpecializationInfo *spec, uint32_t push_size );
+void		vk_rtx_bind_standard_compute_pipeline( VkCommandBuffer cmd_buf, const vkpipeline_t *pipeline );
+
+// vk_rtx_interleave.cpp
+void		vk_rtx_create_interleave_pipeline( void );
+void		vk_rtx_destroy_interleave_pipeline( void );
+void		vk_rtx_interleave( VkCommandBuffer cmd_buf );
+
+// vk_rtx_taa.cpp
+void		vk_rtx_create_taa_pipeline( void );
+void		vk_rtx_destroy_taa_pipeline( void );
+void		vk_rtx_taa_invalidate_history( void );
+void		vk_rtx_taa_prepare_ubo( vkUniformRTX_t *ubo );
+void		vk_rtx_taa_end_frame( qboolean denoiser_active );
+void		vk_rtx_taa_evaluate_settings( qboolean denoiser_active );
+void		vk_rtx_taa( VkCommandBuffer cmd_buf );
 void		vk_rtx_destroy_compute_pipelines( void );
 void		vk_rtx_destroy_pipeline( vkpipeline_t *pipeline );
 

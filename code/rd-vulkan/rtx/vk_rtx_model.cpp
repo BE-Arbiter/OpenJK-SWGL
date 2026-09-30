@@ -321,7 +321,7 @@ VkResult vk_rtx_model_vbo_create_pipelines( void )
 	shader_geometry.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	shader_geometry.pNext = NULL;
 	shader_geometry.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-	shader_geometry.module = vk.asvgf_shader[SHADER_INSTANCE_GEOMETRY_COMP]->modules[0];
+	shader_geometry.module = vk.compute_shader[SHADER_INSTANCE_GEOMETRY_COMP]->modules[0];
 	shader_geometry.pName = "main";
 
 	VkComputePipelineCreateInfo create_info[2];

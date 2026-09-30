@@ -126,27 +126,27 @@ static void vk_destroy_bloom_shaders( void )
 	#undef SHADER_MODULE_DO
 }
 
-// asvgf
-void vk_load_asvgf_shaders( void ) 
+// rtx compute
+void vk_load_rtx_compute_shaders( void ) 
 {
 	#define SHADER_MODULE_DO( _index, _spirv_handle ) \
 	{ \
-		if ( vk.asvgf_shader[##_index] == NULL ) {\
-			vk.asvgf_shader[##_index] = (vkshader_t*)malloc(sizeof(vkshader_t)); \
-			vk_rtx_load_shader( vk.asvgf_shader[##_index], ##_spirv_handle, sizeof(##_spirv_handle), VK_SHADER_STAGE_COMPUTE_BIT ); \
+		if ( vk.compute_shader[##_index] == NULL ) {\
+			vk.compute_shader[##_index] = (vkshader_t*)malloc(sizeof(vkshader_t)); \
+			vk_rtx_load_shader( vk.compute_shader[##_index], ##_spirv_handle, sizeof(##_spirv_handle), VK_SHADER_STAGE_COMPUTE_BIT ); \
 		} \
 	}
-	LIST_ASVGF_SHADERS
+	LIST_RTX_COMPUTE_SHADERS
 	#undef SHADER_MODULE_DO
 }
 
-static void vk_destroy_asvgf_shaders( void ) 
+static void vk_destroy_rtx_compute_shaders( void ) 
 {
 	#define SHADER_MODULE_DO( _index, ... ) \
-		vk_rtx_destroy_shader( vk.asvgf_shader[##_index] ); \
-		free( vk.asvgf_shader[##_index] ); \
-		vk.asvgf_shader[##_index] = NULL; 
-	LIST_ASVGF_SHADERS
+		vk_rtx_destroy_shader( vk.compute_shader[##_index] ); \
+		free( vk.compute_shader[##_index] ); \
+		vk.compute_shader[##_index] = NULL; 
+	LIST_RTX_COMPUTE_SHADERS
 	#undef SHADER_MODULE_DO
 }
 
@@ -189,7 +189,7 @@ void vk_rtx_destroy_shaders( void )
 	if ( !vk.rtxActive )
 		return;
 
-	vk_destroy_asvgf_shaders();
+	vk_destroy_rtx_compute_shaders();
 	vk_destroy_tonemap_shaders();
 	vk_destroy_bloom_shaders();
 }

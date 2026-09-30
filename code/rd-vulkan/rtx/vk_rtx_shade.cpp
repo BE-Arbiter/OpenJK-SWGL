@@ -48,7 +48,6 @@ static const mat4_t g_identity_transform = {
 static int			num_model_lights;
 static light_poly_t model_lights[MAX_MODEL_LIGHTS];
 
-static qboolean		temporal_frame_valid = qfalse;
 static int			num_accumulated_frames = 0;
 
 static vec3_t avg_envmap_color = { 0.0, 0.0, 0.0 };
@@ -56,41 +55,16 @@ static vec3_t avg_envmap_color = { 0.0, 0.0, 0.0 };
 typedef struct reference_mode_s 
 {
 	qboolean enable_accumulation;
-	qboolean enable_denoiser;
+	denoiser_type_t denoiser;
 	float num_bounce_rays;
 	float temporal_blend_factor;
 	int reflect_refract;
 } reference_mode_t;
 
-#define BARRIER_COMPUTE(cmd_buf, img) \
-	do { \
-		VkImageSubresourceRange range; \
-		VkImageMemoryBarrier barrier; \
-		Com_Memset( &barrier, 0, sizeof(VkImageMemoryBarrier) ); \
-		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; \
-		range.baseMipLevel = 0; \
-		range.levelCount = 1; \
-		range.baseArrayLayer = 0; \
-		range.layerCount = 1; \
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER; \
-		barrier.pNext = NULL; \
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; \
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; \
-		barrier.image = img.handle; \
-		barrier.subresourceRange = range; \
-		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; \
-		/*barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;*/ \
-		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT; \
-		barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL; \
-		barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL; \
-		qvkCmdPipelineBarrier( cmd_buf, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, \
-				VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, NULL, 0, NULL, \
-				1, &barrier); \
-	} while(0)
-
 void temporal_cvar_changed( void )
 {
-	temporal_frame_valid = qfalse;
+	vk_rtx_invalidate_denoiser_history();
+	vk_rtx_taa_invalidate_history();
 	num_accumulated_frames = 0;
 }
 
@@ -1597,7 +1571,7 @@ static void evaluate_reference_mode( reference_mode_t *ref_mode, const trRefdef_
 			ri.Printf( PRINT_ALL, "rtx accumulation: %d frames done\n", num_frames_to_accumulate );
 
 		ref_mode->enable_accumulation = qtrue;
-		ref_mode->enable_denoiser = qfalse;
+		ref_mode->denoiser = DENOISER_NONE;
 		ref_mode->temporal_blend_factor = 1.f / MIN( MAX( 1, num_accumulated_frames - num_warmup_frames ), num_frames_to_accumulate );
 	}
 	else
@@ -1605,38 +1579,12 @@ static void evaluate_reference_mode( reference_mode_t *ref_mode, const trRefdef_
 		num_accumulated_frames = 0;
 
 		ref_mode->enable_accumulation = qfalse;
-		ref_mode->enable_denoiser = (qboolean)sun_flt_enable->integer;
+		ref_mode->denoiser = sun_flt_enable->integer ? DENOISER_ASVGF : DENOISER_NONE;
 		ref_mode->temporal_blend_factor = 0.f;
 	}
 
 	ref_mode->num_bounce_rays = get_num_bounce_rays();
 	ref_mode->reflect_refract = MIN( 10, MAX( 0, sun_pt_reflect_refract->integer ) );
-}
-
-static void evaluate_taa_settings( const reference_mode_t* ref_mode )
-{
-	vk.effective_aa_mode = AA_MODE_OFF;
-	vk.extent_taa_output = vk.extent_render;
-
-	if ( !ref_mode->enable_denoiser )
-		return;
-
-	if ( sun_flt_taa->integer == AA_MODE_TAA ) // sun_flt_taa
-	{
-		vk.effective_aa_mode = AA_MODE_TAA;
-	}
-	else if ( sun_flt_taa->integer == AA_MODE_UPSCALE ) // sun_flt_taa
-	{
-		if (vk.extent_render.width > vk.extent_unscaled.width || vk.extent_render.height > vk.extent_unscaled.height)
-		{
-			vk.effective_aa_mode = AA_MODE_TAA;
-		}
-		else
-		{
-			vk.effective_aa_mode = AA_MODE_UPSCALE;
-			vk.extent_taa_output = vk.extent_unscaled;
-		}
-	}
 }
 
 static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *viewleaf, reference_mode_t *ref_mode, const vec3_t sky_matrix[3], qboolean render_world ) 
@@ -1782,7 +1730,7 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 	UBO_CVAR_LIST
 #undef UBO_CVAR_DO
 	
-	if ( !ref_mode->enable_denoiser ) 
+	if ( ref_mode->denoiser == DENOISER_NONE ) 
 	{
 		// disable fake specular because it is not supported without denoiser, and the result
 		// looks too dark with it missing
@@ -1819,7 +1767,7 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 		{
 			case 0: enable_dof = qfalse; break;
 			case 1: enable_dof = ref_mode->enable_accumulation; break;
-			case 2: enable_dof = ref_mode->enable_denoiser ? qfalse : qtrue; break;
+			case 2: enable_dof = ref_mode->denoiser != DENOISER_NONE ? qfalse : qtrue; break;
 			default: enable_dof = qtrue; break;
 		}
 		
@@ -1836,7 +1784,7 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 	ubo->pt_aperture_type = roundf(ubo->pt_aperture_type);
 
 	ubo->temporal_blend_factor = ref_mode->temporal_blend_factor;	
-	ubo->flt_enable = ref_mode->enable_denoiser;	
+	ubo->flt_enable = ref_mode->denoiser != DENOISER_NONE;	
 	ubo->flt_taa = vk.effective_aa_mode;
 	ubo->pt_num_bounce_rays = ref_mode->num_bounce_rays;
 	ubo->pt_reflect_refract = ref_mode->reflect_refract;
@@ -1851,13 +1799,8 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 	memcpy(ubo->cam_pos, refdef->vieworg, sizeof(float) * 3);
 	ubo->cluster_debug_index = vk.cluster_debug_index;
 
-	if ( !temporal_frame_valid )
-	{
-		ubo->flt_temporal_lf = 0;
-		ubo->flt_temporal_hf = 0;
-		ubo->flt_temporal_spec = 0;
-		ubo->flt_taa = 0;
-	}
+	vk_rtx_denoisers_prepare_ubo( ubo );
+	vk_rtx_taa_prepare_ubo( ubo );
 
 	if ( vk.effective_aa_mode == AA_MODE_UPSCALE )
 	{
@@ -1968,23 +1911,23 @@ static void vk_rtx_trace_primary_rays( VkCommandBuffer cmd_buf )
 
 	END_PERF_MARKER( cmd_buf, PROFILER_PRIMARY_RAYS );
 
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VISBUF_PRIM_A + frame_idx] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VISBUF_BARY_A + frame_idx] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_TRANSPARENT] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_MOTION] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_SHADING_POSITION] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VIEW_DIRECTION] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_THROUGHPUT] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_BOUNCE_THROUGHPUT] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_GODRAYS_THROUGHPUT_DIST] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_BASE_COLOR_A + frame_idx] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_METALLIC_A + frame_idx] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_CLUSTER_A + frame_idx] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VIEW_DEPTH_A + frame_idx] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_NORMAL_A + frame_idx] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_ASVGF_RNG_SEED_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VISBUF_PRIM_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VISBUF_BARY_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_TRANSPARENT] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_MOTION] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_SHADING_POSITION] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VIEW_DIRECTION] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_THROUGHPUT] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_BOUNCE_THROUGHPUT] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_GODRAYS_THROUGHPUT_DIST] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_BASE_COLOR_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_METALLIC_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_CLUSTER_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VIEW_DEPTH_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_NORMAL_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_ASVGF_RNG_SEED_A + frame_idx] );
 #ifdef USE_RTX_INSPECT_TANGENTS
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_TANGENT_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_TANGENT_A + frame_idx] );
 #endif
 }
 
@@ -2000,19 +1943,19 @@ static void vk_rtx_trace_reflections( VkCommandBuffer cmd_buf, int bounce )
 
 	dispatch_rays( cmd_buf, pipeline_index, push, vk.extent_render.height );
 
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_TRANSPARENT] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_MOTION] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_SHADING_POSITION] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VIEW_DIRECTION] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_THROUGHPUT] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_GODRAYS_THROUGHPUT_DIST] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_BASE_COLOR_A + frame_idx] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_METALLIC_A + frame_idx] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_CLUSTER_A + frame_idx] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VIEW_DEPTH_A + frame_idx] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_NORMAL_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_TRANSPARENT] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_MOTION] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_SHADING_POSITION] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VIEW_DIRECTION] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_THROUGHPUT] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_GODRAYS_THROUGHPUT_DIST] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_BASE_COLOR_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_METALLIC_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_CLUSTER_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VIEW_DEPTH_A + frame_idx] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_NORMAL_A + frame_idx] );
 #ifdef USE_RTX_INSPECT_TANGENTS
-	//BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_TANGENT_A + frame_idx] );
+	//BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_TANGENT_A + frame_idx] );
 #endif
 }
 
@@ -2034,15 +1977,15 @@ static void vk_rxt_trace_lighting( VkCommandBuffer cmd_buf, float num_bounce_ray
 
 	END_PERF_MARKER(cmd_buf, PROFILER_DIRECT_LIGHTING);
 
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_LF_SH] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_LF_COCG] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_HF] );
-	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_SPEC] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_LF_SH] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_LF_COCG] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_HF] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_SPEC] );
 
 	if ( pt_restir->value != 0 ) 
 	{
 		int frame_idx = vk.frame_counter & 1;
-		BARRIER_COMPUTE(cmd_buf, vk.img_rtx[RTX_IMG_PT_RESTIR_A + frame_idx]);
+		BARRIER_COMPUTE_WRITE(cmd_buf, vk.img_rtx[RTX_IMG_PT_RESTIR_A + frame_idx]);
 	}
 
 	BUFFER_BARRIER( cmd_buf,
@@ -2076,11 +2019,11 @@ static void vk_rxt_trace_lighting( VkCommandBuffer cmd_buf, float num_bounce_ray
 		
 				dispatch_rays( cmd_buf, pipeline_index, push, height );
 
-				BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_LF_SH] );
-				BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_LF_COCG] );
-				BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_HF] );
-				BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_SPEC] );
-				BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_BOUNCE_THROUGHPUT] );
+				BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_LF_SH] );
+				BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_LF_COCG] );
+				BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_HF] );
+				BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_SPEC] );
+				BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_BOUNCE_THROUGHPUT] );
 			}
 		}
 	}
@@ -2388,6 +2331,7 @@ static void vk_begin_trace_rays( world_t &worldData, trRefdef_t *refdef, referen
 	uint32_t all_device_mask = (1 << vk.device_count) - 1;
 	bool *prev_trace_signaled = &vk.tess[(vk.current_frame_index - 1) % NUM_COMMAND_BUFFERS].semaphores.trace_signaled;
 	bool *curr_trace_signaled = &vk.tess[vk.current_frame_index].semaphores.trace_signaled;
+	const denoiser_t *denoiser = vk_rtx_get_denoiser( ref_mode->denoiser );
 
 	{
 		// Transfer the light buffer from staging into device memory.
@@ -2519,10 +2463,10 @@ static void vk_begin_trace_rays( world_t &worldData, trRefdef_t *refdef, referen
 			END_PERF_MARKER( trace_cmd_buf, PROFILER_REFLECT_REFRACT_2 );
 		}
 
-		if ( ref_mode->enable_denoiser ) 
+		if ( denoiser->pre_lighting )
 		{
 			BEGIN_PERF_MARKER( trace_cmd_buf, PROFILER_ASVGF_GRADIENT_REPROJECT );
-			vkpt_asvgf_gradient_reproject( trace_cmd_buf );
+			denoiser->pre_lighting( trace_cmd_buf );
 			END_PERF_MARKER( trace_cmd_buf, PROFILER_ASVGF_GRADIENT_REPROJECT );
 		}
 		vk_rxt_trace_lighting( trace_cmd_buf, ref_mode->num_bounce_rays );
@@ -2542,15 +2486,12 @@ static void vk_begin_trace_rays( world_t &worldData, trRefdef_t *refdef, referen
 		VkCommandBuffer post_cmd_buf = vkpt_begin_command_buffer(&vk.cmd_buffers_graphics);
 
 		BEGIN_PERF_MARKER( post_cmd_buf, PROFILER_ASVGF_FULL );
-		if ( ref_mode->enable_denoiser ) 
-			vkpt_asvgf_filter( post_cmd_buf, sun_pt_num_bounce_rays->value >= 0.5f ? qtrue : qfalse );
-		else
-			vkpt_compositing( post_cmd_buf );
+		denoiser->filter( post_cmd_buf );
 		END_PERF_MARKER( post_cmd_buf, PROFILER_ASVGF_FULL );
 
-		vkpt_interleave( post_cmd_buf );
+		vk_rtx_interleave( post_cmd_buf );
 
-		vkpt_taa( post_cmd_buf );
+		vk_rtx_taa( post_cmd_buf );
 
 		BEGIN_PERF_MARKER(post_cmd_buf, PROFILER_BLOOM);
 		if ( cvar_bloom_enable->integer != 0 )
@@ -2601,15 +2542,6 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 		render_world = qtrue;
 
 	//bool render_world = (fd->rdflags & RDF_NOWORLDMODEL) == 0;
-#if 0
-	if ( !temporal_frame_valid )
-	{
-		if ( vkpt_refdef.fd && vkpt_refdef.fd->lightstyles )
-			memcpy( vkpt_refdef.prev_lightstyles, vkpt_refdef.fd->lightstyles, sizeof(vkpt_refdef.prev_lightstyles) );
-		else
-			memset( vkpt_refdef.prev_lightstyles, 0, sizeof(vkpt_refdef.prev_lightstyles) );
-	}
-#endif
 
 	viewleaf = tr.world ? BSP_PointLeaf( tr.world->nodes, refdef->vieworg ) : NULL;
 
@@ -2642,7 +2574,7 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 	}
 	
 	evaluate_reference_mode( &ref_mode, refdef );
-	evaluate_taa_settings( &ref_mode );
+	vk_rtx_taa_evaluate_settings( ref_mode.denoiser != DENOISER_NONE ? qtrue : qfalse );
 
 	num_model_lights = 0;
 	EntityUploadInfo upload_info;
@@ -2737,15 +2669,11 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 		drawSurfs, numDrawSurfs, shadowmap_view_proj, 
 		god_rays_enabled, render_world, &upload_info );
 
-	temporal_frame_valid = ref_mode.enable_denoiser;
+	vk_rtx_denoisers_end_frame( ref_mode.denoiser );
+	vk_rtx_taa_end_frame( ref_mode.denoiser != DENOISER_NONE ? qtrue : qfalse );
 
 	frame_ready = qtrue;
 
-#if 0
-	if ( vkpt_refdef.fd && vkpt_refdef.fd->lightstyles ) {
-		memcpy(vkpt_refdef.prev_lightstyles, vkpt_refdef.fd->lightstyles, sizeof(vkpt_refdef.prev_lightstyles));
-	}
-#endif
 
 	VK_BeginRenderClear();
 }

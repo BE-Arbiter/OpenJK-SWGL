@@ -148,9 +148,42 @@ void vk_rtx_create_compute_pipeline( vkpipeline_t *pipeline, VkSpecializationInf
 	vk_rtx_finish_compute_pipeline( pipeline );
 }
 
+void vk_rtx_create_standard_compute_pipeline( vkpipeline_t *pipeline, vkshader_t *shader, VkSpecializationInfo *spec, uint32_t push_size )
+{
+	VkDescriptorSetLayout set_layouts[] = {
+		vk.desc_set_vertex_buffer[0].layout,
+		vk.desc_set_layout_textures,
+		vk.imageDescriptor.layout,
+		vk.desc_set_layout_ubo
+	};
+
+	vk_rtx_bind_pipeline_shader( pipeline, shader );
+	vk_rtx_bind_pipeline_desc_set_layouts( pipeline, set_layouts, ARRAY_LEN(set_layouts) );
+	vk_rtx_create_compute_pipeline( pipeline, spec, push_size );
+}
+
+void vk_rtx_bind_standard_compute_pipeline( VkCommandBuffer cmd_buf, const vkpipeline_t *pipeline )
+{
+	VkDescriptorSet desc_sets[] = {
+		vk.desc_set_vertex_buffer[vk.current_frame_index].set,
+		vk_rtx_get_current_desc_set_textures(),
+		vk.imageDescriptor.set,
+		vk.desc_set_ubo
+	};
+
+	qvkCmdBindPipeline( cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->handle );
+
+	qvkCmdBindDescriptorSets( cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE,
+		pipeline->layout, 0, ARRAY_LEN(desc_sets), desc_sets, 0, 0 );
+}
+
 void vk_rtx_create_compute_pipelines( void ) 
 {
-	vk_create_asvgf_pipelines();
+	vk_load_rtx_compute_shaders();
+
+	vk_rtx_create_denoiser_pipelines();
+	vk_rtx_create_interleave_pipeline();
+	vk_rtx_create_taa_pipeline();
 	vk_create_tonemap_pipelines();
 	vk_create_physical_sky_pipelines();
 	vk_rtx_create_bloom_pipelines();
@@ -167,7 +200,9 @@ void vk_rtx_create_compute_pipelines( void )
 
 void vk_rtx_destroy_compute_pipelines( void )
 {
-	vk_destroy_asvgf_pipelines();
+	vk_rtx_destroy_denoiser_pipelines();
+	vk_rtx_destroy_interleave_pipeline();
+	vk_rtx_destroy_taa_pipeline();
 	vk_destroy_tonemap_pipelines();
 	vk_destroy_physical_sky_pipelines();
 	vk_rtx_destroy_bloom_pipelines();

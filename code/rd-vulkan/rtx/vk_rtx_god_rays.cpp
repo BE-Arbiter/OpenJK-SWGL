@@ -128,35 +128,10 @@ vk_rtx_god_rays_noop( void )
 	return VK_SUCCESS;
 }
 
-#define BARRIER_COMPUTE(cmd_buf, img) \
-	do { \
-		VkImageSubresourceRange range; \
-		VkImageMemoryBarrier barrier; \
-		Com_Memset( &barrier, 0, sizeof(VkImageMemoryBarrier) ); \
-		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; \
-		range.baseMipLevel = 0; \
-		range.levelCount = 1; \
-		range.baseArrayLayer = 0; \
-		range.layerCount = 1; \
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER; \
-		barrier.pNext = NULL; \
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; \
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; \
-		barrier.image = img.handle; \
-		barrier.subresourceRange = range; \
-		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT; \
-		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT; \
-		barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL; \
-		barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL; \
-		qvkCmdPipelineBarrier( cmd_buf, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, \
-				VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, NULL, 0, NULL, \
-				1, &barrier); \
-	} while(0)
-
 void vk_rtx_record_god_rays_trace_command_buffer( VkCommandBuffer command_buffer, int pass )
 {
-	BARRIER_COMPUTE( command_buffer, vk.img_rtx[RTX_IMG_PT_GODRAYS_THROUGHPUT_DIST] );
-	BARRIER_COMPUTE( command_buffer, vk.img_rtx[RTX_IMG_ASVGF_COLOR] );
+	BARRIER_COMPUTE_WRITE( command_buffer, vk.img_rtx[RTX_IMG_PT_GODRAYS_THROUGHPUT_DIST] );
+	BARRIER_COMPUTE_WRITE( command_buffer, vk.img_rtx[RTX_IMG_ASVGF_COLOR] );
 
 	qvkCmdBindPipeline( command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, god_rays.pipelines[0] );
 
@@ -179,13 +154,13 @@ void vk_rtx_record_god_rays_trace_command_buffer( VkCommandBuffer command_buffer
 
 	qvkCmdDispatch( command_buffer, group_num_x, group_num_y, 1 );
 
-	BARRIER_COMPUTE( command_buffer, vk.img_rtx[RTX_IMG_PT_GODRAYS_THROUGHPUT_DIST] );
-	BARRIER_COMPUTE( command_buffer, vk.img_rtx[RTX_IMG_ASVGF_COLOR] );
+	BARRIER_COMPUTE_WRITE( command_buffer, vk.img_rtx[RTX_IMG_PT_GODRAYS_THROUGHPUT_DIST] );
+	BARRIER_COMPUTE_WRITE( command_buffer, vk.img_rtx[RTX_IMG_ASVGF_COLOR] );
 }
 
 void vk_rtx_record_god_rays_filter_command_buffer( VkCommandBuffer command_buffer )
 {
-	BARRIER_COMPUTE( command_buffer, vk.img_rtx[RTX_IMG_PT_TRANSPARENT] );
+	BARRIER_COMPUTE_WRITE( command_buffer, vk.img_rtx[RTX_IMG_PT_TRANSPARENT] );
 
 	VkImageSubresourceRange subresource_range;
 	Com_Memset( &subresource_range, 0, sizeof(VkImageSubresourceRange) );
@@ -215,7 +190,7 @@ void vk_rtx_record_god_rays_filter_command_buffer( VkCommandBuffer command_buffe
 
 	qvkCmdDispatch( command_buffer, group_num_x, group_num_y, 1 );
 
-	BARRIER_COMPUTE( command_buffer, vk.img_rtx[RTX_IMG_PT_TRANSPARENT] );
+	BARRIER_COMPUTE_WRITE( command_buffer, vk.img_rtx[RTX_IMG_PT_TRANSPARENT] );
 }
 
 
@@ -328,7 +303,7 @@ static void create_pipelines( void )
 	shader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	shader.pNext = NULL;
 	shader.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-	shader.module = vk.asvgf_shader[SHADER_GOD_RAYS_COMP]->modules[0];
+	shader.module = vk.compute_shader[SHADER_GOD_RAYS_COMP]->modules[0];
 	shader.pName = "main";
 
 	VkPipelineShaderStageCreateInfo filter_shader;
@@ -336,7 +311,7 @@ static void create_pipelines( void )
 	filter_shader.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	filter_shader.pNext = NULL;
 	filter_shader.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-	filter_shader.module = vk.asvgf_shader[SHADER_GOD_RAYS_FILTER_COMP]->modules[0];
+	filter_shader.module = vk.compute_shader[SHADER_GOD_RAYS_FILTER_COMP]->modules[0];
 	filter_shader.pName = "main";
 
 	VkComputePipelineCreateInfo pipeline_create_infos[2];
