@@ -242,6 +242,7 @@ cvar_t	*pt_debug_image;
 cvar_t	*pt_verbose;
 cvar_t	*pt_accumulation_rendering;
 cvar_t	*pt_accumulation_rendering_framenum;
+cvar_t	*pt_denoiser;
 cvar_t	*pt_dlight_radius;
 cvar_t	*pt_dlight_min_dist;
 cvar_t	*pt_dlight_lift;
@@ -1024,6 +1025,8 @@ void R_Register( void )
 	pt_verbose							= ri.Cvar_Get("pt_verbose",							"0",	CVAR_NONE);
 	pt_accumulation_rendering			= ri.Cvar_Get("pt_accumulation_rendering",			"0",	CVAR_NONE);
 	pt_accumulation_rendering_framenum	= ri.Cvar_Get("pt_accumulation_rendering_framenum",	"500",	CVAR_NONE);
+	// 0 none, 1 A-SVGF, 2 reserved for NRD ReLAX
+	pt_denoiser							= ri.Cvar_Get("pt_denoiser",						"1",	CVAR_NONE);
 	/* Size of the sphere a dlight emits from, in world units - not its reach, which is
 	 * dlight_t::radius. An emitter with a body gets half buried in whatever surface the
 	 * light was spawned on, and loses a disc of its own illumination that size. It buys

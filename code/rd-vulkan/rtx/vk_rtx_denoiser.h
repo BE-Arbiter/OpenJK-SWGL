@@ -27,6 +27,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 typedef enum {
 	DENOISER_NONE,
 	DENOISER_ASVGF,
+	// 2 is reserved for NRD ReLAX
 	NUM_DENOISERS
 } denoiser_type_t;
 
@@ -43,6 +44,7 @@ typedef struct denoiser_s {
 } denoiser_t;
 
 const denoiser_t *vk_rtx_get_denoiser( denoiser_type_t type );
+denoiser_type_t vk_rtx_denoiser_from_cvar( void );
 void		vk_rtx_create_denoiser_pipelines( void );
 void		vk_rtx_destroy_denoiser_pipelines( void );
 void		vk_rtx_invalidate_denoiser_history( void );

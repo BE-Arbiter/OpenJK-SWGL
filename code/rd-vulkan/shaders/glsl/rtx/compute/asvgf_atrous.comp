@@ -387,7 +387,7 @@ main()
 		vec3 throughput = texelFetch(TEX_PT_THROUGHPUT, ipos, 0).rgb;
 
 		// Debug bisection: put the tracer's raw channels back in place of the filtered
-		// ones, one at a time, with the rest of the pipeline left running. flt_enable 0
+		// ones, one at a time, with the rest of the pipeline left running. pt_denoiser 0
 		// swaps out the whole filter, TAA and the fake specular at once, so it cannot
 		// say which stage an artefact comes from; this can.
 		int debug_raw = int(global_ubo.flt_show_gradients);

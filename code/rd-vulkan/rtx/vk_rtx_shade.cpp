@@ -1579,7 +1579,7 @@ static void evaluate_reference_mode( reference_mode_t *ref_mode, const trRefdef_
 		num_accumulated_frames = 0;
 
 		ref_mode->enable_accumulation = qfalse;
-		ref_mode->denoiser = sun_flt_enable->integer ? DENOISER_ASVGF : DENOISER_NONE;
+		ref_mode->denoiser = vk_rtx_denoiser_from_cvar();
 		ref_mode->temporal_blend_factor = 0.f;
 	}
 
@@ -1784,7 +1784,6 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 	ubo->pt_aperture_type = roundf(ubo->pt_aperture_type);
 
 	ubo->temporal_blend_factor = ref_mode->temporal_blend_factor;	
-	ubo->flt_enable = ref_mode->denoiser != DENOISER_NONE;	
 	ubo->pt_denoiser_flags = vk_rtx_get_denoiser( ref_mode->denoiser )->flags;
 	ubo->flt_taa = vk.effective_aa_mode;
 	ubo->pt_num_bounce_rays = ref_mode->num_bounce_rays;

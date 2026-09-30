@@ -180,7 +180,7 @@ void vk_rtx_cvar_handler( void )
 	CVAR_CHANGED( sun_flt_temporal_hf,		temporal_cvar_changed )
 	CVAR_CHANGED( sun_flt_temporal_lf,		temporal_cvar_changed )
 	CVAR_CHANGED( sun_flt_temporal_spec,	temporal_cvar_changed )
-	CVAR_CHANGED( sun_flt_enable,			temporal_cvar_changed )
+	CVAR_CHANGED( pt_denoiser,				temporal_cvar_changed )
 
 	// sky and sun
 	CVAR_CHANGED( sun_elevation,				physical_sky_cvar_changed )

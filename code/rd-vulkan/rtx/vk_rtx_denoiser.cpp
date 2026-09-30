@@ -78,6 +78,20 @@ const denoiser_t *vk_rtx_get_denoiser( denoiser_type_t type )
 	return denoisers[type];
 }
 
+// The cvar value equals the enum value. A value with no implemented denoiser means none.
+denoiser_type_t vk_rtx_denoiser_from_cvar( void )
+{
+	static int warned_value = 0;
+	const int value = pt_denoiser->integer;
+	const qboolean available = (qboolean)( value >= DENOISER_NONE && value < NUM_DENOISERS );
+
+	if ( !available && value != warned_value )
+		ri.Printf( PRINT_WARNING, "pt_denoiser %d is not available, no denoiser\n", value );
+
+	warned_value = value;
+	return available ? (denoiser_type_t)value : DENOISER_NONE;
+}
+
 void vk_rtx_create_denoiser_pipelines( void )
 {
 	for ( int i = 0; i < NUM_DENOISERS; i++ )

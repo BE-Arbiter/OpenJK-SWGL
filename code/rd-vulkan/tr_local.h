@@ -3094,6 +3094,7 @@ extern  cvar_t  *pt_debug_image;
 extern  cvar_t  *pt_verbose;
 extern  cvar_t  *pt_accumulation_rendering;
 extern  cvar_t  *pt_accumulation_rendering_framenum;
+extern  cvar_t  *pt_denoiser;
 extern  cvar_t  *pt_dlight_radius;
 extern  cvar_t  *pt_dlight_min_dist;
 extern  cvar_t  *pt_dlight_lift;
