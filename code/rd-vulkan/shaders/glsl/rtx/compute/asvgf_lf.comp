@@ -46,6 +46,15 @@ layout(push_constant, std140) uniform IterationInfo {
 #include "asvgf.glsl"
 #include "../brdf.glsl"
 
+// Weight of the LF brightness guards: 0 on a 1-frame history, 1 from 8 frames.
+// A new history is sparse: a clamp on its bright samples removes energy, and a
+// surface the camera just uncovered stays too dark until the history is full.
+float lf_history_confidence(ivec2 ipos_hires)
+{
+	float hist_len_lf = texelFetch(TEX_ASVGF_HIST_MOMENTS_HF_A, ipos_hires, 0).a;
+	return clamp((hist_len_lf - 1.0) / 7.0, 0.0, 1.0);
+}
+
 // Filter kernel.
 // The filter operates on a 1/3 resolution signal, where each 3x3 pixel part of the screen
 // is represented by a single low-res pixel, whose depth and normal correspond to the 
@@ -74,6 +83,7 @@ filter_image(
 	float fwidth_depth = texelFetch(TEX_PT_MOTION, ipos_hires, 0).w;
 
 	const int step_size = int(1u << (push.iteration - 1));
+	const float confidence = lf_history_confidence(ipos_hires);
 
 	SH sum_color_lf = color_center_lf;
 
@@ -125,7 +135,7 @@ filter_image(
 			// The 4th iteration has filter footprint big enough to step over obstacles and produce noticeable light leaking.
 			// Prevent that by throwing away samples that are too bright. This also helps make some shadows a bit sharper.
 			if(push.iteration == 3)
-				w_lf *= clamp(1.5 - c_lf.shY.w / color_center_lf.shY.w * 0.25, 0, 1);
+				w_lf *= mix(1.0, clamp(1.5 - c_lf.shY.w / color_center_lf.shY.w * 0.25, 0, 1), confidence);
 
 			accumulate_SH(sum_color_lf, c_lf, w_lf);
 			sum_w_lf += w_lf;
@@ -164,9 +174,10 @@ void deflicker_image(
 
 
 	float max_lum = sum_color_lf.shY.w * global_ubo.flt_atrous_deflicker_lf / num_pixels;
-	if(color_center_lf.shY.w > max_lum)
+	float confidence = lf_history_confidence(ipos_hires);
+	if(confidence > 0.0 && color_center_lf.shY.w * confidence > max_lum)
 	{
-		float ratio = max_lum / color_center_lf.shY.w;
+		float ratio = max_lum / (color_center_lf.shY.w * confidence);
 		color_center_lf.shY *= ratio;
 		color_center_lf.CoCg *= ratio;
 	}
