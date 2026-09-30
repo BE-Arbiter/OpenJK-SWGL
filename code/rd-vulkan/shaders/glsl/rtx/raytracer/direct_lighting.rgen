@@ -37,6 +37,23 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 layout(constant_id = 0) const uint spec_enable_caustics = 0;
 
+// The object of a visibility buffer entry: ~0u for the world, else the model instance in
+// the current frame. A model instance of the previous frame goes through model_prev_to_current.
+uint restir_object(uint visbuf_instance, bool prev)
+{
+	if(visbuf_instance >= ~uint(VERTEX_BUFFER_WORLD_D_GEOMETRY))
+		return ~0u;
+
+	if(!prev)
+		return visbuf_instance;
+
+	if(visbuf_instance >= SHADER_MAX_ENTITIES)
+		return ~1u;
+
+	uint curr = instance_buffer.model_prev_to_current[visbuf_instance];
+	return curr == ~0u ? ~1u : curr;
+}
+
 void
 direct_lighting_restir(ivec2 ipos, out vec3 high_freq, out vec3 o_specular)
 {
@@ -78,6 +95,10 @@ direct_lighting_restir(ivec2 ipos, out vec3 high_freq, out vec3 o_specular)
 	if(cluster_idx == 0xffff) cluster_idx = ~0u; // because the image is uint16
 	float view_depth =  texelFetch(TEX_PT_VIEW_DEPTH_A, ipos, 0).x;
 	vec4 motion = texelFetch(TEX_PT_MOTION, ipos, 0);
+
+	// A reservoir is reused only from the same object. The W of a model near a light
+	// is not valid for the floor below it: the floor then gets a halo, and a trail when the model moves.
+	uint object = restir_object(texelFetch(TEX_PT_VISBUF_PRIM_A, ipos, 0).x, false);
 
 	bool primary_is_weapon = (material_id & MATERIAL_FLAG_WEAPON) != 0;
 	int primary_medium = int((material_id & MATERIAL_LIGHT_STYLE_MASK) >> MATERIAL_LIGHT_STYLE_SHIFT);
@@ -141,7 +162,7 @@ direct_lighting_restir(ivec2 ipos, out vec3 high_freq, out vec3 o_specular)
 			normal_prev = decode_normal(texelFetch(TEX_PT_NORMAL_B, pos_prev, 0).x);
 			dot_normals = dot(normal_prev, normal);
 
-			if(dot_normals > 0.5)
+			if(dot_normals > 0.5 && (is_gradient || restir_object(texelFetch(TEX_PT_VISBUF_PRIM_B, pos_prev, 0).x, true) == object))
 			{
 				uvec4 packed_reservoir = texelFetch(TEX_PT_RESTIR_B, pos_prev, 0);
 				unpack_reservoir(packed_reservoir, prev_r);
@@ -280,6 +301,8 @@ direct_lighting_restir(ivec2 ipos, out vec3 high_freq, out vec3 o_specular)
 			st_r.y = get_light_current_idx(st_r.y);
 
 			if(st_r.y == RESTIR_INVALID_ID || st_r.M == 0) continue;
+
+			if(restir_object(texelFetch(TEX_PT_VISBUF_PRIM_B, sample_pos, 0).x, true) != object) continue;
 
 			float depth_prev = texelFetch(TEX_PT_VIEW_DEPTH_B, sample_pos, 0).x;
 			float dist_depth = abs(depth_prev - view_depth) / abs(view_depth);

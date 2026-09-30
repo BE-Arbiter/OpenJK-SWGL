@@ -5433,6 +5433,10 @@ void vk_rtx_AddGhoulSurfaces( trRefEntity_t *ent, int entityNum, int *mdxm_matri
 			const int model_index = model->currentModel->data.glm->vboModels[whichLod].vbo->index;
 			CBoneCache *bc = model->mBoneCache;
 
+			// The bone buffer holds the current and the previous frame: half of it for each.
+			if ( *mdxm_matrix_offset + (int)bc->mBones.size() > MAX_MDXM_MATRICES / 2 )
+				continue;
+
 			const int bone_offset = *mdxm_matrix_offset;
 			*mdxm_matrix_offset += (int)bc->mBones.size();
 

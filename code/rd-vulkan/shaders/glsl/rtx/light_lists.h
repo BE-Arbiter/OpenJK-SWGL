@@ -21,6 +21,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define _LIGHT_LISTS_
 
 #define MAX_BRUTEFORCE_SAMPLING 8
+#define MAX_DYNAMIC_SAMPLING    16
 
 mat3 
 project_triangle(mat3 positions, vec3 p)
@@ -303,6 +304,87 @@ uint get_light_stats_addr(uint cluster, uint light, uint side)
 	return addr;
 }
 
+// Sampling weight of one light for the point p: projected area x luminance x shadow statistics.
+float
+light_sampling_mass(
+		uint list_idx,
+		uint current_idx,
+		vec3 p,
+		vec3 n,
+		vec3 V,
+		float phong_exp,
+		float phong_scale,
+		float phong_weight,
+		bool is_gradient)
+{
+	// In case of polygon light overflow, the host code will still populate the light lists
+	// with invalid indices. Skip those lights here, so they have pdf=0 and will not be selected.
+	if (current_idx >= MAX_LIGHT_POLYS)
+		return 0;
+
+	LightPolygon light = get_light_polygon(current_idx);
+
+	float m = 0.0f;
+	switch(uint(light.type)){
+		case LIGHT_POLYGON:
+			m = projected_tri_area(light.positions, p, n, V, phong_exp, phong_scale, phong_weight);
+			break;
+		case LIGHT_SPHERE:
+			m = projected_sphere_area(light.positions, p, n, V, phong_exp, phong_scale, phong_weight);
+			break;
+		case LIGHT_SPOT:
+			m = projected_spotlight_area(light.positions, p, n, V, phong_exp, phong_scale, phong_weight);
+			break;
+	}
+
+	float light_lum = luminance(light.color);
+
+	// Apply light style scaling.
+	// For gradient pixels, use the style from the previous frame here
+	// in order to keep the CDF consistent and make sure that the same light is picked,
+	// regardless of animations. This makes the image more stable around blinking lights,
+	// especially in shadowed areas.
+	light_lum *= is_gradient ? light.prev_style_scale : light.light_style_scale;	
+
+	if(light_lum < 0 && global_ubo.environment_type == ENVIRONMENT_DYNAMIC)
+	{
+		// Set limits on sky luminance to avoid oversampling the sky in shadowed areas, or undersampling at dusk and dawn.
+		// Note: the log -> linear conversion of the cvars happens on the CPU, in main.c
+		m *= clamp(sun_color_ubo.sky_luminance, global_ubo.pt_min_log_sky_luminance, global_ubo.pt_max_log_sky_luminance);
+	}
+	else
+		m *= abs(light_lum); // abs because sky lights have negative color
+
+	// Apply CDF adjustment based on light shadowing statistics from one of the previous frames.
+	// See comments in function `get_direct_illumination` in `path_tracer_rgen.h`
+	if(global_ubo.pt_light_stats != 0 
+		&& m > 0 
+		&& current_idx < global_ubo.num_static_lights)
+	{
+		uint buffer_idx = global_ubo.current_frame_idx;
+		// Regular pixels get shadowing stats from the previous frame;
+		// Gradient pixels get the stats from two frames ago because they need to match
+		// the light sampling from the previous frame.
+		buffer_idx += is_gradient ? (NUM_LIGHT_STATS_BUFFERS - 2) : (NUM_LIGHT_STATS_BUFFERS - 1);
+		buffer_idx = buffer_idx % NUM_LIGHT_STATS_BUFFERS;
+
+		uint addr = get_light_stats_addr(list_idx, current_idx, get_primary_direction(n));
+
+		uint num_hits = light_stats_bufers[buffer_idx].stats[addr];
+		uint num_misses = light_stats_bufers[buffer_idx].stats[addr + 1];
+		uint num_total = num_hits + num_misses;
+
+		if(num_total > 0)
+		{
+			// Adjust the mass, but set a lower limit on the factor to avoid
+			// extreme changes in the sampling.
+			m *= max(float(num_hits) / float(num_total), 0.1);
+		}
+	}
+
+	return m;
+}
+
 void
 sample_lights(
 		uint list_idx,
@@ -339,100 +421,53 @@ sample_lights(
 	uint history_index = (rng_seed >> RNG_SEED_SHIFT_FRAME) % LIGHT_COUNT_HISTORY;
 	uint light_count = light_counts_history[history_index].sample_light_counts[list_idx];
 
-	float partitions = ceil(float(light_count) / float(MAX_BRUTEFORCE_SAMPLING));
+	// The dynamic lights (sabers, dlights) are at the tail of the list. They are candidates
+	// for every point. Only the static lights before them are partitioned.
+	uint sample_end = min(list_start + light_count, list_end);
+	uint dyn_start = sample_end;
+	while(dyn_start > list_start && sample_end - dyn_start < MAX_DYNAMIC_SAMPLING
+		&& light_buffer.light_list_lights[dyn_start - 1] >= global_ubo.num_static_lights)
+	{
+		dyn_start--;
+	}
+	uint static_end = list_start + light_count - (sample_end - dyn_start);
+
+	float partitions = max(ceil(float(static_end - list_start) / float(MAX_BRUTEFORCE_SAMPLING)), 1.0);
 	rng.x *= partitions;
 	float fpart = min(floor(rng.x), partitions-1);
 	rng.x -= fpart;
-	list_start += int(fpart);
+	uint part_start = list_start + int(fpart);
 	int stride = int(partitions);
 
+	// A static candidate stands for the `partitions` lights of its stride, so its weight
+	// is m * partitions. The pdf of every light is then m / mass. 
 	float mass = 0.;
 
 	float light_masses[MAX_BRUTEFORCE_SAMPLING];
+	float dyn_masses[MAX_DYNAMIC_SAMPLING];
 
 	#pragma unroll
-	for(uint i = 0, n_idx = list_start; i < MAX_BRUTEFORCE_SAMPLING; i++, n_idx += stride) {
-		if (n_idx >= list_start + light_count)
+	for(uint i = 0, n_idx = part_start; i < MAX_BRUTEFORCE_SAMPLING; i++, n_idx += stride) {
+		if (n_idx >= static_end)
 			break;
 		
-		if(n_idx >= list_end)
+		if(n_idx >= dyn_start)
 		{
 			light_masses[i] = 0;
 			continue;
 		}
 
-		uint current_idx = light_buffer.light_list_lights[n_idx];
+		float m = light_sampling_mass(list_idx, light_buffer.light_list_lights[n_idx], p, n, V, phong_exp, phong_scale, phong_weight, is_gradient);
 
-		// In case of polygon light overflow, the host code will still populate the light lists
-		// with invalid indices. Skip those lights here, so they have pdf=0 and will not be selected.
-		if (current_idx >= MAX_LIGHT_POLYS)
-		{
-			light_masses[i] = 0;
-			continue;
-		}
+		mass += m * partitions;
+		light_masses[i] = m * partitions;
+	}
 
-		LightPolygon light = get_light_polygon(current_idx);
-
-		float m = 0.0f;
-		switch(uint(light.type)){
-			case LIGHT_POLYGON:
-				m = projected_tri_area(light.positions, p, n, V, phong_exp, phong_scale, phong_weight);
-				break;
-			case LIGHT_SPHERE:
-				m = projected_sphere_area(light.positions, p, n, V, phong_exp, phong_scale, phong_weight);
-				break;
-			case LIGHT_SPOT:
-				m = projected_spotlight_area(light.positions, p, n, V, phong_exp, phong_scale, phong_weight);
-				break;
-		}
-
-		float light_lum = luminance(light.color);
-
-		// Apply light style scaling.
-		// For gradient pixels, use the style from the previous frame here
-		// in order to keep the CDF consistent and make sure that the same light is picked,
-		// regardless of animations. This makes the image more stable around blinking lights,
-		// especially in shadowed areas.
-		light_lum *= is_gradient ? light.prev_style_scale : light.light_style_scale;	
-
-		if(light_lum < 0 && global_ubo.environment_type == ENVIRONMENT_DYNAMIC)
-		{
-			// Set limits on sky luminance to avoid oversampling the sky in shadowed areas, or undersampling at dusk and dawn.
-			// Note: the log -> linear conversion of the cvars happens on the CPU, in main.c
-			m *= clamp(sun_color_ubo.sky_luminance, global_ubo.pt_min_log_sky_luminance, global_ubo.pt_max_log_sky_luminance);
-		}
-		else
-			m *= abs(light_lum); // abs because sky lights have negative color
-
-		// Apply CDF adjustment based on light shadowing statistics from one of the previous frames.
-		// See comments in function `get_direct_illumination` in `path_tracer_rgen.h`
-		if(global_ubo.pt_light_stats != 0 
-			&& m > 0 
-			&& current_idx < global_ubo.num_static_lights)
-		{
-			uint buffer_idx = global_ubo.current_frame_idx;
-			// Regular pixels get shadowing stats from the previous frame;
-			// Gradient pixels get the stats from two frames ago because they need to match
-			// the light sampling from the previous frame.
-			buffer_idx += is_gradient ? (NUM_LIGHT_STATS_BUFFERS - 2) : (NUM_LIGHT_STATS_BUFFERS - 1);
-			buffer_idx = buffer_idx % NUM_LIGHT_STATS_BUFFERS;
-
-			uint addr = get_light_stats_addr(list_idx, current_idx, get_primary_direction(n));
-
-			uint num_hits = light_stats_bufers[buffer_idx].stats[addr];
-			uint num_misses = light_stats_bufers[buffer_idx].stats[addr + 1];
-			uint num_total = num_hits + num_misses;
-
-			if(num_total > 0)
-			{
-				// Adjust the mass, but set a lower limit on the factor to avoid
-				// extreme changes in the sampling.
-				m *= max(float(num_hits) / float(num_total), 0.1);
-			}
-		}
+	for(uint i = 0, n_idx = dyn_start; n_idx < sample_end; i++, n_idx++) {
+		float m = light_sampling_mass(list_idx, light_buffer.light_list_lights[n_idx], p, n, V, phong_exp, phong_scale, phong_weight, is_gradient);
 
 		mass += m;
-		light_masses[i] = m;
+		dyn_masses[i] = m;
 	}
 
 	if (mass <= 0)
@@ -440,19 +475,30 @@ sample_lights(
 
 	rng.x *= mass;
 	int current_idx = -1;
-	mass *= partitions;
 	float pdf = 0;
 
 	#pragma unroll
-	for(uint i = 0, n_idx = list_start; i < MAX_BRUTEFORCE_SAMPLING; i++, n_idx += stride) {
-		if (n_idx >= list_start + light_count)
+	for(uint i = 0, n_idx = part_start; i < MAX_BRUTEFORCE_SAMPLING; i++, n_idx += stride) {
+		if (n_idx >= static_end)
 			break;
-		pdf = light_masses[i];
+		pdf = light_masses[i] / partitions;
 		current_idx = int(n_idx);
-		rng.x -= pdf;
+		rng.x -= light_masses[i];
 
 		if (rng.x <= 0)
 			break;
+	}
+
+	if (rng.x > 0)
+	{
+		for(uint i = 0, n_idx = dyn_start; n_idx < sample_end; i++, n_idx++) {
+			pdf = dyn_masses[i];
+			current_idx = int(n_idx);
+			rng.x -= dyn_masses[i];
+
+			if (rng.x <= 0)
+				break;
+		}
 	}
 
 	if(rng.x > 0)

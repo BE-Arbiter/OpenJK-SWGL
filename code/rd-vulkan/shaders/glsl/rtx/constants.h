@@ -214,7 +214,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define TEX0_BLEND_MASK                             0x00001C00
 #define TEX1_BLEND_MASK                             0x1C000000
 
-#define SHADER_MAX_ENTITIES		1024
+#define SHADER_MAX_ENTITIES		4096	// one per mesh: a ghoul2 NPC takes 10 to 30
 #define SHADER_MAX_BSP_ENTITIES	128
 #define RTX_MAX_DEFORMS			3
 #define RTX_DEFORM_FIRST		5

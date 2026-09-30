@@ -26,14 +26,14 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "ghoul2/G2.h"
 
 static int entity_frame_num = 0;
-static int model_entity_ids[2][MAX_REFENTITIES];
+static int model_entity_ids[2][SHADER_MAX_ENTITIES];
 static int world_entity_ids[2][MAX_REFENTITIES];
 static int light_entity_ids[2][MAX_MODEL_LIGHTS];
 static int model_entity_id_count[2];
 static int world_entity_id_count[2];
 static int light_entity_id_count[2];
 static int mdxm_matrix_count[2];
-static ModelInstance model_instances_prev[MAX_REFENTITIES];
+static ModelInstance model_instances_prev[SHADER_MAX_ENTITIES];
 
 static uint32_t g_num_instances = 0;
 static vk_geometry_instance_t g_instances[MAX_TLAS_INSTANCES];
@@ -442,6 +442,18 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 			data[3] = count | ( (uint32_t)floatToHalf( rtx_deform_dt ) << 16 );
 			memcpy( &data[4], &time, sizeof( float ) );
 		}
+	}
+}
+
+// The instance buffer is full: the remaining meshes are not traced this frame.
+static void vk_rtx_instance_overflow( void )
+{
+	static int last_warning = -100000;
+
+	if ( ri.Milliseconds() - last_warning > 5000 )
+	{
+		last_warning = ri.Milliseconds();
+		ri.Printf( PRINT_WARNING, "RTX: more than %i model meshes, some are not traced\n", SHADER_MAX_ENTITIES );
 	}
 }
 
@@ -904,9 +916,9 @@ static void process_bsp_entity(
 	InstanceBuffer* uniform_instance_buffer = &vk.uniform_instance_buffer;
 
 	const int current_instance_idx = *instance_count;
-	if (current_instance_idx >= MAX_REFENTITIES)
+	if (current_instance_idx >= SHADER_MAX_ENTITIES)
 	{
-		assert(!"Entity count overflow");
+		vk_rtx_instance_overflow();
 		return;
 	}
 
@@ -1043,11 +1055,11 @@ static void process_regular_entity(
 	{
 		vk_rtx_entity_mesh_t *entity_mesh = &entity_meshes[i];
 
-		if ( current_instance_index >= SHADER_MAX_ENTITIES )
-			return assert(!"Model entity count overflow");
-
-		if (!use_static_blas && current_animated_index >= SHADER_MAX_ENTITIES)
-			return assert(!"Total entity count overflow");
+		if ( current_instance_index >= SHADER_MAX_ENTITIES || current_animated_index >= SHADER_MAX_ENTITIES )
+		{
+			vk_rtx_instance_overflow();
+			break;
+		}
 
 		if (  entity_mesh->mesh->indexOffset < 0 ) // failed to upload the vertex data - don't instance this mesh
 			return;
