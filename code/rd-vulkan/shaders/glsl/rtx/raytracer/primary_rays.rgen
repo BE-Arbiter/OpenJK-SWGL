@@ -98,7 +98,8 @@ void generate_rng_seed(ivec2 ipos, bool is_odd_checkerboard)
 {
 	int frame_num = global_ubo.current_frame_idx;
 
-	uint frame_offset = frame_num / NUM_BLUE_NOISE_TEX;
+	// The layer index cycles every NUM_BLUE_NOISE_TEX / 2 frames.
+	uint frame_offset = frame_num / (NUM_BLUE_NOISE_TEX / 2);
 
 	rng_seed = 0;
 	rng_seed |= (uint(ipos.x + frame_offset) % BLUE_NOISE_RES) << RNG_SEED_SHIFT_X;
