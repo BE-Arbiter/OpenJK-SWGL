@@ -43,6 +43,13 @@ layout( set = VERTEX_BUFFER_DESC_SET_IDX, binding = BINDING_OFFSET_RC_ACCUM )		b
 layout( set = VERTEX_BUFFER_DESC_SET_IDX, binding = BINDING_OFFSET_RC_RESOLVED )	buffer RC_RESOLVED_BUFFER { vec4 cells[]; } rc_resolved;	// per cell: D in rgb, weight in w
 layout( set = VERTEX_BUFFER_DESC_SET_IDX, binding = BINDING_OFFSET_RC_LAST_FRAME )	buffer RC_LAST_FRAME_BUFFER { uint frames[]; } rc_last_frame;	// per cell: the frame of its last sample
 
+// Only static world surfaces have cells. Models, movers and the sky change or are not lit.
+bool
+is_static_world(uint buffer_index)
+{
+	return buffer_index == VERTEX_BUFFER_WORLD || buffer_index == VERTEX_BUFFER_WORLD_D_MATERIAL;
+}
+
 uint
 rc_mix(uint x)
 {
@@ -73,13 +80,20 @@ rc_get_normal_code(vec3 normal)
 	return axis * 2u + ((normal[axis] < 0.0) ? 1u : 0u);
 }
 
+// The edge length of the cell at a position.
+float
+rc_get_voxel_size(vec3 position)
+{
+	return max(global_ubo.pt_rc_voxel_size, 0.001) * exp2(float(rc_get_level(position)));
+}
+
 // h1 selects the slot. h2 is the tag that the slot stores, it is never 0.
 // The normal is the geometric normal, on the side that the ray came from.
 void
 rc_get_key(vec3 position, vec3 normal, out uint h1, out uint h2)
 {
 	uint level = rc_get_level(position);
-	float voxel_size = max(global_ubo.pt_rc_voxel_size, 0.001) * exp2(float(level));
+	float voxel_size = rc_get_voxel_size(position);
 	uvec3 q = uvec3(ivec3(floor(position / voxel_size)));
 	uint meta = level | (rc_get_normal_code(normal) << 4);
 

@@ -128,13 +128,14 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define UBO_CVAR_LIST_RC \
 	UBO_CVAR_DO( pt_rc_enable,			0	)	/* switch for the radiance cache update: 0 or 1 */ \
 	UBO_CVAR_DO( pt_rc_debug,			0	)	/* radiance cache debug view: 0 = off, 1 = cell radiance times albedo, 2 = cell key colour, 3 = level colour */ \
-	UBO_CVAR_DO( pt_rc_voxel_size,		16	)	/* cell size at level 0, in world units */ \
+	UBO_CVAR_DO( pt_rc_voxel_size,		8	)	/* cell size at level 0, in world units */ \
 	UBO_CVAR_DO( pt_rc_scale_distance,	256	)	/* distance to the camera where the cell size doubles; it doubles again at each multiple of it */ \
 	UBO_CVAR_DO( pt_rc_update_stride,	4	)	/* one update path per stride x stride pixels, [1..RC_MAX_UPDATE_STRIDE] */ \
 	UBO_CVAR_DO( pt_rc_bounces,		3	)	/* surfaces per update path that write to the cache, [1..RC_MAX_BOUNCES] */ \
 	UBO_CVAR_DO( pt_rc_max_frames_weight,	32	)	/* samples of history a cell keeps, (0..inf) */ \
 	UBO_CVAR_DO( pt_rc_stale_frames,	64	)	/* frames without a sample after which a cell is removed */ \
 	UBO_CVAR_DO( pt_rc_min_weight,		2	)	/* samples a cell needs before a query trusts it */ \
+	UBO_CVAR_DO( pt_rc_min_hit_voxels,	2	)	/* a query needs a bounce hit at least this many cell sizes away: near hits fall back to NEE */ \
 
 #define UBO_CVAR_LIST \
 	UBO_CVAR_LIST_FLT \

@@ -835,6 +835,119 @@ bool get_is_gradient(ivec2 ipos)
 	return false;
 }
 
+// ========================================================================== //
+// Shading of a surface that a bounce ray hit. The bounce pass and the radiance
+// cache update pass share these functions. The caller chooses the normals.
+// ========================================================================== //
+
+vec3
+get_bounce_base_color(MaterialInfo minfo, vec2 tex_coord)
+{
+	vec3 base_color = vec3(minfo.base_factor);
+	if (minfo.base_texture != 0)
+		base_color *= global_textureLod(minfo.base_texture, tex_coord, 2).rgb;
+
+	return clamp(base_color, vec3(0), vec3(1));
+}
+
+// The emission of the surface, before the spotlight term.
+vec3
+get_bounce_emissive(Triangle triangle, MaterialInfo minfo, vec2 tex_coord, vec3 base_color, float mip_level)
+{
+	vec3 emissive = sample_emissive_texture(triangle.material_id, minfo, tex_coord, vec2(0), vec2(0), mip_level);
+	emissive *= triangle.emissive_factor;
+	emissive += get_emissive_shell(triangle.material_id, triangle.shell) * base_color;
+
+	return emissive;
+}
+
+// Matches the spotlight term of sample_light_lists() in light_lists.h.
+float
+get_bounce_spotlight(vec3 direction, vec3 normal)
+{
+	return sqrt(max(0, -dot(direction, normal)));
+}
+
+// Analytic lights are processed by NEE: the bounce ray must not add their emission again.
+// bounce_index 0: the direct lighting pass has sampled them, see `pt_direct_polygon_lights`.
+// bounce_index 1: the pass of the first bounce has sampled them, see `pt_indirect_polygon_lights`.
+bool
+is_analytic_light_hit(uint material_id, int bounce_index)
+{
+	return (material_id & MATERIAL_FLAG_LIGHT) != 0 &&
+		((bounce_index == 0) && (global_ubo.pt_direct_polygon_lights >= 0) ||
+		 (bounce_index == 1) && (global_ubo.pt_indirect_polygon_lights >= 0));
+}
+
+// Diffuse NEE at a bounce hit, with the settings of bounce 1.
+void
+get_bounce_direct_lighting(
+	vec3 position,
+	vec3 normal,
+	vec3 geo_normal,
+	uint cluster_idx,
+	uint material_id,
+	int shadow_cull_mask,
+	vec3 direction,
+	vec3 base_color,
+	bool is_gradient,
+	int rng_bounce,
+	out vec3 diffuse)
+{
+	vec3 specular;
+	get_direct_illumination(
+		position,
+		normal,
+		geo_normal,
+		cluster_idx,
+		material_id,
+		shadow_cull_mask,
+		direction,
+		base_color,
+		vec3(0), // base_reflectivity
+		0.0, // specular_factor
+		1.0, // roughness
+		MEDIUM_NONE,
+		false, // enable_caustics
+		0.0, // direct_specular_weight
+		global_ubo.pt_indirect_polygon_lights > 0,
+		global_ubo.pt_indirect_dyn_lights > 0,
+		is_gradient,
+		rng_bounce,
+		diffuse,
+		specular);
+}
+
+// Diffuse sun light at a bounce hit.
+void
+get_bounce_sun_lighting(
+	vec3 position,
+	vec3 normal,
+	vec3 geo_normal,
+	uint cluster_idx,
+	uint material_id,
+	int shadow_cull_mask,
+	vec3 direction,
+	out vec3 diffuse)
+{
+	vec3 specular;
+	get_sunlight(
+		cluster_idx,
+		material_id,
+		position,
+		normal,
+		geo_normal,
+		direction,
+		vec3(0), // base_reflectivity
+		0.0, // specular_factor
+		1.0, // roughness
+		MEDIUM_NONE,
+		false, // enable_caustics
+		diffuse,
+		specular,
+		shadow_cull_mask);
+}
+
 vec4 unpack_rgba8(uint p)
 {
     return vec4(
