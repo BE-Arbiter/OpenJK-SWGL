@@ -1619,6 +1619,9 @@ static void R_GenerateDrawSurfs( void ) {
 	// only surfaces still worth listing are the entities of a UI/no-world view.
 	if ( vk.rtxActive && ( tr.refdef.rdflags & RDF_NOWORLDMODEL ) )
 	{
+		// The raster needs the depth terms of the projection for this view.
+		R_SetFarClip();
+		R_SetupProjectionZ( &tr.viewParms );
 		R_AddEntitySurfaces();
 		return;
 	}
