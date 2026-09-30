@@ -935,6 +935,17 @@ void Cmd_Update_CheatStatsShield(gentity_t* ent)
 	ent->client->ps.stats[STAT_ARMOR] = Com_Clampi(0, ent->client->ps.stats[STAT_MAX_HEALTH], shield);
 }
 
+// Sets the ammo of the type ui_cheats_ammoType (an ammoData index) to ui_cheats_ammo.
+void Cmd_Update_CheatStatsAmmo(gentity_t* ent)
+{
+	const int ammoType = gi.Cvar_VariableIntegerValue("ui_cheats_ammoType");
+	if (ammoType <= AMMO_NONE || ammoType >= ammoCount)
+	{
+		return;
+	}
+	ent->client->ps.ammo[ammoType] = Com_Clampi(0, 999, gi.Cvar_VariableIntegerValue("ui_cheats_ammo"));
+}
+
 void Cmd_Update_CheatStatsForce(gentity_t* ent)
 {
 	int force = Com_Clampi(0, 999, gi.Cvar_VariableIntegerValue("ui_cheats_force"));
@@ -1628,6 +1639,7 @@ void Cmd_FlushSpawnerFile_f(gentity_t* ent)
 Cmd_AnimOverride_f
 
 animoverride <name>: forces the animation override <name> on the player.
+animoverride default: forces _humanoid.gla, also on a model with animoverride.cfg.
 animoverride none: removes it. The player uses the override of its model again, if it has one.
 animoverride: shows the animation file set of the player.
 =================
@@ -1639,7 +1651,7 @@ void Cmd_AnimOverride_f(gentity_t *ent)
 	{
 		const int fileIndex = ent->client->clientInfo.animFileIndex;
 		const char *fileSet = (fileIndex >= 0 && fileIndex < level.numKnownAnimFileSets) ? level.knownAnimFileSets[fileIndex].filename : "none";
-		gi.SendServerCommand(ent - g_entities, va("print \"Animation file set: %s\nUsage: animoverride <name> | none\n\"", fileSet));
+		gi.SendServerCommand(ent - g_entities, va("print \"Animation file set: %s\nUsage: animoverride <name> | default | none\n\"", fileSet));
 		return;
 	}
 
@@ -2063,6 +2075,11 @@ void ClientCommand( int clientNum ) {
 	if ( !Q_stricmp(cmd, "updateCheatStatsShield") )
 	{
 		Cmd_Update_CheatStatsShield( ent );
+		return;
+	}
+	if ( !Q_stricmp(cmd, "updateCheatStatsAmmo") )
+	{
+		Cmd_Update_CheatStatsAmmo( ent );
 		return;
 	}
 	if ( !Q_stricmp(cmd, "updateCheatStatsForce") )

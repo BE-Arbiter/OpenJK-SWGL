@@ -43,6 +43,19 @@ static char shownTitle[128];				// name at the top of the character screen (CG_D
 static const int variantsPerPage = 4;		// squares of a page: buttons variantButton1..4 of the menu
 qboolean searchChanged = qtrue;
 
+// Saved configuration of the "My Characters" screen: characters_configs/<code>_<variant code>/<name>.cfg.
+struct myConfig_t
+{
+	int		character;
+	int		variant;
+	char	name[MAX_QPATH];
+};
+#define MAX_MY_CONFIGS 512
+static myConfig_t myConfigs[MAX_MY_CONFIGS];
+static int numMyConfigs;
+static char configDirList[64 * 1024];	// FS_GetFileList output of characters_configs
+static char backScreen[16] = "characters";	// grid that opened the character screen: Back goes to it
+
 static vmCvar_t ui_char_config_error;
 static char configErrorSerial[16];		// serial of the last error shown
 static int configErrorHideTime;			// cgi_Milliseconds() time to hide the error
@@ -85,6 +98,69 @@ static void GetVariantTitle(const characterInfo_t *character, const characterVar
 }
 #pragma endregion
 
+#pragma region My Characters
+// Find the character and the variant of a folder <code>_<variant code>. Compare the full name: codes can contain "_".
+static qboolean FindConfigVariant(const char *folder, int *character, int *variant)
+{
+	for (int c = 0; c < loadedCharacters; c++)
+	{
+		const characterInfo_t *info = &charactersData[c];
+		const int variantCount = GetVariantCount(info);
+		for (int v = 0; v < variantCount; v++)
+		{
+			if (!Q_stricmp(folder, va("%s_%s", info->code, info->variantList[v].code)))
+			{
+				*character = c;
+				*variant = v;
+				return qtrue;
+			}
+		}
+	}
+	return qfalse;
+}
+
+static int QDECL CompareConfigNames(const void *a, const void *b)
+{
+	return Q_stricmp(((const myConfig_t *)a)->name, ((const myConfig_t *)b)->name);
+}
+
+// characterConfigsRefresh: read the saved configurations of all the variants again.
+void CG_Characters_ConfigsRefresh_f()
+{
+	const int numDirs = gi.FS_GetFileList("characters_configs", "/", configDirList, sizeof(configDirList));
+	const char *dir = configDirList;
+
+	numMyConfigs = 0;
+	for (int i = 0; i < numDirs && numMyConfigs < MAX_MY_CONFIGS; i++, dir += strlen(dir) + 1)
+	{
+		char folder[MAX_QPATH];
+		Q_strncpyz(folder, dir, sizeof(folder));
+		const size_t len = strlen(folder);
+		if (len && folder[len - 1] == '/')
+		{
+			folder[len - 1] = '\0';
+		}
+		int character, variant;
+		if (!folder[0] || folder[0] == '.' || !FindConfigVariant(folder, &character, &variant))
+		{
+			continue;
+		}
+
+		char list[8192];
+		const int count = gi.FS_GetFileList(va("characters_configs/%s", folder), ".cfg", list, sizeof(list));
+		const char *name = list;
+		for (int j = 0; j < count && numMyConfigs < MAX_MY_CONFIGS; j++, name += strlen(name) + 1)
+		{
+			myConfig_t *config = &myConfigs[numMyConfigs++];
+			config->character = character;
+			config->variant = variant;
+			COM_StripExtension(name, config->name, sizeof(config->name));
+		}
+	}
+	qsort(myConfigs, numMyConfigs, sizeof(myConfig_t), CompareConfigNames);
+}
+#pragma endregion
+
 #pragma region Actions
 
 
@@ -100,7 +176,7 @@ void ChangeCharacter(int characterIndex, int variantIndex = 0)
 	// The page arrows only when the variants do not fit on one page.
 	cgi_UI_Run_Command(GetVariantCount(currentCharacter) > variantsPerPage ? "show variantPages" : "hide variantPages");
 
-	// The character .cfg is ext_data/characters/<g_charKey>_<ui_variant_code>[_def|_NPC].cfg.
+	// The character .cfg is ext_data/characters/<g_charKey>_<ui_variant_code>[_NPC].cfg, the default one ext_data/characters_conf/<g_charKey>_<ui_variant_code>_def.cfg.
 	cgi_Cvar_Set("ui_char_model", variant->model);
 	cgi_Cvar_Set("ui_char_model_angle", "180");
 	cgi_Cvar_Set("g_charKey", currentCharacter->code);
@@ -124,6 +200,25 @@ void ChangeCharacter(int characterIndex, int variantIndex = 0)
 	cgi_UI_Run_Command("uiScript char_weapon");
 	cgi_UI_Run_Command("uiScript \"char_default_skin\" \"model_default\"");
 	cgi_UI_Run_Command("uiScript charConfigRefresh");
+}
+
+// Go from the selection grid to the character screen. Back goes to this grid again.
+static void ShowCharacterScreen()
+{
+	Q_strncpyz(backScreen, ui_character_screen.string, sizeof(backScreen));
+	cgi_Cvar_Set("ui_character_screen","character");
+	cgi_UI_Run_Command("hide selScreen");
+	cgi_UI_Run_Command("hide searchDisabled");
+	cgi_UI_Run_Command("hide characterButtons");
+	cgi_UI_Run_Command("show charScreen");
+	cgi_UI_Run_Command("hide tabPowers");
+	cgi_UI_Run_Command("hide tabWeapons");
+	cgi_UI_Run_Command("hide saberModels");
+	cgi_UI_Run_Command("hide StatsTabPc");
+	cgi_UI_Run_Command("show PowersTabPc");
+	cgi_UI_Run_Command("show WeaponsTabPc");
+	cgi_UI_Run_Command("show tabStats");
+	cgi_UI_Run_Command("uiScript toggleTeamAvailability");
 }
 
 void CG_Characters_CharacterClick_f()
@@ -161,21 +256,36 @@ void CG_Characters_CharacterClick_f()
 		}
 		//Change Character (Load Default, Screen)
 		ChangeCharacter(filteredCharactersIndexList[selectedCharacter]);
-		//Update View
-		cgi_Cvar_Set("ui_character_screen","character");
-		cgi_UI_Run_Command("hide selScreen");
-		cgi_UI_Run_Command("hide characterButtons");
-		cgi_UI_Run_Command("show charScreen");
-		cgi_UI_Run_Command("hide tabPowers");
-		cgi_UI_Run_Command("hide tabWeapons");
-		cgi_UI_Run_Command("hide saberModels");
-		cgi_UI_Run_Command("hide StatsTabPc");
-		cgi_UI_Run_Command("show PowersTabPc");
-		cgi_UI_Run_Command("show WeaponsTabPc");
-		cgi_UI_Run_Command("show tabStats");
-		cgi_UI_Run_Command("uiScript toggleTeamAvailability");
-		
+		ShowCharacterScreen();
+		return;
 	}
+	if (Q_stricmp(ui_character_screen.string, "myconfigs") == 0)
+	{
+		const int selectedConfig = (ui_character_page.integer * 15) + ui_character_selected.integer - 1;
+		if (selectedConfig < 0 || selectedConfig >= numMyConfigs)
+		{
+			return;
+		}
+		// Same as a click on the variant, then Load of the configuration.
+		const myConfig_t &config = myConfigs[selectedConfig];
+		ChangeCharacter(config.character, config.variant);
+		cgi_UI_Run_Command(va("uiScript charConfigLoadNamed \"%s\"", config.name));
+		ShowCharacterScreen();
+	}
+}
+
+// characterBack: Back of the character screen. The menu shows the selection screen; this sets its grid.
+void CG_Characters_Back_f()
+{
+	if (Q_stricmp(backScreen, "myconfigs") == 0)
+	{
+		// A configuration can be saved or deleted on the character screen.
+		CG_Characters_ConfigsRefresh_f();
+		// No search on this grid: the menu shows the search field again with the selection screen.
+		cgi_UI_Run_Command("hide searchNameInput");
+		cgi_UI_Run_Command("show searchDisabled");
+	}
+	cgi_Cvar_Set("ui_character_screen", backScreen);
 }
 
 // characterVariantClick <slot 1..4>: show the variant of this square of the page on the screen.
@@ -224,6 +334,10 @@ int getMaxPage() {
 	if (Q_stricmp(ui_character_screen.string, "characters") == 0)
 	{
 		return (filteredCharacters / 15) + 1;
+	}
+	if (Q_stricmp(ui_character_screen.string, "myconfigs") == 0)
+	{
+		return (numMyConfigs / 15) + 1;
 	}
 	return 0;
 }
@@ -483,6 +597,43 @@ void CG_DrawFactions() {
 
 }
 
+// "My Characters" grid: the saved configurations, with the icon of their variant. Same layout as CG_DrawCharacters.
+void CG_DrawMyConfigs() {
+	int marginX = 5, marginY = 4;
+	int startX = 114, startY = 88;
+	int bgSizeX = 94, bgSizeY = 114;
+	int iconSizeX = 90, iconSizeY = 90;
+	int iconOffsetX = 2, iconOffsetY = 2;
+	int nameSizeX = 82, nameSizeY = 16;
+	int nameOffsetX = 6, nameOffsetY = 90;
+	qhandle_t background = cgi_R_RegisterShaderNoMip("gfx/menu/w_character_icon_bg");
+
+	cgi_Cvar_Update(&ui_character_page);
+	int currentPage = ui_character_page.integer;
+	const int maxPage = getMaxPage();
+	if (currentPage >= maxPage)
+	{
+		currentPage = 0;
+		setCurrentPage(0);
+	}
+	const int beginIndex = currentPage * 15;
+	const int endIndex = Q_min(numMyConfigs, beginIndex + 15);
+	for (int i = beginIndex; i < endIndex; i++)
+	{
+		const myConfig_t &config = myConfigs[i];
+		const characterVariant_t *variant = &charactersData[config.character].variantList[config.variant];
+		const int posX = startX + ((i - beginIndex) % 5) * (bgSizeX + marginX);
+		const int posY = startY + ((i - beginIndex) / 5) * (bgSizeY + marginY);
+
+		CG_DrawPic(posX, posY, bgSizeX, bgSizeY, background);
+		CG_DrawPic(posX + iconOffsetX, posY + iconOffsetY, iconSizeX, iconSizeY, cgi_R_RegisterShaderNoMip(variant->icon));
+		CG_DrawTextInBox(posX + nameOffsetX, posY + nameOffsetY, nameSizeX, nameSizeY,
+			config.name, cgs.media.qhFontSmall, colorTable[CT_WHITE]);
+	}
+	CG_DrawTextInBox(114, 441, 490, 18,	// under the grid (x 114 to 604), right-aligned on its right edge
+		va("Page %d of %d (showing %d characters)", currentPage + 1, maxPage, numMyConfigs), cgs.media.qhFontSmall, colorTable[CT_WHITE], ALIGN_RIGHT);
+}
+
 // Variant squares in the frame 13 43 196 76 of the character screen: 2 rows of 5.
 // The buttons variantButton1..10 of IngameSWGLChars.menu have the same rects.
 void CG_DrawVariants() {
@@ -608,6 +759,10 @@ void CG_DrawCharactersMenu() {
 	{
 		CG_DrawCharacters();
 	}
+	else if (Q_stricmp(ui_character_screen.string, "myconfigs") == 0)
+	{
+		CG_DrawMyConfigs();
+	}
 	else if (Q_stricmp(ui_character_screen.string, "character") == 0)
 	{
 		CG_DrawCharacterTitle();
@@ -658,7 +813,7 @@ struct portraitJob_t
 {
 	char	model[64];
 	char	skin[MAX_QPATH];	// skin name for messages, e.g. "model_red"
-	char	skinPath[128];		// skin given to the renderer: a .skin file or "models/players/<model>/|head|torso|lower"
+	char	skinPath[128];		// skin given to the renderer: a .skin file or "models/players/<model>/|head|torso|lower"; empty: shaders of the .glm
 	char	file[MAX_QPATH];	// output TGA
 	byte	color[3];			// tint of the model (menu RGB colors)
 };
@@ -683,7 +838,8 @@ static struct
 	float			frameSide;		// lateral position of the center of the shot
 	float			frameWidth;		// width of the shot, in model units
 	qboolean		single;			// "charportrait": one portrait with a frame from the command line
-	float			singleX;		// "charportrait" frame: center offset from *head_top (right, down) and size
+	qboolean		singleMeasure;	// "charportrait" on a model without *head_top: the head top comes from the silhouette
+	float			singleX;		// "charportrait" frame: center offset from the head top (right, down) and size
 	float			singleY;
 	float			singleWidth;
 	float			singleHeight;
@@ -738,19 +894,12 @@ static void Portrait_WideFrame(void)
 	portrait.frameWidth = portrait.frameTop - portrait.frameBottom;
 }
 
-// "charportrait" frame: center at *head_top plus (X right, Y down), size W x H, in model units.
-static void Portrait_SingleFrame(void)
+// "charportrait" frame: center at the head top plus (X right, Y down), size W x H, in model units.
+static void Portrait_SingleFrame(float headTop, float headSide)
 {
-	vec3_t head = { 0, 0, 42 };
-
-	if (!Portrait_BoltPosition("*head_top", head) && Portrait_BoltPosition("cranium", head))
-	{
-		head[2] += 8;
-	}
-
 	// Image right is -y in the view.
-	const float centerZ = head[2] - portrait.singleY;
-	portrait.frameSide = head[1] - portrait.singleX;
+	const float centerZ = headTop - portrait.singleY;
+	portrait.frameSide = headSide - portrait.singleX;
 	portrait.frameTop = centerZ + 0.5f * portrait.singleHeight;
 	portrait.frameBottom = centerZ - 0.5f * portrait.singleHeight;
 	portrait.frameWidth = portrait.singleWidth;
@@ -793,6 +942,13 @@ static portraitFrame_t Portrait_CloseFrame(void)
 		portrait.frameBottom -= 0.125f * wide;
 		portrait.frameWidth = portrait.frameTop - portrait.frameBottom;
 		return PORTRAIT_FRAME_RETRY;
+	}
+
+	// Image left is +y in the view.
+	if (portrait.single)
+	{
+		Portrait_SingleFrame(portrait.frameTop - headLine * wide, portrait.frameSide + (0.5f - centerLine) * wide);
+		return PORTRAIT_FRAME_OK;
 	}
 
 	if (!portrait.humanoid)
@@ -841,16 +997,20 @@ static qboolean Portrait_Load(const portraitJob_t *job)
 
 	// 0: the skin file is missing or broken (skip this job), or the renderer skin table is full
 	// (load the map again). Only a .skin file that exists can mean a full table.
-	portrait.skin = cgi_R_RegisterSkin(job->skinPath);
-	if (!portrait.skin)
+	portrait.skin = NULL_HANDLE;
+	if (job->skinPath[0])
 	{
-		if (!strchr(job->skinPath, '|') && gi.FS_ReadFile(job->skinPath, NULL) > 0)
+		portrait.skin = cgi_R_RegisterSkin(job->skinPath);
+		if (!portrait.skin)
 		{
-			portrait.tableFull = qtrue;
+			if (!strchr(job->skinPath, '|') && gi.FS_ReadFile(job->skinPath, NULL) > 0)
+			{
+				portrait.tableFull = qtrue;
+			}
+			return qfalse;
 		}
-		return qfalse;
+		gi.G2API_SetSkin(&portrait.ghoul2[0], portrait.skin, portrait.skin);
 	}
-	gi.G2API_SetSkin(&portrait.ghoul2[0], portrait.skin, portrait.skin);
 
 	// Freeze the model on the first frame of BOTH_STAND1.
 	char *glaName = gi.G2API_GetGLAName(&portrait.ghoul2[0]);
@@ -876,9 +1036,12 @@ static qboolean Portrait_Load(const portraitJob_t *job)
 		gi.G2API_SetBoneAnim(&portrait.ghoul2[0], "model_root", anim->firstFrame, anim->firstFrame + 1,
 			BONE_ANIM_OVERRIDE_FREEZE, 1.0f, cg.time, anim->firstFrame, 0);
 	}
-	if (portrait.single)
+	// Models without *head_top (droids, creatures): measure the silhouette in a wide shot first.
+	vec3_t head;
+	portrait.singleMeasure = (qboolean)(portrait.single && !Portrait_BoltPosition("*head_top", head));
+	if (portrait.single && !portrait.singleMeasure)
 	{
-		Portrait_SingleFrame();
+		Portrait_SingleFrame(head[2], head[1]);
 	}
 	else
 	{
@@ -971,6 +1134,10 @@ static void Portrait_BuildJobs(void)
 				Q_strncpyz(job.model, model, sizeof(job.model));
 				Q_strncpyz(job.skin, skin.c_str(), sizeof(job.skin));
 				Com_sprintf(job.skinPath, sizeof(job.skinPath), "models/players/%s/%s.skin", model, job.skin);
+				if (gi.FS_ReadFile(job.skinPath, NULL) <= 0)
+				{
+					job.skinPath[0] = '\0';	// model without .skin files (mark1, mark2)
+				}
 				Com_sprintf(job.file, sizeof(job.file), "portraits/%s/%s.tga", model, job.skin + 6);	// no "model_" prefix
 				job.color[0] = job.color[1] = job.color[2] = 255;
 				portraitJobs.push_back(job);
@@ -1104,7 +1271,13 @@ void CG_Characters_Portrait_f(void)
 	Q_strncpyz(job.skin, head, sizeof(job.skin));
 	// Same skin string as UI_UpdateCharacterSkin.
 	Com_sprintf(job.skinPath, sizeof(job.skinPath), "models/players/%s/|%s|%s|%s", model, head, torso, lower);
-	if (!Q_stricmp(head, torso) && !Q_stricmp(head, lower))
+	if (gi.FS_ReadFile(va("models/players/%s/%s.skin", model, head), NULL) <= 0)
+	{
+		// Model without .skin files: the menu cvars keep the skin of the previous character.
+		job.skinPath[0] = '\0';
+		Com_sprintf(job.file, sizeof(job.file), "portraits/%s/default.tga", model);
+	}
+	else if (!Q_stricmp(head, torso) && !Q_stricmp(head, lower))
 	{
 		Com_sprintf(job.file, sizeof(job.file), "portraits/%s/%s.tga", model, Q_stricmpn(head, "model_", 6) ? head : head + 6);
 	}
@@ -1173,8 +1346,8 @@ void CG_DrawCharacterPortrait(void)
 
 	const portraitJob_t *job = &portraitJobs[portrait.job];
 
-	// "charportrait" has its frame from the command line: no measure.
-	if (portrait.single && portrait.step == PORTRAIT_STEP_MEASURE_BLACK_REQUEST)
+	// "charportrait" on *head_top has its frame from the command line: no measure.
+	if (portrait.single && !portrait.singleMeasure && portrait.step == PORTRAIT_STEP_MEASURE_BLACK_REQUEST)
 	{
 		portrait.step = PORTRAIT_STEP_CLOSE_FRAME + 1;
 	}

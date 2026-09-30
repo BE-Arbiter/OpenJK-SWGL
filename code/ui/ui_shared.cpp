@@ -90,6 +90,16 @@ qboolean Item_HandleAccept(itemDef_t * item);
 static itemDef_t *g_bindItem = NULL;
 static itemDef_t *g_editItem = NULL;
 static itemDef_t *itemCapture = NULL;   // item that has the mouse captured ( if any )
+static itemDef_t *g_dropdownItem = NULL;	// the dropdown list box that is open ( if any )
+static int g_dropdownHover = -1;			// the feeder index under the mouse in the open dropdown, else -1
+
+static void		Item_ListBox_DropdownClose(void);
+static void		Item_ListBox_DropdownPaint(itemDef_t *item);
+static void		Item_ListBox_DropdownMouseMove(menuDef_t *menu, float x, float y);
+static qboolean	Item_ListBox_DropdownHeaderKey(itemDef_t *item, int key);
+void			Item_ListBox_Paint(itemDef_t *item);
+void			Item_Action(itemDef_t *item);
+static void		Item_ListBox_DropdownOpenKey(int key, qboolean down);
 
 #define DOUBLE_CLICK_DELAY 300
 static int lastListBoxClickTime = 0;
@@ -1642,6 +1652,11 @@ Menu_RunCloseScript
 */
 static void Menu_RunCloseScript(menuDef_t *menu)
 {
+	if (g_dropdownItem && g_dropdownItem->parent == menu)
+	{
+		Item_ListBox_DropdownClose();
+	}
+
 	if (menu && menu->window.flags & WINDOW_VISIBLE && menu->onClose)
 	{
 		itemDef_t item;
@@ -3694,6 +3709,46 @@ qboolean ItemParse_scrollhidden( itemDef_t *item )
 	return qtrue;
 }
 
+/*
+===============
+ItemParse_dropdown
+	dropdown <rows>: the list box is a dropdown, the open list shows <rows> rows
+===============
+*/
+qboolean ItemParse_dropdown( itemDef_t *item )
+{
+	listBoxDef_t *listPtr;
+	Item_ValidateTypeData(item);
+	listPtr = (listBoxDef_t*)item->typeData;
+
+	if (item->type != ITEM_TYPE_LISTBOX || !listPtr || PC_ParseInt(&listPtr->dropdownRows))
+	{
+		return qfalse;
+	}
+	return qtrue;
+}
+
+/*
+===============
+ItemParse_dropdownarrow
+	dropdownarrow <shader>: the arrow at the right of the dropdown header
+===============
+*/
+qboolean ItemParse_dropdownarrow( itemDef_t *item )
+{
+	listBoxDef_t *listPtr;
+	const char *temp;
+	Item_ValidateTypeData(item);
+	listPtr = (listBoxDef_t*)item->typeData;
+
+	if (item->type != ITEM_TYPE_LISTBOX || !listPtr || PC_ParseString(&temp))
+	{
+		return qfalse;
+	}
+	listPtr->dropdownArrow = DC->registerShaderNoMip(temp);
+	return qtrue;
+}
+
 
 /*
 ===============
@@ -5163,6 +5218,8 @@ keywordHash_t itemParseKeywords[] = {
 	{"desctext",		ItemParse_descText			},
 	{"disableCvar",		ItemParse_disableCvar,		},
 	{"doubleclick",		ItemParse_doubleClick,		},
+	{"dropdown",		ItemParse_dropdown,			},
+	{"dropdownarrow",	ItemParse_dropdownarrow,	},
 	{"elementheight",	ItemParse_elementheight,	},
 	{"elementtype",		ItemParse_elementtype,		},
 	{"elementwidth",	ItemParse_elementwidth,		},
@@ -5472,6 +5529,21 @@ void Item_InitControls(itemDef_t *item)
 			listPtr->startPos = 0;
 			listPtr->endPos = 0;
 			listPtr->cursorPos = 0;
+
+			// Only a vertical text list can be a dropdown.
+			if (listPtr->dropdownRows > 0 && ((item->window.flags & WINDOW_HORIZONTAL) || listPtr->elementStyle == LISTBOX_IMAGE || item->special == FEEDER_MODEL_SKINS || listPtr->elementHeight <= 0))
+			{
+				Com_Printf(S_COLOR_YELLOW "WARNING: dropdown on item '%s' needs a vertical text list box with an elementheight\n", item->window.name ? item->window.name : "");
+				listPtr->dropdownRows = 0;
+			}
+
+			// _UI_DrawRect scales the border size to the screen and overlaps the corners.
+			// The dropdown paints its border in virtual units, and the header and the list share one line.
+			if (listPtr->dropdownRows > 0 && item->window.border == WINDOW_BORDER_FULL)
+			{
+				listPtr->dropdownBorder = item->window.borderSize;
+				item->window.border = 0;
+			}
 		}
 	}
 }
@@ -5705,6 +5777,9 @@ Menus_Activate
 */
 void  Menus_Activate(menuDef_t *menu)
 {
+	// The new menu takes the keys, so a dropdown of the old menu cannot stay open.
+	Item_ListBox_DropdownClose();
+
 	menu->window.flags |= (WINDOW_HASFOCUS | WINDOW_VISIBLE);
 
 	if (menu->onOpen)
@@ -6214,6 +6289,8 @@ void Menu_Reset(void)
 	//FIXME iterate menus to destoy G2 assets.
 	int i;
 
+	Item_ListBox_DropdownClose();
+
 	for (i = 0; i < menuCount; i++)
 	{
 		Menu_FreeGhoulItems( &Menus[i] );
@@ -6633,6 +6710,18 @@ void Menu_Paint(menuDef_t *menu, qboolean forcePaint)
 		menu->appearanceCnt++;
 	}
 
+	// The open dropdown list is on top of all the items.
+	if (g_dropdownItem && g_dropdownItem->parent == menu)
+	{
+		if (g_dropdownItem->window.flags & WINDOW_VISIBLE)
+		{
+			Item_ListBox_DropdownPaint(g_dropdownItem);
+		}
+		else
+		{
+			Item_ListBox_DropdownClose();
+		}
+	}
 
 	if (uis.debugMode)
 	{
@@ -7148,12 +7237,232 @@ void Item_TextScroll_Paint(itemDef_t *item)
 ===============
 Item_ListBox_ScrollbarSize
 	width of the scrollbar of a list box: the "scrollbarsize" keyword, else SCROLLBAR_SIZE
+	(a dropdown: 0.6 of a row)
 ===============
 */
 float Item_ListBox_ScrollbarSize(itemDef_t *item)
 {
 	const listBoxDef_t *listPtr = (const listBoxDef_t *)item->typeData;
-	return (listPtr && listPtr->scrollbarSize > 0) ? listPtr->scrollbarSize : SCROLLBAR_SIZE;
+	if (listPtr && listPtr->scrollbarSize > 0)
+	{
+		return listPtr->scrollbarSize;
+	}
+	if (listPtr && listPtr->dropdownRows > 0)
+	{
+		return listPtr->elementHeight * 0.6f;
+	}
+	return SCROLLBAR_SIZE;
+}
+
+// The outer rect of the open list, border included. Valid while listBoxDef_t::dropdownList is set.
+static rectDef_t g_dropdownOuter;
+
+/*
+===============
+Item_ListBox_DropdownListRect
+	the outer rect of the open list: under the header, or above it if the screen is too short.
+	The list and the header share one border line.
+===============
+*/
+static void Item_ListBox_DropdownListRect(itemDef_t *item, const rectDef_t *header, rectDef_t *r)
+{
+	const listBoxDef_t *listPtr = (const listBoxDef_t *)item->typeData;
+	const float border = listPtr->dropdownBorder;
+	const int count = DC->feederCount(item->special);
+	const int rows = Com_Clampi(1, listPtr->dropdownRows, count);
+
+	r->x = header->x;
+	r->w = header->w;
+	r->h = rows * listPtr->elementHeight + 2 * border;
+	r->y = header->y + header->h - border;
+	if (r->y + r->h > SCREEN_HEIGHT && header->y + border - r->h >= 0)
+	{
+		r->y = header->y + border - r->h;
+	}
+}
+
+/*
+===============
+Item_ListBox_DropdownInnerRect
+	the rect that the list box code gets for the open list.
+	The list box code keeps 1 unit to the right, top and bottom edges; this rect puts the scrollbar on the border.
+	The text of row k is at y + 1 + k * elementHeight, directly under the border.
+===============
+*/
+static void Item_ListBox_DropdownInnerRect(const listBoxDef_t *listPtr, const rectDef_t *outer, rectDef_t *r)
+{
+	const float border = listPtr->dropdownBorder;
+
+	r->x = outer->x + border;
+	r->y = outer->y + border - 1;
+	r->w = outer->w - 2 * border + 1;
+	r->h = outer->h - 2 * border + 2;
+}
+
+// While this object exists, the rect of the open dropdown is the inner rect of its list.
+// The list box code then paints and hit-tests the list. Nested objects do nothing.
+class DropdownListScope
+{
+public:
+	explicit DropdownListScope(itemDef_t *item) : m_item(item), m_active(qfalse)
+	{
+		listBoxDef_t *listPtr = (listBoxDef_t *)item->typeData;
+		if (item != g_dropdownItem || listPtr->dropdownList)
+		{
+			return;
+		}
+		m_active = qtrue;
+		m_header = item->window.rect;
+		m_scrollhidden = listPtr->scrollhidden;
+		Item_ListBox_DropdownListRect(item, &m_header, &g_dropdownOuter);
+		Item_ListBox_DropdownInnerRect(listPtr, &g_dropdownOuter, &item->window.rect);
+		// A list that shows all its entries has no scrollbar.
+		listPtr->scrollhidden = (qboolean)(m_scrollhidden || DC->feederCount(item->special) <= listPtr->dropdownRows);
+		listPtr->dropdownList = qtrue;
+	}
+
+	~DropdownListScope()
+	{
+		if (m_active)
+		{
+			listBoxDef_t *listPtr = (listBoxDef_t *)m_item->typeData;
+			m_item->window.rect = m_header;
+			listPtr->scrollhidden = m_scrollhidden;
+			listPtr->dropdownList = qfalse;
+		}
+	}
+
+	// The header rect; valid in the outermost object only.
+	const rectDef_t &Header() const { return m_header; }
+
+private:
+	itemDef_t	*m_item;
+	qboolean	m_active;
+	qboolean	m_scrollhidden;
+	rectDef_t	m_header;
+};
+
+/*
+===============
+Item_ListBox_DropdownBorder
+	a border in virtual units, with no overlap at the corners (semi-transparent colors stay even)
+===============
+*/
+static void Item_ListBox_DropdownBorder(const rectDef_t *r, float size, const vec4_t color, qboolean top, qboolean bottom)
+{
+	if (size <= 0)
+	{
+		return;
+	}
+	if (top)
+	{
+		DC->fillRect(r->x, r->y, r->w, size, color);
+	}
+	if (bottom)
+	{
+		DC->fillRect(r->x, r->y + r->h - size, r->w, size, color);
+	}
+	DC->fillRect(r->x, r->y + size, size, r->h - 2 * size, color);
+	DC->fillRect(r->x + r->w - size, r->y + size, size, r->h - 2 * size, color);
+}
+
+/*
+===============
+Item_ListBox_DropdownHeaderPaint
+	the closed dropdown: the selected entry, the arrow and the border
+===============
+*/
+static void Item_ListBox_DropdownHeaderPaint(itemDef_t *item)
+{
+	const listBoxDef_t *listPtr = (const listBoxDef_t *)item->typeData;
+	const rectDef_t *r = &item->window.rect;
+	const float border = listPtr->dropdownBorder;
+	const int count = DC->feederCount(item->special);
+
+	if (item->cursorPos >= count)
+	{//probably changed feeders, so reset
+		item->cursorPos = 0;
+	}
+
+	Item_ListBox_DropdownBorder(r, border, item->window.borderColor, qtrue, qtrue);
+
+	// The arrow is in the column of the scrollbar of the open list.
+	const float arrowSize = Q_min(Item_ListBox_ScrollbarSize(item), r->h - 2 * border);
+	DC->drawHandlePic(r->x + r->w - border - arrowSize, r->y + (r->h - arrowSize) / 2, arrowSize, arrowSize, listPtr->dropdownArrow ? listPtr->dropdownArrow : DC->Assets.scrollBarArrowDown);
+
+	if (count <= 0)
+	{
+		return;
+	}
+
+	qhandle_t optionalImage;
+	const char *text = DC->feederItemText(item->special, item->cursorPos, 0, &optionalImage);
+	if (!text || !text[0])
+	{
+		return;
+	}
+	if (text[0] == '@')
+	{
+		text = SE_GetString(&text[1]);
+	}
+
+	menuDef_t *parent = (menuDef_t *)item->parent;
+	const qboolean highlight = (qboolean)((item->window.flags & WINDOW_HASFOCUS) || item == g_dropdownItem);
+	const float y = r->y + (r->h - DC->textHeight(text, item->textscale, item->font)) / 2;
+	DC->drawText(r->x + border + 3, y, item->textscale, highlight ? parent->focusColor : item->window.foreColor, text, (int)(r->w - 2 * border - arrowSize - 6), item->textStyle, item->font);
+}
+
+/*
+===============
+Item_ListBox_DropdownPaint
+	the open list of a dropdown, painted after all the items of the menu
+===============
+*/
+static void Item_ListBox_DropdownPaint(itemDef_t *item)
+{
+	DropdownListScope scope(item);
+	listBoxDef_t *listPtr = (listBoxDef_t *)item->typeData;
+	const rectDef_t *r = &item->window.rect;
+	const rectDef_t outer = g_dropdownOuter;
+
+	// The vertical paint resets endPos only with a scrollbar.
+	listPtr->endPos = listPtr->startPos;
+
+	// The list covers other items, so it has an opaque background. The fill stays in the border: it does not cover the line of the header.
+	const float border = listPtr->dropdownBorder;
+	vec4_t back = { 0.05f, 0.05f, 0.05f, 0.95f };
+	if (item->window.backColor[3] > 0)
+	{
+		VectorCopy4(item->window.backColor, back);
+	}
+	DC->fillRect(outer.x + border, outer.y + border, outer.w - 2 * border, outer.h - 2 * border, back);
+
+	// The selected and hovered rows fill the full row, from the border to the scrollbar.
+	const int visibleRows = (int)(r->h / listPtr->elementHeight);
+	const float bandX = outer.x + border;
+	const float bandW = outer.w - 2 * border - (listPtr->scrollhidden ? 0 : Item_ListBox_ScrollbarSize(item));
+	const int selected = item->cursorPos;
+	for (int pass = 0; pass < 2; pass++)
+	{
+		const int index = pass ? g_dropdownHover : selected;
+		if (index < listPtr->startPos || index >= listPtr->startPos + visibleRows || (pass && index == selected))
+		{
+			continue;
+		}
+		vec4_t band;
+		VectorCopy4(item->window.outlineColor, band);
+		band[3] *= pass ? 0.5f : 1.0f;
+		DC->fillRect(bandX, r->y + 1 + (index - listPtr->startPos) * listPtr->elementHeight, bandW, listPtr->elementHeight, band);
+	}
+
+	// The list box code paints its own selection band 2 units under the row; no selection for it.
+	item->cursorPos = -1;
+	Item_ListBox_Paint(item);
+	item->cursorPos = selected;
+
+	// The header paints the line that the list shares with it.
+	const qboolean below = (qboolean)(outer.y >= scope.Header().y);
+	Item_ListBox_DropdownBorder(&outer, listPtr->dropdownBorder, item->window.borderColor, (qboolean)!below, below);
 }
 
 /*
@@ -7169,6 +7478,13 @@ void Item_ListBox_Paint(itemDef_t *item)
 	qhandle_t image;
 	qhandle_t optionalImage;
 	listBoxDef_t *listPtr = (listBoxDef_t*)item->typeData;
+
+	// The open list of a dropdown is painted by Item_ListBox_DropdownPaint, after all the items.
+	if (listPtr->dropdownRows > 0 && !listPtr->dropdownList)
+	{
+		Item_ListBox_DropdownHeaderPaint(item);
+		return;
+	}
 
 	// the listbox is horizontal or vertical and has a fixed size scroll bar going either direction
 	// elements are enumerated from the DC and either text or image handles are acquired from the DC as well
@@ -10096,6 +10412,12 @@ int Item_ListBox_OverLB(itemDef_t *item, float x, float y)
 	listBoxDef_t* listPtr;
 	listPtr = (listBoxDef_t*)item->typeData;
 
+	// A closed dropdown, or an open one with no scrollbar, has no scroll parts.
+	if (listPtr->dropdownRows > 0 && (!listPtr->dropdownList || listPtr->scrollhidden))
+	{
+		return 0;
+	}
+
 	if (item->window.flags & WINDOW_HORIZONTAL)
 	{
 		// check if on left arrow
@@ -10245,6 +10567,13 @@ void Item_ListBox_MouseEnter(itemDef_t *item, float x, float y)
 	listBoxDef_t *listPtr = (listBoxDef_t*)item->typeData;
 
 	item->window.flags &= ~(WINDOW_LB_LEFTARROW | WINDOW_LB_RIGHTARROW | WINDOW_LB_THUMB | WINDOW_LB_PGUP | WINDOW_LB_PGDN);
+
+	// The hover of the open list is Item_ListBox_DropdownMouseMove.
+	if (listPtr->dropdownRows > 0)
+	{
+		return;
+	}
+
 	item->window.flags |= Item_ListBox_OverLB(item, x, y);
 
 	if (item->window.flags & WINDOW_HORIZONTAL)
@@ -10563,6 +10892,13 @@ void Menu_HandleMouseMove(menuDef_t *menu, float x, float y)
 
 	if (g_waitingForKey || g_editingField)
 	{
+		return;
+	}
+
+	// An open dropdown takes the mouse from all the other items.
+	if (g_dropdownItem && g_dropdownItem->parent == menu)
+	{
+		Item_ListBox_DropdownMouseMove(menu, x, y);
 		return;
 	}
 
@@ -11402,6 +11738,13 @@ qboolean Item_ListBox_HandleKey(itemDef_t *item, int key, qboolean down, qboolea
 	listBoxDef_t *listPtr = (listBoxDef_t*)item->typeData;
 	int count = DC->feederCount(item->special);
 	int max, viewmax;
+
+	// The keys of a closed dropdown are Item_ListBox_DropdownHeaderKey.
+	if (listPtr->dropdownRows > 0 && !listPtr->dropdownList)
+	{
+		return qfalse;
+	}
+
 	if (force || (Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory) && item->window.flags & WINDOW_HASFOCUS))
 	{
 		max = Item_ListBox_MaxScroll(item);
@@ -11711,12 +12054,13 @@ Scroll_ListBox_AutoFunc
 static void Scroll_ListBox_AutoFunc(void *p)
 {
 	scrollInfo_t *si = (scrollInfo_t*)p;
+	DropdownListScope scope(si->item);
 	if (DC->realTime > si->nextScrollTime)
 	{
 		// need to scroll which is done by simulating a click to the item
 		// this is done a bit sideways as the autoscroll "knows" that the item is a listbox
 		// so it calls it directly
-		Item_ListBox_HandleKey(si->item, si->scrollKey, qtrue, qfalse);
+		Item_ListBox_HandleKey(si->item, si->scrollKey, qtrue, (qboolean)(si->item == g_dropdownItem));
 		si->nextScrollTime = DC->realTime + si->adjustValue;
 	}
 
@@ -11741,6 +12085,7 @@ static void Scroll_ListBox_ThumbFunc(void *p)
 	rectDef_t r;
 	int pos, max;
 
+	DropdownListScope scope(si->item);
 	listBoxDef_t *listPtr = (listBoxDef_t*)si->item->typeData;
 	if (si->item->window.flags & WINDOW_HORIZONTAL)
 	{
@@ -12064,6 +12409,262 @@ void Item_StartCapture(itemDef_t *item, int key)
 			}
 			break;
 		}
+	}
+}
+
+#define WINDOW_LB_ALL (WINDOW_LB_LEFTARROW | WINDOW_LB_RIGHTARROW | WINDOW_LB_THUMB | WINDOW_LB_PGUP | WINDOW_LB_PGDN)
+
+/*
+=================
+Item_ListBox_DropdownClose
+=================
+*/
+static void Item_ListBox_DropdownClose(void)
+{
+	if (!g_dropdownItem)
+	{
+		return;
+	}
+	if (itemCapture == g_dropdownItem)
+	{
+		Item_StopCapture(itemCapture);
+		itemCapture = NULL;
+		captureFunc = NULL;
+		captureData = NULL;
+	}
+	g_dropdownItem->window.flags &= ~WINDOW_LB_ALL;
+	g_dropdownItem = NULL;
+	g_dropdownHover = -1;
+}
+
+/*
+=================
+Item_ListBox_DropdownOpen
+	opens the list, scrolled to show the selected entry
+=================
+*/
+static void Item_ListBox_DropdownOpen(itemDef_t *item)
+{
+	listBoxDef_t *listPtr = (listBoxDef_t *)item->typeData;
+
+	Item_ListBox_DropdownClose();
+	g_dropdownItem = item;
+	listPtr->cursorPos = item->cursorPos;
+
+	DropdownListScope scope(item);
+	const int rows = (int)(item->window.rect.h / listPtr->elementHeight);
+	if (item->cursorPos < listPtr->startPos || item->cursorPos >= listPtr->startPos + rows)
+	{
+		listPtr->startPos = item->cursorPos - rows / 2;
+	}
+	listPtr->startPos = Com_Clampi(0, Item_ListBox_MaxScroll(item), listPtr->startPos);
+	Item_ListBox_DropdownMouseMove((menuDef_t *)item->parent, DC->cursorx, DC->cursory);
+}
+
+/*
+=================
+Item_ListBox_DropdownSelect
+	selects an entry like a click in a list box
+=================
+*/
+static void Item_ListBox_DropdownSelect(itemDef_t *item, int index)
+{
+	listBoxDef_t *listPtr = (listBoxDef_t *)item->typeData;
+
+	listPtr->cursorPos = index;
+	item->cursorPos = index;
+	DC->feederSelection(item->special, index, item);
+	Item_Action(item);
+}
+
+/*
+=================
+Item_ListBox_DropdownMouseMove
+	the hover of the open list; the other items of the menu get no mouse
+=================
+*/
+static void Item_ListBox_DropdownMouseMove(menuDef_t *menu, float x, float y)
+{
+	itemDef_t *item = g_dropdownItem;
+	listBoxDef_t *listPtr = (listBoxDef_t *)item->typeData;
+
+	for (int i = 0; i < menu->itemCount; i++)
+	{
+		if (menu->items[i] != item && (menu->items[i]->window.flags & WINDOW_MOUSEOVER))
+		{
+			Item_MouseLeave(menu->items[i]);
+			Item_SetMouseOver(menu->items[i], qfalse);
+		}
+	}
+
+	DropdownListScope scope(item);
+	item->window.flags &= ~WINDOW_LB_ALL;
+	g_dropdownHover = -1;
+	if (!Rect_ContainsPoint(&item->window.rect, x, y))
+	{
+		return;
+	}
+
+	const int flags = Item_ListBox_OverLB(item, x, y);
+	if (flags)
+	{
+		item->window.flags |= flags;
+		return;
+	}
+
+	const int rows = (int)(item->window.rect.h / listPtr->elementHeight);
+	const int row = (int)((y - item->window.rect.y - 1) / listPtr->elementHeight);
+	const int index = listPtr->startPos + row;
+	if (row >= 0 && row < rows && index < DC->feederCount(item->special))
+	{
+		g_dropdownHover = index;
+		listPtr->cursorPos = index;
+	}
+}
+
+/*
+=================
+Item_ListBox_DropdownHeaderKey
+	the keys of a closed dropdown that has the focus; returns qtrue if it used the key
+=================
+*/
+static qboolean Item_ListBox_DropdownHeaderKey(itemDef_t *item, int key)
+{
+	if (item->type != ITEM_TYPE_LISTBOX || !item->typeData)
+	{
+		return qfalse;
+	}
+	listBoxDef_t *listPtr = (listBoxDef_t *)item->typeData;
+	if (listPtr->dropdownRows <= 0 || listPtr->dropdownList)
+	{
+		return qfalse;
+	}
+
+	const qboolean over = Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory);
+	const int count = DC->feederCount(item->special);
+	int step = 0;
+
+	switch (key)
+	{
+	case A_MOUSE1:
+	case A_MOUSE2:
+		if (!over)
+		{
+			return qfalse;
+		}
+		Item_ListBox_DropdownOpen(item);
+		return qtrue;
+
+	case A_ENTER:
+	case A_KP_ENTER:
+		Item_ListBox_DropdownOpen(item);
+		return qtrue;
+
+	// Up and down stay for the menu navigation.
+	case A_CURSOR_LEFT:
+	case A_KP_4:
+		step = -1;
+		break;
+	case A_CURSOR_RIGHT:
+	case A_KP_6:
+		step = 1;
+		break;
+	case A_MWHEELUP:
+		step = over ? -1 : 0;
+		break;
+	case A_MWHEELDOWN:
+		step = over ? 1 : 0;
+		break;
+	}
+
+	if (step == 0 || count <= 0)
+	{
+		return qfalse;
+	}
+	const int index = Com_Clampi(0, count - 1, item->cursorPos + step);
+	if (index != item->cursorPos)
+	{
+		Item_ListBox_DropdownSelect(item, index);
+	}
+	return qtrue;
+}
+
+/*
+=================
+Item_ListBox_DropdownOpenKey
+	all the keys while a dropdown is open; a click out of the list closes it
+=================
+*/
+static void Item_ListBox_DropdownOpenKey(int key, qboolean down)
+{
+	itemDef_t *item = g_dropdownItem;
+
+	// The same capture release as Item_HandleKey.
+	if (itemCapture)
+	{
+		Item_StopCapture(itemCapture);
+		itemCapture = NULL;
+		captureFunc = NULL;
+		captureData = NULL;
+	}
+	if (!down)
+	{
+		return;
+	}
+
+	switch (key)
+	{
+	case A_MOUSE1:
+	case A_MOUSE2:
+	case A_MOUSE3:
+	{
+		int selected = -1;
+		{
+			DropdownListScope scope(item);
+			if (Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory))
+			{
+				const int flags = Item_ListBox_OverLB(item, DC->cursorx, DC->cursory);
+				if (flags)
+				{
+					item->window.flags = (item->window.flags & ~WINDOW_LB_ALL) | flags;
+					Item_StartCapture(item, key);
+					Item_ListBox_HandleKey(item, key, qtrue, qtrue);
+					return;
+				}
+				if (g_dropdownHover < 0)
+				{
+					return;
+				}
+				selected = g_dropdownHover;
+			}
+		}
+		Item_ListBox_DropdownClose();
+		if (selected >= 0)
+		{
+			Item_ListBox_DropdownSelect(item, selected);
+		}
+		Display_MouseMove(NULL, DC->cursorx, DC->cursory);
+		return;
+	}
+
+	case A_ESCAPE:
+	case A_PAD0_START:
+	case A_ENTER:
+	case A_KP_ENTER:
+		Item_ListBox_DropdownClose();
+		return;
+
+	default:
+	{
+		DropdownListScope scope(item);
+		// The arrow keys move from the selected entry, not from the hovered one.
+		((listBoxDef_t *)item->typeData)->cursorPos = item->cursorPos;
+		if (Item_ListBox_HandleKey(item, key, qtrue, qtrue))
+		{
+			Item_Action(item);
+		}
+		return;
+	}
 	}
 }
 
@@ -12642,6 +13243,14 @@ void Menu_HandleKey(menuDef_t *menu, int key, qboolean down)
 		return;
 	}
 
+	// An open dropdown takes all the keys, also the clicks out of the menu.
+	if (g_dropdownItem && g_dropdownItem->parent == menu)
+	{
+		Item_ListBox_DropdownOpenKey(key, down);
+		inHandler = qfalse;
+		return;
+	}
+
 	//JLFMOUSE  MPMOVED
 		// see if the mouse is within the window bounds and if so is this a mouse click
 	if (down && !(menu->window.flags & WINDOW_POPUP) && !Rect_ContainsPoint(&menu->window.rect, DC->cursorx, DC->cursory))
@@ -12675,6 +13284,12 @@ void Menu_HandleKey(menuDef_t *menu, int key, qboolean down)
 
 	if (item != NULL)
 	{
+		if (down && Item_ListBox_DropdownHeaderKey(item, key))
+		{
+			inHandler = qfalse;
+			return;
+		}
+
 		if (Item_HandleKey(item, key, down))
 //JLFLISTBOX
 		{

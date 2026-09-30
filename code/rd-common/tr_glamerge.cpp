@@ -166,7 +166,7 @@ static qboolean R_LoadWeaponsGLA( const char *path, void **buffer )
 
 // Loads the virtual GLA of an animation override: _humanoid.gla (with _weapons.gla), then <name>.gla.
 // _humanoid.gla comes from the model cache. It is registered now if it is not loaded yet.
-static qboolean R_LoadOverrideGLA( const char *overrideName, void **buffer )
+static qboolean R_LoadOverrideGLA( const char *overrideKey, void **buffer )
 {
 	const mdxaHeader_t *baseHeader = R_GetRegisteredGLA( GLA_HUMANOID_PATH );
 	if ( !baseHeader || !GLA_CheckHeader( baseHeader, LittleLong( baseHeader->ofsEnd ) ) )
@@ -174,11 +174,20 @@ static qboolean R_LoadOverrideGLA( const char *overrideName, void **buffer )
 		return qfalse;
 	}
 
+	// The override GLA is models/players/_<key>/_<key>.gla, else models/players/<key>/<key>.gla.
+	char overrideName[MAX_QPATH];
 	char extraPath[MAX_QPATH];
-	char mergedName[MAX_QPATH];
+	Com_sprintf( overrideName, sizeof( overrideName ), "_%s", overrideKey );
 	Com_sprintf( extraPath, sizeof( extraPath ), "models/players/%s/%s.gla", overrideName, overrideName );
-	// The internal name follows the custom skeletons: "models/players/_humanoid_o_<name>/_humanoid".
-	Com_sprintf( mergedName, sizeof( mergedName ), "models/players/" GLA_OVERRIDE_SKELETON "%s/_humanoid", overrideName );
+	if ( ri.FS_ReadFile( extraPath, NULL ) <= 0 )
+	{
+		Q_strncpyz( overrideName, overrideKey, sizeof( overrideName ) );
+		Com_sprintf( extraPath, sizeof( extraPath ), "models/players/%s/%s.gla", overrideName, overrideName );
+	}
+
+	// The internal name follows the custom skeletons: "models/players/_humanoid_o_<key>/_humanoid".
+	char mergedName[MAX_QPATH];
+	Com_sprintf( mergedName, sizeof( mergedName ), "models/players/" GLA_OVERRIDE_SKELETON "%s/_humanoid", overrideKey );
 
 	void *extra;
 	const mdxaHeader_t *extraHeader = R_ReadGLA( extraPath, &extra );
@@ -221,11 +230,11 @@ On qtrue, *buffer is a buffer that ri.FS_FreeFile can release.
 */
 qboolean R_LoadMergedGLA( const char *path, void **buffer )
 {
-	char overrideName[MAX_QPATH];
+	char overrideKey[MAX_QPATH];
 
-	if ( GLA_GetOverrideName( path, overrideName, sizeof( overrideName ) ) )
+	if ( GLA_GetOverrideName( path, overrideKey, sizeof( overrideKey ) ) )
 	{
-		return R_LoadOverrideGLA( overrideName, buffer );
+		return R_LoadOverrideGLA( overrideKey, buffer );
 	}
 
 	if ( GLA_TakesWeapons( path ) )
@@ -297,6 +306,6 @@ const char *R_GetAnimOverrideGLA( const char *modelPath, const char *animName )
 		return NULL;
 	}
 
-	Com_sprintf( glaPath, sizeof( glaPath ), "models/players/" GLA_OVERRIDE_SKELETON "%s/" GLA_OVERRIDE_SKELETON "%s.gla", overrideName, overrideName );
+	GLA_OverridePath( overrideName, glaPath, sizeof( glaPath ) );
 	return glaPath;
 }

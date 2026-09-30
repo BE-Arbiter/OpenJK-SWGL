@@ -39,6 +39,8 @@ void CG_Characters_VariantNextPage_f();
 void CG_Characters_PreviousPage_f();
 void CG_Characters_NextPage_f();
 void CG_Characters_SearchChanged_f();
+void CG_Characters_ConfigsRefresh_f();
+void CG_Characters_Back_f();
 void CG_Characters_Portraits_f();
 void CG_Characters_Portrait_f();
 void CG_DrawCharacterPortrait();

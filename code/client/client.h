@@ -367,6 +367,7 @@ void Con_DrawNotify (void);
 void Con_ClearNotify (void);
 void Con_RunConsole (void);
 void Con_DrawConsole (void);
+void Con_ClockString( char *buf, int size );
 void Con_PageUp( void );
 void Con_PageDown( void );
 void Con_Top( void );

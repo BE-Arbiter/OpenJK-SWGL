@@ -189,6 +189,7 @@ void CL_DrawDatapad(int HUDType)
 		break;
 	case DP_LOADOUT:
 		VM_Call( CG_DRAW_DATAPAD_LOADOUT );
+		break;
 	case DP_CHARACTERS:
 		VM_Call( CG_DRAW_CHARACTERS );
 		break;

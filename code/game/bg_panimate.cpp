@@ -2610,6 +2610,8 @@ qboolean PM_CheckLungeAttackMove( void )
 				if ( pm->ps->legsAnim == BOTH_STAND2
 					|| pm->ps->legsAnim == BOTH_SABERFAST_STANCE
 					|| pm->ps->legsAnim == BOTH_SABERSLOW_STANCE
+					|| pm->ps->legsAnim == BOTH_SABERTAVION_STANCE
+					|| pm->ps->legsAnim == BOTH_SABERDESSAN_STANCE
 					|| pm->ps->legsAnim == BOTH_SABERSTAFF_STANCE
 					|| pm->ps->legsAnim == BOTH_SABERDUAL_STANCE
 					|| (level.time-pm->ps->lastStationary) <= 500  )
@@ -2822,6 +2824,8 @@ qboolean PM_CheckJumpForwardAttackMove( void )
 							if ( pm->ps->legsAnim == BOTH_STAND2
 								|| pm->ps->legsAnim == BOTH_SABERFAST_STANCE
 								|| pm->ps->legsAnim == BOTH_SABERSLOW_STANCE
+								|| pm->ps->legsAnim == BOTH_SABERTAVION_STANCE
+								|| pm->ps->legsAnim == BOTH_SABERDESSAN_STANCE
 								|| level.time-pm->ps->lastStationary <= 250 )
 							{//standing or just started moving
 								if ( pm->gent->client
@@ -6406,6 +6410,8 @@ int PM_GetTurnAnim( gentity_t *gent, int anim )
 	case BOTH_STAND2:			//# Standing idle with a weapon
 	case BOTH_SABERFAST_STANCE:
 	case BOTH_SABERSLOW_STANCE:
+	case BOTH_SABERTAVION_STANCE:
+	case BOTH_SABERDESSAN_STANCE:
 	case BOTH_STAND2IDLE1:		//# Random standing idle
 	case BOTH_STAND2IDLE2:		//# Random standing idle
 	case BOTH_STAND3:			//# Standing hands behind back: at ease: etc.
@@ -6475,6 +6481,8 @@ int PM_TurnAnimForLegsAnim( gentity_t *gent, int anim )
 	case BOTH_STAND2:			//# Standing idle with a weapon
 	case BOTH_SABERFAST_STANCE:
 	case BOTH_SABERSLOW_STANCE:
+	case BOTH_SABERTAVION_STANCE:
+	case BOTH_SABERDESSAN_STANCE:
 	case BOTH_STAND2IDLE1:		//# Random standing idle
 	case BOTH_STAND2IDLE2:		//# Random standing idle
 		if ( PM_HasAnimation( gent, BOTH_TURNSTAND2 ) )
