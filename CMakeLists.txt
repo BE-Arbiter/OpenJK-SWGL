@@ -56,6 +56,12 @@ option(BuildSPVulkan "Whether to create projects for the EXPERIMENTAL SP Vulkan 
 option(BuildTests "Whether to build automatic unit tests (requires Boost)" OFF)
 option(UseAddressSanitizer "Whether to enable runtime address sanitizer" OFF)
 option(UseUndefinedSanitizer "Whether to enable runtime Undefined Behavior sanitizer" OFF)
+option(SWGL_ENABLE_ASSERTS "Enable assert() in every configuration. OFF defines NDEBUG for every target." ON)
+
+# NDEBUG removes assert() in every configuration, including Debug.
+if(NOT SWGL_ENABLE_ASSERTS)
+	add_compile_definitions(NDEBUG)
+endif()
 
 include(CMakeDependentOption)
 cmake_dependent_option(BuildSymbolServer "Build WIP Windows Symbol Server (experimental and unused)" OFF "NOT WIN32 OR NOT MSVC" OFF)
