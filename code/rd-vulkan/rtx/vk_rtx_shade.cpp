@@ -415,6 +415,51 @@ static int dlight_cluster( world_t *worldData, vec3_t origin, float probe )
 	return cluster;
 }
 
+// An impact effect places its dlight exactly on the surface it hit. The raster lights that
+// surface from any distance, but the tracer needs dot(n, L) > 0: a light in the plane of a
+// wall lights nothing of it, and the few samples that pass come back noisy. Find the nearest
+// surface within probe units and move the light off it along the surface normal.
+static void dlight_lift_off_surface( vec3_t origin, float lift, float probe )
+{
+	static const vec3_t axes[6] = {
+		{  1,  0,  0 }, { -1,  0,  0 }, {  0,  1,  0 }, {  0, -1,  0 }, {  0,  0,  1 }, {  0,  0, -1 }
+	};
+
+	trace_t best;
+	float best_fraction = 2.0f;
+
+	for ( int i = 0; i < 6; i++ )
+	{
+		vec3_t end;
+		trace_t tr;
+
+		VectorMA( origin, probe, axes[i], end );
+		ri.SV_Trace( &tr, origin, vec3_origin, vec3_origin, end, ENTITYNUM_NONE, CONTENTS_SOLID, G2_NOCOLLIDE, 0 );
+
+		if ( tr.startsolid || tr.allsolid || tr.fraction >= 1.0f )
+			continue;
+
+		if ( tr.fraction < best_fraction )
+		{
+			best_fraction = tr.fraction;
+			best = tr;
+		}
+	}
+
+	if ( best_fraction > 1.0f )
+		return;
+
+	// Do not push the light through the surface on the far side of a thin room.
+	vec3_t target, lifted;
+	trace_t tr;
+
+	VectorMA( best.endpos, lift, best.plane.normal, target );
+	ri.SV_Trace( &tr, best.endpos, vec3_origin, vec3_origin, target, ENTITYNUM_NONE, CONTENTS_SOLID, G2_NOCOLLIDE, 0 );
+	VectorMA( best.endpos, tr.fraction * lift * 0.9f, best.plane.normal, lifted );
+
+	VectorCopy( lifted, origin );
+}
+
 // ReSTIR matches a light to its previous-frame self by this id (see
 // update_mlight_prev_to_current and reproject_light_index), so it has to identify the
 // light, not its slot or its position: refdef->dlights is rebuilt every frame in any
@@ -530,6 +575,9 @@ add_dlights(const dlight_t* dlights, int num_dlights, light_poly_t* light_list, 
 
 		if ( emitter_radius <= 0.0f || emitter_radius > falloff_radius )
 			emitter_radius = falloff_radius;
+
+		if ( !is_spot && pt_dlight_lift->value > 0.0f )
+			dlight_lift_off_surface( origin, pt_dlight_lift->value, 4.0f );
 
 		light->cluster = dlight_cluster( worldData, origin, 8.0f );
 

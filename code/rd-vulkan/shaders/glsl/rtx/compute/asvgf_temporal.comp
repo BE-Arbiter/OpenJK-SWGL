@@ -287,6 +287,19 @@ main()
 		float antilag_alpha_lf = clamp(mix(1.0, global_ubo.flt_antilag_lf * grad_lf, global_ubo.flt_temporal_lf), 0, 1);
 		float antilag_alpha_hf = clamp(mix(1.0, global_ubo.flt_antilag_hf * grad_hf_spec.x, global_ubo.flt_temporal_hf), 0, 1);
 
+		// The gradients do not see a light that did not exist in the previous frame (an impact
+		// flash), so a surface it lights would take 1 / flt_min_alpha_color_hf frames to catch up.
+		// Compare the local mean of the new frame with the history mean: a change larger than
+		// the history noise and 25% of the level resets the history.
+		{
+			const float lum_hist = temporal_moments_histlen_hf.x;
+			const float sigma_hist = sqrt(max(temporal_moments_histlen_hf.y - lum_hist * lum_hist, 0.0));
+			const float lum_new = spatial_moments_hf.x;
+			const float level = max(max(lum_new, lum_hist), 0.01);
+			const float excess = abs(lum_new - lum_hist) - 2.0 * sigma_hist - 0.25 * level;
+			antilag_alpha_hf = max(antilag_alpha_hf, clamp(excess / (0.5 * level), 0.0, 1.0));
+		}
+
 		// Adjust the history length, taking the antilag factors into account
 		float hist_len_hf = min(temporal_moments_histlen_hf.b * pow(1.0 - antilag_alpha_hf, 10) + 1.0, 256.0);
 		float hist_len_lf = min(temporal_moments_histlen_hf.a * pow(1.0 - antilag_alpha_lf, 10) + 1.0, 256.0);

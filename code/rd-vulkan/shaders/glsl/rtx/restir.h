@@ -38,6 +38,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define RESTIR_SPACIAL_SAMPLES  8
 
 #define RESTIR_SAMPLING_M       4
+#define RESTIR_DYNAMIC_M        8
 
 struct Reservoir
 {
@@ -344,8 +345,19 @@ get_direct_illumination_restir(
 
 	rng = get_rng(RNG_NEE_LIGHT_SELECTION(0));
 
-	float list_size = float(list_end - list_start);
-	float partitions = ceil(list_size / float(RESTIR_SAMPLING_M));
+	// The dynamic lights (impact flashes, saber and bolt lights) sit at the tail of the list.
+	// A partition holds a light for 1 pixel in every `partitions`, so a flash would light one
+	// pixel in a few and leave the rest to the denoiser. Take the last RESTIR_DYNAMIC_M of them
+	// as candidates for every pixel, and partition only what is before them.
+	uint dyn_start = list_end;
+	while(dyn_start > list_start && list_end - dyn_start < RESTIR_DYNAMIC_M
+		&& light_buffer.light_list_lights[dyn_start - 1] >= global_ubo.num_static_lights)
+	{
+		dyn_start--;
+	}
+
+	float list_size = float(dyn_start - list_start);
+	float partitions = max(ceil(list_size / float(RESTIR_SAMPLING_M)), 1.0);
 	float inv_pdf = list_size;
 	float rng_part = rng * partitions;
 	float fpart = min(floor(rng_part), partitions-1);
@@ -363,7 +375,7 @@ get_direct_illumination_restir(
 	#pragma unroll
 	for(uint i = 0, n_idx = list_start; i < RESTIR_SAMPLING_M; i++, n_idx += stride)
 	{
-		if (n_idx >= list_end)
+		if (n_idx >= dyn_start)
 			break;
 
 		current_light_idx = light_buffer.light_list_lights[n_idx];
@@ -401,6 +413,19 @@ get_direct_illumination_restir(
 		
 		// Add sample even if 0, so M will be correct
 		update_reservoir(current_light_idx, p_hat * inv_pdf, rng2, 1, p_hat, rng, reservoir);
+	}
+
+	// Every dynamic light is a candidate. Weighted by M, so that after the division by M below
+	// it adds its own p_hat, as the sum over the static candidates adds list_size * mean(p_hat).
+	for(uint n_idx = dyn_start; n_idx < list_end; n_idx++)
+	{
+		current_light_idx = light_buffer.light_list_lights[n_idx];
+
+		if(current_light_idx >= MAX_LIGHT_POLYS) continue;
+
+		p_hat = get_unshadowed_path_contrib(current_light_idx, position, normal, view_direction, phong_exp, phong_scale, phong_weight, rng2);
+
+		update_reservoir(current_light_idx, p_hat * float(RESTIR_SAMPLING_M), rng2, 1, p_hat, rng, reservoir);
 	}
 
 	reservoir.M = RESTIR_SAMPLING_M;
