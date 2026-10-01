@@ -534,4 +534,8 @@ main()
 	imageStore(IMG_PT_COLOR_LF_COCG, ipos, vec4(0));
 	imageStore(IMG_PT_COLOR_HF, ipos, uvec4(packRGBE(high_freq)));
 	imageStore(IMG_PT_COLOR_SPEC, ipos, uvec4(packRGBE(specular)));
+
+	// The bounce pass sets the hit distances of the lobes that it traces. 0 means a skipped lobe.
+	if((global_ubo.pt_denoiser_flags & DENOISER_FLAG_HIT_DISTANCE) != 0)
+		imageStore(IMG_PT_HIT_DIST, ipos, vec4(0));
 }

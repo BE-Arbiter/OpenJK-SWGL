@@ -938,6 +938,14 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 			//vk.wideLines = qtrue;
 		}
 
+		// The NRD shaders use storage images without a declared format, and the tracer uses the extended formats.
+		if (device_features.shaderStorageImageReadWithoutFormat)
+			features.shaderStorageImageReadWithoutFormat = VK_TRUE;
+		if (device_features.shaderStorageImageWriteWithoutFormat)
+			features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
+		if (device_features.shaderStorageImageExtendedFormats)
+			features.shaderStorageImageExtendedFormats = VK_TRUE;
+
 		if (device_features.shaderStorageImageMultisample) {
 			features.shaderStorageImageMultisample = VK_TRUE;
 			vk.shaderStorageImageMultisample = qtrue;

@@ -76,8 +76,16 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	IMG_DO(FSR_EASU_OUTPUT,           35, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
 	IMG_DO(FSR_RCAS_OUTPUT,           36, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
 	IMG_DO(PT_GLOW,                   37, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(PT_HIT_DIST,               38, R16G16_SFLOAT,       rg16f,   IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
+	IMG_DO(NRD_IN_VIEWZ,              39, R32_SFLOAT,          r32f,    IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(NRD_IN_MV,                 40, R16G16_SFLOAT,       rg16f,   IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(NRD_IN_NORMAL_ROUGHNESS,   41, A2B10G10R10_UNORM_PACK32, rgb10_a2, IMG_WIDTH,     IMG_HEIGHT     ) \
+	IMG_DO(NRD_IN_DIFF,               42, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(NRD_IN_SPEC,               43, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(NRD_OUT_DIFF,              44, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(NRD_OUT_SPEC,              45, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
 
-#define RTX_IMG_NUM_STATIC 38
+#define RTX_IMG_NUM_STATIC 46
 
 #define LIST_IMAGES_A_B \
 	IMG_DO( PT_VISBUF_PRIM_A,			  RTX_IMG_NUM_STATIC + 0,  R32G32_UINT,	rg32ui, IMG_WIDTH_MGPU,      IMG_HEIGHT ) \
@@ -209,6 +217,7 @@ layout( set = 2, binding = 0 ) uniform sampler2D texure_array[];
 #define SAMPLER_rgba8   sampler2D
 #define SAMPLER_r8      sampler2D
 #define SAMPLER_rg8     sampler2D
+#define SAMPLER_rgb10_a2 sampler2D
 
 #define IMAGE_r8ui    uimage2D
 #define IMAGE_r16ui   uimage2D
@@ -224,6 +233,7 @@ layout( set = 2, binding = 0 ) uniform sampler2D texure_array[];
 #define IMAGE_rgba8   image2D
 #define IMAGE_r8      image2D
 #define IMAGE_rg8     image2D
+#define IMAGE_rgb10_a2 image2D
 
 /* framebuffer images */
 #define IMG_DO(_name, _binding, _vkformat, _glslformat, _w, _h) \

@@ -43,10 +43,12 @@ indirect_lighting(
 	out vec3 bounce_contrib,
 	out bool is_specular_ray,
 	out vec3 extra_contrib,
-	out vec3 extra_direction)
+	out vec3 extra_direction,
+	out float hit_distance)
 {
 	extra_contrib = vec3(0);
 	extra_direction = vec3(0);
+	hit_distance = 0;
 
     rng_seed = texelFetch(TEX_PT_RNG_SEED_A, ipos, 0).r;
 	
@@ -265,6 +267,9 @@ indirect_lighting(
 	}
 
 	trace_geometry_ray( bounce_ray, true, bounce_cull_mask );
+
+	// A miss has the length of the ray.
+	hit_distance = found_intersection(ray_payload_geometry) ? ray_payload_geometry.hit_distance : bounce_ray.t_max;
 
 	bounce_contrib = vec3(0);
 
@@ -541,8 +546,20 @@ main()
 	bool is_specular_ray;
 	vec3 extra_contrib;		// a second contribution with its own direction: the dynamic candidate of ReSTIR GI
 	vec3 extra_direction;
+	float hit_distance;
 
-	indirect_lighting(ipos, half_res, bounce_direction, bounce_contrib, is_specular_ray, extra_contrib, extra_direction);
+	indirect_lighting(ipos, half_res, bounce_direction, bounce_contrib, is_specular_ray, extra_contrib, extra_direction, hit_distance);
+
+	// The denoiser takes the distance of the lobe that this frame traced.
+	if(spec_bounce_index == 0 && hit_distance > 0 && (global_ubo.pt_denoiser_flags & DENOISER_FLAG_HIT_DISTANCE) != 0)
+	{
+		vec2 hit_dist = imageLoad(IMG_PT_HIT_DIST, ipos).xy;
+		if(is_specular_ray)
+			hit_dist.y = hit_distance;
+		else
+			hit_dist.x = hit_distance;
+		imageStore(IMG_PT_HIT_DIST, ipos, vec4(hit_dist, 0, 0));
+	}
 
 	if(any(isinf(bounce_contrib)) || any(isnan(bounce_contrib)) || any(isinf(bounce_direction)) || any(isnan(bounce_direction)) )
 		return;

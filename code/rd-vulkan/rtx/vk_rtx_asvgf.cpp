@@ -227,7 +227,7 @@ static void vk_rtx_asvgf_filter( VkCommandBuffer cmd_buf )
 
 const denoiser_t vk_rtx_denoiser_asvgf = {
 	"asvgf",
-	DENOISER_FLAG_ACTIVE | DENOISER_FLAG_LF_SH | DENOISER_FLAG_SPEC_DEMODULATE | DENOISER_FLAG_GRADIENTS,
+	DENOISER_FLAG_ACTIVE | DENOISER_FLAG_LF_SH | DENOISER_FLAG_SPEC_DEMODULATE | DENOISER_FLAG_GRADIENTS | DENOISER_FLAG_FAKE_SPECULAR,
 	vk_rtx_asvgf_create_pipelines,
 	vk_rtx_asvgf_destroy_pipelines,
 	vk_rtx_asvgf_invalidate_history,

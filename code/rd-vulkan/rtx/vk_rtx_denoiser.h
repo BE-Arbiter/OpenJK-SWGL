@@ -27,7 +27,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 typedef enum {
 	DENOISER_NONE,
 	DENOISER_ASVGF,
-	// 2 is reserved for NRD ReLAX
+	DENOISER_NRD_RELAX,
 	NUM_DENOISERS
 } denoiser_type_t;
 
@@ -52,5 +52,6 @@ void		vk_rtx_denoisers_prepare_ubo( vkUniformRTX_t *ubo );
 void		vk_rtx_denoisers_end_frame( denoiser_type_t active );
 
 extern const denoiser_t vk_rtx_denoiser_asvgf;
+extern const denoiser_t vk_rtx_denoiser_nrd;
 
 #endif // VK_RTX_DENOISER_H

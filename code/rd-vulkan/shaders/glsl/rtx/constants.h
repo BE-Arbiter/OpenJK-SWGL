@@ -47,6 +47,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define DENOISER_FLAG_LF_SH				(1 << 1)	// the tracer stores indirect diffuse as SH
 #define DENOISER_FLAG_SPEC_DEMODULATE	(1 << 2)	// the tracer stores specular divided by base reflectivity
 #define DENOISER_FLAG_GRADIENTS			(1 << 3)	// the tracer re-shades the A-SVGF gradient samples
+#define DENOISER_FLAG_HIT_DISTANCE		(1 << 4)	// the tracer writes the hit distances of the first bounce (PT_HIT_DIST)
+#define DENOISER_FLAG_FAKE_SPECULAR		(1 << 5)	// the denoiser reconstructs the fake specular of rough surfaces
 
 #define AA_MODE_OFF 0
 #define AA_MODE_TAA 1

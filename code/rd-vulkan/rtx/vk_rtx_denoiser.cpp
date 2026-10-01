@@ -72,7 +72,8 @@ const denoiser_t *vk_rtx_get_denoiser( denoiser_type_t type )
 {
 	static const denoiser_t *denoisers[NUM_DENOISERS] = {
 		&denoiser_none,
-		&vk_rtx_denoiser_asvgf
+		&vk_rtx_denoiser_asvgf,
+		&vk_rtx_denoiser_nrd
 	};
 
 	return denoisers[type];
@@ -83,7 +84,8 @@ denoiser_type_t vk_rtx_denoiser_from_cvar( void )
 {
 	static int warned_value = 0;
 	const int value = pt_denoiser->integer;
-	const qboolean available = (qboolean)( value >= DENOISER_NONE && value < NUM_DENOISERS );
+	const qboolean available = (qboolean)( value >= DENOISER_NONE && value < NUM_DENOISERS &&
+		( value != DENOISER_NRD_RELAX || vk_rtx_nrd_available() ) );
 
 	if ( !available && value != warned_value )
 		ri.Printf( PRINT_WARNING, "pt_denoiser %d is not available, no denoiser\n", value );

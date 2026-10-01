@@ -1797,6 +1797,10 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 
 	ubo->temporal_blend_factor = ref_mode->temporal_blend_factor;	
 	ubo->pt_denoiser_flags = vk_rtx_get_denoiser( ref_mode->denoiser )->flags;
+
+	// The fake specular needs a denoiser that reconstructs it. Without it the result looks too dark.
+	if ( !( ubo->pt_denoiser_flags & DENOISER_FLAG_FAKE_SPECULAR ) )
+		ubo->pt_fake_roughness_threshold = 1.f;
 	ubo->flt_taa = vk.effective_aa_mode;
 	ubo->pt_num_bounce_rays = ref_mode->num_bounce_rays;
 	ubo->pt_reflect_refract = ref_mode->reflect_refract;

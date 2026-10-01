@@ -26,7 +26,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 // This software contains source code provided by NVIDIA Corporation.
 
+// Creates and destroys the NRD instance and its Vulkan objects. The denoiser of pt_denoiser 2 calls them.
 void		vk_rtx_nrd_init( void );
 void		vk_rtx_nrd_shutdown( void );
+qboolean	vk_rtx_nrd_available( void );	// the Vulkan objects exist
 
 #endif // VK_RTX_NRD_H
