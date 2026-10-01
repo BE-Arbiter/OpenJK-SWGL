@@ -3092,6 +3092,7 @@ extern  cvar_t  *pt_debug_poly_lights;
 extern  cvar_t  *pt_restir_m_clamp;
 extern  cvar_t  *pt_debug_image;
 extern  cvar_t  *pt_verbose;
+extern  cvar_t  *pt_saber_dlight;
 extern  cvar_t  *pt_accumulation_rendering;
 extern  cvar_t  *pt_accumulation_rendering_framenum;
 extern  cvar_t  *pt_denoiser;

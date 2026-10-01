@@ -522,14 +522,47 @@ static void vk_rtx_get_saber_lights_color( vec3_t rgb, refEntity_t *e )
 }
 
 
+// Saber entities of the current frame, set by vk_rtx_build_saber_lights.
+static trRefEntity_t *sabers[MAX_SABER_LIGHTS];
+static int saber_light_count = 0;
+
+// The cgame adds a point dlight at the middle of each blade for the raster path. Its
+// position is blade start + 0.5 * length * direction, from float maths that differs from
+// the entity's by a few ulp (0.004 at 32768 units). The tolerance is far above that and
+// below the blade radius. The test is on the segment, not the middle: an SFX blade glow
+// is shorter than its blade by half a radius.
+#define SABER_DLIGHT_TOLERANCE 1.0f
+
+// True if the dlight is the cgame's light of a blade that has a cylinder light this frame.
+// Valid after vk_rtx_build_saber_lights of the same frame.
+bool vk_rtx_is_saber_dlight( const dlight_t *dlight )
+{
+	for ( int i = 0; i < saber_light_count; i++ )
+	{
+		const refEntity_t *e = &sabers[i]->e;
+		vec3_t d, perp;
+
+		VectorSubtract( dlight->origin, e->origin, d );
+		const float t = DotProduct( d, e->axis[0] );
+
+		if ( t < -SABER_DLIGHT_TOLERANCE || t > e->saberLength + SABER_DLIGHT_TOLERANCE )
+			continue;
+
+		VectorMA( d, -t, e->axis[0], perp );
+
+		if ( DotProduct( perp, perp ) <= SABER_DLIGHT_TOLERANCE * SABER_DLIGHT_TOLERANCE )
+			return true;
+	}
+
+	return false;
+}
+
 void vk_rtx_build_saber_lights( light_poly_t *light_list, int *num_lights, 
 	int max_lights, world_t *worldData, const trRefdef_t *refdef, float adapted_luminance, int *light_entity_ids )
 {
 	uint32_t i;
 
 	int num_sabers = 0;
-
-	static trRefEntity_t *sabers[MAX_SABER_LIGHTS];
 
 	for ( i = 0; i < refdef->num_entities; i++ )
 	{
@@ -539,6 +572,8 @@ void vk_rtx_build_saber_lights( light_poly_t *light_list, int *num_lights,
 		if (refdef->entities[i].e.reType == RT_SABER_GLOW)
 			sabers[num_sabers++] = refdef->entities + i;
 	}
+
+	saber_light_count = num_sabers;
 
 	if ( num_sabers == 0 )
 		return;

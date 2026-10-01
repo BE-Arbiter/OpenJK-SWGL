@@ -679,6 +679,12 @@ add_dlights(const dlight_t* dlights, int num_dlights, light_poly_t* light_list, 
 		const dlight_t* dlight = dlights + i;
 		light_poly_t* light = light_list + *num_lights;
 
+		// The saber cylinder light replaces the cgame's saber dlight. The id of this dlight
+		// is already taken above and the others keep theirs, so skipping it is safe.
+		// pt_saber_dlight 1 keeps both lights, for comparison.
+		if ( !pt_saber_dlight->integer && vk_rtx_is_saber_dlight( dlight ) )
+			continue;
+
 		vec3_t origin;
 		VectorCopy( dlight->origin, origin );
 
