@@ -37,6 +37,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "vk_rtx_tonemap.h"
 #include "vk_rtx_bloom.h"
 #include "vk_rtx_radiance_cache.h"
+#include "vk_rtx_nrd.h"
 #include "vk_rtx_precomputed_sky.h"
 #include "vk_rtx_physical_sky.h"
 
