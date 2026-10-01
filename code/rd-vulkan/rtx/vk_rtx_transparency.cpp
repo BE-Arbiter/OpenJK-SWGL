@@ -1043,7 +1043,7 @@ static void fill_index_buffer(void)
 	qvkCmdCopyBuffer(cmd_buf, transparency.host_buffer, transparency.index_buffer.buffer, 1, &region);
 
 	VkBufferMemoryBarrier post_barrier;
-	Com_Memset( &pre_barrier, 0, sizeof(VkBufferMemoryBarrier) );
+	Com_Memset( &post_barrier, 0, sizeof(VkBufferMemoryBarrier) );
 	post_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
 	post_barrier.pNext = NULL;
 	post_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;

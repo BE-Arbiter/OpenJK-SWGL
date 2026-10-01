@@ -1388,9 +1388,10 @@ void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 		desc.arrayLayers = 1;
 		desc.samples = VK_SAMPLE_COUNT_1_BIT;
 		desc.tiling = VK_IMAGE_TILING_OPTIMAL;
-		desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		// TRANSFER_SRC: the splash screen blits from a texture.
+		desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		if ( image->flags & IMGFLAG_STORAGE )
-			desc.usage |= VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+			desc.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
 		desc.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		desc.queueFamilyIndexCount = 0;
 		desc.pQueueFamilyIndices = NULL;
