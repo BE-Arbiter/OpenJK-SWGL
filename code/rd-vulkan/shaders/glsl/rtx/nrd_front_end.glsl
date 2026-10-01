@@ -70,6 +70,85 @@ nrd_relax_pack_radiance_and_hit_dist(vec3 radiance, float hit_dist)
 	return vec4(radiance, hit_dist);
 }
 
+#define NRD_EPS 1e-6
+
+// Port of _NRD_LinearToYCoCg.
+vec3
+nrd_linear_to_ycocg(vec3 color)
+{
+	float Y = dot(color, vec3(0.25, 0.5, 0.25));
+	float Co = dot(color, vec3(0.5, 0.0, -0.5));
+	float Cg = dot(color, vec3(-0.25, 0.5, -0.25));
+
+	return vec3(Y, Co, Cg);
+}
+
+// Port of _NRD_YCoCgToLinear.
+vec3
+nrd_ycocg_to_linear(vec3 color)
+{
+	float t = color.x - color.z;
+
+	vec3 r;
+	r.y = color.x + color.z;
+	r.x = t + color.y;
+	r.z = t - color.y;
+
+	return max(r, vec3(0));
+}
+
+// Port of _NRD_GetSpecMagicCurve.
+float
+nrd_get_spec_magic_curve(float roughness, float power)
+{
+	float f = 1.0 - exp2(-200.0 * roughness * roughness);
+	f *= pow(clamp(roughness, 0.0, 1.0), power);
+
+	return f;
+}
+
+// Port of REBLUR_FrontEnd_GetNormHitDist and _REBLUR_GetHitDistanceNormalization.
+// Only for a lobe that the tracer traced: the result is never 0.
+float
+nrd_reblur_get_norm_hit_dist(float hit_dist, float view_z, vec3 hit_dist_params, float roughness)
+{
+	float smc = nrd_get_spec_magic_curve(roughness, 0.5);
+	float f = (hit_dist_params.x + abs(view_z) * hit_dist_params.y) * mix(hit_dist_params.z, 1.0, smc);
+
+	hit_dist = clamp(hit_dist / f, 0.0, 1.0);
+
+	return max(hit_dist, NRD_EPS);
+}
+
+// Port of REBLUR_FrontEnd_PackRadianceAndNormHitDist with sanitize = true.
+vec4
+nrd_reblur_pack_radiance_and_norm_hit_dist(vec3 radiance, float norm_hit_dist)
+{
+	bool radiance_invalid = any(isnan(radiance)) || any(isinf(radiance));
+	bool hit_dist_invalid = isnan(norm_hit_dist) || isinf(norm_hit_dist);
+
+	radiance = radiance_invalid ? vec3(0) : clamp(radiance, vec3(0), vec3(NRD_FP16_MAX));
+	norm_hit_dist = hit_dist_invalid ? 0.0 : clamp(norm_hit_dist, 0.0, 1.0);
+
+	return vec4(nrd_linear_to_ycocg(radiance), norm_hit_dist);
+}
+
+// Port of REBLUR_BackEnd_UnpackRadianceAndNormHitDist: the radiance of the result.
+vec3
+nrd_reblur_unpack_radiance(vec4 data)
+{
+	return nrd_ycocg_to_linear(data.xyz);
+}
+
+// The settings of the frame for nrd_prepare.comp and nrd_composite.comp (the push constants of nrd_pipelines in vk_rtx_nrd.cpp).
+layout(push_constant) uniform NrdPushConstants
+{
+	vec4 hit_dist_params;	// ReBLUR: A, B, C of the normalized hit distance
+	uint mode;				// 0 ReLAX, 1 ReBLUR
+	uint direct;			// 1: the direct diffuse goes through NRD
+	uint validation;		// 1: show OUT_VALIDATION
+} nrd_pc;
+
 // ========================================================================== //
 // Checkerboard layout of the tracer images
 // ========================================================================== //

@@ -241,6 +241,13 @@ cvar_t	*pt_restir_m_clamp;
 cvar_t	*pt_debug_image;
 cvar_t	*pt_verbose;
 cvar_t	*pt_saber_dlight;
+cvar_t	*pt_nrd_max_accum;
+cvar_t	*pt_nrd_max_fast_accum;
+cvar_t	*pt_nrd_prepass_blur;
+cvar_t	*pt_nrd_antifirefly;
+cvar_t	*pt_nrd_hitdist_recon;
+cvar_t	*pt_nrd_direct;
+cvar_t	*pt_nrd_validation;
 cvar_t	*pt_accumulation_rendering;
 cvar_t	*pt_accumulation_rendering_framenum;
 cvar_t	*pt_denoiser;
@@ -1027,7 +1034,20 @@ void R_Register( void )
 	pt_saber_dlight						= ri.Cvar_Get("pt_saber_dlight",					"0",	CVAR_NONE);
 	pt_accumulation_rendering			= ri.Cvar_Get("pt_accumulation_rendering",			"0",	CVAR_NONE);
 	pt_accumulation_rendering_framenum	= ri.Cvar_Get("pt_accumulation_rendering_framenum",	"500",	CVAR_NONE);
-	// 0 none, 1 A-SVGF, 2 reserved for NRD ReLAX
+	// 0 none, 1 A-SVGF, 2 NRD ReLAX, 3 NRD ReBLUR
+	// The pt_nrd_* cvars tune NRD (pt_denoiser 2 and 3). They are read every frame.
+	// Frames of history, frames of the fast history, radius of the pre-pass blur of the diffuse in pixels (the specular takes 5/3 of it),
+	// anti-firefly, hit distance reconstruction (0 off, 1 3x3, 2 5x5), 0: the direct diffuse bypasses NRD
+	pt_nrd_max_accum					= ri.Cvar_Get("pt_nrd_max_accum",					"30",	CVAR_NONE);
+	pt_nrd_max_fast_accum				= ri.Cvar_Get("pt_nrd_max_fast_accum",				"6",	CVAR_NONE);
+	pt_nrd_prepass_blur					= ri.Cvar_Get("pt_nrd_prepass_blur",				"30",	CVAR_NONE);
+	pt_nrd_antifirefly					= ri.Cvar_Get("pt_nrd_antifirefly",				"1",	CVAR_NONE);
+	pt_nrd_hitdist_recon				= ri.Cvar_Get("pt_nrd_hitdist_recon",				"1",	CVAR_NONE);
+	pt_nrd_direct						= ri.Cvar_Get("pt_nrd_direct",						"1",	CVAR_NONE);
+	// 1: the validation layer of NRD covers the screen (see "VALIDATION" in the NRD README): tiles of normals, roughness, view Z,
+	// motion vector check, world grid with jitter, history length, hit distances. Blended with the image by its alpha channel.
+	// Colors are exact with sun_tm_enable 0.
+	pt_nrd_validation					= ri.Cvar_Get("pt_nrd_validation",					"0",	CVAR_NONE);
 	pt_denoiser							= ri.Cvar_Get("pt_denoiser",						"1",	CVAR_NONE);
 	/* Size of the sphere a dlight emits from, in world units - not its reach, which is
 	 * dlight_t::radius. An emitter with a body gets half buried in whatever surface the

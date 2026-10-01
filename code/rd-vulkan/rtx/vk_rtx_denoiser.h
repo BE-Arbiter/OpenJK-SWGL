@@ -28,6 +28,7 @@ typedef enum {
 	DENOISER_NONE,
 	DENOISER_ASVGF,
 	DENOISER_NRD_RELAX,
+	DENOISER_NRD_REBLUR,
 	NUM_DENOISERS
 } denoiser_type_t;
 
@@ -52,6 +53,7 @@ void		vk_rtx_denoisers_prepare_ubo( vkUniformRTX_t *ubo );
 void		vk_rtx_denoisers_end_frame( denoiser_type_t active );
 
 extern const denoiser_t vk_rtx_denoiser_asvgf;
-extern const denoiser_t vk_rtx_denoiser_nrd;
+extern const denoiser_t vk_rtx_denoiser_nrd_relax;
+extern const denoiser_t vk_rtx_denoiser_nrd_reblur;
 
 #endif // VK_RTX_DENOISER_H

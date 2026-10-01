@@ -689,6 +689,9 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 		qboolean mutableType = qfalse;
 		qboolean pipelineLib = qfalse;
 		qboolean accelStruct = qfalse;
+		qboolean computeDerivs = qfalse;	// the NRD REBLUR shaders use quad derivatives
+
+		vk.computeDerivatives = qfalse;
 		qboolean deferredHostOp = qfalse;
 		// Dependencies the two headline extensions pull in. The spec requires every one of
 		// them to appear in the enabled list as well, even though drivers advertise them
@@ -744,6 +747,8 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 				mutableType = qtrue;
 			} else if ( strcmp( ext, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME ) == 0 ) {
 				accelStruct = qtrue;
+			} else if ( strcmp( ext, VK_KHR_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME ) == 0 ) {
+				computeDerivs = qtrue;
 			} else if ( strcmp( ext, VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME ) == 0 ) {
 				pipelineLib = qtrue;
 			} else if ( strcmp( ext, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME ) == 0 ) {
@@ -842,6 +847,12 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 				device_extension_list[device_extension_count++] = VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME;
 				device_extension_list[device_extension_count++] = VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME;
 				device_extension_list[device_extension_count++] = VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME;
+
+				if ( computeDerivs )
+				{
+					device_extension_list[device_extension_count++] = VK_KHR_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME;
+					vk.computeDerivatives = qtrue;
+				}
 			}
 
 			// Shader group handle size/alignment and the AS scratch alignment come from
@@ -988,6 +999,7 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 		// is what upstream builds; it needs the 1.2 API version requested at instance
 		// creation, which is why that is conditional on r_rtx as well.
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR rtx_as_features;
+		VkPhysicalDeviceComputeShaderDerivativesFeaturesKHR rtx_derivs_features;
 		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtx_pipeline_features;
 		VkPhysicalDeviceVulkan12Features rtx_vk12_features;
 
@@ -997,6 +1009,14 @@ static qboolean vk_create_device( VkPhysicalDevice physical_device, int device_i
 			rtx_as_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 			rtx_as_features.pNext = NULL;
 			rtx_as_features.accelerationStructure = VK_TRUE;
+
+			if ( vk.computeDerivatives )
+			{
+				Com_Memset( &rtx_derivs_features, 0, sizeof( rtx_derivs_features ) );
+				rtx_derivs_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_KHR;
+				rtx_derivs_features.computeDerivativeGroupQuads = VK_TRUE;
+				rtx_as_features.pNext = &rtx_derivs_features;
+			}
 
 			Com_Memset( &rtx_pipeline_features, 0, sizeof( rtx_pipeline_features ) );
 			rtx_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;

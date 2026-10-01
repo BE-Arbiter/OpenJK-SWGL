@@ -82,7 +82,8 @@ main()
 	vec3 specular = unpackRGBE(texelFetch(TEX_PT_COLOR_SPEC, ipos, 0).x) / STORAGE_SCALE_SPEC;
 	vec2 hit_dist = texelFetch(TEX_PT_HIT_DIST, ipos, 0).xy;
 
-	vec3 diffuse = high_freq + low_freq;
+	// pt_nrd_direct 0: the direct diffuse stays out of NRD, nrd_composite.comp adds it.
+	vec3 diffuse = (nrd_pc.direct != 0 ? high_freq : vec3(0)) + low_freq;
 
 	if(is_sky)
 	{
@@ -94,6 +95,19 @@ main()
 	imageStore(IMG_NRD_IN_VIEWZ, flat_pos, vec4(view_z, 0, 0, 0));
 	imageStore(IMG_NRD_IN_MV, flat_pos, vec4(motion, 0, 0));
 	imageStore(IMG_NRD_IN_NORMAL_ROUGHNESS, flat_pos, nrd_pack_normal_and_roughness(normal, roughness, 0.0));
-	imageStore(IMG_NRD_IN_DIFF, flat_pos, nrd_relax_pack_radiance_and_hit_dist(diffuse, hit_dist.x));
-	imageStore(IMG_NRD_IN_SPEC, flat_pos, nrd_relax_pack_radiance_and_hit_dist(specular, hit_dist.y));
+	if(nrd_pc.mode == 0)
+	{
+		imageStore(IMG_NRD_IN_DIFF, flat_pos, nrd_relax_pack_radiance_and_hit_dist(diffuse, hit_dist.x));
+		imageStore(IMG_NRD_IN_SPEC, flat_pos, nrd_relax_pack_radiance_and_hit_dist(specular, hit_dist.y));
+	}
+	else
+	{
+		// ReBLUR takes the normalized hit distance, and 0 for a lobe that the tracer skipped.
+		// The diffuse hit distance has the roughness 1.
+		float diff_norm = hit_dist.x > 0 ? nrd_reblur_get_norm_hit_dist(hit_dist.x, view_z, nrd_pc.hit_dist_params.xyz, 1.0) : 0.0;
+		float spec_norm = hit_dist.y > 0 ? nrd_reblur_get_norm_hit_dist(hit_dist.y, view_z, nrd_pc.hit_dist_params.xyz, roughness) : 0.0;
+
+		imageStore(IMG_NRD_IN_DIFF, flat_pos, nrd_reblur_pack_radiance_and_norm_hit_dist(diffuse, diff_norm));
+		imageStore(IMG_NRD_IN_SPEC, flat_pos, nrd_reblur_pack_radiance_and_norm_hit_dist(specular, spec_norm));
+	}
 }

@@ -91,7 +91,7 @@ typedef struct {
 	uint32_t				resource_width, resource_height;
 
 	// the state of the frames
-	qboolean				history_valid;
+	qboolean				history_valid[2];	// the previous frame ran the denoiser: 0 ReLAX, 1 ReBLUR
 	uint32_t				frame_index;
 	uint32_t				last_frame_counter;
 	uint32_t				runs_this_frame;
@@ -100,6 +100,49 @@ typedef struct {
 } nrd_state_t;
 
 static nrd_state_t g_nrd = { };
+
+// The values of the pt_nrd_* cvars.
+typedef struct {
+	int		max_accum;
+	int		max_fast_accum;
+	float	prepass_blur;
+	int		antifirefly;
+	int		hitdist_recon;
+	int		direct;
+} nrd_tuning_t;
+
+// The push constants of nrd_prepare.comp and nrd_composite.comp.
+typedef struct {
+	float		hit_dist_params[4];		// ReBLUR: A, B, C of the normalized hit distance
+	uint32_t	mode;					// 0 ReLAX, 1 ReBLUR
+	uint32_t	direct;					// 1: the direct diffuse goes through NRD
+	uint32_t	validation;				// 1: show OUT_VALIDATION
+	uint32_t	pad;
+} nrd_push_t;
+
+// Units of the world in one meter. The hit distance parameters of NRD are in meters.
+#define NRD_UNITS_PER_METER	40.0f
+
+static void nrd_read_tuning( nrd_tuning_t *t )
+{
+	static nrd_tuning_t last;
+	static qboolean printed;
+
+	t->max_accum = (int)Com_Clamp( 0.f, 63.f, pt_nrd_max_accum->value );
+	t->max_fast_accum = (int)Com_Clamp( 0.f, 63.f, pt_nrd_max_fast_accum->value );
+	t->prepass_blur = Com_Clamp( 0.f, 100.f, pt_nrd_prepass_blur->value );
+	t->antifirefly = pt_nrd_antifirefly->integer ? 1 : 0;
+	t->hitdist_recon = (int)Com_Clamp( 0.f, 2.f, (float)pt_nrd_hitdist_recon->integer );
+	t->direct = pt_nrd_direct->integer ? 1 : 0;
+
+	if ( pt_verbose && pt_verbose->integer && ( !printed || memcmp( &last, t, sizeof(*t) ) ) )
+	{
+		ri.Printf( PRINT_ALL, "NRD settings: max accum %d, fast %d, prepass blur %.1f, anti firefly %d, hit distance reconstruction %d, direct through NRD %d\n",
+			t->max_accum, t->max_fast_accum, t->prepass_blur, t->antifirefly, t->hitdist_recon, t->direct );
+		last = *t;
+		printed = qtrue;
+	}
+}
 
 static uint32_t nrd_divide_up( uint32_t x, uint32_t y )
 {
@@ -358,7 +401,7 @@ static qboolean nrd_create_vulkan_objects( const nrd::InstanceDesc *info, const 
 	{
 		const nrd::PipelineDesc *desc = &info->pipelines[i];
 		nrd_pipeline_t *p = &g_nrd.pipelines[i];
-		VkDescriptorSetLayoutBinding bindings[32];
+		VkDescriptorSetLayoutBinding bindings[48];
 		VkDescriptorSetLayoutCreateInfo layout_info;
 		VkDescriptorSetLayout set_layouts[2];
 		VkPipelineLayoutCreateInfo pipeline_layout_info;
@@ -494,8 +537,8 @@ static qboolean nrd_create_vulkan_objects( const nrd::InstanceDesc *info, const 
 	}
 
 	// the shaders around NRD
-	vk_rtx_create_standard_compute_pipeline( &g_nrd.prepare_pipeline, vk.compute_shader[SHADER_NRD_PREPARE_COMP], NULL, 0 );
-	vk_rtx_create_standard_compute_pipeline( &g_nrd.composite_pipeline, vk.compute_shader[SHADER_NRD_COMPOSITE_COMP], NULL, 0 );
+	vk_rtx_create_standard_compute_pipeline( &g_nrd.prepare_pipeline, vk.compute_shader[SHADER_NRD_PREPARE_COMP], NULL, sizeof(nrd_push_t) );
+	vk_rtx_create_standard_compute_pipeline( &g_nrd.composite_pipeline, vk.compute_shader[SHADER_NRD_COMPOSITE_COMP], NULL, sizeof(nrd_push_t) );
 
 	return qtrue;
 }
@@ -504,23 +547,32 @@ static qboolean nrd_create_vulkan_objects( const nrd::InstanceDesc *info, const 
 =============
 vk_rtx_nrd_init
 
-Creates one RELAX diffuse/specular denoiser (identifier 0) and its Vulkan objects.
+Creates an instance with a RELAX (identifier 0) and a REBLUR (identifier 1) diffuse/specular denoiser,
+and its Vulkan objects.
 =============
 */
 void vk_rtx_nrd_init( void )
 {
-	const nrd::DenoiserDesc denoiser = { 0, nrd::Denoiser::RELAX_DIFFUSE_SPECULAR };
+	// One instance for both denoisers: the identifier is the argument of GetComputeDispatches.
+	const nrd::DenoiserDesc denoisers[2] = {
+		{ 0, nrd::Denoiser::RELAX_DIFFUSE_SPECULAR },
+		{ 1, nrd::Denoiser::REBLUR_DIFFUSE_SPECULAR }
+	};
 	nrd::InstanceCreationDesc desc = {};
 	nrd::Result result;
 	const nrd::InstanceDesc *info;
 	const nrd::LibraryDesc *lib;
 
+	// Both denoisers of NRD call this: the first one makes the objects.
+	if ( g_nrd.ready )
+		return;
+
 	if ( g_nrd.instance || g_nrd.pipelines )
 		vk_rtx_nrd_shutdown();
 
 	// Null callbacks select the default allocator.
-	desc.denoisers = &denoiser;
-	desc.denoisersNum = 1;
+	desc.denoisers = denoisers;
+	desc.denoisersNum = 2;
 
 	result = nrd::CreateInstance( desc, g_nrd.instance );
 	if ( result != nrd::Result::SUCCESS || !g_nrd.instance ) {
@@ -534,7 +586,7 @@ void vk_rtx_nrd_init( void )
 
 	if ( pt_verbose && pt_verbose->integer )
 	{
-		ri.Printf( PRINT_ALL, "NRD v%d.%d.%d: RELAX_DIFFUSE_SPECULAR instance created\n",
+		ri.Printf( PRINT_ALL, "NRD v%d.%d.%d: RELAX and REBLUR (diffuse and specular) instance created\n",
 			lib->versionMajor, lib->versionMinor, lib->versionBuild );
 		ri.Printf( PRINT_ALL, "NRD: %u pipelines, permanent pool %u, transient pool %u\n",
 			info->pipelinesNum, info->permanentPoolSize, info->transientPoolSize );
@@ -553,12 +605,12 @@ void vk_rtx_nrd_init( void )
 
 	if ( !nrd_create_vulkan_objects( info, lib ) )
 	{
-		ri.Printf( PRINT_WARNING, "NRD: the Vulkan objects are not available, pt_denoiser 2 is off\n" );
+		ri.Printf( PRINT_WARNING, "NRD: the Vulkan objects are not available, pt_denoiser 2 and 3 are off\n" );
 		vk_rtx_nrd_shutdown();
 		return;
 	}
 
-	g_nrd.history_valid = qfalse;
+	g_nrd.history_valid[0] = g_nrd.history_valid[1] = qfalse;
 	g_nrd.frame_index = 0;
 	g_nrd.last_frame_counter = (uint32_t)-1;
 	g_nrd.runs_this_frame = 0;
@@ -612,6 +664,7 @@ static VkImageView nrd_resource_view( const nrd::ResourceDesc *r, const nrd::Ins
 	case nrd::ResourceType::IN_SPEC_RADIANCE_HITDIST:	return vk.img_rtx[RTX_IMG_NRD_IN_SPEC].view;
 	case nrd::ResourceType::OUT_DIFF_RADIANCE_HITDIST:	return vk.img_rtx[RTX_IMG_NRD_OUT_DIFF].view;
 	case nrd::ResourceType::OUT_SPEC_RADIANCE_HITDIST:	return vk.img_rtx[RTX_IMG_NRD_OUT_SPEC].view;
+	case nrd::ResourceType::OUT_VALIDATION:				return vk.img_rtx[RTX_IMG_NRD_OUT_VALIDATION].view;
 	case nrd::ResourceType::PERMANENT_POOL:				return g_nrd.pool_images[r->indexInPool].view;
 	case nrd::ResourceType::TRANSIENT_POOL:				return g_nrd.pool_images[info->permanentPoolSize + r->indexInPool].view;
 	default:											return VK_NULL_HANDLE;
@@ -664,15 +717,16 @@ static void nrd_transition_pool_images( VkCommandBuffer cmd_buf )
 }
 
 // Sets the settings of the frame and records the dispatches of NRD.
-static void nrd_denoise( VkCommandBuffer cmd_buf )
+static void nrd_denoise( VkCommandBuffer cmd_buf, int which, const nrd_tuning_t *tuning )
 {
 	const vkUniformRTX_t *ubo = &vk.uniform_buffer;
 	const nrd::InstanceDesc *info = nrd::GetInstanceDesc( *g_nrd.instance );
 	const nrd::LibraryDesc *lib = nrd::GetLibraryDesc();
 	const uint32_t slot = vk.current_frame_index;
-	const nrd::Identifier identifier = 0;
+	const nrd::Identifier identifier = (nrd::Identifier)which;
 	nrd::CommonSettings common;
 	nrd::RelaxSettings relax;
+	nrd::ReblurSettings reblur;
 	const nrd::DispatchDesc *dispatches = NULL;
 	uint32_t num_dispatches = 0;
 	uint32_t i, next_slice = 0;
@@ -697,7 +751,7 @@ static void nrd_denoise( VkCommandBuffer cmd_buf )
 		const qboolean random_offset = (qboolean)( ubo->flt_taa == AA_MODE_TAA || ubo->temporal_blend_factor > 0.f );
 
 		// The default members are the defaults of NRD.
-		common.accumulationMode = g_nrd.history_valid ? nrd::AccumulationMode::CONTINUE : nrd::AccumulationMode::CLEAR_AND_RESTART;
+		common.accumulationMode = g_nrd.history_valid[which] ? nrd::AccumulationMode::CONTINUE : nrd::AccumulationMode::CLEAR_AND_RESTART;
 
 		nrd_projection( ubo->P, znear, zfar, common.viewToClipMatrix );
 		nrd_projection( ubo->P_prev, znear, zfar, common.viewToClipMatrixPrev );
@@ -729,17 +783,37 @@ static void nrd_denoise( VkCommandBuffer cmd_buf )
 
 		// A pixel with a view Z of PRIMARY_RAY_T_MAX or more is the sky.
 		common.denoisingRange = PRIMARY_RAY_T_MAX;
+		common.enableValidation = pt_nrd_validation->integer != 0;
 		common.frameIndex = g_nrd.frame_index++;
 	}
 
 	if ( nrd::SetCommonSettings( *g_nrd.instance, common ) != nrd::Result::SUCCESS )
 		ri.Printf( PRINT_WARNING, "NRD: SetCommonSettings failed\n" );
 
-	relax.enableAntiFirefly = true;
 	// The tracer picks the diffuse or the specular ray of the first bounce for a pixel: the other lobe has no hit distance.
-	relax.hitDistanceReconstructionMode = nrd::HitDistanceReconstructionMode::AREA_3X3;
+	// The modes of the hit distance reconstruction are in the order of the cvar.
+	if ( which == 0 )
+	{
+		relax.diffuseMaxAccumulatedFrameNum = relax.specularMaxAccumulatedFrameNum = (uint32_t)tuning->max_accum;
+		relax.diffuseMaxFastAccumulatedFrameNum = relax.specularMaxFastAccumulatedFrameNum = (uint32_t)tuning->max_fast_accum;
+		relax.diffusePrepassBlurRadius = tuning->prepass_blur;
+		relax.specularPrepassBlurRadius = tuning->prepass_blur * ( 50.0f / 30.0f );
+		relax.enableAntiFirefly = tuning->antifirefly != 0;
+		relax.hitDistanceReconstructionMode = (nrd::HitDistanceReconstructionMode)tuning->hitdist_recon;
+	}
+	else
+	{
+		reblur.maxAccumulatedFrameNum = (uint32_t)tuning->max_accum;
+		reblur.maxFastAccumulatedFrameNum = (uint32_t)tuning->max_fast_accum;
+		reblur.maxStabilizedFrameNum = MIN( reblur.maxStabilizedFrameNum, reblur.maxAccumulatedFrameNum );
+		reblur.diffusePrepassBlurRadius = tuning->prepass_blur;
+		reblur.specularPrepassBlurRadius = tuning->prepass_blur * ( 50.0f / 30.0f );
+		reblur.enableAntiFirefly = tuning->antifirefly != 0;
+		reblur.hitDistanceReconstructionMode = (nrd::HitDistanceReconstructionMode)tuning->hitdist_recon;
+		reblur.hitDistanceParameters.A *= NRD_UNITS_PER_METER;
+	}
 
-	if ( nrd::SetDenoiserSettings( *g_nrd.instance, identifier, &relax ) != nrd::Result::SUCCESS )
+	if ( nrd::SetDenoiserSettings( *g_nrd.instance, identifier, which == 0 ? (const void *)&relax : (const void *)&reblur ) != nrd::Result::SUCCESS )
 		ri.Printf( PRINT_WARNING, "NRD: SetDenoiserSettings failed\n" );
 
 	if ( nrd::GetComputeDispatches( *g_nrd.instance, &identifier, 1, dispatches, num_dispatches ) != nrd::Result::SUCCESS )
@@ -752,8 +826,8 @@ static void nrd_denoise( VkCommandBuffer cmd_buf )
 	{
 		const nrd::DispatchDesc *dispatch = &dispatches[i];
 		const nrd_pipeline_t *p = &g_nrd.pipelines[dispatch->pipelineIndex];
-		VkDescriptorImageInfo images[32];
-		VkWriteDescriptorSet writes[32];
+		VkDescriptorImageInfo images[48];
+		VkWriteDescriptorSet writes[48];
 		VkDescriptorSetAllocateInfo alloc;
 		VkDescriptorSet set;
 		uint32_t n, num_textures = 0, num_storages = 0, dynamic_offset;
@@ -835,10 +909,27 @@ static void nrd_denoise( VkCommandBuffer cmd_buf )
 	}
 }
 
-static void vk_rtx_nrd_filter( VkCommandBuffer cmd_buf )
+static void nrd_filter( VkCommandBuffer cmd_buf, int which )
 {
+	nrd_tuning_t tuning;
+	nrd_push_t push;
+
 	if ( !g_nrd.ready )
 		return;
+
+	nrd_read_tuning( &tuning );
+
+	Com_Memset( &push, 0, sizeof(push) );
+	{
+		nrd::ReblurSettings reblur;
+
+		push.hit_dist_params[0] = reblur.hitDistanceParameters.A * NRD_UNITS_PER_METER;
+		push.hit_dist_params[1] = reblur.hitDistanceParameters.B;
+		push.hit_dist_params[2] = reblur.hitDistanceParameters.C;
+	}
+	push.mode = (uint32_t)which;
+	push.direct = (uint32_t)tuning.direct;
+	push.validation = pt_nrd_validation->integer != 0 ? 1u : 0u;
 
 	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_LF_SH] );
 	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_LF_COCG] );
@@ -850,36 +941,56 @@ static void vk_rtx_nrd_filter( VkCommandBuffer cmd_buf )
 
 	// the inputs
 	vk_rtx_bind_standard_compute_pipeline( cmd_buf, &g_nrd.prepare_pipeline );
+	qvkCmdPushConstants( cmd_buf, g_nrd.prepare_pipeline.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push), &push );
 	qvkCmdDispatch( cmd_buf, ( vk.extent_render.width + 15 ) / 16, ( vk.extent_render.height + 15 ) / 16, 1 );
 	nrd_memory_barrier( cmd_buf );
 
-	nrd_denoise( cmd_buf );
+	nrd_denoise( cmd_buf, which, &tuning );
 
 	// the composition, in the layout of the tracer images
 	vk_rtx_bind_standard_compute_pipeline( cmd_buf, &g_nrd.composite_pipeline );
+	qvkCmdPushConstants( cmd_buf, g_nrd.composite_pipeline.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push), &push );
 	qvkCmdDispatch( cmd_buf, ( vk.gpu_slice_width + 15 ) / 16, ( vk.extent_render.height + 15 ) / 16, 1 );
 
 	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_DENOISED_COLOR] );
 }
 
-static void vk_rtx_nrd_invalidate_history( void )
+static void vk_rtx_nrd_relax_filter( VkCommandBuffer cmd_buf )		{ nrd_filter( cmd_buf, 0 ); }
+static void vk_rtx_nrd_reblur_filter( VkCommandBuffer cmd_buf )		{ nrd_filter( cmd_buf, 1 ); }
+
+static void vk_rtx_nrd_relax_invalidate_history( void )				{ g_nrd.history_valid[0] = qfalse; }
+static void vk_rtx_nrd_reblur_invalidate_history( void )			{ g_nrd.history_valid[1] = qfalse; }
+
+static void vk_rtx_nrd_relax_end_frame( qboolean active )			{ g_nrd.history_valid[0] = active; }
+static void vk_rtx_nrd_reblur_end_frame( qboolean active )			{ g_nrd.history_valid[1] = active; }
+
+// The Vulkan objects are shared: the ReLAX entry makes and destroys them, the ReBLUR entry has nothing to do.
+static void vk_rtx_nrd_reblur_none( void )
 {
-	g_nrd.history_valid = qfalse;
 }
 
-static void vk_rtx_nrd_end_frame( qboolean active )
-{
-	g_nrd.history_valid = active;
-}
+#define NRD_DENOISER_FLAGS	( DENOISER_FLAG_ACTIVE | DENOISER_FLAG_SPEC_DEMODULATE | DENOISER_FLAG_HIT_DISTANCE )
 
-const denoiser_t vk_rtx_denoiser_nrd = {
+const denoiser_t vk_rtx_denoiser_nrd_relax = {
 	"nrd relax",
-	DENOISER_FLAG_ACTIVE | DENOISER_FLAG_SPEC_DEMODULATE | DENOISER_FLAG_HIT_DISTANCE,
+	NRD_DENOISER_FLAGS,
 	vk_rtx_nrd_init,
 	vk_rtx_nrd_shutdown,
-	vk_rtx_nrd_invalidate_history,
+	vk_rtx_nrd_relax_invalidate_history,
 	NULL,
 	NULL,
-	vk_rtx_nrd_filter,
-	vk_rtx_nrd_end_frame
+	vk_rtx_nrd_relax_filter,
+	vk_rtx_nrd_relax_end_frame
+};
+
+const denoiser_t vk_rtx_denoiser_nrd_reblur = {
+	"nrd reblur",
+	NRD_DENOISER_FLAGS,
+	vk_rtx_nrd_reblur_none,
+	vk_rtx_nrd_reblur_none,
+	vk_rtx_nrd_reblur_invalidate_history,
+	NULL,
+	NULL,
+	vk_rtx_nrd_reblur_filter,
+	vk_rtx_nrd_reblur_end_frame
 };

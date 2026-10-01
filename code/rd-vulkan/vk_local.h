@@ -968,6 +968,7 @@ typedef struct {
 
 	qboolean		rtxSupport;	// device supports raytracing
 	qboolean		rtxActive;	// raytracing on
+	qboolean		computeDerivatives;	// VK_KHR_compute_shader_derivatives is enabled
 	qboolean		rtx_surf_is_hdr;
 
 	VkPhysicalDeviceProperties							props;
