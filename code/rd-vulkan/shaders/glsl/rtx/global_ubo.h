@@ -29,7 +29,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define UBO_CVAR_DO( name, default_value ) GLOBAL_UBO_VAR_LIST_DO( FLOAT, name )
 
 #define UBO_CVAR_LIST_FLT \
-	UBO_CVAR_DO( flt_antilag_hf,					1		)	/* A-SVGF anti-lag filter strength, [0..inf) */ \
+	UBO_CVAR_DO( flt_antilag_hf,					4		)	/* A-SVGF anti-lag filter strength, [0..inf) */ \
 	UBO_CVAR_DO( flt_antilag_lf,					0.2		) \
 	UBO_CVAR_DO( flt_antilag_spec,					2		) \
 	UBO_CVAR_DO( flt_antilag_spec_motion,			0.004	) /* scaler for motion vector scaled specular anti-blur adjustment */ \
