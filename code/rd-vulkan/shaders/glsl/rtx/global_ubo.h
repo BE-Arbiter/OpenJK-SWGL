@@ -144,12 +144,16 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	UBO_CVAR_DO( pt_restir_gi_spatial_radius,	16	)	/* radius of the disk of the spatial neighbours, in pixels */ \
 	UBO_CVAR_DO( pt_restir_gi_max_age,	30	)	/* frames a sample point lives in the reservoirs before it is dropped, [0..255]; 0 switches the temporal reuse off */ \
 
+#define UBO_CVAR_LIST_FX \
+	UBO_CVAR_DO( pt_weapon_fx,			1	)	/* saber and bolt sprites skip the tone mapper and add to the screen as the rasterizer does: 0 = off */ \
+
 #define UBO_CVAR_LIST \
 	UBO_CVAR_LIST_FLT \
 	UBO_CVAR_LIST_PT \
 	UBO_CVAR_LIST_TM \
 	UBO_CVAR_LIST_RC \
 	UBO_CVAR_LIST_GI \
+	UBO_CVAR_LIST_FX \
 
 #define GLOBAL_UBO_VAR_LIST \
 	GLOBAL_UBO_VAR_LIST_DO( MAT4,	 V								) \

@@ -240,7 +240,6 @@ cvar_t	*pt_debug_poly_lights;
 cvar_t	*pt_restir_m_clamp;
 cvar_t	*pt_debug_image;
 cvar_t	*pt_verbose;
-cvar_t	*pt_saber_dlight;
 cvar_t	*pt_nrd_max_accum;
 cvar_t	*pt_nrd_max_fast_accum;
 cvar_t	*pt_nrd_prepass_blur;
@@ -1031,7 +1030,6 @@ void R_Register( void )
 	pt_restir_m_clamp					= ri.Cvar_Get("pt_restir_m_clamp",					"8",	CVAR_NONE);
 	pt_debug_image						= ri.Cvar_Get("pt_debug_image",						"0",	CVAR_NONE);
 	pt_verbose							= ri.Cvar_Get("pt_verbose",							"0",	CVAR_NONE);
-	pt_saber_dlight						= ri.Cvar_Get("pt_saber_dlight",					"0",	CVAR_NONE);
 	pt_accumulation_rendering			= ri.Cvar_Get("pt_accumulation_rendering",			"0",	CVAR_NONE);
 	pt_accumulation_rendering_framenum	= ri.Cvar_Get("pt_accumulation_rendering_framenum",	"500",	CVAR_NONE);
 	// 0 none, 1 A-SVGF, 2 NRD ReLAX, 3 NRD ReBLUR

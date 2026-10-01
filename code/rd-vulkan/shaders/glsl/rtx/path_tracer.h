@@ -155,6 +155,7 @@ struct EffectsResult
     vec4 alpha;
     vec3 additive;
     vec3 glow;
+    vec3 fx;	// the weapon effects, in display units: they skip the tone mapper
 };
 
 // An effect as the rasterizer blends it onto the screen: out = L + T * behind (HDR units).
@@ -170,6 +171,7 @@ struct RayPayloadEffects {
    uvec2 transparency; // half4: rgb = T, the transmittance of the effects: out = L + T * behind
    uvec2 additive;     // half4: rgb = L, what the effects add
    uvec2 glow;         // the additive emission of the glow stages, for the bloom
+   uvec2 fx;           // half4: the weapon effects, summed as the rasterizer does (display units)
    uint distances; // half2x16 - min and max
    uvec4 fog1; // half8x16: .xy = color.rgba; .z = t_min, t_max; .w = density: a and b for (a*t + b)
    uvec4 fog2; // same as fog1 but for a fog volume further away

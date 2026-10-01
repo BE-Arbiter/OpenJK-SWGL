@@ -134,8 +134,12 @@ TransparencyHit make_empty_hit()
     return TransparencyHit(vec3(0.0), vec3(1.0), vec3(0.0), false);
 }
 
-TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
+// fx: for a weapon effect (saber, bolt), what the rasterizer would add to the screen. The textures
+// are read as it reads them, in gamma, so that the soft glows pile up as they do there.
+TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary, out vec3 fx)
 {
+    fx = vec3(0.0);
+
     const vec3 barycentric = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
 
     vec2 uv;
@@ -153,6 +157,8 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
 
     if (minfo.base_texture == 0)
         return make_empty_hit();
+
+    const bool weapon_fx = ((info.w & 1u) != 0u) && global_ubo.pt_weapon_fx != 0.0;
 
     vec4 shaderRGBA = unpack_rgba8(info.y);
 
@@ -173,6 +179,7 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
     // out = L + T * behind (blend_stage_layer). The glow pass takes the glow bundles only.
     vec3 L = vec3(0.0), T = vec3(1.0);
     vec3 glow_L = vec3(0.0), glow_T = vec3(1.0);
+    vec3 fx_L = vec3(0.0), fx_T = vec3(1.0);
 
     for (uint s = 0u; s < MAX_RTX_STAGES; s++)
     {
@@ -199,8 +206,16 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
         else if (alpha_gen == 2u)				// AGEN_ENTITY
             color.a = shaderRGBA.a;
 
+        vec4 fx_color = color;
+
         if (bundle.image != 0u)
-            color *= global_textureLod(bundle.image, mat2(bundle.tc_matrix.xy, bundle.tc_matrix.zw) * uv + bundle.tc_offset.xy, 0);
+        {
+            // A weapon effect: the mip level the CPU worked out from the size of the sprite on the screen.
+            const float lod = weapon_fx ? float((info.w >> 8u) & 0xffu) / 16.0 : 0.0;
+            const vec4 tex = global_textureLod(bundle.image, mat2(bundle.tc_matrix.xy, bundle.tc_matrix.zw) * uv + bundle.tc_offset.xy, lod);
+            color *= tex;
+            fx_color *= tex;
+        }
 
         // The alpha test of the shader is on its first stage.
         if (s == 0u)
@@ -218,6 +233,7 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
         }
 
         blend_stage_layer(stage.blend, color, L, T);
+        blend_stage_layer(stage.blend, fx_color, fx_L, fx_T);
 
         bool glows = (bundle.alphaGen & BUNDLE_GLOW) != 0u;
         blend_stage_layer(stage.blend, glows ? color : vec4(0.0, 0.0, 0.0, color.a), glow_L, glow_T);
@@ -225,6 +241,14 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary)
 
     if (all(lessThanEqual(L, vec3(0.0))) && all(greaterThanEqual(T, vec3(1.0))))
         return make_empty_hit();
+
+    // The effect leaves the layer of the tracer: the tone mapper does not see it. The glow stays for the bloom.
+    if (weapon_fx)
+    {
+        fx = max(fx_L, vec3(0.0)) * minfo.emission_scale;
+        L = vec3(0.0);
+        T = vec3(1.0);
+    }
 
     // The rasterizer draws the effects in screen units: the HDR value is the one the tone mapper
     // shows as this colour (screen_to_hdr_color). pt_glow_scale scales it, as all that the tracer

@@ -142,6 +142,7 @@ void main()
     if (opos.x >= global_ubo.width || opos.y >= global_ubo.height)
     {
         imageStore(IMG_FLAT_COLOR, opos, vec4(0));
+        imageStore(IMG_FLAT_FX, opos, vec4(0));
         return;
     }
   
@@ -183,6 +184,7 @@ void main()
     }
 
     imageStore(IMG_FLAT_COLOR, opos, color);
+    imageStore(IMG_FLAT_FX, opos, imageLoad(IMG_PT_FX, ipos));
 
     if(use_center_mv)
         imageStore(IMG_FLAT_MOTION, opos, imageLoad(IMG_PT_MOTION, ipos));

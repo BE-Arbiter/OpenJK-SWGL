@@ -449,10 +449,68 @@ static void do_line( vec3_t *vertex_positions, const vec3_t start, const vec3_t 
     VectorMA( end,   spanWidth2, up, vertex_positions[3] );
 }
 
-static inline void write_sprite_info( uint32_t *sprite_info, const rtx_material_t *mat, const refEntity_t *e )
+// The shaders of the saber and the bolts: the prefixes of pt_weapon_fx_shaders. Their sprites skip the tone mapper.
+static float sprite_view_height, sprite_view_tan;
+static vec3_t sprite_view_origin;
+
+static qboolean vk_rtx_is_weapon_fx( const shader_t *shader )
+{
+	static cvar_t *prefixes;
+
+	if ( !prefixes )
+		prefixes = ri.Cvar_Get( "pt_weapon_fx_shaders", "gfx/effects/sabers/ gfx/effects/blaster_blob gfx/effects/whiteGlow gfx/effects/blasterFrontFlash gfx/effects/blasterSideFlash", CVAR_ARCHIVE_ND );
+
+	if ( !shader )
+		return qfalse;
+
+	for ( const char *p = prefixes->string; *p; )
+	{
+		while ( *p == ' ' )
+			p++;
+
+		const char *end = p;
+
+		while ( *end && *end != ' ' )
+			end++;
+
+		if ( end > p && !Q_stricmpn( shader->name, p, (int)( end - p ) ) )
+			return qtrue;
+
+		p = end;
+	}
+
+	return qfalse;
+}
+
+// Bit 0: a weapon effect. Bits 8-15: the mip level of its texture, in sixteenths, from the size of the sprite on
+// the screen (the rasterizer filters the glow texture; the tracer reads one level).
+static uint32_t vk_rtx_weapon_fx_word( const shader_t *shader, const refEntity_t *e, const vec3_t center )
+{
+	if ( !vk_rtx_is_weapon_fx( shader ) )
+		return 0u;
+
+	float lod = 0.0f;
+	const image_t *image = shader->stages[0] ? shader->stages[0]->bundle[0].image[0] : NULL;
+
+	if ( image && e->radius > 0.0f && sprite_view_height > 0.0f )
+	{
+		vec3_t d;
+		VectorSubtract( center, sprite_view_origin, d );
+
+		const float dist = MAX( VectorLength( d ), 1.0f );
+		const float pixels = MAX( 2.0f * e->radius * sprite_view_height / ( 2.0f * dist * sprite_view_tan ), 0.001f );
+
+		lod = log2f( MAX( (float)image->width / pixels, 1.0f ) );
+	}
+
+	return 1u | ( (uint32_t)( MIN( lod, 15.0f ) * 16.0f ) << 8 );
+}
+
+static inline void write_sprite_info( uint32_t *sprite_info, const rtx_material_t *mat, const refEntity_t *e, const shader_t *shader, const vec3_t center )
 {
 	Com_Memset( sprite_info, 0, TR_SPRITE_INFO_SIZE );
     sprite_info[0] = mat->flags;
+	sprite_info[3] = vk_rtx_weapon_fx_word( shader, e, center );
     sprite_info[1] =
         ((uint32_t)e->shaderRGBA[0]      ) |
         ((uint32_t)e->shaderRGBA[1] <<  8) |
@@ -522,47 +580,14 @@ static void vk_rtx_get_saber_lights_color( vec3_t rgb, refEntity_t *e )
 }
 
 
-// Saber entities of the current frame, set by vk_rtx_build_saber_lights.
-static trRefEntity_t *sabers[MAX_SABER_LIGHTS];
-static int saber_light_count = 0;
-
-// The cgame adds a point dlight at the middle of each blade for the raster path. Its
-// position is blade start + 0.5 * length * direction, from float maths that differs from
-// the entity's by a few ulp (0.004 at 32768 units). The tolerance is far above that and
-// below the blade radius. The test is on the segment, not the middle: an SFX blade glow
-// is shorter than its blade by half a radius.
-#define SABER_DLIGHT_TOLERANCE 1.0f
-
-// True if the dlight is the cgame's light of a blade that has a cylinder light this frame.
-// Valid after vk_rtx_build_saber_lights of the same frame.
-bool vk_rtx_is_saber_dlight( const dlight_t *dlight )
-{
-	for ( int i = 0; i < saber_light_count; i++ )
-	{
-		const refEntity_t *e = &sabers[i]->e;
-		vec3_t d, perp;
-
-		VectorSubtract( dlight->origin, e->origin, d );
-		const float t = DotProduct( d, e->axis[0] );
-
-		if ( t < -SABER_DLIGHT_TOLERANCE || t > e->saberLength + SABER_DLIGHT_TOLERANCE )
-			continue;
-
-		VectorMA( d, -t, e->axis[0], perp );
-
-		if ( DotProduct( perp, perp ) <= SABER_DLIGHT_TOLERANCE * SABER_DLIGHT_TOLERANCE )
-			return true;
-	}
-
-	return false;
-}
-
 void vk_rtx_build_saber_lights( light_poly_t *light_list, int *num_lights, 
 	int max_lights, world_t *worldData, const trRefdef_t *refdef, float adapted_luminance, int *light_entity_ids )
 {
 	uint32_t i;
 
 	int num_sabers = 0;
+
+	static trRefEntity_t *sabers[MAX_SABER_LIGHTS];
 
 	for ( i = 0; i < refdef->num_entities; i++ )
 	{
@@ -572,8 +597,6 @@ void vk_rtx_build_saber_lights( light_poly_t *light_list, int *num_lights,
 		if (refdef->entities[i].e.reType == RT_SABER_GLOW)
 			sabers[num_sabers++] = refdef->entities + i;
 	}
-
-	saber_light_count = num_sabers;
 
 	if ( num_sabers == 0 )
 		return;
@@ -616,6 +639,10 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 	// TODO: remove vkpt_refdef.fd, it's better to calculate it from the view matrix
 	const vec3_t view_origin = { refdef->vieworg[0], refdef->vieworg[1], refdef->vieworg[2] };
 
+	sprite_view_height = (float)refdef->height;
+	sprite_view_tan = tanf( DEG2RAD( refdef->fov_y ) * 0.5f );
+	VectorCopy( refdef->vieworg, sprite_view_origin );
+
 	const size_t particle_vertex_data_size = transparency.particle_num * 4 * TR_POSITION_SIZE;
 	const size_t sprite_vertex_offset = transparency.vertex_position_host_offset + particle_vertex_data_size;
 
@@ -640,13 +667,13 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 		shader = R_GetShaderByHandle( entity->e.customShader );
 		mat = vk_rtx_shader_to_material( shader );
 
-		if ( !mat || !mat->active || !mat->uploaded[vk.current_frame_index] ) 
+		if ( !mat || !mat->active || !mat->uploaded[vk.current_frame_index] )
 			continue;
 
 		if ( !mat->stage[0].bundle[0].image )
 			continue;
 
-		if (entity->e.reType == RT_LINE) 
+		if (entity->e.reType == RT_LINE)
 		{
 			vec3_t start, end;
 			vec3_t v1, v2;
@@ -663,7 +690,7 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 			if (VectorNormalize(right) <= 0.0001f)
 				continue;
 
-			write_sprite_info(sprite_info, mat, &entity->e);
+			write_sprite_info(sprite_info, mat, &entity->e, shader, entity->e.origin);
 			do_line( vertex_positions, start, end, right, entity->e.radius );
 
 			vertex_positions += 4;
@@ -671,7 +698,7 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 		}
 		else if (entity->e.reType == RT_SPRITE )
 		{
-			write_sprite_info(sprite_info, mat, &entity->e);
+			write_sprite_info(sprite_info, mat, &entity->e, shader, entity->e.origin);
 			do_sprite( vertex_positions, entity->e.origin, entity->e.radius);
 
 			vertex_positions += 4;
@@ -689,7 +716,7 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 			{
 				VectorMA( e->origin, j, e->axis[0], end );
 
-				write_sprite_info(sprite_info, mat, &entity->e);
+				write_sprite_info(sprite_info, mat, &entity->e, shader, end);
 				do_sprite( vertex_positions, end, e->radius);
 
 				vertex_positions += 4;
@@ -701,7 +728,7 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 					goto done;
 			}
 
-			write_sprite_info(sprite_info, mat, &entity->e);
+			write_sprite_info(sprite_info, mat, &entity->e, shader, e->origin);
 			do_sprite( vertex_positions, e->origin, 5.5f + Q_flrand(0.0f, 1.0f) * 0.25f);
 
 			vertex_positions += 4;

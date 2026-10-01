@@ -343,6 +343,7 @@ trace_effects_ray(Ray ray, bool skip_procedural)
 	ray_payload_effects.transparency = packHalf4x16(vec4(1));	// T: nothing in front
 	ray_payload_effects.additive     = uvec2(0);
 	ray_payload_effects.glow         = uvec2(0);
+	ray_payload_effects.fx           = uvec2(0);
 	ray_payload_effects.distances = 0;
 	ray_payload_effects.fog1 = uvec4(0);
 	ray_payload_effects.fog2 = uvec4(0);

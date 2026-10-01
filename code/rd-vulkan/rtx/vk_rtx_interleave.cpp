@@ -85,5 +85,6 @@ void vk_rtx_interleave( VkCommandBuffer cmd_buf )
 	END_PERF_MARKER( cmd_buf, PROFILER_INTERLEAVE );
 
 	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_FLAT_COLOR] );
+	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_FLAT_FX] );
 	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_FLAT_MOTION] );
 }

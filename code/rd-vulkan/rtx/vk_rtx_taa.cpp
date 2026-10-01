@@ -98,6 +98,7 @@ void vk_rtx_taa( VkCommandBuffer cmd_buf )
 			(dispatch_size.height + 15) / 16,
 			1 );
 
+	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_TAA_FX] );
 	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_TAA_A] );
 	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_TAA_B] );
 	BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_TAA_B] );

@@ -255,6 +255,7 @@ main()
 		imageStore(IMG_PT_BASE_COLOR_A, ipos, vec4(0));
 		transparent = apply_blended_layers(transparent, screen_to_hdr_color(layer_L), layer_T);
 		imageStore(IMG_PT_TRANSPARENT, ipos, transparent);
+		imageStore(IMG_PT_FX, ipos, vec4(effects.fx, 0));
 		// Alpha: the luminance of what the tracer does not light, which the exposure leaves out.
 		imageStore(IMG_PT_GLOW, ipos, vec4(layer_glow * screen_to_hdr() + effects.glow, luminance(screen_to_hdr_color(layer_L) + effects.additive)));
 #ifdef USE_RTX_INSPECT_TANGENTS
@@ -534,4 +535,5 @@ main()
 
 	transparent = apply_blended_layers(transparent, screen_to_hdr_color(layer_L), layer_T);
 	imageStore(IMG_PT_TRANSPARENT, ipos, transparent);
+	imageStore(IMG_PT_FX, ipos, vec4(effects.fx, 0));
 }

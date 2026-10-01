@@ -85,8 +85,11 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	IMG_DO(NRD_OUT_DIFF,              44, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
 	IMG_DO(NRD_OUT_SPEC,              45, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
 	IMG_DO(NRD_OUT_VALIDATION,        46, R8G8B8A8_UNORM,      rgba8,   IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(PT_FX,                     47, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
+	IMG_DO(FLAT_FX,                   48, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH,           IMG_HEIGHT     ) \
+	IMG_DO(TAA_FX,                    49, R16G16B16A16_SFLOAT, rgba16f, IMG_WIDTH_TAA,       IMG_HEIGHT_TAA ) \
 
-#define RTX_IMG_NUM_STATIC 47
+#define RTX_IMG_NUM_STATIC 50
 
 #define LIST_IMAGES_A_B \
 	IMG_DO( PT_VISBUF_PRIM_A,			  RTX_IMG_NUM_STATIC + 0,  R32G32_UINT,	rg32ui, IMG_WIDTH_MGPU,      IMG_HEIGHT ) \

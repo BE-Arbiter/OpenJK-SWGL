@@ -172,6 +172,7 @@ main()
     if (ipos.x >= global_ubo.taa_output_width || ipos.y >= global_ubo.taa_output_height)
     {
         imageStore(IMG_TAA_OUTPUT, ipos, vec4(0));
+        imageStore(IMG_TAA_FX, ipos, vec4(0));
         return;
     }
 
@@ -306,4 +307,18 @@ main()
 
     imageStore(IMG_TAA_A, ipos, vec4(color_output, 0));
 	imageStore(IMG_TAA_OUTPUT, ipos, vec4(linear_color_output, 1));
+
+    // The weapon effects bypass the tone mapper. The jitter of the render is taken out of the position, and
+    // the four render pixels around it are mixed.
+    {
+        const vec2 fx_pos = clamp(hires_to_lores(ipos), vec2(0.0), vec2(global_ubo.width - 1, global_ubo.height - 1));
+        const ivec2 fx_p0 = ivec2(floor(fx_pos));
+        const ivec2 fx_p1 = min(fx_p0 + ivec2(1), ivec2(global_ubo.width - 1, global_ubo.height - 1));
+        const vec2 fx_w = fx_pos - vec2(fx_p0);
+
+        const vec3 fx = mix(mix(texelFetch(TEX_FLAT_FX, ivec2(fx_p0.x, fx_p0.y), 0).rgb, texelFetch(TEX_FLAT_FX, ivec2(fx_p1.x, fx_p0.y), 0).rgb, fx_w.x),
+                            mix(texelFetch(TEX_FLAT_FX, ivec2(fx_p0.x, fx_p1.y), 0).rgb, texelFetch(TEX_FLAT_FX, ivec2(fx_p1.x, fx_p1.y), 0).rgb, fx_w.x), fx_w.y);
+
+        imageStore(IMG_TAA_FX, ipos, vec4(fx, 0));
+    }
 }

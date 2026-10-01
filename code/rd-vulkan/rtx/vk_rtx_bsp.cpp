@@ -1988,13 +1988,23 @@ static void vk_rtx_collect_surfaces( uint32_t *prim_ctr, vk_geometry_data_t *geo
 				vec3_t center, anti_center;
 				get_triangle_off_center(positions, center, anti_center, 0.01f);
 
-				//int cluster = BSP_PointLeaf(worldData.nodes, center)->cluster;
-				int cluster = (model_idx < 0) ? node->cluster : -1;
+				// The first leaf to list a surface claims it, so that cluster is wrong for most of a big floor.
+				// Look up the triangle, on both sides: a Quake 3 floor winding puts `center` below it.
+				int cluster = BSP_PointLeaf(worldData.nodes, center)->cluster;
+
+				if (cluster < 0)
+					cluster = BSP_PointLeaf(worldData.nodes, anti_center)->cluster;
 
 				if (cluster < 0) {
 					get_triangle_off_center(positions, center, anti_center, 1.f);
 					cluster = BSP_PointLeaf(worldData.nodes, center)->cluster;
+
+					if (cluster < 0)
+						cluster = BSP_PointLeaf(worldData.nodes, anti_center)->cluster;
 				}
+
+				if (cluster < 0 && model_idx < 0)
+					cluster = node->cluster;
 
 				surface_prims[k].cluster = cluster;
 			}

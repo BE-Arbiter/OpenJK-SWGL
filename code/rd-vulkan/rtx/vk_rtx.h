@@ -757,7 +757,6 @@ VkBufferView get_transparency_beam_intersect_buffer_view(void);
 void get_transparency_counts(int* particle_num, int* beam_num, int* sprite_num);
 void vk_rtx_build_saber_lights( light_poly_t *light_list, int *num_lights, 
 	int max_lights, world_t *worldData, const trRefdef_t *refdef, float adapted_luminance, int *light_entity_ids );
-bool vk_rtx_is_saber_dlight( const dlight_t *dlight );
 
 
 // god rays

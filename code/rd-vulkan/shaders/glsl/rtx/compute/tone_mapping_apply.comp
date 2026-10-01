@@ -301,6 +301,16 @@ void main()
         mapped_color.rgb = linear_to_srgb(mapped_color.rgb);
     }
 
+    // The weapon effects add on the screen as the rasterizer adds them, in display units: the curve does not touch them.
+    {
+        const vec3 fx = max(imageLoad(IMG_TAA_FX, ipos).rgb, vec3(0.0));
+
+        if(spec_tone_mapping_hdr == 0)
+            mapped_color.rgb = min(mapped_color.rgb + fx, vec3(1.0));
+        else
+            mapped_color.rgb += srgb_to_linear(min(fx, vec3(1.0))) * (global_ubo.tm_hdr_peak_nits / 80);
+    }
+
     // Write out to image:
     imageStore(IMG_TAA_OUTPUT, ipos, vec4(mapped_color, 0));
 }
