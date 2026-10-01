@@ -137,11 +137,17 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	UBO_CVAR_DO( pt_rc_min_weight,		2	)	/* samples a cell needs before a query trusts it */ \
 	UBO_CVAR_DO( pt_rc_min_hit_voxels,	2	)	/* a query needs a bounce hit at least this many cell sizes away: near hits fall back to NEE */ \
 
+#define UBO_CVAR_LIST_GI \
+	UBO_CVAR_DO( pt_restir_gi,			0	)	/* ReSTIR GI for the first diffuse bounce: 0 = off, 1 = temporal reuse; off while pt_num_bounce_rays is 0.5 */ \
+	UBO_CVAR_DO( pt_restir_gi_m_clamp,	20	)	/* temporal cap of the number of candidates a reservoir stands for, [1..65535] */ \
+	UBO_CVAR_DO( pt_restir_gi_max_age,	30	)	/* frames a sample point lives in the reservoirs before it is dropped, [0..255]; 0 switches the temporal reuse off */ \
+
 #define UBO_CVAR_LIST \
 	UBO_CVAR_LIST_FLT \
 	UBO_CVAR_LIST_PT \
 	UBO_CVAR_LIST_TM \
 	UBO_CVAR_LIST_RC \
+	UBO_CVAR_LIST_GI \
 
 #define GLOBAL_UBO_VAR_LIST \
 	GLOBAL_UBO_VAR_LIST_DO( MAT4,	 V								) \
@@ -219,7 +225,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	GLOBAL_UBO_VAR_LIST_DO( INT,	 tonemap_hdr					) /* the tone mapper writes HDR */ \
 	GLOBAL_UBO_VAR_LIST_DO( FLOAT,	 tonemap_per_channel			) /* tm_per_channel, as the tone mapper takes it */ \
 	GLOBAL_UBO_VAR_LIST_DO( FLOAT,	 tonemap_contrast			) /* tm_contrast, as the tone mapper takes it */ \
-	GLOBAL_UBO_VAR_LIST_DO( INT,	 padding2						) \
+	GLOBAL_UBO_VAR_LIST_DO( INT,	 restir_gi_history_valid		) /* the reservoirs of ReSTIR GI in the images of the previous frame are valid */ \
 \
 	GLOBAL_UBO_VAR_LIST_DO( INT	,	 num_static_lights				) \
 	GLOBAL_UBO_VAR_LIST_DO( INT	,	 taa_image_width				) \

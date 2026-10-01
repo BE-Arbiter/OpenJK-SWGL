@@ -31,6 +31,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define  _RESTIR_H_
 
 #include "path_tracer_rgen.h"
+#include "restir_common.h"
 
 #define RESTIR_INVALID_ID       0xFFFF
 
@@ -67,22 +68,15 @@ init_reservoir(inout Reservoir r)
 bool
 update_reservoir(uint xi, float wi, vec2 xi_pos, uint M, float p_hat, inout float rng, inout Reservoir r)
 {
-	r.w_sum += wi;
-	r.M += M;
-	float p_s = r.w_sum > 0.0 ? (wi/r.w_sum) : 0.0;
-	if(rng < p_s)
+	if(ris_select(r.w_sum, r.M, wi, M, rng))
 	{
 		r.y = xi;
 		r.y_pos = xi_pos;
 		r.p_hat = p_hat;
-		rng /= p_s;
 		return true;
 	}
-	else
-	{
-		rng = (rng - p_s) / (1.0f - p_s);
-		return false;
-	}
+
+	return false;
 }
 
 uvec4

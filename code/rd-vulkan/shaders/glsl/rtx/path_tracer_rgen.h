@@ -65,6 +65,11 @@ uniform accelerationStructureEXT topLevelAS[TLAS_COUNT];
 #define RNG_RESTIR_SPATIAL_X(bounce)	  		(4 + 10 + 12 * bounce)
 #define RNG_RESTIR_SPATIAL_Y(bounce)	  		(4 + 11 + 12 * bounce)
 
+// The passes above use the indices up to the end of the bounce RC_RNG_BOUNCE_BASE + RC_MAX_BOUNCES - 1
+// (the radiance cache update). The indices from here on are free.
+#define RNG_RESTIR_GI_BASE						(4 + 12 * (RC_RNG_BOUNCE_BASE + RC_MAX_BOUNCES))
+#define RNG_RESTIR_GI_SELECTION					(RNG_RESTIR_GI_BASE + 0)
+
 #define PRIMARY_RAY_CULL_MASK        (AS_FLAG_OPAQUE | AS_FLAG_TRANSPARENT | AS_FLAG_VIEWER_MODELS | AS_FLAG_VIEWER_WEAPON | AS_FLAG_SKY)
 #define REFLECTION_RAY_CULL_MASK     (AS_FLAG_OPAQUE | AS_FLAG_SKY)
 #define BOUNCE_RAY_CULL_MASK         (AS_FLAG_OPAQUE | AS_FLAG_SKY | AS_FLAG_CUSTOM_SKY)

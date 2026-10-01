@@ -182,6 +182,11 @@ void vk_rtx_cvar_handler( void )
 	CVAR_CHANGED( sun_flt_temporal_spec,	temporal_cvar_changed )
 	CVAR_CHANGED( pt_denoiser,				temporal_cvar_changed )
 
+	// ReSTIR GI
+	CVAR_CHANGED( sun_pt_restir_gi,				vk_rtx_restir_gi_invalidate )
+	CVAR_CHANGED( sun_pt_restir_gi_m_clamp,		vk_rtx_restir_gi_invalidate )
+	CVAR_CHANGED( sun_pt_restir_gi_max_age,		vk_rtx_restir_gi_invalidate )
+
 	// sky and sun
 	CVAR_CHANGED( sun_elevation,				physical_sky_cvar_changed )
 	CVAR_CHANGED( sun_azimuth,					physical_sky_cvar_changed )

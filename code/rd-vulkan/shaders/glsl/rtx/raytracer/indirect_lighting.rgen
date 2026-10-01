@@ -31,6 +31,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "../path_tracer_rgen.h"
 #include "../radiance_cache.h"
+#include "../restir_gi.h"
 
 layout(constant_id = 0) const uint spec_bounce_index = 0;
 
@@ -40,11 +41,25 @@ indirect_lighting(
 	bool half_res, 
 	out vec3 bounce_direction,
 	out vec3 bounce_contrib,
-	out bool is_specular_ray)
+	out bool is_specular_ray,
+	out vec3 extra_contrib,
+	out vec3 extra_direction)
 {
+	extra_contrib = vec3(0);
+	extra_direction = vec3(0);
+
     rng_seed = texelFetch(TEX_PT_RNG_SEED_A, ipos, 0).r;
 	
 	uint cluster_idx = ~0u;
+
+	// ReSTIR GI takes the diffuse rays of the first bounce. The half-resolution mode keeps the
+	// plain sampling: it traces every other row, so the reservoirs of the previous frame are not complete.
+	bool gi_enabled = spec_bounce_index == 0 && global_ubo.pt_restir_gi != 0 && !half_res;
+	bool use_gi_ray = false;
+	GiPrimary gi_primary;
+	GiReservoir gi_candidate;
+	vec3 gi_throughput = vec3(0);
+	vec3 gi_candidate_throughput = vec3(1.0);
 
 	vec4 position_material = texelFetch(TEX_PT_SHADING_POSITION, ipos, 0);
 	
@@ -56,6 +71,9 @@ indirect_lighting(
 
 	if(material_id == 0)
 	{
+		if(gi_enabled)
+			restir_gi_store_invalid(ipos);
+
 		bounce_direction = vec3(0);
 		bounce_contrib = vec3(0);
 		is_specular_ray = false;
@@ -197,17 +215,26 @@ indirect_lighting(
 			mat3 basis = construct_ONB_frisvad(basis_normal);
 			bounce_direction = normalize(basis * dir_sphere);
 			bounce_throughput *= 1 / (1 - specular_pdf);
+			gi_throughput = bounce_throughput;
 
-			vec3 L = bounce_direction.xyz;
-			vec3 V = -view_direction.xyz;
-			vec3 H = normalize(V + L);
-			float VoH = max(0, dot(V, H));
+			bounce_throughput *= vec3(1.0) - diffuse_fresnel(bounce_direction, -view_direction.xyz, primary_base_reflectivity, primary_specular_factor);
 
-			vec3 F = schlick_fresnel(primary_base_reflectivity, VoH, primary_specular_factor);
+			if(gi_enabled)
+			{
+				// The shading of the hit is linear in the throughput. It runs with a unit throughput
+				// and gives Lo: ReSTIR GI applies the throughput to the sample that it selects.
+				use_gi_ray = true;
+				gi_candidate = restir_gi_candidate(bounce_direction);
+				gi_candidate_throughput = bounce_throughput;
+				bounce_throughput = vec3(1.0);
 
-			bounce_throughput *= vec3(1.0) - F;
+				gi_primary.basis_normal = basis_normal;
+			}
 		}
 	}
+
+	if(is_specular_ray && gi_enabled)
+		restir_gi_carry(ipos, normal);
 
 	Ray bounce_ray;
 	bounce_ray.origin = position;
@@ -230,6 +257,21 @@ indirect_lighting(
 		bounce_cull_mask |= AS_FLAG_VIEWER_WEAPON;
 		shadow_cull_mask |= AS_FLAG_VIEWER_WEAPON;
 	}
+
+	if(use_gi_ray)
+	{
+		gi_primary.ipos = ipos;
+		gi_primary.position = position;
+		gi_primary.view_direction = view_direction.xyz;
+		gi_primary.bounce_direction = bounce_direction;
+		gi_primary.normal = normal;
+		gi_primary.throughput = gi_throughput;
+		gi_primary.base_reflectivity = primary_base_reflectivity;
+		gi_primary.specular_factor = primary_specular_factor;
+		gi_primary.shadow_cull_mask = shadow_cull_mask;
+		gi_primary.is_gradient = get_is_gradient(ipos);
+	}
+
 	trace_geometry_ray( bounce_ray, true, bounce_cull_mask );
 
 	bounce_contrib = vec3(0);
@@ -253,6 +295,10 @@ indirect_lighting(
 		{
 			imageStore(IMG_PT_SHADING_POSITION, ipos, vec4(0));
 		}
+
+		if(use_gi_ray)
+			bounce_contrib = restir_gi_resolve(gi_primary, gi_candidate, bounce_direction, extra_contrib, extra_direction);
+
 		return;
 	}
 
@@ -373,6 +419,13 @@ indirect_lighting(
 		if(dot(bounce_direction, bounce_normal) > 0)
 			bounce_normal = -bounce_normal;
 
+		if(use_gi_ray)
+		{
+			gi_candidate.pos = bounce_position;
+			gi_candidate.normal = bounce_normal;
+			gi_candidate.flags = is_static_world(bounce_buffer_index) ? 0u : RESTIR_GI_FLAG_DYNAMIC;
+		}
+
 		bounce_throughput *= bounce_base_color;
 		bounce_throughput *= indirect_specular_weight;
 
@@ -451,8 +504,15 @@ indirect_lighting(
 			imageStore(IMG_PT_GEO_NORMAL2, ipos, uvec4(encode_normal(bounce_geo_normal)));
 			imageStore(IMG_PT_SHADING_POSITION, ipos, vec4(bounce_position.xyz, uintBitsToFloat(triangle.material_id)));
 			imageStore(IMG_PT_VIEW_DIRECTION2, ipos, vec4(bounce_direction, 0));
-			imageStore(IMG_PT_BOUNCE_THROUGHPUT, ipos, vec4(bounce_throughput, is_specular_ray ? 1 : 0));
+			imageStore(IMG_PT_BOUNCE_THROUGHPUT, ipos, vec4(bounce_throughput * gi_candidate_throughput, is_specular_ray ? 1 : 0));
 		}
+	}
+
+	if(use_gi_ray)
+	{
+		// Lo of the candidate is clamped here: the reservoir keeps it for several frames.
+		gi_candidate.lo = clamp_output(bounce_contrib);
+		bounce_contrib = restir_gi_resolve(gi_primary, gi_candidate, bounce_direction, extra_contrib, extra_direction);
 	}
 
 	if (is_specular_ray)
@@ -487,15 +547,18 @@ main()
 	vec3 bounce_direction;
 	vec3 bounce_contrib;
 	bool is_specular_ray;
+	vec3 extra_contrib;		// a second contribution with its own direction: the dynamic candidate of ReSTIR GI
+	vec3 extra_direction;
 
-	indirect_lighting(ipos, half_res, bounce_direction, bounce_contrib, is_specular_ray);
+	indirect_lighting(ipos, half_res, bounce_direction, bounce_contrib, is_specular_ray, extra_contrib, extra_direction);
 
 	if(any(isinf(bounce_contrib)) || any(isnan(bounce_contrib)) || any(isinf(bounce_direction)) || any(isnan(bounce_direction)) )
 		return;
 
 	bounce_contrib = clamp_output(bounce_contrib);
+	extra_contrib = clamp_output(extra_contrib);
 
-	if(all(equal(bounce_contrib, vec3(0))))
+	if(all(equal(bounce_contrib, vec3(0))) && all(equal(extra_contrib, vec3(0))))
 		return;
 
 	if(is_specular_ray)
@@ -509,18 +572,20 @@ main()
 	else
 	{
 		bounce_contrib *= STORAGE_SCALE_LF;
+		extra_contrib *= STORAGE_SCALE_LF;
 
 		SH low_freq = load_SH(TEX_PT_COLOR_LF_SH, TEX_PT_COLOR_LF_COCG, ipos);
 
 	#if ENABLE_SH
 		if((global_ubo.pt_denoiser_flags & DENOISER_FLAG_LF_SH) == 0)
-			low_freq.shY.xyz += bounce_contrib;
+			low_freq.shY.xyz += bounce_contrib + extra_contrib;
 		else
 		{
 			accumulate_SH(low_freq, irradiance_to_SH(bounce_contrib, bounce_direction), 1.0);
+			accumulate_SH(low_freq, irradiance_to_SH(extra_contrib, extra_direction), 1.0);
 		}
 	#else
-		low_freq.shY.xyz += bounce_contrib;
+		low_freq.shY.xyz += bounce_contrib + extra_contrib;
 	#endif
 
 		STORE_SH(IMG_PT_COLOR_LF_SH, IMG_PT_COLOR_LF_COCG, ipos, low_freq);

@@ -536,6 +536,7 @@ void		mult_matrix_vector( float *p, const float *a, const float *b );
 
 // shade 
 void		temporal_cvar_changed( void );
+void		vk_rtx_restir_gi_invalidate( void );
 void		VK_BeginRenderClear( void );
 
 vkdescriptor_t *vk_rtx_init_descriptor( vkdescriptor_t *descriptor );

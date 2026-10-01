@@ -37,23 +37,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 layout(constant_id = 0) const uint spec_enable_caustics = 0;
 
-// The object of a visibility buffer entry: ~0u for the world, else the model instance in
-// the current frame. A model instance of the previous frame goes through model_prev_to_current.
-uint restir_object(uint visbuf_instance, bool prev)
-{
-	if(visbuf_instance >= ~uint(VERTEX_BUFFER_WORLD_D_GEOMETRY))
-		return ~0u;
-
-	if(!prev)
-		return visbuf_instance;
-
-	if(visbuf_instance >= SHADER_MAX_ENTITIES)
-		return ~1u;
-
-	uint curr = instance_buffer.model_prev_to_current[visbuf_instance];
-	return curr == ~0u ? ~1u : curr;
-}
-
 void
 direct_lighting_restir(ivec2 ipos, out vec3 high_freq, out vec3 o_specular)
 {
@@ -125,16 +108,11 @@ direct_lighting_restir(ivec2 ipos, out vec3 high_freq, out vec3 o_specular)
 	float phong_scale = min(100, 1 / (M_PI * square(alpha)));
 	float phong_weight = clamp(primary_specular_factor * luminance(primary_base_reflectivity) / (luminance(primary_base_reflectivity) + luminance(primary_albedo)), 0, 0.9);
 
-	int field_left = 0;
-	int field_right = global_ubo.prev_width / 2;
-	if(ipos.x >= global_ubo.width / 2)
-	{
-		field_left = field_right;
-		field_right = global_ubo.prev_width;
-	}
+	int field_left, field_right;
+	restir_get_prev_field(ipos, field_left, field_right);
 
 	//Do temporal
-	ivec2 pos_prev = ivec2(floor(((vec2(ipos) + vec2(0.5)) * vec2(global_ubo.inv_width * 2, global_ubo.inv_height) + motion.xy) * vec2(global_ubo.prev_width * 0.5, global_ubo.prev_height)));
+	ivec2 pos_prev = restir_get_prev_pos(ipos, motion);
 	ivec2 pos_prev_or = pos_prev;
 	if(!is_gradient)
 	{
@@ -150,28 +128,15 @@ direct_lighting_restir(ivec2 ipos, out vec3 high_freq, out vec3 o_specular)
 		}
 	}
 
-	if (!(pos_prev.x < field_left || pos_prev.x >= field_right || pos_prev.y < 0 || pos_prev.y >= global_ubo.height))
+	if (!(pos_prev.x < field_left || pos_prev.x >= field_right || pos_prev.y < 0 || pos_prev.y >= global_ubo.height)
+		&& restir_prev_is_same_surface(pos_prev, view_depth, normal, object, !is_gradient))
 	{
-		float depth_prev = texelFetch(TEX_PT_VIEW_DEPTH_B, pos_prev, 0).x;
-		float dist_depth = abs(depth_prev - view_depth) / abs(view_depth);
-
-		if(dist_depth < 0.1)
+		uvec4 packed_reservoir = texelFetch(TEX_PT_RESTIR_B, pos_prev, 0);
+		unpack_reservoir(packed_reservoir, prev_r);
+		prev_r.y = get_light_current_idx(prev_r.y);
+		if(prev_r.y != RESTIR_INVALID_ID && use_shadow_rays)
 		{
-			vec3 normal_prev;
-			float dot_normals;
-			normal_prev = decode_normal(texelFetch(TEX_PT_NORMAL_B, pos_prev, 0).x);
-			dot_normals = dot(normal_prev, normal);
-
-			if(dot_normals > 0.5 && (is_gradient || restir_object(texelFetch(TEX_PT_VISBUF_PRIM_B, pos_prev, 0).x, true) == object))
-			{
-				uvec4 packed_reservoir = texelFetch(TEX_PT_RESTIR_B, pos_prev, 0);
-				unpack_reservoir(packed_reservoir, prev_r);
-				prev_r.y = get_light_current_idx(prev_r.y);
-				if(prev_r.y != RESTIR_INVALID_ID && use_shadow_rays)
-				{
-					prev_r.p_hat = get_unshadowed_path_contrib(prev_r.y, position, normal, view_direction.xyz, phong_exp, phong_scale, phong_weight, prev_r.y_pos);
-				}
-			}
+			prev_r.p_hat = get_unshadowed_path_contrib(prev_r.y, position, normal, view_direction.xyz, phong_exp, phong_scale, phong_weight, prev_r.y_pos);
 		}
 	}
 

@@ -61,8 +61,17 @@ typedef struct reference_mode_s
 	int reflect_refract;
 } reference_mode_t;
 
+// The reservoirs of ReSTIR GI in the images of the previous frame are valid after a frame that wrote them.
+static qboolean restir_gi_history_valid = qfalse;
+
+void vk_rtx_restir_gi_invalidate( void )
+{
+	restir_gi_history_valid = qfalse;
+}
+
 void temporal_cvar_changed( void )
 {
+	vk_rtx_restir_gi_invalidate();
 	vk_rtx_invalidate_denoiser_history();
 	vk_rtx_taa_invalidate_history();
 	num_accumulated_frames = 0;
@@ -1748,6 +1757,9 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 			ubo->pt_specular_anti_flicker = 0.f;
 			ubo->pt_sun_bounce_range = 10000.f;
 			ubo->pt_ndf_trim = 1.f;
+
+			// the reservoirs of ReSTIR GI correlate the frames
+			ubo->pt_restir_gi = 0.f;
 		}
 	} 
 	else if ( vk.effective_aa_mode == AA_MODE_UPSCALE )
@@ -1801,6 +1813,9 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 
 	vk_rtx_denoisers_prepare_ubo( ubo );
 	vk_rtx_taa_prepare_ubo( ubo );
+
+	// Reservoirs of another resolution do not fit the pixels.
+	ubo->restir_gi_history_valid = ( restir_gi_history_valid && ubo->prev_width == ubo->width && ubo->prev_height == ubo->height ) ? 1 : 0;
 
 	if ( vk.effective_aa_mode == AA_MODE_UPSCALE )
 	{
@@ -2031,6 +2046,13 @@ static void vk_rxt_trace_lighting( VkCommandBuffer cmd_buf, float num_bounce_ray
 				BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_SPEC] );
 				BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_BOUNCE_THROUGHPUT] );
 			}
+		}
+
+		if ( vk.uniform_buffer.pt_restir_gi != 0.f )
+		{
+			int frame_idx = vk.frame_counter & 1;
+			BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_RESTIR_GI_POS_A + frame_idx] );
+			BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_RESTIR_GI_RAD_A + frame_idx] );
 		}
 	}
 
@@ -2679,6 +2701,9 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 	vk_begin_trace_rays( *tr.world, refdef, &ref_mode, ubo, 
 		drawSurfs, numDrawSurfs, shadowmap_view_proj, 
 		god_rays_enabled, render_world, &upload_info );
+
+	// The tracer writes the reservoirs when the bounce pass runs at full resolution.
+	restir_gi_history_valid = ( ubo->pt_restir_gi != 0.f && ubo->pt_num_bounce_rays >= 1.f ) ? qtrue : qfalse;
 
 	vk_rtx_denoisers_end_frame( ref_mode.denoiser );
 	vk_rtx_taa_end_frame( ref_mode.denoiser != DENOISER_NONE ? qtrue : qfalse );

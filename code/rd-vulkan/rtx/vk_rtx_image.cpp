@@ -487,6 +487,9 @@ static void vk_rtx_create_images( const char *name, uint32_t index, uint32_t wid
 
 void vk_rtx_create_images( void ) 
 {
+	// the new images hold no reservoirs
+	vk_rtx_restir_gi_invalidate();
+
 	// create image
 	#define IMG_DO( _handle, _binding, _format, _glsl_format, _w, _h ) \
 		vk_rtx_create_images( #_handle, RTX_IMG_##_handle, _w, _h, VK_FORMAT_##_format );

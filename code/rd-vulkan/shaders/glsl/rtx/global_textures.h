@@ -114,6 +114,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	IMG_DO(PT_TANGENT_B,			  RTX_IMG_NUM_STATIC + 31, R32_UINT,			r32ui,	 IMG_WIDTH_MGPU,      IMG_HEIGHT	 ) \
 	IMG_DO(PT_RESTIR_A,               RTX_IMG_NUM_STATIC + 32, R32G32_UINT,         rg32ui,  IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
 	IMG_DO(PT_RESTIR_B,               RTX_IMG_NUM_STATIC + 33, R32G32_UINT,         rg32ui,  IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
+	IMG_DO(PT_RESTIR_GI_POS_A,        RTX_IMG_NUM_STATIC + 34, R32G32B32A32_SFLOAT, rgba32f, IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
+	IMG_DO(PT_RESTIR_GI_POS_B,        RTX_IMG_NUM_STATIC + 35, R32G32B32A32_SFLOAT, rgba32f, IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
+	IMG_DO(PT_RESTIR_GI_RAD_A,        RTX_IMG_NUM_STATIC + 36, R32G32B32A32_UINT,   rgba32ui, IMG_WIDTH_MGPU,     IMG_HEIGHT     ) \
+	IMG_DO(PT_RESTIR_GI_RAD_B,        RTX_IMG_NUM_STATIC + 37, R32G32B32A32_UINT,   rgba32ui, IMG_WIDTH_MGPU,     IMG_HEIGHT     ) \
 
 #define LIST_IMAGES_B_A \
 	IMG_DO( PT_VISBUF_PRIM_B,			  RTX_IMG_NUM_STATIC + 0,  R32G32_UINT,	rg32ui, IMG_WIDTH_MGPU,      IMG_HEIGHT ) \
@@ -150,8 +154,12 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	IMG_DO(PT_TANGENT_A,			  RTX_IMG_NUM_STATIC + 31, R32_UINT,			r32ui,	 IMG_WIDTH_MGPU,      IMG_HEIGHT	 ) \
 	IMG_DO(PT_RESTIR_B,               RTX_IMG_NUM_STATIC + 32, R32G32_UINT,         rg32ui,  IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
 	IMG_DO(PT_RESTIR_A,               RTX_IMG_NUM_STATIC + 33, R32G32_UINT,         rg32ui,  IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
+	IMG_DO(PT_RESTIR_GI_POS_B,        RTX_IMG_NUM_STATIC + 34, R32G32B32A32_SFLOAT, rgba32f, IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
+	IMG_DO(PT_RESTIR_GI_POS_A,        RTX_IMG_NUM_STATIC + 35, R32G32B32A32_SFLOAT, rgba32f, IMG_WIDTH_MGPU,      IMG_HEIGHT     ) \
+	IMG_DO(PT_RESTIR_GI_RAD_B,        RTX_IMG_NUM_STATIC + 36, R32G32B32A32_UINT,   rgba32ui, IMG_WIDTH_MGPU,     IMG_HEIGHT     ) \
+	IMG_DO(PT_RESTIR_GI_RAD_A,        RTX_IMG_NUM_STATIC + 37, R32G32B32A32_UINT,   rgba32ui, IMG_WIDTH_MGPU,     IMG_HEIGHT     ) \
 
-#define NUM_RTX_IMAGES (RTX_IMG_NUM_STATIC + 34 ) /* this really sucks but I don't know how to fix it
+#define NUM_RTX_IMAGES (RTX_IMG_NUM_STATIC + 38 ) /* this really sucks but I don't know how to fix it
 													 counting with enum does not work in GLSL */
 
 #define GLOBAL_TEXTURES_TEX_ARR_BINDING_IDX  0
@@ -191,6 +199,7 @@ layout( set = 2, binding = 0 ) uniform sampler2D texure_array[];
 #define SAMPLER_r16ui   usampler2D
 #define SAMPLER_r32ui   usampler2D
 #define SAMPLER_rg32ui  usampler2D
+#define SAMPLER_rgba32ui usampler2D
 #define SAMPLER_r32i    isampler2D
 #define SAMPLER_r32f    sampler2D
 #define SAMPLER_rg32f   sampler2D
@@ -205,6 +214,7 @@ layout( set = 2, binding = 0 ) uniform sampler2D texure_array[];
 #define IMAGE_r16ui   uimage2D
 #define IMAGE_r32ui   uimage2D
 #define IMAGE_rg32ui  uimage2D
+#define IMAGE_rgba32ui uimage2D
 #define IMAGE_r32i    iimage2D
 #define IMAGE_r32f    image2D
 #define IMAGE_rg32f   image2D

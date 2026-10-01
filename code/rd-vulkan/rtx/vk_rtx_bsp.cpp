@@ -206,6 +206,7 @@ static void vk_rtx_create_primary_rays_resources( world_t& worldData )
 
 	vk_rtx_create_rt_descriptors( worldData);
 	vk_rtx_radiance_cache_invalidate();
+	vk_rtx_restir_gi_invalidate();
 
 	vk_rtx_create_shader_modules();
 	vk_rtx_create_rt_pipelines();
