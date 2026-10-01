@@ -72,7 +72,7 @@ indirect_lighting(
 	if(material_id == 0)
 	{
 		if(gi_enabled)
-			restir_gi_store_invalid(ipos);
+			restir_gi_store_invalid(ipos, false);
 
 		bounce_direction = vec3(0);
 		bounce_contrib = vec3(0);
@@ -157,7 +157,7 @@ indirect_lighting(
 #if BOUNCE_SPECULAR
 		if(spec_bounce_index == 0)
 		{
-			specular_pdf = (primary_metallic == 1 && fake_specular_weight == 0) ? 1.0 : 0.5;
+			specular_pdf = first_bounce_specular_pdf(primary_metallic, primary_roughness);
 
 			if(rng_frensel < specular_pdf) 
 			{
@@ -247,16 +247,8 @@ indirect_lighting(
 	int bounce_cull_mask = BOUNCE_RAY_CULL_MASK;
 	int shadow_cull_mask = SHADOW_RAY_CULL_MASK;
 
-	if(global_ubo.first_person_model != 0 && !primary_is_weapon)
-	{
-		bounce_cull_mask |= AS_FLAG_VIEWER_MODELS;
-		shadow_cull_mask |= AS_FLAG_VIEWER_MODELS;
-	}
-	else
-	{
-		bounce_cull_mask |= AS_FLAG_VIEWER_WEAPON;
-		shadow_cull_mask |= AS_FLAG_VIEWER_WEAPON;
-	}
+	bounce_cull_mask |= get_viewer_cull_flags(material_id);
+	shadow_cull_mask |= get_viewer_cull_flags(material_id);
 
 	if(use_gi_ray)
 	{
@@ -571,22 +563,10 @@ main()
 	}
 	else
 	{
-		bounce_contrib *= STORAGE_SCALE_LF;
-		extra_contrib *= STORAGE_SCALE_LF;
-
 		SH low_freq = load_SH(TEX_PT_COLOR_LF_SH, TEX_PT_COLOR_LF_COCG, ipos);
 
-	#if ENABLE_SH
-		if((global_ubo.pt_denoiser_flags & DENOISER_FLAG_LF_SH) == 0)
-			low_freq.shY.xyz += bounce_contrib + extra_contrib;
-		else
-		{
-			accumulate_SH(low_freq, irradiance_to_SH(bounce_contrib, bounce_direction), 1.0);
-			accumulate_SH(low_freq, irradiance_to_SH(extra_contrib, extra_direction), 1.0);
-		}
-	#else
-		low_freq.shY.xyz += bounce_contrib + extra_contrib;
-	#endif
+		accumulate_lf(low_freq, bounce_contrib, bounce_direction);
+		accumulate_lf(low_freq, extra_contrib, extra_direction);
 
 		STORE_SH(IMG_PT_COLOR_LF_SH, IMG_PT_COLOR_LF_COCG, ipos, low_freq);
 	}

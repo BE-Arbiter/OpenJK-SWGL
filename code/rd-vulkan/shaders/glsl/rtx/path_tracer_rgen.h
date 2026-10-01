@@ -69,6 +69,10 @@ uniform accelerationStructureEXT topLevelAS[TLAS_COUNT];
 // (the radiance cache update). The indices from here on are free.
 #define RNG_RESTIR_GI_BASE						(4 + 12 * (RC_RNG_BOUNCE_BASE + RC_MAX_BOUNCES))
 #define RNG_RESTIR_GI_SELECTION					(RNG_RESTIR_GI_BASE + 0)
+// The spatial pass: one selection index and an x and y index for each of up to RESTIR_GI_MAX_SPATIAL_SAMPLES neighbours.
+#define RNG_RESTIR_GI_SPATIAL_SELECTION			(RNG_RESTIR_GI_BASE + 1)
+#define RNG_RESTIR_GI_SPATIAL_X(i)				(RNG_RESTIR_GI_BASE + 2 + 2 * (i))
+#define RNG_RESTIR_GI_SPATIAL_Y(i)				(RNG_RESTIR_GI_BASE + 3 + 2 * (i))
 
 #define PRIMARY_RAY_CULL_MASK        (AS_FLAG_OPAQUE | AS_FLAG_TRANSPARENT | AS_FLAG_VIEWER_MODELS | AS_FLAG_VIEWER_WEAPON | AS_FLAG_SKY)
 #define REFLECTION_RAY_CULL_MASK     (AS_FLAG_OPAQUE | AS_FLAG_SKY)

@@ -70,24 +70,51 @@ restir_get_prev_field(ivec2 ipos, out int left, out int right)
 	}
 }
 
-// True when the pixel of the previous frame has about the same depth and normal as the current pixel.
+// The columns [left, right) of the checkerboard field of pixel ipos in the current frame.
+void
+restir_get_curr_field(ivec2 ipos, out int left, out int right)
+{
+	left = 0;
+	right = global_ubo.width / 2;
+	if(ipos.x >= right)
+	{
+		left = right;
+		right = global_ubo.width;
+	}
+}
+
+// True when another pixel has about the same depth and normal as the current pixel.
+bool
+restir_surface_matches(float depth_other, vec3 normal_other, float view_depth, vec3 normal)
+{
+	float dist_depth = abs(depth_other - view_depth) / abs(view_depth);
+
+	if(!(dist_depth < RESTIR_DEPTH_THRESHOLD))
+		return false;
+
+	return dot(normal_other, normal) > RESTIR_NORMAL_THRESHOLD;
+}
+
+// True when the pixel of the previous frame shows about the same surface as the current pixel.
 // With check_object it also has to show the same object: a reservoir of a model near a light
 // is not valid for the floor below it.
 bool
 restir_prev_is_same_surface(ivec2 pos_prev, float view_depth, vec3 normal, uint object, bool check_object)
 {
-	float depth_prev = texelFetch(TEX_PT_VIEW_DEPTH_B, pos_prev, 0).x;
-	float dist_depth = abs(depth_prev - view_depth) / abs(view_depth);
-
-	if(!(dist_depth < RESTIR_DEPTH_THRESHOLD))
-		return false;
-
-	vec3 normal_prev = decode_normal(texelFetch(TEX_PT_NORMAL_B, pos_prev, 0).x);
-
-	if(!(dot(normal_prev, normal) > RESTIR_NORMAL_THRESHOLD))
+	if(!restir_surface_matches(texelFetch(TEX_PT_VIEW_DEPTH_B, pos_prev, 0).x, decode_normal(texelFetch(TEX_PT_NORMAL_B, pos_prev, 0).x), view_depth, normal))
 		return false;
 
 	return !check_object || restir_object(texelFetch(TEX_PT_VISBUF_PRIM_B, pos_prev, 0).x, true) == object;
+}
+
+// The same test for a pixel of the current frame, always with the object.
+bool
+restir_curr_is_same_surface(ivec2 pos, float view_depth, vec3 normal, uint object)
+{
+	if(!restir_surface_matches(texelFetch(TEX_PT_VIEW_DEPTH_A, pos, 0).x, decode_normal(texelFetch(TEX_PT_NORMAL_A, pos, 0).x), view_depth, normal))
+		return false;
+
+	return restir_object(texelFetch(TEX_PT_VISBUF_PRIM_A, pos, 0).x, false) == object;
 }
 
 #endif  /*_RESTIR_COMMON_H_*/

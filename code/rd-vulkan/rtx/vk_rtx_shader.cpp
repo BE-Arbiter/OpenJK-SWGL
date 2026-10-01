@@ -199,6 +199,7 @@ void vk_rtx_destroy_shaders( void )
 	SHADER_MODULE_DO( SHADER_PATH_TRACER_REFLECT_REFRACT_RGEN,		reflect_refract_rgen	) \
 	SHADER_MODULE_DO( SHADER_PATH_TRACER_DIRECT_LIGHTING_RGEN,		direct_lighting_rgen	) \
 	SHADER_MODULE_DO( SHADER_PATH_TRACER_INDIRECT_LIGHTING_RGEN,	indirect_lighting_rgen	) 	SHADER_MODULE_DO( SHADER_PATH_TRACER_RADIANCE_CACHE_UPDATE_RGEN,radiance_cache_update_rgen) \
+	SHADER_MODULE_DO( SHADER_PATH_TRACER_RESTIR_GI_SPATIAL_RGEN,	restir_gi_spatial_rgen	) \
 	\
 	SHADER_MODULE_DO( SHADER_PATH_TRACER_RMISS,						path_tracer_rmiss		) \
 	SHADER_MODULE_DO( SHADER_PATH_TRACER_RCHIT,						path_tracer_rchit		) \
@@ -325,6 +326,10 @@ void vk_rtx_create_pipelines( void )
 			break;
 		case PIPELINE_RADIANCE_CACHE_UPDATE:
 			shader_stages[0].module = vk.shader_modules[SHADER_PATH_TRACER_RADIANCE_CACHE_UPDATE_RGEN];
+			shader_stages[0].pSpecializationInfo = NULL;
+			break;
+		case PIPELINE_RESTIR_GI_SPATIAL:
+			shader_stages[0].module = vk.shader_modules[SHADER_PATH_TRACER_RESTIR_GI_SPATIAL_RGEN];
 			shader_stages[0].pSpecializationInfo = NULL;
 			break;
 		default:

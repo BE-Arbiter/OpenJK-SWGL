@@ -2054,6 +2054,27 @@ static void vk_rxt_trace_lighting( VkCommandBuffer cmd_buf, float num_bounce_ray
 			BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_RESTIR_GI_POS_A + frame_idx] );
 			BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_RESTIR_GI_RAD_A + frame_idx] );
 		}
+
+		// The spatial step of ReSTIR GI shades the reservoirs of the bounce pass. It needs the G-buffer
+		// that the bounce pass leaves in place with one bounce ray.
+		if ( vk.uniform_buffer.pt_restir_gi >= 2.f && num_bounce_rays == 1.f )
+		{
+			int frame_idx = vk.frame_counter & 1;
+			BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_RESTIR_GI_POS_A + frame_idx] );
+			BARRIER_COMPUTE( cmd_buf, vk.img_rtx[RTX_IMG_PT_RESTIR_GI_RAD_A + frame_idx] );
+
+			for ( int i = 0; i < vk.device_count; i++ )
+			{
+				pt_push_constants_t push;
+				push.gpu_index = vk.device_count == 1 ? -1 : i;
+				push.bounce = 0;
+
+				dispatch_rays( cmd_buf, PIPELINE_RESTIR_GI_SPATIAL, push, vk.extent_render.height );
+			}
+
+			BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_LF_SH] );
+			BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_COLOR_LF_COCG] );
+		}
 	}
 
 	END_PERF_MARKER( cmd_buf, PROFILER_INDIRECT_LIGHTING );

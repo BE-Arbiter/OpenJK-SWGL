@@ -138,8 +138,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	UBO_CVAR_DO( pt_rc_min_hit_voxels,	2	)	/* a query needs a bounce hit at least this many cell sizes away: near hits fall back to NEE */ \
 
 #define UBO_CVAR_LIST_GI \
-	UBO_CVAR_DO( pt_restir_gi,			0	)	/* ReSTIR GI for the first diffuse bounce: 0 = off, 1 = temporal reuse; off while pt_num_bounce_rays is 0.5 */ \
+	UBO_CVAR_DO( pt_restir_gi,			0	)	/* ReSTIR GI for the first diffuse bounce: 0 = off, 1 = temporal reuse, 2 = temporal and spatial reuse (with one bounce ray); off while pt_num_bounce_rays is 0.5 */ \
 	UBO_CVAR_DO( pt_restir_gi_m_clamp,	20	)	/* temporal cap of the number of candidates a reservoir stands for, [1..65535] */ \
+	UBO_CVAR_DO( pt_restir_gi_spatial_samples,	3	)	/* neighbours that the spatial pass takes, [0..8] */ \
+	UBO_CVAR_DO( pt_restir_gi_spatial_radius,	16	)	/* radius of the disk of the spatial neighbours, in pixels */ \
 	UBO_CVAR_DO( pt_restir_gi_max_age,	30	)	/* frames a sample point lives in the reservoirs before it is dropped, [0..255]; 0 switches the temporal reuse off */ \
 
 #define UBO_CVAR_LIST \
