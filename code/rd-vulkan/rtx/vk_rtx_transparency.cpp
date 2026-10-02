@@ -840,6 +840,54 @@ static void fx_surface_sprites( const trRefdef_t *refdef )
 }
 #endif
 
+// The BSP flare surfaces, as in RB_RenderFlare: a quad 3 units off the surface, the colour from the view angle.
+// The tracer hides the quad behind geometry, so the rasterizer depth test is not needed.
+static void fx_flares( const trRefdef_t *refdef )
+{
+	static const byte	white[4] = { 255, 255, 255, 255 };
+	static refEntity_t	flare_ent;
+
+	if ( !r_flares->integer || !refdef->drawSurfs )
+		return;
+
+	for ( int i = 0; i < refdef->numDrawSurfs; i++ )
+	{
+		const surfaceType_t *type = refdef->drawSurfs[i].surface;
+
+		if ( *type != SF_FLARE )
+			continue;
+
+		const srfFlare_t *flare = (const srfFlare_t *)type;
+		rtx_material_t *mat = vk_rtx_shader_to_material( flare->shader );
+		vec3_t	origin, dir, left, up;
+
+		if ( !mat || !mat->active || !mat->uploaded[vk.current_frame_index] || !mat->stage[0].bundle[0].image )
+			continue;
+
+		VectorMA( flare->origin, 3, flare->normal, origin );
+		VectorSubtract( origin, refdef->vieworg, dir );
+
+		const float dist = VectorNormalize( dir );
+		const float d = fabsf( DotProduct( dir, flare->normal ) );
+		float radius = flare->shader->portalRange ? flare->shader->portalRange : 30;
+
+		if ( dist < 512.0f )
+			radius = radius * dist / 512.0f;
+		if ( radius < 5.0f )
+			radius = 5.0f;
+
+		Com_Memcpy( flare_ent.shaderRGBA, white, 4 );
+		flare_ent.shaderRGBA[0] = flare_ent.shaderRGBA[1] = flare_ent.shaderRGBA[2] = (byte)( d * 255.0f );
+
+		VectorScale( backEnd.viewParms.ori.axis[1], radius, left );
+		VectorScale( backEnd.viewParms.ori.axis[2], radius, up );
+
+		fx_ent = &flare_ent;
+		fx_mat = mat;
+		fx_quad_stamp( origin, left, up );
+	}
+}
+
 // Fills fx_tris from the refdef. update_transparency counts them, write_sprite_geometry writes them.
 static void tessellate_fx_entities( const trRefdef_t *refdef )
 {
@@ -849,6 +897,8 @@ static void tessellate_fx_entities( const trRefdef_t *refdef )
 #ifdef USE_VBO_SS
 	fx_surface_sprites( refdef );
 #endif
+
+	fx_flares( refdef );
 
 	if ( !r_drawentities->integer )
 		return;
@@ -1127,14 +1177,12 @@ bool vkpt_build_cylinder_light(light_poly_t* light_list, int* num_lights, int ma
 }
 
 
-static void do_sprite( vec3_t *vertex_positions, vec3_t origin, float radius )
+static void do_sprite( vec3_t *vertex_positions, vec3_t origin, float radius, float rotation )
 {
 	float	s, c;
 	float	ang;
 	vec3_t up, down, left, right;
 		
-	const float rotation = 0.0f;
-
 	ang = M_PI * rotation / 180.0f;
 	s = sin( ang );
 	c = cos( ang );
@@ -1414,7 +1462,7 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 		else if (entity->e.reType == RT_SPRITE )
 		{
 			write_sprite_info(sprite_info, mat, &entity->e, shader, entity->e.origin);
-			do_sprite( vertex_positions, entity->e.origin, entity->e.radius);
+			do_sprite( vertex_positions, entity->e.origin, entity->e.radius, entity->e.rotation );
 
 			vertex_positions += 4;
 			sprite_info += TR_SPRITE_INFO_SIZE / sizeof(uint32_t);
@@ -1432,7 +1480,7 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 				VectorMA( e->origin, j, e->axis[0], end );
 
 				write_sprite_info(sprite_info, mat, &entity->e, shader, end);
-				do_sprite( vertex_positions, end, e->radius);
+				do_sprite( vertex_positions, end, e->radius, 0.0f );
 
 				vertex_positions += 4;
 				sprite_info += TR_SPRITE_INFO_SIZE / sizeof(uint32_t);
@@ -1444,7 +1492,7 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 			}
 
 			write_sprite_info(sprite_info, mat, &entity->e, shader, e->origin);
-			do_sprite( vertex_positions, e->origin, 5.5f + Q_flrand(0.0f, 1.0f) * 0.25f);
+			do_sprite( vertex_positions, e->origin, 5.5f + Q_flrand(0.0f, 1.0f) * 0.25f, 0.0f );
 
 			vertex_positions += 4;
 			sprite_info += TR_SPRITE_INFO_SIZE / sizeof(uint32_t);
