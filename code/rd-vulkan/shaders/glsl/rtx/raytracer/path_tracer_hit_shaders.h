@@ -70,6 +70,15 @@ bool pt_logic_masked(int primitiveID, int instanceID, int geometryIndex, uint in
 
 	Triangle triangle = load_and_transform_triangle(model_index, buffer_idx, prim);
 
+	// CGEN_DISINTEGRATION_1: the part of the model that is burnt away does not stop the ray.
+	if (buffer_idx == VERTEX_BUFFER_INSTANCED && (get_model_instance_shader_uint(triangle.instance_index, 1) & 0xffu) == 14u)
+	{
+		vec3 position = triangle.positions * vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
+
+		if (disintegration_distance(triangle.instance_index, position) < 0.0)
+			return false;
+	}
+
 	MaterialInfo minfo = get_material_info(triangle.material_id);
 
 	if (minfo.base_texture == 0)

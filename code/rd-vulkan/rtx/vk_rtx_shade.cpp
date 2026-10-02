@@ -410,12 +410,12 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 	uint32_t forceRGBGen = 0;
 
 	if ( entity->e.renderfx & ( RF_DISINTEGRATE1 | RF_DISINTEGRATE2 ) )
-		// missing origin/threshold. see vk_compute_disintegration()
-		if ( backEnd.currentEntity->e.renderfx & RF_DISINTEGRATE1 )
+	{
+		if ( entity->e.renderfx & RF_DISINTEGRATE1 )
 			forceRGBGen = (uint32_t)CGEN_DISINTEGRATION_1;
 		else
 			forceRGBGen = (uint32_t)CGEN_DISINTEGRATION_2;
-
+	}
 	else if ( entity->e.renderfx & RF_RGB_TINT )
 		forceRGBGen = CGEN_ENTITY;
 
@@ -459,6 +459,15 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 
 			data[RTX_DISTORT_FIRST + k] = packed;
 		}
+	}
+
+	// RF_DISINTEGRATE1/2: the impact point and the squared threshold, as vk_compute_disintegration() sends them.
+	if ( entity->e.renderfx & ( RF_DISINTEGRATE1 | RF_DISINTEGRATE2 ) )
+	{
+		const float threshold = ( refdef->time - entity->e.endTime ) * 0.045f;
+		const float words[4] = { entity->e.oldorigin[0], entity->e.oldorigin[1], entity->e.oldorigin[2], threshold * threshold };
+
+		memcpy( &data[RTX_DISTORT_FIRST], words, sizeof( words ) );
 	}
 
 	if ( shader && shader->numDeforms )
@@ -1176,8 +1185,9 @@ static void process_regular_entity(
 		{
 			// All the meshes of a distortion entity are distortion surfaces.
 		}
-		else if ( RB_IsMasked( entity_mesh->shader ) )
+		else if ( RB_IsMasked( entity_mesh->shader ) || ( entity->e.renderfx & RF_DISINTEGRATE1 ) )
 		{
+			// RF_DISINTEGRATE1 burns holes in the body: the any-hit of the masked meshes lets the rays through them.
 			if (contains_masked)
 				*contains_masked = qtrue;
 

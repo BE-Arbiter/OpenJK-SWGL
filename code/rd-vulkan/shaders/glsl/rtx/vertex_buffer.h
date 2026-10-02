@@ -509,6 +509,21 @@ uint get_model_instance_shader_uint( in uint instance, in uint offset ) {
 	return instance_buffer.model_instance_shader_data[nonuniformEXT(instance * INSTANCE_SHADER_UINTS + offset)];
 }
 
+// RB_CalcDisintegrateColors: the squared distance from the impact point (oldorigin, in model space) to the point
+// minus the squared burn threshold. A negative value means the point is gone. Words RTX_DISTORT_FIRST + 0-2 hold
+// the origin and + 3 the squared threshold, as floats, for an instance with RF_DISINTEGRATE1 or RF_DISINTEGRATE2.
+float disintegration_distance( in uint instance, in vec3 world_position )
+{
+	ModelInstance mi = instance_buffer.model_instances[instance];
+	vec3 local_position = vec3( inverse( mi.transform ) * vec4( world_position, 1.0 ) );
+	vec3 delta = vec3(
+		uintBitsToFloat( get_model_instance_shader_uint( instance, RTX_DISTORT_FIRST ) ),
+		uintBitsToFloat( get_model_instance_shader_uint( instance, RTX_DISTORT_FIRST + 1u ) ),
+		uintBitsToFloat( get_model_instance_shader_uint( instance, RTX_DISTORT_FIRST + 2u ) ) ) - local_position;
+
+	return dot( delta, delta ) - uintBitsToFloat( get_model_instance_shader_uint( instance, RTX_DISTORT_FIRST + 3u ) );
+}
+
 uint get_material_uint( in uint material_index, in uint offset ) {
 	return light_buffer.material_table[nonuniformEXT(material_index * MATERIAL_UINTS + offset)];
 }

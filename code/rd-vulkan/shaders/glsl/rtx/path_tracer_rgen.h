@@ -983,6 +983,30 @@ uint bundle_rgb_gen( in uint instance_index, in MaterialStage stage, in uint bun
 	return (forceRGBGen != 0u) ? forceRGBGen : stage.bundle[bundle].rgbGen;
 }
 
+// CGEN_DISINTEGRATION_1 and 2: the colour factor of RB_CalcDisintegrateColors / gen_vert.tmpl at a point of the entity.
+vec4 disintegration_color( in uint instance_index, in vec3 position, in uint rgbGen )
+{
+	if ( instance_index == ~0u || ( rgbGen != 14u && rgbGen != 15u ) )
+		return vec4(1.0);
+
+	float d = disintegration_distance( instance_index, position );
+
+	if ( d < 0.0 )
+		return vec4(0.0);
+
+	if ( rgbGen == 15u )
+		return vec4(1.0);
+
+	if ( d < 60.0 )
+		return vec4( 0.0, 0.0, 0.0, 1.0 );
+	if ( d < 150.0 )
+		return vec4( vec3( 0.435295 ), 1.0 );
+	if ( d < 180.0 )
+		return vec4( vec3( 0.6862745 ), 1.0 );
+
+	return vec4(1.0);
+}
+
 vec4 calc_color( in uint instance_index, in MaterialStage stage, in uint bundle )
 {
 	vec4 base_color = unpack_rgba8(stage.bundle[bundle].color);
@@ -1211,6 +1235,7 @@ void sample_material_stage_light(
 		else
 		{
 			vec4 c = calc_color(ctx.instance_index, stage, b);
+			c *= disintegration_color(ctx.instance_index, ctx.position, bundle_rgb_gen(ctx.instance_index, stage, b));
 			c.a = bundle_alpha(ctx, s, stage, b, c.a);
 				if (layer_fade_alpha >= 0.0)
 					c.a = layer_fade_alpha;
