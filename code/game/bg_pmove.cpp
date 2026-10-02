@@ -11696,7 +11696,8 @@ void PM_CheckKick( void )
 		&& (pm->cmd.upmove >= 0 ) )//not trying to duck
 	{//player kicks
 		//FIXME: only if FP_SABER_OFFENSE >= 3
-		if ( pm->cmd.rightmove )
+		//the strongest axis picks the direction: a stick never reads exactly 0 on the other one
+		if ( pm->cmd.rightmove && abs( pm->cmd.rightmove ) >= abs( pm->cmd.forwardmove ) )
 		{//kick to side
 			if ( pm->cmd.rightmove > 0 )
 			{//kick right
