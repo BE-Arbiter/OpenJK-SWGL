@@ -3351,6 +3351,8 @@ shader_t *R_FindShader( const char *name, const int *lightmapIndex, const byte *
 
 			if (!ParseShader(&shaderText)) {
 				// had errors, so use default shader
+				if ( r_shaderWarnings->integer & 1 )
+					ri.Printf( PRINT_WARNING, "WARNING: shader '%s' has a script that failed to parse, using the default shader\n", strippedName );
 				setDefaultShader();
 			}
 			sh = FinishShader();
@@ -3389,7 +3391,10 @@ shader_t *R_FindShader( const char *name, const int *lightmapIndex, const byte *
 		image = R_FindImageFile(strippedName, flags);
 		if (!image) {
 			vk_debug("shader [%s] image not found, fallback to default shader\n", name);
+			if ( r_shaderWarnings->integer & 2 )
+				ri.Printf( PRINT_WARNING, "WARNING: shader '%s' has no script and no image, using the default shader\n", strippedName );
 			setDefaultShader();
+			shader.missingShader = qtrue;
 			return FinishShader();
 		}
 	}

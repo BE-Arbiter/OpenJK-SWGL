@@ -5290,8 +5290,10 @@ static void vk_rtx_RenderSurfaces( CRenderSurface &RS, const trRefEntity_t *ent,
 			}
 		}
 
+		// A skin names a shader that does not exist (models/players/<name>/cheese) for a surface it
+		// does not want drawn. The tracer shows it as a white patch.
 		// don't add third_person objects if not viewing through a portal
-		if ( !RS.personalModel )
+		if ( !RS.personalModel && !shader->missingShader )
 		{
 #ifdef USE_VBO_GHOUL2
 			vk_set_ghoul2_vbo_mesh( RS, NULL, RS.lod, surface->thisSurfaceIndex, (shader_t*)shader, bone_offset, qtrue );

@@ -810,6 +810,7 @@ typedef struct shader_s {
 													// still keep a name allocated for it, so if
 													// something calls RE_RegisterShader again with
 													// the same name, we don't try looking for it again
+	qboolean	missingShader;						// no script and no image of this name
 	qboolean	explicitlyDefined;					// found in a .shader file
 	qboolean	entityMergable;						// merge across entites optimizable (smoke, blood)
 
@@ -2223,6 +2224,7 @@ extern	cvar_t	*r_g2_shadowsurf;		// -1 = every shadow surface, >= 0 = only that 
 #define R_STENCIL_SHADOWS()	( r_shadows->integer == 2 )
 
 extern	cvar_t	*r_flares;				// light flares
+extern	cvar_t	*r_shaderWarnings;		// 1: scripts that fail to parse, 2: shaders with no script and no image
 //extern	cvar_t	*r_flareSize;			// light flare size
 //extern cvar_t	*r_flareFade;
 //extern cvar_t	*r_flareCoeff;			// coefficient for the flare intensity falloff function. 

@@ -158,6 +158,7 @@ cvar_t	*r_shadowRange;
 
 
 cvar_t	*r_flares;
+cvar_t	*r_shaderWarnings;
 //cvar_t	*r_flareSize;
 //cvar_t	*r_flareFade;
 //cvar_t	*r_flareCoeff;
@@ -878,6 +879,7 @@ void R_Register( void )
 	r_lodbias							= Cvar_Get( "r_lodbias",							"0",						CVAR_ARCHIVE_ND, "" );
 	r_autolodscalevalue					= Cvar_Get( "r_autolodscalevalue",				"0",						CVAR_ROM, "" );
 
+	r_shaderWarnings					= Cvar_Get( "r_shaderWarnings",					"1",						CVAR_ARCHIVE_ND, "print a warning for a shader that does not load: bit 1 a script that fails to parse, bit 2 no script and no image" );
 	r_flares							= Cvar_Get( "r_flares",							"1",						CVAR_ARCHIVE_ND, "" );
 	//r_flareSize							= Cvar_Get( "r_flareSize",						"40",						CVAR_ARCHIVE_ND, "" );
 	//r_flareFade							= Cvar_Get( "r_flareFade",						"10",						CVAR_ARCHIVE_ND, "" );
