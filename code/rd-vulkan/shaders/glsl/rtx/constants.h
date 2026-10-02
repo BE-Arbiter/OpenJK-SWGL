@@ -63,6 +63,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #define MAX_RTX_STAGES 4
 #define MAX_BLENDED_LAYERS 4	// blended surfaces a primary ray goes through
+#define MAX_DISTORTION_LAYERS 2	// distortion surfaces kept for a pixel: the two nearest
+#define MAX_DISTORTION_HITS 8	// distortion surfaces a ray goes through to find them
 
 // MaterialStage.blend, above the GLS blend bits
 #define STAGE_BLEND_ACTIVE		0x80000000u	// the stage exists
@@ -98,6 +100,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define AS_FLAG_VIEWER_WEAPON   (1 << 3)
 #define AS_FLAG_SKY             (1 << 4)
 #define AS_FLAG_CUSTOM_SKY      (1 << 5)
+#define AS_FLAG_DISTORTION      (1 << 6)	// screen distortion surfaces: seen by the distortion rays only
 
 // Effects TLAS flags
 #define AS_FLAG_EFFECTS         (1 << 0)
@@ -227,7 +230,13 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define RTX_MAX_DEFORMS			3
 #define RTX_DEFORM_FIRST		5
 #define RTX_DEFORM_UINTS		6
-#define INSTANCE_SHADER_UINTS	(RTX_DEFORM_FIRST + RTX_MAX_DEFORMS * RTX_DEFORM_UINTS)	// shaderRGBA, forced rgbGen, light direction, deformVertexes
+#define RTX_DISTORT_FIRST		(RTX_DEFORM_FIRST + RTX_MAX_DEFORMS * RTX_DEFORM_UINTS)
+#define RTX_DISTORT_UINTS		10
+#define INSTANCE_SHADER_UINTS	(RTX_DISTORT_FIRST + RTX_DISTORT_UINTS)	// shaderRGBA, forced rgbGen, light direction, deformVertexes, distortion
+
+// Bits 10-11 of instance data word 1: the instance is a screen distortion surface.
+#define INSTANCE_DISTORT_CROP	0x400u	// force push: the effect shader samples a crop of the screen around the entity
+#define INSTANCE_DISTORT_CLOAK	0x800u	// cloak: the full-screen passes of the distortion shader, set by the frame
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795

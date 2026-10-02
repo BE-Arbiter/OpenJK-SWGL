@@ -16,6 +16,15 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+// The position in the render image (flat, in pixels) that a pixel of the TAA output looks at. The jitter of the render is taken out.
+vec2 hires_to_lores(ivec2 ipos)
+{
+	vec2 input_size = vec2(global_ubo.width, global_ubo.height);
+	vec2 output_size = vec2(global_ubo.taa_output_width, global_ubo.taa_output_height);
+
+	return (vec2(ipos) + vec2(0.5)) * (input_size / output_size) - vec2(0.5) - global_ubo.sub_pixel_jitter;
+}
+
 void view_to_lonlat(vec3 view, out float lon, out float lat)
 {
 	lon = atan(view.x, view.z);

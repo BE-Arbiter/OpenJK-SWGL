@@ -526,6 +526,8 @@ void vk_rtx_create_images( void )
 	img_info[RTX_IMG_TAA_A].sampler = vk.tex_sampler;
 	img_info[RTX_IMG_TAA_B].sampler = vk.tex_sampler;
 	img_info[RTX_IMG_TAA_OUTPUT].sampler = vk.tex_sampler;
+	// The distortion pass samples between two texels of the copy of the screen, and the edge of the screen is the edge of the image.
+	img_info[RTX_IMG_TAA_DISTORT_SRC].sampler = vk.tex_sampler_linear_clamp;
 	// The bloom blur reads between two texels to take both weights in one fetch. Clamped: at
 	// the screen edge a repeat sampler takes the texel of the opposite edge, and a light on
 	// one side of the screen put a halo on the other.

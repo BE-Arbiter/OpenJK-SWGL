@@ -815,7 +815,7 @@ static const textureBundle_t *vk_rtx_glow_bundle( const shader_t *shader )
 
 // The color of rgbGen and alphaGen that do not come from the entity or the vertex, as rgba8.
 // The tracer lights the surface itself, so the other gens count as white.
-static uint32_t vk_rtx_bundle_color( const textureBundle_t *bundle )
+uint32_t vk_rtx_bundle_color( const textureBundle_t *bundle )
 {
 	byte color[4] = { 255, 255, 255, 255 };
 	const int numVertexes = tess.numVertexes;

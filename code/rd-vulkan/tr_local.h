@@ -2820,6 +2820,7 @@ RENDERER BACK END FUNCTIONS
 */
 void RB_ExecuteRenderCommands( const void *data );
 qboolean R_DistortionScreenCrop( const trRefEntity_t *ent, vec4_t crop );
+qboolean ComputeDistortionPass( int stage, vec4_t params, uint32_t *stateBits );
 
 /*
 =============================================================

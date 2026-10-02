@@ -1062,6 +1062,7 @@ typedef struct {
 			vk_blas_t	transparent_models[VK_MAX_SWAPCHAIN_SIZE];
 			vk_blas_t	masked_models[VK_MAX_SWAPCHAIN_SIZE];
 			vk_blas_t	viewer_models[VK_MAX_SWAPCHAIN_SIZE];
+			vk_blas_t	distortion_models[VK_MAX_SWAPCHAIN_SIZE];
 			vk_blas_t	viewer_weapon[VK_MAX_SWAPCHAIN_SIZE];
 			vk_blas_t	explosions[VK_MAX_SWAPCHAIN_SIZE];
 			vk_blas_t   beams[VK_MAX_SWAPCHAIN_SIZE];

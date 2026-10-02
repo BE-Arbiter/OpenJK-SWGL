@@ -119,6 +119,11 @@ void vkpt_pt_create_all_dynamic( VkCommandBuffer cmd_buf, int idx, const EntityU
 	vk_rtx_create_blas( &batch, &vk.buf_positions_instanced, offset_vertex,  NULL, offset_index,
 		upload_info->viewer_model_prim_count * 3, 0, &vk.model_instance.blas.viewer_models[idx], qtrue, qtrue, qfalse, 0, "instanced viewer models" );
 
+	// distortion surfaces
+	offset_vertex = offset_vertex_base + upload_info->distortion_prim_offset * sizeof(prim_positions_t);
+	vk_rtx_create_blas( &batch, &vk.buf_positions_instanced, offset_vertex,  NULL, offset_index,
+		upload_info->distortion_prim_count * 3, 0, &vk.model_instance.blas.distortion_models[idx], qtrue, qtrue, qfalse, 0, "instanced distortion surfaces" );
+
 	// sprites / beams
 	vkbuffer_t* buffer_vertex = NULL;
 	vkbuffer_t* buffer_index = NULL;
@@ -243,6 +248,11 @@ static void vkpt_pt_create_toplevel( VkCommandBuffer cmd_buf, uint32_t idx, cons
 		&vk.model_instance.blas.viewer_models[idx], VERTEX_BUFFER_INSTANCED, upload_info->viewer_model_prim_offset,
 		AS_FLAG_VIEWER_MODELS, VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR, SBTO_OPAQUE );
 
+	// Only the distortion rays of the primary rays see these: the tracer does not light them and they cast no shadow.
+	append_blas( g_instances, &g_num_instances,
+		&vk.model_instance.blas.distortion_models[idx], VERTEX_BUFFER_INSTANCED, upload_info->distortion_prim_offset,
+		AS_FLAG_DISTORTION, VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR, SBTO_OPAQUE );
+
 	uint32_t num_instances_geometry = g_num_instances;
 
 	// effects
@@ -309,6 +319,78 @@ static const float *deform_table( genFunc_t func )
 		case GF_INVERSE_SAWTOOTH:	return tr.inverseSawToothTable;
 		default:					return tr.sinTable;
 	}
+}
+
+// A model drawn as a screen distortion: the force push dome (RF_DISTORTION) or the cloak (the internal distortion shader).
+static qboolean vk_rtx_is_distortion_entity( const trRefEntity_t *entity )
+{
+	if ( entity->e.renderfx & RF_DISTORTION )
+		return qtrue;
+
+	return ( entity->e.customShader && tr.distortionShader->useDistortion
+		&& R_GetShaderByHandle( entity->e.customShader ) == tr.distortionShader ) ? qtrue : qfalse;
+}
+
+// The distortion words (RTX_DISTORT_FIRST) of a mesh of a distortion entity, and its kind in word 1.
+// Force push: the stage texture coordinate goes through the tcMods of the entity time and the crop of the screen
+// around the entity, as the rasterizer draws r_distortionStyle 1. Words 0-3 matrix, 4-5 offset, 6 turbulence
+// amplitude, 7 its phase, 8 colour, 9 blend. The cloak has no words: the passes are in the frame data.
+static void fill_model_instance_distortion( uint32_t *data, const trRefdef_t *refdef, const trRefEntity_t *entity, const shader_t *shader )
+{
+	if ( shader == tr.distortionShader )
+	{
+		data[1] |= INSTANCE_DISTORT_CLOAK;
+		return;
+	}
+
+	const shaderStage_t *stage = shader->stages[0];
+	vec4_t crop;
+
+	if ( !stage || !stage->active || !R_DistortionScreenCrop( entity, crop ) )
+		return;
+
+	float matrix[4], offTurb[4];
+	const double shaderTime = tess.shaderTime;
+	trRefEntity_t *currentEntity = backEnd.currentEntity;
+
+	tess.shaderTime = ( refdef->floatTime - entity->e.shaderTime ) - shader->timeOffset;
+	backEnd.currentEntity = (trRefEntity_t *)entity;
+
+	vk_compute_tex_mods( &stage->bundle[0], matrix, offTurb );
+	uint32_t color = vk_rtx_bundle_color( &stage->bundle[0] );
+
+	tess.shaderTime = shaderTime;
+	backEnd.currentEntity = currentEntity;
+
+	if ( stage->bundle[0].rgbGen == CGEN_ENTITY || ( entity->e.renderfx & RF_RGB_TINT ) )
+		color = ( color & 0xff000000u ) | ( data[0] & 0x00ffffffu );
+
+	uint32_t blend = stage->stateBits & GLS_BLEND_BITS;
+
+	// An entity that fades blends over the screen with its alpha, whatever the shader says.
+	const qboolean fade = ( ( entity->e.renderfx & RF_ALPHA_FADE ) && entity->e.shaderRGBA[3] < 255 ) ? qtrue : qfalse;
+
+	if ( stage->bundle[0].alphaGen == AGEN_ENTITY || fade )
+		color = ( color & 0x00ffffffu ) | ( data[0] & 0xff000000u );
+
+	if ( fade )
+		blend = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA;
+
+	// The crop is a scale and an offset of the texture coordinate; the turbulence is added after it.
+	matrix[0] *= crop[0];
+	matrix[2] *= crop[0];
+	matrix[1] *= crop[1];
+	matrix[3] *= crop[1];
+	offTurb[0] = offTurb[0] * crop[0] + crop[2];
+	offTurb[1] = offTurb[1] * crop[1] + crop[3];
+	offTurb[3] -= floorf( offTurb[3] );
+
+	const float words[8] = { matrix[0], matrix[1], matrix[2], matrix[3], offTurb[0], offTurb[1], offTurb[2], offTurb[3] };
+
+	memcpy( &data[RTX_DISTORT_FIRST], words, sizeof( words ) );
+	data[RTX_DISTORT_FIRST + 8] = color;
+	data[RTX_DISTORT_FIRST + 9] = STAGE_BLEND_ACTIVE | blend;
+	data[1] |= INSTANCE_DISTORT_CROP;
 }
 
 static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_buffer, int current_instance_index, const trRefdef_t *refdef, trRefEntity_t* entity, shader_t *shader )
@@ -428,6 +510,9 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 			memcpy( &data[4], &time, sizeof( float ) );
 		}
 	}
+
+	if ( shader && vk_rtx_is_distortion_entity( entity ) )
+		fill_model_instance_distortion( data, refdef, entity, shader );
 }
 
 // The instance buffer is full: the remaining meshes are not traced this frame.
@@ -774,6 +859,7 @@ add_dlights(const dlight_t* dlights, int num_dlights, light_poly_t* light_list, 
 #define MESH_FILTER_TRANSPARENT 1
 #define MESH_FILTER_OPAQUE 2
 #define MESH_FILTER_MASKED 4
+#define MESH_FILTER_DISTORTION 8
 #define MESH_FILTER_ALL 3
 
 typedef struct {
@@ -1054,7 +1140,11 @@ static void process_regular_entity(
 		if (!material_id)
 			continue;
 
-		if ( RB_IsMasked( entity_mesh->shader ) )
+		if ( mesh_filter & MESH_FILTER_DISTORTION )
+		{
+			// All the meshes of a distortion entity are distortion surfaces.
+		}
+		else if ( RB_IsMasked( entity_mesh->shader ) )
 		{
 			if (contains_masked)
 				*contains_masked = qtrue;
@@ -1164,11 +1254,13 @@ static void prepare_entities( EntityUploadInfo *upload_info, const trRefdef_t *r
 	static int masked_model_indices[MAX_REFENTITIES];
 	static int viewer_model_indices[MAX_REFENTITIES];
 	static int viewer_weapon_indices[MAX_REFENTITIES];
+	static int distortion_model_indices[MAX_REFENTITIES];
 	static int explosion_indices[MAX_REFENTITIES];
 	int transparent_model_num = 0;
 	int masked_model_num = 0;
 	int viewer_model_num = 0;
 	int viewer_weapon_num = 0;
+	int distortion_model_num = 0;
 	int explosion_num = 0;
 
 	int model_instance_idx = 0;
@@ -1239,6 +1331,13 @@ static void prepare_entities( EntityUploadInfo *upload_info, const trRefdef_t *r
 					
 					qboolean contains_transparent = qfalse;
 					qboolean contains_masked = qfalse;
+
+					// Not lit and not in the shadow: the distortion pass takes them after the others.
+					if ( model->type != MOD_BRUSH && vk_rtx_is_distortion_entity( entity ) )
+					{
+						distortion_model_indices[distortion_model_num++] = i;
+						break;
+					}
 
 					switch ( model->type )
 					{
@@ -1331,6 +1430,21 @@ static void prepare_entities( EntityUploadInfo *upload_info, const trRefdef_t *r
 	}
 
 	upload_info->viewer_model_prim_count = num_instanced_prim - upload_info->viewer_model_prim_offset;
+
+	// distortion surfaces
+	upload_info->distortion_prim_offset = num_instanced_prim;
+
+	for (int i = 0; i < distortion_model_num; i++)
+	{
+		const int entityNum = distortion_model_indices[i];
+		trRefEntity_t *entity = refdef->entities + entityNum;
+
+		model_t *model = R_GetModelByHandle( entity->e.hModel );
+		process_regular_entity( entityNum, refdef, entity, model, qfalse, qfalse, &model_instance_idx, &instance_idx, &num_instanced_prim,
+			MESH_FILTER_DISTORTION, NULL, NULL, &mdxm_matrix_offset, vk.mdxm_matrices_shadow );
+	}
+
+	upload_info->distortion_prim_count = num_instanced_prim - upload_info->distortion_prim_offset;
 
 	// viewer weapons
 	{
@@ -1848,6 +1962,28 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 	//ubo->num_cameras = 0;
 }
 
+// The cloak passes of the frame and whether the distortion pass runs.
+static void vk_rtx_prepare_distortion_ubo( vkUniformRTX_t *ubo, const EntityUploadInfo *upload_info )
+{
+	float *passes[2] = { ubo->distortion_cloak_pass0, ubo->distortion_cloak_pass1 };
+
+	ubo->distortion_surfaces = upload_info->distortion_prim_count ? 1 : 0;
+
+	for ( int i = 0; i < 2; i++ )
+	{
+		vec4_t params;
+		uint32_t state_bits;
+
+		Com_Memset( passes[i], 0, 4 * sizeof( float ) );
+
+		if ( ubo->distortion_surfaces && ComputeDistortionPass( i, params, &state_bits ) )
+		{
+			VectorCopy( params, passes[i] );
+			passes[i][3] = (float)( state_bits & GLS_BLEND_BITS );
+		}
+	}
+}
+
 static void
 update_mlight_prev_to_current(void)
 {
@@ -1946,6 +2082,7 @@ static void vk_rtx_trace_primary_rays( VkCommandBuffer cmd_buf )
 	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VISBUF_BARY_A + frame_idx] );
 	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_TRANSPARENT] );
 	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_FX] );
+	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_DISTORT] );
 	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_MOTION] );
 	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_SHADING_POSITION] );
 	BARRIER_COMPUTE_WRITE( cmd_buf, vk.img_rtx[RTX_IMG_PT_VIEW_DIRECTION] );
@@ -2579,6 +2716,9 @@ static void vk_begin_trace_rays( world_t &worldData, trRefdef_t *refdef, referen
 		}
 		END_PERF_MARKER( post_cmd_buf, PROFILER_TONE_MAPPING );
 
+		if ( ubo->distortion_surfaces )
+			vk_rtx_distortion( post_cmd_buf );
+
 		{
 			VkBufferCopy copyRegion = { 0, 0, sizeof(ReadbackBuffer) };
 			qvkCmdCopyBuffer( post_cmd_buf, vk.buf_readback.buffer, vk.buf_readback_staging[vk.current_frame_index].buffer, 1, &copyRegion);
@@ -2682,6 +2822,7 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 	ubo = &vk.uniform_buffer;
 	vk_rtx_prepare_ubo( refdef, tr.world, viewleaf, &ref_mode, sky_matrix, render_world );
 	ubo->prev_adapted_luminance = prev_adapted_luminance;
+	vk_rtx_prepare_distortion_ubo( ubo, &upload_info );
 
 #if 0
 	if ( tm_blend_enable->integer )

@@ -40,6 +40,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 	SHADER_MODULE_DO( SHADER_INSTANCE_GEOMETRY_COMP,			instance_geometry_comp		 ) 	SHADER_MODULE_DO( SHADER_RADIANCE_CACHE_RESOLVE_COMP,		radiance_cache_resolve_comp	 ) 	SHADER_MODULE_DO( SHADER_RADIANCE_CACHE_DEBUG_COMP,			radiance_cache_debug_comp	 ) \
 	SHADER_MODULE_DO( SHADER_NRD_PREPARE_COMP,					nrd_prepare_comp			 ) \
 	SHADER_MODULE_DO( SHADER_NRD_COMPOSITE_COMP,				nrd_composite_comp			 ) \
+	SHADER_MODULE_DO( SHADER_DISTORTION_COMP,					distortion_comp				 ) \
 
 // shaders
 enum {

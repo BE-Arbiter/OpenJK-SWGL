@@ -236,6 +236,8 @@ typedef struct EntityUploadInfo
 	uint32_t masked_prim_count;
 	uint32_t viewer_model_prim_offset;
 	uint32_t viewer_model_prim_count;
+	uint32_t distortion_prim_offset;
+	uint32_t distortion_prim_count;
 	uint32_t viewer_weapon_prim_offset;
 	uint32_t viewer_weapon_prim_count;
 	uint32_t explosions_prim_offset;
@@ -580,6 +582,11 @@ void		vk_rtx_taa_prepare_ubo( vkUniformRTX_t *ubo );
 void		vk_rtx_taa_end_frame( qboolean denoiser_active );
 void		vk_rtx_taa_evaluate_settings( qboolean denoiser_active );
 void		vk_rtx_taa( VkCommandBuffer cmd_buf );
+
+// vk_rtx_distortion.cpp
+void		vk_rtx_create_distortion_pipeline( void );
+void		vk_rtx_destroy_distortion_pipeline( void );
+void		vk_rtx_distortion( VkCommandBuffer cmd_buf );
 void		vk_rtx_destroy_compute_pipelines( void );
 void		vk_rtx_destroy_pipeline( vkpipeline_t *pipeline );
 
@@ -679,6 +686,7 @@ qboolean	RB_IsTransparent( shader_t *shader );
 qboolean	RB_IsMasked( shader_t *shader );
 void		vk_rtx_update_shader_material( shader_t *shader, shader_t *updatedShader );
 rtx_material_t	*vk_rtx_shader_to_material( shader_t *shader );
+uint32_t	vk_rtx_bundle_color( const textureBundle_t *bundle );
 VkResult	vk_rtx_upload_materials( LightBuffer *lbo );
 uint32_t	encode_normal( const vec3_t normal );
 
@@ -823,6 +831,7 @@ void		vk_rtx_GhoulBounds( float *bounds );
 	PROFILER_DO(PROFILER_ASVGF_TAA,                  2) \
 	PROFILER_DO(PROFILER_BLOOM,                      1) \
 	PROFILER_DO(PROFILER_TONE_MAPPING,               1) \
+	PROFILER_DO(PROFILER_DISTORTION,                 1) \
 	PROFILER_DO(PROFILER_UPDATE_ENVIRONMENT,         1) \
 	PROFILER_DO(PROFILER_GOD_RAYS,                   1) \
 	PROFILER_DO(PROFILER_GOD_RAYS_REFLECT_REFRACT,   1) \

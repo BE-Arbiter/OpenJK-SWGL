@@ -418,6 +418,7 @@ void vk_rtx_destroy_accel_all() {
 		vk_rtx_destroy_blas( &vk.model_instance.blas.dynamic[i] );
 		vk_rtx_destroy_blas( &vk.model_instance.blas.transparent_models[i] );
 		vk_rtx_destroy_blas( &vk.model_instance.blas.viewer_models[i] );
+		vk_rtx_destroy_blas( &vk.model_instance.blas.distortion_models[i] );
 		vk_rtx_destroy_blas( &vk.model_instance.blas.viewer_weapon[i] );
 		vk_rtx_destroy_blas( &vk.model_instance.blas.explosions[i] );
 

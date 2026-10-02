@@ -1426,6 +1426,74 @@ vec4 apply_blended_layers( vec4 transparent, vec3 L, vec3 T )
 	return transparent;
 }
 
+// A float of the distortion words of an instance (see fill_model_instance_distortion).
+float distortion_word( uint instance, uint n )
+{
+	return uintBitsToFloat( get_model_instance_shader_uint( instance, RTX_DISTORT_FIRST + n ) );
+}
+
+// The screen texture coordinate of a force push surface at a point: the stage texture coordinate of
+// the point through the tcMods and the crop of the screen, as refraction.tmpl does for r_distortionStyle 1.
+vec2 distortion_crop_uv( uint instance, Triangle triangle, vec3 bary )
+{
+	const mat2 m = mat2( distortion_word( instance, 0u ), distortion_word( instance, 1u ), distortion_word( instance, 2u ), distortion_word( instance, 3u ) );
+	vec2 uv = m * ( triangle.tex_coords0 * bary ) + vec2( distortion_word( instance, 4u ), distortion_word( instance, 5u ) );
+
+	// tcMod turb of the vertex shader: the position is in the space of the model.
+	const float amplitude = distortion_word( instance, 6u );
+
+	if ( amplitude != 0.0 )
+	{
+		const mat4 transform = instance_buffer.model_instances[instance].transform;
+		const vec3 p = inverse( mat3( transform ) ) * ( triangle.positions * bary - transform[3].xyz );
+
+		uv += sin( vec2( p.x + p.z, p.y ) * ( 2.0 * M_PI / 1024.0 ) + vec2( distortion_word( instance, 7u ) * 2.0 * M_PI ) ) * amplitude;
+	}
+
+	return uv;
+}
+
+// The screen distortion surfaces (force push, cloak) along the ray, up to ray.t_max. They do not stop the
+// ray and the tracer does not light them: the distortion pass warps the finished image where they are.
+// Returns for the two nearest: the screen texture coordinate of each, packed, in x and y; their
+// instance + 1 in the halves of z. Zero in z: no surface.
+uvec4 trace_distortion_layers( Ray ray )
+{
+	// The loop reuses the payload of the primary ray: the caller still reads the hit of the primary surface.
+	const RayPayloadGeometry primary_payload = ray_payload_geometry;
+	uvec3 record = uvec3( 0u );
+	uint count = 0u;
+	bool cloak = false;
+
+	for ( int hit = 0; hit < MAX_DISTORTION_HITS && count < MAX_DISTORTION_LAYERS; hit++ )
+	{
+		trace_geometry_ray( ray, true, AS_FLAG_DISTORTION );
+
+		if ( !found_intersection( ray_payload_geometry ) )
+			break;
+
+		ray.t_min = ray_payload_geometry.hit_distance + 0.01;
+
+		const uint instance = get_instance_index( ray_payload_geometry );
+		const uint kind = get_model_instance_shader_uint( instance, 1 );
+		vec2 uv = vec2( 0.0 );
+
+		if ( ( kind & INSTANCE_DISTORT_CROP ) != 0u )
+			uv = distortion_crop_uv( instance, get_hit_triangle( ray_payload_geometry ), get_hit_barycentric( ray_payload_geometry ) );
+		else if ( ( kind & INSTANCE_DISTORT_CLOAK ) == 0u || cloak )
+			continue;	// the passes of the cloak apply once to a pixel
+
+		cloak = cloak || ( kind & INSTANCE_DISTORT_CLOAK ) != 0u;
+		record[count] = packUnorm2x16( clamp( ( uv + 0.5 ) * 0.5, vec2( 0.0 ), vec2( 1.0 ) ) );
+		record.z |= ( ( instance + 1u ) & 0xffffu ) << ( 16u * count );
+		count++;
+	}
+
+	ray_payload_geometry = primary_payload;
+
+	return uvec4( record, 0u );
+}
+
 void get_material(
 	uint instance_index,
 	Triangle triangle,

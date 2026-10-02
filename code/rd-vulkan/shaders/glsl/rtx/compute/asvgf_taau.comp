@@ -46,6 +46,7 @@ layout(local_size_x = GROUP_SIZE, local_size_y = GROUP_SIZE, local_size_z = 1) i
 #include "../vertex_buffer.h"
 
 #include "asvgf.glsl"
+#include "../projection.glsl"
 
 shared uvec2 s_color_pq[SHARED_SIZE][SHARED_SIZE];
 shared uint s_motion[SHARED_SIZE][SHARED_SIZE];
@@ -146,14 +147,6 @@ void get_moments(ivec2 pos, ivec2 group_base, int r, out vec3 mom1, out vec3 mom
 float get_sample_weight(vec2 delta, float scale)
 {
     return clamp(1 - scale * dot(delta, delta), 0, 1);
-}
-
-vec2 hires_to_lores(ivec2 ipos)
-{
-    vec2 input_size = vec2(global_ubo.width, global_ubo.height);
-    vec2 output_size = vec2(global_ubo.taa_output_width, global_ubo.taa_output_height);
-
-    return (vec2(ipos) + vec2(0.5)) * (input_size / output_size) - vec2(0.5) - global_ubo.sub_pixel_jitter;
 }
 
 void

@@ -258,6 +258,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	GLOBAL_UBO_VAR_LIST_DO( VEC3,	 physical_sky_ground_radiance	) \
 	GLOBAL_UBO_VAR_LIST_DO( INT	,	 physical_sky_flags				) \
 	\
+	GLOBAL_UBO_VAR_LIST_DO( VEC4,	 distortion_cloak_pass0			) /* a full-screen pass of the cloak: scale x, scale y, alpha, GL blend bits (0: no pass) */ \
+	GLOBAL_UBO_VAR_LIST_DO( VEC4,	 distortion_cloak_pass1			) \
+	GLOBAL_UBO_VAR_LIST_DO( INT,	 distortion_surfaces			) /* the frame has screen distortion surfaces */ \
+	\
 	UBO_CVAR_LIST // WARNING: Do not put any other members into global_ubo after this: the CVAR list is not vec4-aligned
 
 STRUCT (  

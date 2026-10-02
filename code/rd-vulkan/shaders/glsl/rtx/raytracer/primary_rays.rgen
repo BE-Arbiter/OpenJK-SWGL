@@ -217,6 +217,9 @@ main()
 
 	EffectsResult  effects = trace_effects_ray(ray, /* skip_procedural = */ false);
 
+	// The surfaces that distort the finished image are not part of the lit surface: the distortion pass reads them.
+	const uvec4 distortion = (global_ubo.distortion_surfaces != 0) ? trace_distortion_layers(ray) : uvec4(0);
+
 	direction = ray.direction;
 
 	// If the primary ray didn't hit anything, or it hit a sky polygon and pt_show_sky is disabled, 
@@ -256,6 +259,7 @@ main()
 		transparent = apply_blended_layers(transparent, screen_to_hdr_color(layer_L), layer_T);
 		imageStore(IMG_PT_TRANSPARENT, ipos, transparent);
 		imageStore(IMG_PT_FX, ipos, vec4(effects.fx, 0));
+		imageStore(IMG_PT_DISTORT, ipos, distortion);
 		// Alpha: the luminance of what the tracer does not light, which the exposure leaves out.
 		imageStore(IMG_PT_GLOW, ipos, vec4(layer_glow * screen_to_hdr() + effects.glow, luminance(screen_to_hdr_color(layer_L) + effects.additive)));
 #ifdef USE_RTX_INSPECT_TANGENTS
@@ -536,4 +540,5 @@ main()
 	transparent = apply_blended_layers(transparent, screen_to_hdr_color(layer_L), layer_T);
 	imageStore(IMG_PT_TRANSPARENT, ipos, transparent);
 	imageStore(IMG_PT_FX, ipos, vec4(effects.fx, 0));
+	imageStore(IMG_PT_DISTORT, ipos, distortion);
 }

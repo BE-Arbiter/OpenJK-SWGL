@@ -2446,7 +2446,7 @@ the cgame did not override alpha or stretch (cgi_R_SetRefractProp).
 Returns qfalse when the stage must not draw.
 ==================
 */
-static qboolean ComputeDistortionPass( int stage, vec4_t params, uint32_t *stateBits )
+qboolean ComputeDistortionPass( int stage, vec4_t params, uint32_t *stateBits )
 {
 	const float	t = backEnd.refdef.time;
 	float		stretchX, stretchY, alpha;
