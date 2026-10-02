@@ -680,7 +680,7 @@ float inverse_tone_map_value( float d )
 // luminance, which keeps the hue, and on each channel with tm_per_channel, as the tone mapper.
 vec3 screen_to_hdr_color( vec3 v )
 {
-	v = max( v, vec3( 0.0 ) );
+	v = srgb_to_linear( max( v, vec3( 0.0 ) ) );
 
 	vec3 hdr = vec3( 0.0 );
 	float per_channel = global_ubo.tonemap_per_channel;
