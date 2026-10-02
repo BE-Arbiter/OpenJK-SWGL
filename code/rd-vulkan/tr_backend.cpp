@@ -1725,6 +1725,11 @@ const void	*RB_DrawSurfs( const void *data ) {
 	RB_BeginDrawingView();
 
 #ifdef USE_RTX
+	// The tracer draws the sky itself, so the 3D sky portal scene is not traced.
+	// A second trace per frame would overwrite the motion history of the main view.
+	if ( vk.rtxActive && ( backEnd.refdef.rdflags & RDF_SKYBOXPORTAL ) )
+		return (const void *)(cmd + 1);
+
 	// The path tracer replaces the whole rasterised world pass, so it takes over before
 	// anything else runs. Upstream puts this switch further down, past where its own
 	// rasterised list is built - this renderer has a G-buffer prepass ahead of that, and
