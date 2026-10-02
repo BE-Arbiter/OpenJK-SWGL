@@ -38,10 +38,15 @@ hitAttributeEXT vec2 hit_attribs;
 void main()
 {
 	vec3 fx;
-	TransparencyHit transparency = pt_logic_sprite(gl_PrimitiveID, hit_attribs.xy, fx);
+	vec3 lit_L;
+	float lit_T;
+	TransparencyHit transparency = pt_logic_sprite(gl_PrimitiveID, hit_attribs.xy, fx, lit_L, lit_T);
 
 	if (transparency.hit)
 	{
+		if (lit_T < 1.0 || any(greaterThan(lit_L, vec3(0.0))))
+			update_payload_lit(ray_payload, lit_L, lit_T, gl_HitTEXT);
+
 		update_payload_transparency(ray_payload, transparency.L, transparency.T, gl_HitTEXT);
 
 		// The glow pass of the rasterizer draws only the glow stages: the red glow of a

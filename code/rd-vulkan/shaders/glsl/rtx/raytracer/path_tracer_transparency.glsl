@@ -83,6 +83,21 @@ void update_payload_transparency( inout RayPayloadEffects rp, vec3 L, vec3 T, fl
     rp.distances    = packHalf2x16(distances);
 }
 
+// One more lit sprite, in the order rule of update_payload_transparency, on the albedo layer.
+void update_payload_lit( inout RayPayloadEffects rp, vec3 L, float T, float hitT ) {
+    vec4 lit = unpackHalf4x16(rp.lit);
+
+    if (hitT < rp.litNearest || rp.litNearest == 0.0)
+    {
+        lit = vec4(L + T * lit.rgb, T * lit.a);
+        rp.litNearest = hitT;
+    }
+    else
+        lit = vec4(lit.rgb + lit.a * L, lit.a * T);
+
+    rp.lit = packHalf4x16(lit);
+}
+
 // The effects as a layer over the image: the colour T becomes a coverage (its mean), and L is
 // added.
 EffectsResult get_payload_transparency(in RayPayloadEffects rp)
@@ -93,6 +108,7 @@ EffectsResult get_payload_transparency(in RayPayloadEffects rp)
     result.additive = unpackHalf4x16(rp.additive).rgb;
     result.glow     = unpackHalf4x16(rp.glow).rgb;
     result.fx       = unpackHalf4x16(rp.fx).rgb;
+    result.lit      = unpackHalf4x16(rp.lit);
     result.fog      = vec4(0);
 
     return result;
@@ -124,6 +140,7 @@ EffectsResult get_payload_transparency_with_fog(in RayPayloadEffects rp, float t
     result.additive = unpackHalf4x16(rp.additive).rgb;
     result.glow     = unpackHalf4x16(rp.glow).rgb;
     result.fx       = unpackHalf4x16(rp.fx).rgb;
+    result.lit      = unpackHalf4x16(rp.lit);
     result.fog      = vec4(0);
 
     return result;

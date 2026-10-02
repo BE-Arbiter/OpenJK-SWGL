@@ -145,9 +145,11 @@ TransparencyHit make_empty_hit()
 
 // fx: for a weapon effect (saber, bolt), what the rasterizer would add to the screen. The textures
 // are read as it reads them, in gamma, so that the soft glows pile up as they do there.
-TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary, out vec3 fx)
+TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary, out vec3 fx, out vec3 lit_L, out float lit_T)
 {
     fx = vec3(0.0);
+    lit_L = vec3(0.0);
+    lit_T = 1.0;
 
     const vec3 barycentric = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
 
@@ -168,6 +170,7 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary, out vec3 fx)
         return make_empty_hit();
 
     const bool weapon_fx = ((info.w & 1u) != 0u) && global_ubo.pt_weapon_fx != 0.0;
+    const bool lit_sprite = (info.w & 2u) != 0u;
 
     vec4 shaderRGBA = unpack_rgba8(info.y);
 
@@ -250,6 +253,15 @@ TransparencyHit pt_logic_sprite(int primitiveID, vec2 bary, out vec3 fx)
 
     if (all(lessThanEqual(L, vec3(0.0))) && all(greaterThanEqual(T, vec3(1.0))))
         return make_empty_hit();
+
+    // A lit sprite is an albedo layer: the primary ray multiplies it with the light of the surface behind.
+    // The stage colour is in screen (gamma) units, an albedo is linear.
+    if (lit_sprite)
+    {
+        lit_L = srgb_to_linear(clamp(L, vec3(0.0), vec3(1.0)));
+        lit_T = clamp(dot(T, vec3(1.0 / 3.0)), 0.0, 1.0);
+        return TransparencyHit(vec3(0.0), vec3(1.0), vec3(0.0), true);
+    }
 
     // The effect leaves the layer of the tracer: the tone mapper does not see it. The glow stays for the bloom.
     if (weapon_fx)

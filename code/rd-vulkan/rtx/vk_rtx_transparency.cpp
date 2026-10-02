@@ -188,6 +188,7 @@ typedef struct
 {
 	rtx_material_t	*mat;
 	polyVert_t		v[3];
+	bool			lit;	// an albedo layer that the tracer lights (grass), not an effect
 } fx_tri_t;
 
 static fx_tri_t			fx_tris[TR_SPRITE_MAX_NUM];
@@ -195,6 +196,7 @@ static int				fx_tri_num;
 static const trRefdef_t	*fx_refdef;
 static const refEntity_t *fx_ent;
 static rtx_material_t	*fx_mat;
+static bool				fx_lit;
 static vec3_t			fx_sh1, fx_sh2;
 static int				fx_f_count;
 static int				fx_seed;
@@ -226,6 +228,7 @@ static void fx_tri( const polyVert_t *a, const polyVert_t *b, const polyVert_t *
 	fx_tri_t *t = fx_tris + fx_tri_num++;
 
 	t->mat = fx_mat;
+	t->lit = fx_lit;
 	t->v[0] = *a;
 	t->v[1] = *b;
 	t->v[2] = *c;
@@ -664,6 +667,7 @@ typedef struct
 	rtx_material_t				*mat;
 	const SurfaceSpriteBlock	*block;
 	uint32_t					flags;
+	bool						vertex_lit;	// the instance colour is the baked light of the ground
 } ss_group_info_t;
 
 static std::vector<ss_candidate_t> ss_candidates;
@@ -683,7 +687,11 @@ static void fx_surface_sprite( const ss_candidate_t *c, const ss_group_info_t *g
 	vec3_t	V, offsets[4], p;
 	vec2_t	to_camera;
 	polyVert_t v[4];
-	byte	rgba[4] = { s->color[0], s->color[1], s->color[2], 255 };
+	// The tracer lights the sprite: the baked light of the ground is not part of its albedo.
+	byte	rgba[4] = { 255, 255, 255, 255 };
+
+	if ( !g->vertex_lit )
+		Com_Memcpy( rgba, s->color, 3 );
 
 	static const float uv[4][2] = { { 1, 1 }, { 1, 0 }, { 0, 0 }, { 0, 1 } };
 
@@ -802,6 +810,7 @@ static void fx_surface_sprites( const trRefdef_t *refdef )
 		info->mat = mat;
 		info->block = (const SurfaceSpriteBlock *)( ssbo->buffer_ptr + SS_UNPACK_SSBO_OFFSET( group->def.ssbo_bits ) );
 		info->flags = def.surface_sprite_flags;
+		info->vertex_lit = shader->stages[0]->bundle[0].rgbGen == CGEN_VERTEX || shader->stages[0]->bundle[0].rgbGen == CGEN_EXACT_VERTEX;
 
 		const float end2 = info->block->fadeEndDistance * info->block->fadeEndDistance;
 
@@ -835,8 +844,11 @@ static void fx_surface_sprites( const trRefdef_t *refdef )
 	for ( const ss_candidate_t &c : ss_candidates )
 	{
 		fx_mat = ss_groups[c.group].mat;
+		fx_lit = true;
 		fx_surface_sprite( &c, ss_groups + c.group );
 	}
+
+	fx_lit = false;
 }
 #endif
 
@@ -1282,7 +1294,7 @@ static inline void write_sprite_info( uint32_t *sprite_info, const rtx_material_
 }
 
 // One triangle of a scene poly: kind 1, then the UVs and the vertex colours of its corners.
-static inline void write_poly_info( uint32_t *sprite_info, const rtx_material_t *mat, const polyVert_t *v0, const polyVert_t *v1, const polyVert_t *v2 )
+static inline void write_poly_info( uint32_t *sprite_info, const rtx_material_t *mat, const polyVert_t *v0, const polyVert_t *v1, const polyVert_t *v2, bool lit = false )
 {
 	const polyVert_t *v[3] = { v0, v1, v2 };
 
@@ -1290,6 +1302,7 @@ static inline void write_poly_info( uint32_t *sprite_info, const rtx_material_t 
 	sprite_info[0] = mat->flags;
 	sprite_info[1] = 0xffffffffu;
 	sprite_info[2] = 1u;
+	sprite_info[3] = lit ? 2u : 0u;
 
 	for ( int k = 0; k < 3; k++ )
 	{
@@ -1541,7 +1554,7 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 		if ( sprite_count >= budget )
 			goto done;
 
-		write_poly_info( sprite_info, t->mat, t->v + 0, t->v + 1, t->v + 2 );
+		write_poly_info( sprite_info, t->mat, t->v + 0, t->v + 1, t->v + 2, t->lit );
 		VectorCopy( t->v[0].xyz, vertex_positions[0] );
 		VectorCopy( t->v[1].xyz, vertex_positions[1] );
 		VectorCopy( t->v[2].xyz, vertex_positions[2] );

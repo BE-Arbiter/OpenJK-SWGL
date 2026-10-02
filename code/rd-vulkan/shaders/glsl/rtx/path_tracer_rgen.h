@@ -332,6 +332,22 @@ void find_fog_volumes(inout RayPayloadEffects rp, Ray ray, bool hdr_colors)
 		rp.fog2.xy = packHalf4x16(vec4(screen_to_hdr_color(unpackHalf4x16(rp.fog2.xy).rgb), 0));
 }
 
+// The light that a lit sprite gets where no surface lights it: the sky above.
+vec3
+lit_sprite_sky_light()
+{
+	return env_map(vec3(0, 0, 1), true) * global_ubo.pt_env_scale;
+}
+
+// Rays other than the primary one have no lit surface behind the sprite: the sprites take the sky light.
+void
+fold_lit_sprites(inout EffectsResult result)
+{
+	result.additive += result.lit.rgb * lit_sprite_sky_light();
+	result.alpha.a = 1.0 - (1.0 - result.alpha.a) * result.lit.a;
+	result.lit = vec4(0, 0, 0, 1);
+}
+
 EffectsResult 
 trace_effects_ray(Ray ray, bool skip_procedural, bool display_fog) 
 {
@@ -345,6 +361,8 @@ trace_effects_ray(Ray ray, bool skip_procedural, bool display_fog)
 	ray_payload_effects.additive     = uvec2(0);
 	ray_payload_effects.glow         = uvec2(0);
 	ray_payload_effects.fx           = uvec2(0);
+	ray_payload_effects.lit          = packHalf4x16(vec4(0, 0, 0, 1));
+	ray_payload_effects.litNearest   = 0.0;
 	ray_payload_effects.distances = 0;
 	ray_payload_effects.fog1 = uvec4(0);
 	ray_payload_effects.fog2 = uvec4(0);
@@ -358,10 +376,18 @@ trace_effects_ray(Ray ray, bool skip_procedural, bool display_fog)
 			ray.origin, ray.t_min, ray.direction, ray.t_max, RT_PAYLOAD_EFFECTS);
 
 	if (skip_procedural)
-		return get_payload_transparency(ray_payload_effects);
+	{
+		EffectsResult result = get_payload_transparency(ray_payload_effects);
+		fold_lit_sprites(result);
+		return result;
+	}
 
 	if (!display_fog)
-		return get_payload_transparency_with_fog(ray_payload_effects, ray.t_max);
+	{
+		EffectsResult result = get_payload_transparency_with_fog(ray_payload_effects, ray.t_max);
+		fold_lit_sprites(result);
+		return result;
+	}
 
 	// The primary ray: the fog is a layer over the finished image, blended after the tone mapper as the rasterizer does.
 	EffectsResult result = get_payload_transparency(ray_payload_effects);

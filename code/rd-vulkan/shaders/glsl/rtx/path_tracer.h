@@ -156,6 +156,7 @@ struct EffectsResult
     vec3 additive;
     vec3 glow;
     vec3 fx;	// the weapon effects, in display units: they skip the tone mapper
+    vec4 lit;	// the lit sprites: rgb = albedo layer, a = transmittance (see RayPayloadEffects)
     vec4 fog;	// the fog of the primary ray, in display units: rgb = colour * alpha, a = alpha
 };
 
@@ -173,6 +174,8 @@ struct RayPayloadEffects {
    uvec2 additive;     // half4: rgb = L, what the effects add
    uvec2 glow;         // the additive emission of the glow stages, for the bloom
    uvec2 fx;           // half4: the weapon effects, summed as the rasterizer does (display units)
+   uvec2 lit;          // half4: the lit sprites (grass): rgb = L, their albedo, a = T. The primary ray gives them the light of the surface behind.
+   float litNearest;   // the distance of the nearest lit sprite, 0 for none
    uint distances; // half2x16 - min and max
    uvec4 fog1; // half8x16: .xy = color.rgba; .z = t_min, t_max; .w = density: a and b for (a*t + b)
    uvec4 fog2; // same as fog1 but for a fog volume further away
