@@ -5866,6 +5866,9 @@ void  Menus_Activate(menuDef_t *menu)
 static const char *g_bindCommands[] = {
 	"+altattack",
 	"+attack",
+#ifndef JK2_MODE
+	"+block",
+#endif
 	"+zoom",
 	"+kick",
 	"+back",
@@ -5889,11 +5892,18 @@ static const char *g_bindCommands[] = {
 	"+strafe",
 	"+use",
 	"+useforce",
+	"bow",
 	"centerview",
 	"cg_thirdperson !",
 	"datapad",
+	"dropcurrentweapon",
 	"dualwield",
 	"exitview",
+	"flourish",
+	"gloat",
+	"meditate",
+	"screenshot",
+	"toggleconsole",
 #ifndef JK2_MODE
 	"force_absorb",
 #endif
@@ -7449,7 +7459,22 @@ static void Item_ListBox_DropdownHeaderPaint(itemDef_t *item)
 
 	// The arrow is in the column of the scrollbar of the open list.
 	const float arrowSize = Q_min(Item_ListBox_ScrollbarSize(item), r->h - 2 * border);
-	DC->drawHandlePic(r->x + r->w - border - arrowSize, r->y + (r->h - arrowSize) / 2, arrowSize, arrowSize, listPtr->dropdownArrow ? listPtr->dropdownArrow : DC->Assets.scrollBarArrowDown);
+	if (listPtr->dropdownArrow)
+	{
+		DC->drawHandlePic(r->x + r->w - border - arrowSize, r->y + (r->h - arrowSize) / 2, arrowSize, arrowSize, listPtr->dropdownArrow);
+	}
+	else
+	{//no shader: a flat triangle in the color of the item
+		const int rows = 6;
+		const float rowH = arrowSize * 0.5f / rows;
+		const float cx = r->x + r->w - border - arrowSize / 2;
+		const float top = r->y + (r->h - rows * rowH) / 2;
+		for (int i = 0; i < rows; i++)
+		{
+			const float w = arrowSize * 0.6f * (rows - i) / rows;
+			DC->fillRect(cx - w / 2, top + i * rowH, w, rowH, item->window.foreColor);
+		}
+	}
 
 	if (count <= 0)
 	{
@@ -8782,8 +8807,27 @@ void Item_Multi_Paint(itemDef_t *item)
 	Item_TextColor(item, &color);
 	if (item->text)
 	{
-		Item_Text_Paint(item);
-		DC->drawText(item->textRect.x + item->textRect.w + 8, item->textRect.y, item->textscale, color, text, 0, item->textStyle, item->font);
+		float shift = 0;
+
+		if (item->textalignment == ITEM_ALIGN_CENTER)
+		{
+			// Center "label value" as a whole: draw the label shifted left by half the value width.
+			const char *label = item->text;
+			int width, height;
+
+			if (*label == '@')
+			{
+				label = SE_GetString( &label[1] );
+			}
+			Item_SetTextExtents(item, &width, &height, label);
+			shift = (8 + DC->textWidth(text, item->textscale, item->font)) / 2;
+			DC->drawText(item->textRect.x - shift, item->textRect.y, item->textscale, color, label, 0, item->textStyle, item->font);
+		}
+		else
+		{
+			Item_Text_Paint(item);
+		}
+		DC->drawText(item->textRect.x + item->textRect.w + 8 - shift, item->textRect.y, item->textscale, color, text, 0, item->textStyle, item->font);
 	}
 	else
 	{
@@ -9030,6 +9074,19 @@ void Item_Slider_Paint(itemDef_t *item)
 	else
 	{
 		x = item->window.rect.x;
+	}
+	if (item->window.backColor[3] > 0)
+	{//a backcolor draws the slider flat, in the colors of the item, instead of with the textures
+		const float thumbX = Item_Slider_ThumbPosition(item);
+		vec4_t fillColor;
+
+		memcpy(fillColor, newColor, sizeof(vec4_t));
+		fillColor[3] *= 0.35f;
+		DC->fillRect(x, y + 2, SLIDER_WIDTH, SLIDER_HEIGHT, item->window.backColor);
+		DC->fillRect(x, y + 2, thumbX - x, SLIDER_HEIGHT, fillColor);
+		DC->drawRect(x, y + 2, SLIDER_WIDTH, SLIDER_HEIGHT, item->window.borderSize, item->window.borderColor);
+		DC->fillRect(thumbX - 1.5f, y + 1, 3, SLIDER_HEIGHT + 2, newColor);
+		return;
 	}
 	DC->setColor(newColor);
 	DC->drawHandlePic( x, y+2, SLIDER_WIDTH, SLIDER_HEIGHT, DC->Assets.sliderBar );

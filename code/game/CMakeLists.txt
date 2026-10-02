@@ -194,6 +194,7 @@ set(SPGameCGameFiles
 	"${SPDir}/cgame/cg_characters.cpp"
 	"${SPDir}/cgame/cg_characters.h"
 	"${SPDir}/cgame/cg_draw.cpp"
+	"${SPDir}/cgame/cg_hud_jk2.cpp"
 	"${SPDir}/cgame/cg_drawtools.cpp"
 	"${SPDir}/cgame/cg_effects.cpp"
 	"${SPDir}/cgame/cg_ents.cpp"
