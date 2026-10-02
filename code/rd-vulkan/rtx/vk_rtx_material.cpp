@@ -188,7 +188,7 @@ uint32_t vk_rtx_find_emissive_texture( const shader_t *shader, rtx_material_t *m
 	{
 		pStage = shader->stages[i];
 
-		if ( !pStage || !pStage->active )
+		if ( !pStage || !pStage->active || ( pStage->ss && pStage->ss->type ) )
 			continue;
 
 		lastValidStage = i;
@@ -543,6 +543,10 @@ rtx_material_t *vk_rtx_shader_to_material( shader_t *shader )
 		pStage = shader->stages[i];
 
 		if ( !pStage || !pStage->active )
+			break;
+
+		// A surface sprite stage draws the sprites, not the surface. It is last, as in the raster.
+		if ( pStage->ss && pStage->ss->type )
 			break;
 
 		Com_Memset( &def, 0, sizeof(Vk_Pipeline_Def) );
