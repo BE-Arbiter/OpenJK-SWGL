@@ -800,7 +800,7 @@ add_dlights(const dlight_t* dlights, int num_dlights, light_poly_t* light_list, 
 	// Intensity of the dynamic lights (blaster bolts, explosions, muzzle flashes), 1 for no change.
 	static cvar_t *pt_light_scale_dlight;
 	if ( !pt_light_scale_dlight )
-		pt_light_scale_dlight = ri.Cvar_Get( "pt_light_scale_dlight", "1", CVAR_ARCHIVE_ND );
+		pt_light_scale_dlight = ri.Cvar_Get( "pt_light_scale_dlight", "0.02", CVAR_ARCHIVE_ND );
 
 	const float dlight_scale = MAX( 0.f, pt_light_scale_dlight->value );
 

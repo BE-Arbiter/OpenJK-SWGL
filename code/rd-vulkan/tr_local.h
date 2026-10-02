@@ -3108,7 +3108,6 @@ extern  cvar_t  *pt_nrd_validation;
 extern  cvar_t  *pt_dlight_radius;
 extern  cvar_t  *pt_dlight_min_dist;
 extern  cvar_t  *pt_dlight_lift;
-extern  cvar_t  *pt_light_scale_entity;
 extern  cvar_t  *pt_lightgen_scale;
 
 #define UBO_CVAR_DO( _handle, _value ) \

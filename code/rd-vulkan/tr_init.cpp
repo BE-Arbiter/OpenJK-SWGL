@@ -253,7 +253,6 @@ cvar_t	*pt_denoiser;
 cvar_t	*pt_dlight_radius;
 cvar_t	*pt_dlight_min_dist;
 cvar_t	*pt_dlight_lift;
-cvar_t	*pt_light_scale_entity;
 cvar_t	*pt_lightgen_scale;
 
 #define UBO_CVAR_DO( _handle, _value ) cvar_t *sun_##_handle;
@@ -1058,7 +1057,6 @@ void R_Register( void )
 	/* Overall level of the lights read from the map's entity lump. q3map2's `light` key
 	 * is an inverse-square strength with no absolute unit, so the conversion to the
 	 * tracer's radiance needs calibrating by eye. Read at map load only. */
-	pt_light_scale_entity				= ri.Cvar_Get("pt_light_scale_entity",				"2",	CVAR_ARCHIVE);
 	/* Converts the .lgt intensity to the tracer radiance. The file stores a lightmap
 	 * luminance times a distance squared, which has no absolute unit. */
 	pt_lightgen_scale					= ri.Cvar_Get("pt_lightgen_scale",				"0.005",	CVAR_ARCHIVE);

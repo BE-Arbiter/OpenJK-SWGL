@@ -189,6 +189,15 @@ typedef struct {
 	uint32_t	blend_mode;
 } rtx_material_t;
 
+// Class of a world light entity. It picks the pt_light_scale_ent_* cvar. Lights with a material
+// ignore it.
+enum {
+	LIGHT_ENT_UNSET = 0,	// not yet classified
+	LIGHT_ENT_SPOT,			// the entity has a target
+	LIGHT_ENT_SKY,			// the cluster sees the sky
+	LIGHT_ENT_AMBIENT		// every other light entity
+};
+
 typedef struct light_poly_s {
 	float			positions[9]; // 3x vec3_t
 	vec3_t			off_center;
@@ -198,6 +207,7 @@ typedef struct light_poly_s {
 	int				style;
 	float			emissive_factor;
 	int				type;
+	int				ent_class;
 } light_poly_t;
 
 // passes information back from the RTX renderer to the engine for various development maros

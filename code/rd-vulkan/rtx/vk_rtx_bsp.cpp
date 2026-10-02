@@ -23,6 +23,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 #include "conversion.h"
+#include <vector>
 
 // uncomment the define to visualize polygonal lights by rednering debug triangles 
 // the value represents the offset along the light�s normal direction
@@ -1384,8 +1385,55 @@ light_affects_cluster(light_poly_t* light, const aabb_t* aabb)
 // generous rather than too dark, and still much closer than nothing.
 #define ENTITY_LIGHT_RADIUS 16.0f
 
+// A spot is aimed at the entity its `target` names. q3map2 takes `radius` as the radius of the
+// lit disc at the target and widens it by 16 units.
+#define SPOT_DEFAULT_RADIUS	64.0f
+#define SPOT_RADIUS_MARGIN	16.0f
+#define SPOT_EDGE_WIDTH		32.0f
+
+typedef struct {
+	char	name[64];
+	vec3_t	origin;
+} entity_target_t;
+
+typedef struct {
+	int		light;			// index in worldData.light_polys
+	char	target[64];
+	float	radius;
+} pending_spot_t;
+
+// Turns the point light into a spot aimed at `target_origin`. The spot's irradiance is
+// 2 * falloff / d^2 whatever the emitter radius, so half the intensity gives a point light's
+// brightness on the axis.
+static void make_entity_spot( light_poly_t *light, const vec3_t target_origin, float intensity,
+	const vec3_t color, float radius )
+{
+	vec3_t	dir;
+
+	VectorSubtract( target_origin, light->positions + 0, dir );
+	const float dist = VectorNormalize( dir );
+
+	if ( dist < 1.0f )
+		return;
+
+	// Tangent of the half angle at the edge of the cone, and where the soft edge starts.
+	const float edge = ( radius + SPOT_RADIUS_MARGIN ) / dist;
+	const float start = MAX( 0.0f, ( radius + SPOT_RADIUS_MARGIN - SPOT_EDGE_WIDTH ) / dist );
+	const float cos_total = 1.0f / sqrtf( 1.0f + edge * edge );
+	const float cos_start = 1.0f / sqrtf( 1.0f + start * start );
+
+	VectorCopy( dir, light->positions + 6 );
+	light->positions[4] = uintBitsToFloat( DYNLIGHT_SPOT_EMISSION_PROFILE_FALLOFF );
+	light->positions[5] = uintBitsToFloat( floatToHalf( cos_total ) | ( floatToHalf( cos_start ) << 16 ) );
+	VectorScale( color, intensity * 0.5f, light->color );
+	light->type = LIGHT_SPOT;
+}
+
 static int collect_entity_lights( world_t &worldData )
 {
+	std::vector<entity_target_t>	targets;
+	std::vector<pending_spot_t>		spots;
+
 	const char	*p = worldData.entityString;
 	char		keyname[MAX_TOKEN_CHARS];
 	char		value[MAX_TOKEN_CHARS];
@@ -1415,7 +1463,11 @@ static int collect_entity_lights( world_t &worldData )
 		entities++;
 
 		qboolean	is_light = qfalse;
+		qboolean	is_spot = qfalse;
 		qboolean	has_origin = qfalse;
+		char		targetname[64] = "";
+		char		target[64] = "";
+		float		spot_radius = SPOT_DEFAULT_RADIUS;
 		vec3_t		origin = { 0.0f, 0.0f, 0.0f };
 		vec3_t		color = { 1.0f, 1.0f, 1.0f };
 		float		intensity = 300.0f;	// q3map2's default when the key is absent
@@ -1450,12 +1502,30 @@ static int collect_entity_lights( world_t &worldData )
 						Com_Printf( "rtx: entity light candidate: %s\n", value );
 				}
 			}
+			else if ( !Q_stricmp( keyname, "target" ) )
+			{
+				is_spot = qtrue;
+				Q_strncpyz( target, value, sizeof(target) );
+			}
+			else if ( !Q_stricmp( keyname, "targetname" ) )
+				Q_strncpyz( targetname, value, sizeof(targetname) );
+			else if ( !Q_stricmp( keyname, "radius" ) )
+				spot_radius = atof( value );
 			else if ( !Q_stricmp( keyname, "origin" ) )
 				has_origin = (qboolean)( sscanf( value, "%f %f %f", &origin[0], &origin[1], &origin[2] ) == 3 );
 			else if ( !Q_stricmp( keyname, "light" ) || !Q_stricmp( keyname, "_light" ) )
 				intensity = atof( value );
 			else if ( !Q_stricmp( keyname, "_color" ) || !Q_stricmp( keyname, "color" ) )
 				sscanf( value, "%f %f %f", &color[0], &color[1], &color[2] );
+		}
+
+		if ( targetname[0] && has_origin )
+		{
+			entity_target_t t;
+
+			Q_strncpyz( t.name, targetname, sizeof(t.name) );
+			VectorCopy( origin, t.origin );
+			targets.push_back( t );
 		}
 
 		if ( !is_light || !has_origin || intensity <= 0.0f )
@@ -1489,7 +1559,7 @@ static int collect_entity_lights( world_t &worldData )
 
 		// A sphere light's irradiance is colour * r^2 / d^2, so dividing the colour by
 		// r^2 here makes the emitter's size irrelevant at a distance. copy_light applies
-		// pt_light_scale_entity at each frame.
+		// the pt_light_scale_ent_* cvars at each frame.
 		VectorScale( color, intensity
 			/ ( ENTITY_LIGHT_RADIUS * ENTITY_LIGHT_RADIUS ), light->color );
 
@@ -1498,11 +1568,49 @@ static int collect_entity_lights( world_t &worldData )
 		light->emissive_factor = 1.0f;
 		light->material = NULL;
 		light->style = 0;
+		light->ent_class = is_spot ? LIGHT_ENT_SPOT : LIGHT_ENT_UNSET;
+
+		if ( is_spot )
+		{
+			pending_spot_t s;
+
+			s.light = worldData.num_light_polys - 1;
+			Q_strncpyz( s.target, target, sizeof(s.target) );
+			s.radius = spot_radius > 0.0f ? spot_radius : SPOT_DEFAULT_RADIUS;
+			spots.push_back( s );
+		}
 
 		added++;
 	}
 
 	COM_EndParseSession();
+
+	// The target can come after the light in the lump, so resolve once every entity is read.
+	// A spot whose target is missing stays a point light.
+	int aimed = 0;
+
+	for ( size_t i = 0; i < spots.size(); i++ )
+	{
+		for ( size_t j = 0; j < targets.size(); j++ )
+		{
+			if ( Q_stricmp( spots[i].target, targets[j].name ) )
+				continue;
+
+			light_poly_t *light = worldData.light_polys + spots[i].light;
+			vec3_t color;
+
+			// Undo the sphere's 1 / r^2 to get the entity's colour * intensity back.
+			VectorScale( light->color, ENTITY_LIGHT_RADIUS * ENTITY_LIGHT_RADIUS, color );
+			make_entity_spot( light, targets[j].origin, 1.0f, color, spots[i].radius );
+
+			if ( light->type == LIGHT_SPOT )
+				aimed++;
+
+			break;
+		}
+	}
+
+	Com_Printf( "rtx: %i of %i spot lights aimed at their target\n", aimed, (int)spots.size() );
 
 	Com_Printf( "rtx: %i entity lights added from %i entities (%i light-ish classnames, %i inside solid)\n",
 		added, entities, lightish, in_solid );
@@ -2589,7 +2697,35 @@ compute_sky_visibility( world_t &worldData )
 	}
 }
 
-#ifdef DEBUG_POLY_LIGHTS 
+// Splits the light entities into spot, sky and ambient. A light that is not a spot is a sky light
+// when its cluster is in the PVS of a cluster that has sky surfaces. It needs sky_visibility.
+static void classify_entity_lights( world_t &worldData )
+{
+	int	counts[LIGHT_ENT_AMBIENT + 1] = { 0 };
+
+	for ( int i = 0; i < worldData.num_light_polys; i++ )
+	{
+		light_poly_t *light = worldData.light_polys + i;
+
+		if ( light->material )
+			continue;
+
+		if ( light->ent_class != LIGHT_ENT_SPOT )
+		{
+			const int c = light->cluster;
+			const qboolean sky = ( c >= 0 && ( worldData.sky_visibility[c >> 3] & ( 1 << ( c & 7 ) ) ) ) ? qtrue : qfalse;
+
+			light->ent_class = sky ? LIGHT_ENT_SKY : LIGHT_ENT_AMBIENT;
+		}
+
+		counts[light->ent_class]++;
+	}
+
+	Com_Printf( "rtx: entity lights: %i spot, %i sky, %i ambient\n",
+		counts[LIGHT_ENT_SPOT], counts[LIGHT_ENT_SKY], counts[LIGHT_ENT_AMBIENT] );
+}
+
+#ifdef DEBUG_POLY_LIGHTS
 static void vk_rtx_build_debug_light_poly_mesh( world_t &worldData, vk_geometry_data_t *geom )
 {
 	geom->host.surf_count = 0;
@@ -2842,6 +2978,7 @@ void R_PreparePT( world_t &worldData )
 
 	vk_debug( "rtx world: sky visibility\n" );
 	compute_sky_visibility( worldData );
+	classify_entity_lights( worldData );
 
 	vk_debug( "rtx world: light buffers\n" );
 	vkpt_light_buffers_create( worldData  );
