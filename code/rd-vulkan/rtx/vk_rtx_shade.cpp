@@ -950,11 +950,11 @@ static qboolean vk_rtx_collect_entity_meshes( const model_t* model, const uint32
 	return entity_mesh_count > 0 ? qtrue : qfalse;
 }
 
+#define MAX_VIEWER_MD3_SIZE 64.0f
+
 // A third person camera pushed against a wall goes into the player model. The raster clips the
 // model with the near plane and back faces, but its triangles still block the light of the
 // surfaces near the camera: they get a shadow with no visible caster, or go black.
-#define MAX_VIEWER_MD3_SIZE 64.0f
-
 static qboolean camera_inside_model( const trRefdef_t *refdef, trRefEntity_t *entity, const model_t *model, const uint32_t entityNum,
 	int mdxm_matrix_offset, mat3x4_t *mdxm_matrix_data )
 {
