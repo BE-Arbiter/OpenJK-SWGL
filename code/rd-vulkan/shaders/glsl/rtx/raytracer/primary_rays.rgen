@@ -44,7 +44,8 @@ get_primary_ray(vec2 screen_pos)
 	Ray ray;
 	ray.origin = vec3(0);
 	ray.direction = view_dir;
-	ray.t_min = 0;
+	// The near plane of the raster (pad1.y), measured along the ray: a wall against the camera is clipped, not drawn.
+	ray.t_min = global_ubo.pad1.y / max(abs(dot(view_dir, global_ubo.invV[2].xyz)), 0.1);
 	ray.t_max = PRIMARY_RAY_T_MAX;
 
 	if(global_ubo.pt_aperture > 0)
