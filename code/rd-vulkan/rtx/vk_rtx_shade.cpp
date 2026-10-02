@@ -1986,6 +1986,7 @@ static void vk_rtx_prepare_ubo( trRefdef_t *refdef, world_t *world, mnode_t *vie
 	//memcpy(ubo->cam_pos, backEnd.viewParms.ori.origin, sizeof(float) * 3);
 	memcpy(ubo->cam_pos, refdef->vieworg, sizeof(float) * 3);
 	ubo->cluster_debug_index = vk.cluster_debug_index;
+	ubo->pad1[0] = refdef->doLAGoggles ? 1.0f : 0.0f;	// LA goggles flag, read by composite_color
 
 	vk_rtx_denoisers_prepare_ubo( ubo );
 	vk_rtx_taa_prepare_ubo( ubo );

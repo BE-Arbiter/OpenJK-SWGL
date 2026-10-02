@@ -163,6 +163,10 @@ vec3 composite_color(vec3 surf_base_color, float surf_metallic, vec3 throughput,
         albedo = vec3(global_ubo.flt_fixed_albedo);
 
     vec3 final_color = (projected_lf.rgb + high_freq.rgb) * albedo + specular.rgb;
+
+    // LA goggles (pad1.x): the raster draws white lightmaps and full entity light, so the surface shows its base colour at overbright 2.
+    if (global_ubo.pad1.x != 0.0 && any(greaterThan(surf_base_color, vec3(0.0))))
+        final_color = surf_base_color * 2.0;
     
     final_color *= throughput;
 
