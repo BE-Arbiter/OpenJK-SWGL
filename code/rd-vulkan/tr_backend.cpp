@@ -2026,6 +2026,12 @@ const void	*RB_WorldEffects( const void *data )
 	if ( tess.shader && tess.numIndexes )
 		RB_EndSurface();
 
+#ifdef USE_RTX
+	// Blit the traced view first. A later blit would paint over the weather particles.
+	if ( vk.rtxActive )
+		vk_rtx_begin_blit();
+#endif
+
 	RB_RenderWorldEffects();
 
 	if ( tess.shader )
