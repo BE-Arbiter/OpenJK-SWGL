@@ -431,6 +431,43 @@ static void fx_oriented_quad( void )
 	fx_quad_stamp( e->origin, left, up );
 }
 
+// RT_BEAM as in RB_SurfaceBeam: a 6 sided tube of radius 4 between origin and oldorigin. skinNum picks red, green or blue.
+static void fx_beam( void )
+{
+	const refEntity_t *e = fx_ent;
+	vec3_t	dir, ndir, perp, pts[7][2];
+	byte	rgba[4] = { 0, 0, 0, 255 };
+
+	VectorSubtract( e->oldorigin, e->origin, dir );
+	VectorCopy( dir, ndir );
+
+	if ( VectorNormalize( ndir ) == 0 )
+		return;
+
+	PerpendicularVector( perp, ndir );
+	VectorScale( perp, 4, perp );
+
+	rgba[e->skinNum == 1 ? 1 : e->skinNum == 2 ? 2 : 0] = 255;
+
+	for ( int i = 0; i <= 6; i++ )
+	{
+		RotatePointAroundVector( pts[i][0], ndir, perp, 60.0f * i );
+		VectorAdd( pts[i][0], e->origin, pts[i][0] );
+		VectorAdd( pts[i][0], dir, pts[i][1] );
+	}
+
+	for ( int i = 0; i < 6; i++ )
+	{
+		polyVert_t v[4];
+
+		fx_vert( v + 0, pts[i][0], 0, 0, rgba );
+		fx_vert( v + 1, pts[i][1], 0, 1, rgba );
+		fx_vert( v + 2, pts[i + 1][0], 1, 0, rgba );
+		fx_vert( v + 3, pts[i + 1][1], 1, 1, rgba );
+		fx_quad_strip( v );
+	}
+}
+
 #define FX_CYLINDER_SEGMENTS 40
 
 // A cylinder with the end radii e->radius and e->backlerp. A very small end makes it a cone.
@@ -926,12 +963,13 @@ static void tessellate_fx_entities( const trRefdef_t *refdef )
 			case RT_CYLINDER:
 			case RT_LATHE:
 			case RT_CLOUDS:
+			case RT_BEAM:
 				break;
 			default:
 				continue;
 		}
 
-		shader_t *shader = R_GetShaderByHandle( entity->e.customShader );
+		shader_t *shader = ( entity->e.reType == RT_BEAM ) ? tr.beamShader : R_GetShaderByHandle( entity->e.customShader );
 		rtx_material_t *mat = vk_rtx_shader_to_material( shader );
 
 		if ( !mat || !mat->active || !mat->uploaded[vk.current_frame_index] || !mat->stage[0].bundle[0].image )
@@ -948,6 +986,7 @@ static void tessellate_fx_entities( const trRefdef_t *refdef )
 			case RT_CYLINDER:		fx_cylinder();			break;
 			case RT_LATHE:			fx_lathe();				break;
 			case RT_CLOUDS:			fx_clouds();			break;
+			case RT_BEAM:			fx_beam();				break;
 			default:				break;
 		}
 	}

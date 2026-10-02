@@ -1909,6 +1909,7 @@ typedef struct trGlobals_s {
 	shader_t				*defaultShader;
 	shader_t				*whiteShader;
 	shader_t				*cinematicShader;
+	shader_t				*beamShader;	// white, additive, vertex colour: the RT_BEAM tube under RTX
 	shader_t				*shadowShader;
 	shader_t				*distortionShader;
 	shader_t				*projectionShadowShader;
