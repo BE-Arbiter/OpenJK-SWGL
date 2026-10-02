@@ -1377,6 +1377,27 @@ vec4 compose_material_stages(
 	return vec4( clamp( dst1.rgb - dst0.rgb, vec3( 0.0 ), vec3( 1.0 ) ), clamp( dst1.a, 0.0, 1.0 ) );
 }
 
+// A surface seen from a side its shader culls (cull front, the default; cull back). The side is the one of the
+// vertex normals, not the winding: the tracer does not know the winding of a model.
+bool model_side_culled( uint instance_index, Triangle triangle, vec3 bary, vec3 direction )
+{
+	// A world surface culls its back side. A brush model is not a mesh: it keeps both sides.
+	const uint flags = ( instance_index != ~0u ) ? get_model_instance_shader_uint( instance_index, 1 ) : 0x200u;
+
+	if ( ( flags & ( 0x200u | INSTANCE_CULL_NONE ) ) != 0x200u )
+		return false;
+
+	vec3 n = cross( triangle.positions[1] - triangle.positions[0], triangle.positions[2] - triangle.positions[1] );
+	const vec3 vn = triangle.normals * bary;
+
+	if ( dot( n, vn ) < 0.0 )
+		n = -n;
+
+	const bool faces_away = dot( n, direction ) > 0.0;
+
+	return ( flags & INSTANCE_CULL_FRONT ) != 0u ? !faces_away : faces_away;
+}
+
 // A surface blended onto the framebuffer: stage 0 blends and the alpha test is off. The
 // rasterizer draws it over what is behind, so the primary ray goes through it.
 bool is_blended_surface( uint material_id, uint instance_index )
@@ -1489,6 +1510,9 @@ void trace_nodepth_layers( Ray ray, inout vec3 layer_L, inout vec3 layer_T )
 		const uint instance = get_instance_index( ray_payload_geometry );
 
 		if ( ( get_model_instance_shader_uint( instance, 1 ) & INSTANCE_NODEPTH ) == 0u )
+			continue;
+
+		if ( model_side_culled( instance, get_hit_triangle( ray_payload_geometry ), get_hit_barycentric( ray_payload_geometry ), ray.direction ) )
 			continue;
 
 		vec3 L, T;

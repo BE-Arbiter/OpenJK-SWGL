@@ -166,30 +166,45 @@ main()
 		// A blended world surface (a force field, an additive decal) is a layer in front of
 		// what the ray hits next: out = L + T * behind, as the rasterizer blends it.
 		const float t_min = ray.t_min;
-		for (int layer = 0; layer < MAX_BLENDED_LAYERS; layer++)
+		int layer = 0;
+		uint fade_entities[MAX_BLENDED_LAYERS];
+		int fade_entity_num = 0;
+		for (int hit = 0; hit < MAX_BLENDED_HITS; hit++)
 		{
-			// Behind a blended layer, the back faces are culled as the rasterizer culls them. The back
-			// of a force field box is often coplanar with the wall behind it, and would hide it.
-			// The Q3 winding is the reverse of the Vulkan one: its back faces are "front facing".
-			if (layer == 0)
-				trace_geometry_ray(ray, true, cull_mask);
-			else
-			{
-				ray_payload_geometry.barycentric = vec2(0);
-				ray_payload_geometry.primitive_id = ~0u;
-				ray_payload_geometry.buffer_and_instance_idx = 0;
-				ray_payload_geometry.hit_distance = 0;
-
-				traceRayEXT(topLevelAS[TLAS_INDEX_GEOMETRY], gl_RayFlagsCullFrontFacingTrianglesEXT | gl_RayFlagsSkipProceduralPrimitives, cull_mask,
-					SBT_RCHIT_GEOMETRY, 0, SBT_RMISS_EMPTY, ray.origin, ray.t_min, ray.direction, ray.t_max, RT_PAYLOAD_GEOMETRY);
-			}
+			trace_geometry_ray(ray, true, cull_mask);
 
 			if (!found_intersection(ray_payload_geometry))
 				break;
 
 			Triangle layer_triangle = get_hit_triangle(ray_payload_geometry);
-			if (layer == MAX_BLENDED_LAYERS - 1 || !is_blended_surface(layer_triangle.material_id, get_instance_index(ray_payload_geometry)))
+			const uint layer_instance = get_instance_index(ray_payload_geometry);
+			if (hit == MAX_BLENDED_HITS - 1 || !is_blended_surface(layer_triangle.material_id, layer_instance))
 				break;
+
+			// A blended surface seen from a side its shader culls is not drawn. The back of a force field box
+			// is often coplanar with the wall behind it. The first world layer keeps both sides (its cull is unknown).
+			// Past MAX_BLENDED_LAYERS the layers are dropped: a blended surface must not become the primary one.
+			if (layer >= MAX_BLENDED_LAYERS || ((layer > 0 || layer_instance != ~0u) && model_side_culled(layer_instance, layer_triangle, get_hit_barycentric(ray_payload_geometry), ray.direction)))
+			{
+				ray.t_min = ray_payload_geometry.hit_distance + 0.01;
+				continue;
+			}
+
+			// A fading entity blends one layer on a ray: its nearest surface. Its inner surfaces do not add.
+			if (layer_instance != ~0u && (get_model_instance_shader_uint(layer_instance, 1) & INSTANCE_ALPHA_FADE) != 0u)
+			{
+				const uint fade_entity = get_model_instance_shader_uint(layer_instance, RTX_DISTORT_FIRST + 2);
+				bool seen = false;
+				for (int k = 0; k < fade_entity_num; k++)
+					seen = seen || fade_entities[k] == fade_entity;
+
+				if (seen)
+				{
+					ray.t_min = ray_payload_geometry.hit_distance + 0.01;
+					continue;
+				}
+				fade_entities[fade_entity_num++] = fade_entity;
+			}
 
 			if (layer == 0)
 				first_layer_material = layer_triangle.material_id;
@@ -201,6 +216,7 @@ main()
 			if (is_glow_material(layer_triangle.material_id))
 				layer_glow += layer_T * L;
 			layer_T *= T;
+			layer++;
 
 			ray.t_min = ray_payload_geometry.hit_distance + 0.01;
 		}

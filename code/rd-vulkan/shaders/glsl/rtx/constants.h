@@ -62,7 +62,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define STORAGE_SCALE_HDR 128
 
 #define MAX_RTX_STAGES 4
-#define MAX_BLENDED_LAYERS 4	// blended surfaces a primary ray goes through
+#define MAX_BLENDED_LAYERS 8	// blended surfaces a primary ray blends
+#define MAX_BLENDED_HITS 32	// surfaces the layer loop looks at, culled and dropped ones included
 #define MAX_DISTORTION_LAYERS 2	// distortion surfaces kept for a pixel: the two nearest
 #define MAX_DISTORTION_HITS 8	// distortion surfaces a ray goes through to find them
 
@@ -239,8 +240,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define INSTANCE_DISTORT_CROP	0x400u	// force push: the effect shader samples a crop of the screen around the entity
 #define INSTANCE_DISTORT_CLOAK	0x800u	// cloak: the full-screen passes of the distortion shader, set by the frame
 
-#define INSTANCE_ALPHA_FADE		0x1000u	// RF_ALPHA_FADE: the layer blends with the entity alpha; words RTX_DISTORT_FIRST, +1 hold the entity light
+#define INSTANCE_ALPHA_FADE		0x1000u	// RF_ALPHA_FADE: the layer blends with the entity alpha; words RTX_DISTORT_FIRST, +1 hold the entity light, +2 the entity
 #define INSTANCE_NODEPTH		0x2000u	// RF_NODEPTH: a layer of the primary rays whatever the depth, in the distortion instances
+#define INSTANCE_CULL_NONE		0x4000u	// the shader of the mesh has cull none: both sides are drawn
+#define INSTANCE_CULL_FRONT		0x8000u	// the shader of the mesh has cull back: the front sides are not drawn
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795

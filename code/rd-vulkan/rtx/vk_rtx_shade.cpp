@@ -428,6 +428,10 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 	// Bits 0-7: the forced rgbGen. Bit 8: a first person model, whose tcGen environment reflects
 	// the light of the entity (RB_CalcEnvironmentTexCoords). Bit 9: a model mesh, not a brush model.
 	data[1] = forceRGBGen | ( ( entity->e.renderfx & RF_FIRST_PERSON ) ? 0x100u : 0u ) | ( shader ? 0x200u : 0u );
+	if ( shader && shader->cullType == CT_TWO_SIDED )
+		data[1] |= INSTANCE_CULL_NONE;
+	else if ( shader && shader->cullType == CT_BACK_SIDED )
+		data[1] |= INSTANCE_CULL_FRONT;
 	const qboolean alpha_fade = ( shader && vk_rtx_is_alpha_fade_entity( entity ) ) ? qtrue : qfalse;
 	if ( alpha_fade )
 		data[1] |= INSTANCE_ALPHA_FADE;
@@ -459,6 +463,9 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 
 			data[RTX_DISTORT_FIRST + k] = packed;
 		}
+
+		// Word +2: the entity, so that a ray blends one layer of each fading entity.
+		data[RTX_DISTORT_FIRST + 2] = (uint32_t)( entity - refdef->entities ) + 1u;
 	}
 
 	// RF_DISINTEGRATE1/2: the impact point and the squared threshold, as vk_compute_disintegration() sends them.
