@@ -30,7 +30,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #define TR_PARTICLE_MAX_NUM    16384
 #define TR_BEAM_MAX_NUM        1024
-#define TR_SPRITE_MAX_NUM      4096
+#define TR_SPRITE_MAX_NUM      8192
 #define TR_VERTEX_MAX_NUM      ((TR_PARTICLE_MAX_NUM + TR_SPRITE_MAX_NUM) * 4)
 #define TR_INDEX_MAX_NUM       ((TR_PARTICLE_MAX_NUM + TR_SPRITE_MAX_NUM) * 6)
 #define TR_BEAM_AABB_SIZE      sizeof(VkAabbPositionsKHR)
@@ -179,6 +179,522 @@ void destroy_transparency()
 	}
 }
 
+// Entities the rasterizer tessellates (bolts, rings, cylinders, shields, clouds). The tracer takes each one as
+// triangles of the sprite path: one slot per triangle, UVs and colours per corner. Same geometry as rd-vanilla.
+typedef struct
+{
+	rtx_material_t	*mat;
+	polyVert_t		v[3];
+} fx_tri_t;
+
+static fx_tri_t			fx_tris[TR_SPRITE_MAX_NUM];
+static int				fx_tri_num;
+static const trRefdef_t	*fx_refdef;
+static const refEntity_t *fx_ent;
+static rtx_material_t	*fx_mat;
+static vec3_t			fx_sh1, fx_sh2;
+static int				fx_f_count;
+static int				fx_seed;
+
+static float fx_random( void )
+{
+	fx_seed = 69069 * fx_seed + 1;
+	return ( fx_seed & 0xffff ) / (float)0x10000;
+}
+
+static float fx_crandom( void )
+{
+	return 2.0f * ( fx_random() - 0.5f );
+}
+
+static void fx_vert( polyVert_t *v, const vec3_t xyz, float s, float t, const byte *rgba )
+{
+	VectorCopy( xyz, v->xyz );
+	v->st[0] = s;
+	v->st[1] = t;
+	Com_Memcpy( v->modulate, rgba, 4 );
+}
+
+static void fx_tri( const polyVert_t *a, const polyVert_t *b, const polyVert_t *c )
+{
+	if ( fx_tri_num >= TR_SPRITE_MAX_NUM )
+		return;
+
+	fx_tri_t *t = fx_tris + fx_tri_num++;
+
+	t->mat = fx_mat;
+	t->v[0] = *a;
+	t->v[1] = *b;
+	t->v[2] = *c;
+}
+
+// The quad of a line: the triangles ( 0 1 2 ) and ( 2 1 3 ).
+static void fx_quad_strip( const polyVert_t *v )
+{
+	fx_tri( v + 0, v + 1, v + 2 );
+	fx_tri( v + 2, v + 1, v + 3 );
+}
+
+// A quad of a lathe or a cloud: the triangles ( 0 1 3 ) and ( 3 2 0 ).
+static void fx_quad_lathe( const polyVert_t *v )
+{
+	fx_tri( v + 0, v + 1, v + 3 );
+	fx_tri( v + 3, v + 2, v + 0 );
+}
+
+// A quad stamp, the corners in the order of RB_AddQuadStampExt.
+static void fx_quad_stamp( const vec3_t origin, const vec3_t left, const vec3_t up )
+{
+	polyVert_t	v[4];
+	vec3_t		p;
+
+	VectorAdd( origin, left, p );		VectorAdd( p, up, p );			fx_vert( v + 0, p, 0, 0, fx_ent->shaderRGBA );
+	VectorSubtract( origin, left, p );	VectorAdd( p, up, p );			fx_vert( v + 1, p, 1, 0, fx_ent->shaderRGBA );
+	VectorSubtract( origin, left, p );	VectorSubtract( p, up, p );		fx_vert( v + 2, p, 1, 1, fx_ent->shaderRGBA );
+	VectorAdd( origin, left, p );		VectorSubtract( p, up, p );		fx_vert( v + 3, p, 0, 1, fx_ent->shaderRGBA );
+
+	fx_tri( v + 0, v + 1, v + 3 );
+	fx_tri( v + 3, v + 1, v + 2 );
+}
+
+static void fx_line2( const vec3_t start, const vec3_t end, const vec3_t up, float w0, float w1, float tc0, float tc1 )
+{
+	polyVert_t	v[4];
+	vec3_t		p;
+
+	VectorMA( start, w0, up, p );	fx_vert( v + 0, p, 0, tc0, fx_ent->shaderRGBA );
+	VectorMA( start, -w0, up, p );	fx_vert( v + 1, p, 1, tc0, fx_ent->shaderRGBA );
+	VectorMA( end, w1, up, p );		fx_vert( v + 2, p, 0, tc1, fx_ent->shaderRGBA );
+	VectorMA( end, -w1, up, p );	fx_vert( v + 3, p, 1, tc1, fx_ent->shaderRGBA );
+
+	fx_quad_strip( v );
+}
+
+static void fx_create_shape( void )
+{
+	VectorSet( fx_sh1, 0.66f, 0.08f + Q_flrand( -1.0f, 1.0f ) * 0.02f, 0.08f + Q_flrand( -1.0f, 1.0f ) * 0.02f );
+	VectorSet( fx_sh2, 0.33f, -fx_sh1[1] + Q_flrand( -1.0f, 1.0f ) * 0.02f, -fx_sh1[2] + Q_flrand( -1.0f, 1.0f ) * 0.02f );
+}
+
+static void fx_apply_shape( const vec3_t start, const vec3_t end, const vec3_t right, float sradius, float eradius, int count, float start_perc, float end_perc )
+{
+	vec3_t	point1, point2, fwd, rt, up;
+	float	perc, dis, rads1, rads2;
+
+	if ( count < 1 )
+	{
+		fx_line2( start, end, right, sradius, eradius, start_perc, end_perc );
+		return;
+	}
+
+	fx_create_shape();
+
+	VectorSubtract( end, start, fwd );
+	dis = VectorNormalize( fwd ) * 0.7f;
+	MakeNormalVectors( fwd, rt, up );
+
+	perc = fx_sh1[0];
+	VectorScale( start, perc, point1 );
+	VectorMA( point1, 1.0f - perc, end, point1 );
+	VectorMA( point1, dis * fx_sh1[1], rt, point1 );
+	VectorMA( point1, dis * fx_sh1[2], up, point1 );
+
+	rads1 = sradius * 0.666f + eradius * 0.333f;
+	rads2 = sradius * 0.333f + eradius * 0.666f;
+
+	fx_apply_shape( start, point1, right, sradius, rads1, count - 1, start_perc, start_perc * 0.666f + end_perc * 0.333f );
+
+	perc = fx_sh2[0];
+	VectorScale( start, perc, point2 );
+	VectorMA( point2, 1.0f - perc, end, point2 );
+	VectorMA( point2, dis * fx_sh2[1], rt, point2 );
+	VectorMA( point2, dis * fx_sh2[2], up, point2 );
+
+	fx_apply_shape( point2, point1, right, rads1, rads2, count - 1, start_perc * 0.333f + end_perc * 0.666f, start_perc * 0.666f + end_perc * 0.333f );
+	fx_apply_shape( point2, end, right, rads2, eradius, count - 1, start_perc * 0.333f + end_perc * 0.666f, end_perc );
+}
+
+static void fx_bolt_seg( const vec3_t start, const vec3_t end, const vec3_t right, float radius )
+{
+	const refEntity_t *e = fx_ent;
+	vec3_t	fwd, old, cur, rt, up, temp, off = { 10, 10, 10 };
+	float	dis, old_perc = 0.0f, perc, old_radius, new_radius;
+
+	VectorSubtract( end, start, fwd );
+	dis = VectorNormalize( fwd );
+
+	if ( dis > 2000.0f )
+		dis = 2000.0f;
+
+	MakeNormalVectors( fwd, rt, up );
+	VectorCopy( start, old );
+	new_radius = old_radius = radius;
+
+	for ( int i = 16; i <= dis; i += 16 )
+	{
+		perc = ( i + 16 > dis ) ? 1.0f : (float)i / dis;
+
+		VectorScale( fwd, fx_crandom() * 3.0f, temp );
+		VectorMA( temp, fx_crandom() * 7.0f * e->angles[0], rt, temp );
+		VectorMA( temp, fx_crandom() * 7.0f * e->angles[0], up, temp );
+		VectorAdd( off, temp, off );
+
+		VectorAdd( start, off, cur );
+		VectorScale( cur, 1.0f - perc, cur );
+		VectorMA( cur, perc, end, cur );
+
+		if ( e->renderfx & RF_TAPERED )
+		{
+			old_radius = radius * ( 1.0f - old_perc * old_perc );
+			new_radius = radius * ( 1.0f - perc * perc );
+		}
+
+		fx_apply_shape( cur, old, right, new_radius, old_radius, 2 - r_lodbias->integer, 0, 1 );
+
+		if ( ( e->renderfx & RF_FORKED ) && fx_f_count > 0 && fx_random() > 0.93f && ( 1.0f - perc ) > 0.8f )
+		{
+			vec3_t new_dest;
+
+			fx_f_count--;
+			VectorAdd( cur, e->oldorigin, new_dest );
+			VectorScale( new_dest, 0.5f, new_dest );
+
+			for ( int t = 0; t < 3; t++ )
+				new_dest[t] += fx_crandom() * 80.0f;
+
+			fx_bolt_seg( cur, new_dest, right, new_radius );
+		}
+
+		VectorCopy( cur, old );
+		old_perc = perc;
+	}
+}
+
+static void fx_electricity( void )
+{
+	const refEntity_t *e = fx_ent;
+	vec3_t	right, fwd, start, end, v1, v2;
+	float	perc = 1.0f, dis;
+
+	VectorCopy( e->origin, start );
+	VectorSubtract( e->oldorigin, start, fwd );
+	dis = VectorNormalize( fwd );
+
+	if ( e->renderfx & RF_GROW )
+	{
+		perc = 1.0f - ( e->endTime - fx_refdef->time ) / e->angles[1];
+		perc = Com_Clamp( 0.0f, 1.0f, perc );
+	}
+
+	VectorMA( start, perc * dis, fwd, end );
+
+	VectorSubtract( start, fx_refdef->vieworg, v1 );
+	VectorSubtract( end, fx_refdef->vieworg, v2 );
+	CrossProduct( v1, v2, right );
+	VectorNormalize( right );
+
+	fx_f_count = 3;
+	fx_bolt_seg( start, end, right, e->radius );
+}
+
+static void fx_oriented_quad( void )
+{
+	const refEntity_t *e = fx_ent;
+	vec3_t	left, up;
+
+	VectorCopy( e->axis[1], left );
+	VectorCopy( e->axis[2], up );
+
+	if ( e->rotation == 0 )
+	{
+		VectorScale( left, e->radius, left );
+		VectorScale( up, e->radius, up );
+	}
+	else
+	{
+		vec3_t	temp_left;
+		const float ang = M_PI * e->rotation / 180.0f, s = sin( ang ), c = cos( ang );
+
+		VectorScale( left, c * e->radius, temp_left );
+		VectorMA( temp_left, -s * e->radius, up, temp_left );
+		VectorScale( up, c * e->radius, up );
+		VectorMA( up, s * e->radius, left, up );
+		VectorCopy( temp_left, left );
+	}
+
+	fx_quad_stamp( e->origin, left, up );
+}
+
+#define FX_CYLINDER_SEGMENTS 40
+
+// A cylinder with the end radii e->radius and e->backlerp. A very small end makes it a cone.
+static void fx_cylinder( void )
+{
+	const refEntity_t *e = fx_ent;
+	static vec3_t lower[FX_CYLINDER_SEGMENTS], upper[FX_CYLINDER_SEGMENTS];
+	vec3_t	vr, vu, v1, mid, tapered, base;
+	float	detail, length;
+	int		segments;
+	const bool cone = !( e->radius < 0.3f && e->backlerp < 0.3f ) && ( e->radius < 0.3f || e->backlerp < 0.3f );
+
+	VectorAdd( e->origin, e->oldorigin, mid );
+	VectorScale( mid, 0.5f, mid );
+	VectorSubtract( mid, fx_refdef->vieworg, mid );
+	length = VectorNormalize( mid ) * ( fx_refdef->fov_x / 90.0f );
+
+	detail = 1.0f - length / 2048.0f;
+	segments = (int)( FX_CYLINDER_SEGMENTS * detail );
+	segments = MAX( 8, MIN( FX_CYLINDER_SEGMENTS, segments ) );
+
+	MakeNormalVectors( e->axis[0], vr, vu );
+	detail = 1.0f / (float)segments;
+
+	if ( cone )
+	{
+		if ( e->radius < e->backlerp )
+		{
+			VectorScale( vu, e->backlerp, vu );
+			VectorCopy( e->origin, base );
+			VectorCopy( e->oldorigin, tapered );
+		}
+		else
+		{
+			VectorScale( vu, e->radius, vu );
+			VectorCopy( e->origin, tapered );
+			VectorCopy( e->oldorigin, base );
+		}
+
+		for ( int i = 0; i < segments; i++ )
+		{
+			polyVert_t a, b, c;
+			vec3_t p0, p1;
+
+			RotatePointAroundVector( p0, e->axis[0], vu, 360.0f / segments * i );
+			RotatePointAroundVector( p1, e->axis[0], vu, 360.0f / segments * ( ( i + 1 ) % segments ) );
+			VectorAdd( p0, base, p0 );
+			VectorAdd( p1, base, p1 );
+
+			fx_vert( &a, p0, detail * i, 1.0f, e->shaderRGBA );
+			fx_vert( &b, tapered, detail * i + detail * 0.5f, 0.0f, e->shaderRGBA );
+			fx_vert( &c, p1, detail * ( i + 1 ), 1.0f, e->shaderRGBA );
+			fx_tri( &a, &b, &c );
+		}
+
+		return;
+	}
+
+	VectorScale( vu, e->radius, v1 );
+	VectorScale( vu, e->backlerp, vu );
+
+	for ( int i = 0; i < segments; i++ )
+	{
+		RotatePointAroundVector( upper[i], e->axis[0], vu, 360.0f / segments * i );
+		VectorAdd( upper[i], e->origin, upper[i] );
+		RotatePointAroundVector( lower[i], e->axis[0], v1, 360.0f / segments * i );
+		VectorAdd( lower[i], e->oldorigin, lower[i] );
+	}
+
+	for ( int i = 0; i < segments; i++ )
+	{
+		const int next = ( i + 1 ) % segments;
+		polyVert_t v[4];
+
+		fx_vert( v + 0, upper[i], detail * i, 1.0f, e->shaderRGBA );
+		fx_vert( v + 1, lower[i], detail * i, 0.0f, e->shaderRGBA );
+		fx_vert( v + 2, upper[next], detail * ( i + 1 ), 1.0f, e->shaderRGBA );
+		fx_vert( v + 3, lower[next], detail * ( i + 1 ), 0.0f, e->shaderRGBA );
+		fx_quad_strip( v );
+	}
+}
+
+static void fx_lathe( void )
+{
+	const refEntity_t *e = fx_ent;
+	vec2_t	pt, oldpt, l_oldpt, pt2, oldpt2, l_oldpt2;
+	float	d = 1.0f, pain = 0.0f, mu, step_bezier, step_lathe;
+	int		lod = r_lodbias->integer + 1;
+
+	lod = MAX( 1, MIN( 4, lod ) );
+
+	if ( e->endTime && e->endTime > fx_refdef->time )
+		d = 1.0f - ( e->endTime - fx_refdef->time ) / 1000.0f;
+
+	if ( e->frame && e->frame + 1000 > fx_refdef->time )
+		pain = ( 1.0f - ( fx_refdef->time - e->frame ) / 1000.0f ) * 0.08f;
+
+	VectorSet2( l_oldpt, e->axis[0][0], e->axis[0][1] );
+
+	step_bezier = 0.05f * lod;
+	step_lathe = 10.0f * lod;
+
+	for ( mu = 0.0f; mu <= 1.01f * d; mu += step_bezier )
+	{
+		const float mum1 = 1 - mu, mum13 = mum1 * mum1 * mum1, mu3 = mu * mu * mu;
+		const float group1 = 3 * mu * mum1 * mum1, group2 = 3 * mu * mu * mum1;
+
+		for ( int i = 0; i < 2; i++ )
+			l_oldpt2[i] = mum13 * e->axis[0][i] + group1 * e->axis[1][i] + group2 * e->axis[2][i] + mu3 * e->oldorigin[i];
+
+		VectorSet2( oldpt, l_oldpt[0], 0 );
+		VectorSet2( oldpt2, l_oldpt2[0], 0 );
+
+		for ( int t = (int)step_lathe; t <= 360; t += (int)step_lathe )
+		{
+			const float s = sin( DEG2RAD( t ) ), c = cos( DEG2RAD( t ) );
+			polyVert_t v[4];
+			vec3_t p;
+			float temp;
+			int k;
+
+			VectorSet2( pt, l_oldpt[0], 0 );
+			VectorSet2( pt2, l_oldpt2[0], 0 );
+
+			temp = c * pt[0] - s * pt[1];		pt[1] = s * pt[0] + c * pt[1];		pt[0] = temp;
+			temp = c * pt2[0] - s * pt2[1];		pt2[1] = s * pt2[0] + c * pt2[1];	pt2[0] = temp;
+
+			VectorSet( p, oldpt[0], oldpt[1], l_oldpt[1] );		VectorAdd( e->origin, p, p );
+			k = oldpt[0] * 0.1f + oldpt[1] * 0.1f;
+			fx_vert( v + 0, p, ( t - step_lathe ) / 360.0f, mu - step_bezier + cos( k + fx_refdef->floatTime ) * pain, e->shaderRGBA );
+
+			VectorSet( p, oldpt2[0], oldpt2[1], l_oldpt2[1] );	VectorAdd( e->origin, p, p );
+			k = oldpt2[0] * 0.1f + oldpt2[1] * 0.1f;
+			fx_vert( v + 1, p, ( t - step_lathe ) / 360.0f, mu + cos( k + fx_refdef->floatTime ) * pain, e->shaderRGBA );
+
+			VectorSet( p, pt[0], pt[1], l_oldpt[1] );			VectorAdd( e->origin, p, p );
+			k = pt[0] * 0.1f + pt[1] * 0.1f;
+			fx_vert( v + 2, p, t / 360.0f, mu - step_bezier + cos( k + fx_refdef->floatTime ) * pain, e->shaderRGBA );
+
+			VectorSet( p, pt2[0], pt2[1], l_oldpt2[1] );		VectorAdd( e->origin, p, p );
+			k = pt2[0] * 0.1f + pt2[1] * 0.1f;
+			fx_vert( v + 3, p, t / 360.0f, mu + cos( k + fx_refdef->floatTime ) * pain, e->shaderRGBA );
+
+			fx_quad_lathe( v );
+
+			VectorCopy2( pt, oldpt );
+			VectorCopy2( pt2, oldpt2 );
+		}
+
+		VectorCopy2( l_oldpt2, l_oldpt );
+	}
+}
+
+static void fx_clouds( void )
+{
+	static const float disk_strip[4] = { 0.0f, 0.4f, 0.7f, 1.0f }, disk_alpha[4] = { 1.0f, 1.0f, 0.4f, 0.0f }, disk_curve[4] = { 0.0f, 0.0f, 0.008f, 0.02f };
+	static const float tube_strip[6] = { 0.0f, 0.05f, 0.1f, 0.5f, 0.7f, 1.0f }, tube_alpha[6] = { 0.0f, 0.45f, 1.0f, 1.0f, 0.45f, 0.0f }, tube_curve[6] = { 0.0f, 0.004f, 0.006f, 0.01f, 0.006f, 0.0f };
+	const refEntity_t *e = fx_ent;
+	const float *strip = disk_strip, *alpha = disk_alpha, *curve = disk_curve;
+	int		count = 4;
+	float	backlerp = e->backlerp;
+	const float step = 30.0f;
+
+	if ( e->renderfx & RF_GROW )
+	{
+		count = 6;
+		strip = tube_strip;
+		alpha = tube_alpha;
+		curve = tube_curve;
+		backlerp = -backlerp;
+	}
+
+	for ( int i = 0; i < count - 1; i++ )
+	{
+		vec3_t oldpt, oldpt2, pt, pt2;
+
+		VectorSet( oldpt, strip[i] * ( e->radius - e->rotation ) + e->rotation, 0, curve[i] * e->radius * backlerp );
+		VectorSet( oldpt2, strip[i + 1] * ( e->radius - e->rotation ) + e->rotation, 0, curve[i + 1] * e->radius * backlerp );
+
+		for ( int t = (int)step; t <= 360; t += (int)step )
+		{
+			polyVert_t v[4];
+			vec3_t p[4];
+			byte col[4];
+
+			if ( t < 360 )
+			{
+				const float s = sin( DEG2RAD( step ) ), c = cos( DEG2RAD( step ) );
+				float temp;
+
+				VectorCopy( oldpt, pt );
+				VectorCopy( oldpt2, pt2 );
+				temp = c * pt[0] - s * pt[1];		pt[1] = s * pt[0] + c * pt[1];		pt[0] = temp;
+				temp = c * pt2[0] - s * pt2[1];		pt2[1] = s * pt2[0] + c * pt2[1];	pt2[0] = temp;
+			}
+			else
+			{
+				VectorSet( pt, strip[i] * ( e->radius - e->rotation ) + e->rotation, 0, curve[i] * e->radius * backlerp );
+				VectorSet( pt2, strip[i + 1] * ( e->radius - e->rotation ) + e->rotation, 0, curve[i + 1] * e->radius * backlerp );
+			}
+
+			VectorAdd( e->origin, oldpt, p[0] );
+			VectorAdd( e->origin, oldpt2, p[1] );
+			VectorAdd( e->origin, pt, p[2] );
+			VectorAdd( e->origin, pt2, p[3] );
+
+			for ( int k = 0; k < 4; k++ )
+			{
+				const float a = alpha[i + ( k & 1 )];
+
+				col[0] = col[1] = col[2] = (byte)( e->shaderRGBA[0] * a );
+				col[3] = e->shaderRGBA[3];
+				fx_vert( v + k, p[k], p[k][0] * 0.1f, p[k][1] * 0.1f, col );
+			}
+
+			fx_quad_lathe( v );
+
+			VectorCopy( pt, oldpt );
+			VectorCopy( pt2, oldpt2 );
+		}
+	}
+}
+
+// Fills fx_tris from the refdef. update_transparency counts them, write_sprite_geometry writes them.
+static void tessellate_fx_entities( const trRefdef_t *refdef )
+{
+	fx_tri_num = 0;
+	fx_refdef = refdef;
+
+	if ( !r_drawentities->integer )
+		return;
+
+	for ( int i = 0; i < refdef->num_entities; i++ )
+	{
+		const trRefEntity_t *entity = refdef->entities + i;
+
+		switch ( entity->e.reType )
+		{
+			case RT_ELECTRICITY:
+			case RT_ORIENTED_QUAD:
+			case RT_CYLINDER:
+			case RT_LATHE:
+			case RT_CLOUDS:
+				break;
+			default:
+				continue;
+		}
+
+		shader_t *shader = R_GetShaderByHandle( entity->e.customShader );
+		rtx_material_t *mat = vk_rtx_shader_to_material( shader );
+
+		if ( !mat || !mat->active || !mat->uploaded[vk.current_frame_index] || !mat->stage[0].bundle[0].image )
+			continue;
+
+		fx_ent = &entity->e;
+		fx_mat = mat;
+		fx_seed = entity->e.frame;
+
+		switch ( entity->e.reType )
+		{
+			case RT_ELECTRICITY:	fx_electricity();		break;
+			case RT_ORIENTED_QUAD:	fx_oriented_quad();		break;
+			case RT_CYLINDER:		fx_cylinder();			break;
+			case RT_LATHE:			fx_lathe();				break;
+			case RT_CLOUDS:			fx_clouds();			break;
+			default:				break;
+		}
+	}
+}
+
 void update_transparency(VkCommandBuffer command_buffer, const trRefdef_t *refdef, const float* view_matrix )
 {
 	transparency.host_frame_index = (transparency.host_frame_index + 1) % transparency.host_buffered_frame_num;
@@ -217,6 +733,9 @@ void update_transparency(VkCommandBuffer command_buffer, const trRefdef_t *refde
 			++sprite_num;
 		}
 	}
+
+	tessellate_fx_entities( refdef );
+	sprite_num += fx_tri_num;
 
 	// A scene poly (a saber trail, an effect) is a fan of triangles, one sprite slot each.
 	for ( int i = 0; i < refdef->numPolys && r_drawentities->integer; i++ )
@@ -768,6 +1287,25 @@ static void write_sprite_geometry(const float* view_matrix, const trRefdef_t *re
 			sprite_info += TR_SPRITE_INFO_UINTS;
 			sprite_count++;
 		}
+	}
+
+	// The tessellated entities, one triangle per slot. The second triangle of the slot is degenerate: v3 = v0.
+	for ( int k = 0; k < fx_tri_num; k++ )
+	{
+		const fx_tri_t *t = fx_tris + k;
+
+		if ( sprite_count >= budget )
+			goto done;
+
+		write_poly_info( sprite_info, t->mat, t->v + 0, t->v + 1, t->v + 2 );
+		VectorCopy( t->v[0].xyz, vertex_positions[0] );
+		VectorCopy( t->v[1].xyz, vertex_positions[1] );
+		VectorCopy( t->v[2].xyz, vertex_positions[2] );
+		VectorCopy( t->v[0].xyz, vertex_positions[3] );
+
+		vertex_positions += 4;
+		sprite_info += TR_SPRITE_INFO_UINTS;
+		sprite_count++;
 	}
 
 done:
