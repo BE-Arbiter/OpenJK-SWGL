@@ -24,6 +24,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "tr_local.h"
 #include "conversion.h"
 #include <vector>
+#include <unordered_map>
 
 // uncomment the define to visualize polygonal lights by rednering debug triangles 
 // the value represents the offset along the light�s normal direction
@@ -1991,6 +1992,269 @@ static uint32_t create_poly( vk_geometry_data_t *geom, rtx_material_t *material,
 	return numTris;
 }
 
+// A triangle takes the cluster of its centre, which is wrong for the rest of a triangle that spans
+// several clusters (kejim_post: a floor triangle from cluster 3769 into 2806). The static world
+// triangles are cut along the BSP planes where the cluster changes, so each piece has its own.
+struct bary_t { float b[3]; };
+typedef std::vector<bary_t> bary_poly_t;
+
+static std::unordered_map<const mnode_t*, int> s_node_cluster;
+static uint32_t s_split_triangles, s_split_added;
+
+// The cluster shared by every open leaf under the node; -1 when all are solid, -2 when they differ.
+static int vk_rtx_node_cluster( const mnode_t *node )
+{
+	if ( !node->plane )
+		return node->cluster;
+
+	auto it = s_node_cluster.find( node );
+	if ( it != s_node_cluster.end() )
+		return it->second;
+
+	const int a = vk_rtx_node_cluster( node->children[0] );
+	const int b = vk_rtx_node_cluster( node->children[1] );
+	const int c = ( a == -1 ) ? b : ( b == -1 ) ? a : ( a == b ) ? a : -2;
+
+	s_node_cluster[node] = c;
+	return c;
+}
+
+static void vk_rtx_clip_cluster( const mnode_t *node, const bary_poly_t &poly, const float P[3][3], const float *n,
+	float shift, std::vector<bary_poly_t> &out )
+{
+	if ( poly.size() < 3 || out.size() > 128 )
+		return;
+
+	if ( !node->plane || vk_rtx_node_cluster( node ) != -2 )
+	{
+		out.push_back( poly );
+		return;
+	}
+
+	// Distance to the plane of the triangle moved to the open side, so that a triangle on a
+	// leaf boundary is not split by that boundary.
+	const cplane_t *pl = node->plane;
+	float dv[3];
+	for ( int i = 0; i < 3; i++ )
+		dv[i] = DotProduct( P[i], pl->normal ) - pl->dist + shift * DotProduct( n, pl->normal );
+
+	const size_t count = poly.size();
+	std::vector<float> d( count );
+	int nfront = 0;
+	for ( size_t i = 0; i < count; i++ )
+	{
+		d[i] = poly[i].b[0] * dv[0] + poly[i].b[1] * dv[1] + poly[i].b[2] * dv[2];
+		nfront += d[i] >= 0.f;
+	}
+
+	if ( nfront == (int)count ) { vk_rtx_clip_cluster( node->children[0], poly, P, n, shift, out ); return; }
+	if ( nfront == 0 )          { vk_rtx_clip_cluster( node->children[1], poly, P, n, shift, out ); return; }
+
+	bary_poly_t front, back;
+	for ( size_t i = 0; i < count; i++ )
+	{
+		const size_t j = ( i + 1 ) % count;
+		( d[i] >= 0.f ? front : back ).push_back( poly[i] );
+
+		if ( ( d[i] >= 0.f ) != ( d[j] >= 0.f ) )
+		{
+			const float t = d[i] / ( d[i] - d[j] );
+			bary_t m;
+			for ( int k = 0; k < 3; k++ )
+				m.b[k] = poly[i].b[k] + ( poly[j].b[k] - poly[i].b[k] ) * t;
+			front.push_back( m );
+			back.push_back( m );
+		}
+	}
+
+	vk_rtx_clip_cluster( node->children[0], front, P, n, shift, out );
+	vk_rtx_clip_cluster( node->children[1], back, P, n, shift, out );
+}
+
+static void vk_rtx_decode_normal( uint32_t e, float *out )
+{
+	float x = ( (e & 0xffffu) / 65535.f ) * 2.f - 1.f;
+	float y = ( (e >> 16) / 65535.f ) * 2.f - 1.f;
+	float z = 1.f - fabsf( x ) - fabsf( y );
+
+	if ( z < 0.f )
+	{
+		const float tx = ( 1.f - fabsf( y ) ) * ( x >= 0.f ? 1.f : -1.f );
+		const float ty = ( 1.f - fabsf( x ) ) * ( y >= 0.f ? 1.f : -1.f );
+		x = tx;
+		y = ty;
+	}
+
+	VectorSet( out, x, y, z );
+	VectorNormalize( out );
+}
+
+static uint32_t vk_rtx_lerp_normal( const uint32_t e[3], const bary_t &w )
+{
+	vec3_t sum = { 0.f, 0.f, 0.f }, v;
+
+	for ( int i = 0; i < 3; i++ )
+	{
+		vk_rtx_decode_normal( e[i], v );
+		VectorMA( sum, w.b[i], v, sum );
+	}
+
+	if ( VectorNormalize( sum ) == 0.f )
+		vk_rtx_decode_normal( e[0], sum );
+
+	return encode_normal( sum );
+}
+
+static uint32_t vk_rtx_lerp_half2( const uint32_t h[3], const bary_t &w )
+{
+	float u = 0.f, v = 0.f;
+
+	for ( int i = 0; i < 3; i++ )
+	{
+		u += w.b[i] * halfToFloat( (uint16_t)( h[i] & 0xffffu ) );
+		v += w.b[i] * halfToFloat( (uint16_t)( h[i] >> 16 ) );
+	}
+
+	return floatToHalf( u ) | ( floatToHalf( v ) << 16 );
+}
+
+static uint32_t vk_rtx_lerp_color( const uint32_t c[3], const bary_t &w )
+{
+	uint32_t out = 0;
+
+	for ( int k = 0; k < 4; k++ )
+	{
+		float v = 0.f;
+		for ( int i = 0; i < 3; i++ )
+			v += w.b[i] * (float)( ( c[i] >> ( k * 8 ) ) & 0xffu );
+		out |= (uint32_t)( v + 0.5f ) << ( k * 8 );
+	}
+
+	return out;
+}
+
+// The piece of a primitive with the corners at these weights of its own corners.
+static void vk_rtx_primitive_piece( const VboPrimitive &s, const bary_t corner[3], VboPrimitive &o )
+{
+	o = s;
+
+	const float *sp[3] = { s.pos0, s.pos1, s.pos2 };
+	float *op[3] = { o.pos0, o.pos1, o.pos2 };
+	const uint32_t uv[3] = { s.uv0[0], s.uv1[0], s.uv2[0] };
+	uint32_t *ouv[3] = { &o.uv0[0], &o.uv1[0], &o.uv2[0] };
+	const uint32_t *sc[3] = { s.color0, s.color1, s.color2 };
+	uint32_t *oc[3] = { o.color0, o.color1, o.color2 };
+
+	for ( int k = 0; k < 3; k++ )
+	{
+		const bary_t &w = corner[k];
+
+		for ( int a = 0; a < 3; a++ )
+			op[k][a] = w.b[0] * sp[0][a] + w.b[1] * sp[1][a] + w.b[2] * sp[2][a];
+
+		o.normals[k] = vk_rtx_lerp_normal( s.normals, w );
+		o.tangents[k] = vk_rtx_lerp_normal( s.tangents, w );
+		*ouv[k] = vk_rtx_lerp_half2( uv, w );
+
+		for ( int st = 0; st < 4; st++ )
+		{
+			const uint32_t c[3] = { sc[0][st], sc[1][st], sc[2][st] };
+			oc[k][st] = vk_rtx_lerp_color( c, w );
+		}
+	}
+}
+
+// Room for `needed` primitives; the splits make the world geometry larger than its estimate.
+static void vk_rtx_reserve_prims( vk_geometry_data_t *geom, uint32_t needed )
+{
+	if ( needed <= geom->num_primitives_allocated )
+		return;
+
+	const uint32_t allocated = needed + 4096;
+	geom->primitives = (VboPrimitive*)realloc( geom->primitives, allocated * sizeof(VboPrimitive) );
+	Com_Memset( geom->primitives + geom->num_primitives_allocated, 0, ( allocated - geom->num_primitives_allocated ) * sizeof(VboPrimitive) );
+	geom->num_primitives_allocated = allocated;
+}
+
+// Cuts the primitives [first, first + count) of the geometry at the cluster boundaries. Returns the new count.
+static uint32_t vk_rtx_split_prims_by_cluster( world_t &worldData, vk_geometry_data_t *geom, uint32_t first, uint32_t count )
+{
+	const std::vector<VboPrimitive> src( geom->primitives + first, geom->primitives + first + count );
+	std::vector<VboPrimitive> dst;
+	dst.reserve( count );
+
+	for ( const VboPrimitive &p : src )
+	{
+		const float P[3][3] = { { p.pos0[0], p.pos0[1], p.pos0[2] }, { p.pos1[0], p.pos1[1], p.pos1[2] }, { p.pos2[0], p.pos2[1], p.pos2[2] } };
+
+		vec3_t e1, e2, n, c;
+		VectorSubtract( P[1], P[0], e1 );
+		VectorSubtract( P[2], P[0], e2 );
+		CrossProduct( e1, e2, n );
+
+		std::vector<bary_poly_t> pieces;
+
+		if ( VectorNormalize( n ) > 0.f )
+		{
+			// The side of the triangle that has air: the one with more open points on a grid
+			// (the centre alone can lie in a solid, as on the kejim_post floor).
+			const float step = 0.01f;
+			const int grid = 6;
+			int open[2] = { 0, 0 };
+			vec3_t q;
+
+			for ( int a = 0; a <= grid; a++ )
+				for ( int b = 0; a + b <= grid; b++ )
+				{
+					const float w[3] = { (float)a / grid, (float)b / grid, 1.f - (float)( a + b ) / grid };
+					for ( int k = 0; k < 3; k++ )
+						c[k] = w[0] * P[0][k] + w[1] * P[1][k] + w[2] * P[2][k];
+
+					VectorMA( c, step, n, q );
+					open[0] += BSP_PointLeaf( worldData.nodes, q )->cluster >= 0;
+					VectorMA( c, -step, n, q );
+					open[1] += BSP_PointLeaf( worldData.nodes, q )->cluster >= 0;
+				}
+
+			const float shift = ( open[0] == 0 && open[1] == 0 ) ? 0.f : ( open[0] >= open[1] ) ? step : -step;
+
+			if ( shift != 0.f )
+			{
+				bary_poly_t whole = { { { 1.f, 0.f, 0.f } }, { { 0.f, 1.f, 0.f } }, { { 0.f, 0.f, 1.f } } };
+				vk_rtx_clip_cluster( worldData.nodes, whole, P, n, shift, pieces );
+			}
+		}
+
+		if ( pieces.size() <= 1 || pieces.size() > 128 )
+		{
+			dst.push_back( p );
+			continue;
+		}
+
+		s_split_triangles++;
+
+		for ( const bary_poly_t &poly : pieces )
+		{
+			for ( size_t i = 1; i + 1 < poly.size(); i++ )
+			{
+				const bary_t corner[3] = { poly[0], poly[i], poly[i + 1] };
+				VboPrimitive o;
+				vk_rtx_primitive_piece( p, corner, o );
+				dst.push_back( o );
+			}
+		}
+	}
+
+	if ( dst.size() == count )
+		return count;
+
+	s_split_added += (uint32_t)dst.size() - count;
+
+	vk_rtx_reserve_prims( geom, first + (uint32_t)dst.size() );
+	memcpy( geom->primitives + first, dst.data(), dst.size() * sizeof(VboPrimitive) );
+	return (uint32_t)dst.size();
+}
+
 static void vk_rtx_collect_surfaces( uint32_t *prim_ctr, vk_geometry_data_t *geom, int type, world_t &worldData, mnode_t *node, int model_idx,
 	int (*filter)(shader_t*), int (*filter_visibiliy)(shader_t*) )
 {
@@ -2095,11 +2359,17 @@ static void vk_rtx_collect_surfaces( uint32_t *prim_ctr, vk_geometry_data_t *geo
 
 
 
+		vk_rtx_reserve_prims( geom, *prim_ctr + tess.numIndexes / 3 );
 		VboPrimitive* surface_prims = geom->primitives + *prim_ctr;
 		uint32_t prims_in_surface = create_poly( geom, mat, material_id, surface_prims );
 
 		if ( dsurf )
 			dsurf->prim_count = prims_in_surface;
+		else
+		{
+			prims_in_surface = vk_rtx_split_prims_by_cluster( worldData, geom, *prim_ctr, prims_in_surface );
+			surface_prims = geom->primitives + *prim_ctr;
+		}
 
 		for (uint32_t k = 0; k < prims_in_surface; ++k) {
 			//if (model_idx < 0) world, sub bmodels have sep collector
@@ -2831,6 +3101,9 @@ void R_PreparePT( world_t &worldData )
 	// Q2RTX, collects these into one buffer, 
 	// here use separate buffers, for now (idea for dynamic shaders)
 
+	s_node_cluster.clear();
+	s_split_triangles = s_split_added = 0;
+
 	// sky
 	prim_ctr = 0;
 	first_prim = prim_ctr;
@@ -2888,9 +3161,11 @@ void R_PreparePT( world_t &worldData )
 		vkpt_append_model_geometry(&world_dynamic_geometry->geom_masked, prim_ctr - first_prim, first_prim, "bsp d geomatry masked");
 	world_dynamic_geometry->num_primitives = prim_ctr;
 
+	Com_Printf( "rtx: %u world triangles split at cluster boundaries, %u triangles added\n", s_split_triangles, s_split_added );
+
 	// sub brush models
 	prim_ctr = 0;
-	for ( i = 0; i < worldData.num_bmodels; i++ ) 
+	for ( i = 0; i < worldData.num_bmodels; i++ )
 	{
 		bmodel_t *bmodel = &worldData.bmodels[i];
 		first_prim = prim_ctr;
