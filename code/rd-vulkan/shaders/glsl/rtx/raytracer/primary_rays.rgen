@@ -188,7 +188,7 @@ main()
 				break;
 
 			Triangle layer_triangle = get_hit_triangle(ray_payload_geometry);
-			if (layer == MAX_BLENDED_LAYERS - 1 || !is_blended_surface(layer_triangle.material_id))
+			if (layer == MAX_BLENDED_LAYERS - 1 || !is_blended_surface(layer_triangle.material_id, get_instance_index(ray_payload_geometry)))
 				break;
 
 			if (layer == 0)
@@ -205,6 +205,9 @@ main()
 			ray.t_min = ray_payload_geometry.hit_distance + 0.01;
 		}
 		ray.t_min = t_min;
+
+		// RF_NODEPTH models (the force sight shell) show through the walls.
+		trace_nodepth_layers(ray, layer_L, layer_T);
 	}
 
 	Triangle triangle;

@@ -239,6 +239,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define INSTANCE_DISTORT_CROP	0x400u	// force push: the effect shader samples a crop of the screen around the entity
 #define INSTANCE_DISTORT_CLOAK	0x800u	// cloak: the full-screen passes of the distortion shader, set by the frame
 
+#define INSTANCE_ALPHA_FADE		0x1000u	// RF_ALPHA_FADE: the layer blends with the entity alpha; words RTX_DISTORT_FIRST, +1 hold the entity light
+#define INSTANCE_NODEPTH		0x2000u	// RF_NODEPTH: a layer of the primary rays whatever the depth, in the distortion instances
+
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795
 #endif

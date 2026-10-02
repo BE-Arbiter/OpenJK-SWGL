@@ -331,6 +331,18 @@ static qboolean vk_rtx_is_distortion_entity( const trRefEntity_t *entity )
 		&& R_GetShaderByHandle( entity->e.customShader ) == tr.distortionShader ) ? qtrue : qfalse;
 }
 
+// A model drawn without the depth test (RF_NODEPTH, the force sight shell): the primary rays see it through the walls.
+static qboolean vk_rtx_is_nodepth_entity( const trRefEntity_t *entity )
+{
+	return ( entity->e.renderfx & RF_NODEPTH ) ? qtrue : qfalse;
+}
+
+// An entity with RF_ALPHA_FADE blends its meshes over the screen with its alpha, as the rasterizer does.
+static qboolean vk_rtx_is_alpha_fade_entity( const trRefEntity_t *entity )
+{
+	return ( ( entity->e.renderfx & RF_ALPHA_FADE ) && entity->e.shaderRGBA[3] < 255 ) ? qtrue : qfalse;
+}
+
 // The distortion words (RTX_DISTORT_FIRST) of a mesh of a distortion entity, and its kind in word 1.
 // Force push: the stage texture coordinate goes through the tcMods of the entity time and the crop of the screen
 // around the entity, as the rasterizer draws r_distortionStyle 1. Words 0-3 matrix, 4-5 offset, 6 turbulence
@@ -416,6 +428,9 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 	// Bits 0-7: the forced rgbGen. Bit 8: a first person model, whose tcGen environment reflects
 	// the light of the entity (RB_CalcEnvironmentTexCoords). Bit 9: a model mesh, not a brush model.
 	data[1] = forceRGBGen | ( ( entity->e.renderfx & RF_FIRST_PERSON ) ? 0x100u : 0u ) | ( shader ? 0x200u : 0u );
+	const qboolean alpha_fade = ( shader && vk_rtx_is_alpha_fade_entity( entity ) ) ? qtrue : qfalse;
+	if ( alpha_fade )
+		data[1] |= INSTANCE_ALPHA_FADE;
 
 	// alphaGen lightingSpecular reflects the light of the entity, as RB_CalcSpecularAlpha.
 	R_SetupEntityLighting( refdef, entity );
@@ -430,6 +445,21 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 	// 5 normals: amp, freq.
 	for ( int i = 3; i < INSTANCE_SHADER_UINTS; i++ )
 		data[i] = 0;
+
+	// A fading model is not lit by the tracer: the layer takes the light of its entity (words RTX_DISTORT_FIRST, +1).
+	if ( alpha_fade )
+	{
+		for ( int k = 0; k < 2; k++ )
+		{
+			const float *c = k ? entity->directedLight : entity->ambientLight;
+			uint32_t packed = 0;
+
+			for ( int j = 0; j < 3; j++ )
+				packed |= (uint32_t)Com_Clampi( 0, 255, (int)c[j] ) << ( 8 * j );
+
+			data[RTX_DISTORT_FIRST + k] = packed;
+		}
+	}
 
 	if ( shader && shader->numDeforms )
 	{
@@ -513,6 +543,8 @@ static void fill_model_instance_shader_data( InstanceBuffer *uniform_instance_bu
 
 	if ( shader && vk_rtx_is_distortion_entity( entity ) )
 		fill_model_instance_distortion( data, refdef, entity, shader );
+	else if ( shader && vk_rtx_is_nodepth_entity( entity ) )
+		data[1] |= INSTANCE_NODEPTH;
 }
 
 // The instance buffer is full: the remaining meshes are not traced this frame.
@@ -1152,7 +1184,7 @@ static void process_regular_entity(
 			if (!(mesh_filter & MESH_FILTER_MASKED))
 				continue;
 		}
-		else if ( RB_IsTransparent( entity_mesh->shader ) )
+		else if ( RB_IsTransparent( entity_mesh->shader ) || vk_rtx_is_alpha_fade_entity( entity ) )
 		{
 			if(contains_transparent)
 				*contains_transparent = qtrue;
@@ -1336,7 +1368,7 @@ static void prepare_entities( EntityUploadInfo *upload_info, const trRefdef_t *r
 					qboolean contains_masked = qfalse;
 
 					// Not lit and not in the shadow: the distortion pass takes them after the others.
-					if ( model->type != MOD_BRUSH && vk_rtx_is_distortion_entity( entity ) )
+					if ( model->type != MOD_BRUSH && ( vk_rtx_is_distortion_entity( entity ) || vk_rtx_is_nodepth_entity( entity ) ) )
 					{
 						distortion_model_indices[distortion_model_num++] = i;
 						break;

@@ -1182,6 +1182,9 @@ vec3 raster_light( StageContext ctx, uint s )
 // of a layer are sampled as those, not as the linear values of the tracer.
 bool layer_raster_blend = false;
 
+// The alpha of an RF_ALPHA_FADE entity while its layer is sampled, else < 0.
+float layer_fade_alpha = -1.0;
+
 void sample_material_stage_light(
 	StageContext ctx,
 	uint s,
@@ -1209,6 +1212,8 @@ void sample_material_stage_light(
 		{
 			vec4 c = calc_color(ctx.instance_index, stage, b);
 			c.a = bundle_alpha(ctx, s, stage, b, c.a);
+				if (layer_fade_alpha >= 0.0)
+					c.a = layer_fade_alpha;
 			if (stage.bundle[b].image != 0u)
 			{
 				vec2 uv_x, uv_y;
@@ -1349,11 +1354,15 @@ vec4 compose_material_stages(
 
 // A surface blended onto the framebuffer: stage 0 blends and the alpha test is off. The
 // rasterizer draws it over what is behind, so the primary ray goes through it.
-bool is_blended_surface( uint material_id )
+bool is_blended_surface( uint material_id, uint instance_index )
 {
 	uint kind = material_id & MATERIAL_KIND_MASK;
 	if ( kind != 0u && kind != MATERIAL_KIND_REGULAR )
 		return false;
+
+	// A model of an RF_ALPHA_FADE entity blends whatever its shader says.
+	if ( instance_index != ~0u && ( get_model_instance_shader_uint( instance_index, 1 ) & INSTANCE_ALPHA_FADE ) != 0u )
+		return true;
 
 	MaterialInfo minfo = get_material_info( material_id );
 
@@ -1377,6 +1386,21 @@ void blended_surface_layer(
 	T = vec3( 1.0 );
 	layer_raster_blend = ( instance_index != ~0u ) && ( ( get_model_instance_shader_uint( instance_index, 1 ) & 0x200u ) != 0u );
 
+	// RF_ALPHA_FADE: every stage blends with the entity alpha (SRC_ALPHA, ONE_MINUS_SRC_ALPHA) and the light of the entity.
+	const bool fade = ( instance_index != ~0u ) && ( ( get_model_instance_shader_uint( instance_index, 1 ) & INSTANCE_ALPHA_FADE ) != 0u );
+	vec3 fade_light = vec3( 1.0 );
+
+	if ( fade )
+	{
+		const vec4 packed_light = unpack_rgba8( get_model_instance_shader_uint( instance_index, 0 ) );
+		const vec3 ambient = unpack_rgba8( get_model_instance_shader_uint( instance_index, RTX_DISTORT_FIRST ) ).rgb;
+		const vec3 directed = unpack_rgba8( get_model_instance_shader_uint( instance_index, RTX_DISTORT_FIRST + 1u ) ).rgb;
+		const vec3 light_dir = decode_normal( get_model_instance_shader_uint( instance_index, 2 ) );
+
+		layer_fade_alpha = packed_light.a;
+		fade_light = min( ambient + directed * max( dot( ctx.normal, light_dir ), 0.0 ), vec3( 1.0 ) );
+	}
+
 	for ( uint s = 0u; s < MAX_RTX_STAGES; s++ )
 	{
 		MaterialStage stage = minfo.stage[s];
@@ -1384,7 +1408,7 @@ void blended_surface_layer(
 		if ( ( stage.blend & STAGE_BLEND_ACTIVE ) == 0u )
 			break;
 
-		vec3 light = raster_light( ctx, s );
+		vec3 light = fade ? fade_light : raster_light( ctx, s );
 
 		if ( ( stage.blend & STAGE_BLEND_LIGHTMAP ) != 0u )
 		{
@@ -1401,15 +1425,55 @@ void blended_surface_layer(
 
 		vec4 src0, src1, glow_src;
 		sample_material_stage_light( ctx, s, stage, src0, src1, glow_src );
-		blend_stage_layer( stage.blend, vec4( src0.rgb + light * ( src1.rgb - src0.rgb ), src1.a ), L, T );
+		blend_stage_layer( fade ? 0x65u : stage.blend, vec4( src0.rgb + light * ( src1.rgb - src0.rgb ), src1.a ), L, T );
 	}
 
 	layer_raster_blend = false;
+	layer_fade_alpha = -1.0;
 
 	// What the layer adds is drawn without the light of the tracer: pt_glow_scale, as the
 	// emission of the opaque surfaces.
-	T = clamp( T, vec3( 0.0 ), vec3( 1.0 ) );
+	// T above 1 brightens what is behind (blendFunc GL_DST_COLOR GL_ONE, the cloak): the alpha goes below 0.
+	// The rasterizer multiplies gamma values, so the gain on linear light is T^2.2.
+	T = clamp( T, vec3( 0.0 ), vec3( 2.0 ) );
+	T = mix( T, pow( T, vec3( 2.2 ) ), greaterThan( T, vec3( 1.0 ) ) );
 	L = max( L, vec3( 0.0 ) ) * minfo.emission_scale;
+}
+
+// The surfaces drawn without the depth test (RF_NODEPTH, the force sight shell) along the whole ray, as blended layers:
+// the walls do not hide them. They are the distortion instances flagged INSTANCE_NODEPTH.
+void trace_nodepth_layers( Ray ray, inout vec3 layer_L, inout vec3 layer_T )
+{
+	if ( global_ubo.distortion_surfaces == 0 )
+		return;
+
+	// The payload of the primary ray stays for the caller.
+	const RayPayloadGeometry primary_payload = ray_payload_geometry;
+
+	ray.t_max = PRIMARY_RAY_T_MAX;
+
+	for ( int hit = 0; hit < MAX_DISTORTION_HITS; hit++ )
+	{
+		trace_geometry_ray( ray, true, AS_FLAG_DISTORTION );
+
+		if ( !found_intersection( ray_payload_geometry ) )
+			break;
+
+		ray.t_min = ray_payload_geometry.hit_distance + 0.01;
+
+		const uint instance = get_instance_index( ray_payload_geometry );
+
+		if ( ( get_model_instance_shader_uint( instance, 1 ) & INSTANCE_NODEPTH ) == 0u )
+			continue;
+
+		vec3 L, T;
+		blended_surface_layer( instance, get_hit_triangle( ray_payload_geometry ), get_hit_barycentric( ray_payload_geometry ), L, T );
+
+		layer_L += layer_T * L;
+		layer_T *= T;
+	}
+
+	ray_payload_geometry = primary_payload;
 }
 
 // Screen units (what the tone mapper shows as 1) to HDR units, at the current exposure.
@@ -1484,6 +1548,9 @@ uvec4 trace_distortion_layers( Ray ray )
 		const uint instance = get_instance_index( ray_payload_geometry );
 		const uint kind = get_model_instance_shader_uint( instance, 1 );
 		vec2 uv = vec2( 0.0 );
+
+		if ( ( kind & INSTANCE_NODEPTH ) != 0u )
+			continue;	// a layer of the primary rays, see trace_nodepth_layers
 
 		if ( ( kind & INSTANCE_DISTORT_CROP ) != 0u )
 			uv = distortion_crop_uv( instance, get_hit_triangle( ray_payload_geometry ), get_hit_barycentric( ray_payload_geometry ) );
