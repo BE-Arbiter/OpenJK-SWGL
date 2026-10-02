@@ -953,17 +953,28 @@ static qboolean vk_rtx_collect_entity_meshes( const model_t* model, const uint32
 // A third person camera pushed against a wall goes into the player model. The raster clips the
 // model with the near plane and back faces, but its triangles still block the light of the
 // surfaces near the camera: they get a shadow with no visible caster, or go black.
+#define MAX_VIEWER_MD3_SIZE 64.0f
+
 static qboolean camera_inside_model( const trRefdef_t *refdef, trRefEntity_t *entity, const model_t *model, const uint32_t entityNum,
 	int mdxm_matrix_offset, mat3x4_t *mdxm_matrix_data )
 {
-	if ( model->type != MOD_MDXM )
+	const mdvFrame_t *md3_frame = NULL;
+
+	if ( model->type == MOD_MESH )
+	{
+		// A misc_camera looks out of its own MD3, so the view starts inside that model.
+		const mdvModel_t *mdv = model->data.mdv[0];
+		const int frame = ( entity->e.frame >= 0 && entity->e.frame < mdv->numFrames ) ? entity->e.frame : 0;
+		md3_frame = mdv->frames + frame;
+	}
+	else if ( model->type != MOD_MDXM )
 		return qfalse;
 
 	float scale = MAX( entity->e.modelScale[0], MAX( entity->e.modelScale[1], entity->e.modelScale[2] ) );
 	if ( scale <= 0.0f )
 		scale = 1.0f;
 
-	const float radius = ( entity->e.radius > 0.0f ? entity->e.radius : 64.0f ) * scale;
+	const float radius = ( md3_frame ? md3_frame->radius : ( entity->e.radius > 0.0f ? entity->e.radius : 64.0f ) ) * scale;
 
 	vec3_t delta;
 	VectorSubtract( refdef->vieworg, entity->e.origin, delta );
@@ -971,12 +982,27 @@ static qboolean camera_inside_model( const trRefdef_t *refdef, trRefEntity_t *en
 	if ( DotProduct( delta, delta ) > radius * radius )
 		return qfalse;
 
-	// The bone matrices go where the next process_regular_entity puts the same matrices.
 	vec3_t bounds[2];
-	ClearBounds( bounds[0], bounds[1] );
-	vk_rtx_GhoulBounds( bounds[0] );
-	vk_rtx_collect_entity_meshes( model, entityNum, entity, &mdxm_matrix_offset, mdxm_matrix_data );
-	vk_rtx_GhoulBounds( NULL );
+	if ( md3_frame )
+	{
+		VectorCopy( md3_frame->bounds[0], bounds[0] );
+		VectorCopy( md3_frame->bounds[1], bounds[1] );
+
+		// A larger rigid model is a room or a prop the camera stands in, not a camera body.
+		for ( int k = 0; k < 3; k++ )
+		{
+			if ( ( bounds[1][k] - bounds[0][k] ) * scale > MAX_VIEWER_MD3_SIZE )
+				return qfalse;
+		}
+	}
+	else
+	{
+		// The bone matrices go where the next process_regular_entity puts the same matrices.
+		ClearBounds( bounds[0], bounds[1] );
+		vk_rtx_GhoulBounds( bounds[0] );
+		vk_rtx_collect_entity_meshes( model, entityNum, entity, &mdxm_matrix_offset, mdxm_matrix_data );
+		vk_rtx_GhoulBounds( NULL );
+	}
 
 	for ( int k = 0; k < 3; k++ )
 	{
@@ -1404,6 +1430,10 @@ static void prepare_entities( EntityUploadInfo *upload_info, const trRefdef_t *r
 							{
 								// A model around the camera gives its opaque and masked meshes to the viewer pass.
 								const qboolean is_viewer_model = camera_inside_model( refdef, entity, model, i, mdxm_matrix_offset, vk.mdxm_matrices_shadow );
+
+								// The primary rays hit the viewer pass, so a rigid model around the camera (misc_camera) stays out of the scene.
+								if ( is_viewer_model && model->type == MOD_MESH )
+									break;
 
 								process_regular_entity( i, refdef, entity, model, qfalse, qfalse, &model_instance_idx, &instance_idx, &num_instanced_prim,
 									is_viewer_model ? 0 : MESH_FILTER_OPAQUE, &contains_transparent, &contains_masked, &mdxm_matrix_offset, vk.mdxm_matrices_shadow );
