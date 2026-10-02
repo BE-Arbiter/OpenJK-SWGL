@@ -2031,7 +2031,7 @@ static void vk_rtx_prepare_distortion_ubo( vkUniformRTX_t *ubo, const EntityUplo
 
 // The fog brushes and the global fog of the map, as boxes. The shader gets k2 = ln(255) / depthForOpaque^2:
 // the rasterizer fog is T = exp(-(d * sqrt(ln 255) / depthForOpaque)^2).
-static void vk_rtx_prepare_fog_ubo( vkUniformRTX_t *ubo, qboolean render_world )
+static void vk_rtx_prepare_fog_ubo( vkUniformRTX_t *ubo, const trRefdef_t *refdef, qboolean render_world )
 {
 	int count = 0;
 
@@ -2039,6 +2039,19 @@ static void vk_rtx_prepare_fog_ubo( vkUniformRTX_t *ubo, qboolean render_world )
 
 	if ( !tr.world || !render_world )
 		return;
+
+	// The LA goggles fog replaces every other fog: one box around the world.
+	if ( refdef->doLAGoggles )
+	{
+		const fog_t *fog = tr.world->fogs + tr.world->numfogs;
+		const float depth = fog->parms.depthForOpaque < 1.0f ? 1.0f : fog->parms.depthForOpaque;
+
+		VectorSet( ubo->fog_volumes[0], -65536.0f, -65536.0f, -65536.0f );
+		ubo->fog_volumes[0][3] = logf( 255.0f ) / ( depth * depth );
+		VectorSet( ubo->fog_volumes[1], 65536.0f, 65536.0f, 65536.0f );
+		VectorCopy( fog->color, ubo->fog_volumes[2] );
+		return;
+	}
 
 	for ( int i = 1; i < tr.world->numfogs && count < MAX_FOG_VOLUMES; i++ )
 	{
@@ -2898,7 +2911,7 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 	vk_rtx_prepare_ubo( refdef, tr.world, viewleaf, &ref_mode, sky_matrix, render_world );
 	ubo->prev_adapted_luminance = prev_adapted_luminance;
 	vk_rtx_prepare_distortion_ubo( ubo, &upload_info );
-	vk_rtx_prepare_fog_ubo( ubo, (qboolean)render_world );
+	vk_rtx_prepare_fog_ubo( ubo, refdef, (qboolean)render_world );
 
 #if 0
 	if ( tm_blend_enable->integer )
