@@ -1316,6 +1316,9 @@ static void prepare_entities( EntityUploadInfo *upload_info, const trRefdef_t *r
 			case RT_CYLINDER:
 			case RT_SABER_GLOW:
 			case RT_ENT_CHAIN:
+			// SP-only types. The tracer does not draw them yet; they must not reach the error below.
+			case RT_LATHE:
+			case RT_CLOUDS:
 				break;
 			case RT_MODEL:
 				{
