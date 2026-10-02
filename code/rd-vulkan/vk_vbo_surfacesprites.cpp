@@ -530,6 +530,29 @@ static uint32_t vk_surface_sprites_create_vertex_data( const msurface_t *surf, f
 	return count;
 }
 
+// CPU copy of the instance buffers, one per VBO.
+static struct {
+	int			vbo_index;
+	int			count;
+	sprite_t	*data;
+} ss_cpu[MAX_SUB_BSP + 1];
+static int ss_cpu_num;
+
+const sprite_t *vk_surface_sprites_cpu_instances( const VBO_t *vbo, int *count )
+{
+	for ( int i = 0; vbo && i < ss_cpu_num; i++ )
+	{
+		if ( ss_cpu[i].vbo_index == vbo->index )
+		{
+			*count = ss_cpu[i].count;
+			return ss_cpu[i].data;
+		}
+	}
+
+	*count = 0;
+	return NULL;
+}
+
 //
 // build surface sprite instance buffer
 //
@@ -543,6 +566,29 @@ static void vk_flush_surface_sprites_instances( int index, sprite_t *instances, 
 	int stride = 0;	
 
 	VBO_t *vbo = R_CreateVBO( va("ssprite instances [%d]", index), (byte *)instances, sizeof(sprite_t) * (*instance_count) );
+
+	// The path tracer builds the sprite quads on the CPU from this copy. A new main world drops
+	// the copies of the older map.
+	if ( index == 0 )
+	{
+		for ( i = 0; i < (uint32_t)ss_cpu_num; i++ )
+			free( ss_cpu[i].data );
+
+		ss_cpu_num = 0;
+	}
+
+	if ( ss_cpu_num < (int)ARRAY_LEN( ss_cpu ) )
+	{
+		ss_cpu[ss_cpu_num].vbo_index = vbo->index;
+		ss_cpu[ss_cpu_num].count = (int)*instance_count;
+		ss_cpu[ss_cpu_num].data = (sprite_t *)malloc( sizeof(sprite_t) * (*instance_count) );
+
+		if ( ss_cpu[ss_cpu_num].data )
+		{
+			Com_Memcpy( ss_cpu[ss_cpu_num].data, instances, sizeof(sprite_t) * (*instance_count) );
+			ss_cpu_num++;
+		}
+	}
 
 	vbo->offsets[0] = stride; stride += sizeof(attr.position);
 	vbo->offsets[1] = stride; stride += sizeof(attr.normal);
@@ -821,6 +867,11 @@ void R_BuildSurfaceSpritesVBO( const world_t &worldData, int index )
 
 void vk_clean_surface_sprites( void )
 {
+	for ( int i = 0; i < ss_cpu_num; i++ )
+		free( ss_cpu[i].data );
+
+	ss_cpu_num = 0;
+
 	vk_destroy_surface_sprites_ssbos();
 	
 	// instance quad mesh

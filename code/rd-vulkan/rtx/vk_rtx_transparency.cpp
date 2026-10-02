@@ -25,12 +25,15 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "tr_local.h"
 #include "conversion.h"
 
+#include <vector>
+#include <algorithm>
+
 
 #define MAX_SABER_LIGHTS 128
 
 #define TR_PARTICLE_MAX_NUM    16384
 #define TR_BEAM_MAX_NUM        1024
-#define TR_SPRITE_MAX_NUM      8192
+#define TR_SPRITE_MAX_NUM      16384
 #define TR_VERTEX_MAX_NUM      ((TR_PARTICLE_MAX_NUM + TR_SPRITE_MAX_NUM) * 4)
 #define TR_INDEX_MAX_NUM       ((TR_PARTICLE_MAX_NUM + TR_SPRITE_MAX_NUM) * 6)
 #define TR_BEAM_AABB_SIZE      sizeof(VkAabbPositionsKHR)
@@ -648,11 +651,204 @@ static void fx_clouds( void )
 	}
 }
 
+#ifdef USE_VBO_SS
+typedef struct
+{
+	float				dist2;
+	const sprite_t		*sprite;
+	int					group;
+} ss_candidate_t;
+
+typedef struct
+{
+	rtx_material_t				*mat;
+	const SurfaceSpriteBlock	*block;
+	uint32_t					flags;
+} ss_group_info_t;
+
+static std::vector<ss_candidate_t> ss_candidates;
+static ss_group_info_t ss_groups[SS_MAX_GROUP];
+
+static float ss_smoothstep( float e0, float e1, float x )
+{
+	const float t = Com_Clamp( 0.0f, 1.0f, ( x - e0 ) / MAX( e1 - e0, 0.0001f ) );
+	return t * t * ( 3.0f - 2.0f * t );
+}
+
+// One surface sprite as a quad, built as surface_sprite_vert.tmpl does for the rasterizer.
+static void fx_surface_sprite( const ss_candidate_t *c, const ss_group_info_t *g )
+{
+	const sprite_t *s = c->sprite;
+	const SurfaceSpriteBlock *b = g->block;
+	vec3_t	V, offsets[4], p;
+	vec2_t	to_camera;
+	polyVert_t v[4];
+	byte	rgba[4] = { s->color[0], s->color[1], s->color[2], 255 };
+
+	static const float uv[4][2] = { { 1, 1 }, { 1, 0 }, { 0, 0 }, { 0, 1 } };
+
+	VectorSubtract( fx_refdef->vieworg, s->position, V );
+
+	const float dist = VectorLength( V );
+	float width = s->widthHeight[0];
+	const float height = s->widthHeight[1];
+
+	width += b->fadeScale * ss_smoothstep( b->fadeStartDistance, b->fadeEndDistance, dist ) * width;
+
+	const float hw = width * 0.5f;
+
+	if ( g->flags & SSDEF_FACE_UP )
+	{
+		VectorSet( offsets[0],  hw, -hw, 0 );
+		VectorSet( offsets[1],  hw,  hw, 0 );
+		VectorSet( offsets[2], -hw,  hw, 0 );
+		VectorSet( offsets[3], -hw, -hw, 0 );
+	}
+	else
+	{
+		VectorSet( offsets[0],  hw, 0, 0 );
+		VectorSet( offsets[1],  hw, 0, height );
+		VectorSet( offsets[2], -hw, 0, height );
+		VectorSet( offsets[3], -hw, 0, 0 );
+	}
+
+	const float inv = 1.0f / MAX( sqrtf( V[0] * V[0] + V[1] * V[1] ), 0.0001f );
+	to_camera[0] = V[0] * inv;
+	to_camera[1] = V[1] * inv;
+
+	const float angle = ( s->position[0] + s->position[1] ) * 0.02f + fx_refdef->floatTime * 1000.0f * 0.0015f;
+	const float windsway = height * b->windIdle * 0.075f;
+
+	for ( int i = 0; i < 4; i++ )
+	{
+		const bool lower = ( offsets[i][2] == 0.0f );
+		float x = offsets[i][0];
+		float ox, oy;
+
+		if ( g->flags & SSDEF_FACE_CAMERA )
+		{
+			ox = x * to_camera[1];
+			oy = -x * to_camera[0];
+		}
+		else if ( g->flags & SSDEF_FLATTENED )
+		{
+			ox = x * s->normal[0];
+			oy = x * s->normal[1];
+		}
+		else if ( !( g->flags & SSDEF_FACE_UP ) )
+		{
+			ox = x * ( s->normal[0] + 3.0f * to_camera[1] ) * 0.25f;
+			oy = x * ( s->normal[1] - 3.0f * to_camera[0] ) * 0.25f;
+		}
+		else
+		{
+			ox = offsets[i][0];
+			oy = offsets[i][1];
+		}
+
+		if ( !( g->flags & SSDEF_FACE_UP ) && !lower )
+		{
+			ox += s->skew[0] + cosf( angle ) * windsway;
+			oy += s->skew[1] + sinf( angle ) * windsway;
+		}
+
+		VectorSet( p, s->position[0] + ox, s->position[1] + oy, s->position[2] + offsets[i][2] );
+		fx_vert( v + i, p, uv[i][0], uv[i][1], rgba );
+	}
+
+	fx_tri( v + 0, v + 1, v + 2 );
+	fx_tri( v + 2, v + 3, v + 0 );
+}
+
+// The surface sprites of the visible world surfaces (grass, reeds). The rasterizer draws them from
+// instance buffers; the tracer takes the nearest ones as quads of the sprite path.
+static void fx_surface_sprites( const trRefdef_t *refdef )
+{
+	if ( !r_surfaceSprites->integer || !tr.ss.groups_count )
+		return;
+
+	ss_candidates.clear();
+
+	for ( int gi = 0; gi < tr.ss.groups_count && gi < SS_MAX_GROUP; gi++ )
+	{
+		const vk_ss_group_t *group = &tr.ss.groups[gi];
+		ss_group_info_t *info = ss_groups + gi;
+		Vk_Pipeline_Def def;
+
+		info->mat = NULL;
+
+		if ( !group->def.shader || !group->num_commands || SS_UNPACK_ENT( group->def.surf_bits ) != REFENTITYNUM_WORLD )
+			continue;
+
+		shader_t *shader = group->def.shader;
+		rtx_material_t *mat = vk_rtx_shader_to_material( shader );
+
+		if ( !mat || !mat->active || !mat->uploaded[vk.current_frame_index] || !mat->stage[0].bundle[0].image )
+			continue;
+
+		vk_get_pipeline_def( shader->stages[0]->vk_pipeline[0], &def );
+
+		if ( def.surface_sprite_flags & SSDEF_FX_SPRITE )
+			continue;
+
+		const uint32_t vbo_index = SS_UNPACK_VBO( group->def.surf_bits );
+		int count = 0;
+		const sprite_t *instances = ( vbo_index < (uint32_t)tr.numVBOs ) ? vk_surface_sprites_cpu_instances( tr.vbos[vbo_index], &count ) : NULL;
+		const vk_storage_buffer_t *ssbo = &vk.surface_sprites_ssbo[SS_UNPACK_SSBO_INDEX( group->def.ssbo_bits )];
+
+		if ( !instances || !ssbo->buffer_ptr )
+			continue;
+
+		info->mat = mat;
+		info->block = (const SurfaceSpriteBlock *)( ssbo->buffer_ptr + SS_UNPACK_SSBO_OFFSET( group->def.ssbo_bits ) );
+		info->flags = def.surface_sprite_flags;
+
+		const float end2 = info->block->fadeEndDistance * info->block->fadeEndDistance;
+
+		for ( int j = 0; j < group->num_commands; j++ )
+		{
+			const vk_ss_group_cmd_t *cmd = group->cmd + j;
+
+			for ( int k = cmd->firstInstance; k < cmd->firstInstance + cmd->numInstances && k < count; k++ )
+			{
+				vec3_t d;
+
+				VectorSubtract( instances[k].position, refdef->vieworg, d );
+
+				const float d2 = VectorLengthSquared( d );
+
+				if ( d2 < end2 )
+					ss_candidates.push_back( { d2, instances + k, gi } );
+			}
+		}
+	}
+
+	const int room = ( TR_SPRITE_MAX_NUM - fx_tri_num ) / 2;
+
+	if ( (int)ss_candidates.size() > room )
+	{
+		std::nth_element( ss_candidates.begin(), ss_candidates.begin() + MAX( room, 0 ), ss_candidates.end(),
+			[]( const ss_candidate_t &a, const ss_candidate_t &b ) { return a.dist2 < b.dist2; } );
+		ss_candidates.resize( MAX( room, 0 ) );
+	}
+
+	for ( const ss_candidate_t &c : ss_candidates )
+	{
+		fx_mat = ss_groups[c.group].mat;
+		fx_surface_sprite( &c, ss_groups + c.group );
+	}
+}
+#endif
+
 // Fills fx_tris from the refdef. update_transparency counts them, write_sprite_geometry writes them.
 static void tessellate_fx_entities( const trRefdef_t *refdef )
 {
 	fx_tri_num = 0;
 	fx_refdef = refdef;
+
+#ifdef USE_VBO_SS
+	fx_surface_sprites( refdef );
+#endif
 
 	if ( !r_drawentities->integer )
 		return;

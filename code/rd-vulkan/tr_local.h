@@ -3040,6 +3040,7 @@ int			RB_GetBoneUboOffset( CRenderableSurface *surf );
 	void	vk_clean_surface_sprites( void );
 	void	vk_push_surface_sprites_cmd( const vk_ss_group_def_t *def, int firstInstance, int instanceCount );
 	void	RB_SurfaceSpritesVBO( srfSprites_t *surf );
+	const sprite_t	*vk_surface_sprites_cpu_instances( const VBO_t *vbo, int *count );
 #endif
 
 static QINLINE unsigned int log2pad(unsigned int v, int roundup)
