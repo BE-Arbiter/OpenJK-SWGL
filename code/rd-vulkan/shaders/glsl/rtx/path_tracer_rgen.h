@@ -272,67 +272,68 @@ void trace_geometry_ray( Ray ray, bool cull_back_faces, uint cullMask )
 			ray.origin, ray.t_min, ray.direction, ray.t_max, RT_PAYLOAD_GEOMETRY);
 }
 
-// Loops over the defined fog volumes and finds the two closest ones along the ray.
-// They are stored in the order of min distance in rp.fog1 (closer) and rp.fog2 (further away).
-// If the ray starts in a fog volume, that volume will be rp.fog1 with t_min = ray.t_min.
-void find_fog_volumes(inout RayPayloadEffects rp, Ray ray)
+// Finds the two nearest fog volumes along the ray: rp.fog1 (nearer) and rp.fog2 (further).
+// hdr_colors: the colours go to HDR units (blended before the tone mapper) or stay in display units.
+// A volume that holds the ray start is rp.fog1 with t_in = ray.t_min. The fog depth is the
+// distance inside the volume, as in the rasterizer: T = exp(-k2 * d^2).
+void find_fog_volumes(inout RayPayloadEffects rp, Ray ray, bool hdr_colors)
 {
-	return;
-#if 0
 	vec3 inv_dir = vec3(1.0) / ray.direction;
 	for (int i = 0; i < MAX_FOG_VOLUMES; i++)
 	{
-		const ShaderFogVolume volume = global_ubo.fog_volumes[i];
+		const vec4 vmin   = global_ubo.fog_volumes[i * 3 + 0];	// xyz = mins, w = k2 (0: end of the list)
+		const vec4 vmax   = global_ubo.fog_volumes[i * 3 + 1];	// xyz = maxs
+		const vec4 vcolor = global_ubo.fog_volumes[i * 3 + 2];	// rgb = colour in screen units
 
-		if (volume.is_active == 0)
-			return;
+		if (vmin.w == 0.0)
+			break;
 
-		vec3 t1 = (volume.mins - ray.origin) * inv_dir;
-		vec3 t2 = (volume.maxs - ray.origin) * inv_dir;
-		float t_in = vmax(min(t1, t2));
-		float t_out = vmin(max(t1, t2));
-		t_in = max(t_in, ray.t_min);
-		t_out = min(t_out, ray.t_max);
+		vec3 t1 = (vmin.xyz - ray.origin) * inv_dir;
+		vec3 t2 = (vmax.xyz - ray.origin) * inv_dir;
+		vec3 tn = min(t1, t2);
+		vec3 tf = max(t1, t2);
+		float t_in = max(max(max(tn.x, tn.y), tn.z), ray.t_min);
+		float t_out = min(min(min(tf.x, tf.y), tf.z), ray.t_max);
 
 		if (t_out > t_in)
 		{
-			vec2 first_t_min_max = unpackHalf2x16(rp.fog1.w);
-			vec2 second_t_min_max = unpackHalf2x16(rp.fog2.w);
+			vec2 first_t_min_max = unpackHalf2x16(rp.fog1.z);
+			vec2 second_t_min_max = unpackHalf2x16(rp.fog2.z);
 
-			bool replaces_first = t_in < first_t_min_max.x || first_t_min_max.y == 0;
-			bool replaces_second = t_in < second_t_min_max.x || second_t_min_max.y == 0;
+			bool replaces_first = rp.fog1.w == 0u || t_in < first_t_min_max.x;
+			bool replaces_second = rp.fog2.w == 0u || t_in < second_t_min_max.x;
 
 			if (replaces_first || replaces_second)
 			{
 				uvec4 packed;
-				packed.xy = packHalf4x16(vec4(volume.color * global_ubo.pt_fog_brightness, 0));
+				packed.xy = packHalf4x16(vec4(vcolor.rgb, 0));
 				packed.z = packHalf2x16(vec2(t_in, t_out));
-
-				// Convert the volumetric density function into a 1D function along the ray
-				float density_variable = dot(volume.density.xyz, ray.direction) * 0.5;
-				float density_constant = dot(volume.density.xyz, ray.origin) + volume.density.w;
-				// Scale the density stored here because typical values are very small, in fp16 denormal range
-				packed.w = packHalf2x16(vec2(density_variable, density_constant) * 65536.0);
+				// k2 is small: scale it out of the fp16 denormal range
+				packed.w = packHalf2x16(vec2(vmin.w * 65536.0, 0.0));
 
 				if (replaces_first)
 				{
-					// Push fog1 to fog2, replace fog1 with the new volume
 					rp.fog2 = rp.fog1;
 					rp.fog1 = packed;
 				}
-				else // if (replaces_second) -- must be true
-				{
-					// Replace fog2 with the new volume
+				else
 					rp.fog2 = packed;
-				}
 			}
 		}
 	}
-#endif
+
+	// The colours go from screen units to HDR once, for the two volumes that stay.
+	if (!hdr_colors)
+		return;
+
+	if (rp.fog1.w != 0u)
+		rp.fog1.xy = packHalf4x16(vec4(screen_to_hdr_color(unpackHalf4x16(rp.fog1.xy).rgb), 0));
+	if (rp.fog2.w != 0u)
+		rp.fog2.xy = packHalf4x16(vec4(screen_to_hdr_color(unpackHalf4x16(rp.fog2.xy).rgb), 0));
 }
 
 EffectsResult 
-trace_effects_ray(Ray ray, bool skip_procedural) 
+trace_effects_ray(Ray ray, bool skip_procedural, bool display_fog) 
 {
 	uint rayFlags = 0;
 	if (skip_procedural)
@@ -350,7 +351,7 @@ trace_effects_ray(Ray ray, bool skip_procedural)
 	ray_payload_effects.rayTmax = ray.t_max;
 
 	if (!skip_procedural)
-		find_fog_volumes(ray_payload_effects, ray);
+		find_fog_volumes(ray_payload_effects, ray, !display_fog);
 
 	traceRayEXT( topLevelAS[TLAS_INDEX_EFFECTS], rayFlags, instance_mask,
 			SBT_RCHIT_EFFECTS /*sbtRecordOffset*/, 0 /*sbtRecordStride*/, SBT_RMISS_EMPTY /*missIndex*/,
@@ -359,7 +360,13 @@ trace_effects_ray(Ray ray, bool skip_procedural)
 	if (skip_procedural)
 		return get_payload_transparency(ray_payload_effects);
 
-	return get_payload_transparency_with_fog(ray_payload_effects, ray.t_max);
+	if (!display_fog)
+		return get_payload_transparency_with_fog(ray_payload_effects, ray.t_max);
+
+	// The primary ray: the fog is a layer over the finished image, blended after the tone mapper as the rasterizer does.
+	EffectsResult result = get_payload_transparency(ray_payload_effects);
+	blend_fogs(ray_payload_effects, 0, ray.t_max, result.fog);
+	return result;
 }
 
 Ray get_shadow_ray( vec3 p1, vec3 p2, float tmin )

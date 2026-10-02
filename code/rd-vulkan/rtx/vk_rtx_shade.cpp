@@ -1987,6 +1987,31 @@ static void vk_rtx_prepare_distortion_ubo( vkUniformRTX_t *ubo, const EntityUplo
 	}
 }
 
+// The fog brushes and the global fog of the map, as boxes. The shader gets k2 = ln(255) / depthForOpaque^2:
+// the rasterizer fog is T = exp(-(d * sqrt(ln 255) / depthForOpaque)^2).
+static void vk_rtx_prepare_fog_ubo( vkUniformRTX_t *ubo, qboolean render_world )
+{
+	int count = 0;
+
+	Com_Memset( ubo->fog_volumes, 0, sizeof( ubo->fog_volumes ) );
+
+	if ( !tr.world || !render_world )
+		return;
+
+	for ( int i = 1; i < tr.world->numfogs && count < MAX_FOG_VOLUMES; i++ )
+	{
+		const fog_t *fog = tr.world->fogs + i;
+		const float depth = fog->parms.depthForOpaque < 1.0f ? 1.0f : fog->parms.depthForOpaque;
+		float (*v)[4] = ubo->fog_volumes + count * 3;
+
+		VectorCopy( fog->bounds[0], v[0] );
+		v[0][3] = logf( 255.0f ) / ( depth * depth );
+		VectorCopy( fog->bounds[1], v[1] );
+		VectorCopy( fog->color, v[2] );
+		count++;
+	}
+}
+
 static void
 update_mlight_prev_to_current(void)
 {
@@ -2826,6 +2851,7 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 	vk_rtx_prepare_ubo( refdef, tr.world, viewleaf, &ref_mode, sky_matrix, render_world );
 	ubo->prev_adapted_luminance = prev_adapted_luminance;
 	vk_rtx_prepare_distortion_ubo( ubo, &upload_info );
+	vk_rtx_prepare_fog_ubo( ubo, (qboolean)render_world );
 
 #if 0
 	if ( tm_blend_enable->integer )

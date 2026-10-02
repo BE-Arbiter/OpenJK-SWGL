@@ -156,6 +156,7 @@ struct EffectsResult
     vec3 additive;
     vec3 glow;
     vec3 fx;	// the weapon effects, in display units: they skip the tone mapper
+    vec4 fog;	// the fog of the primary ray, in display units: rgb = colour * alpha, a = alpha
 };
 
 // An effect as the rasterizer blends it onto the screen: out = L + T * behind (HDR units).

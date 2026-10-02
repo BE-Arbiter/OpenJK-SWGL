@@ -23,7 +23,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 vec4 evaluate_fog(uvec4 fog, float t1, float t2)
 {
 	vec2 fog_bounds = unpackHalf2x16(fog.z);
-	vec2 fog_density = unpackHalf2x16(fog.w) / 65536.0; // same scale as in find_fog_volume(...)
+	float fog_k2 = unpackHalf2x16(fog.w).x / 65536.0; // same scale as in find_fog_volumes(...)
 	vec3 fog_color = unpackHalf4x16(fog.xy).rgb;
 
 	t1 = max(t1, fog_bounds.x);
@@ -32,10 +32,10 @@ vec4 evaluate_fog(uvec4 fog, float t1, float t2)
 	if (t1 >= t2)
 		return vec4(0);
 
-	// solution to the diff equation: dL = -(at+b) dt,
-	// where L is luminance and alpha is (1 - L_out / L_in),
-	// a and b are the density function parameters
-	float alpha = 1.0 - exp((t1 * t1 - t2 * t2) * fog_density.x + (t1 - t2) * fog_density.y);
+	// The rasterizer fog: T = exp(-k2 * d^2), d = distance inside the volume from its entry point.
+	float d1 = t1 - fog_bounds.x;
+	float d2 = t2 - fog_bounds.x;
+	float alpha = 1.0 - exp((d1 * d1 - d2 * d2) * fog_k2);
 
 	return vec4(fog_color * alpha, alpha);
 }
@@ -93,6 +93,7 @@ EffectsResult get_payload_transparency(in RayPayloadEffects rp)
     result.additive = unpackHalf4x16(rp.additive).rgb;
     result.glow     = unpackHalf4x16(rp.glow).rgb;
     result.fx       = unpackHalf4x16(rp.fx).rgb;
+    result.fog      = vec4(0);
 
     return result;
 }
@@ -123,6 +124,7 @@ EffectsResult get_payload_transparency_with_fog(in RayPayloadEffects rp, float t
     result.additive = unpackHalf4x16(rp.additive).rgb;
     result.glow     = unpackHalf4x16(rp.glow).rgb;
     result.fx       = unpackHalf4x16(rp.fx).rgb;
+    result.fog      = vec4(0);
 
     return result;
 }

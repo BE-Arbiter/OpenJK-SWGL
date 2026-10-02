@@ -225,6 +225,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define TEX0_BLEND_MASK                             0x00001C00
 #define TEX1_BLEND_MASK                             0x1C000000
 
+#define MAX_FOG_VOLUMES			16		// fog brushes of the map and its global fog, in the global UBO
 #define SHADER_MAX_ENTITIES		4096	// one per mesh: a ghoul2 NPC takes 10 to 30
 #define SHADER_MAX_BSP_ENTITIES	128
 #define RTX_MAX_DEFORMS			3

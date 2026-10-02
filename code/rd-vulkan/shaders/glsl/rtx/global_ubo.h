@@ -155,6 +155,12 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	UBO_CVAR_LIST_GI \
 	UBO_CVAR_LIST_FX \
 
+#ifdef GLSL
+	#define FOG_VOLUMES(n)	vec4 n[MAX_FOG_VOLUMES * 3];
+#else
+	#define FOG_VOLUMES(n)	alignas(16) float n[MAX_FOG_VOLUMES * 3][4];
+#endif
+
 #define GLOBAL_UBO_VAR_LIST \
 	GLOBAL_UBO_VAR_LIST_DO( MAT4,	 V								) \
 	GLOBAL_UBO_VAR_LIST_DO( MAT4,	 invV							) \
@@ -262,7 +268,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 	GLOBAL_UBO_VAR_LIST_DO( VEC4,	 distortion_cloak_pass1			) \
 	GLOBAL_UBO_VAR_LIST_DO( INT,	 distortion_surfaces			) /* the frame has screen distortion surfaces */ \
 	\
-	UBO_CVAR_LIST // WARNING: Do not put any other members into global_ubo after this: the CVAR list is not vec4-aligned
+	UBO_CVAR_LIST /* the CVAR list is not vec4-aligned: the fog array is the only member after it */ \
+	\
+	GLOBAL_UBO_VAR_LIST_DO( FOG_VOLUMES, fog_volumes ) /* per volume: mins xyz + k2, maxs xyz, colour rgb */
 
 STRUCT (  
 	MAT4	( transform )

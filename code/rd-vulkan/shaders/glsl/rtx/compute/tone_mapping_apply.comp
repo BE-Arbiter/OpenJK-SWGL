@@ -301,14 +301,17 @@ void main()
         mapped_color.rgb = linear_to_srgb(mapped_color.rgb);
     }
 
-    // The weapon effects add on the screen as the rasterizer adds them, in display units: the curve does not touch them.
+    // The fog (alpha) covers the image and the weapon effects add on it as the rasterizer blends them, in display units:
+    // the curve does not touch them. The rgb of the layer is the fog colour times its alpha, plus the effects.
     {
-        const vec3 fx = max(imageLoad(IMG_TAA_FX, ipos).rgb, vec3(0.0));
+        const vec4 fx_fog = max(imageLoad(IMG_TAA_FX, ipos), vec4(0.0));
+        const vec3 fx = fx_fog.rgb;
+        const float fog_alpha = min(fx_fog.a, 1.0);
 
         if(spec_tone_mapping_hdr == 0)
-            mapped_color.rgb = min(mapped_color.rgb + fx, vec3(1.0));
+            mapped_color.rgb = min(mapped_color.rgb * (1.0 - fog_alpha) + fx, vec3(1.0));
         else
-            mapped_color.rgb += srgb_to_linear(min(fx, vec3(1.0))) * (global_ubo.tm_hdr_peak_nits / 80);
+            mapped_color.rgb = mapped_color.rgb * (1.0 - fog_alpha) + srgb_to_linear(min(fx, vec3(1.0))) * (global_ubo.tm_hdr_peak_nits / 80);
     }
 
     // Write out to image:
