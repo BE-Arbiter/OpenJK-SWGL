@@ -728,6 +728,7 @@ static VkResult vk_rtx_vertex_buffer_upload_bsp_mesh_geom( VkCommandBuffer cmd_b
 	if ( !is_sky_static ) {
 		suballocate_model_blas_memory( &geom->geom_transparent, &vbo_size, "bsp:transparent");
 		suballocate_model_blas_memory( &geom->geom_masked,      &vbo_size, "bsp:masked");
+		suballocate_model_blas_memory( &geom->geom_forcesight,  &vbo_size, "bsp:forcesight");
 	}
 
 	if ( vbo_size <= 0 )
@@ -770,6 +771,7 @@ static VkResult vk_rtx_vertex_buffer_upload_bsp_mesh_geom( VkCommandBuffer cmd_b
 	if ( !is_sky_static ) {
 		create_model_blas(&geom->geom_transparent,	geom->buffer[0].buffer, "bsp:transparent");
 		create_model_blas(&geom->geom_masked,		geom->buffer[0].buffer, "bsp:masked");
+		create_model_blas(&geom->geom_forcesight,	geom->buffer[0].buffer, "bsp:forcesight");
 	}
 
 	uint8_t* staging_data = (uint8_t*)buffer_map(&geom->staging_buffer);
@@ -806,6 +808,7 @@ static VkResult vk_rtx_vertex_buffer_upload_bsp_mesh_geom( VkCommandBuffer cmd_b
 	if ( !is_sky_static ) {
 		build_model_blas( cmd_buf, &geom->geom_transparent, geom->vertex_data_offset, &geom->buffer[0] );
 		build_model_blas( cmd_buf, &geom->geom_masked,      geom->vertex_data_offset, &geom->buffer[0] );
+		build_model_blas( cmd_buf, &geom->geom_forcesight,  geom->vertex_data_offset, &geom->buffer[0] );
 	}
 
 	geom->geom_opaque.instance_mask = is_sky_static ? AS_FLAG_SKY : AS_FLAG_OPAQUE;
@@ -820,6 +823,10 @@ static VkResult vk_rtx_vertex_buffer_upload_bsp_mesh_geom( VkCommandBuffer cmd_b
 		geom->geom_masked.instance_mask = AS_FLAG_OPAQUE;
 		geom->geom_masked.instance_flags = VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR | VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
 		geom->geom_masked.sbt_offset = SBTO_MASKED;
+
+		geom->geom_forcesight.instance_mask = AS_FLAG_TRANSPARENT;
+		geom->geom_forcesight.instance_flags = VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
+		geom->geom_forcesight.sbt_offset = SBTO_OPAQUE;
 	}
 
 	//vkpt_submit_command_buffer(cmd_buf, vk.queue_graphics, (1 << vk.device_count) - 1, 0, NULL, NULL, NULL, 0, NULL, NULL, NULL);

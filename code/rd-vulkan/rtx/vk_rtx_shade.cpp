@@ -2853,6 +2853,11 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 		vkpt_pt_instance_model_blas( &tr.world->geometry.world_static.geom_opaque,					g_identity_transform, VERTEX_BUFFER_WORLD, -1, 0 );
 		vkpt_pt_instance_model_blas( &tr.world->geometry.world_static.geom_transparent,				g_identity_transform, VERTEX_BUFFER_WORLD, -1, 0 );
 		vkpt_pt_instance_model_blas( &tr.world->geometry.world_static.geom_masked,					g_identity_transform, VERTEX_BUFFER_WORLD, -1, 0 );
+
+		// The Force Sight surfaces are in the TLAS only while Force Sight is on, as the rasterizer skips them.
+		if ( refdef->rdflags & RDF_ForceSightOn )
+			vkpt_pt_instance_model_blas( &tr.world->geometry.world_static.geom_forcesight,			g_identity_transform, VERTEX_BUFFER_WORLD, -1, 0 );
+
 		vkpt_pt_instance_model_blas( &tr.world->geometry.world_dynamic_material.geom_opaque,		g_identity_transform, VERTEX_BUFFER_WORLD_D_MATERIAL, -1, 0 );
 		vkpt_pt_instance_model_blas( &tr.world->geometry.world_dynamic_material.geom_transparent,	g_identity_transform, VERTEX_BUFFER_WORLD_D_MATERIAL, -1, 0 );
 		vkpt_pt_instance_model_blas( &tr.world->geometry.world_dynamic_material.geom_masked,		g_identity_transform, VERTEX_BUFFER_WORLD_D_MATERIAL, -1, 0 );

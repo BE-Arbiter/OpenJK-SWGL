@@ -1290,6 +1290,10 @@ static void collect_light_polys( world_t &worldData, int model_idx, int* num_lig
 		if ( RB_IsSky(surf->shader) )
 			continue;
 
+		// A Force Sight surface must not light the map while it is hidden.
+		if ( surf->shader->surfaceFlags & SURF_FORCESIGHT )
+			continue;
+
 		if ( model_idx < 0 && belongs_to_model( worldData, surf ) )
 			continue;
 
@@ -1570,9 +1574,15 @@ static void collect_cluster_lights( world_t &worldData )
 #undef MAX_LIGHTS_PER_CLUSTER
 }
 
+// A surface that only Force Sight shows goes to its own BLAS, which the TLAS holds only while Force Sight is on.
+static int filter_forcesight( shader_t *shader )
+{
+	return ( shader->surfaceFlags & SURF_FORCESIGHT ) ? 1 : 0;
+}
+
 static int filter_opaque( shader_t *shader )
 {
-	if ( RB_IsTransparent( shader ) || RB_IsMasked( shader ) ) 
+	if ( ( shader->surfaceFlags & SURF_FORCESIGHT ) || RB_IsTransparent( shader ) || RB_IsMasked( shader ) ) 
 		return 0;
 
 	return 1;
@@ -1580,7 +1590,7 @@ static int filter_opaque( shader_t *shader )
 
 static int filter_transparent( shader_t *shader )
 {
-	if ( !RB_IsTransparent( shader ) || RB_IsMasked( shader ) ) 
+	if ( ( shader->surfaceFlags & SURF_FORCESIGHT ) || !RB_IsTransparent( shader ) || RB_IsMasked( shader ) ) 
 		return 0;
 
 	return 1;
@@ -1588,7 +1598,7 @@ static int filter_transparent( shader_t *shader )
 
 static int filter_masked( shader_t *shader )
 {
-	if ( !RB_IsMasked( shader ) || RB_IsTransparent( shader ) ) 
+	if ( ( shader->surfaceFlags & SURF_FORCESIGHT ) || !RB_IsMasked( shader ) || RB_IsTransparent( shader ) ) 
 		return 0;
 
 	return 1;
@@ -1604,6 +1614,12 @@ static int filter_static( shader_t *shader )
 		return 1;
 
 	return 0;
+}
+
+// The static world geometry holds the Force Sight surfaces too, even those with a dynamic material.
+static int filter_static_or_forcesight( shader_t *shader )
+{
+	return ( ( shader->surfaceFlags & SURF_FORCESIGHT ) || filter_static( shader ) ) ? 1 : 0;
 }
 
 static int filter_dynamic_geometry(shader_t *shader)
@@ -2450,6 +2466,7 @@ static void vk_rtx_init_geometry( vk_geometry_data_t *geom, uint32_t blas_type_f
 	vkpt_init_model_geometry( &geom->geom_opaque,		1	);
 	vkpt_init_model_geometry( &geom->geom_transparent,	1	);
 	vkpt_init_model_geometry( &geom->geom_masked,		1	);
+	vkpt_init_model_geometry( &geom->geom_forcesight,	1	);
 }
 
 static void vk_rtx_set_geomertry_accel_offsets( vk_geometry_data_t *geom, int type )
@@ -2670,7 +2687,7 @@ void R_PreparePT( world_t &worldData )
 
 	// esitmate size of world geometries
 	vk_rtx_estimate_geometry( worldData, worldData.nodes, sky_static,				filter_sky );
-	vk_rtx_estimate_geometry( worldData, worldData.nodes, world_static,				filter_static );
+	vk_rtx_estimate_geometry( worldData, worldData.nodes, world_static,				filter_static_or_forcesight );
 	vk_rtx_estimate_geometry( worldData, worldData.nodes, world_dynamic_material,	filter_dynamic_material );
 	vk_rtx_estimate_geometry( worldData, worldData.nodes, world_dynamic_geometry,	filter_dynamic_geometry );
 	vk_rtx_estimate_bmodels( worldData, world_submodels );
@@ -2698,6 +2715,10 @@ void R_PreparePT( world_t &worldData )
 	first_prim = prim_ctr;
 	vk_rtx_collect_surfaces( &prim_ctr, world_static, BLAS_TYPE_MASKED, worldData, worldData.nodes, -1, filter_static, filter_masked );
 		vkpt_append_model_geometry(&world_static->geom_masked, prim_ctr - first_prim, first_prim, "bsp static masked");
+	vk_rtx_set_geomertry_accel_offsets( world_static, BLAS_TYPE_TRANSPARENT );
+	first_prim = prim_ctr;
+	vk_rtx_collect_surfaces( &prim_ctr, world_static, BLAS_TYPE_TRANSPARENT, worldData, worldData.nodes, -1, filter_static_or_forcesight, filter_forcesight );
+		vkpt_append_model_geometry(&world_static->geom_forcesight, prim_ctr - first_prim, first_prim, "bsp static forcesight");
 	world_static->num_primitives = prim_ctr;
 
 

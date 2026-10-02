@@ -458,6 +458,7 @@ typedef struct {
 	model_geometry_t geom_opaque;
 	model_geometry_t geom_transparent;
 	model_geometry_t geom_masked;
+	model_geometry_t geom_forcesight;	// surfaces that only Force Sight shows, instanced while it is on
 } vk_geometry_data_t;
 
 typedef struct {
