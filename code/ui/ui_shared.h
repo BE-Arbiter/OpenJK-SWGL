@@ -91,6 +91,7 @@ typedef struct listBoxDef_s {
 	qhandle_t	dropdownArrow;		// "dropdownarrow" keyword; 0 = scrollBarArrowDown
 	qboolean	dropdownList;		// the rect of the item is the open list, not the header
 	float		dropdownBorder;		// border size of a dropdown; the dropdown paints its border, not Window_Paint
+	struct multiDef_s *multi;		// a dropdown made from an ITEM_TYPE_MULTI: the entries and the cvar come from it, not from a feeder
 } listBoxDef_t;
 
 
@@ -112,6 +113,7 @@ typedef struct multiDef_s {
 	float		cvarValue[MAX_MULTI_CVARS];
 	int			count;
 	qboolean	strDef;
+	listBoxDef_t *listDef;		// the "dropdown" keywords of the item; Item_ConvertMultiDropdown turns the item into a list box
 } multiDef_t;
 
 #define CVAR_ENABLE		0x00000001

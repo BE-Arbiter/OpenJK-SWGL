@@ -93,6 +93,10 @@ static itemDef_t *itemCapture = NULL;   // item that has the mouse captured ( if
 static itemDef_t *g_dropdownItem = NULL;	// the dropdown list box that is open ( if any )
 static int g_dropdownHover = -1;			// the feeder index under the mouse in the open dropdown, else -1
 
+static int		Item_Feeder_Count(itemDef_t *item);
+static const char *Item_Feeder_Text(itemDef_t *item, int index, int column, qhandle_t *handle);
+static void		Item_Feeder_Select(itemDef_t *item, int index);
+static void		Item_Dropdown_SyncSelection(itemDef_t *item);
 static void		Item_ListBox_DropdownClose(void);
 static void		Item_ListBox_DropdownPaint(itemDef_t *item);
 static void		Item_ListBox_DropdownMouseMove(menuDef_t *menu, float x, float y);
@@ -1160,6 +1164,38 @@ static void Item_ApplyHacks( itemDef_t *item ) {
 
 /*
 ================
+Item_ConvertMultiDropdown
+	A multi with the "dropdown" keyword becomes a list box that reads its entries from the multi.
+	Returns qtrue if the item was converted.
+================
+*/
+static qboolean Item_ConvertMultiDropdown( itemDef_t *item )
+{
+	if (item->type != ITEM_TYPE_MULTI || !item->typeData)
+	{
+		return qfalse;
+	}
+
+	multiDef_t *multiPtr = (multiDef_t*)item->typeData;
+	listBoxDef_t *listPtr = multiPtr->listDef;
+	if (!listPtr || listPtr->dropdownRows <= 0)
+	{
+		return qfalse;
+	}
+	if ((item->window.flags & WINDOW_HORIZONTAL) || listPtr->elementHeight <= 0)
+	{
+		Com_Printf(S_COLOR_YELLOW "WARNING: dropdown on multi '%s' needs an elementheight\n", item->window.name ? item->window.name : "");
+		return qfalse;
+	}
+
+	listPtr->multi = multiPtr;
+	item->typeData = listPtr;
+	item->type = ITEM_TYPE_LISTBOX;
+	return qtrue;
+}
+
+/*
+================
 MenuParse_itemDef
 ================
 */
@@ -1178,6 +1214,10 @@ qboolean MenuParse_itemDef( itemDef_t *item )
 		newItem->parent = menu->items[menu->itemCount]->parent = menu;
 		menu->itemCount++;
 		Item_ApplyHacks( newItem );
+		if (Item_ConvertMultiDropdown( newItem ))
+		{
+			Item_InitControls( newItem );
+		}
 	}
 	else
 	{
@@ -3673,17 +3713,42 @@ qboolean ItemParse_notselectable( itemDef_t *item )
 
 /*
 ===============
+Item_DropdownDef
+	the list box data that the dropdown keywords write: the typeData of a list box,
+	or the data that a multi keeps until Item_ConvertMultiDropdown; NULL for other items
+===============
+*/
+static listBoxDef_t *Item_DropdownDef( itemDef_t *item )
+{
+	Item_ValidateTypeData(item);
+	if (item->type == ITEM_TYPE_LISTBOX)
+	{
+		return (listBoxDef_t*)item->typeData;
+	}
+	if (item->type == ITEM_TYPE_MULTI && item->typeData)
+	{
+		multiDef_t *multiPtr = (multiDef_t*)item->typeData;
+		if (!multiPtr->listDef)
+		{
+			multiPtr->listDef = (listBoxDef_t*)UI_Alloc(sizeof(listBoxDef_t));
+			memset(multiPtr->listDef, 0, sizeof(listBoxDef_t));
+		}
+		return multiPtr->listDef;
+	}
+	return NULL;
+}
+
+/*
+===============
 ItemParse_scrollbarsize
 	scrollbarsize <width>: width of the scrollbar of a list box
 ===============
 */
 qboolean ItemParse_scrollbarsize( itemDef_t *item )
 {
-	listBoxDef_t *listPtr;
-	Item_ValidateTypeData(item);
-	listPtr = (listBoxDef_t*)item->typeData;
+	listBoxDef_t *listPtr = Item_DropdownDef(item);
 
-	if (item->type != ITEM_TYPE_LISTBOX || !listPtr || PC_ParseFloat(&listPtr->scrollbarSize))
+	if (!listPtr || PC_ParseFloat(&listPtr->scrollbarSize))
 	{
 		return qfalse;
 	}
@@ -3698,11 +3763,9 @@ ItemParse_scrollhidden
 */
 qboolean ItemParse_scrollhidden( itemDef_t *item )
 {
-	listBoxDef_t *listPtr;
-	Item_ValidateTypeData(item);
-	listPtr = (listBoxDef_t*)item->typeData;
+	listBoxDef_t *listPtr = Item_DropdownDef(item);
 
-	if (item->type == ITEM_TYPE_LISTBOX && listPtr)
+	if (listPtr)
 	{
 		listPtr->scrollhidden = qtrue;
 	}
@@ -3712,16 +3775,14 @@ qboolean ItemParse_scrollhidden( itemDef_t *item )
 /*
 ===============
 ItemParse_dropdown
-	dropdown <rows>: the list box is a dropdown, the open list shows <rows> rows
+	dropdown <rows>: the list box, or the multi, is a dropdown; the open list shows <rows> rows
 ===============
 */
 qboolean ItemParse_dropdown( itemDef_t *item )
 {
-	listBoxDef_t *listPtr;
-	Item_ValidateTypeData(item);
-	listPtr = (listBoxDef_t*)item->typeData;
+	listBoxDef_t *listPtr = Item_DropdownDef(item);
 
-	if (item->type != ITEM_TYPE_LISTBOX || !listPtr || PC_ParseInt(&listPtr->dropdownRows))
+	if (!listPtr || PC_ParseInt(&listPtr->dropdownRows))
 	{
 		return qfalse;
 	}
@@ -3736,12 +3797,10 @@ ItemParse_dropdownarrow
 */
 qboolean ItemParse_dropdownarrow( itemDef_t *item )
 {
-	listBoxDef_t *listPtr;
+	listBoxDef_t *listPtr = Item_DropdownDef(item);
 	const char *temp;
-	Item_ValidateTypeData(item);
-	listPtr = (listBoxDef_t*)item->typeData;
 
-	if (item->type != ITEM_TYPE_LISTBOX || !listPtr || PC_ParseString(&temp))
+	if (!listPtr || PC_ParseString(&temp))
 	{
 		return qfalse;
 	}
@@ -3860,7 +3919,7 @@ qboolean ItemParse_elementheight( itemDef_t *item )
 	listBoxDef_t *listPtr;
 
 	Item_ValidateTypeData(item);
-	listPtr = (listBoxDef_t*)item->typeData;
+	listPtr = (item->type == ITEM_TYPE_MULTI) ? Item_DropdownDef(item) : (listBoxDef_t*)item->typeData;
 	if (PC_ParseFloat(&listPtr->elementHeight))
 	{
 		return qfalse;
@@ -5082,6 +5141,7 @@ void Item_ValidateTypeData(itemDef_t *item)
 	else if (item->type == ITEM_TYPE_MULTI)
 	{
 		item->typeData = UI_Alloc(sizeof(multiDef_t));
+		memset(item->typeData, 0, sizeof(multiDef_t));
 	}
 	else if (item->type == ITEM_TYPE_MODEL)
 	{
@@ -7268,7 +7328,7 @@ static void Item_ListBox_DropdownListRect(itemDef_t *item, const rectDef_t *head
 {
 	const listBoxDef_t *listPtr = (const listBoxDef_t *)item->typeData;
 	const float border = listPtr->dropdownBorder;
-	const int count = DC->feederCount(item->special);
+	const int count = Item_Feeder_Count(item);
 	const int rows = Com_Clampi(1, listPtr->dropdownRows, count);
 
 	r->x = header->x;
@@ -7317,7 +7377,7 @@ public:
 		Item_ListBox_DropdownListRect(item, &m_header, &g_dropdownOuter);
 		Item_ListBox_DropdownInnerRect(listPtr, &g_dropdownOuter, &item->window.rect);
 		// A list that shows all its entries has no scrollbar.
-		listPtr->scrollhidden = (qboolean)(m_scrollhidden || DC->feederCount(item->special) <= listPtr->dropdownRows);
+		listPtr->scrollhidden = (qboolean)(m_scrollhidden || Item_Feeder_Count(item) <= listPtr->dropdownRows);
 		listPtr->dropdownList = qtrue;
 	}
 
@@ -7377,8 +7437,9 @@ static void Item_ListBox_DropdownHeaderPaint(itemDef_t *item)
 	const listBoxDef_t *listPtr = (const listBoxDef_t *)item->typeData;
 	const rectDef_t *r = &item->window.rect;
 	const float border = listPtr->dropdownBorder;
-	const int count = DC->feederCount(item->special);
+	const int count = Item_Feeder_Count(item);
 
+	Item_Dropdown_SyncSelection(item);
 	if (item->cursorPos >= count)
 	{//probably changed feeders, so reset
 		item->cursorPos = 0;
@@ -7396,7 +7457,7 @@ static void Item_ListBox_DropdownHeaderPaint(itemDef_t *item)
 	}
 
 	qhandle_t optionalImage;
-	const char *text = DC->feederItemText(item->special, item->cursorPos, 0, &optionalImage);
+	const char *text = Item_Feeder_Text(item, item->cursorPos, 0, &optionalImage);
 	if (!text || !text[0])
 	{
 		return;
@@ -7490,7 +7551,7 @@ void Item_ListBox_Paint(itemDef_t *item)
 	// elements are enumerated from the DC and either text or image handles are acquired from the DC as well
 	// textscale is used to size the text, textalignx and textaligny are used to size image elements
 	// there is no clipping available so only the last completely visible item is painted
-	count = DC->feederCount(item->special);
+	count = Item_Feeder_Count(item);
 
 	if (listPtr->startPos > (count?count-1:count))
 	{//probably changed feeders, so reset
@@ -7599,7 +7660,7 @@ void Item_ListBox_Paint(itemDef_t *item)
 		// elements are enumerated from the DC and either text or image handles are acquired from the DC as well
 		// textscale is used to size the text, textalignx and textaligny are used to size image elements
 		// there is no clipping available so only the last completely visible item is painted
-		count = DC->feederCount(item->special);
+		count = Item_Feeder_Count(item);
 
 		if (listPtr->startPos > (count ? count - 1 : count))
 		{//probably changed feeders, so reset
@@ -7844,7 +7905,7 @@ void Item_ListBox_Paint(itemDef_t *item)
 						{
 							char	temp[MAX_STRING_CHARS];
 							int imageStartX = listPtr->columnInfo[j].pos;
-							text = DC->feederItemText(item->special, i, j, &optionalImage);
+							text = Item_Feeder_Text(item, i, j, &optionalImage);
 							if (text[0] == '@')
 							{
 								text = SE_GetString(&text[1]);
@@ -7879,7 +7940,7 @@ void Item_ListBox_Paint(itemDef_t *item)
 					}
 					else
 					{
-						text = DC->feederItemText(item->special, i, 0, &optionalImage);
+						text = Item_Feeder_Text(item, i, 0, &optionalImage);
 						if (optionalImage >= 0)
 						{
 							//DC->drawHandlePic(x + 4 + listPtr->elementHeight, y, listPtr->columnInfo[j].width, listPtr->columnInfo[j].width, optionalImage);
@@ -7984,7 +8045,7 @@ void Item_ListBox_Paint(itemDef_t *item)
 					int j;
 					for (j = 0; j < listPtr->numColumns; j++)
 					{
-						text = DC->feederItemText(item->special, i, j, &optionalImage);
+						text = Item_Feeder_Text(item, i, j, &optionalImage);
 						if (text[0]=='@')
 						{
 							text = SE_GetString( &text[1] );
@@ -8020,7 +8081,7 @@ void Item_ListBox_Paint(itemDef_t *item)
 				else
 				{
 
-					text = DC->feederItemText(item->special, i, 0, &optionalImage);
+					text = Item_Feeder_Text(item, i, 0, &optionalImage);
 					if (optionalImage >= 0)
 					{
 						//DC->drawHandlePic(x + 4 + listPtr->elementHeight, y, listPtr->columnInfo[j].width, listPtr->columnInfo[j].width, optionalImage);
@@ -10340,7 +10401,7 @@ Item_ListBox_MaxScroll
 int Item_ListBox_MaxScroll(itemDef_t *item)
 {
 	listBoxDef_t *listPtr = (listBoxDef_t*)item->typeData;
-	int count = DC->feederCount(item->special);
+	int count = Item_Feeder_Count(item);
 	int max;
 
 	if (item->window.flags & WINDOW_HORIZONTAL)
@@ -11736,7 +11797,7 @@ Item_ListBox_HandleKey
 qboolean Item_ListBox_HandleKey(itemDef_t *item, int key, qboolean down, qboolean force)
 {
 	listBoxDef_t *listPtr = (listBoxDef_t*)item->typeData;
-	int count = DC->feederCount(item->special);
+	int count = Item_Feeder_Count(item);
 	int max, viewmax;
 
 	// The keys of a closed dropdown are Item_ListBox_DropdownHeaderKey.
@@ -11770,7 +11831,7 @@ qboolean Item_ListBox_HandleKey(itemDef_t *item, int key, qboolean down, qboolea
 					}
 					item->cursorPos = listPtr->cursorPos;
 
-					DC->feederSelection(item->special, item->cursorPos, item);
+					Item_Feeder_Select(item, item->cursorPos);
 
 				}
 				else
@@ -11803,7 +11864,7 @@ qboolean Item_ListBox_HandleKey(itemDef_t *item, int key, qboolean down, qboolea
 					}
 					item->cursorPos = listPtr->cursorPos;
 
-					DC->feederSelection(item->special, item->cursorPos, item);
+					Item_Feeder_Select(item, item->cursorPos);
 				}
 				else
 				{
@@ -11840,7 +11901,7 @@ qboolean Item_ListBox_HandleKey(itemDef_t *item, int key, qboolean down, qboolea
 					}
 					item->cursorPos = listPtr->cursorPos;
 
-					DC->feederSelection(item->special, item->cursorPos, item);
+					Item_Feeder_Select(item, item->cursorPos);
 				}
 				else
 				{
@@ -11872,7 +11933,7 @@ qboolean Item_ListBox_HandleKey(itemDef_t *item, int key, qboolean down, qboolea
 					}
 					item->cursorPos = listPtr->cursorPos;
 
-					DC->feederSelection(item->special, item->cursorPos, item);
+					Item_Feeder_Select(item, item->cursorPos);
 
 				}
 				else
@@ -11964,7 +12025,7 @@ qboolean Item_ListBox_HandleKey(itemDef_t *item, int key, qboolean down, qboolea
 				}
 				lastListBoxClickTime = DC->realTime + DOUBLE_CLICK_DELAY;
 				item->cursorPos = listPtr->cursorPos;
-				DC->feederSelection(item->special, item->cursorPos, item);
+				Item_Feeder_Select(item, item->cursorPos);
 			}
 			return qtrue;
 		}
@@ -11999,7 +12060,7 @@ qboolean Item_ListBox_HandleKey(itemDef_t *item, int key, qboolean down, qboolea
 					listPtr->startPos = listPtr->cursorPos - viewmax + 1;
 				}
 				item->cursorPos = listPtr->cursorPos;
-				DC->feederSelection(item->special, item->cursorPos, item);
+				Item_Feeder_Select(item, item->cursorPos);
 			}
 			else
 			{
@@ -12030,7 +12091,7 @@ qboolean Item_ListBox_HandleKey(itemDef_t *item, int key, qboolean down, qboolea
 					listPtr->startPos = listPtr->cursorPos - viewmax + 1;
 				}
 				item->cursorPos = listPtr->cursorPos;
-				DC->feederSelection(item->special, item->cursorPos, item);
+				Item_Feeder_Select(item, item->cursorPos);
 			}
 			else
 			{
@@ -12449,6 +12510,7 @@ static void Item_ListBox_DropdownOpen(itemDef_t *item)
 
 	Item_ListBox_DropdownClose();
 	g_dropdownItem = item;
+	Item_Dropdown_SyncSelection(item);
 	listPtr->cursorPos = item->cursorPos;
 
 	DropdownListScope scope(item);
@@ -12473,7 +12535,7 @@ static void Item_ListBox_DropdownSelect(itemDef_t *item, int index)
 
 	listPtr->cursorPos = index;
 	item->cursorPos = index;
-	DC->feederSelection(item->special, index, item);
+	Item_Feeder_Select(item, index);
 	Item_Action(item);
 }
 
@@ -12515,7 +12577,7 @@ static void Item_ListBox_DropdownMouseMove(menuDef_t *menu, float x, float y)
 	const int rows = (int)(item->window.rect.h / listPtr->elementHeight);
 	const int row = (int)((y - item->window.rect.y - 1) / listPtr->elementHeight);
 	const int index = listPtr->startPos + row;
-	if (row >= 0 && row < rows && index < DC->feederCount(item->special))
+	if (row >= 0 && row < rows && index < Item_Feeder_Count(item))
 	{
 		g_dropdownHover = index;
 		listPtr->cursorPos = index;
@@ -12541,8 +12603,10 @@ static qboolean Item_ListBox_DropdownHeaderKey(itemDef_t *item, int key)
 	}
 
 	const qboolean over = Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory);
-	const int count = DC->feederCount(item->special);
+	const int count = Item_Feeder_Count(item);
 	int step = 0;
+
+	Item_Dropdown_SyncSelection(item);
 
 	switch (key)
 	{
@@ -12690,15 +12754,15 @@ qboolean Item_YesNo_HandleKey(itemDef_t *item, int key)
 
 /*
 =================
-Item_Multi_FindCvarByValue
+Item_Multi_FindIndex
+	the entry of the multi that matches the cvar; 0 if none does
 =================
 */
-int Item_Multi_FindCvarByValue(itemDef_t *item)
+static int Item_Multi_FindIndex(itemDef_t *item, multiDef_t *multiPtr)
 {
 	char buff[1024];
 	float value = 0;
 	int i;
-	multiDef_t *multiPtr = (multiDef_t*)item->typeData;
 	if (multiPtr)
 	{
 		if (multiPtr->strDef)
@@ -12732,6 +12796,16 @@ int Item_Multi_FindCvarByValue(itemDef_t *item)
 
 /*
 =================
+Item_Multi_FindCvarByValue
+=================
+*/
+int Item_Multi_FindCvarByValue(itemDef_t *item)
+{
+	return Item_Multi_FindIndex(item, (multiDef_t*)item->typeData);
+}
+
+/*
+=================
 Item_Multi_CountSettings
 =================
 */
@@ -12743,6 +12817,115 @@ int Item_Multi_CountSettings(itemDef_t *item)
 		return 0;
 	}
 	return multiPtr->count;
+}
+
+/*
+=================
+Item_Multi_Select
+	sets the cvar (or the value) of the multi to an entry, and tells the feeder of the item
+=================
+*/
+static void Item_Multi_Select(itemDef_t *item, multiDef_t *multiPtr, int index)
+{
+	if (item->cvar)
+	{
+		if (multiPtr->strDef)
+		{
+			DC->setCVar(item->cvar, multiPtr->cvarStr[index]);
+		}
+		else
+		{
+			float value = multiPtr->cvarValue[index];
+			if (((float)((int) value)) == value)
+			{
+				DC->setCVar(item->cvar, va("%i", (int) value ));
+			}
+			else
+			{
+				DC->setCVar(item->cvar, va("%f", value ));
+			}
+		}
+	}
+	else
+	{
+		item->value = index;
+	}
+	if (item->special)
+	{//its a feeder?
+		DC->feederSelection(item->special, index, item);
+	}
+}
+
+/*
+=================
+Item_Feeder_Count
+	the number of entries of a list box: from the multi of a multi dropdown, else from the feeder
+=================
+*/
+static int Item_Feeder_Count(itemDef_t *item)
+{
+	const listBoxDef_t *listPtr = (const listBoxDef_t *)item->typeData;
+	if (listPtr && listPtr->multi)
+	{
+		return listPtr->multi->count;
+	}
+	return DC->feederCount(item->special);
+}
+
+/*
+=================
+Item_Feeder_Text
+	the text of an entry of a list box, like DC->feederItemText
+=================
+*/
+static const char *Item_Feeder_Text(itemDef_t *item, int index, int column, qhandle_t *handle)
+{
+	const listBoxDef_t *listPtr = (const listBoxDef_t *)item->typeData;
+	if (listPtr && listPtr->multi)
+	{
+		*handle = -1;
+		if (column != 0 || index < 0 || index >= listPtr->multi->count)
+		{
+			return "";
+		}
+		return listPtr->multi->cvarList[index];
+	}
+	return DC->feederItemText(item->special, index, column, handle);
+}
+
+/*
+=================
+Item_Feeder_Select
+	selects an entry of a list box: sets the cvar of the multi of a multi dropdown, else tells the feeder
+=================
+*/
+static void Item_Feeder_Select(itemDef_t *item, int index)
+{
+	const listBoxDef_t *listPtr = (const listBoxDef_t *)item->typeData;
+	if (listPtr && listPtr->multi)
+	{
+		if (index >= 0 && index < listPtr->multi->count)
+		{
+			Item_Multi_Select(item, listPtr->multi, index);
+		}
+		return;
+	}
+	DC->feederSelection(item->special, index, item);
+}
+
+/*
+=================
+Item_Dropdown_SyncSelection
+	the selected entry of a multi dropdown is the one that matches its cvar
+=================
+*/
+static void Item_Dropdown_SyncSelection(itemDef_t *item)
+{
+	const listBoxDef_t *listPtr = (const listBoxDef_t *)item->typeData;
+	if (listPtr && listPtr->multi)
+	{
+		item->cursorPos = item->cvar ? Item_Multi_FindIndex(item, listPtr->multi) : item->value;
+	}
 }
 
 
@@ -12836,26 +13019,7 @@ qboolean Item_Multi_HandleKey(itemDef_t *item, int key)
 						}
 					}
 
-					if (multiPtr->strDef)
-					{
-						DC->setCVar(item->cvar, multiPtr->cvarStr[current]);
-					}
-					else
-					{
-						float value = multiPtr->cvarValue[current];
-						if (((float)((int) value)) == value)
-						{
-							DC->setCVar(item->cvar, va("%i", (int) value ));
-						}
-						else
-						{
-							DC->setCVar(item->cvar, va("%f", value ));
-						}
-					}
-					if (item->special)
-					{//its a feeder?
-						DC->feederSelection(item->special, current, item);
-					}
+					Item_Multi_Select(item, multiPtr, current);
 				}
 				else
 				{
