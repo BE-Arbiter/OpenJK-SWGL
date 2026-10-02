@@ -13408,6 +13408,14 @@ void Item_Action(itemDef_t *item)
 	}
 }
 
+// keys that can start a combination while a binding is captured
+static qboolean Key_IsBindModifier(int key)
+{
+	return (key == A_SHIFT || key == A_CTRL || key == A_ALT
+		|| key == A_PAD0_LEFTSHOULDER || key == A_PAD0_RIGHTSHOULDER
+		|| key == A_PAD0_LEFTTRIGGER || key == A_PAD0_RIGHTTRIGGER) ? qtrue : qfalse;
+}
+
 /*
 =================
 Menu_HandleKey
@@ -13425,6 +13433,54 @@ void Menu_HandleKey(menuDef_t *menu, int key, qboolean down)
 	}
 
 	inHandler = qtrue;
+
+	// the gamepad A button clicks where the right stick put the cursor
+	if (key == A_PAD0_A && !g_waitingForKey && !g_editingField)
+	{
+		key = A_MOUSE1;
+	}
+
+	// A modifier pressed while a binding is captured waits for the next key,
+	// to bind a combination; released alone it is bound by itself.
+	static int bindModifier = -1;
+	if (!g_waitingForKey)
+	{
+		bindModifier = -1;
+	}
+	else if (!down)
+	{
+		if (bindModifier != -1 && key == bindModifier)
+		{
+			const int modifier = bindModifier;
+			bindModifier = -1;
+			Item_Bind_HandleKey(g_bindItem, modifier, qtrue);
+			inHandler = qfalse;
+			return;
+		}
+	}
+	else if (!(key & K_CHAR_FLAG) && key != A_ESCAPE && key != A_BACKSPACE)
+	{
+		if (bindModifier == -1 && Key_IsBindModifier(key))
+		{
+			bindModifier = key;
+			inHandler = qfalse;
+			return;
+		}
+
+		if (bindModifier != -1 && key != bindModifier)
+		{
+			const int combo = DC->keyCombo(bindModifier, key);
+			bindModifier = -1;
+			Item_Bind_HandleKey(g_bindItem, combo != -1 ? combo : key, down);
+			inHandler = qfalse;
+			return;
+		}
+	}
+	else if (!(key & K_CHAR_FLAG))
+	{
+		bindModifier = -1;
+	}
+
 	if (g_waitingForKey && down)
 	{
 		Item_Bind_HandleKey(g_bindItem, key, down);

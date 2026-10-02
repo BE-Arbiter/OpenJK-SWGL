@@ -196,6 +196,7 @@ typedef struct {
 	qboolean	(*getOverstrikeMode)();
 	float		(*getValue) (int ownerDraw);
 	void		(*keynumToStringBuf)( int keynum, char *buf, int buflen );
+	int			(*keyCombo)( int modifier, int key );
 	void		(*modelBounds) (qhandle_t model, vec3_t min, vec3_t max);
 	qboolean	(*ownerDrawHandleKey)(int ownerDraw, int flags, float *special, int key);
 	void		(*ownerDrawItem) (float x, float y, float w, float h, float text_x, float text_y, int ownerDraw, int ownerDrawFlags, int align, float special, float scale, vec4_t color, qhandle_t shader, int textStyle, int iFontIndex);

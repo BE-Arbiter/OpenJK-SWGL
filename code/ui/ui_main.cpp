@@ -3484,6 +3484,7 @@ extern void	Item_RunScript(itemDef_t *item, const char *s);		//from ui_shared;
 
 void Key_KeynumToStringBuf( int keynum, char *buf, int buflen );
 void Key_GetBindingBuf( int keynum, char *buf, int buflen );
+int Key_ComboKeynum( int modifier, int key );
 
 static qboolean UI_Crosshair_HandleKey(int flags, float *special, int key)
 {
@@ -4353,6 +4354,7 @@ void _UI_Init( qboolean inGameLoad )
 	uiInfo.uiDC.getOverstrikeMode	= &trap_Key_GetOverstrikeMode;
 	uiInfo.uiDC.getValue			= &UI_GetValue;
 	uiInfo.uiDC.keynumToStringBuf	= &Key_KeynumToStringBuf;
+	uiInfo.uiDC.keyCombo			= &Key_ComboKeynum;
 	uiInfo.uiDC.modelBounds			= &trap_R_ModelBounds;
 	uiInfo.uiDC.ownerDrawVisible	= &UI_OwnerDrawVisible;
 	uiInfo.uiDC.ownerDrawWidth		= &UI_OwnerDrawWidth;
