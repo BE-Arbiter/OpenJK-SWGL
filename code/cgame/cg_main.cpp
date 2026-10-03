@@ -93,6 +93,7 @@ void CG_DrawDataPadObjectives(const centity_t *cent );
 void CG_DrawDataPadWeaponSelect( void );
 void CG_LDO_DrawWeapons( void );
 void CG_DrawDataPadForceSelect( void );
+qboolean CG_GetAmmoName( int ammoIndex, char *name, int nameSize );
 
 /*
 ================
@@ -248,6 +249,8 @@ Ghoul2 Insert End
 			CG_DrawCharactersMenu();
 		}
 		return 0;
+	case CG_GET_AMMO_NAME:
+		return CG_GetAmmoName((int)arg0, (char *)arg1, (int)arg2);
 	}
 	return -1;
 }
@@ -395,6 +398,7 @@ vmCvar_t	cg_speeds;
 
 vmCvar_t	cg_missionInfoFlashTime;
 vmCvar_t	cg_hudFiles;
+vmCvar_t	cg_validJKO;
 
 vmCvar_t	cg_neverHearThatDumbBeepingSoundAgain;
 
@@ -567,6 +571,7 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_skippingcin, "skippingCinematic", "0", CVAR_ROM},
 	{ &cg_missionInfoFlashTime, "cg_missionInfoFlashTime", "10000", 0  },
 	{ &cg_hudFiles, "cg_hudFiles", "ui/jahud.txt", CVAR_ARCHIVE},
+	{ &cg_validJKO, "g_validJKO", "0", 0},
 
 	{ &cg_VariantSoundCap, "cg_VariantSoundCap", "0", 0 },
 	{ &cg_turnAnims, "cg_turnAnims", "0", 0 },
@@ -1580,6 +1585,7 @@ static void CG_RegisterGraphics( void ) {
 	cgs.media.weaponIconBackground	= cgi_R_RegisterShaderNoMip( "gfx/hud/background");
 	cgs.media.forceIconBackground	= cgi_R_RegisterShaderNoMip( "gfx/hud/background_f");
 	cgs.media.inventoryIconBackground= cgi_R_RegisterShaderNoMip( "gfx/hud/background_i");
+	CG_RegisterJK2Hud();
 	cgs.media.dataPadFrame			= cgi_R_RegisterShaderNoMip( "gfx/menus/datapad");
 	cgs.media.dataPadLoadoutFrame			= cgi_R_RegisterShaderNoMip( "gfx/menus/equipment_bg");
 
@@ -3264,6 +3270,14 @@ void CG_LoadHudMenu(void)
 //	cgi_UI_String_Init();
 
 //	cgi_UI_Menu_Reset();
+
+	// The JK2 HUD needs the JKO assets; without them go back to the default HUD.
+	if ( CG_JK2HudRequested() && !CG_JK2HudActive() )
+	{
+		CG_Printf( S_COLOR_YELLOW "JK2 HUD needs the JKO assets, using default\n" );
+		cgi_Cvar_Set( "cg_hudFiles", "ui/jahud.txt" );
+		cgi_Cvar_Update( &cg_hudFiles );
+	}
 
 	hudSet = cg_hudFiles.string;
 	if (hudSet[0] == '\0')

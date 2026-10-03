@@ -49,12 +49,70 @@ cvar_t		*con_timestamps;
 #define CON_SCROLL_R_CHAR		'$'
 #define CON_TIMESTAMP_LEN		11 // "[13:37:00] "
 #define CON_MIN_WIDTH			20
+#define CON_CLOCK_LEN			11 // "[13:37:00] "
+#define CON_TITLE				"Star Wars - Galactic Legacy"
 
 
 static const conChar_t CON_WRAP = { { ColorIndex(COLOR_GREY), '\\' } };
 static const conChar_t CON_BLANK = { { ColorIndex(COLOR_WHITE), CON_BLANK_CHAR } };
 
 vec4_t	console_color = {0.509f, 0.609f, 0.847f, 1.0f};
+
+/*
+================
+Con_ClockString
+
+Writes the current local time as HH:mm:ss.
+================
+*/
+void Con_ClockString( char *buf, int size )
+{
+	time_t t = time( NULL );
+	struct tm *tms = localtime( &t );
+
+	Com_sprintf( buf, size, "%02d:%02d:%02d", tms->tm_hour, tms->tm_min, tms->tm_sec );
+}
+
+/*
+================
+Con_VersionString
+
+Returns the console title. Adds the first line of SWGL_version.info if the file exists.
+================
+*/
+static const char *Con_VersionString( void )
+{
+	static char		version[128];
+	static qboolean	loaded = qfalse;
+
+	if ( loaded ) {
+		return version;
+	}
+	loaded = qtrue;
+	Q_strncpyz( version, CON_TITLE, sizeof( version ) );
+
+	char *buf = NULL;
+	int len = FS_ReadFile( "SWGL_version.info", (void **)&buf );
+	if ( len <= 0 || !buf ) {
+		return version;
+	}
+
+	char content[96];
+	int n = 0;
+	for ( int i = 0; i < len && buf[i] != '\r' && buf[i] != '\n' && n < (int)sizeof( content ) - 1; i++ ) {
+		content[n++] = buf[i];
+	}
+	while ( n > 0 && (content[n - 1] == ' ' || content[n - 1] == '\t') ) {
+		n--;
+	}
+	content[n] = '\0';
+	FS_FreeFile( buf );
+
+	if ( content[0] ) {
+		Com_sprintf( version, sizeof( version ), "%s : %s", CON_TITLE, content );
+	}
+	return version;
+}
 
 /*
 ================
@@ -385,7 +443,7 @@ void Con_CheckResize (void)
 	con.linewidth = width;
 	con.xadjust = ((float)SCREEN_WIDTH) / cls.glconfig.vidWidth;
 	con.yadjust = ((float)SCREEN_HEIGHT) / cls.glconfig.vidHeight;
-	g_consoleField.widthInChars = width - 1; // Command prompt
+	g_consoleField.widthInChars = width - CON_CLOCK_LEN; // Clock prompt
 
 	if (con.rowwidth != rowwidth)
 	{
@@ -572,11 +630,19 @@ void Con_DrawInput (void) {
 
 	y = con.vislines - ( con.charHeight * (re.Language_IsAsian() ? 1.5 : 2) );
 
+	char clock[CON_CLOCK_LEN + 1];
+	Con_ClockString( clock, sizeof( clock ) );
+	re.SetColor( con.color );
+	SCR_DrawSmallChar( con.charWidth, y, '[' );
+	SCR_DrawSmallChar( (CON_CLOCK_LEN - 1) * con.charWidth, y, ']' );
+	re.SetColor( g_color_table[ColorIndex(COLOR_CYAN)] );
+	for ( int i = 0; clock[i]; i++ ) {
+		SCR_DrawSmallChar( (i + 2) * con.charWidth, y, clock[i] );
+	}
+
 	re.SetColor( con.color );
 
-	Field_Draw( &g_consoleField, 2 * con.charWidth, y, qtrue, qtrue );
-
-	SCR_DrawSmallChar( con.charWidth, y, CONSOLE_PROMPT_CHAR );
+	Field_Draw( &g_consoleField, (1 + CON_CLOCK_LEN) * con.charWidth, y, qtrue, qtrue );
 
 	re.SetColor( g_color_table[ColorIndex(COLOR_GREY)] );
 
@@ -713,18 +779,11 @@ void Con_DrawSolidConsole( float frac )
 		y = 0;
 	}
 	else {
-		// draw the background at full opacity only if fullscreen
-		if (frac < 1.0f)
-		{
-			vec4_t con_color;
-			MAKERGBA(con_color, 1.0f, 1.0f, 1.0f, Com_Clamp(0.0f, 1.0f, con_opacity->value));
-			re.SetColor(con_color);
-		}
-		else
-		{
-			re.SetColor(NULL);
-		}
-		SCR_DrawPic( 0, 0, SCREEN_WIDTH, y, cls.consoleShader );
+		// draw a black background, opaque only if fullscreen
+		vec4_t con_color;
+		MAKERGBA(con_color, 0.0f, 0.0f, 0.0f, (frac < 1.0f) ? Com_Clamp(0.0f, 1.0f, con_opacity->value) : 1.0f);
+		re.SetColor(con_color);
+		re.DrawStretchPic( 0, 0, SCREEN_WIDTH, y, 0, 0, 0, 0, cls.whiteShader );
 	}
 
 	// draw the bottom bar and version number
@@ -732,11 +791,12 @@ void Con_DrawSolidConsole( float frac )
 	re.SetColor( console_color );
 	re.DrawStretchPic( 0, y, SCREEN_WIDTH, 2, 0, 0, 0, 0, cls.whiteShader );
 
-	i = strlen( JK_VERSION );
+	const char *version = Con_VersionString();
+	i = strlen( version );
 
 	for (x=0 ; x<i ; x++) {
 		SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x + 1 ) * con.charWidth,
-			(lines-(con.charHeight+con.charHeight/2)), JK_VERSION[x] );
+			(lines-(con.charHeight+con.charHeight/2)), version[x] );
 	}
 
 	// draw the input prompt, user text, and cursor if desired

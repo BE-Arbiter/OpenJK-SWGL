@@ -304,6 +304,8 @@ static consoleCommand_t	commands[] = {
 	{ "uiNpcWeaponPrev",		CG_NPC_PrevWeapon_f},
 	{ "uiNpcWeaponLabelUpd",		CG_NPC_UpdateLabel}, 
 	{ "characterUpdateSearch",		CG_Characters_SearchChanged_f},
+	{ "characterConfigsRefresh",		CG_Characters_ConfigsRefresh_f},
+	{ "characterBack",		CG_Characters_Back_f},
 	{ "characterButtonClick",		CG_Characters_CharacterClick_f},
 	{ "characterVariantClick",		CG_Characters_VariantClick_f},
 	{ "characterVariantPreviousPage",		CG_Characters_VariantPreviousPage_f},

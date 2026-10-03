@@ -87,6 +87,11 @@ typedef struct listBoxDef_s {
 //JLF MPMOVED
 	qboolean	scrollhidden;
 	float		scrollbarSize;		// "scrollbarsize" keyword; 0 = SCROLLBAR_SIZE
+	int			dropdownRows;		// "dropdown" keyword; 0 = normal list box
+	qhandle_t	dropdownArrow;		// "dropdownarrow" keyword; 0 = scrollBarArrowDown
+	qboolean	dropdownList;		// the rect of the item is the open list, not the header
+	float		dropdownBorder;		// border size of a dropdown; the dropdown paints its border, not Window_Paint
+	struct multiDef_s *multi;		// a dropdown made from an ITEM_TYPE_MULTI: the entries and the cvar come from it, not from a feeder
 } listBoxDef_t;
 
 
@@ -108,6 +113,7 @@ typedef struct multiDef_s {
 	float		cvarValue[MAX_MULTI_CVARS];
 	int			count;
 	qboolean	strDef;
+	listBoxDef_t *listDef;		// the "dropdown" keywords of the item; Item_ConvertMultiDropdown turns the item into a list box
 } multiDef_t;
 
 #define CVAR_ENABLE		0x00000001
@@ -190,6 +196,7 @@ typedef struct {
 	qboolean	(*getOverstrikeMode)();
 	float		(*getValue) (int ownerDraw);
 	void		(*keynumToStringBuf)( int keynum, char *buf, int buflen );
+	int			(*keyCombo)( int modifier, int key );
 	void		(*modelBounds) (qhandle_t model, vec3_t min, vec3_t max);
 	qboolean	(*ownerDrawHandleKey)(int ownerDraw, int flags, float *special, int key);
 	void		(*ownerDrawItem) (float x, float y, float w, float h, float text_x, float text_y, int ownerDraw, int ownerDrawFlags, int align, float special, float scale, vec4_t color, qhandle_t shader, int textStyle, int iFontIndex);

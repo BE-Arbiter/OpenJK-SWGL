@@ -7434,10 +7434,18 @@ qboolean PM_SaberStanceAnim( int anim )
 	case BOTH_SABERSLOW_STANCE://single-saber, strong style
 	case BOTH_SABERSTAFF_STANCE://saber staff style
 	case BOTH_SABERDUAL_STANCE://dual saber style
+	case BOTH_SABERTAVION_STANCE://single-saber, tavion style
+	case BOTH_SABERDESSAN_STANCE://single-saber, desann style
 		return qtrue;
 		break;
 	}
 	return qfalse;
+}
+
+// Return the style stance. Return the fallback when the model has no frames for it.
+static int PM_StyleStanceOrFallback( int stance, int fallback )
+{
+	return PM_HasAnimation( pm->gent, stance ) ? stance : fallback;
 }
 
 qboolean PM_SaberDrawPutawayAnim( int anim )
@@ -7552,6 +7560,8 @@ qboolean PM_AdjustStandAnimForSlope( void )
 		case BOTH_STAND2:
 		case BOTH_SABERFAST_STANCE:
 		case BOTH_SABERSLOW_STANCE:
+		case BOTH_SABERTAVION_STANCE:
+		case BOTH_SABERDESSAN_STANCE:
 		case BOTH_CROUCH1IDLE:
 		case BOTH_CROUCH1:
 		case LEGS_LEFTUP1:			//# On a slope with left foot 4 higher than right
@@ -7730,6 +7740,8 @@ qboolean PM_AdjustStandAnimForSlope( void )
 			case BOTH_STAND2:
 			case BOTH_SABERFAST_STANCE:
 			case BOTH_SABERSLOW_STANCE:
+			case BOTH_SABERTAVION_STANCE:
+			case BOTH_SABERDESSAN_STANCE:
 			case BOTH_CROUCH1IDLE:
 				if ( destAnim >= LEGS_LEFTUP1 && destAnim <= LEGS_LEFTUP5 )
 				{//going into left side up
@@ -8282,8 +8294,13 @@ static void PM_Footsteps( void )
 						switch ( pm->ps->saberAnimLevel )
 						{
 						case SS_FAST:
-						case SS_TAVION:
 							legsAnim = BOTH_SABERFAST_STANCE;
+							break;
+						case SS_TAVION:
+							legsAnim = PM_StyleStanceOrFallback( BOTH_SABERTAVION_STANCE, BOTH_SABERFAST_STANCE );
+							break;
+						case SS_DESANN:
+							legsAnim = PM_StyleStanceOrFallback( BOTH_SABERDESSAN_STANCE, BOTH_STAND2 );
 							break;
 						case SS_STRONG:
 							legsAnim = BOTH_SABERSLOW_STANCE;
@@ -8296,7 +8313,6 @@ static void PM_Footsteps( void )
 							break;
 						case SS_NONE:
 						case SS_MEDIUM:
-						case SS_DESANN:
 						default:
 							legsAnim = BOTH_STAND2;
 							break;
@@ -9340,15 +9356,24 @@ int PM_ReadyPoseForSaberAnimLevel( void )
 		anim = BOTH_SABERSTAFF_STANCE;
 		break;
 	case SS_FAST:
-	case SS_TAVION:
 		anim = BOTH_SABERFAST_STANCE;
+		break;
+	case SS_TAVION:
+		anim = PM_StyleStanceOrFallback( BOTH_SABERTAVION_STANCE, BOTH_SABERFAST_STANCE );
 		break;
 	case SS_STRONG:
 		anim = BOTH_SABERSLOW_STANCE;
 		break;
+	case SS_DESANN:
+		if ( PM_HasAnimation( pm->gent, BOTH_SABERDESSAN_STANCE ) )
+		{
+			anim = BOTH_SABERDESSAN_STANCE;
+			break;
+		}
+		// no desann stance on this model: use the default stance
+		// fall through
 	case SS_NONE:
 	case SS_MEDIUM:
-	case SS_DESANN:
 	default:
 		if((!Q_stricmp(EP3_VADER, pm->gent->NPC_type) || !Q_stricmp(ANAKIN_INFINITIES, pm->gent->NPC_type) || (pm->gent == player && (!Q_stricmp("anakin_dark", g_char_model->string) || !Q_stricmp("anakin_dl", g_char_model->string)))) && pm->ps->saberAnimLevel != SS_MEDIUM)
 			anim = BOTH_SABERFAST_STANCE;
@@ -9666,7 +9691,9 @@ void PM_SetSaberMove(saberMoveName_t newMove)
 		|| (0 && anim == BOTH_SABERSTAFF_STANCE)
 		|| anim == BOTH_SABERDUAL_STANCE
 		|| anim == BOTH_SABERFAST_STANCE
-		|| anim == BOTH_SABERSLOW_STANCE )
+		|| anim == BOTH_SABERSLOW_STANCE
+		|| anim == BOTH_SABERTAVION_STANCE
+		|| anim == BOTH_SABERDESSAN_STANCE )
 	{//match torso anim to walk/run anim if newMove is just LS_READY
 		//FIXME: play both_stand2_random1 when you've been idle for a while
 		switch ( pm->ps->legsAnim )
@@ -11669,7 +11696,8 @@ void PM_CheckKick( void )
 		&& (pm->cmd.upmove >= 0 ) )//not trying to duck
 	{//player kicks
 		//FIXME: only if FP_SABER_OFFENSE >= 3
-		if ( pm->cmd.rightmove )
+		//the strongest axis picks the direction: a stick never reads exactly 0 on the other one
+		if ( pm->cmd.rightmove && abs( pm->cmd.rightmove ) >= abs( pm->cmd.forwardmove ) )
 		{//kick to side
 			if ( pm->cmd.rightmove > 0 )
 			{//kick right

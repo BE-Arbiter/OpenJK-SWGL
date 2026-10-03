@@ -1988,6 +1988,10 @@ typedef enum //# animNumber_e
 	// Cut standing animation from JK2
 	BOTH_STAND7,
 
+	// Saber stances for SS_TAVION and SS_DESANN
+	BOTH_SABERTAVION_STANCE,
+	BOTH_SABERDESSAN_STANCE,
+
 	//# #eol
 	MAX_ANIMATIONS,
 	MAX_TOTALANIMATIONS,

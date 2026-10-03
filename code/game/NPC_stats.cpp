@@ -1212,17 +1212,30 @@ static mdxaHeader_t *G_ReadGLAHeader(const char *path)
 ======================
 G_AnimOverrideName
 
-Returns <name> if skeletonName is "_humanoid_o_<name>", the virtual skeleton of an animation override.
+Returns the override folder if skeletonName is "_humanoid_o_<key>", the virtual skeleton of an animation override:
+"_<key>" if models/players/_<key>/_<key>.gla exists, else "<key>" (the same choice as the renderer).
 Returns NULL for all other skeletons.
 ======================
 */
 static const char *G_AnimOverrideName(const char *skeletonName)
 {
 	static char overrideName[MAX_QPATH];
+	char overrideKey[MAX_QPATH];
 	char glaPath[MAX_QPATH];
 
 	Com_sprintf(glaPath, sizeof(glaPath), "models/players/%s/%s.gla", skeletonName, skeletonName);
-	return GLA_GetOverrideName(glaPath, overrideName, sizeof(overrideName)) ? overrideName : NULL;
+	if (!GLA_GetOverrideName(glaPath, overrideKey, sizeof(overrideKey)))
+	{
+		return NULL;
+	}
+
+	Com_sprintf(overrideName, sizeof(overrideName), "_%s", overrideKey);
+	Com_sprintf(glaPath, sizeof(glaPath), "models/players/%s/%s.gla", overrideName, overrideName);
+	if (gi.FS_ReadFile(glaPath, NULL) <= 0)
+	{
+		Q_strncpyz(overrideName, overrideKey, sizeof(overrideName));
+	}
+	return overrideName;
 }
 
 /*
@@ -1391,7 +1404,7 @@ int		G_ParseAnimFileSet(const char *skeletonName, const char *modelName=0)
 			}
 		}
 
-		// An animation override skeleton "_humanoid_o_<name>" starts from the _humanoid animations.
+		// An animation override skeleton "_humanoid_o_<key>" starts from the _humanoid animations.
 		char overrideName[MAX_QPATH] = { 0 };
 		const char *foundOverride = G_AnimOverrideName(skeletonName);
 		if (foundOverride)
@@ -1544,12 +1557,17 @@ void G_LoadAnimFileSet( gentity_t *ent, const char *pModelName )
 }
 
 // Writes the path of the virtual GLA of an animation override, or "" for no override.
+// "default" gives _humanoid.gla: the model does not use the override of its animoverride.cfg.
 static void G_AnimOverrideGLAPath(const char *overrideName, char *glaPath, int glaPathSize)
 {
 	glaPath[0] = 0;
-	if (overrideName && overrideName[0])
+	if (overrideName && !Q_stricmp(overrideName, "default"))
 	{
-		Com_sprintf(glaPath, glaPathSize, "models/players/" GLA_OVERRIDE_SKELETON "%s/" GLA_OVERRIDE_SKELETON "%s.gla", overrideName, overrideName);
+		Q_strncpyz(glaPath, GLA_HUMANOID_PATH, glaPathSize);
+	}
+	else if (overrideName && overrideName[0])
+	{
+		GLA_OverridePath(overrideName, glaPath, glaPathSize);
 	}
 }
 
@@ -1558,7 +1576,7 @@ static void G_AnimOverrideGLAPath(const char *overrideName, char *glaPath, int g
 G_SetAnimOverride
 
 Forces the animation override <overrideName> on an entity, in place of the override of its model.
-NULL or "" removes it. Returns qfalse if the override GLA is missing or does not have the skeleton of the model.
+"default" forces _humanoid.gla. NULL or "" removes it. Returns qfalse if the override GLA is missing or does not have the skeleton of the model.
 ======================
 */
 qboolean G_SetAnimOverride(gentity_t *ent, const char *overrideName)
@@ -1577,7 +1595,7 @@ qboolean G_SetAnimOverride(gentity_t *ent, const char *overrideName)
 		return qfalse;
 	}
 
-	// The animation file set follows the GLA of the instance: "_humanoid_o_<name>", or the set of the model.
+	// The animation file set follows the GLA of the instance: "_humanoid_o_<key>", or the set of the model.
 	char modelName[MAX_QPATH];
 	Q_strncpyz(modelName, ghoul2.mFileName, sizeof(modelName));
 	char *slash = strrchr(modelName, '/');
@@ -1598,7 +1616,7 @@ qboolean G_SetAnimOverride(gentity_t *ent, const char *overrideName)
 G_RestoreAnimOverrides
 
 Sets the override GLA again after a savegame load. The saved Ghoul2 data does not keep it,
-but the animation file set of the entity ("_humanoid_o_<name>") is saved.
+but the animation file set of the entity ("_humanoid_o_<key>") is saved.
 ======================
 */
 void G_RestoreAnimOverrides(void)
@@ -1617,7 +1635,17 @@ void G_RestoreAnimOverrides(void)
 			continue;
 		}
 
-		const char *overrideName = G_AnimOverrideName(level.knownAnimFileSets[fileIndex].filename);
+		const char *fileSet = level.knownAnimFileSets[fileIndex].filename;
+		const char *overrideName = G_AnimOverrideName(fileSet);
+		if (!overrideName && !Q_stricmp(fileSet, "_humanoid"))
+		{
+			// "_humanoid" on a model with an override GLA: "animoverride default" was set.
+			const char *glaName = gi.G2API_GetGLAName(&ent->ghoul2[ent->playerModel]);
+			if (glaName && Q_stricmp(glaName, GLA_HUMANOID_DIR "/_humanoid"))
+			{
+				overrideName = "default";
+			}
+		}
 		if (overrideName)
 		{
 			char glaPath[MAX_QPATH];

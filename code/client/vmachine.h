@@ -69,7 +69,8 @@ Ghoul2 Insert End
 	CG_DRAW_PLAYER_WEAPON_LABEL_4,
 	CG_DRAW_PLAYER_WEAPON_LABEL_5,
 	CG_DRAW_PLAYER_WEAPON_LABEL_6,
-	CG_DRAW_CHARACTERS
+	CG_DRAW_CHARACTERS,
+	CG_GET_AMMO_NAME	// ( int ammoIndex, char *name, int nameSize ): qtrue if the player uses this ammo type
 } cgameExport_t;
 
 /*
