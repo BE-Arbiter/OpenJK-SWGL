@@ -32,9 +32,14 @@ File for default fire behavior
 #include "g_effects.h"
 
 
+qboolean IsScopedZoom(void)
+{
+	return (qboolean)(cg.zoomMode >= ST_A280 || cg.zoomMode == ST_DISRUPTOR);
+}
+
 qboolean is_player_scoped(gentity_t* ent)
 {
-	return (qboolean)((cg.zoomMode >= ST_A280 || cg.zoomMode == ST_DISRUPTOR) && ent->client->ps.clientNum == 0);
+	return (qboolean)(IsScopedZoom() && ent->client->ps.clientNum == 0);
 }
 
 /*
@@ -233,7 +238,7 @@ float WP_GetSpread(gentity_t* ent, weaponAttackData_t *attackData)
 	float spread; 
 	if (diff < 0) {
 		//Very easy to avoid since spread is huge
-		return attackData->npcSpread[0] * (10*(-diff));
+		return (attackData->npcSpread[0] < 0 ? attackData->spread : attackData->npcSpread[0]) * (10*(-diff));
 	}
 	else if (diff > 2)
 	{
@@ -241,8 +246,8 @@ float WP_GetSpread(gentity_t* ent, weaponAttackData_t *attackData)
 		return 0;
 	}
 	spread = attackData->npcSpread[diff];
-	if (spread <= 0)
-	{
+	if (spread < 0)
+	{// Unset for this difficulty
 		return attackData->spread;
 	}
 	return spread;

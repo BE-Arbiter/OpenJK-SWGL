@@ -2626,6 +2626,7 @@ const char* getStringValueForweaponCategory(const weaponCategory_t* wc)
 
 	switch (*wc)
 	{
+	case WC_UNSET:      return "WC_UNSET";
 	case WC_NONE:       return "WC_NONE";
 	case WC_MELEE:      return "WC_MELEE";
 	case WC_STUN_BATON: return "WC_STUN_BATON";

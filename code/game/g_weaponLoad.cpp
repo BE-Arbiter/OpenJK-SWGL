@@ -36,6 +36,26 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 weaponAttackData_t* currentAttackData = NULL;
 
+// Unset values (-1) become 0 once the inheritance is done
+static void WPN_ClearUnset(weaponData_t* wpn)
+{
+	if (wpn->ammoIndex == -1) { wpn->ammoIndex = 0; }
+	if (wpn->ammoLow == -1) { wpn->ammoLow = 0; }
+	if (wpn->numBarrels == -1) { wpn->numBarrels = 0; }
+	if (wpn->scopeType == -1) { wpn->scopeType = 0; }
+	if (wpn->weaponCategory == WC_UNSET) { wpn->weaponCategory = WC_NONE; }
+	for (int k = 0; k < MAX_WEAPON_ATTACKS; k++)
+	{
+		weaponAttackData_t* atk = &wpn->attackData[k];
+		if (atk->energyPerShot == -1) { atk->energyPerShot = 0; }
+		if (atk->damage == -1) { atk->damage = 0; }
+		if (atk->defaultDamage == -1) { atk->defaultDamage = 0; }
+		if (atk->splashDamage == -1) { atk->splashDamage = 0; }
+		if (atk->splashRadius == -1) { atk->splashRadius = 0; }
+		if (atk->spread == -1) { atk->spread = 0; }
+	}
+}
+
 //--------------------------------------------
 // Warning prefixed with the weapon being parsed
 //--------------------------------------------
@@ -266,7 +286,7 @@ void WPN_WeaponCategory(const char** holdBuf)
 		weaponCategory = WC_STUN_BATON;
 	}
 	else {
-		weaponCategory = WC_NONE;
+		weaponCategory = WC_UNSET;
 		WPN_Warn("Invalid value %s for WeaponCategory in external WEAPONS.DAT\n", tokenStr);
 	}
 	weaponData[wpnParms.weaponNum].weaponCategory = weaponCategory;
@@ -1031,23 +1051,22 @@ void ATK_NpcDamage(const char** holdBuf)
 void ATK_NpcSpread(const char** holdBuf)
 {
 	int i;
-	int	tokenInt;
+	float	tokenFlt;
 
 	for (i = 0; i < 3; ++i)
 	{
-		if (COM_ParseInt(holdBuf, &tokenInt))
+		if (COM_ParseFloat(holdBuf, &tokenFlt))
 		{
 			SkipRestOfLine(holdBuf);
 			continue;
 		}
 
-		if ((tokenInt < 0))
+		if (tokenFlt < 0)
 		{
-			WPN_Warn("bad npcSpread[%d] in external weapon data '%d'\n", i, tokenInt);
-			weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcSpread[i] = 0;
-			continue;
+			WPN_Warn("bad npcSpread[%d] in external weapon data '%f'\n", i, tokenFlt);
+			continue;	// Stays unset
 		}
-		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcSpread[i] = tokenInt;
+		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcSpread[i] = tokenFlt;
 	}
 
 }
@@ -1492,6 +1511,7 @@ void WPN_ParseAttack(const char** holdBuf)
 	{
 		Com_Error(ERR_DROP, "Fatal Error while parsing weapons.dat, an attack definition is badly formated!");
 	}
+	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].parsed = qtrue;
 	WP_ParseAtkParms(holdBuf);
 }
 
@@ -1584,9 +1604,20 @@ void WP_LoadWeaponParms(void)
 	for (int i = 0; i < MAX_WEAPONS; i++) {
 		weaponData[i].playerUsable = qunset;
 		weaponData[i].scopefullMask = qunset;
+		weaponData[i].weaponCategory = WC_UNSET;
+		weaponData[i].ammoIndex = -1;
+		weaponData[i].ammoLow = -1;
+		weaponData[i].numBarrels = -1;
+		weaponData[i].scopeType = -1;
 		for (int k = 0; k < MAX_WEAPON_ATTACKS; k++)
 		{
 			weaponData[i].attackData[k].bounceCount = -1;
+			weaponData[i].attackData[k].energyPerShot = -1;
+			weaponData[i].attackData[k].damage = -1;
+			weaponData[i].attackData[k].defaultDamage = -1;
+			weaponData[i].attackData[k].splashDamage = -1;
+			weaponData[i].attackData[k].splashRadius = -1;
+			weaponData[i].attackData[k].spread = -1;
 			weaponData[i].attackData[k].chargeMuzzleScale = -1;
 			weaponData[i].attackData[k].beamRadius = -1;
 			weaponData[i].attackData[k].selfKnockback = -1;
@@ -1601,6 +1632,9 @@ void WP_LoadWeaponParms(void)
 			weaponData[i].attackData[k].npcVelocity[0] = -1;
 			weaponData[i].attackData[k].npcVelocity[1] = -1;
 			weaponData[i].attackData[k].npcVelocity[2] = -1;
+			weaponData[i].attackData[k].npcSpread[0] = -1;
+			weaponData[i].attackData[k].npcSpread[1] = -1;
+			weaponData[i].attackData[k].npcSpread[2] = -1;
 			weaponData[i].attackData[k].blockability[0] = B_UNSET;
 			weaponData[i].attackData[k].blockability[1] = B_UNSET;
 			weaponData[i].attackData[k].blockability[2] = B_UNSET;
@@ -1676,23 +1710,23 @@ void WP_LoadWeaponParms(void)
 
 
 				//Copiyng raw values.
-				weaponData[i].ammoIndex = weaponData[i].ammoIndex == 0 ? weaponData[j].ammoIndex : weaponData[i].ammoIndex;
-				weaponData[i].ammoLow = weaponData[i].ammoLow == 0 ? weaponData[j].ammoLow : weaponData[i].ammoLow;
+				weaponData[i].ammoIndex = weaponData[i].ammoIndex == -1 ? weaponData[j].ammoIndex : weaponData[i].ammoIndex;
+				weaponData[i].ammoLow = weaponData[i].ammoLow == -1 ? weaponData[j].ammoLow : weaponData[i].ammoLow;
 
-				weaponData[i].numBarrels = weaponData[i].numBarrels == 0 ? weaponData[j].numBarrels : weaponData[i].numBarrels;
+				weaponData[i].numBarrels = weaponData[i].numBarrels == -1 ? weaponData[j].numBarrels : weaponData[i].numBarrels;
 
 				for (int k = 0; k < MAX_WEAPON_ATTACKS; k++) {
 
 					weaponData[i].attackData[k].firingLogic = weaponData[i].attackData[k].firingLogic == 0 ? weaponData[j].attackData[k].firingLogic : weaponData[i].attackData[k].firingLogic;
-					weaponData[i].attackData[k].defaultDamage = weaponData[i].attackData[k].defaultDamage == 0 ? weaponData[j].attackData[k].defaultDamage : weaponData[i].attackData[k].defaultDamage;
-					weaponData[i].attackData[k].energyPerShot = weaponData[i].attackData[k].energyPerShot == 0 ? weaponData[j].attackData[k].energyPerShot : weaponData[i].attackData[k].energyPerShot;
+					weaponData[i].attackData[k].defaultDamage = weaponData[i].attackData[k].defaultDamage == -1 ? weaponData[j].attackData[k].defaultDamage : weaponData[i].attackData[k].defaultDamage;
+					weaponData[i].attackData[k].energyPerShot = weaponData[i].attackData[k].energyPerShot == -1 ? weaponData[j].attackData[k].energyPerShot : weaponData[i].attackData[k].energyPerShot;
 					weaponData[i].attackData[k].fireTime = weaponData[i].attackData[k].fireTime == 0 ? weaponData[j].attackData[k].fireTime : weaponData[i].attackData[k].fireTime;
 					weaponData[i].attackData[k].range = weaponData[i].attackData[k].range == 0 ? weaponData[j].attackData[k].range : weaponData[i].attackData[k].range;
-					weaponData[i].attackData[k].damage = weaponData[i].attackData[k].damage == 0 ? weaponData[j].attackData[k].damage : weaponData[i].attackData[k].damage;
-					weaponData[i].attackData[k].splashDamage = weaponData[i].attackData[k].splashDamage == 0 ? weaponData[j].attackData[k].splashDamage : weaponData[i].attackData[k].splashDamage;
-					weaponData[i].attackData[k].splashRadius = weaponData[i].attackData[k].splashRadius == 0 ? weaponData[j].attackData[k].splashRadius : weaponData[i].attackData[k].splashRadius;
+					weaponData[i].attackData[k].damage = weaponData[i].attackData[k].damage == -1 ? weaponData[j].attackData[k].damage : weaponData[i].attackData[k].damage;
+					weaponData[i].attackData[k].splashDamage = weaponData[i].attackData[k].splashDamage == -1 ? weaponData[j].attackData[k].splashDamage : weaponData[i].attackData[k].splashDamage;
+					weaponData[i].attackData[k].splashRadius = weaponData[i].attackData[k].splashRadius == -1 ? weaponData[j].attackData[k].splashRadius : weaponData[i].attackData[k].splashRadius;
 					weaponData[i].attackData[k].velocity = weaponData[i].attackData[k].velocity == 0 ? weaponData[j].attackData[k].velocity : weaponData[i].attackData[k].velocity;
-					weaponData[i].attackData[k].spread = weaponData[i].attackData[k].spread == 0 ? weaponData[j].attackData[k].spread : weaponData[i].attackData[k].spread;
+					weaponData[i].attackData[k].spread = weaponData[i].attackData[k].spread == -1 ? weaponData[j].attackData[k].spread : weaponData[i].attackData[k].spread;
 
 					weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount == -1 ? weaponData[j].attackData[k].bounceCount : weaponData[i].attackData[k].bounceCount;
 					weaponData[i].attackData[k].chargeMuzzleScale = weaponData[i].attackData[k].chargeMuzzleScale == -1 ? weaponData[j].attackData[k].chargeMuzzleScale : weaponData[i].attackData[k].chargeMuzzleScale;
@@ -1819,12 +1853,12 @@ void WP_LoadWeaponParms(void)
 					}
 				}
 
-				weaponData[i].scopeType = weaponData[i].scopeType == 0 ? weaponData[j].scopeType : weaponData[i].scopeType;
+				weaponData[i].scopeType = weaponData[i].scopeType == -1 ? weaponData[j].scopeType : weaponData[i].scopeType;
 
 				weaponData[i].secondaryMdl = weaponData[i].secondaryMdl == 0 ? weaponData[j].secondaryMdl : weaponData[i].secondaryMdl;
 				weaponData[i].playerUsable = weaponData[i].playerUsable == qunset ? weaponData[j].playerUsable : weaponData[i].playerUsable;
 				weaponData[i].scopefullMask = weaponData[i].scopefullMask == qunset ? weaponData[j].scopefullMask : weaponData[i].scopefullMask;
-				weaponData[i].weaponCategory = weaponData[i].weaponCategory == WC_NONE ? weaponData[j].weaponCategory : weaponData[i].weaponCategory;
+				weaponData[i].weaponCategory = weaponData[i].weaponCategory == WC_UNSET ? weaponData[j].weaponCategory : weaponData[i].weaponCategory;
 				weaponData[i].weaponBucket = weaponData[i].weaponBucket == 0 ? weaponData[j].weaponBucket : weaponData[i].weaponBucket;
 				weaponData[i].baseWeaponNum = j;
 
@@ -1840,7 +1874,7 @@ void WP_LoadWeaponParms(void)
 				if (ammoCount == MAX_AMMO) {
 					Com_Error(ERR_DROP, "Error, Too many ammo in AmmoData\n");
 				}
-				ammoData_t* baseAmmo = &ammoData[weaponData[baseWeapon].ammoIndex];
+				ammoData_t* baseAmmo = &ammoData[weaponData[baseWeapon].ammoIndex > 0 ? weaponData[baseWeapon].ammoIndex : 0];
 				ammoData[ammoCount].max = baseAmmo->max;
 				Q_strncpyz(ammoData[ammoCount].icon, weaponData[i].weaponIcon, 64);
 				ammoData[ammoCount].giveWeaponIndex = i;
@@ -1848,7 +1882,25 @@ void WP_LoadWeaponParms(void)
 				ammoCount++;
 			}
 		}
+		// A scoped attack without attackType takes the one of its main/alt attack when the weapon has a scope, else the game ignores it
+		for (int k = 2; k < MAX_WEAPON_ATTACKS; k++)
+		{
+			weaponAttackData_t* scopedAttack = &weaponData[i].attackData[k];
+			if (!scopedAttack->parsed || scopedAttack->firingLogic != FL_NONE)
+			{
+				continue;
+			}
+			if (weaponData[i].scopeType > ST_NONE)
+			{
+				scopedAttack->firingLogic = weaponData[i].attackData[k - 2].firingLogic;
+			}
+			if (scopedAttack->firingLogic == FL_NONE)
+			{
+				gi.Printf(S_COLOR_YELLOW"WARNING: weapon '%s': the %s attack has no attackType, it is ignored\n", weaponData[i].classname, (k == 2) ? "scoped_main" : "scoped_alt");
+			}
+		}
 		/* Replace unset Value with false or 0 */
+		WPN_ClearUnset(&weaponData[i]);
 		weaponData[i].playerUsable = weaponData[i].playerUsable != qunset ? weaponData[i].playerUsable : qfalse;
 		weaponData[i].scopefullMask = weaponData[i].scopefullMask != qunset ? weaponData[i].scopefullMask : qfalse;
 		for (int k = 0; k < MAX_WEAPON_ATTACKS; k++)
@@ -1876,6 +1928,11 @@ void WP_LoadWeaponParms(void)
 				weaponData[i].attackData[k].npcDamage[2] = weaponData[i].attackData[k].damage * 0.9f;
 			}
 		}
+	}
+	// Unused slots must not keep the unset values either
+	for (int i = weaponCount; i < MAX_WEAPONS; i++)
+	{
+		WPN_ClearUnset(&weaponData[i]);
 	}
 	//Sort weapons in buckets
 	int buckets[-WB_OTHERS][MAX_WEAPONS];

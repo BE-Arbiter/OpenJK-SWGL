@@ -291,7 +291,8 @@ typedef struct weaponIndexes_s
 } weaponIndexes_t;
 
 typedef enum{
-	WC_NONE, //Only for weapon none else is "unset"
+	WC_UNSET = -1, //Not defined in the weapon data, inherited from the base weapon then WC_NONE
+	WC_NONE = 0, //Explicitly no category (weapon none)
 	WC_MELEE, //Like melee
 	WC_STUN_BATON, //For this specific weapons. Is handled by "other case"
 	WC_MELEE_1H, //Like Tusken Staff
@@ -309,6 +310,7 @@ typedef enum{
 typedef struct weaponAttackData_s
 {
 	firingLogic_t firingLogic; //The method of fire for this attack
+	qboolean parsed;					// The attack block exists in the weapon data
 
 	/* Base Data */
 	int		energyPerShot;				// Amount of energy used per shot
