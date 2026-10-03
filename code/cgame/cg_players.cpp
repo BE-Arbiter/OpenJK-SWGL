@@ -1138,14 +1138,8 @@ static void CG_PlayerAnimEventDo( centity_t *cent, animevent_t *animEvent )
 		break;
 	case AEV_FIRE:
 		//add fire event
-		if ( animEvent->eventData[AED_FIRE_ALT] )
-		{
-			G_AddEvent( cent->gent, EV_ALT_FIRE, 0 );
-		}
-		else
-		{
-			G_AddEvent( cent->gent, EV_FIRE_WEAPON, 0 );
-		}
+		//the animation event gives the attack index (0 main, 1 alt)
+		G_AddEvent( cent->gent, EV_FIRE_WEAPON + (animEvent->eventData[AED_FIRE_ATTACK] & 3), 0 );
 		break;
 	case AEV_MOVE:
 		//make him jump
@@ -4023,7 +4017,6 @@ static void CG_LightningBolt( centity_t *cent, vec3_t origin )
 		return;
 
 	//Must be a durational weapon
-//	if ( cent->currentState.weapon == WP_DEMP2 && cent->currentState.eFlags & EF_ALT_FIRING )
 //	{ /*nothing*/ }
 //	else
 	{
@@ -5669,30 +5662,17 @@ static void CG_HandleWeaponSounds( centity_t *cent )
 	//Handle weapon Looping Sounds
 	const char* muzzleEffect = CG_GetMuzzleEffect(cent, wpnData);
 	qboolean playEffect = muzzleEffect ? qtrue : qfalse;
-	//We are Main Firing
-	if ( (cent->currentState.eFlags & EF_FIRING) && !(cent->currentState.eFlags & EF_ALT_FIRING) && playEffect)
+	//We are Firing: the sounds come from the attack in use
+	if ( (cent->currentState.eFlags & EF_FIRING) && playEffect)
 	{
-		if (cent->pe.lightningFiring == qfalse && weapon->weaponAttacksInfo[0].startSound)
+		const weaponAttackInfo_t *attackInfo = &weapon->weaponAttacksInfo[CG_CurrentAttackIndex(cent)];
+		if (cent->pe.lightningFiring == qfalse && attackInfo->startSound)
 		{
-			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->weaponAttacksInfo[0].startSound);
+			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, attackInfo->startSound);
 		}
-		if ( weapon->weaponAttacksInfo[0].firingSound)
+		if ( attackInfo->firingSound)
 		{
-			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[0].firingSound,CHAN_WEAPON );
-			cent->pe.lightningFiring = qtrue;
-		}
-
-	}
-	//We are alt Firing (or pressing both buttons)
-	else if ( cent->currentState.eFlags & EF_ALT_FIRING && playEffect)
-	{
-		if (cent->pe.lightningFiring == qfalse && weapon->weaponAttacksInfo[1].startSound)
-		{
-			cgi_S_StartSound(cent->lerpOrigin, cent->currentState.number, CHAN_WEAPON, weapon->weaponAttacksInfo[1].startSound);
-		}
-		if ( weapon->weaponAttacksInfo[1].firingSound)
-		{
-			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, weapon->weaponAttacksInfo[1].firingSound, CHAN_WEAPON);
+			cgi_S_AddLoopingSound( cent->currentState.number, cent->lerpOrigin, vec3_origin, attackInfo->firingSound, CHAN_WEAPON );
 			cent->pe.lightningFiring = qtrue;
 		}
 
@@ -8931,7 +8911,7 @@ SkipTrueView:
 					{
 						if (!es->number)
 						{//player, just use left one, I guess
-							if (cent->gent->alt_fire)
+							if (cent->gent->attack_index)
 							{
 								bolt = cent->gent->handRBolt;
 							}
@@ -8953,7 +8933,7 @@ SkipTrueView:
 					}
 					else	// ATST SIDE weapons
 					{
-						if (cent->gent->alt_fire)
+						if (cent->gent->attack_index)
 						{
 							bolt = cent->gent->genericBolt2;
 						}
@@ -8978,7 +8958,7 @@ SkipTrueView:
 					}
 					else//repeater
 					{
-						if (cent->gent->alt_fire && cent->gent->client->ps.weapon != WP_SBD && cent->gent->client->ps.weapon != WP_DROIDEKA)
+						if (cent->gent->attack_index && cent->gent->client->ps.weapon != WP_SBD && cent->gent->client->ps.weapon != WP_DROIDEKA)
 						{//fire from the lower barrel (not that anyone will ever notice this, but...)
 							bolt = cent->gent->genericBolt3;
 						}
@@ -9037,7 +9017,7 @@ SkipTrueView:
 					qboolean getBoth = qfalse;
 					int	oldOne = 0;
 					if ( (cent->muzzleFlashTime > 0 && wData && !(cent->currentState.eFlags & EF_LOCKED_TO_WEAPON )) //TOGGLING Case
-						|| (cent->gent->client->ps.weaponstate == WEAPON_CHARGING || cent->gent->client->ps.weaponstate == WEAPON_CHARGING_ALT) //Charge Case
+						|| (cent->gent->client->ps.weaponstate == WEAPON_CHARGING) //Charge Case
 						|| CG_IsChargedAttack(cent)  //Firing both weapon at the same time
 						)
 					{
@@ -9721,7 +9701,7 @@ Ghoul2 Insert End
 				}
 
 
-				if (( cent->currentState.eFlags & EF_FIRING || cent->currentState.eFlags & EF_ALT_FIRING ) && effect )
+				if (( cent->currentState.eFlags & EF_FIRING ) && effect )
 				{
 					vec3_t up={0,0,1}, ax[3];
 
@@ -9773,7 +9753,7 @@ Ghoul2 Insert End
 		playerState_t *ps = &cg.predicted_player_state;
 
 		//Normally, the weapons should not charging if they are not supposed to...
-		if ( ps->weaponstate == WEAPON_CHARGING_ALT || ps->weaponstate == WEAPON_CHARGING )
+		if ( ps->weaponstate == WEAPON_CHARGING )
 		{
 			int		shader = 0;
 			float	val = 0.0f, scale = 1.0f;
@@ -9812,8 +9792,7 @@ Ghoul2 Insert End
 			}
 
 			//Overwrite the muzzle effect if needed
-			qboolean altFire = (ps->weaponstate == WEAPON_CHARGING_ALT) ? qtrue : qfalse;
-			int attackIndex = CG_GetAttackIndex(cent->gent, altFire);
+			int attackIndex = ps->attack_index;
 			if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) 
 			{
 				shader = cg_weapons[weapon].weaponAttacksInfo[attackIndex].chargeMuzzleShader;

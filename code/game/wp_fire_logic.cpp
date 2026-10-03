@@ -43,11 +43,47 @@ qboolean is_player_scoped(gentity_t* ent)
 }
 
 /*
+	Resolve the attack index (0 main, 1 alt, 2 scoped_main, 3 scoped_alt) from the second button.
+	This is the only place that maps the two buttons to an attack: the scoped player gets the scoped
+	pair, a missing scoped_alt falls back to scoped_main. An attack locked by a burst wins.
+*/
+int WP_ResolveAttackIndex(gentity_t *gent, qboolean secondaryButton)
+{
+	if (!gent || !gent->client)
+	{
+		return secondaryButton ? 1 : 0;
+	}
+	int attackIndex = secondaryButton ? 1 : 0;
+	if (gent->client->ps.clientNum > 0)
+	{
+		return attackIndex;
+	}
+	if (gent->client->ps.firing_attack >= 0)
+	{
+		return gent->client->ps.firing_attack;
+	}
+	if (IsScopedZoom())
+	{
+		const weaponData_t &wpn = weaponData[gent->s.weapon];
+		if (secondaryButton && wpn.attackData[3].firingLogic != FL_NONE)
+		{
+			return 3;
+		}
+		if (wpn.attackData[2].firingLogic != FL_NONE)
+		{
+			return 2;
+		}
+	}
+	return attackIndex;
+}
+
+/*
 	Set the method of death based on the weapon
 */
-void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, int attackIndex) 
+void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, int attackIndex)
 {
-	qboolean altFire = (qboolean)(attackIndex == 1 || attackIndex == 3);
+	// the MOD_*_ALT variants belong to the odd attacks (alt and scoped_alt)
+	qboolean altMod = (qboolean)(attackIndex & 1);
 	weaponData_t weapon = weaponData[weaponNum];
 	weaponAttackData_t attack = weapon.attackData[attackIndex];
 	if (attack.methodOfDeath != MOD_UNKNOWN)
@@ -62,88 +98,88 @@ void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, int attackIndex)
 		case WP_BRYAR_PISTOL:
 		case WP_BLASTER_PISTOL:
 		case WP_TUSKEN_RIFLE:
-			missile->methodOfDeath = altFire ? MOD_BRYAR_ALT : MOD_BRYAR;
-			missile->splashMethodOfDeath = altFire ? MOD_BRYAR_ALT : MOD_BRYAR;
+			missile->methodOfDeath = altMod ? MOD_BRYAR_ALT : MOD_BRYAR;
+			missile->splashMethodOfDeath = altMod ? MOD_BRYAR_ALT : MOD_BRYAR;
 			return;
 		case WP_BOWCASTER:
-			missile->methodOfDeath = altFire ? MOD_BOWCASTER_ALT : MOD_BOWCASTER;
-			missile->splashMethodOfDeath = altFire ? MOD_BOWCASTER_ALT : MOD_BOWCASTER;
+			missile->methodOfDeath = altMod ? MOD_BOWCASTER_ALT : MOD_BOWCASTER;
+			missile->splashMethodOfDeath = altMod ? MOD_BOWCASTER_ALT : MOD_BOWCASTER;
 			return;
 		case WP_DEMP2:
-			missile->methodOfDeath = altFire ? MOD_DEMP2_ALT : MOD_DEMP2;
-			missile->splashMethodOfDeath = altFire ? MOD_DEMP2_ALT : MOD_DEMP2;
+			missile->methodOfDeath = altMod ? MOD_DEMP2_ALT : MOD_DEMP2;
+			missile->splashMethodOfDeath = altMod ? MOD_DEMP2_ALT : MOD_DEMP2;
 			return;			
 		case WP_REPEATER:
-			missile->methodOfDeath = altFire ? MOD_REPEATER_ALT: MOD_REPEATER;
-			missile->splashMethodOfDeath = altFire ? MOD_REPEATER_ALT: MOD_REPEATER;
+			missile->methodOfDeath = altMod ? MOD_REPEATER_ALT: MOD_REPEATER;
+			missile->splashMethodOfDeath = altMod ? MOD_REPEATER_ALT: MOD_REPEATER;
 			return;
 		case WP_FLECHETTE:
-			missile->methodOfDeath = altFire ? MOD_FLECHETTE_ALT : MOD_FLECHETTE;
-			missile->splashMethodOfDeath = altFire ? MOD_FLECHETTE_ALT : MOD_FLECHETTE;
+			missile->methodOfDeath = altMod ? MOD_FLECHETTE_ALT : MOD_FLECHETTE;
+			missile->splashMethodOfDeath = altMod ? MOD_FLECHETTE_ALT : MOD_FLECHETTE;
 			return;
 		case WP_NOGHRI_STICK:
 			missile->methodOfDeath = MOD_BLASTER ;
 			missile->splashMethodOfDeath = MOD_GAS;
 			return;
 		case WP_DISRUPTOR:
-			missile->methodOfDeath = altFire ? MOD_SNIPER : MOD_DISRUPTOR;
-			missile->splashMethodOfDeath = altFire ? MOD_SNIPER : MOD_DISRUPTOR;
+			missile->methodOfDeath = altMod ? MOD_SNIPER : MOD_DISRUPTOR;
+			missile->splashMethodOfDeath = altMod ? MOD_SNIPER : MOD_DISRUPTOR;
 			return;
 		case WP_CONCUSSION:
-			missile->methodOfDeath = altFire ? MOD_CONC_ALT : MOD_CONC;
-			missile->splashMethodOfDeath = altFire ? MOD_CONC_ALT : MOD_CONC;
+			missile->methodOfDeath = altMod ? MOD_CONC_ALT : MOD_CONC;
+			missile->splashMethodOfDeath = altMod ? MOD_CONC_ALT : MOD_CONC;
 			return;
 		case WP_ROCKET_LAUNCHER:
-			missile->methodOfDeath = altFire ? MOD_ROCKET_ALT : MOD_ROCKET;
-			missile->splashMethodOfDeath = altFire ? MOD_ROCKET_ALT : MOD_ROCKET;
+			missile->methodOfDeath = altMod ? MOD_ROCKET_ALT : MOD_ROCKET;
+			missile->splashMethodOfDeath = altMod ? MOD_ROCKET_ALT : MOD_ROCKET;
 			return;
 		case WP_THERMAL:
-			missile->methodOfDeath = altFire ? MOD_THERMAL_ALT : MOD_THERMAL;
-			missile->splashMethodOfDeath = altFire ? MOD_THERMAL_ALT : MOD_THERMAL;
+			missile->methodOfDeath = altMod ? MOD_THERMAL_ALT : MOD_THERMAL;
+			missile->splashMethodOfDeath = altMod ? MOD_THERMAL_ALT : MOD_THERMAL;
 			return;
 		case WP_DET_PACK:
 			missile->methodOfDeath = MOD_DETPACK;
 			missile->splashMethodOfDeath = MOD_DETPACK;
 			return;
 		case WP_TRIP_MINE:
-			missile->methodOfDeath = altFire ? MOD_LASERTRIP_ALT: MOD_LASERTRIP;
-			missile->splashMethodOfDeath = altFire ? MOD_LASERTRIP_ALT : MOD_LASERTRIP;
+			missile->methodOfDeath = altMod ? MOD_LASERTRIP_ALT: MOD_LASERTRIP;
+			missile->splashMethodOfDeath = altMod ? MOD_LASERTRIP_ALT : MOD_LASERTRIP;
 			return;
 		case WP_CLONERIFLE:
-			missile->methodOfDeath = altFire ? MOD_CLONERIFLE_ALT : MOD_CLONERIFLE;
-			missile->splashMethodOfDeath = altFire ? MOD_CLONERIFLE_ALT : MOD_CLONERIFLE;
+			missile->methodOfDeath = altMod ? MOD_CLONERIFLE_ALT : MOD_CLONERIFLE;
+			missile->splashMethodOfDeath = altMod ? MOD_CLONERIFLE_ALT : MOD_CLONERIFLE;
 			return;
 		case WP_REBELBLASTER:
-			missile->methodOfDeath = altFire ? MOD_REBELBLASTER_ALT : MOD_REBELBLASTER;
-			missile->splashMethodOfDeath = altFire ? MOD_REBELBLASTER_ALT : MOD_REBELBLASTER;
+			missile->methodOfDeath = altMod ? MOD_REBELBLASTER_ALT : MOD_REBELBLASTER;
+			missile->splashMethodOfDeath = altMod ? MOD_REBELBLASTER_ALT : MOD_REBELBLASTER;
 			return;
 		case WP_CLONECOMMANDO:
-			missile->methodOfDeath = altFire ? MOD_CLONECOMMANDO_ALT : MOD_CLONECOMMANDO;
-			missile->splashMethodOfDeath = altFire ? MOD_CLONECOMMANDO_ALT : MOD_CLONECOMMANDO;
+			missile->methodOfDeath = altMod ? MOD_CLONECOMMANDO_ALT : MOD_CLONECOMMANDO;
+			missile->splashMethodOfDeath = altMod ? MOD_CLONECOMMANDO_ALT : MOD_CLONECOMMANDO;
 			return;
 		case WP_REBELRIFLE:
-			missile->methodOfDeath = altFire ? MOD_REBELRIFLE_ALT : MOD_REBELRIFLE;
-			missile->splashMethodOfDeath = altFire ? MOD_REBELRIFLE_ALT : MOD_REBELRIFLE;
+			missile->methodOfDeath = altMod ? MOD_REBELRIFLE_ALT : MOD_REBELRIFLE;
+			missile->splashMethodOfDeath = altMod ? MOD_REBELRIFLE_ALT : MOD_REBELRIFLE;
 			return;
 		case WP_REY:
-			missile->methodOfDeath = altFire ? MOD_REY_ALT : MOD_REY;
-			missile->splashMethodOfDeath = altFire ? MOD_REY_ALT : MOD_REY;
+			missile->methodOfDeath = altMod ? MOD_REY_ALT : MOD_REY;
+			missile->splashMethodOfDeath = altMod ? MOD_REY_ALT : MOD_REY;
 			return;
 		case WP_JANGO:
-			missile->methodOfDeath = altFire ? MOD_JANGO_ALT : MOD_JANGO;
-			missile->splashMethodOfDeath = altFire ? MOD_JANGO_ALT : MOD_JANGO;
+			missile->methodOfDeath = altMod ? MOD_JANGO_ALT : MOD_JANGO;
+			missile->splashMethodOfDeath = altMod ? MOD_JANGO_ALT : MOD_JANGO;
 			return;
 		case WP_BOBA:
-			missile->methodOfDeath = altFire ? MOD_BOBA_ALT : MOD_BOBA;
-			missile->splashMethodOfDeath = altFire ? MOD_BOBA_ALT : MOD_BOBA;
+			missile->methodOfDeath = altMod ? MOD_BOBA_ALT : MOD_BOBA;
+			missile->splashMethodOfDeath = altMod ? MOD_BOBA_ALT : MOD_BOBA;
 			return;
 		case WP_CLONEPISTOL:
-			missile->methodOfDeath = altFire ? MOD_CLONEPISTOL_ALT : MOD_CLONEPISTOL;
-			missile->splashMethodOfDeath = altFire ? MOD_CLONEPISTOL_ALT : MOD_CLONEPISTOL;
+			missile->methodOfDeath = altMod ? MOD_CLONEPISTOL_ALT : MOD_CLONEPISTOL;
+			missile->splashMethodOfDeath = altMod ? MOD_CLONEPISTOL_ALT : MOD_CLONEPISTOL;
 			return;
 		case WP_CIS_SNIPER:
-			missile->methodOfDeath = altFire ? MOD_CIS_SNIPER_ALT : MOD_CIS_SNIPER;
-			missile->splashMethodOfDeath = altFire ? MOD_CIS_SNIPER_ALT : MOD_CIS_SNIPER;
+			missile->methodOfDeath = altMod ? MOD_CIS_SNIPER_ALT : MOD_CIS_SNIPER;
+			missile->splashMethodOfDeath = altMod ? MOD_CIS_SNIPER_ALT : MOD_CIS_SNIPER;
 			return;
 		case WP_SBD:
 			missile->methodOfDeath = MOD_SBD;
@@ -155,8 +191,8 @@ void WP_SetMethodOfDeath(gentity_t *missile,int weaponNum, int attackIndex)
 			return;
 		case WP_BLASTER : 
 		default:
-			missile->methodOfDeath = altFire ? MOD_BLASTER_ALT : MOD_BLASTER;
-			missile->splashMethodOfDeath = altFire ? MOD_BLASTER_ALT : MOD_BLASTER;
+			missile->methodOfDeath = altMod ? MOD_BLASTER_ALT : MOD_BLASTER;
+			missile->splashMethodOfDeath = altMod ? MOD_BLASTER_ALT : MOD_BLASTER;
 	}
 }
 
@@ -191,7 +227,7 @@ int WP_GetVelocity(gentity_t* ent,weaponAttackData_t * attackData) {
 /*
 	Return the damage, taking into account Weapon Type, Entity Type & Class + Difficulty
 */
-int WP_GetWeaponDamage(gentity_t* ent, weaponAttackData_t* attackData, qboolean altFire = qfalse) 
+int WP_GetWeaponDamage(gentity_t* ent, weaponAttackData_t* attackData)
 {
 	int baseWeaponNum = weaponData[ent->s.weapon].baseWeaponNum ? weaponData[ent->s.weapon].baseWeaponNum : ent->s.weapon;
 	// Player and those NPC do Normal Damage
@@ -640,7 +676,7 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 
 
 			WP_SetMethodOfDeath(missile, ent->s.weapon, attackIndex);
-			missile->damage = WP_GetWeaponDamage(ent, attackData, qfalse);
+			missile->damage = WP_GetWeaponDamage(ent, attackData);
 			missile->dflags = DAMAGE_DEATH_KNOCKBACK;
 			missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
 			missile->splashDamage = attackData->splashDamage;
@@ -690,16 +726,14 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 	// The trace start will originate at the eye so we can ensure that it hits the crosshair.
 	if (ent->s.number != 0)
 	{
-		qboolean isNpcAltdamage = qfalse;
 		VectorCopy(muzzle, start);
-		if (attackData->firingLogic == FL_BEAM_CHARGED) 
+		if (attackData->firingLogic == FL_BEAM_CHARGED)
 		{
 			fullCharge = qtrue;
 			traces = maxHits = DISRUPTOR_ALT_TRACES;
-			isNpcAltdamage = qtrue;
 		}
 		//DWS-TODO : Need to do something else here to remove the Disruptor NPC damage constant..
-		damage = WP_GetWeaponDamage(ent, attackData,isNpcAltdamage); //We don't check for alt fire but for charged.
+		damage = WP_GetWeaponDamage(ent, attackData);
 	}
 	else if(attackData->firingLogic == FL_BEAM_CHARGED)
 	{
@@ -1396,11 +1430,8 @@ gentity_t* WP_FireGrenade(gentity_t* ent, int attackIndex)
 		}
 	}
 
-	if (attackIndex)
-	{
-		bolt->alt_fire = qtrue;
-	}
-	else
+	bolt->attack_index = attackIndex;
+	if (!attackIndex)
 	{
 		bolt->s.eFlags |= EF_BOUNCE_HALF;
 	}

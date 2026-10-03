@@ -1121,8 +1121,8 @@ Ghoul2 Insert End
 	float		wait;
 	float		random;
 	int			delay;
-	qboolean	alt_fire;		
-	int			attack_index; // for projectiles, so that we know where to find the effects
+	qboolean	alt_fire;		// generic flag of movers (linear), turrets (barrel) and sabers (state), never a weapon attack
+	int			attack_index; // attack (0..3) of the last shot fired, or of the projectile: tells where to find the data and the effects
 	int			count;
 	int			bobaCounter;
 	int			bounceCount;

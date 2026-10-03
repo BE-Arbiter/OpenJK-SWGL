@@ -438,12 +438,6 @@ typedef struct ammoData_s
 //--------------
 #define HIGH_POWERED_DAMAGE			200
 
-// Attack Options
-//--------
-#define MAIN_ATTACK 		1
-#define ALT_ATTACK			2
-#define SCOPED_MAIN_ATTACK  3
-#define SCOPED_ALT_ATTACK   4
 
 // Npc constants
 //-----------------

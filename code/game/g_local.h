@@ -468,6 +468,7 @@ void G_ApplyKnockback( gentity_t *targ, const vec3_t newDir, float knockback );
 void G_Throw( gentity_t *targ, const vec3_t newDir, float push );
 qboolean IsScopedZoom( void );			// The player zoom is a scope (sniper or rifle scope)
 qboolean is_player_scoped( gentity_t *ent );
+int WP_ResolveAttackIndex( gentity_t *gent, qboolean secondaryButton );	// the one place that maps the buttons to an attack index
 
 // damage flags
 #define DAMAGE_RADIUS			0x00000001	// damage was indirect

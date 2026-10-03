@@ -164,30 +164,18 @@ void CG_InitItemForWeapon(gitem_t* item, int weaponNum) {
 
 /*
 =================
-CG_GetAttackIndex
+CG_CurrentAttackIndex
 
-Return The attack Index of the attack
+The attack index the game resolved for the entity (see WP_ResolveAttackIndex), or the one of the projectile
 =================
 */
-int CG_GetAttackIndex(gentity_t *gent,qboolean alt_fire) 
+int CG_CurrentAttackIndex(const centity_t *cent)
 {
-	int weaponNum = gent->s.weapon;
-	if (gent->client && gent->client->ps.clientNum > 0) {
-		return alt_fire ? 1 : 0;
+	if (cent->gent && cent->gent->client)
+	{
+		return cent->gent->client->ps.attack_index;
 	}
-	if (gent->client && gent->client->ps.firing_attack >= 0) {
-		return gent->client->ps.firing_attack;
-	}
-	int attackIndex = alt_fire ? 1 : 0;
-	if (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode >= ST_A280) {
-		if (alt_fire && weaponData[weaponNum].attackData[3].firingLogic != FL_NONE) {
-			return 3;
-		}
-		else if (weaponData[weaponNum].attackData[2].firingLogic != FL_NONE) {
-			return 2;
-		}
-	}
-	return attackIndex;
+	return cent->gent ? cent->gent->attack_index : 0;
 }
 /*
 =================
@@ -1179,7 +1167,7 @@ void CG_SetGhoul2InfoRef( refEntity_t *ent, refEntity_t	*s1)
 qboolean CG_IsChargedAttack(centity_t* cent) 
 {
 	int weaponNum = cent->gent->s.weapon;
-	int attackIndex = CG_GetAttackIndex(cent->gent, cent->altFire);
+	int attackIndex = CG_CurrentAttackIndex(cent);
 	weaponAttackData_t *attackData = &weaponData[weaponNum].attackData[attackIndex];
 	if (attackData->firingLogic == FL_BEAM_CHARGED
 		|| attackData->firingLogic == FL_BOWCASTER
@@ -1194,7 +1182,7 @@ qboolean CG_IsChargedAttack(centity_t* cent)
 const char* CG_GetMuzzleEffect(const centity_t* cent, const weaponData_t* wData) {
 	const char* effect = NULL;
 		
-	int attackIndex = CG_GetAttackIndex(cent->gent, cent->altFire);
+	int attackIndex = CG_CurrentAttackIndex(cent);
 	// I declared this variable just for readability.
 
 	//If I can't fire cause I'm underwater, don't play the effect.
@@ -1580,7 +1568,7 @@ void CG_AddViewWeapon( playerState_t *ps )
 	// Do special charge bits
 	//-----------------------
 	//Should not be important...
-	if ( ps->weaponstate == WEAPON_CHARGING_ALT || ps->weaponstate == WEAPON_CHARGING )
+	if ( ps->weaponstate == WEAPON_CHARGING )
 	{
 		int		shader = 0;
 
@@ -1619,8 +1607,7 @@ void CG_AddViewWeapon( playerState_t *ps )
 		}
 
 		//Overwrite the muzzle effect if needed
-		qboolean altFire = (ps->weaponstate == WEAPON_CHARGING_ALT) ? qtrue : qfalse;
-		int attackIndex = CG_GetAttackIndex(cent->gent, altFire);
+		int attackIndex = ps->attack_index;
 		if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) 
 		{
 			shader = cg_weapons[weapon].weaponAttacksInfo[attackIndex].chargeMuzzleShader;
@@ -3869,7 +3856,6 @@ void CG_FireWeapon( centity_t *cent, int attackIndex)
 	// mark the entity as muzzle flashing, so when it is added it will
 	// append the flash to the weapon model
 	cent->muzzleFlashTime = cg.time;
-	cent->altFire = (attackIndex == 1 || attackIndex == 3) ? qtrue: qfalse;
 	cent->attack_index = attackIndex;
 
 	if ( ent->weapon == WP_SABER )
@@ -3966,7 +3952,7 @@ CG_MissileHitWall
 Caused by an EV_MISSILE_MISS event, or directly by local bullet tracing
 =================
 */
-void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, qboolean altFire )
+void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir )
 {
 	weaponData_t* wpnData = &weaponData[weapon];
 	weaponAttackData_t* attackData = &wpnData->attackData[cent->gent->attack_index];

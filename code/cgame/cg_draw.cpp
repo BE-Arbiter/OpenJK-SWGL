@@ -2354,12 +2354,12 @@ static void CG_DrawZoomMask( void )
 
 			// TODO: Take into Account WEAPON_CHARGING
 			// FIXME: doesn't know about ammo!! which is bad because it draws charge beyond what ammo you may have..
-			if (cg_entities[0].gent->client->ps.weaponstate == WEAPON_CHARGING_ALT || cg_entities[0].gent->client->ps.weaponstate == WEAPON_CHARGING)
+			if (cg_entities[0].gent->client->ps.weaponstate == WEAPON_CHARGING)
 			{
 				cgi_R_SetColor(colorTable[CT_WHITE]);
-				int attackIndex = cg_entities[0].gent->client->ps.weaponstate == WEAPON_CHARGING_ALT ? 3 : 2;
+				int attackIndex = cg_entities[0].gent->client->ps.attack_index;
 				// draw the charge level
-				max = (cg.time - cg_entities[0].gent->client->ps.weaponChargeTime) / (weaponData[cent->gent->s.weapon].attackData[3].maxChargeUnits * weaponData[cent->gent->s.weapon].attackData[3].chargeUnitTime);
+				max = (cg.time - cg_entities[0].gent->client->ps.weaponChargeTime) / (weaponData[cent->gent->s.weapon].attackData[attackIndex].maxChargeUnits * weaponData[cent->gent->s.weapon].attackData[attackIndex].chargeUnitTime);
 
 				if (max > 1.0f)
 				{
@@ -3522,12 +3522,11 @@ static void CG_RunRocketLocking(void)
 {
 	centity_t* player = &cg_entities[0];
 
-	// Only bother with this when the player is holding down the alt-fire button of the rocket launcher
-	qboolean altFire = (player->currentState.eFlags & EF_ALT_FIRING) ? qtrue : qfalse;
-	int attackIndex = CG_GetAttackIndex(player->gent,altFire);
+	// Only bother with this when the player fires an attack that locks on a target
+	int attackIndex = player->gent->client->ps.attack_index;
 	weaponAttackData_t* atkData = &weaponData[player->currentState.weapon].attackData[attackIndex];
 
-	if (atkData->firingLogic == FL_MISSILE_AIMED && (player->currentState.eFlags & (EF_ALT_FIRING | EF_FIRING)))
+	if (atkData->firingLogic == FL_MISSILE_AIMED && (player->currentState.eFlags & EF_FIRING))
 	{
 		CG_ScanForRocketLock();
 

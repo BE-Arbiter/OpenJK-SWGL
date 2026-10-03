@@ -9111,7 +9111,7 @@ static void PM_BeginWeaponChange( int weapon ) {
 
 	if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_GALAKMECH)
 	{
-		if (pm->gent->alt_fire)
+		if (pm->gent->attack_index)
 		{//FIXME: attack delay?
 			PM_SetAnim(pm, SETANIM_TORSO, TORSO_DROPWEAP3, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
 		}
@@ -9303,7 +9303,7 @@ static void PM_FinishWeaponChange( void ) {
 
 		if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_GALAKMECH)
 		{
-			if (pm->gent->alt_fire)
+			if (pm->gent->attack_index)
 			{//FIXME: attack delay?
 				PM_SetAnim(pm, SETANIM_TORSO, TORSO_RAISEWEAP3, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
 			}
@@ -12483,7 +12483,7 @@ void PM_WeaponLightsaber(void)
 
 	qboolean saberInAir = qtrue;
 	if ( !PM_SaberInBrokenParry( pm->ps->saberMove ) && pm->ps->saberBlocked != BLOCKED_PARRY_BROKEN && !PM_DodgeAnim( pm->ps->torsoAnim ) &&
-		pm->ps->weaponstate != WEAPON_CHARGING_ALT && pm->ps->weaponstate != WEAPON_CHARGING)
+		pm->ps->weaponstate != WEAPON_CHARGING)
 	{//we're not stuck in a broken parry
 		if ( pm->ps->saberInFlight )
 		{//guiding saber
@@ -12555,7 +12555,7 @@ void PM_WeaponLightsaber(void)
 
 	// check for weapon change
 	// can't change if weapon is firing, but can change again if lowering or raising
-	if ( (pm->ps->weaponTime <= 0 || pm->ps->weaponstate != WEAPON_FIRING) && pm->ps->weaponstate != WEAPON_CHARGING_ALT && pm->ps->weaponstate != WEAPON_CHARGING) {
+	if ( (pm->ps->weaponTime <= 0 || pm->ps->weaponstate != WEAPON_FIRING) && pm->ps->weaponstate != WEAPON_CHARGING) {
 		if ( pm->ps->weapon != pm->cmd.weapon ) {
 			PM_BeginWeaponChange( pm->cmd.weapon );
 		}
@@ -13149,36 +13149,11 @@ void PM_WeaponLightsaber(void)
 	{//FIXME: this is going to fire off one frame before you expect, actually
 		// Clear these out since we're not actually firing yet
 		pm->ps->eFlags &= ~EF_FIRING;
-		pm->ps->eFlags &= ~EF_ALT_FIRING;
 		return;
 	}
 
 	addTime = pm->ps->weaponTime;
-	/*if ( pm->cmd.buttons & BUTTON_ALT_ATTACK ) 	{
-		PM_AddEvent( EV_ALT_FIRE );
-		if ( !addTime )
-		{
-			addTime = weaponData[pm->ps->weapon].altFireTime;
-			if ( g_timescale != NULL )
-			{
-				if ( g_timescale->value < 1.0f )
-				{
-					if ( !MatrixMode )
-					{//Special test for Matrix Mode (tm)
-						if ( pm->ps->clientNum == 0 && !player_locked && (pm->ps->forcePowersActive&(1<<FP_SPEED)||pm->ps->forcePowersActive&(1<<FP_RAGE)) )
-						{//player always fires at normal speed
-							addTime *= g_timescale->value;
-						}
-						else if ( g_entities[pm->ps->clientNum].client && (pm->ps->forcePowersActive&(1<<FP_SPEED)||pm->ps->forcePowersActive&(1<<FP_RAGE)) )
-						{
-							addTime *= g_timescale->value;
-						}
-					}
-				}
-			}
-		}
-	}
-	else */{
+	{
 		PM_AddEvent( EV_FIRE_WEAPON );
 		if ( !addTime )
 		{
@@ -13237,11 +13212,10 @@ static bool PM_DoChargedWeapons( void )
 
 	int weapon = pm->ps->weapon;
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
-	qboolean altFire = (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
-	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
+	int attackIndex = pm->ps->attack_index;
 	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
-	qboolean mainFire = (pm->cmd.buttons & BUTTON_ATTACK) ? qtrue : qfalse;
-	if ( (mainFire || altFire) &&
+	qboolean fireDown = (pm->cmd.buttons & (BUTTON_ATTACK|BUTTON_ALT_ATTACK)) ? qtrue : qfalse;
+	if ( fireDown &&
 		(attackData->firingLogic == FL_BEAM_CHARGED
 		|| attackData->firingLogic == FL_BLASTER_CHARGED
 		|| attackData->firingLogic == FL_BOWCASTER
@@ -13257,71 +13231,38 @@ static bool PM_DoChargedWeapons( void )
 	//	Note that we ALWAYS return if charging is set ( meaning the buttons are still down )
 	if ( charging )
 	{
-
-		int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
-		if ( altFire )
+		if ( pm->ps->weaponstate != WEAPON_CHARGING && pm->ps->weaponstate != WEAPON_DROPPING )
 		{
-			if ( pm->ps->weaponstate != WEAPON_CHARGING_ALT && pm->ps->weaponstate != WEAPON_DROPPING )
+			if ( pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] <= 0)
 			{
-				if ( pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] <= 0)
-				{
-					PM_AddEvent( EV_NOAMMO );
-					pm->ps->weaponTime += 500;
-					return true;
-				}
-
-				// charge isn't started, so do it now
-				pm->ps->weaponstate = WEAPON_CHARGING_ALT;
-				pm->ps->weaponChargeTime = level.time;
-
-				if (weaponData[pm->ps->weapon].attackData[attackIndex].chargeSnd && weaponData[pm->ps->weapon].attackData[attackIndex].chargeSnd[0])
-				{
-					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].attackData[attackIndex].chargeSnd );
-				}
+				PM_AddEvent( EV_NOAMMO );
+				pm->ps->weaponTime += 500;
+				return true;
 			}
-		}
-		else
-		{
 
-			if ( pm->ps->weaponstate != WEAPON_CHARGING && pm->ps->weaponstate != WEAPON_DROPPING )
+			// charge isn't started, so do it now
+			pm->ps->weaponstate = WEAPON_CHARGING;
+			pm->ps->weaponChargeTime = level.time;
+
+			// HACK: NPCs only play the charge sound of their secondary attacks (mostly for bowcaster and weequay)
+			if (attackData->chargeSnd && attackData->chargeSnd[0]
+				&& pm->gent && (!pm->gent->NPC || attackIndex != 0) )
 			{
-				if ( pm->ps->ammo[weaponData[pm->ps->weapon].ammoIndex] <= 0)
-				{
-					PM_AddEvent( EV_NOAMMO );
-					pm->ps->weaponTime += 500;
-					return true;
-				}
-
-				// charge isn't started, so do it now
-				pm->ps->weaponstate = WEAPON_CHARGING;
-				pm->ps->weaponChargeTime = level.time;
-
-				if (weaponData[pm->ps->weapon].attackData[attackIndex].chargeSnd && weaponData[pm->ps->weapon].attackData[attackIndex].chargeSnd[0]
-					&& pm->gent && !pm->gent->NPC ) // HACK: !NPC mostly for bowcaster and weequay
-				{
-					G_SoundOnEnt( pm->gent, CHAN_WEAPON, weaponData[pm->ps->weapon].attackData[attackIndex].chargeSnd );
-				}
+				G_SoundOnEnt( pm->gent, CHAN_WEAPON, attackData->chargeSnd );
 			}
 		}
 
 		return true; // short-circuit rest of weapon code
 	}
 
-	// Only charging weapons should be able to set these states...so....
-	//	let's see which fire mode we need to set up now that the buttons are up
+	// Only charging weapons should be able to set this state...so....
+	//	the buttons are up, so fire the attack the charge started with (ps->attack_index keeps it)
 	if ( pm->ps->weaponstate == WEAPON_CHARGING )
 	{
 		// weapon has a charge, so let us do an attack
 		// dumb, but since we shoot a charged weapon on button-up, we need to repress this button for now
 		pm->cmd.buttons |= BUTTON_ATTACK;
 		pm->ps->eFlags |= EF_FIRING;
-	}
-	else if ( pm->ps->weaponstate == WEAPON_CHARGING_ALT )
-	{
-		// weapon has a charge, so let us do an alt-attack
-		// dumb, but since we shoot a charged weapon on button-up, we need to repress this button for now
-		pm->cmd.buttons |= BUTTON_ALT_ATTACK;
-		pm->ps->eFlags |= (EF_FIRING|EF_ALT_FIRING);
 	}
 
 	return false; // continue with the rest of the weapon code
@@ -13339,8 +13280,7 @@ static int PM_DoChargingAmmoUsage( int *amount )
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 	int weaponCount = CG_PlayerIsDualWielding(weapon) ? 2 : 1;
 
-	qboolean altFire = (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
-	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
+	int attackIndex = pm->ps->attack_index;
 
 	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 
@@ -13521,14 +13461,14 @@ static void PM_Weapon( void )
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
 
-	qboolean altFire = (qboolean)((pm->ps->weaponstate == WEAPON_CHARGING_ALT) || (pm->cmd.buttons & BUTTON_ALT_ATTACK));
-	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
+	// the attack was resolved from the buttons by PM_AdjustAttackStates
+	int attackIndex = pm->ps->attack_index;
 	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 
-	int firing_type = weaponData[weapon].attackData[attackIndex].fireOption[FIRING_TYPE];
-	int fire_time = weaponData[weapon].attackData[attackIndex].fireTime;
-	int burst_shots = weaponData[weapon].attackData[attackIndex].fireOption[SHOTS_PER_BURST];
-	int burst_fire_delay = weaponData[weapon].attackData[attackIndex].fireOption[BURST_FIRE_DELAY];
+	int firing_type = attackData->fireOption[FIRING_TYPE];
+	int fire_time = attackData->fireTime;
+	int burst_shots = attackData->fireOption[SHOTS_PER_BURST];
+	int burst_fire_delay = attackData->fireOption[BURST_FIRE_DELAY];
 
 
 
@@ -13619,16 +13559,22 @@ static void PM_Weapon( void )
 				if ( pm->ps->clientNum && baseWeapon == WP_ROCKET_LAUNCHER )
 				{
 					G_SoundOnEnt( pm->gent, CHAN_WEAPON, "sound/weapons/rocket/lock.wav" );
-					pm->cmd.buttons |= BUTTON_ALT_ATTACK;
+					pm->ps->attack_index = 1;
 				}
 				pm->gent->client->fireDelay = 0;
 				delayed_fire = qtrue;
 				if ( (pm->ps->clientNum < MAX_CLIENTS||PM_ControlledByPlayer())
-					&& baseWeapon == WP_THERMAL
-					&& pm->gent->alt_fire )
-				{
-					pm->cmd.buttons |= BUTTON_ALT_ATTACK;
+					&& baseWeapon == WP_THERMAL )
+				{//the throw keeps the attack it started with
+					pm->ps->attack_index = pm->gent->attack_index;
 				}
+				// the attack may have changed
+				attackIndex = pm->ps->attack_index;
+				attackData = &weaponData[weapon].attackData[attackIndex];
+				firing_type = attackData->fireOption[FIRING_TYPE];
+				fire_time = attackData->fireTime;
+				burst_shots = attackData->fireOption[SHOTS_PER_BURST];
+				burst_fire_delay = attackData->fireOption[BURST_FIRE_DELAY];
 			}
 			else if ( pm->ps->clientNum && baseWeapon == WP_ROCKET_LAUNCHER && Q_irand( 0, 1 ) )
 			{
@@ -13668,7 +13614,7 @@ static void PM_Weapon( void )
 
 	// check for weapon change
 	// can't change if weapon is firing, but can change again if lowering or raising
-	if ((pm->ps->weaponTime <= 0 || pm->ps->weaponstate != WEAPON_FIRING) && pm->ps->weaponstate != WEAPON_CHARGING_ALT && pm->ps->weaponstate != WEAPON_CHARGING) {
+	if ((pm->ps->weaponTime <= 0 || pm->ps->weaponstate != WEAPON_FIRING) && pm->ps->weaponstate != WEAPON_CHARGING) {
 		if (weapon != pm->cmd.weapon && (!pm->ps->viewEntity || pm->ps->viewEntity >= ENTITYNUM_WORLD) && !PM_DoChargedWeapons()) {
 			PM_BeginWeaponChange(pm->cmd.weapon);
 		}
@@ -13796,7 +13742,7 @@ static void PM_Weapon( void )
 				PM_SetAnim(pm,SETANIM_TORSO,BOTH_THERMAL_THROW,SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_RESTART|SETANIM_FLAG_HOLD);
 				pm->gent->client->fireDelay = 300;
 				pm->ps->weaponstate = WEAPON_FIRING;
-				pm->gent->alt_fire = (qboolean)(pm->cmd.buttons&BUTTON_ALT_ATTACK);
+				pm->gent->attack_index = pm->ps->attack_index;//remember the attack for the delayed throw
 				return;
 			}
 		}
@@ -14019,7 +13965,7 @@ static void PM_Weapon( void )
 		}
 		else if (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_GALAKMECH)
 		{//
-			if (pm->cmd.buttons & BUTTON_ALT_ATTACK)
+			if (attackIndex == 1)
 			{
 				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK3, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_RESTART | SETANIM_FLAG_HOLD);
 			}
@@ -14034,9 +13980,9 @@ static void PM_Weapon( void )
 		}
 		else if (weaponData[weapon].weaponCategory == WC_SNIPER)
 		{
-			if (((pm->ps->clientNum >= MAX_CLIENTS && !PM_ControlledByPlayer()) && pm->gent && pm->gent->NPC && (pm->gent->NPC->scriptFlags & SCF_ALT_FIRE)) ||
+			if (((pm->ps->clientNum >= MAX_CLIENTS && !PM_ControlledByPlayer()) && pm->gent && pm->gent->NPC && attackIndex == 1) ||
 				((pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer()) && IsScopedZoom()))
-			{//NPC or player in alt-fire, sniper mode
+			{//NPC on its second attack or player scoped, sniper mode
 				PM_SetAnim(pm, SETANIM_TORSO, BOTH_ATTACK4, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD);
 			}
 			else
@@ -14136,7 +14082,7 @@ static void PM_Weapon( void )
 
 	amount = weaponData[pm->ps->weapon].attackData[attackIndex].energyPerShot;
 
-	if ( (pm->ps->weaponstate == WEAPON_CHARGING) || (pm->ps->weaponstate == WEAPON_CHARGING_ALT) )
+	if ( pm->ps->weaponstate == WEAPON_CHARGING )
 	{
 		// charging weapons may want to do their own ammo logic.
 		trueCount = PM_DoChargingAmmoUsage( &amount );
@@ -14169,7 +14115,6 @@ static void PM_Weapon( void )
 	{//FIXME: this is going to fire off one frame before you expect, actually
 		// Clear these out since we're not actually firing yet
 		pm->ps->eFlags &= ~EF_FIRING;
-		pm->ps->eFlags &= ~EF_ALT_FIRING;
 		return;
 	}
 
@@ -14178,8 +14123,8 @@ static void PM_Weapon( void )
 		if ( pm->gent
 			&& pm->gent->owner
 			&& pm->gent->owner->e_UseFunc == useF_eweb_use )
-		{//eweb always shoots alt-fire, for proper effects and sounds
-			PM_AddEvent( EV_ALT_FIRE );
+		{//eweb always shoots its second attack, for proper effects and sounds
+			PM_AddEvent( EV_FIRE_WEAPON_ATTACK1 );
 			addTime = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
 		}
 		else
@@ -14190,37 +14135,17 @@ static void PM_Weapon( void )
 	}
 	else if ( (baseWeapon== WP_MELEE && (pm->ps->clientNum>=MAX_CLIENTS||!g_debugMelee->integer) )
 		|| baseWeapon == WP_TUSKEN_STAFF
-		|| (baseWeapon == WP_TUSKEN_RIFLE&&!(pm->cmd.buttons&BUTTON_ALT_ATTACK))  )
+		|| (baseWeapon == WP_TUSKEN_RIFLE && attackIndex == 0) )
 	{
 		PM_AddEvent( EV_FIRE_WEAPON );
 		addTime = pm->ps->torsoAnimTimer;
-	}
-	else if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-	{
-		if (attackIndex == 3) {
-			PM_AddEvent(EV_SCOPED_ALT_FIRE);
-		}
-		else {
-			PM_AddEvent(EV_ALT_FIRE);
-		}
-		addTime = weaponData[pm->ps->weapon].attackData[attackIndex].fireTime;
-		if ( baseWeapon == WP_THERMAL )
-		{//threw our thermal
-			if ( pm->gent )
-			{// remove the thermal model if we had it.
-				G_RemoveWeaponModels( pm->gent );
-				if ( (pm->ps->clientNum >= MAX_CLIENTS&&!PM_ControlledByPlayer()) )
-				{//NPCs need to know when to put the thermal back in their hand
-					pm->ps->weaponTime = pm->ps->torsoAnimTimer-500;
-				}
-			}
-		}
 	}
 	else
 	{
 		if ( pm->ps->clientNum //NPC
 			&& !PM_ControlledByPlayer() //not under player control
 			&& baseWeapon == WP_THERMAL //using thermals
+			&& attackIndex == 0 //first attack
 			&& pm->ps->torsoAnim != BOTH_ATTACK10 )//not in the throw anim
 		{//oops, got knocked out of the anim, don't throw the thermal
 			return;
@@ -14232,10 +14157,16 @@ static void PM_Weapon( void )
 		{
 		case WP_REPEATER:
 			// repeater is supposed to do smoke after sustained bursts
-			pm->ps->weaponShotCount++;
+			if ( !(attackIndex & 1) )
+			{//only the first attack of the pair builds it
+				pm->ps->weaponShotCount++;
+			}
 			break;
 		case WP_BOWCASTER:
-			addTime *= (( trueCount < 3 ) ? 0.35f : 1.0f );// if you only did a small charge shot with the bowcaster, use less time between shots
+			if ( !(attackIndex & 1) )
+			{
+				addTime *= (( trueCount < 3 ) ? 0.35f : 1.0f );// if you only did a small charge shot with the bowcaster, use less time between shots
+			}
 			break;
 		case WP_THERMAL:
 			if ( pm->gent )
@@ -14372,7 +14303,7 @@ static void PM_VehicleWeapon( void )
 			if ( pm->ps->clientNum && pm->ps->weapon == WP_ROCKET_LAUNCHER )
 			{
 				G_SoundOnEnt( pm->gent, CHAN_WEAPON, "sound/weapons/rocket/lock.wav" );
-				pm->cmd.buttons |= BUTTON_ALT_ATTACK;
+				pm->ps->attack_index = 1;
 			}
 			pm->gent->client->fireDelay = 0;
 			delayed_fire = qtrue;
@@ -14456,21 +14387,11 @@ static void PM_VehicleWeapon( void )
 	{//FIXME: this is going to fire off one frame before you expect, actually
 		// Clear these out since we're not actually firing yet
 		pm->ps->eFlags &= ~EF_FIRING;
-		pm->ps->eFlags &= ~EF_ALT_FIRING;
 		return;
 	}
 
-	if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-	{
-		PM_AddEvent( EV_ALT_FIRE );
-		//addTime = weaponData[pm->ps->weapon].altFireTime;
-	}
-	else
-	{
-		PM_AddEvent( EV_FIRE_WEAPON );
-		// TODO: Use the real weapon fire time from the vehicle cfg file.
-		//addTime = weaponData[pm->ps->weapon].fireTime;
-	}
+	// TODO: Use the real weapon fire time from the vehicle cfg file.
+	PM_AddEvent( EV_FIRE_WEAPON + pm->ps->attack_index );
 
 /*	if(pm->gent && pm->gent->NPC != NULL )
 	{//NPCs have their own refire logic
@@ -14931,6 +14852,30 @@ void PM_SaberAttackCycle_f(gentity_t *self)
 }
 
 
+/*
+==============
+PM_AttackButtonsAreInput
+
+The saber, the melee weapons and the vehicles use the second button as a combo or a modifier
+(kata, grab, kick, turbo), so they keep reading the raw buttons.
+==============
+*/
+static qboolean PM_AttackButtonsAreInput( int weapon )
+{
+	if ( weapon == WP_SABER
+		|| weaponData[weapon].weaponCategory == WC_MELEE
+		|| weaponData[weapon].weaponCategory == WC_MELEE_1H )
+	{
+		return qtrue;
+	}
+	if ( PM_RidingVehicle()
+		|| (pm->gent && pm->gent->client && pm->gent->client->NPC_class == CLASS_VEHICLE) )
+	{
+		return qtrue;
+	}
+	return qfalse;
+}
+
 //-------------------------------------------
 void PM_AdjustAttackStates( pmove_t *pm )
 //-------------------------------------------
@@ -14941,11 +14886,14 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	int baseWeapon = weaponData[weapon].baseWeaponNum ? weaponData[weapon].baseWeaponNum : weapon;
 
 	//Define clicks
-	qboolean mainFire = (!(pm->cmd.buttons & BUTTON_ALT_ATTACK) && pm->cmd.buttons & BUTTON_ATTACK) ? qtrue : qfalse;
-	qboolean altFire = (!(pm->cmd.buttons & BUTTON_ATTACK) && pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse;
+	qboolean fireDown = (pm->cmd.buttons & (BUTTON_ATTACK | BUTTON_ALT_ATTACK)) ? qtrue : qfalse;
 
-	//Get current Attack index if we just clicked on the button
-	int attackIndex = CG_GetAttackIndex(pm->gent, altFire);
+	//Resolve the attack from the buttons. A charge keeps the attack it started with once the button is released.
+	int previousAttack = pm->ps->attack_index;
+	int attackIndex = (pm->ps->weaponstate == WEAPON_CHARGING)
+		? previousAttack
+		: WP_ResolveAttackIndex(pm->gent, (pm->cmd.buttons & BUTTON_ALT_ATTACK) ? qtrue : qfalse);
+	pm->ps->attack_index = attackIndex;
 
 	weaponAttackData_t* attackData = &weaponData[weapon].attackData[attackIndex];
 	firingType_t firingType = (firingType_t) attackData->fireOption[FIRING_TYPE];
@@ -15131,20 +15079,18 @@ void PM_AdjustAttackStates( pmove_t *pm )
 
 		// kill buttons and associated firing flags so we can't fire
 		pm->ps->eFlags &= ~EF_FIRING;
-		pm->ps->eFlags &= ~EF_ALT_FIRING;
 		pm->cmd.buttons &= ~(BUTTON_ALT_ATTACK|BUTTON_ATTACK);
 	}
 
 #pragma endregion
 	//Initiate Burst Fire
-	//Don't allow mixed clicks
-	if (firingType > FT_AUTOMATIC && pm->ps->weaponstate != WEAPON_CHARGING && pm->ps->weaponstate != WEAPON_CHARGING_ALT && (
-		(altFire && !(pm->ps->eFlags & EF_ALT_FIRING)) || (mainFire && !(pm->ps->eFlags & EF_FIRING) )
-		))
+	//Don't allow mixed clicks: a new press, or a switch to another attack, starts a new burst
+	if (firingType > FT_AUTOMATIC && pm->ps->weaponstate != WEAPON_CHARGING && fireDown
+		&& (!(pm->ps->eFlags & EF_FIRING) || attackIndex != previousAttack))
 	{
 		burst_shots = weaponData[weapon].attackData[attackIndex].fireOption[SHOTS_PER_BURST];
 		pm->ps->firing_attack = attackIndex;
-		// Don't let the alt-fire get through.
+		// The attack is locked in firing_attack, the first button now means "fire it".
 		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
 
 		// Switch the flag.
@@ -15190,30 +15136,12 @@ void PM_AdjustAttackStates( pmove_t *pm )
 	// set the firing flag for continuous beam weapons, phaser will fire even if out of ammo
 	if ( (( pm->cmd.buttons & BUTTON_ATTACK || pm->cmd.buttons & BUTTON_ALT_ATTACK ) && ( amount >= 0 || weapon == WP_SABER )) )
 	{
-		if ( pm->cmd.buttons & BUTTON_ALT_ATTACK )
-		{
-			pm->ps->eFlags |= EF_ALT_FIRING;
-			if ( pm->ps->clientNum < MAX_CLIENTS && pm->gent && (pm->ps->eFlags&EF_IN_ATST) )
-			{//switch ATST barrels
-				pm->gent->alt_fire = qtrue;
-			}
-		}
-		else
-		{
-			pm->ps->eFlags &= ~EF_ALT_FIRING;
-			if ( pm->ps->clientNum < MAX_CLIENTS && pm->gent && (pm->ps->eFlags&EF_IN_ATST) )
-			{//switch ATST barrels
-				pm->gent->alt_fire = qfalse;
-			}
-		}
-
-		// This flag should always get set, even when alt-firing
+		// This flag should always get set, whatever the attack
 		pm->ps->eFlags |= EF_FIRING;
 	}
 	else
 	{
 		pm->ps->eFlags &= ~EF_FIRING;
-		pm->ps->eFlags &= ~EF_ALT_FIRING;
 
 		// Code from JKG: 5
 		// If shotsRemaining are SHOTS_TOGGLEBIT are the same.
@@ -15226,6 +15154,13 @@ void PM_AdjustAttackStates( pmove_t *pm )
 		pm->ps->firing_attack = -1;
 	}
 
+	// The attack is resolved: from here on the first button means "fire ps->attack_index".
+	// The weapons that read the two buttons as a combo or a modifier keep both.
+	if ( (pm->cmd.buttons & (BUTTON_ATTACK|BUTTON_ALT_ATTACK)) && !PM_AttackButtonsAreInput( weapon ) )
+	{
+		pm->cmd.buttons &= ~BUTTON_ALT_ATTACK;
+		pm->cmd.buttons |= BUTTON_ATTACK;
+	}
 }
 
 qboolean PM_WeaponOkOnVehicle( int weapon )
