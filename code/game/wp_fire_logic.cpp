@@ -437,9 +437,10 @@ void WP_FireGenericBlaster(gentity_t* ent, int attackIndex)
 	
 	vectoangles(forwardVec, angs);
 	/* Calculate Spread, If we are a vehicle or we have Sense 2, no spread*/
-	if (!ent->client || !(ent->client->NPC_class == CLASS_VEHICLE)
-		|| !(ent->client->ps.forcePowersActive & (1 << FP_SEE))
-		|| ent->client->ps.forcePowerLevel[FP_SEE] < FORCE_LEVEL_2)
+	if (!ent->client || (
+		ent->client->NPC_class != CLASS_VEHICLE && (
+			!(ent->client->ps.forcePowersActive & (1 << FP_SEE)) || ent->client->ps.forcePowerLevel[FP_SEE] < FORCE_LEVEL_2)
+		))
 	{
 		// Some NPCs really can't aim
 		if (ent->client && ent->NPC && ( ent->client->NPC_class == CLASS_STORMTROOPER 
@@ -600,7 +601,8 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 		for (int i = 0; i < count; i++)
 		{
 			// create a range of different velocities
-			vel = attackData->velocity * (Q_flrand(0.8f, 1.2f) + 1.0f);
+			//DWS-TODO : It might be possible to set a proprety to replace the 0.3f and configure it by weapons.
+			vel = attackData->velocity * (Q_flrand(-1.0f, 1.0f) * 0.3f + 1.0f);
 
 			vectoangles(forwardVec, angs);
 
@@ -633,7 +635,7 @@ void WP_FireGenericBowcaster(gentity_t* ent, int attackIndex)
 
 
 			WP_SetMethodOfDeath(missile, ent->s.weapon, attackIndex);
-			missile->damage = attackData->damage;
+			missile->damage = WP_GetWeaponDamage(ent, attackData, qfalse);
 			missile->dflags = DAMAGE_DEATH_KNOCKBACK;
 			missile->clipmask = MASK_SHOT | CONTENTS_LIGHTSABER;
 			missile->splashDamage = attackData->splashDamage;
@@ -662,7 +664,16 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 {
 	weaponData_t* wpnData = &weaponData[ent->s.weapon];
 	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
-	int			damage = attackData->damage, skip,traces = 10;
+	int			damage = attackData->damage, skip,traces = 10;	// traces : max loop turns, dodged shots included
+	int			maxHits = 1, hits = 0;							// maxHits : entities the shot goes through
+	// Only the plain beam (main shot) stops at the first target and pushes the victim
+	const qboolean	piercing = (qboolean)(attackData->firingLogic != FL_BEAM);
+	const int	dflags = piercing ? (DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC) : DAMAGE_DEATH_KNOCKBACK;
+
+	if (attackData->firingLogic == FL_FULL_BEAM)
+	{
+		traces = maxHits = DISRUPTOR_ALT_TRACES;
+	}
 	qboolean	render_impact = qtrue;
 	vec3_t		start, end;
 	vec3_t		spot, dir;
@@ -679,7 +690,7 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 		if (attackData->firingLogic == FL_BEAM_CHARGED) 
 		{
 			fullCharge = qtrue;
-			traces = DISRUPTOR_ALT_TRACES;
+			traces = maxHits = DISRUPTOR_ALT_TRACES;
 			isNpcAltdamage = qtrue;
 		}
 		//DWS-TODO : Need to do something else here to remove the Disruptor NPC damage constant..
@@ -703,14 +714,14 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 		// more powerful charges go through more things
 		if (count < 3)
 		{
-			traces = 1;
+			traces = maxHits = 1;
 		}
 		else if (count < 6)
 		{
-			traces = 2;
+			traces = maxHits = 2;
 		}
 		else {
-			traces = DISRUPTOR_ALT_TRACES;
+			traces = maxHits = DISRUPTOR_ALT_TRACES;
 		}
 
 		damage = damage * count + attackData->damage * 0.5f; // give a boost to low charge shots
@@ -730,11 +741,35 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 
 	skip = ent->s.number;
 
+	// Push the shooter backwards
+	if (attackData->selfKnockback && ent->client)
+	{
+		VectorMA(ent->client->ps.velocity, -attackData->selfKnockback, forwardVec, ent->client->ps.velocity);
+		ent->client->ps.groundEntityNum = ENTITYNUM_NONE;
+		ent->client->ps.pm_time = (ent->client->ps.pm_flags & PMF_DUCKED) ? 100 : 250;
+		ent->client->ps.pm_flags |= PMF_TIME_KNOCKBACK | PMF_TIME_NOFRICTION;
+	}
+
+	// Means of death from the weapon data, else the disruptor ones
+	const meansOfDeath_t beamMod = (attackData->methodOfDeath != MOD_UNKNOWN) ? attackData->methodOfDeath
+		: (fullCharge ? MOD_SNIPER : MOD_DISRUPTOR);
+
+	vec3_t shot_mins, shot_maxs;
+	VectorSet(shot_maxs, attackData->beamRadius, attackData->beamRadius, attackData->beamRadius);
+	VectorScale(shot_maxs, -1, shot_mins);
+
 	for (int i = 0; i < traces; i++)
 	{
 		VectorMA(start, shotRange, forwardVec, end);
 
-		gi.trace(&tr, start, NULL, NULL, end, skip, MASK_SHOT, G2_COLLIDE, 10);
+		if (attackData->beamRadius > 0)
+		{
+			gi.trace(&tr, start, shot_mins, shot_maxs, end, skip, MASK_SHOT, G2_COLLIDE, 10);
+		}
+		else
+		{
+			gi.trace(&tr, start, NULL, NULL, end, skip, MASK_SHOT, G2_COLLIDE, 10);
+		}
 
 		if (tr.surfaceFlags & SURF_NOIMPACT)
 		{
@@ -795,14 +830,34 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 						ent->client->ps.persistant[PERS_ACCURACY_HITS]++;
 					}
 
-					int hitLoc = G_GetHitLocFromTrace(&tr, MOD_DISRUPTOR);
-					if (traceEnt && traceEnt->client && traceEnt->client->NPC_class == CLASS_GALAKMECH)
-					{//hehe
-						G_Damage(traceEnt, ent, ent, forwardVec, tr.endpos, 10, DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC, fullCharge ? MOD_SNIPER : MOD_DISRUPTOR, hitLoc);
-						break;
+					int hitLoc = G_GetHitLocFromTrace(&tr, beamMod);
+					// Must be read before the damage: the flag is set when the victim dies
+					const qboolean noKnockBack = (qboolean)((traceEnt->flags & FL_NO_KNOCKBACK) != 0);
+					G_Damage(traceEnt, ent, ent, forwardVec, tr.endpos, damage, dflags, beamMod, hitLoc);
+
+					// Push and knockdown are done by hand, only on clients
+					if (traceEnt->client && (attackData->pushForce || attackData->knockdownForce))
+					{
+						vec3_t pushDir;
+						VectorCopy(forwardVec, pushDir);
+						if (pushDir[2] < 0.2f)
+						{
+							pushDir[2] = 0.2f;
+						}
+						if (attackData->pushForce && !noKnockBack)
+						{
+							G_Throw(traceEnt, pushDir, attackData->pushForce);
+							if (traceEnt->client->NPC_class == CLASS_ROCKETTROOPER)
+							{
+								traceEnt->client->ps.pm_time = Q_irand(1500, 3000);
+							}
+						}
+						if (attackData->knockdownForce && traceEnt->health > 0 && G_HasKnockdownAnims(traceEnt))
+						{
+							G_Knockdown(traceEnt, ent, pushDir, attackData->knockdownForce, qtrue);
+						}
 					}
-					G_Damage(traceEnt, ent, ent, forwardVec, tr.endpos, damage, DAMAGE_NO_KNOCKBACK | DAMAGE_NO_HIT_LOC, fullCharge ? MOD_SNIPER : MOD_DISRUPTOR, hitLoc);
-					if (traceEnt->s.eType == ET_MOVER)
+					if (traceEnt->s.eType == ET_MOVER || ++hits >= maxHits)
 					{
 						break;
 					}
@@ -844,6 +899,10 @@ void WP_FireGenericBeam(gentity_t* ent, int attackIndex)
 	{
 		VectorMA(muzzle, dist, dir, spot);
 		AddSightEvent(ent, spot, 256, AEL_DISCOVERED, 50);
+		if (attackData->beamTrailEffect[0])
+		{
+			G_PlayEffect(G_EffectIndex(attackData->beamTrailEffect), spot, forwardVec);
+		}
 	}
 	//FIXME: spawn a temp ent that continuously spawns sight alerts here?  And 1 sound alert to draw their attention?
 	VectorMA(start, shotDist - 4, forwardVec, spot);

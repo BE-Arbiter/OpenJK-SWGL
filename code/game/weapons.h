@@ -350,7 +350,14 @@ typedef struct weaponAttackData_s
 	vec3_t  beamColor;
 	char	fullBeamShader[64];
 	vec3_t  fullBeamColor;
-	
+
+	/* Beam Behaviour (0 / empty = none) */
+	float	beamRadius;			// Half size of the trace box, makes far targets easier to hit
+	int		selfKnockback;		// Push the shooter backwards by this much
+	int		pushForce;			// Push the victim away by this much
+	int		knockdownForce;		// Knock the living victim down with this strength
+	char	beamTrailEffect[64];	// Effect played every 64 units along the beam
+
 	/* Blaster Bounce Data */
 	qboolean bounceWall;		//BounceOnWalls;
 	int		bounceCount;		//BounceCounts

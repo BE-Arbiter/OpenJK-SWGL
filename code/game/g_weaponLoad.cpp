@@ -583,6 +583,36 @@ void ATK_EffectDuration(const char** holdBuf)
 }
 
 //--------------------------------------------
+void ATK_BeamRadius(const char** holdBuf)
+{
+	ParseFlt(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].beamRadius);
+}
+
+//--------------------------------------------
+void ATK_SelfKnockback(const char** holdBuf)
+{
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].selfKnockback, 0, 1000, "SelfKnockback");
+}
+
+//--------------------------------------------
+void ATK_PushForce(const char** holdBuf)
+{
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].pushForce, 0, 1000, "PushForce");
+}
+
+//--------------------------------------------
+void ATK_KnockdownForce(const char** holdBuf)
+{
+	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].knockdownForce, 0, 1000, "KnockdownForce");
+}
+
+//--------------------------------------------
+void ATK_BeamTrailEffect(const char** holdBuf)
+{
+	ParseStr(holdBuf, weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].beamTrailEffect, 64, "beamTrailEffect");
+}
+
+//--------------------------------------------
 void ATK_Range(const char** holdBuf)
 {
 	ParseIntWithLims(holdBuf, &weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].range, 0, MAX_RANGE, "Range");
@@ -1410,6 +1440,10 @@ static void WP_ParseAtkParms(const char** holdBuf)
 	{
 		token = COM_ParseExt(holdBuf, qtrue);
 
+		if (!token[0])
+		{
+			Com_Error(ERR_DROP, "Fatal Error while parsing weapons.dat, end of file reached in an attack definition of weapon '%s' (missing '}' ?)", weaponData[wpnParms.weaponNum].classname);
+		}
 		if (!Q_stricmp(token, "}"))	// End of data for this attack
 			break;
 		// Loop through possible parameters
@@ -1473,6 +1507,10 @@ void WP_ParseWeaponParms(const char** holdBuf)
 	{
 		token = COM_ParseExt(holdBuf, qtrue);
 
+		if (!token[0])
+		{
+			Com_Error(ERR_DROP, "Fatal Error while parsing weapons.dat, end of file reached in weapon '%s' (missing '}' ?)", weaponData[wpnParms.weaponNum].classname);
+		}
 		if (!Q_stricmp(token, "}"))	// End of data for this weapon
 			break;
 		// Loop through possible parameters
@@ -1550,6 +1588,10 @@ void WP_LoadWeaponParms(void)
 		{
 			weaponData[i].attackData[k].bounceCount = -1;
 			weaponData[i].attackData[k].chargeMuzzleScale = -1;
+			weaponData[i].attackData[k].beamRadius = -1;
+			weaponData[i].attackData[k].selfKnockback = -1;
+			weaponData[i].attackData[k].pushForce = -1;
+			weaponData[i].attackData[k].knockdownForce = -1;
 			weaponData[i].attackData[k].bounceWall = qunset;
 			weaponData[i].attackData[k].missileDFlags = -1;
 			weaponData[i].attackData[k].missileSize = -1;
@@ -1711,6 +1753,21 @@ void WP_LoadWeaponParms(void)
 					if (weaponData[i].attackData[k].fullBeamShader[0] == 0) {
 						strcpy(weaponData[i].attackData[k].fullBeamShader, weaponData[j].attackData[k].fullBeamShader);
 					}
+					if (weaponData[i].attackData[k].beamTrailEffect[0] == 0) {
+						strcpy(weaponData[i].attackData[k].beamTrailEffect, weaponData[j].attackData[k].beamTrailEffect);
+					}
+					if (weaponData[i].attackData[k].beamRadius == -1) {
+						weaponData[i].attackData[k].beamRadius = weaponData[j].attackData[k].beamRadius;
+					}
+					if (weaponData[i].attackData[k].selfKnockback == -1) {
+						weaponData[i].attackData[k].selfKnockback = weaponData[j].attackData[k].selfKnockback;
+					}
+					if (weaponData[i].attackData[k].pushForce == -1) {
+						weaponData[i].attackData[k].pushForce = weaponData[j].attackData[k].pushForce;
+					}
+					if (weaponData[i].attackData[k].knockdownForce == -1) {
+						weaponData[i].attackData[k].knockdownForce = weaponData[j].attackData[k].knockdownForce;
+					}
 
 					if (weaponData[i].attackData[k].dempDetonateModel[0] == 0) {
 						strcpy(weaponData[i].attackData[k].dempDetonateModel, weaponData[j].attackData[k].dempDetonateModel);
@@ -1797,6 +1854,10 @@ void WP_LoadWeaponParms(void)
 		for (int k = 0; k < MAX_WEAPON_ATTACKS; k++)
 		{
 			weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount != -1 ? weaponData[i].attackData[k].bounceCount : 0;
+			if (weaponData[i].attackData[k].beamRadius == -1) { weaponData[i].attackData[k].beamRadius = 0; }
+			if (weaponData[i].attackData[k].selfKnockback == -1) { weaponData[i].attackData[k].selfKnockback = 0; }
+			if (weaponData[i].attackData[k].pushForce == -1) { weaponData[i].attackData[k].pushForce = 0; }
+			if (weaponData[i].attackData[k].knockdownForce == -1) { weaponData[i].attackData[k].knockdownForce = 0; }
 			weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall != qunset ? weaponData[i].attackData[k].bounceWall : qfalse;
 			weaponData[i].attackData[k].maxChargeUnits = weaponData[i].attackData[k].maxChargeUnits == 0 ? 1 : weaponData[i].attackData[k].maxChargeUnits;
 			weaponData[i].attackData[k].chargeUnitTime = weaponData[i].attackData[k].chargeUnitTime == 0 ? 0.25 : weaponData[i].attackData[k].chargeUnitTime;
