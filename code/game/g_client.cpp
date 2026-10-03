@@ -680,7 +680,7 @@ void Player_CacheFromPrevLevel(void)
 		var = strtok(s, " ");
 		while (var != NULL)
 		{
-			if (atoi(var) > 0)
+			if (atoi(var) > 0 && i < weaponCount)
 			{
 				if (i == WP_NONE) //don't register!
 				{

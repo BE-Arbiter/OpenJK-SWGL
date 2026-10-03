@@ -433,6 +433,17 @@ static void WriteGame(qboolean autosave)
 			INT_ID('A', 'M', 'M', 'O'),
 			s);
 
+#ifndef JK2_MODE
+		// write weapons...
+		//
+		memset(s,0,sizeof(s));
+		Cvar_VariableStringBuffer( "playerweaps", s, sizeof(s) );
+
+		saved_game.write_chunk(
+			INT_ID('W', 'P', 'S', 'V'),
+			s);
+#endif
+
 		// write inventory...
 		//
 		memset(s,0,sizeof(s));
@@ -487,6 +498,18 @@ static qboolean ReadGame (void)
 			s);
 
 		Cvar_Set( "playerammo", s);
+
+#ifndef JK2_MODE
+		// read weapons...
+		//
+		memset(s,0,sizeof(s));
+
+		saved_game.read_chunk(
+			INT_ID('W', 'P', 'S', 'V'),
+			s);
+
+		Cvar_Set( "playerweaps", s);
+#endif
 
 		// read inventory...
 		//

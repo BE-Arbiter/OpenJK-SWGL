@@ -1578,6 +1578,14 @@ void WP_ParseParms(const char* buffer)
 }
 
 //--------------------------------------------
+// Number of weapons whose index is fixed by the WP_* enum
+//--------------------------------------------
+int WP_HardcodedWeaponCount(void)
+{
+	return (int)numHcWeaponIndexes;
+}
+
+//--------------------------------------------
 // Main Load Function
 //--------------------------------------------
 void WP_LoadWeaponParms(void)
