@@ -233,7 +233,7 @@ float WP_GetSpread(gentity_t* ent, weaponAttackData_t *attackData)
 	float spread; 
 	if (diff < 0) {
 		//Very easy to avoid since spread is huge
-		spread = attackData->npcSpread[0] * (10*(-diff));
+		return attackData->npcSpread[0] * (10*(-diff));
 	}
 	else if (diff > 2)
 	{

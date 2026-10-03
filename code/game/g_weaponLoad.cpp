@@ -36,6 +36,21 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 weaponAttackData_t* currentAttackData = NULL;
 
+//--------------------------------------------
+// Warning prefixed with the weapon being parsed
+//--------------------------------------------
+static void WPN_Warn(const char* fmt, ...)
+{
+	va_list	argptr;
+	char	msg[1024];
+
+	va_start(argptr, fmt);
+	Q_vsnprintf(msg, sizeof(msg), fmt, argptr);
+	va_end(argptr);
+
+	gi.Printf(S_COLOR_YELLOW"WARNING: weapon '%s': %s", weaponData[wpnParms.weaponNum].classname, msg);
+}
+
 
 //--------------------------------------------
 
@@ -70,6 +85,7 @@ void WPN_WeaponClass(const char** holdBuf)
 		if (weaponCount >= MAX_WEAPONS) {
 			weaponNum = 0;
 			gi.Printf(S_COLOR_YELLOW"WARNING: too many weapons in external weapon data(%d); Parsing '%s'\n", MAX_WEAPONS, weaponClass);
+			return;
 		}
 		weaponNum = weaponCount;
 		weaponCount++;
@@ -153,7 +169,7 @@ void WPN_Ammo(const char** holdBuf)
 		wpnParms.ammoNum = AMMO_DETPACK;
 	else
 	{
-		gi.Printf(S_COLOR_YELLOW"WARNING: bad ammotype in external weapon data '%s'\n", tokenStr);
+		WPN_Warn("bad ammotype in external weapon data '%s'\n", tokenStr);
 		wpnParms.ammoNum = 0;
 	}
 }
@@ -251,7 +267,7 @@ void WPN_WeaponCategory(const char** holdBuf)
 	}
 	else {
 		weaponCategory = WC_NONE;
-		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for WeaponCategory in external WEAPONS.DAT\n", tokenStr);
+		WPN_Warn("Invalid value %s for WeaponCategory in external WEAPONS.DAT\n", tokenStr);
 	}
 	weaponData[wpnParms.weaponNum].weaponCategory = weaponCategory;
 }
@@ -288,7 +304,7 @@ void WPN_WeaponBucket(const char** holdBuf)
 		weaponBucket = WB_OTHERS;
 	}
 	else {
-		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for WeaponCategory in external WEAPONS.DAT\n", tokenStr);
+		WPN_Warn("Invalid value %s for WeaponCategory in external WEAPONS.DAT\n", tokenStr);
 	}
 	weaponData[wpnParms.weaponNum].weaponBucket = weaponBucket;
 }
@@ -338,7 +354,7 @@ void WPN_ScopeType(const char** holdBuf)
 	}
 	else
 	{
-		gi.Printf(S_COLOR_YELLOW"WARNING: bad scopeType in external weapon data '%s'\n", tokenStr);
+		WPN_Warn("bad scopeType in external weapon data '%s'\n", tokenStr);
 		return;
 	}
 	weaponData[wpnParms.weaponNum].scopeType = scopeType;
@@ -495,7 +511,7 @@ void ATK_FiringLogic(const char** holdBuf)
 		firingLogic = FL_OTHER;
 	}
 	else {
-		gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for FiringLogic in external WEAPONS.DAT\n", tokenStr);
+		WPN_Warn("Invalid value %s for FiringLogic in external WEAPONS.DAT\n", tokenStr);
 	}
 	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].firingLogic = firingLogic;
 }
@@ -529,7 +545,7 @@ void ATK_Blockability(const char** holdBuf) {
 		}
 		else
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: Invalid value %s for blockability[%d] in external WEAPONS.DAT\n", tokenStr, i);
+			WPN_Warn("Invalid value %s for blockability[%d] in external WEAPONS.DAT\n", tokenStr, i);
 		}
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].blockability[i] = blockability;
 	}
@@ -858,7 +874,7 @@ void ATK_MethodOfDeathInternal(const char** holdBuf, qboolean splashDamage ) {
 	}
 	else
 	{
-		gi.Printf(S_COLOR_YELLOW"WARNING: bad methodofdeath in external weapon data '%s'\n", tokenStr);
+		WPN_Warn("bad methodofdeath in external weapon data '%s'\n", tokenStr);
 	}
 
 	if (splashDamage)
@@ -949,7 +965,7 @@ void ATK_MissileLightColor(const char** holdBuf)
 
 		if ((tokenFlt < 0) || (tokenFlt > 1))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelightcolor[%d] in external weapon data '%f'\n", i, tokenFlt);
+			WPN_Warn("bad missilelightcolor[%d] in external weapon data '%f'\n", i, tokenFlt);
 			continue;
 		}
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileDlightColor[i] = tokenFlt;
@@ -973,7 +989,7 @@ void ATK_NpcDamage(const char** holdBuf)
 
 		if ((tokenInt < 0))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad npcDamage[%d] in external weapon data '%f'\n", i, tokenInt);
+			WPN_Warn("bad npcDamage[%d] in external weapon data '%d'\n", i, tokenInt);
 			continue;
 		}
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcDamage[i] = tokenInt;
@@ -997,7 +1013,7 @@ void ATK_NpcSpread(const char** holdBuf)
 
 		if ((tokenInt < 0))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad npcSpread[%d] in external weapon data '%f'\n", i, tokenInt);
+			WPN_Warn("bad npcSpread[%d] in external weapon data '%d'\n", i, tokenInt);
 			weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcSpread[i] = 0;
 			continue;
 		}
@@ -1022,7 +1038,7 @@ void ATK_NpcVelocity(const char** holdBuf)
 
 		if ((tokenInt < 0))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad npcVelocity[%d] in external weapon data '%f'\n", i, tokenInt);
+			WPN_Warn("bad npcVelocity[%d] in external weapon data '%d'\n", i, tokenInt);
 			continue;
 		}
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].npcVelocity[i] = tokenInt;
@@ -1042,8 +1058,10 @@ void ATK_MissileDFlags(const char** holdBuf)
 {
 	const char* tokenStr;
 	int dFlags = 0;
+	const char* tokenStart;
 
 	do {
+		tokenStart = *holdBuf;
 		COM_ParseString(holdBuf, &tokenStr);
 		if (!Q_stricmp(tokenStr, "DAMAGE_RADIUS")) {
 			dFlags |= DAMAGE_RADIUS;
@@ -1082,7 +1100,9 @@ void ATK_MissileDFlags(const char** holdBuf)
 			dFlags |= DAMAGE_HEAVY_WEAP_CLASS;
 		}
 		else if (Q_stricmp(tokenStr, ";")) {
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad Damage Flag in external weapon data '%s'\n", tokenStr);
+			WPN_Warn("bad Damage Flag in external weapon data '%s' (missing ';' ?)\n", tokenStr);
+			*holdBuf = tokenStart;	// Give the bad token back so the caller parses it as a key
+			break;
 		}
 	} while (Q_stricmp(tokenStr, ";"));
 
@@ -1102,12 +1122,15 @@ void ATK_MissileLight(const char** holdBuf)
 
 	if (COM_ParseFloat(holdBuf, &tokenFlt))
 	{
+		WPN_Warn("missilelight missing in external weapon data \n");
 		SkipRestOfLine(holdBuf);
+		return;
 	}
 
-	if ((tokenFlt < 0) || (tokenFlt > 255)) // FIXME :What are the right values?
+	if ((tokenFlt < 0) || (tokenFlt > 500)) // FIXME :What are the right values?
 	{
-		gi.Printf(S_COLOR_YELLOW"WARNING: bad missilelight in external weapon data '%f'\n", tokenFlt);
+		WPN_Warn("bad missilelight in external weapon data '%f'\n", tokenFlt);
+		tokenFlt = (tokenFlt < 0) ? 0 : 500;
 	}
 	weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].missileDlight = tokenFlt;
 }
@@ -1128,7 +1151,7 @@ void ATK_FuncName(const char** holdBuf)
 	if (len > 64)
 	{
 		len = 64;
-		gi.Printf(S_COLOR_YELLOW"WARNING: FuncName '%s' too long in external WEAPONS.DAT\n", tokenStr);
+		WPN_Warn("FuncName '%s' too long in external WEAPONS.DAT\n", tokenStr);
 	}
 
 	for (func_t* s = funcs; s->name; s++) {
@@ -1138,7 +1161,7 @@ void ATK_FuncName(const char** holdBuf)
 			return;
 		}
 	}
-	gi.Printf(S_COLOR_YELLOW"WARNING: FuncName '%s' in external WEAPONS.DAT does not exist\n", tokenStr);
+	WPN_Warn("FuncName '%s' in external WEAPONS.DAT does not exist\n", tokenStr);
 }
 
 //--------------------------------------------
@@ -1211,7 +1234,7 @@ void ATK_BeamColor(const char** holdBuf)
 
 		if ((tokenFlt < 0) || (tokenFlt > 1))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad beamColor[%d] in external weapon data '%f'\n", i, tokenFlt);
+			WPN_Warn("bad beamColor[%d] in external weapon data '%f'\n", i, tokenFlt);
 			continue;
 		}
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].beamColor[i] = tokenFlt;
@@ -1240,7 +1263,7 @@ void ATK_FullBeamColor(const char** holdBuf)
 
 		if ((tokenFlt < 0) || (tokenFlt > 1))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad fullBeamColor[%d] in external weapon data '%f'\n", i, tokenFlt);
+			WPN_Warn("bad fullBeamColor[%d] in external weapon data '%f'\n", i, tokenFlt);
 			continue;
 		}
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fullBeamColor[i] = tokenFlt;
@@ -1322,7 +1345,7 @@ void ATK_FireOptions(const char** holdBuf)
 		weaponData[wpnParms.weaponNum].attackData[wpnParms.atkNum].fireOption[0] = FT_HIGH_POWERED;
 	}
 	else {
-		gi.Printf(S_COLOR_YELLOW"WARNING: bad Fireoptions in external weapon data '%s'\n", tokenStr);
+		WPN_Warn("bad Fireoptions in external weapon data '%s'\n", tokenStr);
 		return;
 	}
 	for (i = 1; i < 3; i++)
@@ -1335,7 +1358,7 @@ void ATK_FireOptions(const char** holdBuf)
 
 		if ((tokenInt < 0) || (tokenInt > 10000))
 		{
-			gi.Printf(S_COLOR_YELLOW"WARNING: bad Fireoptions[%d] in external weapon data '%d'\n", i, tokenInt);
+			WPN_Warn("bad Fireoptions[%d] in external weapon data '%d'\n", i, tokenInt);
 			continue;
 		}
 
@@ -1403,7 +1426,7 @@ static void WP_ParseAtkParms(const char** holdBuf)
 		{
 			continue;
 		}
-		Com_Printf("^3WARNING: bad attack parameter in external weapon data '%s'\n", token);
+		WPN_Warn("bad attack parameter in external weapon data '%s'\n", token);
 	}
 }
 
@@ -1466,7 +1489,7 @@ void WP_ParseWeaponParms(const char** holdBuf)
 		{
 			continue;
 		}
-		Com_Printf("^3WARNING: bad parameter in external weapon data '%s'\n", token);
+		WPN_Warn("bad parameter in external weapon data '%s'\n", token);
 	}
 }
 
@@ -1550,7 +1573,7 @@ void WP_LoadWeaponParms(void)
 
 	//Read files containing Dynamics Weapons
 	char* holdChar;
-	char	weaponFileList[2048];			//	The list of file names read in
+	char	weaponFileList[5096];			//	The list of file names read in
 	int		fileCount;
 	int		fileNameSize;
 
@@ -1776,6 +1799,7 @@ void WP_LoadWeaponParms(void)
 			weaponData[i].attackData[k].bounceCount = weaponData[i].attackData[k].bounceCount != -1 ? weaponData[i].attackData[k].bounceCount : 0;
 			weaponData[i].attackData[k].bounceWall = weaponData[i].attackData[k].bounceWall != qunset ? weaponData[i].attackData[k].bounceWall : qfalse;
 			weaponData[i].attackData[k].maxChargeUnits = weaponData[i].attackData[k].maxChargeUnits == 0 ? 1 : weaponData[i].attackData[k].maxChargeUnits;
+			weaponData[i].attackData[k].chargeUnitTime = weaponData[i].attackData[k].chargeUnitTime == 0 ? 0.25 : weaponData[i].attackData[k].chargeUnitTime;
 
 			weaponData[i].attackData[k].methodOfDeath = weaponData[i].attackData[k].methodOfDeath == MOD_UNSET ? MOD_UNKNOWN: weaponData[i].attackData[k].methodOfDeath;
 			weaponData[i].attackData[k].splashMethodOfDeath = weaponData[i].attackData[k].splashMethodOfDeath == MOD_UNSET ? MOD_UNKNOWN : weaponData[i].attackData[k].splashMethodOfDeath;
@@ -1798,10 +1822,17 @@ void WP_LoadWeaponParms(void)
 	memset(&buckets, -1, sizeof(buckets));
 	memset(&weaponBuckets, -1, sizeof(weaponBuckets));
 	//Naive initialisation of the buckets
-	for (int i = 0; i < weaponCount; i++)
+	for (int i = 1; i < weaponCount; i++)
 	{
 		int bucketIndex = (-weaponData[i].weaponBucket) - 1;
 		int weaponIndex = 0;
+
+		if (bucketIndex < 0 || bucketIndex >= (-WB_OTHERS))
+		{
+			gi.Printf(S_COLOR_YELLOW"WARNING: Weapon '%s' has an invalid bucket index '%d'\n", weaponData[i].classname, weaponData[i].weaponBucket);
+			continue;
+		}
+
 		while (buckets[bucketIndex][weaponIndex] != -1)
 		{
 			weaponIndex++;

@@ -239,6 +239,18 @@ void CG_RegisterWeapon( int weaponNum ) {
 	}
 	// if we couldn't find which weapon this is, Create one!
 	if ( !found) {
+		//For throwable, we need to create two items. Ammo and weapon.
+		if (weaponData[weaponNum].baseWeaponNum == WP_THERMAL
+			|| weaponData[weaponNum].baseWeaponNum == WP_DET_PACK
+			|| weaponData[weaponNum].baseWeaponNum == WP_TRIP_MINE) {
+			if (i == (MAX_ITEMS -1)) {
+				CG_Error("Too many items in external items data(%d); Cannot create nor found ammo item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
+			}
+			item = &(bg_itemlist[bg_numItems]);
+			CG_InitItemForAmmo(item, weaponNum);
+			bg_numItems++;
+		}
+
 		if (i == MAX_ITEMS) {
 			CG_Error("Too many items in external items data(%d); Cannot create nor found item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
 		}
@@ -246,17 +258,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 		CG_InitItemForWeapon(item, weaponNum);
 		weaponInfo->item = item;
 		bg_numItems++;
-
-		if (weaponData[weaponNum].baseWeaponNum == WP_THERMAL
-			|| weaponData[weaponNum].baseWeaponNum == WP_DET_PACK
-			|| weaponData[weaponNum].baseWeaponNum == WP_TRIP_MINE) {
-			if (i == MAX_ITEMS) {
-				CG_Error("Too many items in external items data(%d); Cannot create nor found ammo item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
-			}
-			item = &(bg_itemlist[bg_numItems]);
-			CG_InitItemForAmmo(item, weaponNum);
-			bg_numItems++;
-		}
 	}
 
 	CG_RegisterItemVisuals( item - bg_itemlist );
