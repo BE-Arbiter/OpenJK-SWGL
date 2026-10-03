@@ -6437,6 +6437,11 @@ int PM_GetTurnAnim( gentity_t *gent, int anim )
 	case BOTH_ATTACK4:			//# Attack with ???
 	case BOTH_MELEE1:			//# First melee attack
 	case BOTH_MELEE2:			//# Second melee attack
+	case BOTH_MELEE_COMBO_1:
+	case BOTH_MELEE_COMBO_2:
+	case BOTH_MELEE_COMBO_3:
+	case BOTH_MELEE_COMBO_4:
+	case BOTH_MELEE_COMBO_5:
 	case BOTH_GUARD_LOOKAROUND1:	//# Cradling weapon and looking around
 	case BOTH_GUARD_IDLE1:		//# Cradling weapon and standing
 		if ( PM_HasAnimation( gent, LEGS_TURN2 ) )

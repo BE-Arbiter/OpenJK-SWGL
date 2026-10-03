@@ -13452,6 +13452,28 @@ PM_Weapon
 Generates weapon events and modifes the weapon counter
 ==============
 */
+#define MELEE_CHAIN_PERCENT	90	// share of a combo move after which attack chains into the next one
+
+// Picks a random move for the player's main melee attack, never the same one twice in a row.
+static int PM_PickMeleeComboAnim( void )
+{
+	static const int comboAnims[] = { BOTH_MELEE_COMBO_1, BOTH_MELEE_COMBO_2, BOTH_MELEE_COMBO_3, BOTH_MELEE_COMBO_4, BOTH_MELEE_COMBO_5 };
+	const int numMoves = (int)(sizeof(comboAnims) / sizeof(comboAnims[0]));
+
+	if ( !PM_HasAnimation( pm->gent, comboAnims[0] ) )
+	{//model has no combo anims, use the plain melee
+		return PM_PickAnim( pm->gent, BOTH_MELEE1, BOTH_MELEE2 );
+	}
+
+	int move = Q_irand( 0, numMoves - 1 );
+	if ( move == pm->ps->meleeCombo )
+	{
+		move = (move + 1 + Q_irand( 0, numMoves - 2 )) % numMoves;
+	}
+	pm->ps->meleeCombo = move;
+	return comboAnims[move];
+}
+
 static void PM_Weapon( void )
 {
 	int			addTime, amount, trueCount = 1;
@@ -13654,6 +13676,14 @@ static void PM_Weapon( void )
 			pm->gent->weaponModel[1] = -1;
 			pm->gent->count = 0;
 		}
+	}
+
+	if ( pm->ps->weaponTime > 0
+		&& (pm->ps->clientNum < MAX_CLIENTS || PM_ControlledByPlayer())
+		&& pm->ps->torsoAnim >= BOTH_MELEE_COMBO_1 && pm->ps->torsoAnim <= BOTH_MELEE_COMBO_5
+		&& pm->ps->torsoAnimTimer * 100 <= PM_AnimLength( pm->gent->client->clientInfo.animFileIndex, (animNumber_t)pm->ps->torsoAnim ) * (100 - MELEE_CHAIN_PERCENT) )
+	{//late enough in a combo move to chain the next one
+		pm->ps->weaponTime = 0;
 	}
 
 	if ( pm->ps->weaponTime > 0 )
@@ -13914,14 +13944,22 @@ static void PM_Weapon( void )
 						}
 						else if (!(pm->ps->pm_flags & PMF_ATTACK_HELD))
 						{
-							anim = PM_PickAnim(pm->gent, BOTH_MELEE1, BOTH_MELEE2);
+							anim = PM_PickMeleeComboAnim();
 						}
 					}
 					else
 					{
 						anim = PM_PickAnim(pm->gent, BOTH_MELEE1, BOTH_MELEE2);
 					}
-					if (anim != -1)
+					if (anim >= BOTH_MELEE_COMBO_1 && anim <= BOTH_MELEE_COMBO_5)
+					{//combo move: stop dead and play the full body anim
+						if (pm->ps->groundEntityNum != ENTITYNUM_NONE)
+						{
+							pm->ps->velocity[0] = pm->ps->velocity[1] = 0;
+						}
+						PM_SetAnim(pm, SETANIM_BOTH, anim, SETANIM_FLAG_OVERRIDE | SETANIM_FLAG_HOLD | SETANIM_FLAG_RESTART);
+					}
+					else if (anim != -1)
 					{
 						if (VectorCompare(pm->ps->velocity, vec3_origin) && pm->cmd.upmove >= 0)
 						{
@@ -15386,6 +15424,18 @@ void Pmove( pmove_t *pmove )
 		if ( pm->ps->viewheight > -12 )
 		{//slowly sink view to ground
 			pm->ps->viewheight -= 1;
+		}
+	}
+
+	if ( pm->ps->torsoAnimTimer > 0
+		&& pm->ps->torsoAnim >= BOTH_MELEE_COMBO_1 && pm->ps->torsoAnim <= BOTH_MELEE_COMBO_5
+		&& pm->ps->groundEntityNum != ENTITYNUM_NONE )
+	{//planted during a combo move
+		pm->cmd.forwardmove = 0;
+		pm->cmd.rightmove = 0;
+		if ( pm->cmd.upmove > 0 )
+		{
+			pm->cmd.upmove = 0;
 		}
 	}
 
