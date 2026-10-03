@@ -838,7 +838,7 @@ the K_* names are matched up.
 to be configured even if they don't have defined names.
 ===================
 */
-int Key_StringToKeynum( char *str ) {
+static int Key_StringToPlainKeynum( char *str ) {
 	if ( !VALIDSTRING( str ) )
 		return -1;
 
@@ -861,6 +861,119 @@ int Key_StringToKeynum( char *str ) {
 	}
 
 	return -1;
+}
+
+/*
+===================
+Key combinations
+
+A combination is a modifier key held while another key goes down ("RT+DPAD_LEFT").
+Each one gets a key number of its own, so it binds, saves and shows in the menus like any key.
+===================
+*/
+#define MAX_KEY_COMBOS	( A_COMBO_LAST - A_COMBO_BASE + 1 )
+
+static struct {
+	int		modifier;
+	int		key;
+	char	name[96];
+} keyCombos[MAX_KEY_COMBOS];
+static int numKeyCombos;
+
+// the combination that took over a key press, so the release goes to the same one
+static int comboHeld[A_COMBO_BASE];
+
+int Key_ComboKeynum( int modifier, int key ) {
+	if ( modifier <= 0 || modifier >= A_COMBO_BASE || key <= 0 || key >= A_COMBO_BASE || modifier == key )
+		return -1;
+
+	for ( int i=0; i<numKeyCombos; i++ ) {
+		if ( keyCombos[i].modifier == modifier && keyCombos[i].key == key )
+			return A_COMBO_BASE + i;
+	}
+
+	if ( numKeyCombos >= MAX_KEY_COMBOS )
+		return -1;
+
+	char modName[48], keyName[48];
+	Q_strncpyz( modName, Key_KeynumToString( modifier ), sizeof( modName ) );
+	Q_strncpyz( keyName, Key_KeynumToString( key ), sizeof( keyName ) );
+
+	const int index = numKeyCombos++;
+	const int keynum = A_COMBO_BASE + index;
+
+	keyCombos[index].modifier = modifier;
+	keyCombos[index].key = key;
+	Com_sprintf( keyCombos[index].name, sizeof( keyCombos[index].name ), "%s+%s", modName, keyName );
+
+	keynames[keynum].upper = keynames[keynum].lower = keynum;
+	keynames[keynum].name = keyCombos[index].name;
+	keynames[keynum].keynum = keynum;
+	keynames[keynum].menukey = false;
+
+	return keynum;
+}
+
+int Key_StringToKeynum( char *str ) {
+	int keynum = Key_StringToPlainKeynum( str );
+	if ( keynum != -1 || !VALIDSTRING( str ) )
+		return keynum;
+
+	// "<modifier>+<key>"
+	for ( char *plus = strchr( str + 1, '+' ); plus && plus[1]; plus = strchr( plus + 1, '+' ) ) {
+		char modName[48];
+		const size_t len = plus - str;
+		if ( len >= sizeof( modName ) )
+			break;
+
+		Q_strncpyz( modName, str, len + 1 );
+		const int modifier = Key_StringToPlainKeynum( modName );
+		const int key = Key_StringToPlainKeynum( plus + 1 );
+
+		if ( modifier > 0 && modifier < A_COMBO_BASE && key > 0 && key < A_COMBO_BASE )
+			return Key_ComboKeynum( modifier, key );
+	}
+
+	return -1;
+}
+
+/*
+===================
+CL_ResolveCombo
+
+Swaps a key event for the combination it completes, if that combination is bound.
+Menus and the console always see the plain key.
+===================
+*/
+static int CL_ResolveCombo( int key, qboolean down ) {
+	if ( key <= 0 || key >= A_COMBO_BASE )
+		return key;
+
+	if ( !down ) {
+		const int combo = comboHeld[key];
+		comboHeld[key] = 0;
+		return combo ? combo : key;
+	}
+
+	if ( comboHeld[key] )
+		return comboHeld[key];
+
+	if ( Key_GetCatcher() )
+		return key;
+
+	for ( int i=0; i<numKeyCombos; i++ ) {
+		const int combo = A_COMBO_BASE + i;
+
+		if ( keyCombos[i].key != key || !kg.keys[keynames[keyCombos[i].modifier].upper].down )
+			continue;
+
+		if ( kg.keys[combo].binding && kg.keys[combo].binding[0] ) {
+			comboHeld[key] = combo;
+			return combo;
+		}
+	}
+
+	return key;
 }
 
 static char tinyString[16];
@@ -1380,6 +1493,8 @@ Called by the system for both key up and key down events
 ===================
 */
 void CL_KeyEvent (int key, qboolean down, unsigned time) {
+	key = CL_ResolveCombo( key, down );
+
 	if( down )
 		CL_KeyDownEvent( key, time );
 	else
@@ -1410,6 +1525,7 @@ Key_ClearStates
 ===================
 */
 void Key_ClearStates( void ) {
+	memset( comboHeld, 0, sizeof( comboHeld ) );
 	kg.anykeydown = qfalse;
 	kg.keyDownCount = 0;
 

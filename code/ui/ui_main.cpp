@@ -3239,7 +3239,7 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 		itemDef_t *item;
 		menuDef_t *menu;
 		modelDef_t *modelPtr;
-		char skin[MAX_QPATH];
+		char skin[MAX_QPATH * 2];
 
 		menu = Menus_FindByName("datapadMovesMenu");
 
@@ -3484,6 +3484,7 @@ extern void	Item_RunScript(itemDef_t *item, const char *s);		//from ui_shared;
 
 void Key_KeynumToStringBuf( int keynum, char *buf, int buflen );
 void Key_GetBindingBuf( int keynum, char *buf, int buflen );
+int Key_ComboKeynum( int modifier, int key );
 
 static qboolean UI_Crosshair_HandleKey(int flags, float *special, int key)
 {
@@ -4353,6 +4354,7 @@ void _UI_Init( qboolean inGameLoad )
 	uiInfo.uiDC.getOverstrikeMode	= &trap_Key_GetOverstrikeMode;
 	uiInfo.uiDC.getValue			= &UI_GetValue;
 	uiInfo.uiDC.keynumToStringBuf	= &Key_KeynumToStringBuf;
+	uiInfo.uiDC.keyCombo			= &Key_ComboKeynum;
 	uiInfo.uiDC.modelBounds			= &trap_R_ModelBounds;
 	uiInfo.uiDC.ownerDrawVisible	= &UI_OwnerDrawVisible;
 	uiInfo.uiDC.ownerDrawWidth		= &UI_OwnerDrawWidth;
@@ -5288,7 +5290,8 @@ _UI_DrawSides
 */
 void _UI_DrawSides(float x, float y, float w, float h, float size)
 {
-	size *= uiInfo.uiDC.xscale;
+	// size is in virtual units vertically; the 640x480 space is stretched, so scale it for the same thickness in pixels
+	size *= uiInfo.uiDC.yscale / uiInfo.uiDC.xscale;
 	trap_R_DrawStretchPic( x, y, size, h, 0, 0, 0, 0, uiInfo.uiDC.whiteShader );
 	trap_R_DrawStretchPic( x + w - size, y, size, h, 0, 0, 0, 0, uiInfo.uiDC.whiteShader );
 }
@@ -5300,7 +5303,6 @@ _UI_DrawTopBottom
 */
 void _UI_DrawTopBottom(float x, float y, float w, float h, float size)
 {
-	size *= uiInfo.uiDC.yscale;
 	trap_R_DrawStretchPic( x, y, w, size, 0, 0, 0, 0, uiInfo.uiDC.whiteShader );
 	trap_R_DrawStretchPic( x, y + h - size, w, size, 0, 0, 0, 0, uiInfo.uiDC.whiteShader );
 }

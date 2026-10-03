@@ -647,6 +647,12 @@ extern	vmCvar_t		cg_speeds;
 
 extern	vmCvar_t		cg_missionInfoFlashTime;
 extern	vmCvar_t		cg_hudFiles;
+extern	vmCvar_t		cg_validJKO;
+qboolean CG_JK2HudRequested( void );
+qboolean CG_JK2HudActive( void );
+void CG_RegisterJK2Hud( void );
+void CG_DrawJK2HUD( const centity_t *cent, const float hudRatio );
+void CG_DrawJK2IconBackground( void );
 
 extern	vmCvar_t		cg_turnAnims;
 extern	vmCvar_t		cg_motionBoneComp;

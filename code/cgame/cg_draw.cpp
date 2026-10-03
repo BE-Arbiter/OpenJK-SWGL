@@ -1836,7 +1836,14 @@ static void CG_DrawHUD( centity_t *cent )
 	int	sectionXPos,sectionYPos,sectionWidth,sectionHeight;
 	float hudRatio = cg_hudRatio.integer ? cgs.widthRatioCoef : 1.0f;
 
-	if ( cg_hudFiles.integer )
+	//JK2 Hud gated with valid jko to avoir problems.
+	if ( CG_JK2HudActive() )
+	{
+		CG_DrawJK2HUD( cent, hudRatio );
+		return;
+	}
+
+	if ( cg_hudFiles.integer == 1 )
 	{
 		int x = 0;
 		int y = SCREEN_HEIGHT - 80;
@@ -4152,6 +4159,10 @@ static void CG_Draw2D( void )
 		if ( !(cent->gent && cent->gent->s.eFlags & (EF_LOCKED_TO_WEAPON )))//|EF_IN_ATST
 		{
 			//CG_DrawIconBackground();
+			if ( CG_JK2HudActive() )
+			{
+				CG_DrawJK2IconBackground();
+			}
 		}
 
 		CG_DrawWeaponSelect();
@@ -4279,7 +4290,7 @@ void CG_DrawIconBackground(void)
 	qhandle_t		background;
 	const float		shutdownTime = 130.0f;
 
-	if ( cg_hudFiles.integer )
+	if ( cg_hudFiles.integer == 1 )
 	{ //simple hud
 		return;
 	}
