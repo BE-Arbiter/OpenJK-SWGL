@@ -395,6 +395,16 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace);
 
 void ClearRegisteredItems( void );
 void RegisterItem( gitem_t *item );
+
+// jetpack item (g_items.cpp)
+const gitem_t *G_JetpackItem( const playerState_t *ps );
+void G_GiveJetpack( gentity_t *ent, const gitem_t *item, int fuel );
+void G_DropJetpack( gentity_t *ent );
+void G_JetpackToggle( gentity_t *ent );
+void G_JetpackOff( gentity_t *ent );
+void G_JetpackRemoveModel( gentity_t *ent );
+void G_JetpackThink( gentity_t *ent );
+qboolean G_JetpackBoosting( const usercmd_t *cmd );
 void SaveRegisteredItems( void );
 
 //

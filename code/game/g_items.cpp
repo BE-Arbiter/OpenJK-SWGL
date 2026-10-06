@@ -78,6 +78,11 @@ G_InventorySelectable
 */
 qboolean G_InventorySelectable( int index,gentity_t *other)
 {
+	if (index >= INV_JETPACK_TYPE)
+	{//state of the jetpack, not an item
+		return qfalse;
+	}
+
 	if (other->client->ps.inventory[index])
 	{
 		return qtrue;
@@ -105,6 +110,12 @@ int Pickup_Holdable( gentity_t *ent, gentity_t *other )
 		//FIXME: temp message
 		gi.SendServerCommand( 0, "cp @SP_INGAME_YOU_TOOK_SUPPLY_KEY" );
 		INV_GoodieKeyGive( other );
+	}
+	else if ( ent->item->giTag == INV_JETPACK )
+	{
+		// the same jetpack is refilled, another one comes with the fuel it was dropped with (a full tank when never used)
+		const qboolean sameJetpack = (qboolean)( G_JetpackItem( &other->client->ps ) == ent->item );
+		G_GiveJetpack( other, ent->item, ( sameJetpack || ent->count <= 0 ) ? JETPACK_FUEL_MAX : ent->count - 1 );
 	}
 	else
 	{// Picking up a normal item?
@@ -796,6 +807,19 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 		if (other->s.number != 0)
 		{// Not the player?-
 			return;
+		}
+	}
+
+	if ( ent->item && ent->item->giType == IT_HOLDABLE && ent->item->giTag == INV_JETPACK && !other->s.number )
+	{//touching a jetpack of another kind does nothing, using it swaps it with the one worn
+		const gitem_t *worn = G_JetpackItem( &other->client->ps );
+		if ( worn && worn != ent->item )
+		{
+			if ( trace )
+			{
+				return;
+			}
+			G_DropJetpack( other );
 		}
 	}
 
@@ -1722,3 +1746,300 @@ void ItemUse_Bacta(gentity_t *ent)
 		G_SoundOnEnt( ent, CHAN_VOICE, va( "sound/weapons/force/heal%d_%c.mp3", Q_irand( 1, 4 ), g_sex->string[0] ) );
 }
 
+
+/*
+==============================================================================
+
+JETPACK
+
+A jetpack is an item with the tag INV_JETPACK, defined in an item file with its own model.
+The player carries one: inventory[INV_JETPACK] is 1, inventory[INV_JETPACK_TYPE] is the item
+and inventory[INV_JETPACK_FUEL] is the fuel. The movement is in PM_JetpackMove (bg_pmove.cpp).
+
+==============================================================================
+*/
+extern Vehicle_t *G_IsRidingVehicle( gentity_t *pEnt );
+extern bool in_camera;
+
+#define JETPACK_DEFAULT_MODEL	"models/weapons2/jetpack/model.glm"
+#define JETPACK_FUEL_TO_START	1
+#define JETPACK_DEFAULT_DRAIN	700		// about 70 seconds of idle use from a full tank, a third of it when thrusting
+#define JETPACK_TOGGLE_TIME		1000
+
+static qboolean G_IsJetpackItem( int index )
+{
+	return (qboolean)( index > 0 && index < bg_numItems
+		&& bg_itemlist[index].giType == IT_HOLDABLE && bg_itemlist[index].giTag == INV_JETPACK );
+}
+
+// The item of the jetpack carried, NULL when none.
+const gitem_t *G_JetpackItem( const playerState_t *ps )
+{
+	if ( ps->inventory[INV_JETPACK] <= 0 )
+	{
+		return NULL;
+	}
+	if ( G_IsJetpackItem( ps->inventory[INV_JETPACK_TYPE] ) )
+	{
+		return &bg_itemlist[ps->inventory[INV_JETPACK_TYPE]];
+	}
+	for ( int i = 1; i < bg_numItems; i++ )
+	{//no type set, take the first one defined
+		if ( G_IsJetpackItem( i ) )
+		{
+			return &bg_itemlist[i];
+		}
+	}
+	return NULL;
+}
+
+void G_GiveJetpack( gentity_t *ent, const gitem_t *item, int fuel )
+{
+	gclient_t *client = ent->client;
+
+	if ( !client || !item )
+	{
+		return;
+	}
+
+	if ( client->ps.inventory[INV_JETPACK_TYPE] != item - bg_itemlist )
+	{
+		G_JetpackOff( ent );
+	}
+	client->ps.inventory[INV_JETPACK] = 1;
+	client->ps.inventory[INV_JETPACK_TYPE] = item - bg_itemlist;
+	client->ps.inventory[INV_JETPACK_FUEL] = fuel;
+	client->ps.stats[STAT_ITEMS] |= (1<<INV_JETPACK);
+	RegisterItem( (gitem_t *)item );
+}
+
+// The jetpack leaves the inventory.
+static void G_ClearJetpack( gclient_t *client )
+{
+	client->ps.inventory[INV_JETPACK] = 0;
+	client->ps.inventory[INV_JETPACK_TYPE] = 0;
+	client->ps.inventory[INV_JETPACK_FUEL] = 0;
+	client->ps.stats[STAT_ITEMS] &= ~(1<<INV_JETPACK);
+}
+
+// Drops the jetpack worn; the fuel left goes with it (count is the fuel + 1, 0 = a full tank).
+void G_DropJetpack( gentity_t *ent )
+{
+	gclient_t		*client = ent->client;
+	const gitem_t	*item = client ? G_JetpackItem( &client->ps ) : NULL;
+
+	if ( !item )
+	{
+		return;
+	}
+
+	gentity_t *dropped = Drop_Item( ent, (gitem_t *)item, 0, qfalse );
+	if ( dropped )
+	{
+		dropped->count = client->ps.inventory[INV_JETPACK_FUEL] + 1;
+	}
+
+	G_JetpackOff( ent );
+	G_ClearJetpack( client );
+}
+
+static qboolean G_JetpackModelValid( const gentity_t *ent )
+{
+	return (qboolean)( ent->jetpackModel > 0
+		&& ent->ghoul2.size() > ent->jetpackModel
+		&& ent->ghoul2[ent->jetpackModel].mModelindex != -1 );
+}
+
+void G_JetpackRemoveModel( gentity_t *ent )
+{
+	if ( G_JetpackModelValid( ent ) )
+	{
+		gi.G2API_RemoveGhoul2Model( ent->ghoul2, ent->jetpackModel );
+	}
+	ent->jetpackModel = -1;
+	if ( ent->client )
+	{
+		ent->client->jetPackShown = 0;
+	}
+}
+
+// A character with its own jetpack (Boba Fett...) has the jet tags: it wears no model, its own jets burn.
+static qboolean G_PlayerHasJets( gentity_t *ent )
+{
+	if ( ent->playerModel == -1 || !ent->ghoul2.size() )
+	{
+		return qfalse;
+	}
+	return (qboolean)( gi.G2API_AddBolt( &ent->ghoul2[ent->playerModel], "*jet1" ) != -1 );
+}
+
+static void G_PlayerJetEffects( gentity_t *ent, qboolean start )
+{
+	static const char *jetBolts[2] = { "*jet1", "*jet2" };
+
+	for ( int i = 0; i < 2; i++ )
+	{
+		const int bolt = gi.G2API_AddBolt( &ent->ghoul2[ent->playerModel], jetBolts[i] );
+		if ( bolt == -1 )
+		{
+			continue;
+		}
+		if ( start )
+		{
+			G_PlayEffect( G_EffectIndex( "boba/jetSP" ), ent->playerModel, bolt, ent->s.number, ent->currentOrigin, qtrue, qtrue );
+		}
+		else
+		{
+			G_StopEffect( "boba/jetSP", ent->playerModel, bolt, ent->s.number );
+		}
+	}
+}
+
+// Wears the model of the jetpack carried, and nothing when there is none or the player is dead.
+static void G_JetpackSyncModel( gentity_t *ent )
+{
+	gclient_t		*client = ent->client;
+	const gitem_t	*item = ( ent->health > 0 ) ? G_JetpackItem( &client->ps ) : NULL;
+	const int		wanted = ( item && !G_PlayerHasJets( ent ) ) ? (int)( item - bg_itemlist ) : 0;
+
+	if ( wanted == client->jetPackShown && ( !wanted || G_JetpackModelValid( ent ) ) )
+	{
+		return;
+	}
+
+	G_JetpackRemoveModel( ent );
+	if ( !wanted || ent->playerModel == -1 || !ent->ghoul2.size() )
+	{
+		return;
+	}
+
+	const char *model = ( item->jetModel && item->jetModel[0] ) ? item->jetModel : JETPACK_DEFAULT_MODEL;
+	ent->jetpackModel = gi.G2API_InitGhoul2Model( ent->ghoul2, model, G_ModelIndex( model ), NULL_HANDLE, NULL_HANDLE, 0, 0 );
+	if ( ent->jetpackModel <= 0 )
+	{
+		gi.Printf( S_COLOR_YELLOW"WARNING: jetpack '%s' cannot load model %s\n", item->classname, model );
+		ent->jetpackModel = -1;
+		client->jetPackShown = wanted;	// do not retry every frame
+		return;
+	}
+
+	int bolt = gi.G2API_AddBolt( &ent->ghoul2[ent->playerModel], "*chestg" );
+	if ( bolt == -1 )
+	{//a model without the jetpack tag
+		bolt = ent->chestBolt;
+	}
+	gi.G2API_AttachG2Model( &ent->ghoul2[ent->jetpackModel], &ent->ghoul2[ent->playerModel], bolt, ent->playerModel );
+	client->jetPackShown = wanted;
+}
+
+void G_JetpackOff( gentity_t *ent )
+{
+	if ( !ent->client || !ent->client->jetPackOn )
+	{
+		return;
+	}
+	ent->client->jetPackOn = qfalse;
+	if ( G_PlayerHasJets( ent ) )
+	{
+		G_PlayerJetEffects( ent, qfalse );
+	}
+	ent->s.loopSound = 0;
+}
+
+void G_JetpackToggle( gentity_t *ent )
+{
+	gclient_t *client = ent->client;
+
+	if ( !client || ent->health < 1 || in_camera || client->jetPackToggleTime >= level.time )
+	{
+		return;
+	}
+	if ( !G_JetpackItem( &client->ps ) )
+	{
+		return;
+	}
+
+	if ( client->jetPackOn )
+	{
+		G_JetpackOff( ent );
+	}
+	else
+	{
+		if ( client->ps.inventory[INV_JETPACK_FUEL] < JETPACK_FUEL_TO_START || G_IsRidingVehicle( ent ) )
+		{
+			return;
+		}
+		G_JetpackSyncModel( ent );
+		client->jetPackOn = qtrue;
+		client->jetPackDebReduce = level.time + JETPACK_DEFAULT_DRAIN;
+		G_SoundOnEnt( ent, CHAN_AUTO, "sound/chars/boba/jeton.wav" );
+		ent->s.loopSound = G_SoundIndex( "sound/chars/boba/jethover.wav" );
+		if ( G_PlayerHasJets( ent ) )
+		{
+			G_PlayerJetEffects( ent, qtrue );
+		}
+	}
+	client->jetPackToggleTime = level.time + JETPACK_TOGGLE_TIME;
+}
+
+// Moving forward with the speed key held, with the jetpack on. The client makes the move a run when the key
+// and cl_run differ, so the key is held when the run does not match cl_run.
+qboolean G_JetpackBoosting( const usercmd_t *cmd )
+{
+	const qboolean running = (qboolean)!( cmd->buttons & BUTTON_WALKING );
+
+	return (qboolean)( cmd->forwardmove > 0 && running != ( gi.Cvar_VariableIntegerValue( "cl_run" ) != 0 ) );
+}
+
+// Every frame of the player: model, fuel, and the cases that stop the jetpack.
+void G_JetpackThink( gentity_t *ent )
+{
+	gclient_t *client = ent->client;
+
+	if ( !client || ent->s.number != 0 )
+	{
+		return;
+	}
+
+	const gitem_t *item = G_JetpackItem( &client->ps );
+
+	if ( client->jetPackOn
+		&& ( !item || ent->health <= 0 || client->ps.pm_type == PM_DEAD || G_IsRidingVehicle( ent )
+			|| (client->ps.eFlags & (EF_LOCKED_TO_WEAPON|EF_HELD_BY_RANCOR|EF_HELD_BY_WAMPA|EF_HELD_BY_SAND_CREATURE)) ) )
+	{
+		G_JetpackOff( ent );
+	}
+
+	G_JetpackSyncModel( ent );
+
+	if ( !item )
+	{
+		return;
+	}
+
+	if ( client->jetPackOn )
+	{
+		if ( client->jetPackDebReduce <= level.time )
+		{
+			// thrusting and running forward each cost three times more
+			int cost = 1;
+			if ( client->usercmd.upmove > 0 )
+			{
+				cost *= 3;
+			}
+			if ( G_JetpackBoosting( &client->usercmd ) )
+			{
+				cost *= 3;
+			}
+			client->ps.inventory[INV_JETPACK_FUEL] -= cost;
+			if ( client->ps.inventory[INV_JETPACK_FUEL] <= 0 )
+			{
+				// an empty jetpack is gone
+				G_JetpackOff( ent );
+				G_ClearJetpack( client );
+				return;
+			}
+			client->jetPackDebReduce = level.time + ( item->jetDrain > 0 ? item->jetDrain : JETPACK_DEFAULT_DRAIN );
+		}
+	}
+}

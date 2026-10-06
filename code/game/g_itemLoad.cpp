@@ -50,6 +50,9 @@ static void IT_PickupSound (const char **holdBuf);
 static void IT_Tag (const char **holdBuf);
 static void IT_Type (const char **holdBuf);
 static void IT_WorldModel (const char **holdBuf);
+static void IT_JetModel (const char **holdBuf);
+static void IT_JetDrain (const char **holdBuf);
+static void IT_JetThrust (const char **holdBuf);
 
 
 typedef struct
@@ -59,7 +62,7 @@ typedef struct
 } itemParms_t;
 
 
-#define IT_PARM_MAX 10
+#define IT_PARM_MAX 13
 
 itemParms_t ItemParms[IT_PARM_MAX] =
 {
@@ -73,6 +76,9 @@ itemParms_t ItemParms[IT_PARM_MAX] =
 	{ "tag",				IT_Tag },
 	{ "type",				IT_Type },
 	{ "worldmodel",			IT_WorldModel },
+	{ "jetmodel",			IT_JetModel },
+	{ "jetdrain",			IT_JetDrain },
+	{ "jetthrust",			IT_JetThrust },
 };
 
 static void IT_SetDefaults()
@@ -346,6 +352,41 @@ static void IT_WorldModel(const char **holdBuf)
 
 }
 
+static void IT_JetModel(const char **holdBuf)
+{
+	const char	*tokenStr;
+
+	if (COM_ParseString(holdBuf,&tokenStr))
+	{
+		return;
+	}
+	bg_itemlist[itemParms.itemNum].jetModel = G_NewString(tokenStr);
+}
+
+static void IT_JetDrain(const char **holdBuf)
+{
+	int		tokenInt;
+
+	if (COM_ParseInt(holdBuf,&tokenInt))
+	{
+		SkipRestOfLine(holdBuf);
+		return;
+	}
+	bg_itemlist[itemParms.itemNum].jetDrain = tokenInt;
+}
+
+static void IT_JetThrust(const char **holdBuf)
+{
+	float	tokenFloat;
+
+	if (COM_ParseFloat(holdBuf,&tokenFloat))
+	{
+		SkipRestOfLine(holdBuf);
+		return;
+	}
+	bg_itemlist[itemParms.itemNum].jetThrust = tokenFloat;
+}
+
 static void IT_Tag(const char **holdBuf)
 {
 	int tag;
@@ -569,6 +610,10 @@ static void IT_Tag(const char **holdBuf)
 	else if (!Q_stricmp(tokenStr,"INV_SECURITY_KEY"))
 	{
 		tag = INV_SECURITY_KEY;
+	}
+	else if (!Q_stricmp(tokenStr,"INV_JETPACK"))
+	{
+		tag = INV_JETPACK;
 	}
 	else if (!Q_stricmp(tokenStr,"ITM_MEDPAK_PICKUP"))
 	{

@@ -641,6 +641,11 @@ typedef struct gitem_s {
 	const char	*sounds;		// string of all sounds this item will use
 	vec3_t		mins;			// Bbox
 	vec3_t		maxs;			// Bbox
+
+	// Jetpack items (tag INV_JETPACK), set from the item file; 0 or NULL = default
+	const char	*jetModel;		// ghoul2 model worn on the back
+	int			jetDrain;		// msec per unit of fuel used
+	float		jetThrust;		// vertical speed added per frame while thrusting
 } gitem_t;
 
 // included in both the game dll and the client

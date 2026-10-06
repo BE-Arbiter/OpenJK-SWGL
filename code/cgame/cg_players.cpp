@@ -4487,8 +4487,74 @@ static void CG_ForceElectrocution( centity_t *cent, const vec3_t origin, vec3_t 
 	}
 }
 
+/*
+===============
+CG_JetpackEffects
+
+Flames of the jetpack item. Like in multiplayer they are played every few frames
+from the two jets of the model, along the axis that suits each jet.
+===============
+*/
+static void CG_JetpackEffects( centity_t *cent, vec3_t tempAngles )
+{
+	static const char	*jetBolts[2] = { "torso_ljet", "torso_rjet" };
+	static int			lastFxTime = 0;
+	gentity_t			*gent = cent->gent;
+
+	if ( !gent->client->jetPackOn || gent->jetpackModel <= 0 || !gent->ghoul2.IsValid()
+		|| gent->ghoul2.size() <= gent->jetpackModel || gent->ghoul2[gent->jetpackModel].mModelindex == -1 )
+	{
+		return;
+	}
+	if ( cg.time - lastFxTime < 40 && cg.time >= lastFxTime )
+	{
+		return;
+	}
+	lastFxTime = cg.time;
+
+	const qboolean thrusting = (qboolean)( gent->client->usercmd.upmove > 0 );
+	const int fxID = theFxScheduler.RegisterEffect( "boba/jet" );
+
+	for ( int i = 0; i < 2; i++ )
+	{
+		const int bolt = gi.G2API_AddBolt( &gent->ghoul2[gent->jetpackModel], jetBolts[i] );
+		if ( bolt == -1 )
+		{
+			continue;
+		}
+
+		mdxaBone_t	mat;
+		vec3_t		flamePos, flameDir;
+
+		gi.G2API_GetBoltMatrix( gent->ghoul2, gent->jetpackModel, bolt, &mat, tempAngles, cent->lerpOrigin, cg.time, cgs.model_draw, cent->currentState.modelScale );
+		gi.G2API_GiveMeVectorFromMatrix( mat, ORIGIN, flamePos );
+		// The bolts are on the center of the jetpack. The jet is down the Y axis of the first bolt and the X axis
+		// of the second, and the effect blows out opposite to the direction it is given.
+		vec3_t			downDir, sideDir;
+		const Eorientations	downAxis = ( i == 0 ) ? POSITIVE_Y : POSITIVE_X;
+		const Eorientations	sideAxis = ( i == 0 ) ? POSITIVE_X : POSITIVE_Y;
+
+		gi.G2API_GiveMeVectorFromMatrix( mat, downAxis, downDir );
+		gi.G2API_GiveMeVectorFromMatrix( mat, sideAxis, sideDir );
+		VectorMA( flamePos, 13.5f, downDir, flamePos );
+		VectorMA( flamePos, 9.5f, sideDir, flamePos );
+		VectorNegate( downDir, flameDir );
+
+		theFxScheduler.PlayEffect( fxID, flamePos, flameDir );
+		if ( thrusting )
+		{
+			theFxScheduler.PlayEffect( fxID, flamePos, flameDir );
+		}
+	}
+}
+
 static void CG_BoltedEffects( centity_t *cent, const vec3_t origin, vec3_t tempAngles )
 {
+	if ( cent->gent && cent->gent->client && cent->gent->s.number == 0 )
+	{
+		CG_JetpackEffects( cent, tempAngles );
+	}
+
 	if ( cent->gent && cent->gent->client && cent->gent->client->NPC_class == CLASS_VEHICLE )
 	{
 		Vehicle_t *pVeh = cent->gent->m_pVehicle;

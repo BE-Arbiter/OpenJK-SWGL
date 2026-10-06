@@ -968,6 +968,12 @@ void CG_RegisterItemVisuals( int itemNum ) {
 			cgs.media.laGogglesArrow		= cgi_R_RegisterShader( "gfx/2d/bracket2" );
 			break;
 
+		case INV_JETPACK:
+			cgi_S_RegisterSound( "sound/chars/boba/jeton.wav" );
+			cgi_S_RegisterSound( "sound/chars/boba/jethover.wav" );
+			theFxScheduler.RegisterEffect( "boba/jet" );
+			break;
+
 		case INV_BACTA_CANISTER:
 			for ( int i = 1; i < 5; i++ )
 			{
@@ -2631,6 +2637,10 @@ void CG_LDO_SwitchWeapon_f(void) {
 		else if (item->giTag == INV_GOODIE_KEY)
 		{
 			INV_GoodieKeyGive(ent);
+		}
+		else if (item->giTag == INV_JETPACK)
+		{
+			G_GiveJetpack(ent, item, JETPACK_FUEL_MAX);
 		}
 		else
 		{// Picking up a normal item?

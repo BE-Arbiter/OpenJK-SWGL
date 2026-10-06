@@ -1595,6 +1595,16 @@ void Cmd_UseSentry_f(gentity_t *ent)
 
 /*
 ================
+Cmd_UseJetpack_f
+================
+*/
+void Cmd_UseJetpack_f(gentity_t *ent)
+{
+	G_JetpackToggle( ent );
+}
+
+/*
+================
 Cmd_UseInventory_f
 ================
 */
@@ -1617,6 +1627,9 @@ void Cmd_UseInventory_f(gentity_t *ent)
 			return;
 		case INV_SENTRY :
 			Cmd_UseSentry_f(ent);
+			return;
+		case INV_JETPACK :
+			Cmd_UseJetpack_f(ent);
 			return;
 		default :
 			return;
@@ -2369,6 +2382,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_UseGoggles_f( ent );
 	else if (Q_stricmp (cmd, "use_sentry") == 0)
 		Cmd_UseSentry_f( ent );
+	else if (Q_stricmp (cmd, "use_jetpack") == 0)
+		Cmd_UseJetpack_f( ent );
 	else if (Q_stricmp (cmd, "fx") == 0)
 		Cmd_Fx( ent );
 	else if (Q_stricmp (cmd, "invuse") == 0)

@@ -5403,6 +5403,8 @@ void ClientThink_real( gentity_t *ent, usercmd_t *ucmd )
 
 	G_CheckClampUcmd( ent, ucmd );
 
+	G_JetpackThink( ent );
+
 	WP_ForcePowersUpdate( ent, ucmd );
 
 	//if we have the saber in hand, check for starting a block to reflect shots

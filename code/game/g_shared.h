@@ -737,6 +737,11 @@ public:
 	clientInfo_t	clientInfo;
 	movetype_t		moveType;
 	int				jetPackTime;
+	// Jetpack carried as an item (not saved: it starts switched off after a load)
+	qboolean		jetPackOn;
+	int				jetPackToggleTime;
+	int				jetPackDebReduce;
+	int				jetPackShown;		// bg_itemlist index of the jetpack model worn, 0 = none
 	int				fireDelay;		//msec to delay calling G_FireWeapon after EV_FIREWEAPON event is called
 
 	// The time at which a breath should be triggered. -Aurelio
@@ -1190,6 +1195,7 @@ Ghoul2 Insert End
 	short			headFaceBone;
 	short			playerModel;
 	short			weaponModel[MAX_INHAND_WEAPONS];
+	short			jetpackModel;		// ghoul2 index of the jetpack worn on the back, <= 0 when none
 	short			handRBolt;
 	short			handLBolt;
 	short			headBolt;
@@ -1444,6 +1450,7 @@ Ghoul2 Insert End
 		saved_game.write<int32_t>(noDamageTeam);
 		saved_game.write<int16_t>(playerModel);
 		saved_game.write<int16_t>(weaponModel);
+		saved_game.write<int16_t>(jetpackModel);
 		saved_game.write<int16_t>(handRBolt);
 		saved_game.write<int16_t>(handLBolt);
 		saved_game.write<int16_t>(headBolt);
@@ -1647,6 +1654,7 @@ Ghoul2 Insert End
 		saved_game.read<int32_t>(noDamageTeam);
 		saved_game.read<int16_t>(playerModel);
 		saved_game.read<int16_t>(weaponModel);
+		saved_game.read<int16_t>(jetpackModel);
 		saved_game.read<int16_t>(handRBolt);
 		saved_game.read<int16_t>(handLBolt);
 		saved_game.read<int16_t>(headBolt);

@@ -1073,10 +1073,82 @@ qboolean PM_GentCantJump( gentity_t *gent )
 	return qfalse;
 }
 
+// The player flies with a jetpack item (g_items.cpp). The jump key is the thrust.
+static qboolean PM_JetpackActive( void )
+{
+	return (qboolean)( pm->gent && pm->gent->client && pm->gent->s.number == 0
+		&& pm->gent->client->jetPackOn && !PM_RidingVehicle() );
+}
+
+#define JETPACK_HOVER_HEIGHT	64
+#define JETPACK_THRUST			20.0f	// speed added per 8 msec while thrusting
+#define JETPACK_MAX_RISE		256.0f
+#define JETPACK_MAX_FALL		-100.0f
+#define JETPACK_BOOST_SPEED		250	// forward speed with the speed key held
+
+/*
+===============
+PM_JetpackMove
+
+Almost no gravity, a thrust on the jump key, and a hover just off the ground.
+Called before the ground trace; PM_GroundTrace keeps the player in the air.
+===============
+*/
+static void PM_JetpackMove( void )
+{
+	const gitem_t	*item = G_JetpackItem( &pm->gent->client->ps );
+	const float		frameScale = pml.frametime / 0.008f;	// the speeds are per 8 msec
+	const float		thrust = ( ( item && item->jetThrust > 0.0f ) ? item->jetThrust : JETPACK_THRUST ) * frameScale;
+	float			*vz = &pm->ps->velocity[2];
+
+	// a force jump left behind would cut the climb at its height
+	pm->ps->forceJumpZStart = 0;
+
+	// distance to the ground, looking down twice the hover height
+	const float	probe = JETPACK_HOVER_HEIGHT * 2;
+	vec3_t		below;
+	trace_t		trace;
+	VectorCopy( pm->ps->origin, below );
+	below[2] -= probe;
+	pm->trace( &trace, pm->ps->origin, pm->mins, pm->maxs, below, pm->ps->clientNum, pm->tracemask, (EG2_Collision)0, 0 );
+	const float	groundDist = trace.allsolid ? 0.0f : trace.fraction * probe;
+
+	pm->ps->gravity *= ( groundDist < probe ) ? 0.1f : 0.25f;
+
+	if ( G_JetpackBoosting( &pm->cmd ) )
+	{
+		pm->cmd.forwardmove = 127;
+	}
+
+	if ( pm->cmd.upmove > 0 )
+	{
+		if ( *vz < JETPACK_MAX_RISE )
+		{
+			*vz += thrust;
+		}
+	}
+	else
+	{
+		if ( *vz < JETPACK_MAX_FALL )
+		{
+			*vz = JETPACK_MAX_FALL;
+		}
+		if ( groundDist < JETPACK_HOVER_HEIGHT )
+		{//stay off the ground while the jetpack is on
+			*vz += 2.0f * frameScale;
+		}
+	}
+}
+
 static qboolean PM_CheckJump( void )
 {
 	//Don't allow jump until all buttons are up
 	if ( pm->ps->pm_flags & PMF_RESPAWNED ) {
+		return qfalse;
+	}
+
+	if ( PM_JetpackActive() )
+	{//no jumping while the jetpack works
 		return qfalse;
 	}
 
@@ -2965,6 +3037,10 @@ static void PM_AirMove( void ) {
 			wishvel[i] = pml.forward[i]*fmove + pml.right[i]*smove;
 		}
 		wishvel[2] = 0;
+		if ( PM_JetpackActive() && G_JetpackBoosting( &pm->cmd ) )
+		{//the air move takes the raw move values, not the player speed
+			VectorScale( wishvel, JETPACK_BOOST_SPEED / 127.0f, wishvel );
+		}
 	}
 
 	VectorCopy (wishvel, wishdir);
@@ -5186,6 +5262,13 @@ static void PM_GroundTrace( void ) {
 			|| pm->ps->legsAnim == BOTH_WALL_RUN_LEFT
 			|| pm->ps->legsAnim == BOTH_FORCEWALLRUNFLIP_START) )
 	{//wall-running forces you to be in the air
+		pml.groundPlane = qfalse;
+		pml.walking = qfalse;
+		pm->ps->groundEntityNum = ENTITYNUM_NONE;
+		return;
+	}
+	else if ( PM_JetpackActive() )
+	{//the jetpack keeps you in the air
 		pml.groundPlane = qfalse;
 		pml.walking = qfalse;
 		pm->ps->groundEntityNum = ENTITYNUM_NONE;
@@ -8165,7 +8248,11 @@ static void PM_Footsteps( void )
 		}
 		else
 		{
-			if ( pm->ps->pm_flags & PMF_DUCKED )
+			if ( PM_JetpackActive() )
+			{//flying with a jetpack item
+				PM_JetPackAnim();
+			}
+			else if ( pm->ps->pm_flags & PMF_DUCKED )
 			{
 				if ( !flipping )
 				{
@@ -15492,6 +15579,11 @@ void Pmove( pmove_t *pmove )
 	if ( !Flying && !(pm->watertype & CONTENTS_LADDER) && pm->ps->pm_type != PM_DEAD )
 	{//NOTE: noclippers shouldn't jump or duck either, no?
 		PM_CheckDuck();
+	}
+
+	if ( PM_JetpackActive() )
+	{
+		PM_JetpackMove();
 	}
 
 	// set groundentity

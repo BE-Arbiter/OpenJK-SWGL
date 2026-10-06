@@ -2637,6 +2637,30 @@ void CG_DrawHealthBar(centity_t *cent, float chX, float chY, float chW, float ch
 	CG_FillRect(x+(percent*chW), y+1.0f, chW-(percent*chW)-1.0f, chH-1.0f, cColor);
 }
 
+// Fuel gauge of the jetpack item: a vertical bar in the free strip right of the right-hand status arc, shown while one is carried.
+static void CG_DrawJetpackFuel( void )
+{
+	if ( cg.snap->ps.inventory[INV_JETPACK] <= 0 )
+	{
+		return;
+	}
+
+	float fuel = cg.snap->ps.inventory[INV_JETPACK_FUEL] / (float)JETPACK_FUEL_MAX;
+	fuel = Com_Clamp( 0.0f, 1.0f, fuel );
+
+	const float	w = 9.5f * cgs.widthRatioCoef;
+	const float	h = 93.0f;
+	const float	x = SCREEN_WIDTH - 16.0f * cgs.widthRatioCoef;
+	const float	y = 331.0f;
+	vec4_t		back = { 0.0f, 0.0f, 0.0f, 0.5f };
+	vec4_t		frame = { 0.7f, 0.7f, 0.7f, 0.8f };
+	vec4_t		color = { ( fuel < 0.5f ) ? 1.0f : 2.0f * ( 1.0f - fuel ), ( fuel > 0.5f ) ? 1.0f : 2.0f * fuel, 0.1f, 0.85f };
+
+	CG_FillRect( x, y, w, h, back );
+	CG_FillRect( x, y + h * ( 1.0f - fuel ), w, h * fuel, color );
+	CG_DrawRect( x - 1.0f, y - 1.0f, w + 2.0f, h + 2.0f, 1.0f, frame );
+}
+
 #define MAX_HEALTH_BAR_ENTS 32
 int cg_numHealthBarEnts = 0;
 int cg_healthBarEnts[MAX_HEALTH_BAR_ENTS];
@@ -4188,6 +4212,8 @@ static void CG_Draw2D( void )
 		CG_RunRocketLocking();
 
 		CG_DrawInventorySelect();
+
+		CG_DrawJetpackFuel();
 
 		CG_DrawForceSelect();
 

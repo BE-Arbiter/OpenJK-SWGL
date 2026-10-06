@@ -3302,12 +3302,40 @@ CG_InventorySelectable
 */
 static inline qboolean CG_InventorySelectable( int index)
 {
+	if (index >= INV_JETPACK_TYPE)
+	{	// state of the jetpack, not an item
+		return qfalse;
+	}
+
 	if (cg.snap->ps.inventory[index])	// Is there any in the inventory?
 	{
 		return qtrue;
 	}
 
 	return qfalse;
+}
+
+extern const gitem_t *G_JetpackItem( const playerState_t *ps );
+
+// The jetpack shows the fuel as its number.
+static inline int CG_InventoryCount( int index )
+{
+	if (index == INV_JETPACK)
+	{
+		return (cg.snap->ps.inventory[INV_JETPACK_FUEL] > 99) ? 99 : cg.snap->ps.inventory[INV_JETPACK_FUEL];
+	}
+	return cg.snap->ps.inventory[index];
+}
+
+// The jetpack shows the icon of the item carried.
+static void CG_UpdateJetpackIcon( void )
+{
+	const gitem_t *item = G_JetpackItem( &cg.snap->ps );
+
+	if (item && item->icon && item->icon[0])
+	{
+		inv_icons[INV_JETPACK] = cgi_R_RegisterShaderNoMip( item->icon );
+	}
 }
 
 
@@ -3539,6 +3567,8 @@ void CG_DrawInventorySelect( void )
 	vec4_t			textColor = { .312f, .75f, .621f, 1.0f };
 	char			text[1024]={0};
 
+	CG_UpdateJetpackIcon();
+
 	// don't display if dead
 	if ( cg.predicted_player_state.stats[STAT_HEALTH] <= 0 || ( cg.snap->ps.viewEntity > 0 && cg.snap->ps.viewEntity < ENTITYNUM_WORLD ))
 	{
@@ -3639,7 +3669,7 @@ void CG_DrawInventorySelect( void )
 			CG_DrawPic(holdX, y + 10, smallIconSize_x, smallIconSize_y, inv_icons[i]);
 
 			cgi_R_SetColor(colorTable[CT_ICON_BLUE]);
-			CG_DrawNumField(holdX + addX, y + smallIconSize_y, 2, cg.snap->ps.inventory[i], 6 * cgs.widthRatioCoef, 12,
+			CG_DrawNumField(holdX + addX, y + smallIconSize_y, 2, CG_InventoryCount(i), 6 * cgs.widthRatioCoef, 12,
 				NUM_FONT_SMALL,qfalse);
 
 			holdX -= (smallIconSize_x + pad);
@@ -3654,13 +3684,13 @@ void CG_DrawInventorySelect( void )
 		CG_DrawPic(x - (bigIconSize_x / 2), (y - ((bigIconSize_y - smallIconSize_y) / 2)) + 10, bigIconSize_x, bigIconSize_y, inv_icons[cg.inventorySelect]);
 		addX = bigIconSize_x * .75;
 		cgi_R_SetColor(colorTable[CT_ICON_BLUE]);
-		CG_DrawNumField((x - (bigIconSize_x / 2)) + addX, y, 2, cg.snap->ps.inventory[cg.inventorySelect], 6 * cgs.widthRatioCoef, 12,
+		CG_DrawNumField((x - (bigIconSize_x / 2)) + addX, y, 2, CG_InventoryCount(cg.inventorySelect), 6 * cgs.widthRatioCoef, 12,
 			NUM_FONT_SMALL,qfalse);
 
 		if (inv_names[cg.inventorySelect])
 		{
 			// FIXME: This is ONLY a temp solution, the icon stuff, etc, should all just use items.dat for everything
-			gitem_t *item = FindInventoryItemTag( cg.inventorySelect );
+			const gitem_t *item = ( cg.inventorySelect == INV_JETPACK ) ? G_JetpackItem( &cg.snap->ps ) : FindInventoryItemTag( cg.inventorySelect );
 
 			if ( item && item->classname && item->classname[0] )
 			{
@@ -3721,7 +3751,7 @@ void CG_DrawInventorySelect( void )
 			CG_DrawPic(holdX, y + 10, smallIconSize_x, smallIconSize_y, inv_icons[i]);
 
 			cgi_R_SetColor(colorTable[CT_ICON_BLUE]);
-			CG_DrawNumField(holdX + addX, y + smallIconSize_y, 2, cg.snap->ps.inventory[i], 6 * cgs.widthRatioCoef, 12,
+			CG_DrawNumField(holdX + addX, y + smallIconSize_y, 2, CG_InventoryCount(i), 6 * cgs.widthRatioCoef, 12,
 				NUM_FONT_SMALL,qfalse);
 
 			holdX += (smallIconSize_x + pad);
@@ -3760,6 +3790,7 @@ void CG_DrawDataPadInventorySelect( void )
 	char			text[1024]={0};
 	vec4_t			textColor = { .312f, .75f, .621f, 1.0f };
 
+	CG_UpdateJetpackIcon();
 
 	// count the number of items owned
 	count = 0;
@@ -3843,7 +3874,7 @@ void CG_DrawDataPadInventorySelect( void )
 			CG_DrawPic(holdX, graphicYPos + 10, smallIconSize_x, smallIconSize_y, inv_icons[i]);
 
 			cgi_R_SetColor(colorTable[CT_ICON_BLUE]);
-			CG_DrawNumField(holdX + addX, graphicYPos + smallIconSize_y, 2, cg.snap->ps.inventory[i], 6 * cgs.widthRatioCoef, 12,
+			CG_DrawNumField(holdX + addX, graphicYPos + smallIconSize_y, 2, CG_InventoryCount(i), 6 * cgs.widthRatioCoef, 12,
 				NUM_FONT_SMALL,qfalse);
 
 			holdX -= (smallIconSize_x + pad);
@@ -3858,7 +3889,7 @@ void CG_DrawDataPadInventorySelect( void )
 		CG_DrawPic(centerXPos - (bigIconSize_x / 2), (graphicYPos - ((bigIconSize_y - smallIconSize_y) / 2)) + 10, bigIconSize_x, bigIconSize_y, inv_icons[cg.DataPadInventorySelect]);
 		addX = (float)bigIconSize_x * .75;
 		cgi_R_SetColor(colorTable[CT_ICON_BLUE]);
-		CG_DrawNumField((centerXPos - (bigIconSize_x / 2)) + addX, graphicYPos, 2, cg.snap->ps.inventory[cg.DataPadInventorySelect], 6 * cgs.widthRatioCoef, 12,
+		CG_DrawNumField((centerXPos - (bigIconSize_x / 2)) + addX, graphicYPos, 2, CG_InventoryCount(cg.DataPadInventorySelect), 6 * cgs.widthRatioCoef, 12,
 			NUM_FONT_SMALL,qfalse);
 
 	}
@@ -3894,7 +3925,7 @@ void CG_DrawDataPadInventorySelect( void )
 			CG_DrawPic(holdX, graphicYPos + 10, smallIconSize_x, smallIconSize_y, inv_icons[i]);
 
 			cgi_R_SetColor(colorTable[CT_ICON_BLUE]);
-			CG_DrawNumField(holdX + addX, graphicYPos + smallIconSize_y, 2, cg.snap->ps.inventory[i], 6 * cgs.widthRatioCoef, 12,
+			CG_DrawNumField(holdX + addX, graphicYPos + smallIconSize_y, 2, CG_InventoryCount(i), 6 * cgs.widthRatioCoef, 12,
 				NUM_FONT_SMALL,qfalse);
 
 			holdX += (smallIconSize_x + pad);
