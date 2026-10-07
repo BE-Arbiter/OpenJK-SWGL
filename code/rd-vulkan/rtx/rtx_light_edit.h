@@ -25,7 +25,7 @@ typedef struct {
 	int			source;				// rtxLightSource_t
 	int			sourceKey;			// -1 for added lights
 	int			type;				// rtxLightType_t
-	int			flags;				// RTX_LFLAG_DISABLED, _DELETED, _IN_SOLID only
+	int			flags;				// RTX_LFLAG_DISABLED, _DELETED, _IN_SOLID, _MUTED only
 	int			lightIndex;			// slot in world->light_polys, or -1
 
 	vec3_t		origin;
@@ -43,6 +43,8 @@ typedef struct {
 	float		origIntensity;
 	float		origRadius;
 	char		origName[RTX_LIGHTEDIT_NAME_LEN];
+	int			origType;
+	float		origSpot[5];
 
 	float		rays;				// lgt lights only
 	float		error;
@@ -66,6 +68,8 @@ void	RTX_LightEdit_Set_f( void );
 void	RTX_LightEdit_Del_f( void );
 void	RTX_LightEdit_Restore_f( void );
 void	RTX_LightEdit_Stats_f( void );
+void	RTX_LightEdit_Mute_f( void );
+void	RTX_LightEdit_Solo_f( void );
 void	*RTX_LightEdit_GetExtension( const char *name );
 
 // Helpers for rtx_light_file.cpp. All of them need RTX_LightEdit_IsReady().
@@ -107,3 +111,12 @@ rtxLightRecord_t	*RTX_LightEdit_GetRecordRaw( int id );
 
 // True when the record differs from its original values.
 qboolean			RTX_LightEdit_IsModified( const rtxLightRecord_t *rec );
+
+// Spot data of a record (spot[] holds the encoded form). Set clamps the values and gives
+// the record the spot encoding of make_entity_spot; it does not change the type.
+// Get gives the defaults 0 0 -1, 35 and 25 for a sphere.
+void				RTX_LightEdit_SetSpotData( rtxLightRecord_t *rec, const vec3_t dir, float outer, float inner );
+void				RTX_LightEdit_GetSpotData( const rtxLightRecord_t *rec, vec3_t dir, float *outer, float *inner );
+
+// Counter of the changes that alter the lighting. The tracer restarts its accumulation when it changes.
+int					RTX_LightEdit_Generation( void );

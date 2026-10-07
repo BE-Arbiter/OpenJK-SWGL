@@ -43,6 +43,9 @@ static int			g_overfull = 0;
 static int			g_rebuilds = 0;
 static int			g_unsaved = 0;
 static int			g_dragId = -1;
+static int			g_solo = -1;
+static int			g_batch = 0;			// depth of BeginBatch calls
+static int			g_generation = 0;
 static qboolean		g_pendingRebuild = qfalse;
 static qboolean		g_loading = qfalse;
 static int			g_lastRebuildMs = 0;
@@ -110,9 +113,85 @@ static float ClampF( float lo, float v, float hi )
 	return v < lo ? lo : v > hi ? hi : v;
 }
 
-static qboolean IsInactive( const rtxLightRecord_t *rec )
+int RTX_LightEdit_Generation( void )
+{
+	return g_generation;
+}
+
+static int RecordId( const rtxLightRecord_t *rec )
+{
+	return (int)( rec - &g_records[0] );
+}
+
+// True when Remove switched the light off.
+static qboolean IsRemoved( const rtxLightRecord_t *rec )
 {
 	return (qboolean)( ( rec->flags & ( RTX_LFLAG_DISABLED | RTX_LFLAG_DELETED ) ) != 0 );
+}
+
+static qboolean IsSoloHidden( const rtxLightRecord_t *rec )
+{
+	return (qboolean)( g_solo >= 0 && RecordId( rec ) != g_solo );
+}
+
+// True when the light does not emit, whatever its position.
+static qboolean IsInactive( const rtxLightRecord_t *rec )
+{
+	return (qboolean)( IsRemoved( rec ) || ( rec->flags & RTX_LFLAG_MUTED ) || IsSoloHidden( rec ) );
+}
+
+// A cluster change rebuilds the lists now, or at EndBatch.
+static void RequestRebuild( void )
+{
+	if ( g_batch > 0 )
+		g_pendingRebuild = qtrue;
+	else
+		RTX_LightEdit_RebuildClusters();
+}
+
+/*
+=================
+Spot data
+=================
+*/
+
+void RTX_LightEdit_SetSpotData( rtxLightRecord_t *rec, const vec3_t dirIn, float outer, float inner )
+{
+	vec3_t	dir;
+
+	VectorCopy( dirIn, dir );
+
+	if ( VectorNormalize( dir ) < 1e-4f )
+		VectorSet( dir, 0.0f, 0.0f, -1.0f );
+
+	outer = ClampF( 1.0f, outer, 89.0f );
+	inner = ClampF( 0.0f, inner, outer );
+
+	const float cosOuter = cosf( outer * 0.01745329f );
+	const float cosInner = cosf( inner * 0.01745329f );
+
+	rec->spot[0] = uintBitsToFloat( DYNLIGHT_SPOT_EMISSION_PROFILE_FALLOFF );
+	rec->spot[1] = uintBitsToFloat( floatToHalf( cosOuter ) | ( floatToHalf( cosInner ) << 16 ) );
+	VectorCopy( dir, rec->spot + 2 );
+}
+
+void RTX_LightEdit_GetSpotData( const rtxLightRecord_t *rec, vec3_t dir, float *outer, float *inner )
+{
+	if ( rec->type != RTX_LTYPE_SPOT )
+	{
+		VectorSet( dir, 0.0f, 0.0f, -1.0f );
+		*outer = 35.0f;
+		*inner = 25.0f;
+		return;
+	}
+
+	uint32_t packed;
+
+	Com_Memcpy( &packed, &rec->spot[1], sizeof(packed) );
+	VectorCopy( rec->spot + 2, dir );
+
+	*outer = acosf( ClampF( -1.0f, halfToFloat( (uint16_t)( packed & 0xFFFF ) ), 1.0f ) ) * 57.29578f;
+	*inner = acosf( ClampF( -1.0f, halfToFloat( (uint16_t)( packed >> 16 ) ), 1.0f ) ) * 57.29578f;
 }
 
 /*
@@ -132,6 +211,9 @@ void RTX_LightEdit_Reset( world_t &w )
 	g_rebuilds = 0;
 	g_unsaved = 0;
 	g_dragId = -1;
+	g_solo = -1;
+	g_batch = 0;
+	g_generation++;
 	g_pendingRebuild = qfalse;
 	g_loading = qfalse;
 	g_lastRebuildMs = 0;
@@ -143,6 +225,9 @@ void RTX_LightEdit_Invalidate( void )
 	g_valid = qfalse;
 	g_world = NULL;
 	g_dragId = -1;
+	g_solo = -1;
+	g_batch = 0;
+	g_generation++;
 	g_pendingRebuild = qfalse;
 }
 
@@ -218,6 +303,9 @@ void RTX_LightEdit_FinalizeLoad( world_t &w )
 			for ( int k = 0; k < 5; k++ )
 				rec->spot[k] = light->positions[4 + k];
 		}
+
+		rec->origType = rec->type;
+		Com_Memcpy( rec->origSpot, rec->spot, sizeof(rec->origSpot) );
 	}
 
 	g_numEmissive = w.num_light_polys - slotted;
@@ -234,6 +322,7 @@ Conversion between a record and its light_poly
 int RTX_LightEdit_Convert( const rtxLightRecord_t *rec, light_poly_t *out )
 {
 	const float	r = MAX( rec->radius, 0.5f );
+	const float	scale = rec->source == RTX_LSRC_LGT ? pt_lightgen_scale->value : 1.0f;
 
 	Com_Memset( out, 0, sizeof(*out) );
 
@@ -247,14 +336,12 @@ int RTX_LightEdit_Convert( const rtxLightRecord_t *rec, light_poly_t *out )
 			out->positions[4 + k] = rec->spot[k];
 
 		// A spot's irradiance does not depend on the emitter radius.
-		VectorScale( rec->color, rec->intensity * 0.5f, out->color );
+		VectorScale( rec->color, scale * rec->intensity * 0.5f, out->color );
 		out->type = LIGHT_SPOT;
 	}
 	else
 	{
 		// A sphere's irradiance is colour * r^2 / d^2, so the colour holds 1 / r^2.
-		const float scale = rec->source == RTX_LSRC_LGT ? pt_lightgen_scale->value : 1.0f;
-
 		VectorScale( rec->color, scale * rec->intensity / ( r * r ), out->color );
 		out->type = LIGHT_SPHERE;
 	}
@@ -399,6 +486,7 @@ qboolean RTX_LightEdit_GrowSlots( int count )
 
 	RecreateLightStats( w );
 	RTX_LightEdit_RebuildClusters();
+	g_generation++;
 
 	return qtrue;
 }
@@ -516,7 +604,7 @@ static void ClusterChanged( int id )
 			return;
 	}
 
-	RTX_LightEdit_RebuildClusters();
+	RequestRebuild();
 }
 
 /*
@@ -541,6 +629,22 @@ static qboolean IsModified( const rtxLightRecord_t *rec )
 			return qtrue;
 	}
 
+	if ( rec->type != rec->origType )
+		return qtrue;
+
+	if ( rec->type == RTX_LTYPE_SPOT )
+	{
+		// The cones compare as encoded words: a Get then Set round trip does not change them.
+		if ( memcmp( &rec->spot[1], &rec->origSpot[1], sizeof(float) ) != 0 )
+			return qtrue;
+
+		for ( int k = 0; k < 3; k++ )
+		{
+			if ( fabsf( rec->spot[2 + k] - rec->origSpot[2 + k] ) > LEDIT_EPSILON )
+				return qtrue;
+		}
+	}
+
 	return qfalse;
 }
 
@@ -556,11 +660,14 @@ static void FillDesc( int id, const rtxLightRecord_t *rec, qboolean original, rt
 	out->id = id;
 	out->source = rec->source;
 	out->sourceKey = rec->sourceKey;
-	out->type = rec->type;
+	out->type = original ? rec->origType : rec->type;
 	out->flags = rec->flags & ( RTX_LFLAG_DISABLED | RTX_LFLAG_DELETED | RTX_LFLAG_IN_SOLID );
 
 	if ( IsModified( rec ) )
 		out->flags |= RTX_LFLAG_MODIFIED;
+
+	if ( ( rec->flags & RTX_LFLAG_MUTED ) || IsSoloHidden( rec ) )
+		out->flags |= RTX_LFLAG_MUTED;
 
 	if ( id == g_dragId )
 		out->flags |= RTX_LFLAG_DRAGGING;
@@ -571,19 +678,15 @@ static void FillDesc( int id, const rtxLightRecord_t *rec, qboolean original, rt
 	out->radius = original ? rec->origRadius : rec->radius;
 	Q_strncpyz( out->name, original ? rec->origName : rec->name, sizeof(out->name) );
 
-	if ( rec->type == RTX_LTYPE_SPOT )
+	rtxLightRecord_t	view = *rec;
+
+	if ( original )
 	{
-		uint32_t packed;
-
-		Com_Memcpy( &packed, &rec->spot[1], sizeof(packed) );
-		VectorCopy( rec->spot + 2, out->dir );
-
-		const float cosOuter = halfToFloat( (uint16_t)( packed & 0xFFFF ) );
-		const float cosInner = halfToFloat( (uint16_t)( packed >> 16 ) );
-
-		out->coneOuter = acosf( ClampF( -1.0f, cosOuter, 1.0f ) ) * 57.29578f;
-		out->coneInner = acosf( ClampF( -1.0f, cosInner, 1.0f ) ) * 57.29578f;
+		view.type = rec->origType;
+		Com_Memcpy( view.spot, rec->origSpot, sizeof(view.spot) );
 	}
+
+	RTX_LightEdit_GetSpotData( &view, out->dir, &out->coneOuter, &out->coneInner );
 }
 
 static qboolean LE_IsAvailable( void )
@@ -655,6 +758,11 @@ static void CopyValues( rtxLightRecord_t *rec, const rtxLightDesc_t *desc )
 	rec->intensity = MAX( desc->intensity, 0.0f );
 	rec->radius = desc->radius > 0.0f ? MAX( desc->radius, 0.5f ) : rec->radius;
 	Q_strncpyz( rec->name, desc->name, sizeof(rec->name) );
+
+	rec->type = desc->type == RTX_LTYPE_SPOT ? RTX_LTYPE_SPOT : RTX_LTYPE_SPHERE;
+
+	if ( rec->type == RTX_LTYPE_SPOT )
+		RTX_LightEdit_SetSpotData( rec, desc->dir, desc->coneOuter, desc->coneInner );
 }
 
 static int LE_Add( const rtxLightDesc_t *desc )
@@ -695,6 +803,8 @@ static int LE_Add( const rtxLightDesc_t *desc )
 	rec->origIntensity = rec->intensity;
 	rec->origRadius = rec->radius;
 	Q_strncpyz( rec->origName, rec->name, sizeof(rec->origName) );
+	rec->origType = rec->type;
+	Com_Memcpy( rec->origSpot, rec->spot, sizeof(rec->origSpot) );
 
 	if ( !RTX_LightEdit_EnsureSlot( rec ) )
 	{
@@ -703,8 +813,9 @@ static int LE_Add( const rtxLightDesc_t *desc )
 	}
 
 	RTX_LightEdit_ApplyRecord( rec );
-	RTX_LightEdit_RebuildClusters();
+	RequestRebuild();
 	RTX_LightEdit_CountChange( 1 );
+	g_generation++;
 
 	return id;
 }
@@ -750,6 +861,7 @@ static qboolean LE_Set( int id, const rtxLightDesc_t *desc )
 		ClusterChanged( id );
 
 	RTX_LightEdit_CountChange( 1 );
+	g_generation++;
 
 	return qtrue;
 }
@@ -772,9 +884,10 @@ static qboolean LE_Remove( int id )
 	rec->flags |= flag;
 
 	if ( RTX_LightEdit_ApplyRecord( rec ) )
-		RTX_LightEdit_RebuildClusters();
+		RequestRebuild();
 
 	RTX_LightEdit_CountChange( 1 );
+	g_generation++;
 
 	return qtrue;
 }
@@ -786,7 +899,7 @@ static qboolean LE_Restore( int id )
 	if ( !rec )
 		return qfalse;
 
-	if ( !IsInactive( rec ) )
+	if ( !IsRemoved( rec ) )
 	{
 		RTX_LightEdit_SetError( "light %i is not removed", id );
 		return qfalse;
@@ -803,9 +916,10 @@ static qboolean LE_Restore( int id )
 	rec->flags &= ~( RTX_LFLAG_DELETED | RTX_LFLAG_DISABLED );
 
 	if ( RTX_LightEdit_ApplyRecord( rec ) )
-		RTX_LightEdit_RebuildClusters();
+		RequestRebuild();
 
 	RTX_LightEdit_CountChange( 1 );
+	g_generation++;
 
 	return qtrue;
 }
@@ -844,11 +958,14 @@ static qboolean LE_Revert( int id )
 	rec->intensity = rec->origIntensity;
 	rec->radius = rec->origRadius;
 	Q_strncpyz( rec->name, rec->origName, sizeof(rec->name) );
+	rec->type = rec->origType;
+	Com_Memcpy( rec->spot, rec->origSpot, sizeof(rec->spot) );
 
 	if ( RTX_LightEdit_ApplyRecord( rec ) )
-		RTX_LightEdit_RebuildClusters();
+		RequestRebuild();
 
 	RTX_LightEdit_CountChange( 1 );
+	g_generation++;
 
 	return qtrue;
 }
@@ -869,10 +986,117 @@ static void LE_EndDrag( int id )
 
 	g_dragId = -1;
 
-	if ( g_pendingRebuild && RTX_LightEdit_IsReady() )
+	// A pending rebuild stays pending while a batch is open.
+	if ( g_pendingRebuild && g_batch == 0 && RTX_LightEdit_IsReady() )
 		RTX_LightEdit_RebuildClusters();
+}
 
-	g_pendingRebuild = qfalse;
+static void LE_BeginBatch( void )
+{
+	g_batch++;
+}
+
+static void LE_EndBatch( void )
+{
+	if ( g_batch > 0 )
+		g_batch--;
+
+	if ( g_batch == 0 && g_pendingRebuild && RTX_LightEdit_IsReady() )
+		RTX_LightEdit_RebuildClusters();
+}
+
+// Mute is a session state: no edit count, no file entry.
+static qboolean LE_Mute( int id, qboolean muted )
+{
+	rtxLightRecord_t *rec = RTX_LightEdit_GetRecord( id );
+
+	if ( !rec )
+		return qfalse;
+
+	if ( !!( rec->flags & RTX_LFLAG_MUTED ) == !!muted )
+		return qtrue;
+
+	if ( muted )
+		rec->flags |= RTX_LFLAG_MUTED;
+	else
+		rec->flags &= ~RTX_LFLAG_MUTED;
+
+	if ( RTX_LightEdit_ApplyRecord( rec ) )
+		RequestRebuild();
+
+	g_generation++;
+
+	return qtrue;
+}
+
+static void LE_Solo( int id )
+{
+	if ( !RTX_LightEdit_IsReady() )
+		return;
+
+	if ( id < 0 || id >= (int)g_records.size() )
+		id = -1;
+
+	if ( id == g_solo )
+		return;
+
+	g_solo = id;
+
+	qboolean changed = qfalse;
+
+	for ( size_t i = 0; i < g_records.size(); i++ )
+	{
+		if ( RTX_LightEdit_ApplyRecord( &g_records[i] ) )
+			changed = qtrue;
+	}
+
+	if ( changed )
+		RequestRebuild();
+
+	g_generation++;
+}
+
+static int LE_GetSolo( void )
+{
+	return RTX_LightEdit_IsReady() ? g_solo : -1;
+}
+
+static int LE_Generation( void )
+{
+	return g_generation;
+}
+
+// Class scale of copy_light, read live, times pt_lightgen_scale for an lgt light.
+static float LE_IntensityScale( int id )
+{
+	static cvar_t *scaleSpot, *scaleSky, *scaleAmbient, *scaleEdit;
+
+	if ( !scaleSpot )
+	{
+		scaleEdit = ri.Cvar_Get( "pt_light_scale_edit", "0.1", CVAR_ARCHIVE_ND );
+		scaleSpot = ri.Cvar_Get( "pt_light_scale_ent_spot", "0.5", CVAR_ARCHIVE_ND );
+		scaleSky = ri.Cvar_Get( "pt_light_scale_ent_sky", "2", CVAR_ARCHIVE_ND );
+		scaleAmbient = ri.Cvar_Get( "pt_light_scale_ent_ambient", "0.01", CVAR_ARCHIVE_ND );
+	}
+
+	int	entClass = LIGHT_ENT_EDIT;
+	int	source = RTX_LSRC_ADDED;
+
+	if ( id >= 0 )
+	{
+		const rtxLightRecord_t *rec = RTX_LightEdit_GetRecord( id );
+
+		if ( !rec )
+			return 0.0f;
+
+		entClass = rec->entClass;
+		source = rec->source;
+	}
+
+	const cvar_t *cv = entClass == LIGHT_ENT_SPOT ? scaleSpot : entClass == LIGHT_ENT_SKY ? scaleSky
+		: entClass == LIGHT_ENT_EDIT ? scaleEdit : scaleAmbient;
+
+	return MAX( 0.0f, cv->value ) * ( source == RTX_LSRC_LGT ? pt_lightgen_scale->value : 1.0f );
 }
 
 static qboolean LE_Save( void )
@@ -895,6 +1119,9 @@ static qboolean LE_Reload( void )
 	}
 
 	LE_End();
+
+	g_solo = -1;
+	g_generation++;
 
 	return RTX_LightFile_Reload();
 }
@@ -974,7 +1201,14 @@ static rtxLightEditAPI_t g_api = {
 	LE_Reload,
 	LE_GetStats,
 	LE_LastError,
-	LE_PointInSolid
+	LE_PointInSolid,
+	LE_BeginBatch,
+	LE_EndBatch,
+	LE_Mute,
+	LE_Solo,
+	LE_GetSolo,
+	LE_Generation,
+	LE_IntensityScale
 };
 
 void *RTX_LightEdit_GetExtension( const char *name )
@@ -1058,9 +1292,9 @@ void RTX_LightEdit_Add_f( void )
 
 void RTX_LightEdit_Set_f( void )
 {
-	if ( ri.Cmd_Argc() < 4 )
+	if ( ri.Cmd_Argc() < 3 )
 	{
-		Com_Printf( "usage: pt_ledit_set <id> <origin|color|intensity|radius> <values...>\n" );
+		Com_Printf( "usage: pt_ledit_set <id> <origin|color|intensity|radius|spot|sphere> <values...>\n" );
 		return;
 	}
 
@@ -1088,9 +1322,21 @@ void RTX_LightEdit_Set_f( void )
 		d.intensity = atof( ri.Cmd_Argv( 3 ) );
 	else if ( !Q_stricmp( what, "radius" ) )
 		d.radius = atof( ri.Cmd_Argv( 3 ) );
+	else if ( !Q_stricmp( what, "spot" ) && ri.Cmd_Argc() >= 8 )
+	{
+		d.type = RTX_LTYPE_SPOT;
+
+		for ( int k = 0; k < 3; k++ )
+			d.dir[k] = atof( ri.Cmd_Argv( 3 + k ) );
+
+		d.coneOuter = atof( ri.Cmd_Argv( 6 ) );
+		d.coneInner = atof( ri.Cmd_Argv( 7 ) );
+	}
+	else if ( !Q_stricmp( what, "sphere" ) )
+		d.type = RTX_LTYPE_SPHERE;
 	else
 	{
-		Com_Printf( "usage: pt_ledit_set <id> <origin|color|intensity|radius> <values...>\n" );
+		Com_Printf( "usage: pt_ledit_set <id> <origin|color|intensity|radius|spot|sphere> <values...>\n" );
 		return;
 	}
 
@@ -1120,6 +1366,29 @@ void RTX_LightEdit_Restore_f( void )
 
 	if ( !LE_Restore( atoi( ri.Cmd_Argv( 1 ) ) ) )
 		Com_Printf( "light edit: %s\n", g_lastError );
+}
+
+void RTX_LightEdit_Mute_f( void )
+{
+	if ( ri.Cmd_Argc() < 3 )
+	{
+		Com_Printf( "usage: pt_ledit_mute <id> <0|1>\n" );
+		return;
+	}
+
+	if ( !LE_Mute( atoi( ri.Cmd_Argv( 1 ) ), (qboolean)( atoi( ri.Cmd_Argv( 2 ) ) != 0 ) ) )
+		Com_Printf( "light edit: %s\n", g_lastError );
+}
+
+void RTX_LightEdit_Solo_f( void )
+{
+	if ( ri.Cmd_Argc() < 2 )
+	{
+		Com_Printf( "usage: pt_ledit_solo <id|-1>\n" );
+		return;
+	}
+
+	LE_Solo( atoi( ri.Cmd_Argv( 1 ) ) );
 }
 
 void RTX_LightEdit_Stats_f( void )

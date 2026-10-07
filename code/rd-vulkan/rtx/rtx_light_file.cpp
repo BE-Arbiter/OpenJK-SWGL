@@ -251,6 +251,42 @@ static void ReadLgtValues( const fileBlock_t &b, int key, lgtValues_t &v )
 		Com_sprintf( v.name, sizeof(v.name), "lgt_%i", key );
 }
 
+// Reads type, dir, cone_outer and cone_inner. A block without `type` keeps the type of the record.
+static void ReadSpot( const fileBlock_t &b, rtxLightRecord_t *rec )
+{
+	const fileKV_t	*type = FindKey( b, "type" );
+	const qboolean	wasSpot = (qboolean)( rec->type == RTX_LTYPE_SPOT );
+	vec3_t			dir;
+	float			outer, inner;
+
+	if ( type )
+		rec->type = ( !type->vals.empty() && !Q_stricmp( type->vals[0].c_str(), "spot" ) ) ? RTX_LTYPE_SPOT : RTX_LTYPE_SPHERE;
+
+	if ( rec->type != RTX_LTYPE_SPOT )
+		return;
+
+	if ( wasSpot )
+		RTX_LightEdit_GetSpotData( rec, dir, &outer, &inner );
+	else
+	{
+		VectorSet( dir, 0.0f, 0.0f, -1.0f );
+		outer = 35.0f;
+		inner = 25.0f;
+	}
+
+	GetV3( b, "dir", dir );
+	outer = GetF( b, "cone_outer", 0, outer );
+	inner = GetF( b, "cone_inner", 0, inner );
+
+	RTX_LightEdit_SetSpotData( rec, dir, outer, inner );
+}
+
+static void SetOriginalSpot( rtxLightRecord_t *rec )
+{
+	rec->origType = rec->type;
+	Com_Memcpy( rec->origSpot, rec->spot, sizeof(rec->origSpot) );
+}
+
 /*
 =================
 Load
@@ -282,6 +318,9 @@ static void LoadLgtBlock( world_t &w, const fileBlock_t &b, int key )
 	Q_strncpyz( rec->name, v.name, sizeof(rec->name) );
 	Q_strncpyz( rec->origName, v.name, sizeof(rec->origName) );
 	rec->edited = v.edited;
+
+	ReadSpot( b, rec );
+	SetOriginalSpot( rec );
 
 	light_poly_t	tmp;
 	const int		cluster = RTX_LightEdit_Convert( rec, &tmp );
@@ -429,6 +468,7 @@ static qboolean ApplyEntityBlock( const fileBlock_t &b )
 	if ( GetF( b, "disabled", 0, 0.0f ) != 0.0f )
 		rec->flags |= RTX_LFLAG_DISABLED;
 
+	ReadSpot( b, rec );
 	SetName( rec, b );
 	RTX_LightEdit_ApplyRecord( rec );
 
@@ -455,6 +495,8 @@ static void ApplyAddedBlock( const fileBlock_t &b )
 		rec->radius = MAX( radius, LFILE_MIN_RADIUS );
 
 	SetName( rec, b );
+	ReadSpot( b, rec );
+	SetOriginalSpot( rec );
 
 	VectorCopy( rec->origin, rec->origOrigin );
 	VectorCopy( rec->color, rec->origColor );
@@ -622,6 +664,28 @@ static void PutName( std::string &s, const char *name )
 	}
 }
 
+// Writes type, dir and the cones of a spot. `explicitSphere` writes `type sphere` for a sphere.
+static void PutSpot( std::string &s, const rtxLightRecord_t *rec, qboolean explicitSphere )
+{
+	if ( rec->type != RTX_LTYPE_SPOT )
+	{
+		if ( explicitSphere )
+			s += "\ttype sphere\n";
+
+		return;
+	}
+
+	vec3_t	dir;
+	float	outer, inner;
+
+	RTX_LightEdit_GetSpotData( rec, dir, &outer, &inner );
+
+	s += "\ttype spot\n";
+	PutVec( s, "dir", dir );
+	PutNum( s, "cone_outer", outer );
+	PutNum( s, "cone_inner", inner );
+}
+
 static void WriteRawBlock( std::string &s, const fileBlock_t &b )
 {
 	s += "{\n";
@@ -678,6 +742,8 @@ static void WriteLgtRecord( std::string &s, const rtxLightRecord_t *rec )
 
 		if ( !NameIsDefault( rec ) )
 			PutName( s, rec->name );
+
+		PutSpot( s, rec, qfalse );
 	}
 
 	PutNum( s, "rays", rec->rays );
@@ -703,6 +769,8 @@ static void WriteEntityRecord( std::string &s, const rtxLightRecord_t *rec )
 	if ( !NameIsDefault( rec ) )
 		PutName( s, rec->name );
 
+	PutSpot( s, rec, (qboolean)( rec->origType == RTX_LTYPE_SPOT ) );
+
 	s += "\tintensity -1\n}\n";
 }
 
@@ -715,6 +783,7 @@ static void WriteAddedRecord( std::string &s, const rtxLightRecord_t *rec )
 	PutNum( s, "intensity", rec->intensity );
 	PutNum( s, "radius", rec->radius );
 	PutName( s, rec->name );
+	PutSpot( s, rec, qfalse );
 
 	s += "}\n";
 }
@@ -842,6 +911,7 @@ qboolean RTX_LightFile_Save( void )
 		rec->origIntensity = rec->intensity;
 		rec->origRadius = rec->radius;
 		Q_strncpyz( rec->origName, rec->name, sizeof(rec->origName) );
+		SetOriginalSpot( rec );
 	}
 
 	RTX_LightEdit_CountChange( 0 );
@@ -861,6 +931,8 @@ Reload
 // Gives the record its original values back, enabled. An added light is deleted.
 static void ResetRecord( rtxLightRecord_t *rec )
 {
+	rec->flags &= ~RTX_LFLAG_MUTED;
+
 	if ( rec->source == RTX_LSRC_ADDED )
 	{
 		rec->flags |= RTX_LFLAG_DELETED;
@@ -872,6 +944,8 @@ static void ResetRecord( rtxLightRecord_t *rec )
 	rec->intensity = rec->origIntensity;
 	rec->radius = rec->origRadius;
 	Q_strncpyz( rec->name, rec->origName, sizeof(rec->name) );
+	rec->type = rec->origType;
+	Com_Memcpy( rec->spot, rec->origSpot, sizeof(rec->spot) );
 	rec->flags &= ~RTX_LFLAG_DISABLED;
 	rec->edited = 0;
 }
@@ -894,6 +968,10 @@ static void SetLgtFromBlock( rtxLightRecord_t *rec, const fileBlock_t &b )
 	rec->edited = v.edited;
 	Q_strncpyz( rec->name, v.name, sizeof(rec->name) );
 	Q_strncpyz( rec->origName, v.name, sizeof(rec->origName) );
+
+	rec->type = RTX_LTYPE_SPHERE;
+	ReadSpot( b, rec );
+	SetOriginalSpot( rec );
 
 	if ( v.disabled )
 		rec->flags |= RTX_LFLAG_DISABLED;

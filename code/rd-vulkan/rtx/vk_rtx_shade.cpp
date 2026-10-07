@@ -23,6 +23,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 #include "conversion.h"
+#include "rtx_light_edit.h"
 #include "ghoul2/G2.h"
 
 static int entity_frame_num = 0;
@@ -1754,6 +1755,15 @@ static qboolean accumulation_view_unchanged( const trRefdef_t *refdef )
 
 	if ( fabsf( refdef->fov_x - prev_fov_x ) > epsilon || fabsf( refdef->fov_y - prev_fov_y ) > epsilon )
 		same = qfalse;
+
+	// A change of the light list restarts the accumulation too.
+	static int prev_light_generation;
+
+	if ( prev_light_generation != RTX_LightEdit_Generation() )
+	{
+		prev_light_generation = RTX_LightEdit_Generation();
+		same = qfalse;
+	}
 
 	VectorCopy( refdef->vieworg, prev_vieworg );
 	Com_Memcpy( prev_viewaxis, refdef->viewaxis, sizeof( prev_viewaxis ) );

@@ -17,7 +17,7 @@ by the Free Software Foundation.
 #pragma once
 
 #define RTX_LIGHTEDIT_API_NAME		"rtxLightEdit_v1"
-#define RTX_LIGHTEDIT_API_VERSION	1
+#define RTX_LIGHTEDIT_API_VERSION	2
 
 #define RTX_LIGHTEDIT_NAME_LEN		32
 
@@ -39,12 +39,13 @@ typedef enum {
 #define RTX_LFLAG_DELETED		0x0004	// an added light that Remove deleted
 #define RTX_LFLAG_IN_SOLID		0x0008	// the origin is outside the world; the light emits nothing
 #define RTX_LFLAG_DRAGGING		0x0010	// between BeginDrag and EndDrag
+#define RTX_LFLAG_MUTED			0x0020	// switched off by Mute or Solo; not saved, not an edit
 
 typedef struct {
 	int		id;				// Get only
 	int		source;			// rtxLightSource_t, Get only
 	int		sourceKey;		// rank among the `light` entities, or .lgt block index; -1 for added
-	int		type;			// rtxLightType_t; Add makes spheres only in v1
+	int		type;			// rtxLightType_t
 	int		flags;			// RTX_LFLAG_*, Get only
 
 	vec3_t	origin;
@@ -52,9 +53,9 @@ typedef struct {
 	float	intensity;		// units of the source: q3map2 `light` for added and entity lights, lightmap units for lgt
 	float	radius;			// emitter radius, sets the shadow softness only
 
-	vec3_t	dir;			// spot only, read only in v1
-	float	coneOuter;		// spot only, degrees, read only in v1
-	float	coneInner;		// spot only, degrees, read only in v1
+	vec3_t	dir;			// spot only, unit vector
+	float	coneOuter;		// spot only, half angle in degrees, 1..89
+	float	coneInner;		// spot only, half angle in degrees, 0..coneOuter
 
 	char	name[RTX_LIGHTEDIT_NAME_LEN];
 } rtxLightDesc_t;
@@ -97,7 +98,7 @@ typedef struct rtxLightEditAPI_s {
 	// Add returns the new id, or -1. LastError then gives the reason.
 	int			(*Add)( const rtxLightDesc_t *desc );
 
-	// Set copies origin, color, intensity, radius and name. A source light then gets
+	// Set copies origin, color, intensity, radius, name, type, dir and cones. A source light then gets
 	// RTX_LFLAG_MODIFIED when it differs from its original values.
 	qboolean	(*Set)( int id, const rtxLightDesc_t *desc );
 
@@ -122,4 +123,26 @@ typedef struct rtxLightEditAPI_s {
 
 	// True when the point is outside the world (no cluster).
 	qboolean	(*PointInSolid)( const vec3_t point );
+
+	// Version 2.
+
+	// Between BeginBatch and EndBatch, the cluster lists are rebuilt once, at EndBatch.
+	void		(*BeginBatch)( void );
+	void		(*EndBatch)( void );
+
+	// Mute switches a light off for the session only: no edit, no save, no undo.
+	// Solo mutes every editable light except id; Solo( -1 ) ends it. Mute and Solo are
+	// independent: a light emits when no Mute and no Solo hides it.
+	qboolean	(*Mute)( int id, qboolean muted );
+	void		(*Solo)( int id );
+	int			(*GetSolo)( void );
+
+	// Counts each change of the light list. The tracer restarts its accumulation when it
+	// changes.
+	int			(*Generation)( void );
+
+	// Factor from the intensity of a light to what the tracer emits, for its source and
+	// class (pt_light_scale_*, pt_lightgen_scale). -1 gives the factor of a new added light.
+	// A copy between two lights keeps its brightness with I2 = I1 * scale1 / scale2.
+	float		(*IntensityScale)( int id );
 } rtxLightEditAPI_t;

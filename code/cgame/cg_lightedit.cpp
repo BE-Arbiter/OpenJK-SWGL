@@ -4,29 +4,21 @@
 
 #include "cg_headers.h"
 #include "cg_media.h"
-#include "../rd-common/rtx_light_edit_api.h"
 #include "../game/g_lightedit.h"
 #include "cg_lightedit.h"
+#include "cg_lightedit_local.h"
 
 #include <vector>
 #include <algorithm>
 #include <stdarg.h>
 #include <stdio.h>
 
-extern qboolean CG_WorldCoordToScreenCoordFloat( vec3_t worldCoord, float *x, float *y );
-
-#define LEDIT_UNDO_DEPTH		256
 #define LEDIT_PICK_MIN_RADIUS	8.0f
 #define LEDIT_PICK_SCALE		0.015f
 #define LEDIT_OCCLUDE_RANGE		3000.0f
 #define LEDIT_MAX_TRACES		1024
 #define LEDIT_FONT_SCALE		0.7f
 #define LEDIT_MSG_TIME			4000
-
-#define LEDIT_TOOL_SELECT		1
-#define LEDIT_TOOL_CREATE		2
-#define LEDIT_TOOL_MOVE			3
-#define LEDIT_TOOL_DELETE		8
 
 typedef struct {
 	rtxLightDesc_t	d;
@@ -42,39 +34,14 @@ typedef struct {
 	float	t;
 } ledHit_t;
 
-typedef enum {
-	LEDU_SET = 0,
-	LEDU_ADD,
-	LEDU_REMOVE,
-	LEDU_RESTORE
-} ledUndoKind_t;
-
-typedef struct {
-	int				kind;
-	int				id;
-	rtxLightDesc_t	before;
-	rtxLightDesc_t	after;
-	char			label[48];
-} ledUndo_t;
-
-typedef struct {
-	qboolean		active;
-	int				id;
-	float			dist;
-	vec3_t			offset;			// light origin minus the hit point
-	vec3_t			lastValid;
-	vec3_t			target;
-	qboolean		targetBad;
-	rtxLightDesc_t	before;
-} ledGrab_t;
-
-static rtxLightEditAPI_t	*s_api = NULL;
+rtxLightEditAPI_t			*s_api = NULL;
+int							s_tool = LEDIT_TOOL_SELECT;
+int							s_sel = -1;
+std::vector<int>			s_selList;
+int							s_pickId = -1;
+float						s_pickT = 0.0f;
 static qboolean				s_active = qfalse;		// cgame side of the mode
 static qboolean				s_leaving = qfalse;		// leave requested, game not yet inactive
-static int					s_tool = LEDIT_TOOL_SELECT;
-static int					s_sel = -1;
-static int					s_pickId = -1;
-static float				s_pickT = 0.0f;
 static int					s_cycle = 0;
 static int					s_cycleBase = -1;
 static int					s_wheel = 0;			// wheel steps since the last frame
@@ -82,17 +49,11 @@ static int					s_prevButtons = 0;
 static float				s_createOffset = 16.0f;
 static vec3_t				s_ghost;
 static qboolean				s_ghostSolid = qfalse;
-static ledGrab_t			s_grab;
 static rtxLightStats_t		s_stats;
 
 static std::vector<ledRec_t>		s_recs;
 static std::vector<ledHit_t>		s_hits;
 static std::vector<unsigned char>	s_occ;			// last occlusion result per id
-
-static ledUndo_t	s_undo[LEDIT_UNDO_DEPTH];
-static int			s_numUndo = 0;
-static ledUndo_t	s_redo[LEDIT_UNDO_DEPTH];
-static int			s_numRedo = 0;
 
 static char			s_msg[160];
 static int			s_msgEnd = 0;
@@ -120,7 +81,7 @@ static const vec4_t	colCyan		= { 0.30f, 1.00f, 1.00f, 1.0f };
 Messages and small helpers
 =================
 */
-static void LE_Msg( const char *fmt, ... )
+void LE_Msg( const char *fmt, ... )
 {
 	va_list	args;
 
@@ -143,17 +104,19 @@ static rtxLightEditAPI_t *LE_GetAPI( void )
 	return api;
 }
 
-static qboolean LE_GetDesc( int id, rtxLightDesc_t *d )
+qboolean LE_GetDesc( int id, rtxLightDesc_t *d )
 {
 	memset( d, 0, sizeof( *d ) );
 	return s_api->Get( id, d );
 }
 
 // Compares the fields that Set copies.
-static qboolean LE_DescEqual( const rtxLightDesc_t *a, const rtxLightDesc_t *b )
+qboolean LE_DescEqual( const rtxLightDesc_t *a, const rtxLightDesc_t *b )
 {
 	return (qboolean)( VectorCompare( a->origin, b->origin ) && VectorCompare( a->color, b->color )
 		&& a->intensity == b->intensity && a->radius == b->radius
+		&& a->type == b->type && VectorCompare( a->dir, b->dir )
+		&& a->coneOuter == b->coneOuter && a->coneInner == b->coneInner
 		&& !strncmp( a->name, b->name, RTX_LIGHTEDIT_NAME_LEN ) );
 }
 
@@ -199,106 +162,85 @@ static qboolean LE_NeedSelection( void )
 
 /*
 =================
-Undo / redo
+Selection
 =================
 */
-static void LE_UndoClear( void )
+qboolean LE_SelHas( int id )
 {
-	s_numUndo = 0;
-	s_numRedo = 0;
+	return (qboolean)( std::find( s_selList.begin(), s_selList.end(), id ) != s_selList.end() );
 }
 
-static void LE_UndoPush( int kind, int id, const rtxLightDesc_t *before, const rtxLightDesc_t *after, const char *label )
+void LE_SelClear( void )
 {
-	ledUndo_t	*e;
-
-	if ( s_numUndo == LEDIT_UNDO_DEPTH )
-	{
-		memmove( &s_undo[0], &s_undo[1], sizeof( s_undo[0] ) * ( LEDIT_UNDO_DEPTH - 1 ) );
-		s_numUndo--;
-	}
-	e = &s_undo[s_numUndo++];
-	memset( e, 0, sizeof( *e ) );
-	e->kind = kind;
-	e->id = id;
-	if ( before )
-	{
-		e->before = *before;
-	}
-	if ( after )
-	{
-		e->after = *after;
-	}
-	Q_strncpyz( e->label, label, sizeof( e->label ) );
-	s_numRedo = 0;
+	s_selList.clear();
+	s_sel = -1;
 }
 
-static qboolean LE_UndoApply( const ledUndo_t *e, qboolean undo )
+// Appends the light and makes it the primary one.
+void LE_SelAdd( int id )
 {
-	switch ( e->kind )
+	if ( id < 0 )
 	{
-	case LEDU_SET:
-		return s_api->Set( e->id, undo ? &e->before : &e->after );
-	case LEDU_ADD:
-		return undo ? s_api->Remove( e->id ) : s_api->Restore( e->id );
-	case LEDU_REMOVE:
-		return undo ? s_api->Restore( e->id ) : s_api->Remove( e->id );
-	case LEDU_RESTORE:
-		return undo ? s_api->Remove( e->id ) : s_api->Restore( e->id );
+		return;
 	}
-	return qfalse;
+	if ( !LE_SelHas( id ) )
+	{
+		s_selList.push_back( id );
+	}
+	s_sel = id;
 }
 
-static void LE_Undo( void )
+// A removed light leaves the selection; the last clicked one that remains becomes primary.
+static void LE_SelRemove( int id )
 {
-	ledUndo_t	e;
+	std::vector<int>::iterator	it = std::find( s_selList.begin(), s_selList.end(), id );
 
-	if ( s_grab.active )
+	if ( it != s_selList.end() )
 	{
-		LE_Msg( "light edit: release the light first" );
-		return;
+		s_selList.erase( it );
 	}
-	if ( s_numUndo == 0 )
+	if ( s_sel == id || !LE_SelHas( s_sel ) )
 	{
-		LE_Msg( "light edit: nothing to undo" );
-		return;
+		s_sel = s_selList.empty() ? -1 : s_selList.back();
 	}
-	e = s_undo[s_numUndo - 1];
-	if ( !LE_UndoApply( &e, qtrue ) )
-	{
-		LE_Msg( "light edit: undo failed (%s)", s_api->LastError() );
-		return;
-	}
-	s_numUndo--;
-	s_redo[s_numRedo++] = e;
-	s_sel = ( e.kind == LEDU_ADD || e.kind == LEDU_RESTORE ) ? -1 : e.id;
-	LE_Msg( "light edit: undo %s (light %d)", e.label, e.id );
 }
 
-static void LE_Redo( void )
+void LE_SelSet( int id )
 {
-	ledUndo_t	e;
+	LE_SelClear();
+	LE_SelAdd( id );
+}
 
-	if ( s_grab.active )
+void LE_SelToggle( int id )
+{
+	if ( LE_SelHas( id ) )
 	{
-		LE_Msg( "light edit: release the light first" );
+		LE_SelRemove( id );
+	}
+	else
+	{
+		LE_SelAdd( id );
+	}
+}
+
+void LE_SelPrimary( int id )
+{
+	if ( LE_SelHas( id ) )
+	{
+		s_sel = id;
+	}
+}
+
+// Targets of an action: the selection when the aimed light is a member (or nothing is aimed), else the aimed light.
+void LE_ActionTargets( std::vector<int> &out )
+{
+	out.clear();
+	if ( s_pickId >= 0 && !LE_SelHas( s_pickId ) )
+	{
+		out.push_back( s_pickId );
 		return;
 	}
-	if ( s_numRedo == 0 )
-	{
-		LE_Msg( "light edit: nothing to redo" );
-		return;
-	}
-	e = s_redo[s_numRedo - 1];
-	if ( !LE_UndoApply( &e, qfalse ) )
-	{
-		LE_Msg( "light edit: redo failed (%s)", s_api->LastError() );
-		return;
-	}
-	s_numRedo--;
-	s_undo[s_numUndo++] = e;
-	s_sel = ( e.kind == LEDU_REMOVE ) ? -1 : e.id;
-	LE_Msg( "light edit: redo %s (light %d)", e.label, e.id );
+	out = s_selList;
 }
 
 /*
@@ -306,32 +248,50 @@ static void LE_Redo( void )
 Actions shared by tools and commands
 =================
 */
-// Remove on a light, one undo entry.
-static void LE_DoRemove( int id )
+// Remove on each light, one undo group.
+static void LE_DoRemove( const std::vector<int> &ids )
 {
-	rtxLightDesc_t	before, after;
+	int	done = 0;
 
-	if ( !LE_GetDesc( id, &before ) )
 	{
-		return;
+		ledBatch	batch;
+
+		LE_UndoBegin( "remove" );
+		for ( size_t i = 0; i < ids.size(); i++ )
+		{
+			rtxLightDesc_t	before, after;
+
+			if ( !LE_GetDesc( ids[i], &before ) )
+			{
+				continue;
+			}
+			if ( before.flags & ( RTX_LFLAG_DISABLED | RTX_LFLAG_DELETED ) )
+			{
+				if ( ids.size() == 1 )
+				{
+					LE_Msg( "light edit: light %d is already removed", ids[i] );
+				}
+				continue;
+			}
+			if ( !s_api->Remove( ids[i] ) )
+			{
+				LE_Msg( "light edit: remove failed (%s)", s_api->LastError() );
+				continue;
+			}
+			LE_GetDesc( ids[i], &after );
+			LE_UndoPush( LEDU_REMOVE, ids[i], &before, &after, "remove" );
+			if ( after.flags & RTX_LFLAG_DELETED )
+			{
+				LE_SelRemove( ids[i] );
+			}
+			done++;
+		}
+		LE_UndoEnd();
 	}
-	if ( before.flags & ( RTX_LFLAG_DISABLED | RTX_LFLAG_DELETED ) )
+	if ( done )
 	{
-		LE_Msg( "light edit: light %d is already removed", id );
-		return;
+		LE_Msg( "light edit: removed %d light%s", done, done > 1 ? "s" : "" );
 	}
-	if ( !s_api->Remove( id ) )
-	{
-		LE_Msg( "light edit: remove failed (%s)", s_api->LastError() );
-		return;
-	}
-	LE_GetDesc( id, &after );
-	LE_UndoPush( LEDU_REMOVE, id, &before, &after, "remove" );
-	if ( s_sel == id && ( after.flags & RTX_LFLAG_DELETED ) )
-	{
-		s_sel = -1;
-	}
-	LE_Msg( "light edit: removed light %d", id );
 }
 
 // Restore on a disabled light, one undo entry.
@@ -359,7 +319,7 @@ static void LE_DoRestore( int id )
 }
 
 // Set on a light, one undo entry when something changes.
-static qboolean LE_DoSet( int id, const rtxLightDesc_t *want, const char *label )
+qboolean LE_DoSet( int id, const rtxLightDesc_t *want, const char *label )
 {
 	rtxLightDesc_t	before, after;
 
@@ -379,22 +339,6 @@ static qboolean LE_DoSet( int id, const rtxLightDesc_t *want, const char *label 
 	LE_GetDesc( id, &after );
 	LE_UndoPush( LEDU_SET, id, &before, &after, label );
 	return qtrue;
-}
-
-static void LE_EndGrab( void )
-{
-	rtxLightDesc_t	after;
-
-	if ( !s_grab.active )
-	{
-		return;
-	}
-	s_grab.active = qfalse;
-	s_api->EndDrag( s_grab.id );
-	if ( LE_GetDesc( s_grab.id, &after ) && !LE_DescEqual( &s_grab.before, &after ) )
-	{
-		LE_UndoPush( LEDU_SET, s_grab.id, &s_grab.before, &after, "move" );
-	}
 }
 
 /*
@@ -425,7 +369,7 @@ static void LE_LeaveSide( void )
 		}
 	}
 	s_active = qfalse;
-	s_grab.active = qfalse;
+	LE_GrabReset();
 	s_pickId = -1;
 	s_hits.clear();
 }
@@ -442,19 +386,20 @@ static void LE_EnterSide( void )
 	}
 	s_active = qtrue;
 	s_tool = LEDIT_TOOL_SELECT;
-	s_sel = -1;
+	LE_SelClear();
 	s_pickId = -1;
 	s_cycle = 0;
 	s_cycleBase = -1;
 	s_wheel = 0;
-	memset( &s_grab, 0, sizeof( s_grab ) );
+	LE_GrabReset();
 	s_occ.clear();
 	LE_ReadButtons( &s_prevButtons );
 }
 
-static void LE_SetTool( int tool )
+void LE_SetTool( int tool )
 {
-	if ( tool != LEDIT_TOOL_SELECT && tool != LEDIT_TOOL_CREATE && tool != LEDIT_TOOL_MOVE && tool != LEDIT_TOOL_DELETE )
+	if ( tool != LEDIT_TOOL_SELECT && tool != LEDIT_TOOL_CREATE && tool != LEDIT_TOOL_MOVE
+		&& tool != LEDIT_TOOL_CLONE && tool != LEDIT_TOOL_DELETE )
 	{
 		LE_Msg( "light edit: tool %d is not in this version", tool );
 		return;
@@ -564,9 +509,19 @@ static void LE_Snapshot( void )
 	}
 	std::sort( s_hits.begin(), s_hits.end(), LE_HitLess );
 
-	if ( s_sel >= n || ( s_sel >= 0 && !s_recs[s_sel].valid ) )
+	// Deleted and unknown lights leave the selection.
+	for ( size_t i = 0; i < s_selList.size(); )
 	{
-		s_sel = -1;
+		const int	id = s_selList[i];
+
+		if ( id >= n || !s_recs[id].valid )
+		{
+			LE_SelRemove( id );
+		}
+		else
+		{
+			i++;
+		}
 	}
 }
 
@@ -609,11 +564,18 @@ static void LE_ToolSelect( qboolean priDown, qboolean secDown )
 {
 	if ( priDown )
 	{
-		s_sel = s_pickId;
+		if ( s_pickId >= 0 )
+		{
+			LE_SelSet( s_pickId );
+		}
+		else
+		{
+			LE_SelClear();
+		}
 	}
-	if ( secDown )
+	if ( secDown && s_pickId >= 0 )
 	{
-		s_sel = -1;
+		LE_SelToggle( s_pickId );
 	}
 }
 
@@ -645,6 +607,7 @@ static void LE_UpdateGhost( void )
 	{
 		VectorMA( eye, 256.0f, fwd, s_ghost );
 	}
+	LE_SnapPoint( s_ghost, 7 );
 	s_ghostSolid = s_api->PointInSolid( s_ghost );
 }
 
@@ -692,92 +655,8 @@ static void LE_ToolCreate( qboolean priDown, qboolean secDown, int wheel, qboole
 		}
 		LE_GetDesc( id, &after );
 		LE_UndoPush( LEDU_ADD, id, NULL, &after, "add" );
-		s_sel = id;
+		LE_SelSet( id );
 		LE_Msg( "light edit: added light %d", id );
-	}
-}
-
-static void LE_BeginGrab( void )
-{
-	const ledRec_t	&r = s_recs[s_pickId];
-	vec3_t			hitPoint;
-
-	s_grab.active = qtrue;
-	s_grab.id = s_pickId;
-	s_grab.dist = s_pickT;
-	VectorMA( cg.refdef.vieworg, s_pickT, cg.refdef.viewaxis[0], hitPoint );
-	VectorSubtract( r.d.origin, hitPoint, s_grab.offset );
-	VectorCopy( r.d.origin, s_grab.lastValid );
-	VectorCopy( r.d.origin, s_grab.target );
-	s_grab.targetBad = qfalse;
-	s_grab.before = r.d;
-	s_sel = s_pickId;
-	s_api->BeginDrag( s_grab.id );
-}
-
-static void LE_ToolMove( qboolean prim, qboolean priDown, qboolean secDown, int wheel, qboolean fine )
-{
-	if ( s_grab.active )
-	{
-		rtxLightDesc_t	cur;
-
-		for ( int i = 0; i < abs( wheel ); i++ )
-		{
-			const float	f = fine ? 1.01f : 1.1f;
-
-			s_grab.dist = ( wheel > 0 ) ? s_grab.dist * f : s_grab.dist / f;
-			s_grab.dist = Com_Clamp( 16.0f, 8192.0f, s_grab.dist );
-		}
-		if ( !prim )
-		{
-			LE_EndGrab();
-			return;
-		}
-		VectorMA( cg.refdef.vieworg, s_grab.dist, cg.refdef.viewaxis[0], s_grab.target );
-		VectorAdd( s_grab.target, s_grab.offset, s_grab.target );
-		if ( s_api->PointInSolid( s_grab.target ) )
-		{
-			s_grab.targetBad = qtrue;
-			return;
-		}
-		s_grab.targetBad = qfalse;
-		VectorCopy( s_grab.target, s_grab.lastValid );
-		if ( LE_GetDesc( s_grab.id, &cur ) && !VectorCompare( cur.origin, s_grab.target ) )
-		{
-			VectorCopy( s_grab.target, cur.origin );
-			s_api->Set( s_grab.id, &cur );
-		}
-		return;
-	}
-
-	if ( priDown && s_pickId >= 0 )
-	{
-		LE_BeginGrab();
-	}
-	else if ( secDown )
-	{
-		const int	id = ( s_pickId >= 0 ) ? s_pickId : s_sel;
-		rtxLightDesc_t	orig, cur;
-
-		if ( id < 0 )
-		{
-			return;
-		}
-		if ( !s_api->GetOriginal( id, &orig ) || !LE_GetDesc( id, &cur ) )
-		{
-			LE_Msg( "light edit: no original position for light %d", id );
-			return;
-		}
-		if ( VectorCompare( cur.origin, orig.origin ) )
-		{
-			LE_Msg( "light edit: light %d is already at its original position", id );
-			return;
-		}
-		VectorCopy( orig.origin, cur.origin );
-		if ( LE_DoSet( id, &cur, "reset position" ) )
-		{
-			LE_Msg( "light edit: light %d back to its original position", id );
-		}
 	}
 }
 
@@ -785,11 +664,12 @@ static void LE_ToolDelete( qboolean priDown, qboolean secDown )
 {
 	if ( priDown )
 	{
-		const int	id = ( s_pickId >= 0 ) ? s_pickId : s_sel;
+		std::vector<int>	ids;
 
-		if ( id >= 0 )
+		LE_ActionTargets( ids );
+		if ( !ids.empty() )
 		{
-			LE_DoRemove( id );
+			LE_DoRemove( ids );
 		}
 	}
 	if ( secDown && s_pickId >= 0 )
@@ -814,6 +694,7 @@ void CG_LightEdit_Frame( void )
 	cgi_Cvar_Update( &ledit_preset_intensity );
 	cgi_Cvar_Update( &ledit_preset_radius );
 	cgi_Cvar_Update( &ledit_preset_color );
+	LE_GridUpdate();
 
 	if ( s_leaving && !gameActive )
 	{
@@ -854,9 +735,9 @@ void CG_LightEdit_Frame( void )
 
 	s_api->GetStats( &s_stats );
 	LE_Snapshot();
-	if ( s_grab.active )
+	if ( LE_GrabActive() )
 	{
-		s_pickId = s_grab.id;	// the grabbed light stays the picked one
+		s_pickId = LE_GrabPrimary();	// the grabbed light stays the picked one
 	}
 	else
 	{
@@ -874,6 +755,9 @@ void CG_LightEdit_Frame( void )
 	case LEDIT_TOOL_MOVE:
 		LE_ToolMove( prim, priDown, secDown, wheel, fine );
 		break;
+	case LEDIT_TOOL_CLONE:
+		LE_ToolClone( priDown, secDown, wheel );
+		break;
 	case LEDIT_TOOL_DELETE:
 		LE_ToolDelete( priDown, secDown );
 		break;
@@ -887,7 +771,7 @@ void CG_LightEdit_Init( void )
 	s_active = qfalse;
 	s_leaving = qfalse;
 	s_tool = LEDIT_TOOL_SELECT;
-	s_sel = -1;
+	LE_SelClear();
 	s_pickId = -1;
 	s_cycle = 0;
 	s_cycleBase = -1;
@@ -895,7 +779,8 @@ void CG_LightEdit_Init( void )
 	s_prevButtons = 0;
 	s_createOffset = 16.0f;
 	s_ghostSolid = qfalse;
-	memset( &s_grab, 0, sizeof( s_grab ) );
+	LE_GrabReset();
+	LE_CloneInit();
 	memset( &s_stats, 0, sizeof( s_stats ) );
 	s_recs.clear();
 	s_hits.clear();
@@ -909,6 +794,7 @@ void CG_LightEdit_Init( void )
 	cgi_Cvar_Register( &ledit_preset_intensity, "ledit_preset_intensity", "2000", CVAR_ARCHIVE );
 	cgi_Cvar_Register( &ledit_preset_radius, "ledit_preset_radius", "8", CVAR_ARCHIVE );
 	cgi_Cvar_Register( &ledit_preset_color, "ledit_preset_color", "1 0.9 0.8", CVAR_ARCHIVE );
+	LE_GridInit();
 }
 
 qboolean CG_LightEdit_Active( void )
@@ -974,7 +860,7 @@ static void LE_Cmd_LightEdit( void )
 		{
 			s_api->Reload();
 			LE_UndoClear();
-			s_sel = -1;
+			LE_SelClear();
 		}
 		else
 		{
@@ -1018,7 +904,7 @@ static void LE_Cmd_Reload( void )
 	if ( s_api->Reload() )
 	{
 		LE_UndoClear();
-		s_sel = -1;
+		LE_SelClear();
 		LE_Msg( "light edit: reloaded" );
 	}
 	else
@@ -1045,18 +931,9 @@ static void LE_Cmd_Redo( void )
 
 static void LE_Cmd_History( void )
 {
-	if ( !LE_NeedActive() )
+	if ( LE_NeedActive() )
 	{
-		return;
-	}
-	CG_Printf( "light edit: %d undo, %d redo\n", s_numUndo, s_numRedo );
-	for ( int i = s_numUndo - 1; i >= 0; i-- )
-	{
-		CG_Printf( "  undo %3d: %s (light %d)\n", s_numUndo - i, s_undo[i].label, s_undo[i].id );
-	}
-	for ( int i = s_numRedo - 1; i >= 0; i-- )
-	{
-		CG_Printf( "  redo %3d: %s (light %d)\n", s_numRedo - i, s_redo[i].label, s_redo[i].id );
+		LE_UndoHistory();
 	}
 }
 
@@ -1064,7 +941,7 @@ static void LE_Cmd_Delete( void )
 {
 	if ( LE_NeedActive() && LE_NeedSelection() )
 	{
-		LE_DoRemove( s_sel );
+		LE_DoRemove( s_selList );
 	}
 }
 
@@ -1072,59 +949,108 @@ static void LE_Cmd_Deselect( void )
 {
 	if ( LE_NeedActive() )
 	{
-		s_sel = -1;
+		LE_SelClear();
 		LE_Msg( "light edit: selection cleared" );
 	}
 }
 
-static void LE_Cmd_Revert( void )
+static void LE_Cmd_XrayToggle( void )
 {
-	rtxLightDesc_t	before, after;
+	if ( LE_NeedActive() )
+	{
+		const int	on = ledit_xray.integer ? 0 : 1;
 
-	if ( !LE_NeedActive() || !LE_NeedSelection() )
-	{
-		return;
+		cgi_Cvar_Set( "ledit_xray", va( "%d", on ) );
+		ledit_xray.integer = on;
+		LE_Msg( "light edit: x-ray %s", on ? "on" : "off" );
 	}
-	if ( !LE_GetDesc( s_sel, &before ) )
-	{
-		return;
-	}
-	if ( !s_api->Revert( s_sel ) )
-	{
-		LE_Msg( "light edit: revert failed (%s)", s_api->LastError() );
-		return;
-	}
-	LE_GetDesc( s_sel, &after );
-	if ( !LE_DescEqual( &before, &after ) )
-	{
-		LE_UndoPush( LEDU_SET, s_sel, &before, &after, "revert" );
-	}
-	LE_Msg( "light edit: light %d reverted", s_sel );
 }
 
-static void LE_Cmd_Set( void )
+static void LE_Cmd_GridNext( void )
 {
-	rtxLightDesc_t	d;
-	char			what[32];
-	const int		argc = cgi_Argc();
+	if ( LE_NeedActive() )
+	{
+		LE_GridNext();
+	}
+}
 
-	Q_strncpyz( what, CG_Argv( 1 ), sizeof( what ) );
-	char			label[48];
+static void LE_Cmd_SnapToggle( void )
+{
+	if ( LE_NeedActive() )
+	{
+		LE_SnapToggle();
+	}
+}
+
+// Reverts every selected light, one undo group.
+static void LE_Cmd_Revert( void )
+{
+	int	done = 0;
 
 	if ( !LE_NeedActive() || !LE_NeedSelection() )
 	{
 		return;
 	}
-	if ( !LE_GetDesc( s_sel, &d ) )
+	{
+		ledBatch	batch;
+
+		LE_UndoBegin( "revert" );
+		for ( size_t i = 0; i < s_selList.size(); i++ )
+		{
+			rtxLightDesc_t	before, after;
+
+			if ( !LE_GetDesc( s_selList[i], &before ) )
+			{
+				continue;
+			}
+			if ( !s_api->Revert( s_selList[i] ) )
+			{
+				LE_Msg( "light edit: revert failed (%s)", s_api->LastError() );
+				continue;
+			}
+			LE_GetDesc( s_selList[i], &after );
+			if ( !LE_DescEqual( &before, &after ) )
+			{
+				LE_UndoPush( LEDU_SET, s_selList[i], &before, &after, "revert" );
+			}
+			done++;
+		}
+		LE_UndoEnd();
+	}
+	if ( done )
+	{
+		LE_Msg( "light edit: %d light%s reverted", done, done > 1 ? "s" : "" );
+	}
+}
+
+// Sets a property on every selected light. An origin moves the group: the primary light gets it.
+static void LE_Cmd_Set( void )
+{
+	rtxLightDesc_t	d, prim;
+	vec3_t			delta;
+	char			what[32];
+	const int		argc = cgi_Argc();
+	char			label[48];
+	int				done = 0;
+
+	Q_strncpyz( what, CG_Argv( 1 ), sizeof( what ) );
+	if ( !LE_NeedActive() || !LE_NeedSelection() )
 	{
 		return;
 	}
+	if ( !LE_GetDesc( s_sel, &prim ) )
+	{
+		return;
+	}
+	d = prim;
+	VectorClear( delta );
 	if ( !Q_stricmp( what, "origin" ) && argc >= 5 )
 	{
 		for ( int i = 0; i < 3; i++ )
 		{
 			d.origin[i] = atof( CG_Argv( 2 + i ) );
 		}
+		VectorSubtract( d.origin, prim.origin, delta );
 	}
 	else if ( !Q_stricmp( what, "color" ) && argc >= 5 )
 	{
@@ -1151,9 +1077,53 @@ static void LE_Cmd_Set( void )
 		return;
 	}
 	Com_sprintf( label, sizeof( label ), "set %s", what );
-	if ( LE_DoSet( s_sel, &d, label ) )
+
 	{
-		LE_Msg( "light edit: light %d %s set", s_sel, what );
+		ledBatch	batch;
+
+		LE_UndoBegin( label );
+		for ( size_t i = 0; i < s_selList.size(); i++ )
+		{
+			rtxLightDesc_t	cur = d;
+
+			if ( s_selList[i] != s_sel )
+			{
+				// Other lights keep their own values except the one that is set.
+				if ( !LE_GetDesc( s_selList[i], &cur ) )
+				{
+					continue;
+				}
+				if ( !Q_stricmp( what, "origin" ) )
+				{
+					VectorAdd( cur.origin, delta, cur.origin );
+				}
+				else if ( !Q_stricmp( what, "color" ) )
+				{
+					VectorCopy( d.color, cur.color );
+				}
+				else if ( !Q_stricmp( what, "intensity" ) )
+				{
+					cur.intensity = d.intensity;
+				}
+				else if ( !Q_stricmp( what, "radius" ) )
+				{
+					cur.radius = d.radius;
+				}
+				else
+				{
+					Q_strncpyz( cur.name, d.name, sizeof( cur.name ) );
+				}
+			}
+			if ( LE_DoSet( s_selList[i], &cur, label ) )
+			{
+				done++;
+			}
+		}
+		LE_UndoEnd();
+	}
+	if ( done )
+	{
+		LE_Msg( "light edit: %d light%s: %s set", done, done > 1 ? "s" : "", what );
 	}
 }
 
@@ -1171,6 +1141,10 @@ static void LE_Cmd_Get( void )
 	if ( !LE_NeedActive() || !LE_NeedSelection() || !LE_GetDesc( s_sel, &d ) )
 	{
 		return;
+	}
+	if ( s_selList.size() > 1 )
+	{
+		CG_Printf( "%d lights selected; the primary light follows\n", (int)s_selList.size() );
 	}
 	CG_Printf( "light %d (%s, %s) flags: %s\n", d.id, LE_SourceStr( &d ), d.type == RTX_LTYPE_SPOT ? "spot" : "sphere", LE_FlagsStr( d.flags ) );
 	LE_PrintDesc( "  now:     ", &d );
@@ -1197,6 +1171,9 @@ qboolean CG_LightEdit_ConsoleCommand( const char *cmd )
 		{ "ledit_revert",	LE_Cmd_Revert },
 		{ "ledit_set",		LE_Cmd_Set },
 		{ "ledit_get",		LE_Cmd_Get },
+		{ "ledit_grid_next",	LE_Cmd_GridNext },
+		{ "ledit_snap_toggle",	LE_Cmd_SnapToggle },
+		{ "ledit_xray_toggle",	LE_Cmd_XrayToggle },
 	};
 
 	for ( size_t i = 0; i < ARRAY_LEN( commands ); i++ )
@@ -1233,7 +1210,8 @@ void CG_LightEdit_InitConsoleCommands( void )
 {
 	static const char *names[] = {
 		"lightedit", "ledit_save", "ledit_reload", "ledit_undo", "ledit_redo", "ledit_history",
-		"ledit_delete", "ledit_deselect", "ledit_revert", "ledit_set", "ledit_get"
+		"ledit_delete", "ledit_deselect", "ledit_revert", "ledit_set", "ledit_get",
+		"ledit_grid_next", "ledit_snap_toggle", "ledit_xray_toggle"
 	};
 
 	for ( size_t i = 0; i < ARRAY_LEN( names ); i++ )
@@ -1319,7 +1297,7 @@ static qboolean LE_ClipToScreen( float *x1, float *y1, float *x2, float *y2 )
 }
 
 // Draws a segment as a row of small dots. Only the visible part is drawn.
-static void LE_Line( float x1, float y1, float x2, float y2, const vec4_t col )
+void LE_Line( float x1, float y1, float x2, float y2, const vec4_t col )
 {
 	if ( !LE_ClipToScreen( &x1, &y1, &x2, &y2 ) )
 	{
@@ -1342,8 +1320,14 @@ static void LE_Line( float x1, float y1, float x2, float y2, const vec4_t col )
 	}
 }
 
+// A box is four rects: it uses four dots of the budget.
 static void LE_Box( float x, float y, float half, const vec4_t col )
 {
+	if ( s_dotBudget < 4 )
+	{
+		return;
+	}
+	s_dotBudget -= 4;
 	CG_FillRect( x - half, y - half, half * 2, 1.0f, col );
 	CG_FillRect( x - half, y + half - 1.0f, half * 2, 1.0f, col );
 	CG_FillRect( x - half, y - half, 1.0f, half * 2, col );
@@ -1351,7 +1335,7 @@ static void LE_Box( float x, float y, float half, const vec4_t col )
 }
 
 // Draws a circle of 3D points as projected segments.
-static void LE_Circle3D( const vec3_t center, const vec3_t ax1, const vec3_t ax2, float radius, int points, const vec4_t col )
+void LE_Circle3D( const vec3_t center, const vec3_t ax1, const vec3_t ax2, float radius, int points, const vec4_t col )
 {
 	float		px = 0, py = 0;
 	qboolean	havePrev = qfalse;
@@ -1458,6 +1442,18 @@ static void LE_DrawSelection( void )
 		LE_Circle3D( r.d.origin, ax[0], ax[2], radius, 32, colCyan );
 		LE_Circle3D( r.d.origin, ax[1], ax[2], radius, 32, colCyan );
 	}
+
+	// The other selected lights get a frame only.
+	for ( size_t i = 0; i < s_selList.size(); i++ )
+	{
+		const int	id = s_selList[i];
+
+		if ( id == s_sel || id >= (int)s_recs.size() || !s_recs[id].valid || !s_recs[id].onScreen )
+		{
+			continue;
+		}
+		LE_Box( s_recs[id].sx, s_recs[id].sy, 12.0f, colCyan );
+	}
 }
 
 static void LE_DrawToolWorld( void )
@@ -1467,16 +1463,9 @@ static void LE_DrawToolWorld( void )
 		LE_Circle3D( s_ghost, cg.refdef.viewaxis[1], cg.refdef.viewaxis[2], 8.0f, 24,
 			s_ghostSolid ? colRed : colGreen );
 	}
-	else if ( s_tool == LEDIT_TOOL_MOVE && s_grab.active && s_grab.targetBad )
+	else if ( s_tool == LEDIT_TOOL_MOVE )
 	{
-		float	x1, y1, x2, y2;
-
-		LE_Circle3D( s_grab.target, cg.refdef.viewaxis[1], cg.refdef.viewaxis[2], 8.0f, 24, colRed );
-		if ( CG_WorldCoordToScreenCoordFloat( s_grab.lastValid, &x1, &y1 )
-			&& CG_WorldCoordToScreenCoordFloat( s_grab.target, &x2, &y2 ) )
-		{
-			LE_Line( x1, y1, x2, y2, colRed );
-		}
+		LE_DrawGrabWorld();
 	}
 }
 
@@ -1497,25 +1486,26 @@ static void LE_DrawHelp( void )
 		wheel = wheelBuf;
 		break;
 	case LEDIT_TOOL_MOVE:
-		name = "3 Move";
-		fire = "hold to grab and drag a light";
-		alt = "put a light back to its original position";
-		wheel = "distance x1.1 while grabbing, walk x1.01";
+		LE_MoveHelp( &name, &fire, &alt, &wheel );
+		break;
+	case LEDIT_TOOL_CLONE:
+		LE_CloneHelp( &name, &fire, &alt, wheelBuf, sizeof( wheelBuf ) );
+		wheel = wheelBuf;
 		break;
 	case LEDIT_TOOL_DELETE:
 		name = "8 Delete / restore";
-		fire = "delete the aimed or selected light";
+		fire = "delete the aimed light, or the selection if it is a member";
 		alt = "restore the aimed light";
 		wheel = "none";
 		break;
 	default:
 		name = "1 Select";
-		fire = "select the aimed light";
-		alt = "deselect";
+		fire = "select the aimed light (replaces the selection; none aimed: clear)";
+		alt = "add the aimed light to the selection, or remove it";
 		wheel = "cycle among the lights under the crosshair";
 		break;
 	}
-	LE_Text( 6, y, va( "LIGHT EDIT  tool %s   (keys 1 2 3 8)", name ), colWhite );
+	LE_Text( 6, y, va( "LIGHT EDIT  tool %s   (keys 1 2 3 7 8)", name ), colWhite );
 	y += h + 2;
 	LE_Text( 6, y, va( "Fire: %s", fire ), colGrey );
 	y += h;
@@ -1540,7 +1530,8 @@ static void LE_DrawPanel( void )
 	}
 	const rtxLightDesc_t	&d = s_recs[s_sel].d;
 	rtxLightDesc_t			orig;
-	const qboolean			haveOrig = (qboolean)( ( d.flags & RTX_LFLAG_MODIFIED ) && s_api->GetOriginal( s_sel, &orig ) );
+	const qboolean			multi = (qboolean)( s_selList.size() > 1 );
+	const qboolean			haveOrig = (qboolean)( !multi && ( d.flags & RTX_LFLAG_MODIFIED ) && s_api->GetOriginal( s_sel, &orig ) );
 	char					main[LE_PANEL_LINES][128];
 	char					was[LE_PANEL_LINES][128];
 	const int				h = LE_TextH();
@@ -1549,7 +1540,14 @@ static void LE_DrawPanel( void )
 	memset( main, 0, sizeof( main ) );
 	memset( was, 0, sizeof( was ) );
 
-	Com_sprintf( main[n++], sizeof( main[0] ), "light %d", d.id );
+	if ( multi )
+	{
+		Com_sprintf( main[n++], sizeof( main[0] ), "%d lights (primary %d)", (int)s_selList.size(), d.id );
+	}
+	else
+	{
+		Com_sprintf( main[n++], sizeof( main[0] ), "light %d", d.id );
+	}
 	Com_sprintf( main[n++], sizeof( main[0] ), "source: %s", LE_SourceStr( &d ) );
 	Com_sprintf( main[n++], sizeof( main[0] ), "type: %s", d.type == RTX_LTYPE_SPOT ? "spot" : "sphere" );
 	Com_sprintf( main[n++], sizeof( main[0] ), "flags: %s", d.flags ? LE_FlagsStr( d.flags ) : "-" );
@@ -1584,6 +1582,49 @@ static void LE_DrawPanel( void )
 		Com_sprintf( was[n], sizeof( was[0] ), "%s", orig.name );
 	}
 	n++;
+
+	if ( multi )
+	{
+		// A property that differs between the selected lights shows "-".
+		qboolean	same[9];
+
+		for ( int i = 0; i < 9; i++ )
+		{
+			same[i] = qtrue;
+		}
+		for ( size_t i = 0; i < s_selList.size(); i++ )
+		{
+			const int	id = s_selList[i];
+
+			if ( id == s_sel || id >= (int)s_recs.size() || !s_recs[id].valid )
+			{
+				continue;
+			}
+
+			const rtxLightDesc_t	&o = s_recs[id].d;
+
+			same[1] = (qboolean)( same[1] && o.source == d.source );
+			same[2] = (qboolean)( same[2] && o.type == d.type );
+			same[3] = (qboolean)( same[3] && o.flags == d.flags );
+			same[4] = (qboolean)( same[4] && VectorCompare( o.origin, d.origin ) );
+			same[5] = (qboolean)( same[5] && VectorCompare( o.color, d.color ) );
+			same[6] = (qboolean)( same[6] && o.intensity == d.intensity );
+			same[7] = (qboolean)( same[7] && o.radius == d.radius );
+			same[8] = (qboolean)( same[8] && !strncmp( o.name, d.name, RTX_LIGHTEDIT_NAME_LEN ) );
+		}
+		for ( int i = 1; i < 9; i++ )
+		{
+			if ( !same[i] )
+			{
+				char	*dash = strchr( main[i], ':' );
+
+				if ( dash )
+				{
+					Q_strncpyz( dash + 1, " -", (int)( sizeof( main[0] ) - ( dash + 1 - main[i] ) ) );
+				}
+			}
+		}
+	}
 
 	for ( int i = 0; i < n; i++ )
 	{
@@ -1620,6 +1661,7 @@ static void LE_DrawBottom( void )
 	int			y = 480 - h - 6;
 	const char	*line;
 	char		warn[96];
+	char		full[256];
 
 	if ( s_stats.overfullClusters > 0 || s_stats.numInSolid > 0 )
 	{
@@ -1633,9 +1675,10 @@ static void LE_DrawBottom( void )
 	}
 	line = va( "%s | entity %d lgt %d added %d modified %d disabled %d | slots %d/%d | undo %d redo %d%s",
 		s_stats.mapName, s_stats.numEntity, s_stats.numLgt, s_stats.numAdded, s_stats.numModified,
-		s_stats.numDisabled, s_stats.numLightPolys, s_stats.maxLightPolys, s_numUndo, s_numRedo,
+		s_stats.numDisabled, s_stats.numLightPolys, s_stats.maxLightPolys, LE_UndoDepth(), LE_RedoDepth(),
 		s_stats.unsavedChanges > 0 ? " *" : "" );
-	LE_Text( 6, y, line, colWhite );
+	Com_sprintf( full, sizeof( full ), "%s | grid %d snap %s", line, LE_GridSize(), LE_SnapOn() ? "on" : "off" );
+	LE_Text( 6, y, full, colWhite );
 }
 
 qboolean CG_LightEdit_Draw2D( void )
