@@ -27,8 +27,9 @@ extern mdxaBone_t worldMatrixInv;
 #define MAX_G2_MODELS (1024)
 #define G2_MODEL_BITS (10)
 #else
-#define MAX_G2_MODELS (512)
-#define G2_MODEL_BITS (9)
+// Same value as rd-vanilla and rd-vulkan: the SP renderers share this array on a switch.
+#define MAX_G2_MODELS (2048)
+#define G2_MODEL_BITS (11)
 #endif
 #define G2_INDEX_MASK (MAX_G2_MODELS-1)
 // rww - RAGDOLL_BEGIN
