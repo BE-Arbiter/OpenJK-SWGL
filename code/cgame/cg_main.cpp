@@ -395,6 +395,7 @@ vmCvar_t	cg_panoNumShots;
 vmCvar_t	fx_freeze;
 vmCvar_t	fx_debug;
 vmCvar_t	cg_speeds;
+vmCvar_t	cg_clipCull;
 
 vmCvar_t	cg_missionInfoFlashTime;
 vmCvar_t	cg_hudFiles;
@@ -413,6 +414,7 @@ vmCvar_t	cg_smoothPlayerPlat;
 vmCvar_t	cg_smoothPlayerPlatAccel;
 vmCvar_t	cg_g2Marks;
 vmCvar_t	fx_expensivePhysics;
+vmCvar_t	fx_skipDraw;
 vmCvar_t	cg_debugHealthBars;
 
 vmCvar_t	cg_smoothCamera;
@@ -583,6 +585,8 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_smoothPlayerPlatAccel, "cg_smoothPlayerPlatAccel", "3.25", 0},
 	{ &cg_g2Marks, "cg_g2Marks", "1", CVAR_ARCHIVE },
 	{ &fx_expensivePhysics, "fx_expensivePhysics", "1", CVAR_ARCHIVE },
+	{ &fx_skipDraw, "fx_skipDraw", "0", CVAR_CHEAT },	// measurement: simulate effects but submit nothing to the renderer
+	{ &cg_clipCull, "cg_clipCull", "1", 0 },	// CG_Trace skips bbox entities outside the move bounds
 	{ &cg_debugHealthBars,	"cg_debugHealthBars",	"0", CVAR_ARCHIVE },
 
 	{ &cg_smoothCamera, "cg_smoothCamera", "1", CVAR_ARCHIVE },
@@ -1725,7 +1729,11 @@ static void CG_RegisterGraphics( void ) {
 		{
 			if (bg_itemlist[i].giTag < INV_MAX)
 			{
-				inv_icons[bg_itemlist[i].giTag] = cgi_R_RegisterShaderNoMip( bg_itemlist[i].icon );
+				const qhandle_t icon = cgi_R_RegisterShaderNoMip( bg_itemlist[i].icon );
+				if (icon)	// several items share a tag (the jetpacks): one without icon must not wipe the others
+				{
+					inv_icons[bg_itemlist[i].giTag] = icon;
+				}
 			}
 		}
 	}
@@ -3304,12 +3312,45 @@ CG_InventorySelectable
 */
 static inline qboolean CG_InventorySelectable( int index)
 {
+	if (index >= INV_JETPACK_TYPE)
+	{	// state of the fuel items, not an item
+		return qfalse;
+	}
+
 	if (cg.snap->ps.inventory[index])	// Is there any in the inventory?
 	{
 		return qtrue;
 	}
 
 	return qfalse;
+}
+
+extern const gitem_t *G_FuelItem( const playerState_t *ps, int tag );
+extern int G_FuelItemFuel( const playerState_t *ps, int tag );
+extern qboolean G_IsFuelItemTag( int tag );
+
+// A fuel item shows its fuel as its number.
+static inline int CG_InventoryCount( int index )
+{
+	if (G_IsFuelItemTag(index))
+	{
+		return (G_FuelItemFuel( &cg.snap->ps, index ) > 99) ? 99 : G_FuelItemFuel( &cg.snap->ps, index );
+	}
+	return cg.snap->ps.inventory[index];
+}
+
+// A fuel item shows the icon of the item carried.
+static void CG_UpdateFuelItemIcons( void )
+{
+	for (int tag = 0; tag < INV_MAX; tag++)
+	{
+		const gitem_t *item = G_IsFuelItemTag(tag) ? G_FuelItem( &cg.snap->ps, tag ) : NULL;
+
+		if (item && item->icon && item->icon[0])
+		{
+			inv_icons[tag] = cgi_R_RegisterShaderNoMip( item->icon );
+		}
+	}
 }
 
 
@@ -3347,6 +3388,8 @@ void CG_DPPrevInventory_f( void )
 		return;
 	}
 
+	CG_UpdateFuelItemIcons();	// the scan skips an item without an icon
+
 	const int original = cg.DataPadInventorySelect;
 
 	for ( i = 0 ; i < INV_MAX ; i++ )
@@ -3379,6 +3422,8 @@ void CG_DPNextInventory_f( void )
 	{
 		return;
 	}
+
+	CG_UpdateFuelItemIcons();	// the scan skips an item without an icon
 
 	const int original = cg.DataPadInventorySelect;
 
@@ -3422,6 +3467,8 @@ void CG_NextInventory_f( void )
 		SetInventoryTime();
 		return;
 	}
+
+	CG_UpdateFuelItemIcons();	// the scan skips an item without an icon
 
 	const int original = cg.inventorySelect;
 
@@ -3476,6 +3523,8 @@ void CG_PrevInventory_f( void )
 		SetInventoryTime();
 		return;
 	}
+
+	CG_UpdateFuelItemIcons();	// the scan skips an item without an icon
 
 	const int original = cg.inventorySelect;
 
@@ -3540,6 +3589,8 @@ void CG_DrawInventorySelect( void )
 	float			addX;
 	vec4_t			textColor = { .312f, .75f, .621f, 1.0f };
 	char			text[1024]={0};
+
+	CG_UpdateFuelItemIcons();
 
 	// don't display if dead
 	if ( cg.predicted_player_state.stats[STAT_HEALTH] <= 0 || ( cg.snap->ps.viewEntity > 0 && cg.snap->ps.viewEntity < ENTITYNUM_WORLD ))
@@ -3641,7 +3692,7 @@ void CG_DrawInventorySelect( void )
 			CG_DrawPic(holdX, y + 10, smallIconSize_x, smallIconSize_y, inv_icons[i]);
 
 			cgi_R_SetColor(colorTable[CT_ICON_BLUE]);
-			CG_DrawNumField(holdX + addX, y + smallIconSize_y, 2, cg.snap->ps.inventory[i], 6 * cgs.widthRatioCoef, 12,
+			CG_DrawNumField(holdX + addX, y + smallIconSize_y, 2, CG_InventoryCount(i), 6 * cgs.widthRatioCoef, 12,
 				NUM_FONT_SMALL,qfalse);
 
 			holdX -= (smallIconSize_x + pad);
@@ -3656,13 +3707,13 @@ void CG_DrawInventorySelect( void )
 		CG_DrawPic(x - (bigIconSize_x / 2), (y - ((bigIconSize_y - smallIconSize_y) / 2)) + 10, bigIconSize_x, bigIconSize_y, inv_icons[cg.inventorySelect]);
 		addX = bigIconSize_x * .75;
 		cgi_R_SetColor(colorTable[CT_ICON_BLUE]);
-		CG_DrawNumField((x - (bigIconSize_x / 2)) + addX, y, 2, cg.snap->ps.inventory[cg.inventorySelect], 6 * cgs.widthRatioCoef, 12,
+		CG_DrawNumField((x - (bigIconSize_x / 2)) + addX, y, 2, CG_InventoryCount(cg.inventorySelect), 6 * cgs.widthRatioCoef, 12,
 			NUM_FONT_SMALL,qfalse);
 
 		if (inv_names[cg.inventorySelect])
 		{
 			// FIXME: This is ONLY a temp solution, the icon stuff, etc, should all just use items.dat for everything
-			gitem_t *item = FindInventoryItemTag( cg.inventorySelect );
+			const gitem_t *item = G_IsFuelItemTag( cg.inventorySelect ) ? G_FuelItem( &cg.snap->ps, cg.inventorySelect ) : FindInventoryItemTag( cg.inventorySelect );
 
 			if ( item && item->classname && item->classname[0] )
 			{
@@ -3680,6 +3731,10 @@ void CG_DrawInventorySelect( void )
 				else
 				{
 					Com_sprintf( itemName, sizeof(itemName), "SPMOD_INGAME_%s",	item->classname );
+					if ( !cgi_SP_GetStringTextString( itemName, data, sizeof( data )))
+					{//an item with its own string file
+						Com_sprintf( itemName, sizeof(itemName), "%s_NAME", item->classname );
+					}
 					if ( cgi_SP_GetStringTextString( itemName, data, sizeof( data )))
 					{
 						int w = cgi_R_Font_StrLenPixels(data, cgs.media.qhFontSmall, 1.0f, cgs.widthRatioCoef);
@@ -3723,7 +3778,7 @@ void CG_DrawInventorySelect( void )
 			CG_DrawPic(holdX, y + 10, smallIconSize_x, smallIconSize_y, inv_icons[i]);
 
 			cgi_R_SetColor(colorTable[CT_ICON_BLUE]);
-			CG_DrawNumField(holdX + addX, y + smallIconSize_y, 2, cg.snap->ps.inventory[i], 6 * cgs.widthRatioCoef, 12,
+			CG_DrawNumField(holdX + addX, y + smallIconSize_y, 2, CG_InventoryCount(i), 6 * cgs.widthRatioCoef, 12,
 				NUM_FONT_SMALL,qfalse);
 
 			holdX += (smallIconSize_x + pad);
@@ -3762,6 +3817,7 @@ void CG_DrawDataPadInventorySelect( void )
 	char			text[1024]={0};
 	vec4_t			textColor = { .312f, .75f, .621f, 1.0f };
 
+	CG_UpdateFuelItemIcons();
 
 	// count the number of items owned
 	count = 0;
@@ -3845,7 +3901,7 @@ void CG_DrawDataPadInventorySelect( void )
 			CG_DrawPic(holdX, graphicYPos + 10, smallIconSize_x, smallIconSize_y, inv_icons[i]);
 
 			cgi_R_SetColor(colorTable[CT_ICON_BLUE]);
-			CG_DrawNumField(holdX + addX, graphicYPos + smallIconSize_y, 2, cg.snap->ps.inventory[i], 6 * cgs.widthRatioCoef, 12,
+			CG_DrawNumField(holdX + addX, graphicYPos + smallIconSize_y, 2, CG_InventoryCount(i), 6 * cgs.widthRatioCoef, 12,
 				NUM_FONT_SMALL,qfalse);
 
 			holdX -= (smallIconSize_x + pad);
@@ -3860,7 +3916,7 @@ void CG_DrawDataPadInventorySelect( void )
 		CG_DrawPic(centerXPos - (bigIconSize_x / 2), (graphicYPos - ((bigIconSize_y - smallIconSize_y) / 2)) + 10, bigIconSize_x, bigIconSize_y, inv_icons[cg.DataPadInventorySelect]);
 		addX = (float)bigIconSize_x * .75;
 		cgi_R_SetColor(colorTable[CT_ICON_BLUE]);
-		CG_DrawNumField((centerXPos - (bigIconSize_x / 2)) + addX, graphicYPos, 2, cg.snap->ps.inventory[cg.DataPadInventorySelect], 6 * cgs.widthRatioCoef, 12,
+		CG_DrawNumField((centerXPos - (bigIconSize_x / 2)) + addX, graphicYPos, 2, CG_InventoryCount(cg.DataPadInventorySelect), 6 * cgs.widthRatioCoef, 12,
 			NUM_FONT_SMALL,qfalse);
 
 	}
@@ -3896,7 +3952,7 @@ void CG_DrawDataPadInventorySelect( void )
 			CG_DrawPic(holdX, graphicYPos + 10, smallIconSize_x, smallIconSize_y, inv_icons[i]);
 
 			cgi_R_SetColor(colorTable[CT_ICON_BLUE]);
-			CG_DrawNumField(holdX + addX, graphicYPos + smallIconSize_y, 2, cg.snap->ps.inventory[i], 6 * cgs.widthRatioCoef, 12,
+			CG_DrawNumField(holdX + addX, graphicYPos + smallIconSize_y, 2, CG_InventoryCount(i), 6 * cgs.widthRatioCoef, 12,
 				NUM_FONT_SMALL,qfalse);
 
 			holdX += (smallIconSize_x + pad);

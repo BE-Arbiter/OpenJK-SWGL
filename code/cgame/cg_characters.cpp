@@ -41,6 +41,8 @@ static int shownVariant = 0;
 static int variantPage = 0;					// page of the variant squares on the character screen
 static char shownTitle[128];				// name at the top of the character screen (CG_DrawCharacterTitle)
 static const int variantsPerPage = 4;		// squares of a page: buttons variantButton1..4 of the menu
+static const int tagsPerPage = 9;			// rows of a page: buttons tagButton1..9 of the menu
+static int tagPage = 0;					// page of the tag rows (the character grid behind keeps ui_character_page)
 qboolean searchChanged = qtrue;
 
 // Saved configuration of the "My Characters" screen: characters_configs/<code>_<variant code>/<name>.cfg.
@@ -210,6 +212,7 @@ static void ShowCharacterScreen()
 	cgi_UI_Run_Command("hide selScreen");
 	cgi_UI_Run_Command("hide searchDisabled");
 	cgi_UI_Run_Command("hide characterButtons");
+	cgi_UI_Run_Command("hide tagButtons");
 	cgi_UI_Run_Command("show charScreen");
 	cgi_UI_Run_Command("hide tabPowers");
 	cgi_UI_Run_Command("hide tabWeapons");
@@ -219,6 +222,23 @@ static void ShowCharacterScreen()
 	cgi_UI_Run_Command("show WeaponsTabPc");
 	cgi_UI_Run_Command("show tabStats");
 	cgi_UI_Run_Command("uiScript toggleTeamAvailability");
+}
+
+void UpdateSearchFromCvar();
+int getMaxPage();
+void setCurrentPage(int currentPage);
+
+// A filter changed: filter again now, and keep the page of the character grid inside the new page count.
+static void RefreshAfterFilterChange()
+{
+	searchChanged = qtrue;
+	UpdateSearchFromCvar();
+	cgi_Cvar_Update(&ui_character_page);
+	const int maxPage = getMaxPage();
+	if (ui_character_page.integer >= maxPage)
+	{
+		setCurrentPage(Q_max(0, maxPage - 1));
+	}
 }
 
 void CG_Characters_CharacterClick_f()
@@ -240,7 +260,18 @@ void CG_Characters_CharacterClick_f()
 		}
 		//Toggle the selected faction filter
 		factionsData[selectedFaction].selectedFilter = factionsData[selectedFaction].selectedFilter ? qfalse : qtrue;
-		searchChanged = qtrue;
+		RefreshAfterFilterChange();
+		return;
+	}
+	if (Q_stricmp(ui_character_screen.string, "tags") == 0)
+	{
+		const int selectedTag = (tagPage * tagsPerPage) + ui_character_selected.integer - 1;
+		if (selectedTag < 0 || selectedTag >= loadedTags)
+		{
+			return;
+		}
+		tagsData[selectedTag].selectedFilter = tagsData[selectedTag].selectedFilter ? qfalse : qtrue;
+		RefreshAfterFilterChange();
 		return;
 	}
 	if (Q_stricmp(ui_character_screen.string, "characters") == 0)
@@ -277,6 +308,12 @@ void CG_Characters_CharacterClick_f()
 // characterBack: Back of the character screen. The menu shows the selection screen; this sets its grid.
 void CG_Characters_Back_f()
 {
+	if (Q_stricmp(backScreen, "tags") == 0)
+	{
+		// The menu shows the character grid buttons after Back; the tags have their own rows.
+		cgi_UI_Run_Command("hide characterButtons");
+		cgi_UI_Run_Command("show tagButtons");
+	}
 	if (Q_stricmp(backScreen, "myconfigs") == 0)
 	{
 		// A configuration can be saved or deleted on the character screen.
@@ -331,9 +368,10 @@ int getMaxPage() {
 	{
 		return (loadedFactions / 15) + 1;
 	}
-	if (Q_stricmp(ui_character_screen.string, "characters") == 0)
+	// The tags screen shows the character grid behind the tags.
+	if (Q_stricmp(ui_character_screen.string, "characters") == 0 || Q_stricmp(ui_character_screen.string, "tags") == 0)
 	{
-		return (filteredCharacters / 15) + 1;
+		return Q_max(1, (filteredCharacters + 14) / 15);
 	}
 	if (Q_stricmp(ui_character_screen.string, "myconfigs") == 0)
 	{
@@ -396,6 +434,39 @@ void CG_Characters_SearchChanged_f()
 		setCurrentPage(0);
 	}
 }
+// characterToggleTags: the Tags button. On the tags screen it goes back to the character grid, else it opens the tags.
+void CG_Characters_ToggleTags_f()
+{
+	cgi_Cvar_Update(&ui_character_screen);
+	if (Q_stricmp(ui_character_screen.string, "tags") == 0)
+	{
+		cgi_Cvar_Set("ui_character_screen", "characters");
+		cgi_UI_Run_Command("hide tagButtons");
+		cgi_UI_Run_Command("show characterButtons");
+	}
+	else
+	{
+		cgi_Cvar_Set("ui_character_screen", "tags");
+		cgi_UI_Run_Command("hide characterButtons");
+		cgi_UI_Run_Command("show tagButtons");
+	}
+}
+
+// characterResetSearch: clear the name, the faction filters and the tag filters.
+void CG_Characters_ResetSearch_f()
+{
+	cgi_Cvar_Set("ui_c_filter_name", "");
+	for (int i = 0; i < loadedFactions; i++)
+	{
+		factionsData[i].selectedFilter = qfalse;
+	}
+	for (int i = 0; i < loadedTags; i++)
+	{
+		tagsData[i].selectedFilter = qfalse;
+	}
+	searchChanged = qtrue;
+	setCurrentPage(0);
+}
 #pragma endregion
 
 #pragma region Search
@@ -418,6 +489,21 @@ qboolean filterFunction(characterInfo_t *character)
 		}
 	}
 	if (!hasFaction && hasSelectedFaction)
+	{
+		return qfalse;
+	}
+	//Tag filter: the character needs at least one of the selected tags
+	qboolean hasSelectedTag = qfalse;
+	qboolean hasTag = qfalse;
+	for (int i = 0; i < loadedTags && !hasTag; i++)
+	{
+		if (tagsData[i].selectedFilter)
+		{
+			hasSelectedTag = qtrue;
+			hasTag = CHA_ListHasItem(character->tags, tagsData[i].code);
+		}
+	}
+	if (hasSelectedTag && !hasTag)
 	{
 		return qfalse;
 	}
@@ -597,6 +683,74 @@ void CG_DrawFactions() {
 
 }
 
+// Tags screen: the character grid behind, then the panel tag_bg (113 90 120 255) with one row of 104 x 22 per tag
+// (selected tags highlighted) and the page arrows of the tags at the bottom of the panel.
+// The buttons tagButton1..9, tagPrev and tagNext of IngameSWGLChars.menu have the same rects.
+void CG_DrawTags() {
+	int panelX = 113, panelY = 90, panelW = 120, panelH = 255;
+	int rowX = 121, rowY = 98, rowW = 104, rowH = 22, rowPitch = 24;
+	int textInset = 6;
+	int textLift = 3;		// the font draws its glyphs low in the line: raise the text to center it in the row
+	int pageTextCenterX = 173;	// center of the panel
+	int pageTextY = 326;		// between the page arrows of the menu (y 324, 14 high)
+	float pageTextScale = 0.5f;
+	vec4_t textColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+	vec4_t selectedColor = { 1.0f, 0.682f, 0.0f, 1.0f };
+	vec4_t pageTextColor = { 1.0f, 0.682f, 0.0f, 1.0f };
+
+	// The current page of the characters, behind the tags.
+	CG_DrawCharacters();
+
+	const qhandle_t panel = cgi_R_RegisterShaderNoMip("gfx/menus/tag_bg");
+	const qhandle_t row = cgi_R_RegisterShaderNoMip("gfx/menus/w_tag_bg");
+	const qhandle_t rowSelected = cgi_R_RegisterShaderNoMip("gfx/menus/w_tag_bg_s");
+
+	const int pages = Q_max(1, (loadedTags + tagsPerPage - 1) / tagsPerPage);
+	tagPage = Com_Clamp(0, pages - 1, tagPage);
+
+	CG_DrawPic(panelX, panelY, panelW, panelH, panel);
+	const int beginIndex = tagPage * tagsPerPage;
+	const int endIndex = Q_min(loadedTags, beginIndex + tagsPerPage);
+	for (int i = beginIndex; i < endIndex; i++)
+	{
+		const characterTag_t *tag = &tagsData[i];
+		const int y = rowY + (i - beginIndex) * rowPitch;
+		char text[128];
+
+		CG_DrawPic(rowX, y, rowW, rowH, tag->selectedFilter ? rowSelected : row);
+		// Translation SWGL_TAGS_<tag>, else the raw tag.
+		if (!cgi_SP_GetStringTextString(va("SWGL_TAGS_%s", tag->code), text, sizeof(text)))
+		{
+			Q_strncpyz(text, tag->code, sizeof(text));
+		}
+		CG_DrawTextInBox(rowX + textInset, y + (rowH - 16) / 2 - textLift, rowW - 2 * textInset, 16,
+			text, cgs.media.qhFontSmall, tag->selectedFilter ? selectedColor : textColor);
+	}
+	cgi_R_SetColor(NULL);
+
+	const char *pageText = va("%d / %d", tagPage + 1, pages);
+	const int textWidth = cgi_R_Font_StrLenPixels(pageText, cgs.media.qhFontSmall, pageTextScale);
+	cgi_R_Font_DrawString(pageTextCenterX - textWidth / 2, pageTextY, pageText, pageTextColor, cgs.media.qhFontSmall, -1, pageTextScale);
+	cgi_R_SetColor(NULL);
+}
+
+// characterTagPreviousPage / characterTagNextPage: page of the tag rows, with wrap-around.
+static void ChangeTagPage(int step)
+{
+	const int pages = Q_max(1, (loadedTags + tagsPerPage - 1) / tagsPerPage);
+	tagPage = (tagPage + step + pages) % pages;
+}
+
+void CG_Characters_TagPreviousPage_f()
+{
+	ChangeTagPage(-1);
+}
+
+void CG_Characters_TagNextPage_f()
+{
+	ChangeTagPage(1);
+}
+
 // "My Characters" grid: the saved configurations, with the icon of their variant. Same layout as CG_DrawCharacters.
 void CG_DrawMyConfigs() {
 	int marginX = 5, marginY = 4;
@@ -769,9 +923,9 @@ void CG_DrawCharactersMenu() {
 		CG_DrawVariants();
 		CG_DrawConfigError();
 	}
-	else
+	else if (Q_stricmp(ui_character_screen.string, "tags") == 0)
 	{
-		//CG_DrawTags();
+		CG_DrawTags();
 	}
 }
 #pragma endregion

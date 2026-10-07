@@ -69,7 +69,7 @@ stringID_table_t animEventTypeTable[] =
 	ENUM2STRING(AEV_SOUND),			//# animID AEV_SOUND framenum soundpath randomlow randomhi chancetoplay
 	ENUM2STRING(AEV_FOOTSTEP),		//# animID AEV_FOOTSTEP framenum footstepType
 	ENUM2STRING(AEV_EFFECT),		//# animID AEV_EFFECT framenum effectpath boltName
-	ENUM2STRING(AEV_FIRE),			//# animID AEV_FIRE framenum altfire chancetofire
+	ENUM2STRING(AEV_FIRE),			//# animID AEV_FIRE framenum attackindex chancetofire
 	ENUM2STRING(AEV_MOVE),			//# animID AEV_MOVE framenum forwardpush rightpush uppush
 	ENUM2STRING(AEV_SOUNDCHAN),		//# animID AEV_SOUNDCHAN framenum CHANNEL soundpath randomlow randomhi chancetoplay
 	ENUM2STRING(AEV_SABER_SWING),	//# animID AEV_SABER_SWING framenum CHANNEL randomlow randomhi chancetoplay
@@ -847,14 +847,14 @@ static void ParseAnimationEvtBlock(int glaIndex, unsigned short modelIndex, cons
 			}
 			animEvents[curAnimEvent].eventData[AED_EFFECT_PROBABILITY] = atoi( token );
 			break;
-		case AEV_FIRE:			//# animID AEV_FIRE framenum altfire chancetofire
-			//get altfire
+		case AEV_FIRE:			//# animID AEV_FIRE framenum attackindex chancetofire
+			//get the attack index
 			token = COM_Parse( text_p );
 			if ( !token )
 			{//WARNING!  BAD TABLE!
 				break;
 			}
-			animEvents[curAnimEvent].eventData[AED_FIRE_ALT] = atoi( token );
+			animEvents[curAnimEvent].eventData[AED_FIRE_ATTACK] = atoi( token );
 			//get probability
 			token = COM_Parse( text_p );
 			if ( !token )

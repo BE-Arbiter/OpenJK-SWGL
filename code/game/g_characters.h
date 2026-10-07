@@ -28,6 +28,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #define MAX_CHARACTERS 2048
 #define MAX_FACTIONS 64
+#define MAX_TAGS 256
 
 #pragma region Character Data Structures
 typedef struct characterFaction_s {
@@ -36,6 +37,11 @@ typedef struct characterFaction_s {
 	char icon[64];
 	qboolean selectedFilter = qfalse;
 } characterFaction_t;
+
+typedef struct characterTag_s {
+	char code[32];
+	qboolean selectedFilter = qfalse;
+} characterTag_t;
 
 typedef struct characterSkin_s {
 	char icon[64];
@@ -86,6 +92,11 @@ extern characterFaction_t factionsData[MAX_FACTIONS];
 extern int loadedFactions;
 extern characterInfo_t charactersData[MAX_CHARACTERS];
 extern int loadedCharacters;
+extern characterTag_t tagsData[MAX_TAGS];	// every distinct tag of the characters, sorted by code
+extern int loadedTags;
+
+// True if the comma separated list contains this exact item (case insensitive).
+qboolean CHA_ListHasItem(const char *list, const char *item);
 
 #pragma endregion
 

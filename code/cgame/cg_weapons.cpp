@@ -164,30 +164,18 @@ void CG_InitItemForWeapon(gitem_t* item, int weaponNum) {
 
 /*
 =================
-CG_GetAttackIndex
+CG_CurrentAttackIndex
 
-Return The attack Index of the attack
+The attack index the game resolved for the entity (see WP_ResolveAttackIndex), or the one of the projectile
 =================
 */
-int CG_GetAttackIndex(gentity_t *gent,qboolean alt_fire) 
+int CG_CurrentAttackIndex(const centity_t *cent)
 {
-	int weaponNum = gent->s.weapon;
-	if (gent->client && gent->client->ps.clientNum > 0) {
-		return alt_fire ? 1 : 0;
+	if (cent->gent && cent->gent->client)
+	{
+		return cent->gent->client->ps.attack_index;
 	}
-	if (gent->client && gent->client->ps.firing_attack >= 0) {
-		return gent->client->ps.firing_attack;
-	}
-	int attackIndex = alt_fire ? 1 : 0;
-	if (cg.zoomMode == ST_DISRUPTOR || cg.zoomMode >= ST_A280) {
-		if (alt_fire && weaponData[weaponNum].attackData[3].firingLogic != FL_NONE) {
-			return 3;
-		}
-		else if (weaponData[weaponNum].attackData[2].firingLogic != FL_NONE) {
-			return 2;
-		}
-	}
-	return attackIndex;
+	return cent->gent ? cent->gent->attack_index : 0;
 }
 /*
 =================
@@ -239,6 +227,18 @@ void CG_RegisterWeapon( int weaponNum ) {
 	}
 	// if we couldn't find which weapon this is, Create one!
 	if ( !found) {
+		//For throwable, we need to create two items. Ammo and weapon.
+		if (weaponData[weaponNum].baseWeaponNum == WP_THERMAL
+			|| weaponData[weaponNum].baseWeaponNum == WP_DET_PACK
+			|| weaponData[weaponNum].baseWeaponNum == WP_TRIP_MINE) {
+			if (i == (MAX_ITEMS -1)) {
+				CG_Error("Too many items in external items data(%d); Cannot create nor found ammo item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
+			}
+			item = &(bg_itemlist[bg_numItems]);
+			CG_InitItemForAmmo(item, weaponNum);
+			bg_numItems++;
+		}
+
 		if (i == MAX_ITEMS) {
 			CG_Error("Too many items in external items data(%d); Cannot create nor found item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
 		}
@@ -246,17 +246,6 @@ void CG_RegisterWeapon( int weaponNum ) {
 		CG_InitItemForWeapon(item, weaponNum);
 		weaponInfo->item = item;
 		bg_numItems++;
-
-		if (weaponData[weaponNum].baseWeaponNum == WP_THERMAL
-			|| weaponData[weaponNum].baseWeaponNum == WP_DET_PACK
-			|| weaponData[weaponNum].baseWeaponNum == WP_TRIP_MINE) {
-			if (i == MAX_ITEMS) {
-				CG_Error("Too many items in external items data(%d); Cannot create nor found ammo item for weapon : '%s'\n", MAX_ITEMS, weaponData[weaponNum].classname);
-			}
-			item = &(bg_itemlist[bg_numItems]);
-			CG_InitItemForAmmo(item, weaponNum);
-			bg_numItems++;
-		}
 	}
 
 	CG_RegisterItemVisuals( item - bg_itemlist );
@@ -979,6 +968,17 @@ void CG_RegisterItemVisuals( int itemNum ) {
 			cgs.media.laGogglesArrow		= cgi_R_RegisterShader( "gfx/2d/bracket2" );
 			break;
 
+		case INV_JETPACK:
+			cgi_S_RegisterSound( "sound/chars/boba/jeton.wav" );
+			cgi_S_RegisterSound( "sound/chars/boba/jethover.wav" );
+			theFxScheduler.RegisterEffect( "boba/jet" );
+			break;
+
+		case INV_WRIST_FLAMER:
+			cgi_S_RegisterSound( "sound/weapons/boba/bf_flame.mp3" );
+			theFxScheduler.RegisterEffect( "boba/fthrw" );
+			break;
+
 		case INV_BACTA_CANISTER:
 			for ( int i = 1; i < 5; i++ )
 			{
@@ -1178,7 +1178,7 @@ void CG_SetGhoul2InfoRef( refEntity_t *ent, refEntity_t	*s1)
 qboolean CG_IsChargedAttack(centity_t* cent) 
 {
 	int weaponNum = cent->gent->s.weapon;
-	int attackIndex = CG_GetAttackIndex(cent->gent, cent->altFire);
+	int attackIndex = CG_CurrentAttackIndex(cent);
 	weaponAttackData_t *attackData = &weaponData[weaponNum].attackData[attackIndex];
 	if (attackData->firingLogic == FL_BEAM_CHARGED
 		|| attackData->firingLogic == FL_BOWCASTER
@@ -1193,7 +1193,7 @@ qboolean CG_IsChargedAttack(centity_t* cent)
 const char* CG_GetMuzzleEffect(const centity_t* cent, const weaponData_t* wData) {
 	const char* effect = NULL;
 		
-	int attackIndex = CG_GetAttackIndex(cent->gent, cent->altFire);
+	int attackIndex = CG_CurrentAttackIndex(cent);
 	// I declared this variable just for readability.
 
 	//If I can't fire cause I'm underwater, don't play the effect.
@@ -1579,7 +1579,7 @@ void CG_AddViewWeapon( playerState_t *ps )
 	// Do special charge bits
 	//-----------------------
 	//Should not be important...
-	if ( ps->weaponstate == WEAPON_CHARGING_ALT || ps->weaponstate == WEAPON_CHARGING )
+	if ( ps->weaponstate == WEAPON_CHARGING )
 	{
 		int		shader = 0;
 
@@ -1618,8 +1618,7 @@ void CG_AddViewWeapon( playerState_t *ps )
 		}
 
 		//Overwrite the muzzle effect if needed
-		qboolean altFire = (ps->weaponstate == WEAPON_CHARGING_ALT) ? qtrue : qfalse;
-		int attackIndex = CG_GetAttackIndex(cent->gent, altFire);
+		int attackIndex = ps->attack_index;
 		if (weaponData[weapon].attackData[attackIndex].chargeMuzzleShader[0]) 
 		{
 			shader = cg_weapons[weapon].weaponAttacksInfo[attackIndex].chargeMuzzleShader;
@@ -2477,10 +2476,57 @@ void CG_NextWeapon_f( void ) {
 	}
 }
 
+/* Items of the loadout menu: the gadgets are the holdables that are used, the inventory has the other ones, health and armor */
+static qboolean CG_LDO_IsGadget( const gitem_t *item )
+{
+	if ( item->giType != IT_HOLDABLE )
+	{
+		return qfalse;
+	}
+	switch ( item->giTag )
+	{
+	case INV_SENTRY:
+	case INV_ELECTROBINOCULARS:
+	case INV_LIGHTAMP_GOGGLES:
+	case INV_SEEKER:
+	case INV_JETPACK:
+	case INV_WRIST_FLAMER:
+		return qtrue;
+	default:
+		return qfalse;
+	}
+}
+
+// The categories of the loadout menu that list items: -1 ammo, -2 inventory, -4 gadgets
+static qboolean CG_LDO_IsItemCategory( int category )
+{
+	return (qboolean)( category == -1 || category == -2 || category == -4 );
+}
+
+static qboolean CG_LDO_ItemInCategory( const gitem_t *item, int category )
+{
+	if ( !item->icon || !item->icon[0] )
+	{
+		return qfalse;
+	}
+	switch ( category )
+	{
+	case -1:
+		return (qboolean)( item->giType == IT_AMMO );
+	case -2:
+		return (qboolean)( ( item->giType == IT_HOLDABLE && !CG_LDO_IsGadget( item ) ) || item->giType == IT_HEALTH || item->giType == IT_ARMOR );
+	case -4:
+		return CG_LDO_IsGadget( item );
+	default:
+		return qfalse;
+	}
+}
+
 /* 1 -> XXX is base weapons*/
 /* -1 -> Ammo */
 /* -2 -> Inventory*/
 /* -3 -> All Weapons*/
+/* -4 -> Gadgets*/
 extern vmCvar_t		ui_loadout_base_weapon;
 void CG_LDO_SelectBaseWeapon_f(void)
 {
@@ -2496,6 +2542,10 @@ void CG_LDO_SelectBaseWeapon_f(void)
 	}
 	else if (!Q_stricmp("LD_INVENTORY", baseWeapon)) {
 		cg.LoadoutBaseWeaponSelect = -2;
+		return;
+	}
+	else if (!Q_stricmp("LD_GADGETS", baseWeapon)) {
+		cg.LoadoutBaseWeaponSelect = -4;
 		return;
 	}
 	else if (!Q_stricmp("WEAPON_ALL", baseWeapon)) {
@@ -2548,20 +2598,12 @@ void CG_LDO_SelectWeapon_f(void)
 	int currMenuIndex = 0;
 	int i;
 	//Search Ammo || Items
-	if (cg.LoadoutBaseWeaponSelect == -1
-		|| cg.LoadoutBaseWeaponSelect == -2
-		)
+	if (CG_LDO_IsItemCategory(cg.LoadoutBaseWeaponSelect))
 	{
 		for (i = 0; i < bg_numItems; i++)
 		{
 			gitem_t* item = &bg_itemlist[i];
-			//Declared like this for readability
-			if ( ( (cg.LoadoutBaseWeaponSelect == -1 && item->giType == IT_AMMO)
-				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HOLDABLE)
-				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HEALTH)
-				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_ARMOR) )
-				&& item->icon && item->icon[0]
-				)
+			if ( CG_LDO_ItemInCategory( item, cg.LoadoutBaseWeaponSelect ) )
 			{
 				//This might be the weapon we are looking for
 				currMenuIndex++;
@@ -2633,7 +2675,7 @@ void CG_LDO_SwitchWeapon_f(void) {
 		return;
 	}
 	//Add Holdable
-	if (cg.LoadoutBaseWeaponSelect == -2 && bg_itemlist[cg.LoadoutWeaponSelect].giType == IT_HOLDABLE) {
+	if ((cg.LoadoutBaseWeaponSelect == -2 || cg.LoadoutBaseWeaponSelect == -4) && bg_itemlist[cg.LoadoutWeaponSelect].giType == IT_HOLDABLE) {
 		gitem_t* item = &bg_itemlist[cg.LoadoutWeaponSelect];
 		cgi_S_StartSound(NULL, ent->s.number, CHAN_AUTO, cgi_S_RegisterSound(item->pickup_sound));
 		if (item->giTag == INV_SECURITY_KEY)
@@ -2643,6 +2685,10 @@ void CG_LDO_SwitchWeapon_f(void) {
 		else if (item->giTag == INV_GOODIE_KEY)
 		{
 			INV_GoodieKeyGive(ent);
+		}
+		else if (G_IsFuelItemTag(item->giTag))
+		{
+			G_GiveFuelItem(ent, item, FUEL_MAX);
 		}
 		else
 		{// Picking up a normal item?
@@ -2712,17 +2758,11 @@ int CG_LDO_GetMaxPages(void) {
 	int i;
 	int totalIcons = 0;
 
-	if (cg.LoadoutBaseWeaponSelect == -1
-		|| cg.LoadoutBaseWeaponSelect == -2)
+	if (CG_LDO_IsItemCategory(cg.LoadoutBaseWeaponSelect))
 	{
 		for (i = 0; i < bg_numItems; i++) {
 			gitem_t* item = &bg_itemlist[i];
-			//Declared like this for readability
-			if (((cg.LoadoutBaseWeaponSelect == -1 && item->giType == IT_AMMO)
-				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HOLDABLE)
-				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HEALTH)
-				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_ARMOR)
-				) && item->icon && item->icon[0])
+			if ( CG_LDO_ItemInCategory( item, cg.LoadoutBaseWeaponSelect ) )
 			{
 				totalIcons++;
 			}
@@ -3131,17 +3171,11 @@ void CG_LDO_DrawWeapons(void) {
 	}
 
 	//Print Ammo or inventory
-	if (cg.LoadoutBaseWeaponSelect == -1
-		|| cg.LoadoutBaseWeaponSelect == -2)
+	if (CG_LDO_IsItemCategory(cg.LoadoutBaseWeaponSelect))
 	{
 		for (iw = 0; iw < bg_numItems && iy < 3; iw++) {
 			gitem_t *item = &bg_itemlist[iw];
-			//Declared like this for readability
-			if ( ((cg.LoadoutBaseWeaponSelect == -1 && item->giType == IT_AMMO)
-				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HOLDABLE)
-				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_HEALTH)
-				|| (cg.LoadoutBaseWeaponSelect == -2 && item->giType == IT_ARMOR)
-				) && item->icon && item->icon[0] )
+			if ( CG_LDO_ItemInCategory( item, cg.LoadoutBaseWeaponSelect ) )
 			{
 				if (iic < firstIcon) {
 					iic++;
@@ -3868,7 +3902,6 @@ void CG_FireWeapon( centity_t *cent, int attackIndex)
 	// mark the entity as muzzle flashing, so when it is added it will
 	// append the flash to the weapon model
 	cent->muzzleFlashTime = cg.time;
-	cent->altFire = (attackIndex == 1 || attackIndex == 3) ? qtrue: qfalse;
 	cent->attack_index = attackIndex;
 
 	if ( ent->weapon == WP_SABER )
@@ -3965,7 +3998,7 @@ CG_MissileHitWall
 Caused by an EV_MISSILE_MISS event, or directly by local bullet tracing
 =================
 */
-void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, qboolean altFire )
+void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir )
 {
 	weaponData_t* wpnData = &weaponData[weapon];
 	weaponAttackData_t* attackData = &wpnData->attackData[cent->gent->attack_index];
