@@ -4,6 +4,7 @@
 
 qboolean	G_LightEdit_Active( void );
 void		G_LightEdit_Init( void );
+void		G_LightEdit_SetMode( qboolean on );
 void		G_LightEdit_Cmd_f( gentity_t *ent );
 void		G_LightEdit_FilterUcmd( gentity_t *ent, usercmd_t *ucmd );
 

@@ -533,7 +533,6 @@ uint32_t	vk_rtx_debug_image_index( void );
 // shipped without their light entities. Writes maps/<name>.lgt; nothing reads it yet.
 void		R_LightGen_f( void );
 void		R_LightGen_EnsureForMap( const char *mapname );
-int			R_LightGen_Load( world_t &worldData );
 
 VkDescriptorSet vk_rtx_get_current_desc_set_textures( void);
 

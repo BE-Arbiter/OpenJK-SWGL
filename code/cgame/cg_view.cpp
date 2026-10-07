@@ -2295,6 +2295,8 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 
 	cg.refdef.time = cg.time;
 
+	CG_LightEdit_Frame();
+
 	CG_DrawSkyBoxPortal();
 
 	// NOTE: this may completely override the camera

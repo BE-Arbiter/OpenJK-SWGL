@@ -27,12 +27,13 @@ by the Free Software Foundation.
 // are 8-bit, so a bright spot clips, and the flat plateau destroys exactly the part of
 // the profile a curve fit needs. A clipped plateau still has a usable centroid.
 //
-// The result goes to maps/<name>.lgt. R_LightGen_Load reads it back at map load when
-// the map has no light entities of its own.
+// The result goes to maps/<name>.lgt. RTX_LightFile_Load reads it back at map load
+// (rtx_light_file.cpp). The lights are used when the map has no light entities of its own.
 
 #include "../tr_local.h"
 #include "vk_rtx.h"
 #include "rtx_light_edit.h"
+#include "rtx_light_file.h"
 
 #include "../../qcommon/qfiles.h"
 
@@ -621,15 +622,16 @@ static void R_GenerateLightFile( const char *mapname, qboolean only_if_no_entiti
 =================
 R_LightGen_f
 
-pt_lightgen [mapname] - defaults to the loaded map, and regenerates unconditionally when
-asked by hand.
+pt_lightgen [mapname] [force] - defaults to the loaded map. A file that holds light edits
+is kept unless force is given.
 =================
 */
 void R_LightGen_f( void )
 {
 	char mapname[MAX_QPATH];
+	const qboolean force = (qboolean)( ri.Cmd_Argc() > 1 && !Q_stricmp( ri.Cmd_Argv( ri.Cmd_Argc() - 1 ), "force" ) );
 
-	if ( ri.Cmd_Argc() > 1 )
+	if ( ri.Cmd_Argc() > 1 && Q_stricmp( ri.Cmd_Argv( 1 ), "force" ) )
 	{
 		Q_strncpyz( mapname, ri.Cmd_Argv( 1 ), sizeof(mapname) );
 	}
@@ -643,148 +645,10 @@ void R_LightGen_f( void )
 		return;
 	}
 
+	if ( !RTX_LightFile_CheckRegenerate( mapname, force ) )
+		return;
+
 	R_GenerateLightFile( mapname, qfalse );
-}
-
-/*
-=================
-R_LightGen_Load
-
-Reads maps/<name>.lgt and appends its lights to the world as sphere lights. The file
-holds an intensity in lightmap units times distance squared. pt_lightgen_scale converts
-that to the tracer's radiance. The emitter stays small, so the light does not bury itself
-in the surface it sits on.
-=================
-*/
-// vk_rtx_bsp.cpp keeps its own copy of this as a static. The list grows by doubling and
-// starts at 128.
-static light_poly_t *lightgen_append_light( world_t &worldData )
-{
-	if ( worldData.num_light_polys == worldData.allocated_light_polys )
-	{
-		worldData.allocated_light_polys = MAX( worldData.allocated_light_polys * 2, 128 );
-
-		worldData.light_polys = (light_poly_t *)realloc( worldData.light_polys,
-			worldData.allocated_light_polys * sizeof(light_poly_t) );
-	}
-
-	return worldData.light_polys + worldData.num_light_polys++;
-}
-
-int R_LightGen_Load( world_t &worldData )
-{
-	char	path[MAX_QPATH];
-	void	*buffer = NULL;
-
-	Com_sprintf( path, sizeof(path), "maps/%s.lgt", worldData.baseName );
-
-	if ( ri.FS_ReadFile( path, &buffer ) <= 0 || !buffer )
-		return 0;
-
-	const char	*p = (const char *)buffer;
-	int			added = 0;
-	int			in_solid = 0;
-	int			block = 0;		// index of the `{` block, for the light editor
-
-	COM_BeginParseSession( "R_LightGen_Load" );
-
-	while ( 1 )
-	{
-		const char *token = COM_ParseExt( &p, qtrue );
-
-		if ( !token[0] )
-			break;
-
-		if ( token[0] != '{' )
-			continue;
-
-		vec3_t	origin = { 0.0f, 0.0f, 0.0f };
-		vec3_t	color = { 1.0f, 1.0f, 1.0f };
-		float	intensity = 0.0f;
-		float	rays = 0.0f;
-		float	error = 0.0f;
-		const int block_index = block++;
-
-		while ( 1 )
-		{
-			token = COM_ParseExt( &p, qtrue );
-
-			if ( !token[0] || token[0] == '}' )
-				break;
-
-			if ( !Q_stricmp( token, "origin" ) )
-			{
-				for ( int i = 0; i < 3; i++ )
-					origin[i] = atof( COM_ParseExt( &p, qfalse ) );
-			}
-			else if ( !Q_stricmp( token, "color" ) )
-			{
-				for ( int i = 0; i < 3; i++ )
-					color[i] = atof( COM_ParseExt( &p, qfalse ) );
-			}
-			else if ( !Q_stricmp( token, "intensity" ) )
-			{
-				intensity = atof( COM_ParseExt( &p, qfalse ) );
-			}
-			else if ( !Q_stricmp( token, "rays" ) )
-			{
-				rays = atof( COM_ParseExt( &p, qfalse ) );
-			}
-			else if ( !Q_stricmp( token, "error" ) )
-			{
-				error = atof( COM_ParseExt( &p, qfalse ) );
-			}
-			else
-			{
-				COM_ParseExt( &p, qfalse );		// rays, error, anything later
-			}
-		}
-
-		if ( intensity <= 0.0f )
-			continue;
-
-		const int cluster = BSP_PointLeaf( worldData.nodes, origin )->cluster;
-
-		if ( cluster < 0 )
-		{
-			in_solid++;
-			RTX_LightEdit_RegisterLoaded( RTX_LSRC_LGT, block_index, origin, color, intensity, -1, rays, error );
-			continue;
-		}
-
-		light_poly_t *light = lightgen_append_light( worldData );
-
-		Com_Memset( light, 0, sizeof(*light) );
-
-		VectorCopy( origin, light->positions + 0 );
-		VectorCopy( origin, light->off_center );
-
-		light->positions[3] = LIGHTGEN_EMITTER_RADIUS;
-
-		// Irradiance of a sphere light is colour * r^2 / d^2. Divide by r^2 here so the
-		// emitter size does not change the light at a distance.
-		VectorScale( color, pt_lightgen_scale->value * intensity
-			/ ( LIGHTGEN_EMITTER_RADIUS * LIGHTGEN_EMITTER_RADIUS ), light->color );
-
-		light->cluster = cluster;
-		light->type = LIGHT_SPHERE;
-		light->emissive_factor = 1.0f;
-		light->material = NULL;
-		light->style = 0;
-
-		RTX_LightEdit_RegisterLoaded( RTX_LSRC_LGT, block_index, origin, color, intensity,
-			worldData.num_light_polys - 1, rays, error );
-
-		added++;
-	}
-
-	COM_EndParseSession();
-
-	ri.FS_FreeFile( buffer );
-
-	Com_Printf( "lightgen: %i reconstructed lights loaded (%i inside solid)\n", added, in_solid );
-
-	return added;
 }
 
 /*

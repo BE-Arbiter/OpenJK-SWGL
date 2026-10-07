@@ -24,6 +24,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "tr_local.h"
 #include "conversion.h"
 #include "rtx_light_edit.h"
+#include "rtx_light_file.h"
 #include <vector>
 #include <unordered_map>
 
@@ -3238,12 +3239,14 @@ void R_PreparePT( world_t &worldData )
 		worldData.num_light_polys, worldData.numsurfaces );
 
 	// A map that kept its own lights needs no reconstruction. One that did not gets its
-	// lights rebuilt from the baked lightmaps, then loaded.
-	if ( collect_entity_lights( worldData ) == 0 )
-	{
+	// lights rebuilt from the baked lightmaps. The .lgt file is read in both cases: the
+	// lgt lights only when the map has no entity light, the edits always.
+	const int entity_lights = collect_entity_lights( worldData );
+
+	if ( entity_lights == 0 )
 		R_LightGen_EnsureForMap( worldData.baseName );
-		R_LightGen_Load( worldData );
-	}
+
+	RTX_LightFile_Load( worldData, entity_lights > 0 ? qtrue : qfalse );
 
 #ifdef DEBUG_POLY_LIGHTS
 	debug_light_polys->num_primitives = worldData.num_light_polys;
@@ -3290,6 +3293,7 @@ void R_PreparePT( world_t &worldData )
 	compute_sky_visibility( worldData );
 	classify_entity_lights( worldData );
 	RTX_LightEdit_FinalizeLoad( worldData );
+	RTX_LightFile_Apply( worldData );
 
 	vk_debug( "rtx world: light buffers\n" );
 	vkpt_light_buffers_create( worldData  );

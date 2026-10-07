@@ -61,6 +61,18 @@ static void LightEdit_Set( gentity_t *ent, qboolean on )
 	}
 }
 
+// The cgame calls this directly. A console command would run only after the rest of the command buffer.
+void G_LightEdit_SetMode( qboolean on )
+{
+	gentity_t *ent = &g_entities[0];
+
+	if ( !ent->inuse || !ent->client || on == s_active )
+	{
+		return;
+	}
+	LightEdit_Set( ent, on );
+}
+
 void G_LightEdit_Cmd_f( gentity_t *ent )
 {
 	qboolean	on;

@@ -1,0 +1,13 @@
+// Light edit mode of the RTX path tracer: cgame side (tools, picking, overlay, undo).
+// The renderer API is in rd-common/rtx_light_edit_api.h. The game side is in game/g_lightedit.cpp.
+#ifndef CG_LIGHTEDIT_H
+#define CG_LIGHTEDIT_H
+
+void		CG_LightEdit_Init( void );					// resets all state, gets the API, registers the cvars
+void		CG_LightEdit_InitConsoleCommands( void );	// cgi_AddCommand for each command
+qboolean	CG_LightEdit_ConsoleCommand( const char *cmd );	// qtrue when the command is handled
+void		CG_LightEdit_Frame( void );					// once per frame, after cg.refdef is set
+qboolean	CG_LightEdit_Draw2D( void );				// qtrue when the overlay replaces the HUD
+qboolean	CG_LightEdit_Active( void );				// qtrue while the cgame side of the mode runs
+
+#endif // CG_LIGHTEDIT_H

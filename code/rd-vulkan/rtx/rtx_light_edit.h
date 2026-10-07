@@ -46,6 +46,7 @@ typedef struct {
 
 	float		rays;				// lgt lights only
 	float		error;
+	int			edited;				// lgt lights only: the file holds an edited block
 } rtxLightRecord_t;
 
 // Hooks of R_PreparePT, vk_rtx_bsp.cpp and vk_rtx_lightgen.cpp.
@@ -97,3 +98,12 @@ qboolean			RTX_LightEdit_GrowSlots( int count );
 
 // Counts an edit for stats.unsavedChanges. Pass 0 to clear it (after a save or reload).
 void				RTX_LightEdit_CountChange( int delta );
+
+// While loading, a new slot is appended to light_polys without the GPU growth path.
+void				RTX_LightEdit_SetLoading( qboolean loading );
+
+// Record access without the IsReady check, for the load code before FinalizeLoad.
+rtxLightRecord_t	*RTX_LightEdit_GetRecordRaw( int id );
+
+// True when the record differs from its original values.
+qboolean			RTX_LightEdit_IsModified( const rtxLightRecord_t *rec );

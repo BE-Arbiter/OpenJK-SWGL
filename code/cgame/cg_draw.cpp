@@ -4169,6 +4169,11 @@ static void CG_Draw2D( void )
 		return;
 	}
 
+	if ( CG_LightEdit_Draw2D() )
+	{
+		return;
+	}
+
 	if ( (cg.snap->ps.forcePowersActive&(1<<FP_SEE)) )
 	{//force sight is on
 		//indicate this with sight cone thingy

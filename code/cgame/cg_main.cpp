@@ -2432,7 +2432,9 @@ void CG_Init( int serverCommandSequence ) {
 	CG_GameStateReceived();
 
 	CG_InitConsoleCommands();
-	
+
+	CG_LightEdit_Init();
+
 	CG_TrueViewInit();
 
 	CG_Set2DRatio();

@@ -365,6 +365,8 @@ Cmd_Argc() / Cmd_Argv()
 qboolean CG_ConsoleCommand( void ) {
 	consoleCommand_t	*command = NULL;
 
+	if ( CG_LightEdit_ConsoleCommand( CG_Argv(0) ) ) return qtrue;
+
 	const char* commandName = CG_Argv(0);
 	/* Check argv commands */
 	if (Q_stricmp(commandName, "uiPcWeaponNext") == 0)
@@ -490,4 +492,6 @@ void CG_InitConsoleCommands( void ) {
 	//
 	for( i = 0; i < numgcmds; i++ )
 		cgi_AddCommand( gcmds[i] );
+
+	CG_LightEdit_InitConsoleCommands();
 }

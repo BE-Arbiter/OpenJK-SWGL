@@ -18,6 +18,7 @@ by the Free Software Foundation.
 #include "../tr_local.h"
 #include "conversion.h"
 #include "rtx_light_edit.h"
+#include "rtx_light_file.h"
 
 #include <vector>
 #include <stdarg.h>
@@ -43,6 +44,7 @@ static int			g_rebuilds = 0;
 static int			g_unsaved = 0;
 static int			g_dragId = -1;
 static qboolean		g_pendingRebuild = qfalse;
+static qboolean		g_loading = qfalse;
 static int			g_lastRebuildMs = 0;
 static char			g_lastError[128] = "";
 
@@ -84,6 +86,16 @@ rtxLightRecord_t *RTX_LightEdit_GetRecord( int id )
 	return &g_records[id];
 }
 
+void RTX_LightEdit_SetLoading( qboolean loading )
+{
+	g_loading = loading;
+}
+
+rtxLightRecord_t *RTX_LightEdit_GetRecordRaw( int id )
+{
+	return id >= 0 && id < (int)g_records.size() ? &g_records[id] : NULL;
+}
+
 static int PointCluster( const vec3_t p )
 {
 	vec3_t v;
@@ -121,6 +133,7 @@ void RTX_LightEdit_Reset( world_t &w )
 	g_unsaved = 0;
 	g_dragId = -1;
 	g_pendingRebuild = qfalse;
+	g_loading = qfalse;
 	g_lastRebuildMs = 0;
 	g_lastError[0] = 0;
 }
@@ -390,12 +403,47 @@ qboolean RTX_LightEdit_GrowSlots( int count )
 	return qtrue;
 }
 
+// Appends one tombstone to light_polys. Only for the map load: no buffer exists yet.
+static qboolean AppendSlotAtLoad( void )
+{
+	world_t	&w = *g_world;
+
+	if ( w.num_light_polys >= LEDIT_MAX_SLOTS )
+	{
+		RTX_LightEdit_SetError( "no free light slot (limit %i)", LEDIT_MAX_SLOTS );
+		return qfalse;
+	}
+
+	if ( w.num_light_polys >= w.allocated_light_polys )
+	{
+		const int		newAlloc = MAX( w.allocated_light_polys * 2, 128 );
+		light_poly_t	*polys = (light_poly_t *)realloc( w.light_polys, newAlloc * sizeof(light_poly_t) );
+
+		if ( !polys )
+		{
+			RTX_LightEdit_SetError( "out of memory" );
+			return qfalse;
+		}
+
+		w.light_polys = polys;
+		w.allocated_light_polys = newAlloc;
+	}
+
+	const vec3_t zero = { 0.0f, 0.0f, 0.0f };
+
+	RTX_LightEdit_Tombstone( w.num_light_polys, zero );
+	w.num_light_polys++;
+
+	return qtrue;
+}
+
 qboolean RTX_LightEdit_EnsureSlot( rtxLightRecord_t *rec )
 {
 	if ( rec->lightIndex >= 0 )
 		return qtrue;
 
-	if ( g_firstFree >= g_world->num_light_polys && !RTX_LightEdit_GrowSlots( 1 ) )
+	if ( g_firstFree >= g_world->num_light_polys
+		&& !( g_loading ? AppendSlotAtLoad() : RTX_LightEdit_GrowSlots( 1 ) ) )
 		return qfalse;
 
 	rec->lightIndex = g_firstFree++;
@@ -494,6 +542,11 @@ static qboolean IsModified( const rtxLightRecord_t *rec )
 	}
 
 	return qfalse;
+}
+
+qboolean RTX_LightEdit_IsModified( const rtxLightRecord_t *rec )
+{
+	return IsModified( rec );
 }
 
 static void FillDesc( int id, const rtxLightRecord_t *rec, qboolean original, rtxLightDesc_t *out )
@@ -824,14 +877,26 @@ static void LE_EndDrag( int id )
 
 static qboolean LE_Save( void )
 {
-	RTX_LightEdit_SetError( "not implemented yet" );
-	return qfalse;
+	if ( !RTX_LightEdit_IsReady() )
+	{
+		RTX_LightEdit_SetError( "RTX light edit is not available" );
+		return qfalse;
+	}
+
+	return RTX_LightFile_Save();
 }
 
 static qboolean LE_Reload( void )
 {
-	RTX_LightEdit_SetError( "not implemented yet" );
-	return qfalse;
+	if ( !RTX_LightEdit_IsReady() )
+	{
+		RTX_LightEdit_SetError( "RTX light edit is not available" );
+		return qfalse;
+	}
+
+	LE_End();
+
+	return RTX_LightFile_Reload();
 }
 
 static void LE_GetStats( rtxLightStats_t *out )

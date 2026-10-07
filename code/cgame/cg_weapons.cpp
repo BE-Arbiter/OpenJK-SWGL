@@ -1264,10 +1264,13 @@ void CG_AddViewWeapon( playerState_t *ps )
 	centity_t	*cent;
 	float		fovOffset, leanOffset;
 
+	if ( CG_LightEdit_Active() )
+		return;
+
 	// no gun if in third person view
 	if ( cg.renderingThirdPerson )
 		return;
-	
+
 	if ( (cg_trueguns.integer || CG_ChangeFirstPersonView()) && !cg.zoomMode )
 		return;
 

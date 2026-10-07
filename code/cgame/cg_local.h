@@ -954,6 +954,8 @@ extern void CG_MissionCompletion(void);
 qboolean CG_ConsoleCommand( void );
 void CG_InitConsoleCommands( void );
 
+#include "cg_lightedit.h"
+
 //
 // cg_servercmds.c
 //
