@@ -138,8 +138,6 @@ extern qboolean Jedi_SaberBusy( gentity_t *self );
 extern qboolean Jedi_CultistDestroyer( gentity_t *self );
 extern qboolean Boba_Flying( gentity_t *self );
 extern void JET_FlyStart( gentity_t *self );
-extern void Boba_DoFlameThrower( gentity_t *self );
-extern void Boba_StopFlameThrower( gentity_t *self );
 
 extern Vehicle_t *G_IsRidingVehicle( gentity_t *ent );
 extern int SaberDroid_PowerLevelForSaberAnim( gentity_t *self );
@@ -16814,23 +16812,7 @@ void WP_ForcePowersUpdate( gentity_t *self, usercmd_t *ucmd )
 		ForceGrasp(self);
 	}
 
-	if ( !self->s.number
-		&& (self->client->NPC_class == CLASS_BOBAFETT || self->client->NPC_class == CLASS_MANDALORIAN || self->client->NPC_class == CLASS_JANGO))
-	{
-		//Is Player and Is Boba Fett 
-		if ( ucmd->buttons & BUTTON_FORCE_LIGHTNING )
-		{ 
-			Boba_DoFlameThrower( self );
-			return;
-		}
-		else if ( self->client->ps.forcePowerDuration[FP_LIGHTNING] )
-		{
-			self->client->ps.forcePowerDuration[FP_LIGHTNING] = 0;
-			Boba_StopFlameThrower( self );
-			return;
-		}
-	}
-	else if ( ucmd->buttons & BUTTON_FORCE_LIGHTNING )
+	if ( ucmd->buttons & BUTTON_FORCE_LIGHTNING )
 	{
 		ForceLightning( self );
 	}
