@@ -5404,6 +5404,8 @@ void ClientThink_real( gentity_t *ent, usercmd_t *ucmd )
 	G_CheckClampUcmd( ent, ucmd );
 
 	G_JetpackThink( ent );
+	G_WristFlamerThink( ent );
+	G_FuelItemsLoopSound( ent );
 
 	WP_ForcePowersUpdate( ent, ucmd );
 

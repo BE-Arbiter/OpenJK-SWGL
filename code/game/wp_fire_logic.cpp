@@ -520,21 +520,26 @@ void WP_FireGenericBlaster(gentity_t* ent, int attackIndex)
 void WP_FireFlameThrower(gentity_t* ent, int attackIndex)
 //---------------------------------------------------------
 {
+	WP_FlameThrowerBurn(ent, &weaponData[ent->s.weapon].attackData[attackIndex], muzzle, forwardVec);
+}
+
+//---------------------------------------------------------
+void WP_FlameThrowerBurn(gentity_t* ent, const weaponAttackData_t* attackData, const vec3_t muzzlePoint, const vec3_t aimDir)
+// Sets on fire what is in the flame in front of the muzzle. Used by the flamethrower weapons and by the wrist flamethrower item.
+//---------------------------------------------------------
+{
 	trace_t		tr;
-	weaponData_t* wpnData = &weaponData[ent->s.weapon];
-	weaponAttackData_t* attackData = &wpnData->attackData[attackIndex];
-	vec3_t	dir, start,end;
+	vec3_t	dir, start;
 	float range = attackData->range;
 	int duration = attackData->effectDuration > 0 ? attackData->effectDuration: 1000; // Default to 1 second if not specified
 	int	damage = attackData->damage;
-	
+
 	//Get normalized direction in dir
-	VectorCopy(forwardVec, dir);
+	VectorCopy(aimDir, dir);
 	VectorNormalizeFast(dir);
 
 	//Init start point
-	VectorCopy(muzzle, start);
-	VectorMA(start, range, dir, end);
+	VectorCopy(muzzlePoint, start);
 
 
 	vec3_t mins, maxs;

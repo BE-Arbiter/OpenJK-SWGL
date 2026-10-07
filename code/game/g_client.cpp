@@ -2064,11 +2064,13 @@ qboolean G_SetG2PlayerModelInfo( gentity_t *ent, const char *modelName, const ch
 
 	// set the weaponmodel to -1 so we don't try to remove it in Pmove before we have it built
 	ent->weaponModel[0] = -1;
-	// the jetpack model belongs to the previous ghoul2 instance, the jetpack code builds it again
+	// the jetpack and wrist flamethrower models belong to the previous ghoul2 instance, their code builds them again
 	ent->jetpackModel = -1;
+	ent->wristFlameModel = -1;
 	if ( ent->client )
 	{
 		ent->client->jetPackShown = 0;
+		ent->client->wristFlameShown = 0;
 	}
 
 	if ( ent->playerModel == -1 )
@@ -2178,6 +2180,7 @@ void G_RemovePlayerModel( gentity_t *ent )
 	if ( ent->playerModel >= 0 && ent->ghoul2.size() )
 	{
 		G_JetpackRemoveModel( ent );	// it is bolted to the player model
+		G_WristFlamerRemoveModel( ent );
 		gi.G2API_RemoveGhoul2Model( ent->ghoul2, ent->playerModel );
 		ent->playerModel = -1;
 	}

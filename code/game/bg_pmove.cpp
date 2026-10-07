@@ -1096,7 +1096,7 @@ Called before the ground trace; PM_GroundTrace keeps the player in the air.
 */
 static void PM_JetpackMove( void )
 {
-	const gitem_t	*item = G_JetpackItem( &pm->gent->client->ps );
+	const gitem_t	*item = G_FuelItem( &pm->gent->client->ps, INV_JETPACK );
 	const float		frameScale = pml.frametime / 0.008f;	// the speeds are per 8 msec
 	const float		thrust = ( ( item && item->jetThrust > 0.0f ) ? item->jetThrust : JETPACK_THRUST ) * frameScale;
 	float			*vz = &pm->ps->velocity[2];

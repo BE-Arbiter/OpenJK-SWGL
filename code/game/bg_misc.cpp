@@ -478,9 +478,9 @@ qboolean	BG_CanItemBeGrabbed( const entityState_t *ent, const playerState_t *ps 
 
 
 	case IT_HOLDABLE:
-		if ( item->giTag == INV_JETPACK )
+		if ( G_IsFuelItemTag( item->giTag ) )
 		{
-			// Touch_Item decides when a jetpack is swapped or refilled
+			// Touch_Item decides when a fuel item is swapped or refilled
 			return qtrue;
 		}
 		if ( item->giTag >= INV_ELECTROBINOCULARS && item->giTag <= INV_SENTRY )

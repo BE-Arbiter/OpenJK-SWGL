@@ -642,10 +642,11 @@ typedef struct gitem_s {
 	vec3_t		mins;			// Bbox
 	vec3_t		maxs;			// Bbox
 
-	// Jetpack items (tag INV_JETPACK), set from the item file; 0 or NULL = default
-	const char	*jetModel;		// ghoul2 model worn on the back
-	int			jetDrain;		// msec per unit of fuel used
-	float		jetThrust;		// vertical speed added per frame while thrusting
+	// Fuel items (tags INV_JETPACK and INV_WRIST_FLAMER), set from the item file; 0 or NULL = default
+	const char	*wornModel;		// ghoul2 model worn by the player
+	int			fuelDrain;		// msec per unit of fuel used
+	float		jetThrust;		// jetpack: vertical speed added per frame while thrusting
+	const char	*flameWeapon;	// wrist flamethrower: weapon whose main attack gives the flame (damage, range, sounds)
 } gitem_t;
 
 // included in both the game dll and the client

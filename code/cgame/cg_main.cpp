@@ -1723,7 +1723,11 @@ static void CG_RegisterGraphics( void ) {
 		{
 			if (bg_itemlist[i].giTag < INV_MAX)
 			{
-				inv_icons[bg_itemlist[i].giTag] = cgi_R_RegisterShaderNoMip( bg_itemlist[i].icon );
+				const qhandle_t icon = cgi_R_RegisterShaderNoMip( bg_itemlist[i].icon );
+				if (icon)	// several items share a tag (the jetpacks): one without icon must not wipe the others
+				{
+					inv_icons[bg_itemlist[i].giTag] = icon;
+				}
 			}
 		}
 	}
@@ -3303,7 +3307,7 @@ CG_InventorySelectable
 static inline qboolean CG_InventorySelectable( int index)
 {
 	if (index >= INV_JETPACK_TYPE)
-	{	// state of the jetpack, not an item
+	{	// state of the fuel items, not an item
 		return qfalse;
 	}
 
@@ -3315,26 +3319,31 @@ static inline qboolean CG_InventorySelectable( int index)
 	return qfalse;
 }
 
-extern const gitem_t *G_JetpackItem( const playerState_t *ps );
+extern const gitem_t *G_FuelItem( const playerState_t *ps, int tag );
+extern int G_FuelItemFuel( const playerState_t *ps, int tag );
+extern qboolean G_IsFuelItemTag( int tag );
 
-// The jetpack shows the fuel as its number.
+// A fuel item shows its fuel as its number.
 static inline int CG_InventoryCount( int index )
 {
-	if (index == INV_JETPACK)
+	if (G_IsFuelItemTag(index))
 	{
-		return (cg.snap->ps.inventory[INV_JETPACK_FUEL] > 99) ? 99 : cg.snap->ps.inventory[INV_JETPACK_FUEL];
+		return (G_FuelItemFuel( &cg.snap->ps, index ) > 99) ? 99 : G_FuelItemFuel( &cg.snap->ps, index );
 	}
 	return cg.snap->ps.inventory[index];
 }
 
-// The jetpack shows the icon of the item carried.
-static void CG_UpdateJetpackIcon( void )
+// A fuel item shows the icon of the item carried.
+static void CG_UpdateFuelItemIcons( void )
 {
-	const gitem_t *item = G_JetpackItem( &cg.snap->ps );
-
-	if (item && item->icon && item->icon[0])
+	for (int tag = 0; tag < INV_MAX; tag++)
 	{
-		inv_icons[INV_JETPACK] = cgi_R_RegisterShaderNoMip( item->icon );
+		const gitem_t *item = G_IsFuelItemTag(tag) ? G_FuelItem( &cg.snap->ps, tag ) : NULL;
+
+		if (item && item->icon && item->icon[0])
+		{
+			inv_icons[tag] = cgi_R_RegisterShaderNoMip( item->icon );
+		}
 	}
 }
 
@@ -3373,6 +3382,8 @@ void CG_DPPrevInventory_f( void )
 		return;
 	}
 
+	CG_UpdateFuelItemIcons();	// the scan skips an item without an icon
+
 	const int original = cg.DataPadInventorySelect;
 
 	for ( i = 0 ; i < INV_MAX ; i++ )
@@ -3405,6 +3416,8 @@ void CG_DPNextInventory_f( void )
 	{
 		return;
 	}
+
+	CG_UpdateFuelItemIcons();	// the scan skips an item without an icon
 
 	const int original = cg.DataPadInventorySelect;
 
@@ -3448,6 +3461,8 @@ void CG_NextInventory_f( void )
 		SetInventoryTime();
 		return;
 	}
+
+	CG_UpdateFuelItemIcons();	// the scan skips an item without an icon
 
 	const int original = cg.inventorySelect;
 
@@ -3502,6 +3517,8 @@ void CG_PrevInventory_f( void )
 		SetInventoryTime();
 		return;
 	}
+
+	CG_UpdateFuelItemIcons();	// the scan skips an item without an icon
 
 	const int original = cg.inventorySelect;
 
@@ -3567,7 +3584,7 @@ void CG_DrawInventorySelect( void )
 	vec4_t			textColor = { .312f, .75f, .621f, 1.0f };
 	char			text[1024]={0};
 
-	CG_UpdateJetpackIcon();
+	CG_UpdateFuelItemIcons();
 
 	// don't display if dead
 	if ( cg.predicted_player_state.stats[STAT_HEALTH] <= 0 || ( cg.snap->ps.viewEntity > 0 && cg.snap->ps.viewEntity < ENTITYNUM_WORLD ))
@@ -3690,7 +3707,7 @@ void CG_DrawInventorySelect( void )
 		if (inv_names[cg.inventorySelect])
 		{
 			// FIXME: This is ONLY a temp solution, the icon stuff, etc, should all just use items.dat for everything
-			const gitem_t *item = ( cg.inventorySelect == INV_JETPACK ) ? G_JetpackItem( &cg.snap->ps ) : FindInventoryItemTag( cg.inventorySelect );
+			const gitem_t *item = G_IsFuelItemTag( cg.inventorySelect ) ? G_FuelItem( &cg.snap->ps, cg.inventorySelect ) : FindInventoryItemTag( cg.inventorySelect );
 
 			if ( item && item->classname && item->classname[0] )
 			{
@@ -3708,6 +3725,10 @@ void CG_DrawInventorySelect( void )
 				else
 				{
 					Com_sprintf( itemName, sizeof(itemName), "SPMOD_INGAME_%s",	item->classname );
+					if ( !cgi_SP_GetStringTextString( itemName, data, sizeof( data )))
+					{//an item with its own string file
+						Com_sprintf( itemName, sizeof(itemName), "%s_NAME", item->classname );
+					}
 					if ( cgi_SP_GetStringTextString( itemName, data, sizeof( data )))
 					{
 						int w = cgi_R_Font_StrLenPixels(data, cgs.media.qhFontSmall, 1.0f, cgs.widthRatioCoef);
@@ -3790,7 +3811,7 @@ void CG_DrawDataPadInventorySelect( void )
 	char			text[1024]={0};
 	vec4_t			textColor = { .312f, .75f, .621f, 1.0f };
 
-	CG_UpdateJetpackIcon();
+	CG_UpdateFuelItemIcons();
 
 	// count the number of items owned
 	count = 0;

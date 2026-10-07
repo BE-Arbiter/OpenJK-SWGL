@@ -539,14 +539,23 @@ void Boba_StopFlameThrower( gentity_t *self )
 ////////////////////////////////////////////////////////////////////////////////////////
 //
 ////////////////////////////////////////////////////////////////////////////////////////
+// The pose of the torso while the flamethrower burns: held until the timer runs out.
+void Boba_HoldFlameAnim( gentity_t *self )
+{
+	NPC_SetAnim( self, SETANIM_TORSO, BOTH_FORCELIGHTNING_HOLD, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+	self->client->ps.torsoAnimTimer = BOBA_FLAMEDURATION;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
+////////////////////////////////////////////////////////////////////////////////////////
 void Boba_StartFlameThrower( gentity_t *self )
 {
 	if (!(NPCInfo->aiFlags&NPCAI_FLAMETHROW))
 	{
-		NPC_SetAnim( self, SETANIM_TORSO, BOTH_FORCELIGHTNING_HOLD, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
+		Boba_HoldFlameAnim( self );
 
 		self->NPC->aiFlags				|=  NPCAI_FLAMETHROW;
-	 	self->client->ps.torsoAnimTimer  =	BOBA_FLAMEDURATION;
 
 		TIMER_Set( self, "flameTime",			BOBA_FLAMEDURATION);
 		TIMER_Set( self, "nextAttackDelay",		BOBA_FLAMEDURATION);
@@ -572,8 +581,7 @@ void Boba_DoFlameThrower( gentity_t *self )
 			//If power inactive or if is player and animation almost ended.
 			if ( !self->client->ps.forcePowerDuration[FP_LIGHTNING] || (!self->s.number && self->client->ps.torsoAnimTimer <= 25) )
 			{
-				NPC_SetAnim( self, SETANIM_TORSO, BOTH_FORCELIGHTNING_HOLD, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
-	 			self->client->ps.torsoAnimTimer  =	BOBA_FLAMEDURATION;
+				Boba_HoldFlameAnim( self );
 
 				if (self->client->ps.forcePowerDuration[FP_LIGHTNING]) {
 					self->s.loopSound = G_SoundIndex("sound/weapons/flame_thrower/fire_loop.mp3");

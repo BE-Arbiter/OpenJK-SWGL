@@ -198,6 +198,7 @@ stringID_table_t INVTable[] =
 	ENUM2STRING(INV_LIGHTAMP_GOGGLES),
 	ENUM2STRING(INV_SENTRY),
 	ENUM2STRING(INV_JETPACK),
+	ENUM2STRING(INV_WRIST_FLAMER),
 	{ "", 0 }
 };
 
@@ -3517,9 +3518,9 @@ static void Q3_SetItem (int entID, const char *item_name)
 		self->client->ps.inventory[inv] = 1;
 		return;
 	}
-	if( inv == INV_JETPACK )
+	if( G_IsFuelItemTag( inv ) )
 	{
-		G_GiveJetpack( self, item, 100 );
+		G_GiveFuelItem( self, item, FUEL_MAX );
 		return;
 	}
 	// else Bacta, seeker, sentry

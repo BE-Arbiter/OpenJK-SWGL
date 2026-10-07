@@ -2637,20 +2637,25 @@ void CG_DrawHealthBar(centity_t *cent, float chX, float chY, float chW, float ch
 	CG_FillRect(x+(percent*chW), y+1.0f, chW-(percent*chW)-1.0f, chH-1.0f, cColor);
 }
 
-// Fuel gauge of the jetpack item: a vertical bar in the free strip right of the right-hand status arc, shown while one is carried.
-static void CG_DrawJetpackFuel( void )
+extern int G_FuelItemFuel( const playerState_t *ps, int tag );
+
+// Fuel gauge of a fuel item: a vertical bar in the free strip right of the right-hand status arc, shown while one is carried.
+// With several fuel items carried, the bars share the strip side by side: the jetpack first, the wrist flamethrower after.
+static void CG_DrawFuelGauge( int tag )
 {
-	if ( cg.snap->ps.inventory[INV_JETPACK] <= 0 )
+	if ( cg.snap->ps.inventory[tag] <= 0 )
 	{
 		return;
 	}
 
-	float fuel = cg.snap->ps.inventory[INV_JETPACK_FUEL] / (float)JETPACK_FUEL_MAX;
+	float fuel = G_FuelItemFuel( &cg.snap->ps, tag ) / (float)FUEL_MAX;
 	fuel = Com_Clamp( 0.0f, 1.0f, fuel );
 
-	const float	w = 9.5f * cgs.widthRatioCoef;
+	const int	count = ( cg.snap->ps.inventory[INV_JETPACK] > 0 ? 1 : 0 ) + ( cg.snap->ps.inventory[INV_WRIST_FLAMER] > 0 ? 1 : 0 );
+	const int	position = ( tag == INV_WRIST_FLAMER && cg.snap->ps.inventory[INV_JETPACK] > 0 ) ? 1 : 0;
+	const float	w = 9.5f * cgs.widthRatioCoef / count;
 	const float	h = 93.0f;
-	const float	x = SCREEN_WIDTH - 16.0f * cgs.widthRatioCoef;
+	const float	x = SCREEN_WIDTH - 16.0f * cgs.widthRatioCoef + w * position;
 	const float	y = 331.0f;
 	vec4_t		back = { 0.0f, 0.0f, 0.0f, 0.5f };
 	vec4_t		frame = { 0.7f, 0.7f, 0.7f, 0.8f };
@@ -4213,7 +4218,8 @@ static void CG_Draw2D( void )
 
 		CG_DrawInventorySelect();
 
-		CG_DrawJetpackFuel();
+		CG_DrawFuelGauge( INV_JETPACK );
+		CG_DrawFuelGauge( INV_WRIST_FLAMER );
 
 		CG_DrawForceSelect();
 

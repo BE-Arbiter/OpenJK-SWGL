@@ -742,6 +742,12 @@ public:
 	int				jetPackToggleTime;
 	int				jetPackDebReduce;
 	int				jetPackShown;		// bg_itemlist index of the jetpack model worn, 0 = none
+	// Wrist flamethrower carried as an item (not saved either)
+	qboolean		wristFlameOn;
+	int				wristFlameToggleTime;
+	int				wristFlameDebReduce;
+	int				wristFlameFireTime;	// next time the flame burns what it reaches
+	int				wristFlameShown;	// bg_itemlist index of the wrist flamethrower model worn, 0 = none
 	int				fireDelay;		//msec to delay calling G_FireWeapon after EV_FIREWEAPON event is called
 
 	// The time at which a breath should be triggered. -Aurelio
@@ -896,6 +902,16 @@ public:
 		saved_game.read<>(clientInfo);
 		saved_game.read<int32_t>(moveType);
 		saved_game.read<int32_t>(jetPackTime);
+		// The fuel items are not saved: they start switched off, with their model built again.
+		jetPackOn = qfalse;
+		jetPackToggleTime = 0;
+		jetPackDebReduce = 0;
+		jetPackShown = 0;
+		wristFlameOn = qfalse;
+		wristFlameToggleTime = 0;
+		wristFlameDebReduce = 0;
+		wristFlameFireTime = 0;
+		wristFlameShown = 0;
 		saved_game.read<int32_t>(fireDelay);
 		saved_game.read<int32_t>(breathPuffTime);
 		saved_game.read<int32_t>(playerTeam);
@@ -1196,6 +1212,7 @@ Ghoul2 Insert End
 	short			playerModel;
 	short			weaponModel[MAX_INHAND_WEAPONS];
 	short			jetpackModel;		// ghoul2 index of the jetpack worn on the back, <= 0 when none
+	short			wristFlameModel;	// ghoul2 index of the wrist flamethrower worn on the left forearm, <= 0 when none
 	short			handRBolt;
 	short			handLBolt;
 	short			headBolt;
@@ -1451,6 +1468,7 @@ Ghoul2 Insert End
 		saved_game.write<int16_t>(playerModel);
 		saved_game.write<int16_t>(weaponModel);
 		saved_game.write<int16_t>(jetpackModel);
+		saved_game.write<int16_t>(wristFlameModel);
 		saved_game.write<int16_t>(handRBolt);
 		saved_game.write<int16_t>(handLBolt);
 		saved_game.write<int16_t>(headBolt);
@@ -1655,6 +1673,7 @@ Ghoul2 Insert End
 		saved_game.read<int16_t>(playerModel);
 		saved_game.read<int16_t>(weaponModel);
 		saved_game.read<int16_t>(jetpackModel);
+		saved_game.read<int16_t>(wristFlameModel);
 		saved_game.read<int16_t>(handRBolt);
 		saved_game.read<int16_t>(handLBolt);
 		saved_game.read<int16_t>(headBolt);
