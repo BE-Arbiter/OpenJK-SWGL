@@ -32,6 +32,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "tr_WorldEffects.h"
 #include "qcommon/MiniHeap.h"
 #include "tr_cache.h"
+#include "rtx/rtx_light_edit.h"
 
 glconfig_t	glConfig;
 glconfigExt_t glConfigExt;
@@ -794,6 +795,12 @@ static consoleCommand_t	commands[] = {
 	{ "show_pvs",			vk_rtx_show_pvs_f },
 	{ "pt_images",			vk_rtx_list_debug_images_f },
 	{ "pt_lightgen",		R_LightGen_f },
+	{ "pt_ledit_list",		RTX_LightEdit_List_f },
+	{ "pt_ledit_add",		RTX_LightEdit_Add_f },
+	{ "pt_ledit_set",		RTX_LightEdit_Set_f },
+	{ "pt_ledit_del",		RTX_LightEdit_Del_f },
+	{ "pt_ledit_restore",	RTX_LightEdit_Restore_f },
+	{ "pt_ledit_stats",		RTX_LightEdit_Stats_f },
 #endif
 	{ "vkinfo",				vk_info_f }
 };
@@ -1339,6 +1346,10 @@ void RE_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 	R_ShutdownWorldEffects();
 	R_ShutdownFonts();
 
+#ifdef USE_RTX
+	RTX_LightEdit_Invalidate();
+#endif
+
 	// contains vulkan resources/state, reinitialized on a map change.
 	//if (tr.registered) {
 
@@ -1582,6 +1593,15 @@ extern void G2Time_ReportTimers(void);
 #endif
 void RE_CaptureNextFrame( byte *rgba, int width, int height );
 
+static void *RE_GetExtension( const char *name )
+{
+#ifdef USE_RTX
+	return RTX_LightEdit_GetExtension( name );
+#else
+	return NULL;
+#endif
+}
+
 /*
 @@@@@@@@@@@@@@@@@@@@@
 GetRefAPI
@@ -1610,6 +1630,7 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	// template for which fields SP expects and how an SP renderer normally
 	// wires them up.
 	re.Shutdown								= RE_Shutdown;
+	re.GetExtension							= RE_GetExtension;
 
 	re.BeginRegistration					= RE_BeginRegistration;
 	re.RegisterModel						= RE_RegisterModel;

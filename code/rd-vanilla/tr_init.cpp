@@ -2021,6 +2021,11 @@ unsigned int AnyLanguage_ReadCharFromString_JK2 ( char **text, qboolean *pbIsTra
 }
 #endif
 
+// This renderer has no extension tables.
+static void *RE_GetExtension( const char *name ) {
+	return NULL;
+}
+
 extern "C" Q_EXPORT refexport_t* QDECL GetRefAPI ( int apiVersion, refimport_t *refimp ) {
 	static refexport_t	re;
 
@@ -2223,6 +2228,7 @@ extern "C" Q_EXPORT refexport_t* QDECL GetRefAPI ( int apiVersion, refimport_t *
 #endif
 
 	re.CaptureNextFrame = RE_CaptureNextFrame;
+	re.GetExtension = RE_GetExtension;
 
 	//Swap_Init();
 

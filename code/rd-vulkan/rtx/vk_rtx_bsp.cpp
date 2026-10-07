@@ -23,6 +23,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 #include "conversion.h"
+#include "rtx_light_edit.h"
 #include <vector>
 #include <unordered_map>
 
@@ -1442,6 +1443,7 @@ static int collect_entity_lights( world_t &worldData )
 	int			in_solid = 0;
 	int			entities = 0;
 	int			lightish = 0;
+	int			light_rank = 0;		// index among all `light` entities, kept or not
 
 	if ( !p )
 	{
@@ -1466,6 +1468,7 @@ static int collect_entity_lights( world_t &worldData )
 		qboolean	is_light = qfalse;
 		qboolean	is_spot = qfalse;
 		qboolean	has_origin = qfalse;
+		int			rank = -1;
 		char		targetname[64] = "";
 		char		target[64] = "";
 		float		spot_radius = SPOT_DEFAULT_RADIUS;
@@ -1492,6 +1495,9 @@ static int collect_entity_lights( world_t &worldData )
 			if ( !Q_stricmp( keyname, "classname" ) )
 			{
 				is_light = (qboolean)( Q_stricmp( value, "light" ) == 0 );
+
+				if ( is_light )
+					rank = light_rank++;
 
 				// Anything light-ish, so the log can tell "my parser is broken" from
 				// "q3map2 stripped the light entities out of this BSP".
@@ -1545,6 +1551,7 @@ static int collect_entity_lights( world_t &worldData )
 		if ( cluster < 0 )
 		{
 			in_solid++;
+			RTX_LightEdit_RegisterLoaded( RTX_LSRC_ENTITY, rank, origin, color, intensity, -1, 0.0f, 0.0f );
 			continue;
 		}
 
@@ -1580,6 +1587,9 @@ static int collect_entity_lights( world_t &worldData )
 			s.radius = spot_radius > 0.0f ? spot_radius : SPOT_DEFAULT_RADIUS;
 			spots.push_back( s );
 		}
+
+		RTX_LightEdit_RegisterLoaded( RTX_LSRC_ENTITY, rank, origin, color, intensity,
+			worldData.num_light_polys - 1, 0.0f, 0.0f );
 
 		added++;
 	}
@@ -1619,9 +1629,10 @@ static int collect_entity_lights( world_t &worldData )
 	return added;
 }
 
-static void collect_cluster_lights( world_t &worldData )
+// Gives the number of clusters that hit the list limit. A quiet call prints nothing.
+static int collect_cluster_lights( world_t &worldData, qboolean quiet = qfalse )
 {
-#define MAX_LIGHTS_PER_CLUSTER 1024
+#define MAX_LIGHTS_PER_CLUSTER RTX_MAX_LIGHTS_PER_CLUSTER
 	int *cluster_lights = (int *)Z_Malloc( MAX_LIGHTS_PER_CLUSTER * worldData.numClusters * sizeof(int), TAG_GENERAL, qfalse );
 	int *cluster_light_counts = (int *)Z_Malloc( worldData.numClusters * sizeof(int), TAG_GENERAL, qtrue );
 
@@ -1653,15 +1664,20 @@ static void collect_cluster_lights( world_t &worldData )
 
 	// Count the total number of cluster <-> light relations to allocate memory
 	worldData.num_cluster_lights = 0;
+	int full_clusters = 0;
 	for (int cluster = 0; cluster < worldData.numClusters; cluster++)
 	{
 		worldData.num_cluster_lights += cluster_light_counts[cluster];
+
+		if ( cluster_light_counts[cluster] >= MAX_LIGHTS_PER_CLUSTER )
+			full_clusters++;
 	}
 
 	worldData.cluster_lights = (int*)Z_Malloc(worldData.num_cluster_lights * sizeof(int), TAG_GENERAL, qtrue );
 	worldData.cluster_light_offsets = (int*)Z_Malloc((worldData.numClusters + 1) * sizeof(int), TAG_GENERAL, qtrue );
 
-	Com_Printf( S_COLOR_MAGENTA "\n\n\nTotal interactions: %d,\n\n", worldData.num_cluster_lights );
+	if ( !quiet )
+		Com_Printf( S_COLOR_MAGENTA "\n\n\nTotal interactions: %d,\n\n", worldData.num_cluster_lights );
 
 	// Compact the previously constructed array into worldData.cluster_lights
 	int list_offset = 0;
@@ -1681,6 +1697,23 @@ static void collect_cluster_lights( world_t &worldData )
 	Z_Free(cluster_lights);
 	Z_Free(cluster_light_counts);
 #undef MAX_LIGHTS_PER_CLUSTER
+
+	return full_clusters;
+}
+
+// Frees the previous lists first. Used by the light editor.
+int vk_rtx_rebuild_cluster_lights( world_t &worldData, qboolean quiet )
+{
+	if ( worldData.cluster_lights )
+		Z_Free( worldData.cluster_lights );
+
+	if ( worldData.cluster_light_offsets )
+		Z_Free( worldData.cluster_light_offsets );
+
+	worldData.cluster_lights = NULL;
+	worldData.cluster_light_offsets = NULL;
+
+	return collect_cluster_lights( worldData, quiet );
 }
 
 // A surface that only Force Sight shows goes to its own BLAS, which the TLAS holds only while Force Sight is on.
@@ -2977,7 +3010,7 @@ static void classify_entity_lights( world_t &worldData )
 	{
 		light_poly_t *light = worldData.light_polys + i;
 
-		if ( light->material )
+		if ( light->material || light->ent_class == LIGHT_ENT_EDIT )
 			continue;
 
 		if ( light->ent_class != LIGHT_ENT_SPOT )
@@ -3197,6 +3230,8 @@ void R_PreparePT( world_t &worldData )
 
 	vk_compute_cluster_aabbs( worldData );
 
+	RTX_LightEdit_Reset( worldData );
+
 	collect_light_polys( worldData, -1, &worldData.num_light_polys, &worldData.allocated_light_polys, &worldData.light_polys );
 
 	Com_Printf( "rtx: %i light polys collected from %i world surfaces\n",
@@ -3254,6 +3289,7 @@ void R_PreparePT( world_t &worldData )
 	vk_debug( "rtx world: sky visibility\n" );
 	compute_sky_visibility( worldData );
 	classify_entity_lights( worldData );
+	RTX_LightEdit_FinalizeLoad( worldData );
 
 	vk_debug( "rtx world: light buffers\n" );
 	vkpt_light_buffers_create( worldData  );

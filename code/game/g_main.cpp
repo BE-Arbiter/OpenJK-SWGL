@@ -22,6 +22,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "g_local.h"
+#include "g_lightedit.h"
 #include "g_functions.h"
 #include "Q3_Interface.h"
 #include "g_nav.h"
@@ -913,6 +914,7 @@ void InitGame(  const char *mapname, const char *spawntarget, int checkSum, cons
 	srand( randomSeed );
 
 	G_InitCvars();
+	G_LightEdit_Init();
 
 	G_InitMemory();
 

@@ -32,6 +32,7 @@ by the Free Software Foundation.
 
 #include "../tr_local.h"
 #include "vk_rtx.h"
+#include "rtx_light_edit.h"
 
 #include "../../qcommon/qfiles.h"
 
@@ -683,6 +684,7 @@ int R_LightGen_Load( world_t &worldData )
 	const char	*p = (const char *)buffer;
 	int			added = 0;
 	int			in_solid = 0;
+	int			block = 0;		// index of the `{` block, for the light editor
 
 	COM_BeginParseSession( "R_LightGen_Load" );
 
@@ -699,6 +701,9 @@ int R_LightGen_Load( world_t &worldData )
 		vec3_t	origin = { 0.0f, 0.0f, 0.0f };
 		vec3_t	color = { 1.0f, 1.0f, 1.0f };
 		float	intensity = 0.0f;
+		float	rays = 0.0f;
+		float	error = 0.0f;
+		const int block_index = block++;
 
 		while ( 1 )
 		{
@@ -721,6 +726,14 @@ int R_LightGen_Load( world_t &worldData )
 			{
 				intensity = atof( COM_ParseExt( &p, qfalse ) );
 			}
+			else if ( !Q_stricmp( token, "rays" ) )
+			{
+				rays = atof( COM_ParseExt( &p, qfalse ) );
+			}
+			else if ( !Q_stricmp( token, "error" ) )
+			{
+				error = atof( COM_ParseExt( &p, qfalse ) );
+			}
 			else
 			{
 				COM_ParseExt( &p, qfalse );		// rays, error, anything later
@@ -735,6 +748,7 @@ int R_LightGen_Load( world_t &worldData )
 		if ( cluster < 0 )
 		{
 			in_solid++;
+			RTX_LightEdit_RegisterLoaded( RTX_LSRC_LGT, block_index, origin, color, intensity, -1, rays, error );
 			continue;
 		}
 
@@ -757,6 +771,9 @@ int R_LightGen_Load( world_t &worldData )
 		light->emissive_factor = 1.0f;
 		light->material = NULL;
 		light->style = 0;
+
+		RTX_LightEdit_RegisterLoaded( RTX_LSRC_LGT, block_index, origin, color, intensity,
+			worldData.num_light_polys - 1, rays, error );
 
 		added++;
 	}

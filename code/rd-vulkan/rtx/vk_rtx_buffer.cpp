@@ -75,16 +75,18 @@ copy_light(const light_poly_t* light, float* vblight, const float* sky_radiance,
 		mat_scale = MAX( 0.f, light->material->glow_emissive ? pt_light_scale_glow->value : pt_light_scale_surface->value );
 	else if ( world )
 	{
-		static cvar_t *pt_light_scale_ent_spot, *pt_light_scale_ent_sky, *pt_light_scale_ent_ambient;
+		static cvar_t *pt_light_scale_ent_spot, *pt_light_scale_ent_sky, *pt_light_scale_ent_ambient, *pt_light_scale_edit;
 		if ( !pt_light_scale_ent_spot )
 		{
+			pt_light_scale_edit			= ri.Cvar_Get( "pt_light_scale_edit",			"0.1", CVAR_ARCHIVE_ND );
 			pt_light_scale_ent_spot		= ri.Cvar_Get( "pt_light_scale_ent_spot",		"0.5", CVAR_ARCHIVE_ND );
 			pt_light_scale_ent_sky		= ri.Cvar_Get( "pt_light_scale_ent_sky",		"2", CVAR_ARCHIVE_ND );
 			pt_light_scale_ent_ambient	= ri.Cvar_Get( "pt_light_scale_ent_ambient",	"0.01", CVAR_ARCHIVE_ND );
 		}
 
 		const cvar_t *class_scale = light->ent_class == LIGHT_ENT_SPOT ? pt_light_scale_ent_spot
-			: light->ent_class == LIGHT_ENT_SKY ? pt_light_scale_ent_sky : pt_light_scale_ent_ambient;
+			: light->ent_class == LIGHT_ENT_SKY ? pt_light_scale_ent_sky
+			: light->ent_class == LIGHT_ENT_EDIT ? pt_light_scale_edit : pt_light_scale_ent_ambient;
 
 		mat_scale = MAX( 0.f, class_scale->value );
 	}

@@ -87,6 +87,7 @@ set(SPGameGameFiles
 	"${SPDir}/game/g_misc.cpp"
 	"${SPDir}/game/g_misc_model.cpp"
 	"${SPDir}/game/g_missile.cpp"
+	"${SPDir}/game/g_lightedit.cpp"
 	"${SPDir}/game/g_mover.cpp"
 	"${SPDir}/game/g_nav.cpp"
 	"${SPDir}/game/g_navigator.cpp"

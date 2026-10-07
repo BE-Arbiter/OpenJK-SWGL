@@ -26,6 +26,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "../cgame/cg_local.h"
 #include "Q3_Interface.h"
 #include "g_local.h"
+#include "g_lightedit.h"
 #include "fields.h"
 #include "objectives.h"
 #include "../cgame/cg_camera.h"
@@ -1804,7 +1805,7 @@ void ReadLevel(qboolean qbAutosave, qboolean qbLoadTransition)
 extern int killPlayerTimer;
 qboolean GameAllowedToSaveHere(void)
 {
-	return (qboolean)(!in_camera&&!killPlayerTimer);
+	return (qboolean)(!in_camera&&!killPlayerTimer&&!G_LightEdit_Active());
 }
 
 //////////////////// eof /////////////////////

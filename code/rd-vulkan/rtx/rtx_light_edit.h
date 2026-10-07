@@ -1,0 +1,99 @@
+/*
+===========================================================================
+Copyright (C) 2026 OpenJK-SWGL contributors
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License version 2 as published
+by the Free Software Foundation.
+===========================================================================
+*/
+
+// Light edit core of the RTX renderer. Include after tr_local.h.
+//
+// Records describe the editable lights. A record maps to one slot of world->light_polys.
+// A slot never moves and is never reused during a session. See rtx_light_edit.cpp.
+
+#pragma once
+
+#include "rd-common/rtx_light_edit_api.h"
+
+// Lights per cluster list. vk_rtx_bsp.cpp truncates a list at this value.
+#define RTX_MAX_LIGHTS_PER_CLUSTER	1024
+
+// The light of a record in light_polys is built from these values.
+typedef struct {
+	int			source;				// rtxLightSource_t
+	int			sourceKey;			// -1 for added lights
+	int			type;				// rtxLightType_t
+	int			flags;				// RTX_LFLAG_DISABLED, _DELETED, _IN_SOLID only
+	int			lightIndex;			// slot in world->light_polys, or -1
+
+	vec3_t		origin;
+	vec3_t		color;				// 0..1
+	float		intensity;
+	float		radius;
+	char		name[RTX_LIGHTEDIT_NAME_LEN];
+
+	float		spot[5];			// positions[4..8] of a spot: profile, packed cones, direction
+
+	int			entClass;			// LIGHT_ENT_* used in the light_poly
+
+	vec3_t		origOrigin;			// values at load, or of the Add call
+	vec3_t		origColor;
+	float		origIntensity;
+	float		origRadius;
+	char		origName[RTX_LIGHTEDIT_NAME_LEN];
+
+	float		rays;				// lgt lights only
+	float		error;
+} rtxLightRecord_t;
+
+// Hooks of R_PreparePT, vk_rtx_bsp.cpp and vk_rtx_lightgen.cpp.
+void	RTX_LightEdit_Reset( world_t &w );
+void	RTX_LightEdit_Invalidate( void );
+int		RTX_LightEdit_RegisterLoaded( int source, int sourceKey, const vec3_t origin, const vec3_t color,
+			float intensity, int lightIndex, float rays, float error );
+void	RTX_LightEdit_FinalizeLoad( world_t &w );
+
+// Rebuilds world->cluster_lights and cluster_light_offsets. Returns the number of full clusters.
+int		vk_rtx_rebuild_cluster_lights( world_t &worldData, qboolean quiet );
+
+// Console commands and the refexport entry.
+void	RTX_LightEdit_List_f( void );
+void	RTX_LightEdit_Add_f( void );
+void	RTX_LightEdit_Set_f( void );
+void	RTX_LightEdit_Del_f( void );
+void	RTX_LightEdit_Restore_f( void );
+void	RTX_LightEdit_Stats_f( void );
+void	*RTX_LightEdit_GetExtension( const char *name );
+
+// Helpers for rtx_light_file.cpp. All of them need RTX_LightEdit_IsReady().
+qboolean			RTX_LightEdit_IsReady( void );
+void				RTX_LightEdit_SetError( const char *fmt, ... );
+int					RTX_LightEdit_NumRecords( void );
+rtxLightRecord_t	*RTX_LightEdit_GetRecord( int id );
+
+// Appends a record with default values for its source. Gives its id, or -1. No slot yet.
+int					RTX_LightEdit_NewRecord( int source, int sourceKey );
+
+// Gives the record a slot (a spare one when it has none). qfalse when no slot is free.
+qboolean			RTX_LightEdit_EnsureSlot( rtxLightRecord_t *rec );
+
+// Fills the light_poly from the record. Gives the cluster of the origin, -1 in solid.
+int					RTX_LightEdit_Convert( const rtxLightRecord_t *rec, light_poly_t *out );
+
+// Makes the slot an inert light, keeping the position.
+void				RTX_LightEdit_Tombstone( int slot, const vec3_t origin );
+
+// Writes the record to its slot: a tombstone when disabled, deleted or in solid, else the
+// converted light. Sets or clears IN_SOLID. Gives qtrue when the cluster of the slot changed.
+qboolean			RTX_LightEdit_ApplyRecord( rtxLightRecord_t *rec );
+
+// Rebuilds the cluster lists now and counts the rebuild.
+void				RTX_LightEdit_RebuildClusters( void );
+
+// Grows the static slots by count (rounded up to a block). Waits for the GPU.
+qboolean			RTX_LightEdit_GrowSlots( int count );
+
+// Counts an edit for stats.unsavedChanges. Pass 0 to clear it (after a save or reload).
+void				RTX_LightEdit_CountChange( int delta );

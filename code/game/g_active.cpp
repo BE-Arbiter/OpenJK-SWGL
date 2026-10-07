@@ -22,6 +22,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "g_local.h"
+#include "g_lightedit.h"
 #include "NPC_SWGL.h"
 #include "g_functions.h"
 #include "../cgame/cg_local.h"
@@ -5735,6 +5736,9 @@ void ClientThink( int clientNum, usercmd_t *ucmd ) {
 	usercmd_t sav_ucmd = {0};
 
 	ent = g_entities + clientNum;
+
+	// Filter before PM_CheckForceUseButton and before the usercmd is stored.
+	G_LightEdit_FilterUcmd( ent, ucmd );
 
 	if ( ent->s.number<MAX_CLIENTS )
 	{

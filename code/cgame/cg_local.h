@@ -1078,6 +1078,7 @@ qhandle_t	cgi_R_RegisterModel( const char *name );			// returns rgb axis if not 
 qhandle_t	cgi_R_RegisterSkin( const char *name );
 qhandle_t	cgi_R_RegisterShader( const char *name );			// returns default shader if not found
 qhandle_t	cgi_R_RegisterShaderNoMip( const char *name );			// returns all white if not found
+void *		cgi_R_GetExtension( const char *name );			// returns NULL if the renderer lacks it
 qhandle_t	cgi_R_RegisterFont( const char *name );
 int			cgi_R_Font_StrLenPixels(const char* text, const int iFontIndex, const float scale = 1.0f, const float aspectCorrection = 1.0f);
 int			cgi_R_Font_StrLenChars(const char *text);

@@ -195,7 +195,8 @@ enum {
 	LIGHT_ENT_UNSET = 0,	// not yet classified
 	LIGHT_ENT_SPOT,			// the entity has a target
 	LIGHT_ENT_SKY,			// the cluster sees the sky
-	LIGHT_ENT_AMBIENT		// every other light entity
+	LIGHT_ENT_AMBIENT,		// every other light entity
+	LIGHT_ENT_EDIT			// added in the light editor, one scale (pt_light_scale_edit)
 };
 
 typedef struct light_poly_s {
