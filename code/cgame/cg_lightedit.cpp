@@ -1262,25 +1262,77 @@ static void LE_Text( int x, int y, const char *s, const vec4_t col )
 	cgi_R_Font_DrawString( x, y, s, col, cgs.media.qhFontSmall, -1, LEDIT_FONT_SCALE, cgs.widthRatioCoef );
 }
 
+// Each dot is two render commands. The renderer command buffer is finite: when the overlay
+// fills it, the frame drops commands. Keep the dots of one frame under this budget.
+#define LEDIT_DOT_BUDGET		2000
+#define LEDIT_LINE_MAX_DOTS		64
+
+static int s_dotBudget = LEDIT_DOT_BUDGET;
+
 static void LE_Dot( float x, float y, float size, const vec4_t col )
 {
-	CG_FillRect( x - size * 0.5f, y - size * 0.5f, size, size, col );
-}
-
-// Draws a segment as a row of small dots.
-static void LE_Line( float x1, float y1, float x2, float y2, const vec4_t col )
-{
-	const float	dx = x2 - x1, dy = y2 - y1;
-	const float	len = sqrtf( dx * dx + dy * dy );
-	int			steps = (int)( len / 2.0f ) + 1;
-
-	if ( len > 4000.0f )
+	if ( s_dotBudget <= 0 )
 	{
 		return;
 	}
-	if ( steps > 256 )
+	s_dotBudget--;
+	CG_FillRect( x - size * 0.5f, y - size * 0.5f, size, size, col );
+}
+
+// Clips a segment to the virtual screen (Liang-Barsky). Returns qfalse when nothing is left.
+static qboolean LE_ClipToScreen( float *x1, float *y1, float *x2, float *y2 )
+{
+	const float	dx = *x2 - *x1, dy = *y2 - *y1;
+	const float	p[4] = { -dx, dx, -dy, dy };
+	const float	q[4] = { *x1, 640.0f - *x1, *y1, 480.0f - *y1 };
+	float		t0 = 0.0f, t1 = 1.0f;
+
+	for ( int i = 0; i < 4; i++ )
 	{
-		steps = 256;
+		if ( p[i] == 0.0f )
+		{
+			if ( q[i] < 0.0f )
+			{
+				return qfalse;
+			}
+			continue;
+		}
+		const float t = q[i] / p[i];
+		if ( p[i] < 0.0f )
+		{
+			t0 = Q_max( t0, t );
+		}
+		else
+		{
+			t1 = Q_min( t1, t );
+		}
+		if ( t0 > t1 )
+		{
+			return qfalse;
+		}
+	}
+	*x2 = *x1 + t1 * dx;
+	*y2 = *y1 + t1 * dy;
+	*x1 = *x1 + t0 * dx;
+	*y1 = *y1 + t0 * dy;
+	return qtrue;
+}
+
+// Draws a segment as a row of small dots. Only the visible part is drawn.
+static void LE_Line( float x1, float y1, float x2, float y2, const vec4_t col )
+{
+	if ( !LE_ClipToScreen( &x1, &y1, &x2, &y2 ) )
+	{
+		return;
+	}
+
+	const float	dx = x2 - x1, dy = y2 - y1;
+	const float	len = sqrtf( dx * dx + dy * dy );
+	int			steps = (int)( len / 3.0f ) + 1;
+
+	if ( steps > LEDIT_LINE_MAX_DOTS )
+	{
+		steps = LEDIT_LINE_MAX_DOTS;
 	}
 	for ( int i = 0; i <= steps; i++ )
 	{
@@ -1593,9 +1645,11 @@ qboolean CG_LightEdit_Draw2D( void )
 		return qfalse;
 	}
 
-	LE_DrawIcons();
+	// The selection and the tool shapes come first: the icons must not use up their budget.
+	s_dotBudget = LEDIT_DOT_BUDGET;
 	LE_DrawSelection();
 	LE_DrawToolWorld();
+	LE_DrawIcons();
 
 	// crosshair
 	CG_FillRect( 320 - 8, 240, 5, 1, colWhite );

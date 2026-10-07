@@ -501,7 +501,9 @@ void RE_EndFrame( int *frontEndMsec, int *backEndMsec ) {
 	if ( !tr.registered ) {
 		return;
 	}
-	cmd = (swapBuffersCommand_t *) R_GetCommandBuffer( sizeof( *cmd ) );
+	// Use the space that R_GetCommandBuffer keeps for this command. Without it, a full
+	// buffer stops every later frame: R_InitNextFrame never runs again.
+	cmd = (swapBuffersCommand_t *) R_GetCommandBufferReserved( sizeof( *cmd ), 0 );
 	if ( !cmd ) {
 		return;
 	}
