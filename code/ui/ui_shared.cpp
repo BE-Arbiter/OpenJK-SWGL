@@ -7551,6 +7551,33 @@ static void Item_ListBox_DropdownPaint(itemDef_t *item)
 	Item_ListBox_DropdownBorder(&outer, listPtr->dropdownBorder, item->window.borderColor, (qboolean)!below, below);
 }
 
+// A skin without an icon file: write its name in the cell, shrunk to fit.
+static void Item_ListBox_PaintSkinName(itemDef_t *item, listBoxDef_t *listPtr, int index, float x, float y)
+{
+	qhandle_t handle;
+	const char *name = DC->feederItemText(item->special, index, 0, &handle);
+	if (!name || !name[0])
+	{
+		return;
+	}
+	if (!Q_stricmpn(name, "model_", 6))
+	{
+		name += 6;
+	}
+
+	const float cellW = listPtr->elementWidth - 4;
+	float scale = 0.5f;
+	const int width = DC->textWidth(name, scale, DC->Assets.qhMediumFont);
+	if (width > cellW && width > 0)
+	{
+		scale *= cellW / width;
+	}
+	const float textW = DC->textWidth(name, scale, DC->Assets.qhMediumFont);
+	const float textH = DC->textHeight(name, scale, DC->Assets.qhMediumFont);
+	DC->drawText(x + (listPtr->elementWidth - textW) * 0.5f, y + (listPtr->elementHeight - textH) * 0.5f,
+		scale, item->window.foreColor, name, 0, item->textStyle, DC->Assets.qhMediumFont);
+}
+
 /*
 =================
 Item_ListBox_Paint
@@ -7650,6 +7677,11 @@ void Item_ListBox_Paint(itemDef_t *item)
 					{	// or the tint leaks into everything painted after the list
 						ui.R_SetColor(NULL);
 					}
+				}
+				else if ((int)item->special == FEEDER_PLAYER_SKIN_HEAD || (int)item->special == FEEDER_PLAYER_SKIN_TORSO
+					|| (int)item->special == FEEDER_PLAYER_SKIN_LEGS)
+				{
+					Item_ListBox_PaintSkinName(item, listPtr, i, x, y);
 				}
 
 				if (i == item->cursorPos)
@@ -7770,6 +7802,10 @@ void Item_ListBox_Paint(itemDef_t *item)
 									ui.R_SetColor(NULL);
 								}
 							}
+							else if ((int)item->special == FEEDER_MODEL_SKINS)
+							{
+								Item_ListBox_PaintSkinName(item, listPtr, i, x, y);
+							}
 							else
 							{
 								continue;
@@ -7888,6 +7924,10 @@ void Item_ListBox_Paint(itemDef_t *item)
 							if (image)
 							{
 								DC->drawHandlePic(x + 1, y + 1, listPtr->elementWidth - 2, listPtr->elementHeight - 2, image);
+							}
+							else if ((int)item->special == FEEDER_MODEL_SKINS)
+							{
+								Item_ListBox_PaintSkinName(item, listPtr, i, x, y);
 							}
 
 							if (i == item->cursorPos)

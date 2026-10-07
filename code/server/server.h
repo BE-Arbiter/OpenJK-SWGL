@@ -314,7 +314,7 @@ void SG_TestSave(void);
 // What it's used for is for things like mission pack etc if we need to distinguish "street-copy" savegames from
 //	any new enhanced ones that need to ask for new chunks during loading.
 //
-#define iSAVEGAME_VERSION 1
+#define iSAVEGAME_VERSION 4	// 4: wristFlameModel in gentity_t; 3: jetpackModel in gentity_t; 2: weapon manifest, items saved by name, attack_index in playerState_t, weapons in autosaves
 int SG_Version(void);	// call this to know what version number a successfully-opened savegame file was
 //
 extern SavedGameJustLoaded_e eSavedGameJustLoaded;

@@ -1595,6 +1595,26 @@ void Cmd_UseSentry_f(gentity_t *ent)
 
 /*
 ================
+Cmd_UseJetpack_f
+================
+*/
+void Cmd_UseJetpack_f(gentity_t *ent)
+{
+	G_JetpackToggle( ent );
+}
+
+/*
+================
+Cmd_UseWristFlamer_f
+================
+*/
+void Cmd_UseWristFlamer_f(gentity_t *ent)
+{
+	G_WristFlamerToggle( ent );
+}
+
+/*
+================
 Cmd_UseInventory_f
 ================
 */
@@ -1617,6 +1637,12 @@ void Cmd_UseInventory_f(gentity_t *ent)
 			return;
 		case INV_SENTRY :
 			Cmd_UseSentry_f(ent);
+			return;
+		case INV_JETPACK :
+			Cmd_UseJetpack_f(ent);
+			return;
+		case INV_WRIST_FLAMER :
+			Cmd_UseWristFlamer_f(ent);
 			return;
 		default :
 			return;
@@ -2369,6 +2395,10 @@ void ClientCommand( int clientNum ) {
 		Cmd_UseGoggles_f( ent );
 	else if (Q_stricmp (cmd, "use_sentry") == 0)
 		Cmd_UseSentry_f( ent );
+	else if (Q_stricmp (cmd, "use_jetpack") == 0)
+		Cmd_UseJetpack_f( ent );
+	else if (Q_stricmp (cmd, "use_wristflamer") == 0)
+		Cmd_UseWristFlamer_f( ent );
 	else if (Q_stricmp (cmd, "fx") == 0)
 		Cmd_Fx( ent );
 	else if (Q_stricmp (cmd, "invuse") == 0)
@@ -2637,6 +2667,7 @@ const char* getStringValueForweaponCategory(const weaponCategory_t* wc)
 
 	switch (*wc)
 	{
+	case WC_UNSET:      return "WC_UNSET";
 	case WC_NONE:       return "WC_NONE";
 	case WC_MELEE:      return "WC_MELEE";
 	case WC_STUN_BATON: return "WC_STUN_BATON";

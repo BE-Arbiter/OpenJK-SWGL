@@ -26,3 +26,34 @@ characterFaction_t factionsData[MAX_FACTIONS];
 int loadedFactions;
 characterInfo_t charactersData[MAX_CHARACTERS];
 int loadedCharacters;
+characterTag_t tagsData[MAX_TAGS];
+int loadedTags;
+
+qboolean CHA_ListHasItem(const char *list, const char *item)
+{
+	const size_t itemLength = strlen(item);
+
+	while (*list)
+	{
+		while (*list == ',' || *list == ' ')
+		{
+			list++;
+		}
+		const char *end = list;
+		while (*end && *end != ',')
+		{
+			end++;
+		}
+		size_t length = end - list;
+		while (length && list[length - 1] == ' ')
+		{
+			length--;
+		}
+		if (length == itemLength && length && !Q_stricmpn(list, item, (int)length))
+		{
+			return qtrue;
+		}
+		list = end;
+	}
+	return qfalse;
+}
