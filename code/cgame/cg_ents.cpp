@@ -1095,6 +1095,7 @@ static void CG_Missile( centity_t *cent ) {
 	entityState_t		*s1;
 	const weaponInfo_t	*weapon;
 	const weaponData_t  *wData;
+	SFxTransientScope	transientFx;	// projectile effects play again every frame: keep the short ones out of the pool
 
 	if ( !cent->gent->inuse )
 		return;

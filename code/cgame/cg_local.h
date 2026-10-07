@@ -643,6 +643,7 @@ extern	vmCvar_t		cg_panoNumShots;
 extern	vmCvar_t		fx_freeze;
 extern	vmCvar_t		fx_debug;
 extern	vmCvar_t		cg_speeds;
+extern	vmCvar_t		cg_clipCull;
 
 extern	vmCvar_t		cg_missionInfoFlashTime;
 extern	vmCvar_t		cg_hudFiles;
@@ -812,6 +813,8 @@ void CG_GetTagWorldPosition( refEntity_t *model, char *tag, vec3_t pos, vec3_t a
 // cg_predict.c
 //
 int	CG_PointContents( const vec3_t point, int passEntityNum );
+int	CG_ClipMoveToEntities( const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
+						   int skipNumber, int mask, trace_t *tr );
 void CG_Trace( trace_t *result, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
 					 const int skipNumber, const int mask, const EG2_Collision eG2TraceType=G2_NOCOLLIDE, const int useLod=0 );
 void CG_PredictPlayerState( void );

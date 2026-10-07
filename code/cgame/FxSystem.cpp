@@ -120,10 +120,17 @@ void SFxHelper::PlayLocalSound( int sfxHandle, int channelNum )
 void SFxHelper::Trace( trace_t *tr, vec3_t start, vec3_t min, vec3_t max,
 						vec3_t end, int skipEntNum, int flags )
 {
+	// Same as CG_Trace, split in two so cg_speeds 2 can time the BSP and the entity clip apart.
 	FXS_START( t );
-	CG_Trace( tr, start, min, max, end, skipEntNum, flags );
+	cgi_CM_BoxTrace( tr, start, end, min, max, 0, flags );
+	tr->entityNum = tr->fraction != 1.0 ? ENTITYNUM_WORLD : ENTITYNUM_NONE;
 	FXS_STOP( t, trace );
+
+	FXS_START( tc );
+	const int clipped = CG_ClipMoveToEntities( start, min, max, end, skipEntNum, flags, tr );
+	FXS_STOP( tc, clip );
 	FXS_COUNT( traces );
+	if ( fxSpeedsOn ) { fxSpeeds.clipEnts += clipped; }
 }
 
 void SFxHelper::G2Trace( trace_t *tr, vec3_t start, vec3_t min, vec3_t max,

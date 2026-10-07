@@ -2104,18 +2104,20 @@ static void CG_ReportSpeeds( void )
 			{
 				const SFxSpeeds &s = fxSpeeds;
 				const int n = cgs_frames;
-				const int64_t sim = s.create + s.update - s.trace - s.g2trace - s.contents - s.submit;
+				const int64_t sim = s.create + s.update - s.trace - s.clip - s.g2trace - s.contents - s.submit;
 
-				CG_Printf( "  fx: create+update %.2f = sim %.2f  trace %.2f (%i)  g2trace %.2f (%i)  contents %.2f (%i)  submit %.2f (%i ent %i poly %i light)\n",
+				CG_Printf( "  fx: create+update %.2f = sim %.2f  trace %.2f (%i) = bsp %.2f + ents %.2f (%.1f/trace)  g2trace %.2f (%i)  contents %.2f (%i)  submit %.2f (%i ent %i poly %i light)\n",
 					(double)( s.create + s.update ) * perFrame,
 					(double)sim * perFrame,
-					(double)s.trace * perFrame, s.traces / n,
+					(double)( s.trace + s.clip ) * perFrame, s.traces / n,
+					(double)s.trace * perFrame, (double)s.clip * perFrame,
+					s.traces ? (double)s.clipEnts / s.traces : 0.0,
 					(double)s.g2trace * perFrame, s.g2traces / n,
 					(double)s.contents * perFrame, s.contentsCalls / n,
 					(double)s.submit * perFrame, s.submits / n, s.polys / n, s.lights / n );
-				CG_Printf( "  fx: live %i/%i  scheduled %i  spawned %i/frame  evicted %i/frame  expensivePhysics %i  skipDraw %i\n",
-					s.liveSum / n, MAX_EFFECTS, s.scheduledSum / n, s.spawned / n, s.evicted / n,
-					fx_expensivePhysics.integer, fx_skipDraw.integer );
+				CG_Printf( "  fx: live %i/%i  scheduled %i  spawned %i/frame  transient %i/frame  evicted %i/frame  expensivePhysics %i  skipDraw %i  clipCull %i\n",
+					s.liveSum / n, MAX_EFFECTS, s.scheduledSum / n, s.spawned / n, s.transient / n, s.evicted / n,
+					fx_expensivePhysics.integer, fx_skipDraw.integer, cg_clipCull.integer );
 			}
 		}
 	}

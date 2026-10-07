@@ -395,6 +395,7 @@ vmCvar_t	cg_panoNumShots;
 vmCvar_t	fx_freeze;
 vmCvar_t	fx_debug;
 vmCvar_t	cg_speeds;
+vmCvar_t	cg_clipCull;
 
 vmCvar_t	cg_missionInfoFlashTime;
 vmCvar_t	cg_hudFiles;
@@ -585,6 +586,7 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_g2Marks, "cg_g2Marks", "1", CVAR_ARCHIVE },
 	{ &fx_expensivePhysics, "fx_expensivePhysics", "1", CVAR_ARCHIVE },
 	{ &fx_skipDraw, "fx_skipDraw", "0", CVAR_CHEAT },	// measurement: simulate effects but submit nothing to the renderer
+	{ &cg_clipCull, "cg_clipCull", "1", 0 },	// CG_Trace skips bbox entities outside the move bounds
 	{ &cg_debugHealthBars,	"cg_debugHealthBars",	"0", CVAR_ARCHIVE },
 
 	{ &cg_smoothCamera, "cg_smoothCamera", "1", CVAR_ARCHIVE },

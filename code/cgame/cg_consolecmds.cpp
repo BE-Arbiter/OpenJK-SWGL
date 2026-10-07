@@ -31,6 +31,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 void CG_TargetCommand_f( void );
 extern qboolean	player_locked;
 extern void CMD_CGCam_Disable( void );
+extern void FX_PoolReport( void );
 void CG_NextInventory_f( void );
 void CG_PrevInventory_f( void );
 void CG_NextForcePower_f( void );
@@ -323,6 +324,7 @@ static consoleCommand_t	commands[] = {
 	{ "dualwield",			CG_Dualwield_f},
 	{ "forcenext",			CG_NextForcePower_f },
 	{ "forceprev",			CG_PrevForcePower_f },
+	{ "fxpool",				FX_PoolReport },	// effect pool usage per .efx file
 	{ "invnext",			CG_NextInventory_f },
 	{ "invprev",			CG_PrevInventory_f },
 	{ "la_zoom",			CG_ToggleLAGoggles },
