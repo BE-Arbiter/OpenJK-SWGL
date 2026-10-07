@@ -9,8 +9,12 @@
 #define LEDIT_TOOL_SELECT		1
 #define LEDIT_TOOL_CREATE		2
 #define LEDIT_TOOL_MOVE			3
+#define LEDIT_TOOL_ORIENT		4
+#define LEDIT_TOOL_PROPS		5
+#define LEDIT_TOOL_PIPETTE		6
 #define LEDIT_TOOL_CLONE		7
 #define LEDIT_TOOL_DELETE		8
+#define LEDIT_TOOL_SOLO			9
 
 // Shared state (cg_lightedit.cpp).
 extern rtxLightEditAPI_t		*s_api;
@@ -62,6 +66,7 @@ void		LE_UndoEnd( void );						// closes the group; an empty group is dropped
 void		LE_UndoPush( int kind, int id, const rtxLightDesc_t *before, const rtxLightDesc_t *after, const char *label );
 int			LE_UndoDepth( void );
 int			LE_RedoDepth( void );
+void		LE_UndoBeginMerge( const char *label, unsigned key );	// like Begin; joins the top group when it has this key and is under 500 ms old
 void		LE_Undo( void );
 void		LE_Redo( void );
 void		LE_UndoHistory( void );
@@ -90,5 +95,80 @@ void		LE_MoveHelp( const char **name, const char **fire, const char **alt, const
 void		LE_CloneInit( void );
 void		LE_ToolClone( qboolean priDown, qboolean secDown, int wheel );
 void		LE_CloneHelp( const char **name, const char **fire, const char **alt, char *wheelBuf, int wheelSize );
+
+// Hash of an action kind and its targets: merges the wheel changes of one gesture into one undo group.
+static inline unsigned LE_HashTargets( int kind, const std::vector<int> &ids )
+{
+	unsigned	h = 2166136261u ^ (unsigned)kind;
+
+	for ( size_t i = 0; i < ids.size(); i++ )
+	{
+		h = ( h ^ (unsigned)( ids[i] + 1 ) ) * 16777619u;
+	}
+	return h ? h : 1u;
+}
+
+// Overlay helpers that count against the dot budget (cg_lightedit.cpp).
+void		LE_Dot( float x, float y, float size, const vec4_t col );
+void		LE_Box( float x, float y, float half, const vec4_t col );
+void		LE_Rect( float x, float y, float w, float h, const vec4_t col );	// one dot of the budget
+int			LE_DotsLeft( void );
+void		LE_DotFloor( int floorDots );						// the dots below this count stay free; 0 clears it
+const rtxLightDesc_t	*LE_RecDesc( int id );						// this frame's descriptor, NULL when unknown
+void		LE_CreateSetSpot( qboolean spot );					// creation type of tool 2
+
+// Aim, cones and tool 4 (cg_lightedit_spot.cpp).
+qboolean	LE_CrosshairHit( vec3_t pos, vec3_t normal );		// world hit under the crosshair; qfalse for sky or nothing
+void		LE_SnapDir( vec3_t dir );							// rounds yaw and pitch to ledit_angle_snap
+void		LE_ConeAdd( rtxLightDesc_t *d, qboolean inner, float delta );
+float		LE_AngleStep( qboolean fine );
+void		LE_DrawSpotWire( const vec3_t org, const vec3_t dir, float outer, float inner, const vec4_t col, qboolean full );
+void		LE_DrawSpotWires( void );							// selected spots, and the aimed one for tools 4 and 5
+void		LE_ToolOrient( qboolean priDown, qboolean secDown, int wheel, qboolean fine );
+void		LE_OrientHelp( const char **name, const char **fire, const char **alt, char *wheelBuf, int wheelSize );
+void		LE_OrientInit( void );
+
+// Tool 5 (cg_lightedit_props.cpp).
+typedef enum {
+	LEP_INTENSITY = 0,
+	LEP_HUE,
+	LEP_SAT,
+	LEP_TEMP,
+	LEP_RADIUS,
+	LEP_CONE_OUTER,
+	LEP_CONE_INNER,
+	LEP_NUM
+} ledProp_t;
+
+void		LE_PropsInit( void );
+void		LE_PropCycle( int dir );							// invnext / invprev
+int			LE_PropActive( void );
+const char	*LE_PropName( int prop );
+void		LE_ColorToHSV( const vec3_t rgb, float *h, float *s, float *v );
+float		LE_ColorTemp( const vec3_t rgb );					// nearest blackbody temperature, in K
+void		LE_ToolProps( qboolean priDown, qboolean secDown, int wheel, qboolean fine );
+void		LE_PropsHelp( const char **name, const char **fire, const char **alt, char *wheelBuf, int wheelSize );
+void		LE_PropsDrawGauge( float x, float y, float w, const rtxLightDesc_t *d );
+
+// Tool 6 (cg_lightedit_pipette.cpp).
+void		LE_PipetteInit( void );
+qboolean	LE_PipettePreset( rtxLightDesc_t *d );				// clipboard as a preset for tool 2; qfalse when empty
+void		LE_ToolPipette( qboolean priDown, qboolean secDown, int wheel );
+void		LE_PipetteHelp( const char **name, const char **fire, const char **alt, char *wheelBuf, int wheelSize );
+
+// Tool 9, mute and solo, display filter, still accumulation (cg_lightedit_solo.cpp).
+void		LE_SoloInit( void );								// registers the cvar, drops the state
+void		LE_SoloUpdate( void );								// once per frame
+void		LE_SoloRelease( void );								// ends the solo, unmutes the lights muted here
+void		LE_SoloEndForAdd( void );							// ends the solo before an Add
+int			LE_SoloId( void );									// -1 for none
+qboolean	LE_FilterShows( const rtxLightDesc_t *d );
+const char	*LE_FilterName( void );
+void		LE_ToolSolo( qboolean priDown, qboolean secDown, int wheel );
+void		LE_SoloHelp( const char **name, const char **fire, const char **alt, char *wheelBuf, int wheelSize );
+void		LE_StillAccumFrame( int buttons );
+void		LE_StillAccumRestore( void );
+
+float		LE_AngleSnap( void );								// ledit_angle_snap, degrees (cg_lightedit_grid.cpp)
 
 #endif // CG_LIGHTEDIT_LOCAL_H

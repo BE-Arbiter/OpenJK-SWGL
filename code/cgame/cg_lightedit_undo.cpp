@@ -16,15 +16,22 @@ typedef struct {
 	rtxLightDesc_t	after;
 } ledUndoSub_t;
 
-typedef struct {
+#define LEDIT_MERGE_MS			500
+
+struct ledUndoGroup_t {
 	char						label[48];
 	std::vector<ledUndoSub_t>	subs;
-} ledUndoGroup_t;
+	unsigned					mergeKey;		// 0 for a group that does not merge
+	int							mergeTime;		// cg.time of the last change
+
+	ledUndoGroup_t() : mergeKey( 0 ), mergeTime( 0 ) { label[0] = 0; }
+};
 
 static std::vector<ledUndoGroup_t>	s_undo;
 static std::vector<ledUndoGroup_t>	s_redo;
 static ledUndoGroup_t				s_open;
 static qboolean						s_groupOpen = qfalse;
+static qboolean						s_merging = qfalse;		// the open group extends the top of the undo stack
 
 void LE_UndoClear( void )
 {
@@ -32,6 +39,7 @@ void LE_UndoClear( void )
 	s_redo.clear();
 	s_open.subs.clear();
 	s_groupOpen = qfalse;
+	s_merging = qfalse;
 }
 
 int LE_UndoDepth( void )
@@ -57,18 +65,32 @@ static void LE_UndoPushGroup( const ledUndoGroup_t &g )
 void LE_UndoBegin( const char *label )
 {
 	s_open.subs.clear();
+	s_open.mergeKey = 0;
 	Q_strncpyz( s_open.label, label, sizeof( s_open.label ) );
 	s_groupOpen = qtrue;
+	s_merging = qfalse;
+}
+
+// A group with a key joins the top group when that one has the same key, is under 500 ms old and no undo happened since.
+void LE_UndoBeginMerge( const char *label, unsigned key )
+{
+	LE_UndoBegin( label );
+	s_open.mergeKey = key;
+	s_merging = (qboolean)( key && s_redo.empty() && !s_undo.empty() && s_undo.back().mergeKey == key
+		&& cg.time - s_undo.back().mergeTime <= LEDIT_MERGE_MS );
 }
 
 void LE_UndoEnd( void )
 {
-	if ( s_groupOpen && !s_open.subs.empty() )
+	// A merging group writes into the top group directly: there is nothing to push.
+	if ( s_groupOpen && !s_merging && !s_open.subs.empty() )
 	{
+		s_open.mergeTime = cg.time;
 		LE_UndoPushGroup( s_open );
 	}
 	s_open.subs.clear();
 	s_groupOpen = qfalse;
+	s_merging = qfalse;
 }
 
 // Without an open group, the entry makes a group of its own.
@@ -86,6 +108,26 @@ void LE_UndoPush( int kind, int id, const rtxLightDesc_t *before, const rtxLight
 	if ( after )
 	{
 		sub.after = *after;
+	}
+	if ( s_groupOpen && s_merging )
+	{
+		std::vector<ledUndoSub_t>	&top = s_undo.back().subs;
+		size_t						i;
+
+		for ( i = 0; i < top.size(); i++ )
+		{
+			if ( top[i].id == id && top[i].kind == kind )
+			{
+				top[i].after = sub.after;
+				break;
+			}
+		}
+		if ( i == top.size() )
+		{
+			top.push_back( sub );
+		}
+		s_undo.back().mergeTime = cg.time;
+		return;
 	}
 	if ( s_groupOpen )
 	{

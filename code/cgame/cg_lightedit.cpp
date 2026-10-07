@@ -48,7 +48,10 @@ static int					s_wheel = 0;			// wheel steps since the last frame
 static int					s_prevButtons = 0;
 static float				s_createOffset = 16.0f;
 static vec3_t				s_ghost;
+static vec3_t				s_ghostNormal;			// surface normal under the ghost, valid when s_ghostHit
+static qboolean				s_ghostHit = qfalse;
 static qboolean				s_ghostSolid = qfalse;
+static qboolean				s_createSpot = qfalse;	// tool 2 makes spots
 static rtxLightStats_t		s_stats;
 
 static std::vector<ledRec_t>		s_recs;
@@ -135,9 +138,10 @@ static const char *LE_SourceStr( const rtxLightDesc_t *d )
 
 static const char *LE_FlagsStr( int flags )
 {
-	return va( "%s%s%s%s%s", ( flags & RTX_LFLAG_MODIFIED ) ? "MODIFIED " : "",
+	return va( "%s%s%s%s%s%s", ( flags & RTX_LFLAG_MODIFIED ) ? "MODIFIED " : "",
 		( flags & RTX_LFLAG_DISABLED ) ? "DISABLED " : "", ( flags & RTX_LFLAG_DELETED ) ? "DELETED " : "",
-		( flags & RTX_LFLAG_IN_SOLID ) ? "IN_SOLID " : "", ( flags & RTX_LFLAG_DRAGGING ) ? "DRAGGING" : "" );
+		( flags & RTX_LFLAG_IN_SOLID ) ? "IN_SOLID " : "", ( flags & RTX_LFLAG_DRAGGING ) ? "DRAGGING " : "",
+		( flags & RTX_LFLAG_MUTED ) ? "MUTED" : "" );
 }
 
 static qboolean LE_NeedActive( void )
@@ -363,6 +367,8 @@ static void LE_LeaveSide( void )
 	if ( s_active )
 	{
 		LE_EndGrab();
+		LE_SoloRelease();
+		LE_StillAccumRestore();
 		if ( s_api )
 		{
 			s_api->End();
@@ -398,8 +404,7 @@ static void LE_EnterSide( void )
 
 void LE_SetTool( int tool )
 {
-	if ( tool != LEDIT_TOOL_SELECT && tool != LEDIT_TOOL_CREATE && tool != LEDIT_TOOL_MOVE
-		&& tool != LEDIT_TOOL_CLONE && tool != LEDIT_TOOL_DELETE )
+	if ( tool < LEDIT_TOOL_SELECT || tool > LEDIT_TOOL_SOLO )
 	{
 		LE_Msg( "light edit: tool %d is not in this version", tool );
 		return;
@@ -602,10 +607,13 @@ static void LE_UpdateGhost( void )
 	if ( tr.fraction < 1.0f && !tr.startsolid && !tr.allsolid && !( tr.surfaceFlags & SURF_SKY ) )
 	{
 		VectorMA( tr.endpos, s_createOffset, tr.plane.normal, s_ghost );
+		VectorCopy( tr.plane.normal, s_ghostNormal );
+		s_ghostHit = qtrue;
 	}
 	else
 	{
 		VectorMA( eye, 256.0f, fwd, s_ghost );
+		s_ghostHit = qfalse;
 	}
 	LE_SnapPoint( s_ghost, 7 );
 	s_ghostSolid = s_api->PointInSolid( s_ghost );
@@ -629,7 +637,8 @@ static void LE_ToolCreate( qboolean priDown, qboolean secDown, int wheel, qboole
 
 	if ( secDown )
 	{
-		LE_Msg( "light edit: spots come in the next version" );
+		s_createSpot = (qboolean)!s_createSpot;
+		LE_Msg( "light edit: new lights are %s", s_createSpot ? "spots" : "spheres" );
 	}
 	if ( priDown )
 	{
@@ -642,11 +651,22 @@ static void LE_ToolCreate( qboolean priDown, qboolean secDown, int wheel, qboole
 			return;
 		}
 		memset( &d, 0, sizeof( d ) );
-		d.type = RTX_LTYPE_SPHERE;
+		d.coneOuter = 35.0f;
+		d.coneInner = 25.0f;
+		if ( !LE_PipettePreset( &d ) )
+		{
+			LE_ParseColor( d.color );
+			d.intensity = ledit_preset_intensity.value;
+			d.radius = ledit_preset_radius.value;
+		}
+		d.type = s_createSpot ? RTX_LTYPE_SPOT : RTX_LTYPE_SPHERE;
 		VectorCopy( s_ghost, d.origin );
-		LE_ParseColor( d.color );
-		d.intensity = ledit_preset_intensity.value;
-		d.radius = ledit_preset_radius.value;
+		VectorSet( d.dir, 0.0f, 0.0f, -1.0f );
+		if ( s_createSpot && s_ghostHit )
+		{
+			VectorNegate( s_ghostNormal, d.dir );
+		}
+		LE_SoloEndForAdd();
 		id = s_api->Add( &d );
 		if ( id < 0 )
 		{
@@ -658,6 +678,11 @@ static void LE_ToolCreate( qboolean priDown, qboolean secDown, int wheel, qboole
 		LE_SelSet( id );
 		LE_Msg( "light edit: added light %d", id );
 	}
+}
+
+void LE_CreateSetSpot( qboolean spot )
+{
+	s_createSpot = spot;
 }
 
 static void LE_ToolDelete( qboolean priDown, qboolean secDown )
@@ -695,6 +720,7 @@ void CG_LightEdit_Frame( void )
 	cgi_Cvar_Update( &ledit_preset_radius );
 	cgi_Cvar_Update( &ledit_preset_color );
 	LE_GridUpdate();
+	LE_SoloUpdate();
 
 	if ( s_leaving && !gameActive )
 	{
@@ -755,13 +781,26 @@ void CG_LightEdit_Frame( void )
 	case LEDIT_TOOL_MOVE:
 		LE_ToolMove( prim, priDown, secDown, wheel, fine );
 		break;
+	case LEDIT_TOOL_ORIENT:
+		LE_ToolOrient( priDown, secDown, wheel, fine );
+		break;
+	case LEDIT_TOOL_PROPS:
+		LE_ToolProps( priDown, secDown, wheel, fine );
+		break;
+	case LEDIT_TOOL_PIPETTE:
+		LE_ToolPipette( priDown, secDown, wheel );
+		break;
 	case LEDIT_TOOL_CLONE:
 		LE_ToolClone( priDown, secDown, wheel );
 		break;
 	case LEDIT_TOOL_DELETE:
 		LE_ToolDelete( priDown, secDown );
 		break;
+	case LEDIT_TOOL_SOLO:
+		LE_ToolSolo( priDown, secDown, wheel );
+		break;
 	}
+	LE_StillAccumFrame( buttons );
 }
 
 void CG_LightEdit_Init( void )
@@ -779,8 +818,15 @@ void CG_LightEdit_Init( void )
 	s_prevButtons = 0;
 	s_createOffset = 16.0f;
 	s_ghostSolid = qfalse;
+	s_ghostHit = qfalse;
+	VectorSet( s_ghostNormal, 0.0f, 0.0f, 1.0f );
+	s_createSpot = qfalse;
 	LE_GrabReset();
 	LE_CloneInit();
+	LE_OrientInit();
+	LE_PropsInit();
+	LE_PipetteInit();
+	LE_SoloInit();
 	memset( &s_stats, 0, sizeof( s_stats ) );
 	s_recs.clear();
 	s_hits.clear();
@@ -1071,9 +1117,45 @@ static void LE_Cmd_Set( void )
 	{
 		Q_strncpyz( d.name, CG_Argv( 2 ), sizeof( d.name ) );
 	}
+	else if ( !Q_stricmp( what, "type" ) && argc >= 3 )
+	{
+		char	t[16];
+
+		Q_strncpyz( t, CG_Argv( 2 ), sizeof( t ) );
+		if ( !Q_stricmp( t, "spot" ) )
+		{
+			d.type = RTX_LTYPE_SPOT;
+		}
+		else if ( !Q_stricmp( t, "sphere" ) )
+		{
+			d.type = RTX_LTYPE_SPHERE;
+		}
+		else
+		{
+			LE_Msg( "usage: ledit_set type <sphere | spot>" );
+			return;
+		}
+	}
+	else if ( !Q_stricmp( what, "dir" ) && argc >= 5 )
+	{
+		for ( int i = 0; i < 3; i++ )
+		{
+			d.dir[i] = atof( CG_Argv( 2 + i ) );
+		}
+		if ( VectorNormalize( d.dir ) < 0.001f )
+		{
+			LE_Msg( "light edit: the direction must not be zero" );
+			return;
+		}
+	}
+	else if ( !Q_stricmp( what, "cone" ) && argc >= 3 )
+	{
+		d.coneOuter = Com_Clamp( 1.0f, 89.0f, atof( CG_Argv( 2 ) ) );
+		d.coneInner = Com_Clamp( 0.0f, d.coneOuter, ( argc >= 4 ) ? atof( CG_Argv( 3 ) ) : d.coneInner );
+	}
 	else
 	{
-		LE_Msg( "usage: ledit_set <origin x y z | color r g b | intensity v | radius v | name s>" );
+		LE_Msg( "usage: ledit_set <origin x y z | color r g b | intensity v | radius v | name s | type sphere|spot | dir x y z | cone outer [inner]>" );
 		return;
 	}
 	Com_sprintf( label, sizeof( label ), "set %s", what );
@@ -1108,6 +1190,19 @@ static void LE_Cmd_Set( void )
 				else if ( !Q_stricmp( what, "radius" ) )
 				{
 					cur.radius = d.radius;
+				}
+				else if ( !Q_stricmp( what, "type" ) )
+				{
+					cur.type = d.type;
+				}
+				else if ( !Q_stricmp( what, "dir" ) )
+				{
+					VectorCopy( d.dir, cur.dir );
+				}
+				else if ( !Q_stricmp( what, "cone" ) )
+				{
+					cur.coneOuter = d.coneOuter;
+					cur.coneInner = d.coneInner;
 				}
 				else
 				{
@@ -1202,6 +1297,16 @@ qboolean CG_LightEdit_ConsoleCommand( const char *cmd )
 			s_wheel--;
 			return qtrue;
 		}
+		if ( !Q_stricmp( cmd, "invnext" ) )
+		{
+			LE_PropCycle( 1 );
+			return qtrue;
+		}
+		if ( !Q_stricmp( cmd, "invprev" ) )
+		{
+			LE_PropCycle( -1 );
+			return qtrue;
+		}
 	}
 	return qfalse;
 }
@@ -1246,15 +1351,46 @@ static void LE_Text( int x, int y, const char *s, const vec4_t col )
 #define LEDIT_LINE_MAX_DOTS		64
 
 static int s_dotBudget = LEDIT_DOT_BUDGET;
+static int s_dotFloor = 0;		// a drawing with a floor leaves this many dots to the next ones
 
-static void LE_Dot( float x, float y, float size, const vec4_t col )
+int LE_DotsLeft( void )
 {
-	if ( s_dotBudget <= 0 )
+	return s_dotBudget - s_dotFloor;
+}
+
+void LE_DotFloor( int floorDots )
+{
+	s_dotFloor = Q_max( 0, floorDots );
+}
+
+void LE_Dot( float x, float y, float size, const vec4_t col )
+{
+	if ( s_dotBudget - s_dotFloor <= 0 )
 	{
 		return;
 	}
 	s_dotBudget--;
 	CG_FillRect( x - size * 0.5f, y - size * 0.5f, size, size, col );
+}
+
+// A filled rectangle counts as one dot.
+void LE_Rect( float x, float y, float w, float h, const vec4_t col )
+{
+	if ( s_dotBudget - s_dotFloor <= 0 )
+	{
+		return;
+	}
+	s_dotBudget--;
+	CG_FillRect( x, y, w, h, col );
+}
+
+const rtxLightDesc_t *LE_RecDesc( int id )
+{
+	if ( id < 0 || id >= (int)s_recs.size() || !s_recs[id].valid )
+	{
+		return NULL;
+	}
+	return &s_recs[id].d;
 }
 
 // Clips a segment to the virtual screen (Liang-Barsky). Returns qfalse when nothing is left.
@@ -1321,9 +1457,9 @@ void LE_Line( float x1, float y1, float x2, float y2, const vec4_t col )
 }
 
 // A box is four rects: it uses four dots of the budget.
-static void LE_Box( float x, float y, float half, const vec4_t col )
+void LE_Box( float x, float y, float half, const vec4_t col )
 {
-	if ( s_dotBudget < 4 )
+	if ( s_dotBudget - s_dotFloor < 4 )
 	{
 		return;
 	}
@@ -1404,9 +1540,19 @@ static void LE_DrawIcons( void )
 		{
 			continue;
 		}
+		if ( !LE_FilterShows( &r.d ) && !LE_SelHas( (int)i ) && (int)i != s_pickId )
+		{
+			continue;
+		}
 		const float	size = Com_Clamp( 3.0f, 12.0f, 1200.0f / Q_max( r.depth, 1.0f ) );
 		const float	*col = LE_IconColor( &r.d );
 
+		if ( r.d.flags & RTX_LFLAG_MUTED )
+		{
+			// A muted light is an outline only.
+			LE_Box( r.sx, r.sy, size * 0.5f + 2.0f, colGrey );
+			continue;
+		}
 		LE_Dot( r.sx, r.sy, size + 2.0f, colDark );
 		LE_Dot( r.sx, r.sy, size, col );
 		if ( r.d.flags & RTX_LFLAG_DISABLED )
@@ -1438,10 +1584,14 @@ static void LE_DrawSelection( void )
 			LE_Box( r.sx, r.sy, 13.0f, colWhite );
 			LE_Box( r.sx, r.sy, 14.0f, colDark );
 		}
-		LE_Circle3D( r.d.origin, ax[0], ax[1], radius, 32, colCyan );
-		LE_Circle3D( r.d.origin, ax[0], ax[2], radius, 32, colCyan );
-		LE_Circle3D( r.d.origin, ax[1], ax[2], radius, 32, colCyan );
+		if ( r.d.type != RTX_LTYPE_SPOT )
+		{
+			LE_Circle3D( r.d.origin, ax[0], ax[1], radius, 32, colCyan );
+			LE_Circle3D( r.d.origin, ax[0], ax[2], radius, 32, colCyan );
+			LE_Circle3D( r.d.origin, ax[1], ax[2], radius, 32, colCyan );
+		}
 	}
+	LE_DrawSpotWires();
 
 	// The other selected lights get a frame only.
 	for ( size_t i = 0; i < s_selList.size(); i++ )
@@ -1462,6 +1612,25 @@ static void LE_DrawToolWorld( void )
 	{
 		LE_Circle3D( s_ghost, cg.refdef.viewaxis[1], cg.refdef.viewaxis[2], 8.0f, 24,
 			s_ghostSolid ? colRed : colGreen );
+		if ( s_createSpot )
+		{
+			vec3_t	dir;
+			float	outer = 35.0f, inner = 25.0f;
+			rtxLightDesc_t	clip;
+
+			memset( &clip, 0, sizeof( clip ) );
+			if ( LE_PipettePreset( &clip ) )
+			{
+				outer = clip.coneOuter;
+				inner = clip.coneInner;
+			}
+			VectorSet( dir, 0.0f, 0.0f, -1.0f );
+			if ( s_ghostHit )
+			{
+				VectorNegate( s_ghostNormal, dir );
+			}
+			LE_DrawSpotWire( s_ghost, dir, outer, inner, s_ghostSolid ? colRed : colGreen, qfalse );
+		}
 	}
 	else if ( s_tool == LEDIT_TOOL_MOVE )
 	{
@@ -1479,14 +1648,30 @@ static void LE_DrawHelp( void )
 	switch ( s_tool )
 	{
 	case LEDIT_TOOL_CREATE:
-		name = "2 Create (sphere)";
+		name = s_createSpot ? "2 Create (spot)" : "2 Create (sphere)";
 		fire = "add a light at the ghost";
-		alt = "spots come in the next version";
+		alt = s_createSpot ? "new lights are spots: switch to spheres" : "new lights are spheres: switch to spots";
 		Com_sprintf( wheelBuf, sizeof( wheelBuf ), "surface offset x2 or /2, walk +-1 (now %.0f)", s_createOffset );
 		wheel = wheelBuf;
 		break;
 	case LEDIT_TOOL_MOVE:
 		LE_MoveHelp( &name, &fire, &alt, &wheel );
+		break;
+	case LEDIT_TOOL_ORIENT:
+		LE_OrientHelp( &name, &fire, &alt, wheelBuf, sizeof( wheelBuf ) );
+		wheel = wheelBuf;
+		break;
+	case LEDIT_TOOL_PROPS:
+		LE_PropsHelp( &name, &fire, &alt, wheelBuf, sizeof( wheelBuf ) );
+		wheel = wheelBuf;
+		break;
+	case LEDIT_TOOL_PIPETTE:
+		LE_PipetteHelp( &name, &fire, &alt, wheelBuf, sizeof( wheelBuf ) );
+		wheel = wheelBuf;
+		break;
+	case LEDIT_TOOL_SOLO:
+		LE_SoloHelp( &name, &fire, &alt, wheelBuf, sizeof( wheelBuf ) );
+		wheel = wheelBuf;
 		break;
 	case LEDIT_TOOL_CLONE:
 		LE_CloneHelp( &name, &fire, &alt, wheelBuf, sizeof( wheelBuf ) );
@@ -1505,7 +1690,7 @@ static void LE_DrawHelp( void )
 		wheel = "cycle among the lights under the crosshair";
 		break;
 	}
-	LE_Text( 6, y, va( "LIGHT EDIT  tool %s   (keys 1 2 3 7 8)", name ), colWhite );
+	LE_Text( 6, y, va( "LIGHT EDIT  tool %s   (keys 1 2 3 4 5 6 7 8 9)", name ), colWhite );
 	y += h + 2;
 	LE_Text( 6, y, va( "Fire: %s", fire ), colGrey );
 	y += h;
@@ -1519,7 +1704,117 @@ static void LE_DrawHelp( void )
 	}
 }
 
-#define LE_PANEL_LINES	10
+#define LE_PANEL_LINES	16
+
+typedef enum {
+	PF_TITLE = 0,
+	PF_SOURCE,
+	PF_TYPE,
+	PF_FLAGS,
+	PF_ORIGIN,
+	PF_COLOR,
+	PF_HSV,
+	PF_INTENSITY,
+	PF_RADIUS,
+	PF_DIR,
+	PF_CONE_OUTER,
+	PF_CONE_INNER,
+	PF_NAME
+} ledPanelField_t;
+
+// Text of one panel line, "label: value".
+static void LE_PanelText( const rtxLightDesc_t *d, int field, int activeProp, char *out, int size )
+{
+	float	h, s, v;
+
+	switch ( field )
+	{
+	case PF_SOURCE:
+		Com_sprintf( out, size, "source: %s", LE_SourceStr( d ) );
+		break;
+	case PF_TYPE:
+		Com_sprintf( out, size, "type: %s", d->type == RTX_LTYPE_SPOT ? "spot" : "sphere" );
+		break;
+	case PF_FLAGS:
+		Com_sprintf( out, size, "flags: %s", d->flags ? LE_FlagsStr( d->flags ) : "-" );
+		break;
+	case PF_ORIGIN:
+		Com_sprintf( out, size, "origin: %.1f %.1f %.1f", d->origin[0], d->origin[1], d->origin[2] );
+		break;
+	case PF_COLOR:
+		Com_sprintf( out, size, "color: %.3f %.3f %.3f", d->color[0], d->color[1], d->color[2] );
+		break;
+	case PF_HSV:
+	{
+		char	hs[24], ss[24], ts[24];
+
+		LE_ColorToHSV( d->color, &h, &s, &v );
+		Com_sprintf( hs, sizeof( hs ), activeProp == LEP_HUE ? "[%.0f]" : "%.0f", h );
+		Com_sprintf( ss, sizeof( ss ), activeProp == LEP_SAT ? "[%.2f]" : "%.2f", s );
+		Com_sprintf( ts, sizeof( ts ), activeProp == LEP_TEMP ? "[%.0fK]" : "%.0fK", LE_ColorTemp( d->color ) );
+		Com_sprintf( out, size, "hsv: hue %s sat %s temp %s", hs, ss, ts );
+		break;
+	}
+	case PF_INTENSITY:
+		Com_sprintf( out, size, "intensity: %.2f", d->intensity );
+		break;
+	case PF_RADIUS:
+		Com_sprintf( out, size, "emitter radius: %.2f", d->radius );
+		break;
+	case PF_DIR:
+		Com_sprintf( out, size, "direction: %.3f %.3f %.3f", d->dir[0], d->dir[1], d->dir[2] );
+		break;
+	case PF_CONE_OUTER:
+		Com_sprintf( out, size, "cone outer: %.1f", d->coneOuter );
+		break;
+	case PF_CONE_INNER:
+		Com_sprintf( out, size, "cone inner: %.1f", d->coneInner );
+		break;
+	case PF_NAME:
+		Com_sprintf( out, size, "name: %s", d->name );
+		break;
+	}
+}
+
+static qboolean LE_PanelEqual( const rtxLightDesc_t *a, const rtxLightDesc_t *b, int field )
+{
+	switch ( field )
+	{
+	case PF_SOURCE:			return (qboolean)( a->source == b->source );
+	case PF_TYPE:			return (qboolean)( a->type == b->type );
+	case PF_FLAGS:			return (qboolean)( a->flags == b->flags );
+	case PF_ORIGIN:			return (qboolean)VectorCompare( a->origin, b->origin );
+	case PF_COLOR:
+	case PF_HSV:			return (qboolean)VectorCompare( a->color, b->color );
+	case PF_INTENSITY:		return (qboolean)( a->intensity == b->intensity );
+	case PF_RADIUS:			return (qboolean)( a->radius == b->radius );
+	case PF_DIR:			return (qboolean)VectorCompare( a->dir, b->dir );
+	case PF_CONE_OUTER:		return (qboolean)( a->coneOuter == b->coneOuter );
+	case PF_CONE_INNER:		return (qboolean)( a->coneInner == b->coneInner );
+	case PF_NAME:			return (qboolean)!strncmp( a->name, b->name, RTX_LIGHTEDIT_NAME_LEN );
+	}
+	return qtrue;
+}
+
+// Panel line that the active property of tool 5 belongs to, or -1.
+static int LE_PanelActiveField( void )
+{
+	if ( s_tool != LEDIT_TOOL_PROPS )
+	{
+		return -1;
+	}
+	switch ( LE_PropActive() )
+	{
+	case LEP_INTENSITY:		return PF_INTENSITY;
+	case LEP_HUE:
+	case LEP_SAT:
+	case LEP_TEMP:			return PF_HSV;
+	case LEP_RADIUS:		return PF_RADIUS;
+	case LEP_CONE_OUTER:	return PF_CONE_OUTER;
+	case LEP_CONE_INNER:	return PF_CONE_INNER;
+	}
+	return -1;
+}
 
 // Draws the selection panel on the right.
 static void LE_DrawPanel( void )
@@ -1532,6 +1827,10 @@ static void LE_DrawPanel( void )
 	rtxLightDesc_t			orig;
 	const qboolean			multi = (qboolean)( s_selList.size() > 1 );
 	const qboolean			haveOrig = (qboolean)( !multi && ( d.flags & RTX_LFLAG_MODIFIED ) && s_api->GetOriginal( s_sel, &orig ) );
+	const qboolean			spot = (qboolean)( d.type == RTX_LTYPE_SPOT );
+	const int				activeField = LE_PanelActiveField();
+	const int				activeProp = ( s_tool == LEDIT_TOOL_PROPS ) ? LE_PropActive() : -1;
+	int						fields[LE_PANEL_LINES];
 	char					main[LE_PANEL_LINES][128];
 	char					was[LE_PANEL_LINES][128];
 	const int				h = LE_TextH();
@@ -1542,88 +1841,62 @@ static void LE_DrawPanel( void )
 
 	if ( multi )
 	{
-		Com_sprintf( main[n++], sizeof( main[0] ), "%d lights (primary %d)", (int)s_selList.size(), d.id );
+		Com_sprintf( main[n], sizeof( main[0] ), "%d lights (primary %d)", (int)s_selList.size(), d.id );
 	}
 	else
 	{
-		Com_sprintf( main[n++], sizeof( main[0] ), "light %d", d.id );
+		Com_sprintf( main[n], sizeof( main[0] ), "light %d", d.id );
 	}
-	Com_sprintf( main[n++], sizeof( main[0] ), "source: %s", LE_SourceStr( &d ) );
-	Com_sprintf( main[n++], sizeof( main[0] ), "type: %s", d.type == RTX_LTYPE_SPOT ? "spot" : "sphere" );
-	Com_sprintf( main[n++], sizeof( main[0] ), "flags: %s", d.flags ? LE_FlagsStr( d.flags ) : "-" );
+	fields[n++] = PF_TITLE;
 
-	Com_sprintf( main[n], sizeof( main[0] ), "origin: %.1f %.1f %.1f", d.origin[0], d.origin[1], d.origin[2] );
-	if ( haveOrig && !VectorCompare( d.origin, orig.origin ) )
-	{
-		Com_sprintf( was[n], sizeof( was[0] ), "%.1f %.1f %.1f", orig.origin[0], orig.origin[1], orig.origin[2] );
-	}
-	n++;
-	Com_sprintf( main[n], sizeof( main[0] ), "color: %.3f %.3f %.3f", d.color[0], d.color[1], d.color[2] );
-	if ( haveOrig && !VectorCompare( d.color, orig.color ) )
-	{
-		Com_sprintf( was[n], sizeof( was[0] ), "%.3f %.3f %.3f", orig.color[0], orig.color[1], orig.color[2] );
-	}
-	n++;
-	Com_sprintf( main[n], sizeof( main[0] ), "intensity: %.2f", d.intensity );
-	if ( haveOrig && d.intensity != orig.intensity )
-	{
-		Com_sprintf( was[n], sizeof( was[0] ), "%.2f", orig.intensity );
-	}
-	n++;
-	Com_sprintf( main[n], sizeof( main[0] ), "emitter radius: %.2f", d.radius );
-	if ( haveOrig && d.radius != orig.radius )
-	{
-		Com_sprintf( was[n], sizeof( was[0] ), "%.2f", orig.radius );
-	}
-	n++;
-	Com_sprintf( main[n], sizeof( main[0] ), "name: %s", d.name );
-	if ( haveOrig && strncmp( d.name, orig.name, RTX_LIGHTEDIT_NAME_LEN ) )
-	{
-		Com_sprintf( was[n], sizeof( was[0] ), "%s", orig.name );
-	}
-	n++;
+	static const int	order[] = { PF_SOURCE, PF_TYPE, PF_FLAGS, PF_ORIGIN, PF_COLOR, PF_HSV, PF_INTENSITY, PF_RADIUS,
+		PF_DIR, PF_CONE_OUTER, PF_CONE_INNER, PF_NAME };
 
-	if ( multi )
+	for ( size_t k = 0; k < ARRAY_LEN( order ); k++ )
 	{
-		// A property that differs between the selected lights shows "-".
-		qboolean	same[9];
+		const int	f = order[k];
 
-		for ( int i = 0; i < 9; i++ )
+		if ( ( f == PF_DIR || f == PF_CONE_OUTER || f == PF_CONE_INNER ) && !spot )
 		{
-			same[i] = qtrue;
+			continue;
 		}
-		for ( size_t i = 0; i < s_selList.size(); i++ )
+		LE_PanelText( &d, f, activeProp, main[n], sizeof( main[0] ) );
+		if ( haveOrig && f != PF_SOURCE && f != PF_FLAGS && f != PF_HSV && !LE_PanelEqual( &d, &orig, f )
+			&& ( ( f != PF_DIR && f != PF_CONE_OUTER && f != PF_CONE_INNER ) || orig.type == RTX_LTYPE_SPOT ) )
 		{
-			const int	id = s_selList[i];
+			char	*colon;
 
-			if ( id == s_sel || id >= (int)s_recs.size() || !s_recs[id].valid )
+			LE_PanelText( &orig, f, -1, was[n], sizeof( was[0] ) );
+			colon = strchr( was[n], ':' );
+			if ( colon )
 			{
-				continue;
+				memmove( was[n], colon + 2, strlen( colon + 2 ) + 1 );
 			}
-
-			const rtxLightDesc_t	&o = s_recs[id].d;
-
-			same[1] = (qboolean)( same[1] && o.source == d.source );
-			same[2] = (qboolean)( same[2] && o.type == d.type );
-			same[3] = (qboolean)( same[3] && o.flags == d.flags );
-			same[4] = (qboolean)( same[4] && VectorCompare( o.origin, d.origin ) );
-			same[5] = (qboolean)( same[5] && VectorCompare( o.color, d.color ) );
-			same[6] = (qboolean)( same[6] && o.intensity == d.intensity );
-			same[7] = (qboolean)( same[7] && o.radius == d.radius );
-			same[8] = (qboolean)( same[8] && !strncmp( o.name, d.name, RTX_LIGHTEDIT_NAME_LEN ) );
 		}
-		for ( int i = 1; i < 9; i++ )
+		if ( multi )
 		{
-			if ( !same[i] )
+			// A property that differs between the selected lights shows "-".
+			for ( size_t i = 0; i < s_selList.size(); i++ )
 			{
-				char	*dash = strchr( main[i], ':' );
+				const int	id = s_selList[i];
 
-				if ( dash )
+				if ( id == s_sel || id >= (int)s_recs.size() || !s_recs[id].valid )
 				{
-					Q_strncpyz( dash + 1, " -", (int)( sizeof( main[0] ) - ( dash + 1 - main[i] ) ) );
+					continue;
+				}
+				if ( !LE_PanelEqual( &s_recs[id].d, &d, f ) )
+				{
+					char	*colon = strchr( main[n], ':' );
+
+					if ( colon )
+					{
+						Q_strncpyz( colon + 1, " -", (int)( sizeof( main[0] ) - ( colon + 1 - main[n] ) ) );
+					}
+					break;
 				}
 			}
 		}
+		fields[n++] = f;
 	}
 
 	for ( int i = 0; i < n; i++ )
@@ -1650,8 +1923,12 @@ static void LE_DrawPanel( void )
 			LE_Text( xr, y, was[i], colGrey );
 			xr -= 10;
 		}
-		LE_Text( xr - LE_TextW( main[i] ), y, main[i], colWhite );
+		LE_Text( xr - LE_TextW( main[i] ), y, main[i], fields[i] == activeField ? colYellow : colWhite );
 		y += h;
+	}
+	if ( s_tool == LEDIT_TOOL_PROPS )
+	{
+		LE_PropsDrawGauge( 640.0f - 8.0f - 120.0f, (float)y + 6.0f, 120.0f, &d );
 	}
 }
 
@@ -1661,7 +1938,7 @@ static void LE_DrawBottom( void )
 	int			y = 480 - h - 6;
 	const char	*line;
 	char		warn[96];
-	char		full[256];
+	char		full[320];
 
 	if ( s_stats.overfullClusters > 0 || s_stats.numInSolid > 0 )
 	{
@@ -1678,6 +1955,14 @@ static void LE_DrawBottom( void )
 		s_stats.numDisabled, s_stats.numLightPolys, s_stats.maxLightPolys, LE_UndoDepth(), LE_RedoDepth(),
 		s_stats.unsavedChanges > 0 ? " *" : "" );
 	Com_sprintf( full, sizeof( full ), "%s | grid %d snap %s", line, LE_GridSize(), LE_SnapOn() ? "on" : "off" );
+	if ( LE_SoloId() >= 0 )
+	{
+		Q_strcat( full, sizeof( full ), va( " | SOLO %d", LE_SoloId() ) );
+	}
+	if ( s_tool == LEDIT_TOOL_SOLO || Q_stricmp( LE_FilterName(), "all" ) )
+	{
+		Q_strcat( full, sizeof( full ), va( " | icons: %s", LE_FilterName() ) );
+	}
 	LE_Text( 6, y, full, colWhite );
 }
 
@@ -1690,6 +1975,7 @@ qboolean CG_LightEdit_Draw2D( void )
 
 	// The selection and the tool shapes come first: the icons must not use up their budget.
 	s_dotBudget = LEDIT_DOT_BUDGET;
+	s_dotFloor = 0;
 	LE_DrawSelection();
 	LE_DrawToolWorld();
 	LE_DrawIcons();

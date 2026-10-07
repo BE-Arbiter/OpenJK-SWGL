@@ -86,6 +86,7 @@ static void LE_CloneAndGrab( void )
 		LE_Msg( "light edit: nothing to clone" );
 		return;
 	}
+	LE_SoloEndForAdd();
 	{
 		ledBatch	batch;
 
@@ -148,6 +149,7 @@ static void LE_CloneArray( void )
 	VectorClear( step );
 	step[axis] = sign * (float)LE_GridSize();
 
+	LE_SoloEndForAdd();
 	{
 		ledBatch	batch;
 

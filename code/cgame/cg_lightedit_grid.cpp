@@ -5,7 +5,7 @@
 
 static vmCvar_t		ledit_grid;
 static vmCvar_t		ledit_snap;
-static vmCvar_t		ledit_angle_snap;		// read by the orientation tool of the next part
+static vmCvar_t		ledit_angle_snap;		// degrees; 0 turns the angle snap off
 
 static const int	s_gridSizes[] = { 1, 2, 4, 8, 16, 32, 64, 128 };
 
@@ -34,6 +34,11 @@ int LE_GridSize( void )
 		}
 	}
 	return 16;
+}
+
+float LE_AngleSnap( void )
+{
+	return Com_Clamp( 0.0f, 90.0f, ledit_angle_snap.value );
 }
 
 qboolean LE_SnapOn( void )
