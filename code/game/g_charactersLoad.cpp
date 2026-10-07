@@ -470,6 +470,55 @@ static void CHA_FreeCharacters()
 	}
 }
 
+static int CHA_SortTagsByCode(const void* a, const void* b)
+{
+	return Q_stricmp(((const characterTag_t*)a)->code, ((const characterTag_t*)b)->code);
+}
+
+// Collect the distinct tags of all the characters, sorted by raw code. "none" is not a tag.
+static void CHA_BuildTagList()
+{
+	memset(tagsData, 0, sizeof(tagsData));
+	loadedTags = 0;
+	for (int c = 0; c < loadedCharacters; c++)
+	{
+		const char *list = charactersData[c].tags;
+		while (*list)
+		{
+			while (*list == ',' || *list == ' ')
+			{
+				list++;
+			}
+			const char *end = list;
+			while (*end && *end != ',')
+			{
+				end++;
+			}
+			size_t length = end - list;
+			while (length && list[length - 1] == ' ')
+			{
+				length--;
+			}
+			if (length && length < sizeof(tagsData[0].code) && !(length == 4 && !Q_stricmpn(list, "none", 4)))
+			{
+				char code[sizeof(tagsData[0].code)];
+				Q_strncpyz(code, list, (int)length + 1);
+				qboolean known = qfalse;
+				for (int t = 0; t < loadedTags && !known; t++)
+				{
+					known = (qboolean)!Q_stricmp(tagsData[t].code, code);
+				}
+				if (!known && loadedTags < MAX_TAGS)
+				{
+					Q_strncpyz(tagsData[loadedTags++].code, code, sizeof(tagsData[0].code));
+				}
+			}
+			list = end;
+		}
+	}
+	qsort(tagsData, loadedTags, sizeof(characterTag_t), CHA_SortTagsByCode);
+}
+
 void CHA_ParseCharacterFiles()
 {
 	CHA_FreeCharacters();
@@ -508,5 +557,6 @@ void CHA_ParseCharacterFiles()
 	}
 
 	qsort(charactersData, loadedCharacters, sizeof(characterInfo_t), CHA_SortCharactersByName);
+	CHA_BuildTagList();
 }
 #pragma endregion

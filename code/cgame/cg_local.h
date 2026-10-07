@@ -157,7 +157,6 @@ struct centity_s
 	qboolean		currentValid;	// true if cg.frame holds this entity
 
 	int				muzzleFlashTime;	// move to playerEntity?
-	qboolean		altFire;			// move to playerEntity?
 	int				attack_index;			// move to playerEntity?
 
 	int				previousEvent;
@@ -644,6 +643,7 @@ extern	vmCvar_t		cg_panoNumShots;
 extern	vmCvar_t		fx_freeze;
 extern	vmCvar_t		fx_debug;
 extern	vmCvar_t		cg_speeds;
+extern	vmCvar_t		cg_clipCull;
 
 extern	vmCvar_t		cg_missionInfoFlashTime;
 extern	vmCvar_t		cg_hudFiles;
@@ -813,6 +813,8 @@ void CG_GetTagWorldPosition( refEntity_t *model, char *tag, vec3_t pos, vec3_t a
 // cg_predict.c
 //
 int	CG_PointContents( const vec3_t point, int passEntityNum );
+int	CG_ClipMoveToEntities( const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
+						   int skipNumber, int mask, trace_t *tr );
 void CG_Trace( trace_t *result, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
 					 const int skipNumber, const int mask, const EG2_Collision eG2TraceType=G2_NOCOLLIDE, const int useLod=0 );
 void CG_PredictPlayerState( void );
@@ -881,7 +883,7 @@ void CG_InitItemForAmmo(gitem_t* item, int weaponNum);
 qboolean CG_IsChargedAttack(centity_t* cent);
 const char* CG_GetMuzzleEffect(const centity_t* cent, const weaponData_t* wData);
 void CG_RegisterWeapon( int weaponNum );
-int CG_GetAttackIndex(gentity_t *gent,qboolean alt_fire);
+int CG_CurrentAttackIndex(const centity_t *cent);
 void CG_RegisterItemVisuals( int itemNum );
 void CG_RegisterItemSounds( int itemNum );
 
@@ -1229,7 +1231,7 @@ void CG_BounceEffect( centity_t *cent, int weapon, vec3_t origin, vec3_t normal 
 void CG_MissileStick( centity_t *cent, int weapon, vec3_t origin );
 
 void CG_MissileHitPlayer( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, int attackIndex );
-void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir, qboolean altFire);
+void CG_MissileHitWall( centity_t *cent, int weapon, vec3_t origin, vec3_t dir );
 
 void CG_DrawTargetBeam( vec3_t start, vec3_t end, vec3_t norm, const char *beamFx, const char *impactFx );
 

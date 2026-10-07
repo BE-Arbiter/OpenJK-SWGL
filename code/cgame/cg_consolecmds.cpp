@@ -31,6 +31,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 void CG_TargetCommand_f( void );
 extern qboolean	player_locked;
 extern void CMD_CGCam_Disable( void );
+extern void FX_PoolReport( void );
 void CG_NextInventory_f( void );
 void CG_PrevInventory_f( void );
 void CG_NextForcePower_f( void );
@@ -304,6 +305,10 @@ static consoleCommand_t	commands[] = {
 	{ "uiNpcWeaponPrev",		CG_NPC_PrevWeapon_f},
 	{ "uiNpcWeaponLabelUpd",		CG_NPC_UpdateLabel}, 
 	{ "characterUpdateSearch",		CG_Characters_SearchChanged_f},
+	{ "characterResetSearch",		CG_Characters_ResetSearch_f},
+	{ "characterToggleTags",		CG_Characters_ToggleTags_f},
+	{ "characterTagPreviousPage",		CG_Characters_TagPreviousPage_f},
+	{ "characterTagNextPage",		CG_Characters_TagNextPage_f},
 	{ "characterConfigsRefresh",		CG_Characters_ConfigsRefresh_f},
 	{ "characterBack",		CG_Characters_Back_f},
 	{ "characterButtonClick",		CG_Characters_CharacterClick_f},
@@ -319,6 +324,7 @@ static consoleCommand_t	commands[] = {
 	{ "dualwield",			CG_Dualwield_f},
 	{ "forcenext",			CG_NextForcePower_f },
 	{ "forceprev",			CG_PrevForcePower_f },
+	{ "fxpool",				FX_PoolReport },	// effect pool usage per .efx file
 	{ "invnext",			CG_NextInventory_f },
 	{ "invprev",			CG_PrevInventory_f },
 	{ "la_zoom",			CG_ToggleLAGoggles },

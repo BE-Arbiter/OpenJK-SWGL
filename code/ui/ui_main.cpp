@@ -1921,6 +1921,22 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "characterUpdateSearch\n");
 		}
+		else if (Q_stricmp(name, "characterTagPreviousPage") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterTagPreviousPage\n");
+		}
+		else if (Q_stricmp(name, "characterTagNextPage") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterTagNextPage\n");
+		}
+		else if (Q_stricmp(name, "characterToggleTags") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterToggleTags\n");
+		}
+		else if (Q_stricmp(name, "characterResetSearch") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterResetSearch\n");
+		}
 		else if (Q_stricmp(name, "characterConfigsRefresh") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "characterConfigsRefresh\n");
@@ -2443,7 +2459,11 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s\n", Cvar_VariableString("ui_npc_type")));
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s %s %s %s\n", Cvar_VariableString("ui_char_model"), Cvar_VariableString("ui_char_skin_head"), Cvar_VariableString("ui_char_skin_torso"), Cvar_VariableString("ui_char_skin_legs")));
-			ui.Cmd_ExecuteText(EXEC_NOW, va("playerteam %s\n", Cvar_VariableString("ui_team")));
+			// "Change team" off: the character keeps the current team.
+			if (Cvar_VariableIntegerValue("g_allowAlignmentChange"))
+			{
+				ui.Cmd_ExecuteText(EXEC_NOW, va("playerteam %s\n", Cvar_VariableString("ui_team")));
+			}
 			if (Cvar_VariableIntegerValue("g_adoptcharstats") >= 1)
 			{
 				ui.Cmd_ExecuteText(EXEC_NOW, va("give health %s\n", Cvar_VariableString("ui_health")));
@@ -4140,8 +4160,12 @@ static void UI_BuildPlayerModel_List(qboolean inGameLoad)
 				filelen = strlen(fileptr);
 				COM_StripExtension(fileptr, skinname, sizeof(skinname));
 
-				if (IsImageFile(dirptr, skinname, (qboolean)(building != 0)))
-				{ //if it exists
+				// The icon is optional: the skin list writes the name when it is missing.
+				if (building)
+				{
+					IsImageFile(dirptr, skinname, qtrue);
+				}
+				{
 					if (Q_stricmpn(skinname, "head_", 5) == 0)
 					{
 						if (species->SkinHeadCount >= species->SkinHeadMax)
@@ -4248,8 +4272,11 @@ static void UI_BuildPlayerModel_List(qboolean inGameLoad)
 				filelen = strlen(fileptr);
 				COM_StripExtension(fileptr, skinname, sizeof(skinname));
 
-				if (IsImageFile(dirptr, skinname, (qboolean)(building != 0)))
-				{ //if it exists
+				if (building)
+				{
+					IsImageFile(dirptr, skinname, qtrue);
+				}
+				{
 					if (Q_stricmpn(skinname, "model_", 6) == 0)
 					{
 						if (species->SkinCount >= species->SkinMax)
