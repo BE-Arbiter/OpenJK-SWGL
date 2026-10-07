@@ -1757,6 +1757,7 @@ typedef enum //# animNumber_e
 	TORSO_D_PISTOL,
 	TORSO_D_IDLE,
 	TORSO_Z6_AIM,
+	TORSO_PLX_AIM,
 
 	//======================================================
 	//cinematic anims
@@ -1986,6 +1987,10 @@ typedef enum //# animNumber_e
 
 	// Cut standing animation from JK2
 	BOTH_STAND7,
+
+	// Saber stances for SS_TAVION and SS_DESANN
+	BOTH_SABERTAVION_STANCE,
+	BOTH_SABERDESSAN_STANCE,
 
 	//# #eol
 	MAX_ANIMATIONS,

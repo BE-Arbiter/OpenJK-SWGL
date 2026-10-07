@@ -647,6 +647,12 @@ extern	vmCvar_t		cg_speeds;
 
 extern	vmCvar_t		cg_missionInfoFlashTime;
 extern	vmCvar_t		cg_hudFiles;
+extern	vmCvar_t		cg_validJKO;
+qboolean CG_JK2HudRequested( void );
+qboolean CG_JK2HudActive( void );
+void CG_RegisterJK2Hud( void );
+void CG_DrawJK2HUD( const centity_t *cent, const float hudRatio );
+void CG_DrawJK2IconBackground( void );
 
 extern	vmCvar_t		cg_turnAnims;
 extern	vmCvar_t		cg_motionBoneComp;
@@ -755,6 +761,15 @@ void CG_DrawString( float x, float y, const char *string,
 void CG_PrintInterfaceGraphics(int min,int max);
 void CG_DrawNumField (int x, int y, int width, int value,int charWidth,int charHeight,int style,qboolean zeroFill);
 void CG_DrawProportionalString(int x, int y, const char* str, int style, vec4_t color, float aspectCorrection = 1.0f);
+
+// Horizontal alignment for CG_DrawTextInBox.
+typedef enum textBoxAlign_s {
+	ALIGN_LEFT,		// flush against the left edge of the box
+	ALIGN_CENTER,		// centred, the default
+	ALIGN_RIGHT		// flush against the right edge
+} textBoxAlign_t;
+
+void CG_DrawTextInBox(int iBoxX, int iBoxY, int iBoxWidth, int iBoxHeight, const char* psText, int iFontHandle, const vec4_t v4Color, textBoxAlign_t iAlign = ALIGN_CENTER);
 
 
 void CG_DrawStringExt( int x, int y, const char *string, const float *setColor,
@@ -1251,6 +1266,7 @@ int		cgi_SP_GetStringTextString(const char *text, char *buf, int bufferlength);
 void	cgi_UI_Menu_Reset( void );
 void	cgi_UI_Menu_New(char *buf );
 void	cgi_UI_Menu_OpenByName(char *buf);
+void	cgi_UI_Run_Command(const char* buf);
 void	cgi_UI_SetActive_Menu(char *name);
 void	cgi_UI_Parse_Int(int *value);
 void	cgi_UI_Parse_String(char *buf);

@@ -38,7 +38,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define ITEM_TYPE_SLIDER_INTEGER	15
 #define ITEM_TYPE_SLIDER_ROTATE     16
 
-
 #define ITEM_ALIGN_LEFT 0                 // left alignment
 #define ITEM_ALIGN_CENTER 1               // center alignment
 #define ITEM_ALIGN_RIGHT 2                // right alignment
@@ -63,6 +62,11 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define WINDOW_STYLE_SHADER   3           // gradient bar based on background color
 #define WINDOW_STYLE_TEAMCOLOR 4          // team color
 #define WINDOW_STYLE_CINEMATIC 5          // cinematic
+
+// how a WINDOW_STYLE_SHADER background is fitted to the item rectangle
+#define BACKGROUND_NONE 0                    // stretch the whole shader over the rectangle
+#define BACKGROUND_NINE_PATCH_STRETCH 1      // keep the borders, stretch the edges and the center
+#define BACKGROUND_NINE_PATCH_REPEAT 2       // keep the borders, tile the edges and the center
 
 #define MENU_TRUE 1                       // uh.. true
 #define MENU_FALSE 0                      // and false
@@ -104,6 +108,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define FEEDER_MISSION						0x1a			// Mission List
 #define FEEDER_ATTR_DISABLED				0x1b			// Disabled Npc Attributes
 #define FEEDER_ATTR_ENABLED 				0x1c			// Enabled Npc Attributes
+#define FEEDER_CHAR_CONFIGS					0x1d			// Saved configurations of the character (character menu)
+#define FEEDER_ANIM_OVERRIDES				0x1e			// Animation overrides of the player (cheat menu)
+#define FEEDER_AMMO							0x1f			// Ammo types of the player (cheat menu)
 
 #define UI_VERSION				200
 #define UI_HANDICAP				200
@@ -171,3 +178,4 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define UI_PLAYER_WEAPON_LABEL_4 262
 #define UI_PLAYER_WEAPON_LABEL_5 263
 #define UI_PLAYER_WEAPON_LABEL_6 264
+#define UI_DATAPAD_CHARACTERS	 265

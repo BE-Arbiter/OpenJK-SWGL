@@ -26,6 +26,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "../client/vmachine.h"
 #include "g_local.h"
+#include "cg_characters.h"
 
 #include "../qcommon/sstring.h"
 #include "qcommon/ojk_saved_game_helper.h"
@@ -89,10 +90,10 @@ int	force_icons[NUM_FORCE_POWERS];
 void CG_DrawDataPadHUD( centity_t *cent );
 void CG_DrawDataPadLoadoutFrame( centity_t *cent );
 void CG_DrawDataPadObjectives(const centity_t *cent );
-void CG_DrawDataPadIconBackground(const int backgroundType);
 void CG_DrawDataPadWeaponSelect( void );
 void CG_LDO_DrawWeapons( void );
 void CG_DrawDataPadForceSelect( void );
+qboolean CG_GetAmmoName( int ammoIndex, char *name, int nameSize );
 
 /*
 ================
@@ -221,31 +222,35 @@ Ghoul2 Insert End
 	case CG_DRAW_DATAPAD_WEAPONS:
 		if (cg.snap)
 		{
-			CG_DrawDataPadIconBackground(ICON_WEAPONS);
 			CG_DrawDataPadWeaponSelect();
 		}
 		return 0;
 	case CG_DRAW_DATAPAD_LOADOUT:
 		if (cg.snap)
 		{
-			CG_DrawDataPadIconBackground(ICON_INVENTORY);
 			CG_LDO_DrawWeapons();
 		}
 		return 0;
 	case CG_DRAW_DATAPAD_INVENTORY:
 		if (cg.snap)
 		{
-			CG_DrawDataPadIconBackground(ICON_INVENTORY);
 			CG_DrawDataPadInventorySelect();
 		}
 		return 0;
 	case CG_DRAW_DATAPAD_FORCEPOWERS:
 		if (cg.snap)
 		{
-			CG_DrawDataPadIconBackground(ICON_FORCE);
 			CG_DrawDataPadForceSelect();
 		}
 		return 0;
+	case CG_DRAW_CHARACTERS:
+		if (cg.snap)
+		{
+			CG_DrawCharactersMenu();
+		}
+		return 0;
+	case CG_GET_AMMO_NAME:
+		return CG_GetAmmoName((int)arg0, (char *)arg1, (int)arg2);
 	}
 	return -1;
 }
@@ -393,6 +398,7 @@ vmCvar_t	cg_speeds;
 
 vmCvar_t	cg_missionInfoFlashTime;
 vmCvar_t	cg_hudFiles;
+vmCvar_t	cg_validJKO;
 
 vmCvar_t	cg_neverHearThatDumbBeepingSoundAgain;
 
@@ -456,6 +462,12 @@ vmCvar_t		ui_weaponFive;
 vmCvar_t		ui_weaponFive_label;
 vmCvar_t		ui_weaponSix;
 vmCvar_t		ui_weaponSix_label;
+
+vmCvar_t		ui_c_filter_name;
+vmCvar_t		ui_character_screen;
+vmCvar_t		ui_character_selected;
+vmCvar_t		ui_character_page;
+vmCvar_t		ui_character_index;
 
 
 
@@ -560,6 +572,7 @@ static cvarTable_t cvarTable[] = {
 	{ &cg_skippingcin, "skippingCinematic", "0", CVAR_ROM},
 	{ &cg_missionInfoFlashTime, "cg_missionInfoFlashTime", "10000", 0  },
 	{ &cg_hudFiles, "cg_hudFiles", "ui/jahud.txt", CVAR_ARCHIVE},
+	{ &cg_validJKO, "g_validJKO", "0", 0},
 
 	{ &cg_VariantSoundCap, "cg_VariantSoundCap", "0", 0 },
 	{ &cg_turnAnims, "cg_turnAnims", "0", 0 },
@@ -623,6 +636,11 @@ static cvarTable_t cvarTable[] = {
 	{ &ui_weaponFive_label, "ui_weaponFive_label","None",CVAR_ARCHIVE},
 	{ &ui_weaponSix, "ui_weaponSix","WP_NONE",CVAR_ARCHIVE},
 	{ &ui_weaponSix_label, "ui_weaponSix_label","None",CVAR_ARCHIVE},
+	{ &ui_c_filter_name, "ui_c_filter_name","",CVAR_ARCHIVE},
+	{ &ui_character_screen, "ui_character_screen","",CVAR_ARCHIVE},
+	{ &ui_character_selected, "ui_character_selected","",CVAR_ARCHIVE},
+	{ &ui_character_page, "ui_character_page","",CVAR_ARCHIVE},
+	{ &ui_character_index, "ui_character_index","",CVAR_ARCHIVE},
 };
 
 static const size_t cvarTableSize = ARRAY_LEN( cvarTable );
@@ -1569,6 +1587,7 @@ static void CG_RegisterGraphics( void ) {
 	cgs.media.weaponIconBackground	= cgi_R_RegisterShaderNoMip( "gfx/hud/background");
 	cgs.media.forceIconBackground	= cgi_R_RegisterShaderNoMip( "gfx/hud/background_f");
 	cgs.media.inventoryIconBackground= cgi_R_RegisterShaderNoMip( "gfx/hud/background_i");
+	CG_RegisterJK2Hud();
 	cgs.media.dataPadFrame			= cgi_R_RegisterShaderNoMip( "gfx/menus/datapad");
 	cgs.media.dataPadLoadoutFrame			= cgi_R_RegisterShaderNoMip( "gfx/menus/equipment_bg");
 
@@ -2352,6 +2371,7 @@ void CG_Init( int serverCommandSequence ) {
 
 	cgs.media.qhFontSmall = cgi_R_RegisterFont("ocr_a");
 	cgs.media.qhFontMedium= cgi_R_RegisterFont("ergoec");
+	cgs.media.qhFontTitle = cgi_R_RegisterFont("anewhope");
 
 	cgs.media.whiteShader   = cgi_R_RegisterShader( "white" );
 	cgs.media.loadTick		= cgi_R_RegisterShaderNoMip( "gfx/hud/load_tick" );
@@ -3252,6 +3272,14 @@ void CG_LoadHudMenu(void)
 //	cgi_UI_String_Init();
 
 //	cgi_UI_Menu_Reset();
+
+	// The JK2 HUD needs the JKO assets; without them go back to the default HUD.
+	if ( CG_JK2HudRequested() && !CG_JK2HudActive() )
+	{
+		CG_Printf( S_COLOR_YELLOW "JK2 HUD needs the JKO assets, using default\n" );
+		cgi_Cvar_Set( "cg_hudFiles", "ui/jahud.txt" );
+		cgi_Cvar_Update( &cg_hudFiles );
+	}
 
 	hudSet = cg_hudFiles.string;
 	if (hudSet[0] == '\0')

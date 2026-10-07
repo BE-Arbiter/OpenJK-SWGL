@@ -107,8 +107,14 @@ set(SPGameGameFiles
 	"${SPDir}/game/g_usable.cpp"
 	"${SPDir}/game/g_utils.cpp"
 	"${SPDir}/game/g_weapon.cpp"
-	"${SPDir}/game/g_weaponLoad.h"
+	"${SPDir}/game/g_parseUtils.cpp"
+	"${SPDir}/game/g_parseUtils.h"
 	"${SPDir}/game/g_weaponLoad.cpp"
+	"${SPDir}/game/g_weaponLoad.h"
+	"${SPDir}/game/g_characters.cpp"
+	"${SPDir}/game/g_characters.h"
+	"${SPDir}/game/g_charactersLoad.cpp"
+	"${SPDir}/game/g_charactersLoad.h"
 	"${SPDir}/game/genericparser2.cpp"
 	"${SPDir}/game/NPC.cpp"
 	"${SPDir}/game/NPC_behavior.cpp"
@@ -187,7 +193,10 @@ set(SPGameCGameFiles
 	"${SPDir}/cgame/cg_camera.cpp"
 	"${SPDir}/cgame/cg_consolecmds.cpp"
 	"${SPDir}/cgame/cg_credits.cpp"
+	"${SPDir}/cgame/cg_characters.cpp"
+	"${SPDir}/cgame/cg_characters.h"
 	"${SPDir}/cgame/cg_draw.cpp"
+	"${SPDir}/cgame/cg_hud_jk2.cpp"
 	"${SPDir}/cgame/cg_drawtools.cpp"
 	"${SPDir}/cgame/cg_effects.cpp"
 	"${SPDir}/cgame/cg_ents.cpp"
@@ -355,6 +364,7 @@ set(SPGameFiles ${SPGameFiles} ${SPGameG2Files})
 
 set(SPGameRendererFiles
 	"${SPDir}/rd-common/mdx_format.h"
+	"${SPDir}/rd-common/mdx_merge.h"
 	"${SPDir}/rd-common/tr_types.h"
 	)
 source_group("renderer" FILES ${SPGameRendererFiles})

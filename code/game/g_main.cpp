@@ -752,7 +752,7 @@ void G_InitCvars( void ) {
 	g_subtitles = gi.cvar( "g_subtitles", "0", CVAR_ARCHIVE );
 	com_buildScript = gi.cvar ("com_buildscript", "0", 0);
 
-	g_saberAutoBlocking = gi.cvar( "g_saberAutoBlocking", "1", CVAR_CHEAT );//must press +block button to do any blocking
+	g_saberAutoBlocking = gi.cvar( "g_saberAutoBlocking", "1", CVAR_ARCHIVE );//0 = the player must press +block to block (set in the Setup menu)
 	g_saberRealisticCombat = gi.cvar( "g_saberMoreRealistic", "0", CVAR_ARCHIVE );//makes collision more precise, increases damage
 	debug_subdivision = gi.cvar( "debug_subdivision", "0", CVAR_ARCHIVE );//debug for dismemberment
 	g_dismemberProbabilities = gi.cvar ( "g_dismemberProbabilities", "1", CVAR_ARCHIVE );//0 = ignore probabilities, 1 = use probabilities
@@ -1616,6 +1616,11 @@ static inline qboolean G_RagWantsHumanoidsOnly( CGhoul2Info *ghlInfo )
 
 	if ( !Q_stricmp( "models/players/_humanoid/_humanoid", GLAName ) )
 	{//only _humanoid skeleton is expected to have these
+		return qtrue;
+	}
+	// Animation override: "models/players/_humanoid_o_<key>/_humanoid" has the _humanoid skeleton.
+	if ( !Q_stricmpn( "models/players/_humanoid_o_", GLAName, 27 ) )
+	{
 		return qtrue;
 	}
 	if (!Q_stricmp("models/players/JK2anims/JK2anims", GLAName))

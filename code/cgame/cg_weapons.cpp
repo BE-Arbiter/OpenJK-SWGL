@@ -2004,51 +2004,6 @@ void CG_DrawDataPadWeaponSelect( void )
 	cgi_R_SetColor( NULL );
 }
 
-/*
-===================
-CG_DrawDataPadIconBackground
-
-Draw the proper background graphic for the icons being displayed on the datapad
-===================
-*/
-void CG_DrawDataPadIconBackground(const int backgroundType)
-{
-//	const int		graphicXPos = 40;
-//	const int		graphicYPos = 340;
-//	const short		graphicHeight = 60;
-//	const short		graphicWidth = 560;
-//	qhandle_t		background;
-
-/*
-	if (backgroundType == ICON_INVENTORY)	// Display inventory background?
-	{
-		background = cgs.media.inventoryIconBackground;
-	}
-	else if (backgroundType == ICON_WEAPONS)	// Display weapon background?
-	{
-		background = cgs.media.weaponIconBackground;
-	}
-	else 	// Display force background?
-	{
-		background = cgs.media.forceIconBackground;
-	}
-
-	cgi_R_SetColor( colorTable[CT_WHITE] );	// Let the graphic set the color
-
-	CG_DrawPic( graphicXPos,
-		graphicYPos+(graphicHeight/2),
-		graphicWidth,
-		-graphicHeight,
-		background);	// Top half
-
-	CG_DrawPic( graphicXPos,
-		graphicYPos+(graphicHeight/2),
-		graphicWidth,
-		graphicHeight,
-		background);	// Bottom half
-
-*/
-}
 
 /*
 ===============
@@ -2720,7 +2675,11 @@ void CG_LDO_SwitchWeapon_f(void) {
 	if (cg.snap->ps.weapons[cg.LoadoutWeaponSelect])
 	{
 		int ammoIndex = weaponData[cg.LoadoutWeaponSelect].ammoIndex;
-		int givenAmmo = ammoData[ammoIndex].max / 3;
+		// One clip: 3 for a weapon to throw, 50 for a weapon to shoot.
+		const weaponCategory_t category = weaponData[cg.LoadoutWeaponSelect].weaponCategory;
+		const qboolean thrown = (qboolean)(category == WC_GRENADE || category == WC_EXPLOSIVE || weaponData[cg.LoadoutWeaponSelect].weaponBucket == WB_THROWABLES);
+		const int clip = thrown ? 3 : 50;
+		int givenAmmo = Q_min(clip, ammoData[ammoIndex].max);
 		ent->client->ps.weapons[cg.LoadoutWeaponSelect] = 1;
 		if (ent->client->ps.ammo[ammoIndex] < givenAmmo) {
 			ent->client->ps.ammo[ammoIndex] = givenAmmo;
@@ -2871,6 +2830,72 @@ void CG_NPC_PrevWeapon_f(void) {
 	CG_NPC_UpdateLabel();
 }
 
+// Writes the translated name of a weapon: SP_INGAME_<classname>, SPMOD_INGAME_<classname>, <classname>_NAME, else the classname.
+static void CG_WeaponName(int weaponIndex, char *name, int nameSize)
+{
+	const char *classname = weaponData[weaponIndex].classname;
+	if (!cgi_SP_GetStringTextString(va("SP_INGAME_%s", classname), name, nameSize)
+		&& !cgi_SP_GetStringTextString(va("SPMOD_INGAME_%s", classname), name, nameSize)
+		&& !cgi_SP_GetStringTextString(va("%s_NAME", classname), name, nameSize))
+	{
+		Q_strncpyz(name, classname, nameSize);
+	}
+}
+
+/*
+===================
+CG_GetAmmoName
+
+Writes the translated name of the ammo type ammoIndex, for the cheat menu.
+Returns qfalse for the ammo types the player does not use: none, force, emplaced guns, and the ammo types of no weapon.
+===================
+*/
+qboolean CG_GetAmmoName(int ammoIndex, char *name, int nameSize)
+{
+	// The string keys of the hard coded ammo types (sp_ingame.str).
+	static const char *baseKeys[AMMO_HC_MAX] = {
+		NULL,						// AMMO_NONE
+		NULL,						// AMMO_FORCE: the cheat menu has a force pool
+		"SP_INGAME_AMMO_BLASTER",
+		"SP_INGAME_AMMO_POWERCELL",
+		"SP_INGAME_AMMO_METALLIC_BOLTS",
+		"SP_INGAME_AMMO_ROCKETS",
+		NULL,						// AMMO_EMPLACED: turrets and vehicles
+		"SP_INGAME_AMMO_THERMAL",
+		"SP_INGAME_AMMO_TRIPMINE",
+		"SP_INGAME_AMMO_DETPACK",
+		NULL,						// AMMO_FLAMER: no key, the name of its weapon
+	};
+
+	if (ammoIndex <= AMMO_FORCE || ammoIndex == AMMO_EMPLACED || ammoIndex >= ammoCount || !name || nameSize <= 0)
+	{
+		return qfalse;
+	}
+
+	if (ammoIndex < AMMO_HC_MAX && baseKeys[ammoIndex] && cgi_SP_GetStringTextString(baseKeys[ammoIndex], name, nameSize))
+	{
+		return qtrue;
+	}
+
+	// A generated ammo type (a grenade or an explosive) has the name of its weapon.
+	if (ammoIndex >= AMMO_HC_MAX)
+	{
+		CG_WeaponName(ammoData[ammoIndex].giveWeaponIndex, name, nameSize);
+		return qtrue;
+	}
+
+	// Else the name of the first weapon of the player that uses it.
+	for (int i = FIRST_WEAPON; i < weaponCount; i++)
+	{
+		if (weaponData[i].ammoIndex == ammoIndex && weaponData[i].playerUsable)
+		{
+			CG_WeaponName(i, name, nameSize);
+			return qtrue;
+		}
+	}
+	return qfalse;
+}
+
 char label[256];
 void CG_NPC_UpdateLabel(void) {
 	cgi_Cvar_Update(&ui_npc_weapon);
@@ -2895,7 +2920,7 @@ void CG_NPC_UpdateLabel(void) {
 void CG_DrawNpcWeaponLabel(void) {
 	CG_NPC_UpdateLabel();
 	const short textboxXPos = 508;
-	const short textboxYPos = 118;
+	const short textboxYPos = 88;
 	const int	textboxWidth = 106;
 	const int	textboxHeight = 16;
 	const float	textScale = 0.75f;
@@ -3026,7 +3051,7 @@ void CG_DrawPCWeaponLabel(int index) {
 	}
 	CG_PC_UpdateLabel(index);
 	const short textboxXPos = 508;
-	const short textboxYPos = 57+ offsetFromPlayerLabel + ((index-1)*offsetPerIndex);
+	const short textboxYPos = 27 + offsetFromPlayerLabel + ((index-1)*offsetPerIndex);
 	const int	textboxWidth = 106;
 	const int	textboxHeight = 16;
 	const float	textScale = 0.75f;
