@@ -1912,6 +1912,7 @@ typedef struct trGlobals_s {
 	shader_t				*cinematicShader;
 	shader_t				*beamShader;	// white, additive, vertex colour: the RT_BEAM tube under RTX
 	shader_t				*shadowShader;
+	shader_t				*physMarkShader;	// dots of the phys editor: vertex colour, drawn over everything
 	shader_t				*distortionShader;
 	shader_t				*projectionShadowShader;
 
@@ -2691,6 +2692,28 @@ ANIMATED MODELS
 /*
 Ghoul2 Insert Start
 */
+// Cloth and hair physics (.phys), see tr_ghoul2_phys.cpp.
+struct physInstance_t;
+
+struct physSurfaceOut_t
+{
+	int		numVerts;
+	float	*xyz;		// 3 floats per vertex, model space
+	float	*normal;
+
+	physSurfaceOut_t() : numVerts( 0 ), xyz( NULL ), normal( NULL ) {}
+};
+
+void					G2Phys_Init( void );
+void					G2Phys_Shutdown( void );
+void					G2Phys_Reload_f( void );
+void					G2Phys_FreeInstance( void *inst );
+physInstance_t			*G2Phys_Update( const trRefEntity_t *ent, CBoneCache *bc, const model_t *glm, const surfaceInfo_v &slist );
+const physSurfaceOut_t	*G2Phys_GetSurface( const physInstance_t *inst, int surfaceNum );
+int						G2Phys_UICommand( const char *cmd, const char *arg, char *out, int outSize );
+qboolean				G2Phys_Highlighted( const char *surfaceName );
+void					G2Phys_AddBoneMarkers( const trRefEntity_t *ent, CBoneCache *bc, const model_t *glm );
+
 class CRenderableSurface
 {
 public:
@@ -2700,6 +2723,7 @@ public:
 	const int		ident;				// ident of this surface - required so the materials renderer knows what sort of surface this refers to
 #endif
 	CBoneCache 		*boneCache;
+	const physSurfaceOut_t	*physOut;	// solved cloth vertices, NULL for a skinned surface
 #ifdef USE_VBO_GHOUL2
 	mdxmVBOMesh_t	*vboMesh;
 #endif
@@ -2719,6 +2743,7 @@ public:
 	{
 		ident			= src.ident;
 		boneCache		= src.boneCache;
+		physOut			= src.physOut;
 		surfaceData		= src.surfaceData;
 #ifdef _G2_GORE
 		alternateTex	= src.alternateTex;
@@ -2735,6 +2760,7 @@ public:
 CRenderableSurface():
 	ident( SF_MDX ),
 	boneCache( nullptr ),
+	physOut( nullptr ),
 #ifdef USE_VBO_GHOUL2
 	vboMesh( nullptr ),
 #endif
@@ -2753,6 +2779,7 @@ CRenderableSurface():
 	{
 		ident			= SF_MDX;
 		boneCache		= nullptr;
+		physOut			= nullptr;
 		surfaceData		= nullptr;
 #ifdef _G2_GORE
 		alternateTex	= nullptr;

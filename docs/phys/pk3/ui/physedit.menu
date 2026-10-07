@@ -1,0 +1,442 @@
+///----------------------------------------------------------------------------------------------
+/// Phys editor: creates and edits the .phys file of the player model in game.
+/// Open it with the console command ph_menu. Logic: code/ui/ui_phys.cpp
+///----------------------------------------------------------------------------------------------
+{
+	menuDef
+	{
+		name					"physEdit"
+		fullScreen				1
+		rect					0 0 640 480
+		visible					1
+		focusColor				1 1 1 1
+
+		onOpen
+		{
+			uiScript			physOpen
+			hide				usedTab
+			hide				boneTab
+			show				unusedTab
+		}
+
+		onESC
+		{
+			uiScript			physRevert
+			uiScript			physClearHighlight
+			close				all
+			uiScript			closeingame
+		}
+
+		itemDef
+		{
+			name				background
+			style				WINDOW_STYLE_FILLED
+			rect				0 0 640 480
+			backcolor			0.02 0.02 0.03 1
+			visible				1
+			decoration
+		}
+
+		itemDef
+		{
+			name				title
+			text				"Phys editor"
+			type				ITEM_TYPE_TEXT
+			style				WINDOW_STYLE_EMPTY
+			rect				220 8 200 24
+			font				3
+			textscale			1
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			100
+			textaligny			2
+			forecolor			1 .682 0 1
+			visible				1
+			decoration
+		}
+
+		// Tabs
+		itemDef
+		{
+			name				tabUnused
+			text				"Unused"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_FILLED
+			rect				18 34 86 22
+			font				2
+			textscale			0.9
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			43
+			textaligny			3
+			backcolor			.12 .06 0 .95
+			forecolor			1 .682 0 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav"
+				uiScript		physClearHighlight
+				hide			usedTab
+				hide			boneTab
+				show			unusedTab
+			}
+		}
+
+		itemDef
+		{
+			name				tabUsed
+			text				"Used"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_FILLED
+			rect				106 34 86 22
+			font				2
+			textscale			0.9
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			43
+			textaligny			3
+			backcolor			.12 .06 0 .95
+			forecolor			1 .682 0 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav"
+				uiScript		physClearHighlight
+				hide			unusedTab
+				hide			boneTab
+				show			usedTab
+			}
+		}
+
+		itemDef
+		{
+			name				tabBones
+			text				"Bones"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_FILLED
+			rect				194 34 86 22
+			font				2
+			textscale			0.9
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			43
+			textaligny			3
+			backcolor			.12 .06 0 .95
+			forecolor			1 .682 0 1
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav"
+				uiScript		physClearHighlight
+				hide			unusedTab
+				hide			usedTab
+				show			boneTab
+				uiScript		physBonesOn
+			}
+		}
+
+		// Unused surfaces of the model
+		itemDef
+		{
+			name				listUnused
+			group				unusedTab
+			type				ITEM_TYPE_LISTBOX
+			feeder				48		///FEEDER_PHYS_UNUSED
+			style				WINDOW_STYLE_FILLED
+			rect				18 60 174 290
+			elementheight		16
+			font				2
+			textscale			0.75
+			border				1
+			bordersize			1
+			backcolor			.06 .03 0 .95
+			bordercolor			1 .682 0 .6
+			outlinecolor		1 .682 0 .35
+			forecolor			1 .682 0 1
+			descText			"The surfaces of the model without a group"
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+
+		itemDef
+		{
+			name				buttonAdd
+			group				unusedTab
+			text				"Add"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_FILLED
+			rect				18 356 174 24
+			font				2
+			textscale			1
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			87
+			textaligny			4
+			backcolor			.12 .06 0 .95
+			forecolor			1 .682 0 1
+			descText			"Makes a group of the selected surface. It appears in Used."
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav"
+				uiScript		physAdd
+			}
+		}
+
+		// Groups of the file
+		itemDef
+		{
+			name				listUsed
+			group				usedTab
+			type				ITEM_TYPE_LISTBOX
+			feeder				49		///FEEDER_PHYS_USED
+			style				WINDOW_STYLE_FILLED
+			rect				18 60 174 290
+			elementheight		16
+			font				2
+			textscale			0.75
+			border				1
+			bordersize			1
+			backcolor			.06 .03 0 .95
+			bordercolor			1 .682 0 .6
+			outlinecolor		1 .682 0 .35
+			forecolor			1 .682 0 1
+			descText			"The groups of the .phys file. Select one to edit it."
+			visible				0
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+
+		itemDef
+		{
+			name				buttonRemove
+			group				usedTab
+			text				"Remove"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_FILLED
+			rect				18 356 174 24
+			font				2
+			textscale			1
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			87
+			textaligny			4
+			backcolor			.12 .06 0 .95
+			forecolor			1 .682 0 1
+			descText			"Removes the selected group from the file"
+			visible				0
+			action
+			{
+				play			"sound/interface/button1.wav"
+				uiScript		physRemove
+			}
+		}
+
+		// Bones of the skeleton
+		itemDef
+		{
+			name				listBones
+			group				boneTab
+			type				ITEM_TYPE_LISTBOX
+			feeder				50		///FEEDER_PHYS_BONES
+			style				WINDOW_STYLE_FILLED
+			rect				18 60 174 290
+			elementheight		16
+			font				2
+			textscale			0.75
+			border				1
+			bordersize			1
+			backcolor			.06 .03 0 .95
+			bordercolor			1 .682 0 .6
+			outlinecolor		1 .682 0 .35
+			forecolor			1 .682 0 1
+			descText			"The bones of the skeleton. The indent shows the hierarchy."
+			visible				0
+			action
+			{
+				play			"sound/interface/button1.wav"
+			}
+		}
+
+		itemDef
+		{
+			name				buttonInsertBone
+			group				boneTab
+			text				"Insert"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_FILLED
+			rect				18 356 174 24
+			font				2
+			textscale			1
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			87
+			textaligny			4
+			backcolor			.12 .06 0 .95
+			forecolor			1 .682 0 1
+			descText			"Inserts the name of the selected bone in the text, at the cursor"
+			visible				0
+			action
+			{
+				play			"sound/interface/button1.wav"
+				uiScript		physInsertBone
+			}
+		}
+
+		// Preview
+		itemDef
+		{
+			name				previewBack
+			style				WINDOW_STYLE_FILLED
+			rect				198 60 240 320
+			backcolor			.08 .14 .22 1
+			visible				1
+			decoration
+		}
+
+		itemDef
+		{
+			name				character
+			type				ITEM_TYPE_MODEL
+			rect				198 60 240 320
+			model_g2anim		"BOTH_STAND1"
+			asset_model			"ui_char_model"
+			model_angle			180
+			model_g2mins		-20 -15 -10
+			model_g2maxs		20 15 45
+			model_rotation		0
+			model_fovx			50
+			model_fovy			50
+			cvar				ui_char_model_angle
+			isCharacter			1
+			visible				1
+			decoration
+		}
+
+		itemDef
+		{
+			name				character_rotate
+			type				ITEM_TYPE_SLIDER_ROTATE
+			rect				198 60 240 320
+			cvar				ui_char_model_angle
+			isCharacter			1
+			visible				1
+		}
+
+		// Text of the selected group
+		itemDef
+		{
+			name				groupText
+			type				ITEM_TYPE_OWNERDRAW
+			ownerdraw			4000
+			rect				444 60 190 130
+			font				2
+			textscale			0.6
+			forecolor			1 .9 .6 1
+			descText			"Text of the group. Click, then type. Refresh applies it to the model."
+			visible				1
+		}
+
+		itemDef
+		{
+			name				buttonRefresh
+			text				"Refresh"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_FILLED
+			rect				554 194 80 20
+			font				2
+			textscale			0.9
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			40
+			textaligny			3
+			backcolor			.12 .06 0 .95
+			forecolor			1 .682 0 1
+			descText			"Applies the text to the model"
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav"
+				uiScript		physRefresh
+			}
+		}
+
+		// Help
+		itemDef
+		{
+			name				help
+			type				ITEM_TYPE_OWNERDRAW
+			ownerdraw			4001
+			rect				444 220 190 160
+			font				2
+			textscale			0.5
+			forecolor			.8 .8 .8 1
+			descText			"Mouse wheel scrolls the help"
+			visible				1
+		}
+
+		// Status line
+		itemDef
+		{
+			name				status
+			type				ITEM_TYPE_OWNERDRAW
+			ownerdraw			4002
+			rect				18 392 616 16
+			font				2
+			textscale			0.75
+			forecolor			1 1 1 1
+			visible				1
+			decoration
+		}
+
+		// Back and Apply
+		itemDef
+		{
+			name				buttonBack
+			text				"Back"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_FILLED
+			rect				18 430 110 28
+			font				3
+			textscale			1
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			55
+			textaligny			3
+			backcolor			.12 .06 0 .95
+			forecolor			1 .682 0 1
+			descText			"Closes and drops the changes"
+			visible				1
+			action
+			{
+				play			"sound/interface/esc.wav"
+				uiScript		physRevert
+				uiScript		physClearHighlight
+				close			all
+				uiScript		closeingame
+			}
+		}
+
+		itemDef
+		{
+			name				buttonApply
+			text				"Apply"
+			type				ITEM_TYPE_BUTTON
+			style				WINDOW_STYLE_FILLED
+			rect				524 430 110 28
+			font				3
+			textscale			1
+			textalign			ITEM_ALIGN_CENTER
+			textalignx			55
+			textaligny			3
+			backcolor			.12 .06 0 .95
+			forecolor			1 .682 0 1
+			descText			"Writes the .phys file and closes"
+			visible				1
+			action
+			{
+				play			"sound/interface/button1.wav"
+				uiScript		physSave
+				uiScript		physClearHighlight
+				close			all
+				uiScript		closeingame
+			}
+		}
+	}
+}

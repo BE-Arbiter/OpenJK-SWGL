@@ -71,6 +71,18 @@ extern void AssetCache(void);
 extern void UI_DataPadMenu(void);
 extern void UI_SystemMenu(void);
 extern void UI_SpawnerMenu(void);
+extern void UI_PhysMenu(void);
+
+// ui_phys.cpp
+void		UI_Phys_LoadMenu( void );
+qboolean	UI_Phys_Script( const char *name, const char **args );
+int			UI_Phys_FeederCount( float feederID );
+const char	*UI_Phys_FeederItemText( float feederID, int index, int column );
+qboolean	UI_Phys_FeederSelection( float feederID, int index );
+qboolean	UI_Phys_OwnerDraw( int ownerDraw, float x, float y, float w, float h, float scale, vec4_t color, int style, int font );
+qboolean	UI_Phys_HandleKey( int ownerDraw, int key );
+void		UI_Phys_SetText( const char *text );
+
 
 //
 // ui_connect.c

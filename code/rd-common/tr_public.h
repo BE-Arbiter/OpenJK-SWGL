@@ -407,6 +407,9 @@ typedef struct {
 	// g_FastRendererSwitch: the next EndFrame copies its final image into rgba before it
 	// presents. The image is width x height, 4 bytes per pixel, top row first.
 	void		(*CaptureNextFrame)(byte *rgba, int width, int height);
+
+	// Editor of the cloth and hair physics (.phys). NULL when the renderer has none.
+	int			(*PhysCommand)(const char *cmd, const char *arg, char *out, int outSize);
 } refexport_t;
 
 // this is the only function actually exported at the linker level

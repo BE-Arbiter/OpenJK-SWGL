@@ -1,0 +1,18 @@
+// Lana Beniko: skirt and hair
+cloth skirt
+{
+	surfaces	hips_skirt
+	pin			gradient pelvis -z -6 4
+	maxdist		8
+	collide		humanoid
+}
+
+hair hair
+{
+	surfaces	head_hair head_hair2
+	pin			gradient cranium -z -4 1
+	mode		lag
+	lagfreq		9
+	lagdamp		0.45
+	maxdist		4
+}

@@ -3859,6 +3859,22 @@ static void CreateInternalShaders( void ) {
 	tr.distortionShader = FinishShader();
 	shader.defaultShader = true;
 
+	// The dots of the phys editor are drawn last, over the models.
+	memset( &shader, 0, sizeof( shader ) );
+	memset( &stages, 0, sizeof( stages ) );
+	Q_strncpyz( shader.name, "<physmark>", sizeof( shader.name ) );
+	memcpy( shader.lightmapIndex, lightmapsNone, sizeof( shader.lightmapIndex ) );
+	memcpy( shader.styles, stylesDefault, sizeof( shader.styles ) );
+	for ( int i = 0 ; i < MAX_SHADER_STAGES ; i++ ) {
+		stages[i].bundle[0].texMods = texMods[i];
+	}
+	stages[0].bundle[0].image = tr.whiteImage;
+	stages[0].active = true;
+	stages[0].rgbGen = CGEN_EXACT_VERTEX;
+	stages[0].stateBits = GLS_DEPTHTEST_DISABLE | GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA;
+	shader.sort = SS_NEAREST;
+	tr.physMarkShader = FinishShader();
+
 	ARB_InitGlowShaders();
 }
 

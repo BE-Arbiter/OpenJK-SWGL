@@ -1,0 +1,17 @@
+cloth cape
+{
+	surfaces	torso_cape
+	pin			gradient thoracic -z 2 22
+	maxdist		26 38
+	collide		humanoid
+}
+
+hair hair
+{
+	surfaces	head_hair
+	pin			gradient cranium -z -6 0
+	mode		lag
+	lagfreq		9
+	lagdamp		0.45
+	maxdist		4
+}

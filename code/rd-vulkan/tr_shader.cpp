@@ -5309,6 +5309,15 @@ static void CreateInternalShaders( void )
 	stages[0].stateBits = GLS_DEPTHTEST_DISABLE | GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA;
 	tr.whiteShader = FinishShader();
 
+	// The dots of the phys editor are drawn last, over the models.
+	InitShader("<physmark>", lightmapsNone, stylesDefault);
+	stages[0].bundle[0].image[0] = tr.whiteImage;
+	stages[0].active = qtrue;
+	stages[0].bundle[0].rgbGen = CGEN_EXACT_VERTEX;
+	stages[0].stateBits = GLS_DEPTHTEST_DISABLE | GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA;
+	shader.sort = SS_NEAREST;
+	tr.physMarkShader = FinishShader();
+
 	InitShader("<cinematic>", lightmapsNone, stylesDefault);
 	stages[0].bundle[0].image[0] = tr.defaultImage; // will be updated by specific cinematic images
 	stages[0].active = qtrue;

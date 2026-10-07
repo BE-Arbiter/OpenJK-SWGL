@@ -154,6 +154,9 @@ typedef struct {
 
 	int			(*Milliseconds)( void );
 	void		(*Draw_DataPad)(int HUDType);
+
+	// Editor of the cloth and hair physics. Returns -1 when the renderer has none.
+	int			(*PhysCommand)(const char *cmd, const char *arg, char *out, int outSize);
 } uiimport_t;
 
 typedef enum {

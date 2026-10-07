@@ -1002,6 +1002,7 @@ typedef struct {
 
 	shader_t				*defaultShader;
 	shader_t				*shadowShader;
+	shader_t				*physMarkShader;	// dots of the phys editor: vertex colour, drawn over everything
 	shader_t				*distortionShader;
 	shader_t				*projectionShadowShader;
 
@@ -1597,6 +1598,28 @@ Ghoul2 Insert Start
 */
 class CBoneCache;
 
+// Cloth and hair physics (.phys), see tr_ghoul2_phys.cpp.
+struct physInstance_t;
+
+struct physSurfaceOut_t
+{
+	int		numVerts;
+	float	*xyz;		// 3 floats per vertex, model space
+	float	*normal;
+
+	physSurfaceOut_t() : numVerts( 0 ), xyz( NULL ), normal( NULL ) {}
+};
+
+void					G2Phys_Init( void );
+void					G2Phys_Shutdown( void );
+void					G2Phys_Reload_f( void );
+void					G2Phys_FreeInstance( void *inst );
+physInstance_t			*G2Phys_Update( const trRefEntity_t *ent, CBoneCache *bc, const model_t *glm, const surfaceInfo_v &slist );
+const physSurfaceOut_t	*G2Phys_GetSurface( const physInstance_t *inst, int surfaceNum );
+int						G2Phys_UICommand( const char *cmd, const char *arg, char *out, int outSize );
+qboolean				G2Phys_Highlighted( const char *surfaceName );
+void					G2Phys_AddBoneMarkers( const trRefEntity_t *ent, CBoneCache *bc, const model_t *glm );
+
 class CRenderableSurface
 {
 public:
@@ -1606,6 +1629,7 @@ public:
 	const int		ident;			// ident of this surface - required so the materials renderer knows what sort of surface this refers to
 #endif
  	CBoneCache 		*boneCache;		// pointer to transformed bone list for this surf
+	const physSurfaceOut_t	*physOut;	// solved cloth vertices, NULL for a skinned surface
 	mdxmSurface_t	*surfaceData;	// pointer to surface data loaded into file - only used by client renderer DO NOT USE IN GAME SIDE - if there is a vid restart this will be out of wack on the game
 #ifdef _G2_GORE
 	float			*alternateTex;		// alternate texture coordinates.
@@ -1621,6 +1645,7 @@ public:
 	{
 		ident	 = src.ident;
 		boneCache = src.boneCache;
+		physOut = src.physOut;
 		surfaceData = src.surfaceData;
 		alternateTex = src.alternateTex;
 		goreChain = src.goreChain;
@@ -1632,6 +1657,7 @@ public:
 CRenderableSurface():
 	ident(SF_MDX),
 	boneCache(0),
+	physOut(0),
 #ifdef _G2_GORE
 	surfaceData(0),
 	alternateTex(0),
@@ -1644,6 +1670,7 @@ CRenderableSurface():
 	void Init()
 	{
 		boneCache=0;
+		physOut=0;
 		surfaceData=0;
 #ifdef _G2_GORE
 		ident = SF_MDX;

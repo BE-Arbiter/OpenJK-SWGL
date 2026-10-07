@@ -1,0 +1,11 @@
+// Aralani: hair, colliders fitted to the model
+hair hair
+{
+	surfaces	head_hairc_back
+	pin			gradient cranium -z -4 4
+	mode		lag
+	lagfreq		9
+	lagdamp		0.45
+	maxdist		4
+	collide		model
+}

@@ -786,6 +786,7 @@ static consoleCommand_t	commands[] = {
 	{ "r_we",				R_WorldEffect_f },
 	//{ "imagecacheinfo",		RE_RegisterImages_Info_f },
 	{ "modellist",			R_Modellist_f },
+	{ "ph_reload",			G2Phys_Reload_f },
 	//{ "modelcacheinfo",		RE_RegisterModels_Info_f },
 	{ "r_cleardecals",		RE_ClearDecals },
 	{ "remapSky",			R_RemapSkyShader_f },
@@ -1187,6 +1188,8 @@ Ghoul2 Insert End
 	ri.Cvar_CheckRange( r_aviMotionJpegQuality, 10, 100, qtrue );
 	ri.Cvar_CheckRange( r_screenshotJpegQuality, 10, 100, qtrue );
 
+	G2Phys_Init();
+
 	for (size_t i = 0; i < numCommands; i++)
 	{
 		ri.Cmd_AddCommand(commands[i].cmd, commands[i].func);
@@ -1338,6 +1341,7 @@ void RE_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 
 	R_ShutdownWorldEffects();
 	R_ShutdownFonts();
+	G2Phys_Shutdown();
 
 	// contains vulkan resources/state, reinitialized on a map change.
 	//if (tr.registered) {
@@ -1751,6 +1755,7 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 #endif
 
 	re.CaptureNextFrame						= RE_CaptureNextFrame;
+	re.PhysCommand							= G2Phys_UICommand;
 
 	// Fields left unassigned here are NULL in a zero-initialized refexport_t
 	// -- any caller reaching them crashes at a null function pointer, so

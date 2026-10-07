@@ -1389,6 +1389,10 @@ void Text_PaintWithCursor(float x, float y, float scale, vec4_t color, const cha
 const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *handle)
 {
 	*handle = -1;
+	if (feederID == 0x30 || feederID == 0x31 || feederID == 0x32)
+	{
+		return UI_Phys_FeederItemText(feederID, index, column);
+	}
 	if (feederID == FEEDER_SAVEGAMES)
 	{
 		if (column==0)
@@ -1682,6 +1686,10 @@ static qboolean UI_RunMenuScript ( const char **args )
 
 	if (String_Parse(args, &name))
 	{
+		if (Q_stricmpn(name, "phys", 4) == 0 && UI_Phys_Script(name, args))
+		{
+			return qtrue;
+		}
 		if (Q_stricmp(name, "resetdefaults") == 0)
 		{
 			UI_ResetDefaults();
@@ -3066,6 +3074,11 @@ UI_FeederCount
 */
 static int UI_FeederCount(float feederID)
 {
+	if (feederID == 0x30 || feederID == 0x31 || feederID == 0x32)
+	{
+		return UI_Phys_FeederCount(feederID);
+	}
+
 	if (feederID == FEEDER_SAVEGAMES )
 	{
 		if (s_savegame.saveFileCnt == -1)
@@ -3229,6 +3242,11 @@ static void UI_DefaultCharacterColor(void)
 
 static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 {
+	if (UI_Phys_FeederSelection(feederID, index))
+	{
+		return;
+	}
+
 	if (feederID == FEEDER_SAVEGAMES)
 	{
 		s_savegame.currentLine = index;
@@ -3511,6 +3529,10 @@ static qboolean UI_Crosshair_HandleKey(int flags, float *special, int key)
 
 static qboolean UI_OwnerDrawHandleKey(int ownerDraw, int flags, float *special, int key)
 {
+	if (ownerDraw >= 4000 && ownerDraw <= 4002)
+	{
+		return UI_Phys_HandleKey(ownerDraw, key);
+	}
 
 	switch (ownerDraw)
 	{
@@ -5487,6 +5509,11 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 	rect.w = w;
 	rect.h = h;
 
+	if (UI_Phys_OwnerDraw(ownerDraw, x + text_x, y + text_y, w, h, scale, color, textStyle, iFontIndex))
+	{
+		return;
+	}
+
 	switch (ownerDraw)
 	{
 		case UI_EFFECTS:
@@ -5833,6 +5860,17 @@ void UI_SystemMenu(void)
 
 	ui.Key_SetCatcher(KEYCATCH_UI);
 
+}
+
+void UI_PhysMenu(void)
+{
+	UI_Phys_LoadMenu();
+
+	Menus_CloseByName("mainhud");
+
+	Menus_ActivateByName("physEdit");
+
+	ui.Key_SetCatcher(KEYCATCH_UI);
 }
 
 void UI_SpawnerMenu(void)
