@@ -173,9 +173,12 @@ main()
 		int layer = 0;
 		uint fade_entities[MAX_BLENDED_LAYERS];
 		int fade_entity_num = 0;
+		bool have_hit = false;
 		for (int hit = 0; hit < MAX_BLENDED_HITS; hit++)
 		{
-			trace_geometry_ray(ray, true, cull_mask);
+			if (!have_hit)
+				trace_geometry_ray(ray, true, cull_mask);
+			have_hit = false;
 
 			if (!found_intersection(ray_payload_geometry))
 				break;
@@ -188,9 +191,32 @@ main()
 			// A blended surface seen from a side its shader culls is not drawn. The back of a force field box
 			// is often coplanar with the wall behind it. The first world layer keeps both sides (its cull is unknown).
 			// Past MAX_BLENDED_LAYERS the layers are dropped: a blended surface must not become the primary one.
-			if (layer >= MAX_BLENDED_LAYERS || ((layer > 0 || layer_instance != ~0u) && model_side_culled(layer_instance, layer_triangle, get_hit_barycentric(ray_payload_geometry), ray.direction)))
+			if (layer >= MAX_BLENDED_LAYERS)
 			{
 				ray.t_min = ray_payload_geometry.hit_distance + 0.01;
+				continue;
+			}
+
+			if ((layer > 0 || layer_instance != ~0u) && model_side_culled(layer_instance, layer_triangle, get_hit_barycentric(ray_payload_geometry), ray.direction))
+			{
+				// A surface coplanar with the culled face must stay visible: trace again up to this face
+				// without the Q3 back faces (Vulkan "front facing"). A hit on another primitive is the next hit.
+				const uint culled_primitive = ray_payload_geometry.primitive_id;
+				const uint culled_buffer = ray_payload_geometry.buffer_and_instance_idx;
+				const float culled_distance = ray_payload_geometry.hit_distance;
+
+				ray_payload_geometry.barycentric = vec2(0);
+				ray_payload_geometry.primitive_id = ~0u;
+				ray_payload_geometry.buffer_and_instance_idx = 0;
+				ray_payload_geometry.hit_distance = 0;
+
+				traceRayEXT(topLevelAS[TLAS_INDEX_GEOMETRY], gl_RayFlagsCullFrontFacingTrianglesEXT | gl_RayFlagsSkipProceduralPrimitives, cull_mask,
+					SBT_RCHIT_GEOMETRY, 0, SBT_RMISS_EMPTY, ray.origin, ray.t_min, ray.direction, culled_distance + 0.01, RT_PAYLOAD_GEOMETRY);
+
+				have_hit = found_intersection(ray_payload_geometry)
+					&& (ray_payload_geometry.primitive_id != culled_primitive || ray_payload_geometry.buffer_and_instance_idx != culled_buffer);
+				if (!have_hit)
+					ray.t_min = culled_distance + 0.01;
 				continue;
 			}
 
