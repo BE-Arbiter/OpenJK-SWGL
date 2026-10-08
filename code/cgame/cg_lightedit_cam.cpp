@@ -85,7 +85,7 @@ void LE_CamFrame( void )
 	// The client sends 64 while Walk is held and 127 otherwise: Walk halves the speed.
 	dt = Com_Clamp( 0.0f, LEDIT_CAM_MAX_FRAME, cg.frametime * 0.001f );
 	VectorScale( axis[0], cmd.forwardmove * ( 1.0f / 127.0f ), wish );
-	VectorMA( wish, cmd.rightmove * ( 1.0f / 127.0f ), axis[1], wish );
+	VectorMA( wish, -cmd.rightmove * ( 1.0f / 127.0f ), axis[1], wish );	// axis[1] points left
 	wish[2] += cmd.upmove * ( 1.0f / 127.0f );
 	VectorMA( s_camOrg, dt * Q_max( 0.0f, ledit_cam_speed.value ), wish, s_camOrg );
 
