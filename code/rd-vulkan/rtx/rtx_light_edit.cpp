@@ -19,6 +19,8 @@ by the Free Software Foundation.
 #include "conversion.h"
 #include "rtx_light_edit.h"
 #include "rtx_light_file.h"
+#include "rtx_light_emissive.h"
+#include "rtx_light_sky.h"
 
 #include <vector>
 #include <stdarg.h>
@@ -116,6 +118,11 @@ static float ClampF( float lo, float v, float hi )
 int RTX_LightEdit_Generation( void )
 {
 	return g_generation;
+}
+
+void RTX_LightEdit_BumpGeneration( void )
+{
+	g_generation++;
 }
 
 static int RecordId( const rtxLightRecord_t *rec )
@@ -271,6 +278,9 @@ void RTX_LightEdit_Reset( world_t &w )
 	g_loading = qfalse;
 	g_lastRebuildMs = 0;
 	g_lastError[0] = 0;
+
+	RTX_LightEmissive_Reset();
+	RTX_LightSky_Clear();
 }
 
 void RTX_LightEdit_Invalidate( void )
@@ -380,6 +390,9 @@ void RTX_LightEdit_FinalizeLoad( world_t &w )
 	g_numEmissive = w.num_light_polys - slotted;
 	g_firstFree = w.num_light_polys;
 	g_valid = qtrue;
+
+	RTX_LightEmissive_Build( w, g_numEmissive );
+	RTX_LightSky_MapLoaded();
 }
 
 /*
@@ -1492,39 +1505,40 @@ static int LE_GetDynamic( int maxCount, vec3_t *origins, vec3_t *colors )
 	return n;
 }
 
-// Emissive shader scales and the sky: lot R4b.
+// Emissive shader scales (rtx_light_emissive.cpp) and the sky (rtx_light_sky.cpp).
 static int LE_CountEmissiveShaders( void )
 {
-	return 0;
+	return RTX_LightEmissive_Count();
 }
 
 static qboolean LE_GetEmissiveShader( int shader, char *name, int nameSize, float *scale, int *numPolys )
 {
-	return qfalse;
+	return RTX_LightEmissive_Get( shader, name, nameSize, scale, numPolys );
 }
 
 static int LE_EmissiveShaderOf( int emissiveIndex )
 {
-	return -1;
+	return RTX_LightEmissive_ShaderOf( emissiveIndex );
 }
 
 static qboolean LE_SetEmissiveScale( int shader, float scale )
 {
-	return qfalse;
+	return RTX_LightEmissive_Set( shader, scale );
 }
 
 static qboolean LE_GetSky( rtxSkyDesc_t *out )
 {
-	return qfalse;
+	return RTX_LightSky_Get( out );
 }
 
 static qboolean LE_SetSky( const rtxSkyDesc_t *desc )
 {
-	return qfalse;
+	return RTX_LightSky_Set( desc );
 }
 
 static void LE_ResetSky( void )
 {
+	RTX_LightSky_Reset();
 }
 
 static rtxLightEditAPI_t g_api = {

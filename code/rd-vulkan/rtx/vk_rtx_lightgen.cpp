@@ -574,6 +574,9 @@ static void R_GenerateLightFile( const char *mapname, qboolean only_if_no_entiti
 	// by hand.
 	Com_sprintf( lgtpath, sizeof(lgtpath), "maps/%s.lgt", mapname );
 
+	// The emissive and global blocks of the old file stay in the new one.
+	const std::string kept = RTX_LightFile_KeptBlocks( mapname );
+
 	fileHandle_t f = ri.FS_FOpenFileWrite( lgtpath, qtrue );
 
 	if ( f )
@@ -603,6 +606,9 @@ static void R_GenerateLightFile( const char *mapname, qboolean only_if_no_entiti
 				lgt->intensity, lgt->rays, lgt->error );
 			ri.FS_Write( line, (int)strlen( line ), f );
 		}
+
+		if ( !kept.empty() )
+			ri.FS_Write( kept.c_str(), (int)kept.size(), f );
 
 		ri.FS_FCloseFile( f );
 

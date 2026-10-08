@@ -33,6 +33,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "qcommon/MiniHeap.h"
 #include "tr_cache.h"
 #include "rtx/rtx_light_edit.h"
+#include "rtx/rtx_light_emissive.h"
+#include "rtx/rtx_light_sky.h"
 
 glconfig_t	glConfig;
 glconfigExt_t glConfigExt;
@@ -805,6 +807,11 @@ static consoleCommand_t	commands[] = {
 	{ "pt_ledit_solo",		RTX_LightEdit_Solo_f },
 	{ "pt_ledit_emissive",	RTX_LightEdit_Emissive_f },
 	{ "pt_ledit_dynamic",	RTX_LightEdit_Dynamic_f },
+	{ "pt_ledit_emissive_shaders",	RTX_LightEdit_EmissiveShaders_f },
+	{ "pt_ledit_emissive_scale",	RTX_LightEdit_EmissiveScale_f },
+	{ "pt_sky_print",		RTX_LightSky_Print_f },
+	{ "pt_sky_set",			RTX_LightSky_Set_f },
+	{ "pt_sky_reset",		RTX_LightSky_Reset_f },
 #endif
 	{ "vkinfo",				vk_info_f }
 };

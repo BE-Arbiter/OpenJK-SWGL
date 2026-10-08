@@ -22,8 +22,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "tr_local.h"
+#include "rtx_light_sky.h"
 
-static int width  = 1024, 
+static int width  = 1024,
            height = 1024;
 
 static int		skyNeedsUpdate = VK_TRUE;
@@ -32,6 +33,51 @@ static bool		has_envmap = false;
 static time_t	latched_local_time;
 
 static int		current_preset = 0;
+
+// Angles of the sun that the last physical evaluation used.
+static qboolean	last_sun_valid = qfalse;
+static float	last_sun_azimuth, last_sun_elevation;
+
+qboolean vkpt_physical_sky_current_sun( float *azimuth, float *elevation )
+{
+	if ( !last_sun_valid )
+		return qfalse;
+
+	*azimuth = last_sun_azimuth;
+	*elevation = last_sun_elevation;
+
+	return qtrue;
+}
+
+// The sun direction is (cos az cos el, sin az cos el, sin el), as in sun_azimuth and sun_elevation.
+static void sun_direction_from_angles( float azimuth, float elevation, vec3_t out )
+{
+	const float elevation_rad = elevation * M_PI / 180.0f;
+	const float azimuth_rad = azimuth * M_PI / 180.f;
+
+	out[0] = cosf( azimuth_rad ) * cosf( elevation_rad );
+	out[1] = sinf( azimuth_rad ) * cosf( elevation_rad );
+	out[2] = sinf( elevation_rad );
+}
+
+static void rotate_sun_direction( sun_light_t *light, const vec3_t sky_matrix[3] )
+{
+	for ( int i = 0; i < 3; i++ )
+		light->direction[i] = light->direction_envmap[0] * sky_matrix[i][0] + light->direction_envmap[1] * sky_matrix[i][1]
+			+ light->direction_envmap[2] * sky_matrix[i][2];
+}
+
+// Value of pt_env_scale.
+static float physical_sky_env_scale( void )
+{
+	if ( physical_sky_space->integer )
+		return 0.3f;
+
+	const float min_brightness = -10.f;
+	const float max_brightness = 2.f;
+
+	return exp2f( MAX( min_brightness, MIN( max_brightness, physical_sky_brightness->value ) ) - 2.f );
+}
 
 int active_sun_preset( void )
 {
@@ -208,9 +254,10 @@ static VkResult vk_rtx_init_env_texture( int width, int height )
 	return VK_SUCCESS;
 }
 
-VkResult vkpt_physical_sky_initialize( void ) 
+VkResult vkpt_physical_sky_initialize( void )
 {
 	current_preset = 0;
+	skyNeedsUpdate = VK_TRUE;	// the new cubemap and sun colour buffer are empty
 
 	SkyInitializeDataGPU();
 
@@ -448,12 +495,40 @@ qboolean vkpt_physical_sky_needs_update( void ) {
 	return (qboolean)skyNeedsUpdate;
 }
 
+// Skybox and hybrid modes: no cubemap accumulates the sun. The CPU writes the whole buffer:
+// no sun for the skybox, the analytic sun for the hybrid mode. The sky colour stays zero.
+static void write_sun_color_buffer( VkCommandBuffer cmd_buf )
+{
+	SunColorBuffer	data;
+	vec3_t			sun = { 0.f, 0.f, 0.f };
+	const VkAccessFlags	shader_access = VK_ACCESS_UNIFORM_READ_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+
+	Com_Memset( &data, 0, sizeof(data) );
+
+	if ( RTX_LightSky_Hybrid() )
+		RTX_LightSky_HybridSun( physical_sky_env_scale(), sun );
+
+	VectorCopy( sun, data.sun_color );
+	data.sun_luminance = 0.299f * sun[0] + 0.587f * sun[1] + 0.114f * sun[2];
+
+	BUFFER_BARRIER( cmd_buf, shader_access, VK_ACCESS_TRANSFER_WRITE_BIT, vk.buf_sun_color.buffer, 0, VK_WHOLE_SIZE );
+	qvkCmdUpdateBuffer( cmd_buf, vk.buf_sun_color.buffer, 0, sizeof(data), &data );
+	BUFFER_BARRIER( cmd_buf, VK_ACCESS_TRANSFER_WRITE_BIT, shader_access, vk.buf_sun_color.buffer, 0, VK_WHOLE_SIZE );
+}
+
 extern float terrain_shadowmap_viewproj[16];
 
 VkResult vkpt_physical_sky_record_cmd_buffer( VkCommandBuffer cmd_buf )
 {
 	if ( !skyNeedsUpdate )
 		return VK_SUCCESS;
+
+	if ( ( GetSkyPreset( RTX_LightSky_PhysicalSky() )->flags & PHYSICAL_SKY_FLAG_USE_SKYBOX ) != 0 )
+	{
+		write_sun_color_buffer( cmd_buf );
+		skyNeedsUpdate = VK_FALSE;
+		return VK_SUCCESS;
+	}
 
 	VkDescriptorSet desc_sets[] = {
 		vk.desc_set_vertex_buffer[vk.current_frame_index].set,
@@ -544,32 +619,50 @@ void vkpt_next_sun_preset()
 
 void vk_rtx_init_sky_scatter( void ) 
 {
-	PhysicalSkyDesc_t const *skyDesc = GetSkyPreset( physical_sky->integer );
+	const int effective = RTX_LightSky_PhysicalSky();
+	PhysicalSkyDesc_t const *skyDesc = GetSkyPreset( effective );
 
 	if ( (skyDesc->flags & PHYSICAL_SKY_FLAG_USE_SKYBOX) != 0 )
 		return;
 
 	SkyLoadScatterParameters( skyDesc->preset );
 
-	current_preset = physical_sky->integer;
+	current_preset = effective;
 }
 
 void vk_rtx_evaluate_sun_light( sun_light_t *light, const vec3_t sky_matrix[3], float time )
 {
-	static uint16_t skyIndex = -1;
+	static int cvarIndex = -1000;
+	const int skyIndex = RTX_LightSky_PhysicalSky();
 
-	if ( physical_sky->integer != skyIndex )
-	{   // update cvars with presets if the user changed the sky
+	if ( physical_sky->integer != cvarIndex )
+	{   // update cvars with presets if the user changed the sky cvar; a per map setting leaves the cvars alone
 		UpdatePhysicalSkyCVars();
-		skyIndex = physical_sky->integer;
+		cvarIndex = physical_sky->integer;
 	}
 
 	PhysicalSkyDesc_t const * skyDesc = GetSkyPreset(skyIndex);
 
 	if ( (skyDesc->flags & PHYSICAL_SKY_FLAG_USE_SKYBOX) != 0 )
 	{
-		// physical sky is disabled - no direct sun light in this mode
+		// physical sky is disabled - no direct sun light, except the analytic sun of the hybrid mode
 		memset(light, 0, sizeof(*light));
+		last_sun_valid = qfalse;
+
+		float	hy_azimuth, hy_elevation, hy_brightness, hy_angle;
+		vec3_t	hy_color;
+
+		if ( RTX_LightSky_Hybrid() && RTX_LightSky_Sun( &hy_azimuth, &hy_elevation, hy_color, &hy_brightness, &hy_angle ) )
+		{
+			sun_direction_from_angles( hy_azimuth, hy_elevation, light->direction_envmap );
+			rotate_sun_direction( light, sky_matrix );
+
+			light->angular_size_rad = MAX( 1.f, MIN( 10.f, hy_angle ) ) * M_PI / 180.f;
+			light->use_physical_sky = qfalse;
+			VectorScale( hy_color, hy_brightness, light->color );
+			light->visible = (qboolean)( light->direction_envmap[2] >= -sinf( light->angular_size_rad * 0.5f ) );
+		}
+
 		return;
 	}
 
@@ -595,8 +688,16 @@ void vk_rtx_evaluate_sun_light( sun_light_t *light, const vec3_t sky_matrix[3], 
 
 	const int preset = active_sun_preset();
 
+	// A per map setting gives the sun directly, as the preset NONE. It does not write the cvars.
+	float	ov_azimuth, ov_elevation, ov_brightness, ov_angle;
+	vec3_t	ov_color;
+	const qboolean override_sun = RTX_LightSky_Sun( &ov_azimuth, &ov_elevation, ov_color, &ov_brightness, &ov_angle );
 
-	if ( (preset == SUN_PRESET_CURRENT_TIME) || (preset == SUN_PRESET_FAST_TIME) )
+	if ( override_sun )
+	{
+		sun_direction_from_angles( ov_azimuth, ov_elevation, light->direction_envmap );
+	}
+	else if ( (preset == SUN_PRESET_CURRENT_TIME) || (preset == SUN_PRESET_FAST_TIME) )
 	{
 		qboolean fast_time = (preset == SUN_PRESET_FAST_TIME) ? qtrue : qfalse;
 
@@ -684,20 +785,27 @@ void vk_rtx_evaluate_sun_light( sun_light_t *light, const vec3_t sky_matrix[3], 
 			break;
 		}
 
-		float elevation_rad = elevation * M_PI / 180.0f; //max(-20.f, min(90.f, elevation)) * M_PI / 180.f;
-		float azimuth_rad = azimuth * M_PI / 180.f;
-		light->direction_envmap[0] = cosf(azimuth_rad) * cosf(elevation_rad);
-		light->direction_envmap[1] = sinf(azimuth_rad) * cosf(elevation_rad);
-		light->direction_envmap[2] = sinf(elevation_rad);
+		sun_direction_from_angles( azimuth, elevation, light->direction_envmap );
 	}
 
-	light->angular_size_rad = MAX(1.f, MIN(10.f, sun_angle->value)) * M_PI / 180.f;
+	last_sun_valid = qtrue;
+	last_sun_elevation = asinf( MAX( -1.f, MIN( 1.f, light->direction_envmap[2] ) ) ) * ( 180.f / M_PI );
+	last_sun_azimuth = atan2f( light->direction_envmap[1], light->direction_envmap[0] ) * ( 180.f / M_PI );
+
+	if ( last_sun_azimuth < 0.f )
+		last_sun_azimuth += 360.f;
+
+	light->angular_size_rad = MAX(1.f, MIN(10.f, override_sun ? ov_angle : sun_angle->value)) * M_PI / 180.f;
 
 	light->use_physical_sky = qtrue;
 
 	// color before occlusion
 	vec3_t sunColor = { sun_color[0]->value, sun_color[1]->value, sun_color[2]->value };
-	VectorScale(sunColor, sun_brightness->value, light->color);
+
+	if ( override_sun )
+		VectorScale( ov_color, ov_brightness, light->color );
+	else
+		VectorScale(sunColor, sun_brightness->value, light->color);
 
 	// potentially visible - can be overridden if readback data says it's occluded
 	if (physical_sky_space->integer)
@@ -714,19 +822,9 @@ void vk_rtx_evaluate_sun_light( sun_light_t *light, const vec3_t sky_matrix[3], 
 
 VkResult vk_rtx_physical_sky_update_ubo( vkUniformRTX_t *ubo, const sun_light_t *light, qboolean render_world ) 
 {
-	PhysicalSkyDesc_t const *skyDesc = GetSkyPreset(physical_sky->integer);
+	PhysicalSkyDesc_t const *skyDesc = GetSkyPreset( RTX_LightSky_PhysicalSky() );
 
-	if ( physical_sky_space->integer ) {
-		ubo->pt_env_scale = 0.3f;
-	}
-	else
-	{
-		const float min_brightness = -10.f;
-		const float max_brightness = 2.f;
-
-		float brightness = MAX( min_brightness, MIN( max_brightness, physical_sky_brightness->value ) );
-		ubo->pt_env_scale = exp2f( brightness - 2.f );
-	}
+	ubo->pt_env_scale = physical_sky_env_scale();
 
     // sun
     ubo->sun_bounce_scale = sun_bounce->value;
@@ -786,9 +884,10 @@ VkResult vk_rtx_physical_sky_update_ubo( vkUniformRTX_t *ubo, const sun_light_t 
         VectorCopy( skyDesc->groundAlbedo, ground_radiance );
         VectorScale( ground_radiance, MAX( 0.f, light->direction_envmap[2] ), ground_radiance ); // N.L
         VectorVectorScale( ground_radiance, light->color, ground_radiance );
+		VectorCopy( ground_radiance, ubo->physical_sky_ground_radiance );
     }
 	else
-		skyNeedsUpdate = VK_FALSE;
+		VectorClear( ubo->physical_sky_ground_radiance );
 
 #if 0
     // planet

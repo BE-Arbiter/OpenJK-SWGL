@@ -22,6 +22,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "tr_local.h"
+#include "rtx_light_sky.h"
 
 VkDescriptorSet vk_rtx_get_current_desc_set_textures()
 {
@@ -192,6 +193,9 @@ void vk_rtx_cvar_handler( void )
 	CVAR_CHANGED( sun_azimuth,					physical_sky_cvar_changed )
 	CVAR_CHANGED( sun_angle,					physical_sky_cvar_changed )
 	CVAR_CHANGED( sun_brightness,				physical_sky_cvar_changed )
+	CVAR_CHANGED( sun_color[0],					physical_sky_cvar_changed )
+	CVAR_CHANGED( sun_color[1],					physical_sky_cvar_changed )
+	CVAR_CHANGED( sun_color[2],					physical_sky_cvar_changed )
 
 	CVAR_CHANGED( sky_scattering,				physical_sky_cvar_changed )
 	CVAR_CHANGED( sky_transmittance,			physical_sky_cvar_changed )
@@ -209,6 +213,8 @@ void vk_rtx_cvar_handler( void )
 	CVAR_CHANGED( physical_sky_space,			physical_sky_cvar_changed )
 	CVAR_CHANGED( physical_sky_brightness,		physical_sky_cvar_changed )
 #undef CVAR_CHANGED
+
+	RTX_LightSky_CvarCheck();
 }
 
 // on vid restart or level change

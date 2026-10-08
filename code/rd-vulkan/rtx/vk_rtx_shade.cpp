@@ -25,6 +25,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "conversion.h"
 #include "rtx_light_edit.h"
 #include "rtx_light_style.h"
+#include "rtx_light_sky.h"
 #include "ghoul2/G2.h"
 
 static int entity_frame_num = 0;
@@ -2915,7 +2916,7 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 	{
 		vk_rtx_evaluate_sun_light( &sun_light, sky_matrix, refdef->time );
 
-		if ( !vkpt_physical_sky_needs_update() )
+		if ( !vkpt_physical_sky_needs_update() && !RTX_LightSky_Hybrid() )
 			sun_light.visible = (qboolean)(sun_light.visible && sun_visible_prev);
 	}
 	

@@ -461,6 +461,7 @@ extern PFN_vkGetRayTracingShaderGroupHandlesKHR				qvkGetRayTracingShaderGroupHa
 
 extern PFN_vkBindBufferMemory2								qvkBindBufferMemory2;
 extern PFN_vkCmdFillBuffer									qvkCmdFillBuffer;
+extern PFN_vkCmdUpdateBuffer								qvkCmdUpdateBuffer;
 
 extern PFN_vkCreateBufferView								qvkCreateBufferView;
 extern PFN_vkDestroyBufferView								qvkDestroyBufferView;

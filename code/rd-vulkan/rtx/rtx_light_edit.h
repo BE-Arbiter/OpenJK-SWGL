@@ -152,6 +152,7 @@ void				RTX_LightEdit_GetSpotData( const rtxLightRecord_t *rec, vec3_t dir, floa
 
 // Counter of the changes that alter the lighting. The tracer restarts its accumulation when it changes.
 int					RTX_LightEdit_Generation( void );
+void				RTX_LightEdit_BumpGeneration( void );
 
 // Model lights (dlights, sabers, beams) of the last built frame. Gives the count.
 int		vk_rtx_get_model_lights( const light_poly_t **out );

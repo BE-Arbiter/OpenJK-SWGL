@@ -18,6 +18,8 @@ by the Free Software Foundation.
 #include "../tr_local.h"
 #include "rtx_light_edit.h"
 #include "rtx_light_file.h"
+#include "rtx_light_emissive.h"
+#include "rtx_light_sky.h"
 
 #include <vector>
 #include <string>
@@ -45,6 +47,8 @@ struct fileData_t {
 	std::vector<fileBlock_t>	ent;
 	std::vector<fileBlock_t>	added;
 	std::vector<fileBlock_t>	other;		// unknown source
+	std::vector<fileBlock_t>	emissive;	// factor of an emissive shader
+	std::vector<fileBlock_t>	global;		// sky and sun of the map
 };
 
 typedef struct {
@@ -62,6 +66,7 @@ typedef struct {
 static std::vector<fileBlock_t>	g_passLgt;		// lgt blocks of a map that has entity lights
 static std::vector<fileBlock_t>	g_pendEnt;		// read, not applied yet
 static std::vector<fileBlock_t>	g_pendAdded;
+static std::vector<fileBlock_t>	g_pendEmissive;	// read, not applied yet
 static std::vector<fileBlock_t>	g_passOther;	// unknown blocks and entity overrides that do not match
 static std::vector<int>			g_disabledLgt;	// ids of the lgt lights to switch off after the load
 static qboolean					g_hasEntityLights = qfalse;
@@ -69,6 +74,7 @@ static qboolean					g_fileRead = qfalse;
 static int						g_numLgt = 0;
 static int						g_numOverrides = 0;
 static int						g_numAdded = 0;
+static int						g_numEmissive = 0;
 static int						g_numIgnored = 0;
 
 /*
@@ -134,6 +140,10 @@ static void ClassifyBlock( const fileBlock_t &blk, fileData_t &out )
 		out.ent.push_back( blk );
 	else if ( !Q_stricmp( source, "added" ) )
 		out.added.push_back( blk );
+	else if ( !Q_stricmp( source, "emissive" ) )
+		out.emissive.push_back( blk );
+	else if ( !Q_stricmp( source, "global" ) )
+		out.global.push_back( blk );
 	else
 		out.other.push_back( blk );
 }
@@ -391,11 +401,41 @@ static void LoadLgtBlock( world_t &w, const fileBlock_t &b, int key )
 	}
 }
 
+// Gives the sky of the first global block, or the GLOBAL mode when there is none.
+static void ApplyGlobalBlocks( const std::vector<fileBlock_t> &blocks )
+{
+	rtxSkyDesc_t	d;
+	const char		*mode;
+
+	RTX_LightSky_Defaults( &d, RTX_SKY_GLOBAL );
+
+	if ( !blocks.empty() )
+	{
+		const fileBlock_t &b = blocks[0];
+
+		mode = GetS( b, "sky", "" );
+		d.mode = !Q_stricmp( mode, "skybox" ) ? RTX_SKY_SKYBOX : !Q_stricmp( mode, "physical" ) ? RTX_SKY_PHYSICAL
+			: !Q_stricmp( mode, "hybrid" ) ? RTX_SKY_HYBRID : RTX_SKY_GLOBAL;
+
+		d.sunAzimuth = GetF( b, "sun_azimuth", 0, d.sunAzimuth );
+		d.sunElevation = GetF( b, "sun_elevation", 0, d.sunElevation );
+		GetV3( b, "sun_color", d.sunColor );
+		d.sunBrightness = GetF( b, "sun_brightness", 0, d.sunBrightness );
+		d.sunAngle = GetF( b, "sun_angle", 0, d.sunAngle );
+
+		if ( blocks.size() > 1 )
+			Com_Printf( "light edit: %i global blocks, only the first one is used\n", (int)blocks.size() );
+	}
+
+	RTX_LightSky_SetFromFile( &d );
+}
+
 static void ClearState( void )
 {
 	g_passLgt.clear();
 	g_pendEnt.clear();
 	g_pendAdded.clear();
+	g_pendEmissive.clear();
 	g_passOther.clear();
 	g_disabledLgt.clear();
 	g_hasEntityLights = qfalse;
@@ -403,6 +443,7 @@ static void ClearState( void )
 	g_numLgt = 0;
 	g_numOverrides = 0;
 	g_numAdded = 0;
+	g_numEmissive = 0;
 	g_numIgnored = 0;
 }
 
@@ -438,8 +479,11 @@ void RTX_LightFile_Load( world_t &w, qboolean hasEntityLights )
 
 	g_pendEnt = data.ent;
 	g_pendAdded = data.added;
+	g_pendEmissive = data.emissive;
 	g_passOther = data.other;
 	g_numIgnored += (int)data.other.size();
+
+	ApplyGlobalBlocks( data.global );
 }
 
 /*
@@ -577,16 +621,30 @@ static int ApplyPending( void )
 		changed++;
 	}
 
+	for ( size_t i = 0; i < g_pendEmissive.size(); i++ )
+	{
+		const char *shader = GetS( g_pendEmissive[i], "shader", "" );
+
+		if ( shader[0] )
+		{
+			RTX_LightEmissive_SetFromFile( shader, GetF( g_pendEmissive[i], "scale", 0, 1.0f ) );
+			g_numEmissive++;
+		}
+		else
+			g_numIgnored++;
+	}
+
 	g_pendEnt.clear();
 	g_pendAdded.clear();
+	g_pendEmissive.clear();
 
 	return changed;
 }
 
 static void PrintSummary( const char *mapname )
 {
-	Com_Printf( "light edit: maps/%s.lgt: %i lgt, %i overrides, %i added, %i ignored\n",
-		mapname, g_numLgt, g_numOverrides, g_numAdded, g_numIgnored );
+	Com_Printf( "light edit: maps/%s.lgt: %i lgt, %i overrides, %i added, %i emissive, %i ignored\n",
+		mapname, g_numLgt, g_numOverrides, g_numAdded, g_numEmissive, g_numIgnored );
 }
 
 void RTX_LightFile_Apply( world_t &w )
@@ -859,6 +917,28 @@ static void WriteAddedRecord( std::string &s, const rtxLightRecord_t *rec )
 	s += "}\n";
 }
 
+// The global block: one key per line, one or three values, no origin, color or intensity key.
+void RTX_LightFile_FormatSkyBlock( std::string &s, const rtxSkyDesc_t &d )
+{
+	const char *mode = d.mode == RTX_SKY_SKYBOX ? "skybox" : d.mode == RTX_SKY_PHYSICAL ? "physical" : "hybrid";
+
+	s += "global\n{\n\tsource global\n";
+	Appendf( s, "\tsky %s\n", mode );
+	PutNum( s, "sun_azimuth", d.sunAzimuth );
+	PutNum( s, "sun_elevation", d.sunElevation );
+	PutVec( s, "sun_color", d.sunColor );
+	PutNum( s, "sun_brightness", d.sunBrightness );
+	PutNum( s, "sun_angle", d.sunAngle );
+	s += "}\n";
+}
+
+static void WriteEmissiveBlock( std::string &s, const std::string &shader, float scale )
+{
+	s += "{\n\tsource emissive\n\tshader " + Quote( shader ) + "\n";
+	PutNum( s, "scale", scale );
+	s += "}\n";
+}
+
 static qboolean EntityNeedsBlock( const rtxLightRecord_t *rec )
 {
 	return (qboolean)( RTX_LightEdit_IsModified( rec ) || ( rec->flags & RTX_LFLAG_DISABLED ) || !NameIsDefault( rec ) );
@@ -949,6 +1029,17 @@ qboolean RTX_LightFile_Save( void )
 	for ( size_t i = 0; i < added.size(); i++ )
 		WriteAddedRecord( text, added[i] );
 
+	rtxEmissiveScales_t	scales;
+	rtxSkyDesc_t		sky;
+
+	RTX_LightEmissive_GetForSave( scales );
+
+	for ( size_t i = 0; i < scales.size(); i++ )
+		WriteEmissiveBlock( text, scales[i].first, scales[i].second );
+
+	if ( RTX_LightSky_GetForSave( &sky ) )
+		RTX_LightFile_FormatSkyBlock( text, sky );
+
 	for ( size_t i = 0; i < g_passOther.size(); i++ )
 		WriteRawBlock( text, g_passOther[i] );
 
@@ -985,10 +1076,12 @@ qboolean RTX_LightFile_Save( void )
 		SetOriginalSpot( rec );
 	}
 
+	RTX_LightSky_Saved();
 	RTX_LightEdit_CountChange( 0 );
 
-	Com_Printf( "light edit: wrote %s (%i lgt, %i overrides, %i added)\n", path,
-		(int)( lgt.size() + g_passLgt.size() ), (int)ent.size(), (int)added.size() );
+	Com_Printf( "light edit: wrote %s (%i lgt, %i overrides, %i added, %i emissive, sky %s)\n", path,
+		(int)( lgt.size() + g_passLgt.size() ), (int)ent.size(), (int)added.size(), (int)scales.size(),
+		RTX_LightSky_GetForSave( &sky ) ? "set" : "global" );
 
 	return qtrue;
 }
@@ -1073,13 +1166,19 @@ qboolean RTX_LightFile_Reload( void )
 	g_passLgt.clear();
 	g_pendEnt.clear();
 	g_pendAdded.clear();
+	g_pendEmissive.clear();
 	g_passOther.clear();
 	g_disabledLgt.clear();
 	g_fileRead = qtrue;
 	g_numLgt = 0;
 	g_numOverrides = 0;
 	g_numAdded = 0;
+	g_numEmissive = 0;
 	g_numIgnored = 0;
+
+	RTX_LightEmissive_ResetScales();
+	ApplyGlobalBlocks( data.global );
+	RTX_LightSky_MapLoaded();
 
 	// Records by lgt key, in the file order of the load.
 	std::vector<int> byKey;
@@ -1122,6 +1221,7 @@ qboolean RTX_LightFile_Reload( void )
 
 	g_pendEnt = data.ent;
 	g_pendAdded = data.added;
+	g_pendEmissive = data.emissive;
 	g_passOther = data.other;
 	g_numIgnored += (int)data.other.size();
 
@@ -1154,7 +1254,8 @@ qboolean RTX_LightFile_CheckRegenerate( const char *mapname, qboolean force )
 	if ( !ReadFileData( mapname, data ) )
 		return qtrue;
 
-	qboolean edits = (qboolean)( data.version >= 2 && ( !data.ent.empty() || !data.added.empty() ) );
+	qboolean edits = (qboolean)( !data.emissive.empty() || !data.global.empty()
+		|| ( data.version >= 2 && ( !data.ent.empty() || !data.added.empty() ) ) );
 
 	for ( size_t i = 0; i < data.lgt.size() && !edits; i++ )
 	{
@@ -1180,4 +1281,25 @@ qboolean RTX_LightFile_CheckRegenerate( const char *mapname, qboolean force )
 	Com_Printf( "pt_lightgen: copied maps/%s.lgt to maps/%s.lgt.bak\n", mapname, mapname );
 
 	return qtrue;
+}
+
+// The emissive and global blocks of the file, for the file that pt_lightgen writes.
+std::string RTX_LightFile_KeptBlocks( const char *mapname )
+{
+	fileData_t	data;
+	std::string	text;
+
+	if ( !ReadFileData( mapname, data ) )
+		return text;
+
+	for ( size_t i = 0; i < data.emissive.size(); i++ )
+		WriteRawBlock( text, data.emissive[i] );
+
+	if ( !data.global.empty() )
+	{
+		text += "global\n";
+		WriteRawBlock( text, data.global[0] );
+	}
+
+	return text;
 }

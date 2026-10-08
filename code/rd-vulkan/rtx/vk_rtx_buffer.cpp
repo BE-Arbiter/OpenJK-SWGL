@@ -23,6 +23,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 #include "rtx_light_style.h"
+#include "rtx_light_emissive.h"
 
 #define     MAX_MAP_CLUSTERS    65536
 
@@ -62,7 +63,8 @@ copy_light(const light_poly_t* light, float* vblight, const float* sky_radiance,
 
 	float mat_scale = 10.f;
 	if ( light->material )
-		mat_scale = MAX( 0.f, light->material->glow_emissive ? pt_light_scale_glow->value : pt_light_scale_surface->value );
+		mat_scale = MAX( 0.f, light->material->glow_emissive ? pt_light_scale_glow->value : pt_light_scale_surface->value )
+			* RTX_LightEmissive_Scale( light->material );
 	else if ( world )
 	{
 		static cvar_t *pt_light_scale_ent_spot, *pt_light_scale_ent_sky, *pt_light_scale_ent_ambient, *pt_light_scale_edit;
