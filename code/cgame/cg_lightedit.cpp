@@ -849,6 +849,8 @@ void CG_LightEdit_Init( void )
 	LE_SoloInit();
 	LE_KeysInit();
 	LE_LabelInit();
+	LE_EmissiveInit();
+	LE_SkyInit();
 	memset( &s_stats, 0, sizeof( s_stats ) );
 	s_recs.clear();
 	s_hits.clear();
@@ -1360,6 +1362,16 @@ qboolean CG_LightEdit_ConsoleCommand( const char *cmd )
 		{ "ledit_goto",		LE_CmdGoto },
 		{ "ledit_select",	LE_CmdSelect },
 		{ "ledit_writebinds",	LE_CmdWriteBinds },
+		{ "ledit_emissive_list",	LE_CmdEmissiveList },
+		{ "ledit_emissive",	LE_CmdEmissive },
+		{ "ledit_emissive_reset",	LE_CmdEmissiveReset },
+		{ "ledit_sky",		LE_CmdSky },
+		{ "ledit_sun",		LE_CmdSun },
+		{ "ledit_sun_here",	LE_CmdSunHere },
+		{ "ledit_sun_color",	LE_CmdSunColor },
+		{ "ledit_sun_brightness",	LE_CmdSunBrightness },
+		{ "ledit_sun_angle",	LE_CmdSunAngle },
+		{ "ledit_sky_reset",	LE_CmdSkyReset },
 	};
 
 	for ( size_t i = 0; i < ARRAY_LEN( commands ); i++ )
@@ -1408,7 +1420,9 @@ void CG_LightEdit_InitConsoleCommands( void )
 		"lightedit", "ledit_save", "ledit_reload", "ledit_undo", "ledit_redo", "ledit_history",
 		"ledit_delete", "ledit_deselect", "ledit_revert", "ledit_set", "ledit_get",
 		"ledit_grid_next", "ledit_snap_toggle", "ledit_xray_toggle", "ledit_goto", "ledit_select",
-		"ledit_writebinds"
+		"ledit_writebinds", "ledit_emissive_list", "ledit_emissive", "ledit_emissive_reset",
+		"ledit_sky", "ledit_sun", "ledit_sun_here", "ledit_sun_color", "ledit_sun_brightness",
+		"ledit_sun_angle", "ledit_sky_reset"
 	};
 
 	for ( size_t i = 0; i < ARRAY_LEN( names ); i++ )
@@ -2065,6 +2079,11 @@ static void LE_DrawPanel( void )
 {
 	if ( s_sel < 0 || s_sel >= (int)s_recs.size() || !s_recs[s_sel].valid )
 	{
+		// No light selected: the selected emissive shader, else the sky.
+		if ( !LE_EmissiveDrawPanel( s_panelTop + LE_EntryHeight() ) )
+		{
+			LE_SkyDrawPanel( s_panelTop + LE_EntryHeight() );
+		}
 		return;
 	}
 	const rtxLightDesc_t	&d = s_recs[s_sel].d;
@@ -2251,6 +2270,8 @@ qboolean CG_LightEdit_Draw2D( void )
 	LE_DrawToolWorld();
 	LE_DrawIcons();
 	LE_DrawExtraLights();
+	LE_EmissiveDrawHighlight();
+	LE_SkyDrawSun();
 	s_glyphBudget = LEDIT_GLYPH_BUDGET;
 	LE_TextFloor( LEDIT_GLYPH_RESERVE );
 	LE_DrawLabels();

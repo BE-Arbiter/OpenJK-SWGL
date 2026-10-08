@@ -17,6 +17,7 @@
 
 typedef struct {
 	float	p[3];
+	int		idx;	// index for GetEmissive
 } ledPos_t;
 
 typedef struct {
@@ -235,6 +236,7 @@ static void LE_EmissiveLoad( void )
 		if ( s_api->GetEmissive( i, c, col ) )
 		{
 			VectorCopy( c, p.p );
+			p.idx = i;
 			s_emi.push_back( p );
 		}
 	}
@@ -308,6 +310,22 @@ void LE_DrawExtraLights( void )
 	}
 }
 
+int LE_EmissivePointCount( void )
+{
+	if ( !s_api || !s_api->CountEmissive )
+	{
+		return 0;
+	}
+	LE_EmissiveLoad();
+	return (int)s_emi.size();
+}
+
+const float *LE_EmissivePoint( int i, int *apiIndex )
+{
+	*apiIndex = s_emi[i].idx;
+	return s_emi[i].p;
+}
+
 // Text for the bottom line when the display filter is above 1.
 const char *LE_ShowModeName( void )
 {
@@ -351,6 +369,8 @@ static const char	*s_bindsText =
 	"// Labels: 0 none, 1 aimed and selected, 2 all near. Show: 0 none, 1 editable, 2 + emissive, 3 + dynamic.\n"
 	"bind KP_DOWNARROW \"toggle ledit_label 0 1 2 0\"\n"
 	"bind KP_PGDN \"toggle ledit_show 0 1 2 3 0\"\n"
+	"// Sun: it comes from the direction you look.\n"
+	"bind KP_SLASH \"ledit_sun_here\"\n"
 	"// Property cycling (the JKA defaults).\n"
 	"bind [ \"invprev\"\n"
 	"bind ] \"invnext\"\n"

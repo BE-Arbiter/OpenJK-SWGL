@@ -626,7 +626,17 @@ void LE_ToolProps( qboolean priDown, qboolean secDown, int wheel, qboolean fine 
 {
 	std::vector<int>	ids;
 
+	// Fire on an emissive dot, with no light aimed, selects the shader of the dot.
+	if ( priDown && s_pickId < 0 && LE_EmissivePick() )
+	{
+		LE_SelClear();
+		return;
+	}
 	LE_ActionTargets( ids );
+	if ( ids.empty() && LE_EmissiveTool( secDown, wheel, fine ) )
+	{
+		return;
+	}
 	if ( wheel )
 	{
 		LE_PropsWheel( ids, wheel, fine );
@@ -658,11 +668,19 @@ void LE_PropsHelp( const char **name, const char **fire, const char **alt, char 
 		"+-1 (0 steady, 32..63 switch)"
 	};
 
-	static char	nameBuf[48], fireBuf[96], altBuf[96];
+	static char	nameBuf[48], fireBuf[128], altBuf[96];
 
+	if ( LE_EmissiveHelp( name, fire, alt, wheelBuf, wheelSize ) )
+	{
+		return;
+	}
 	Com_sprintf( nameBuf, sizeof( nameBuf ), "5 Properties [%s]", LE_PropName( s_prop ) );
 	Com_sprintf( fireBuf, sizeof( fireBuf ), "copy the %s of the aimed light to the selection", LE_PropName( s_prop ) );
 	Com_sprintf( altBuf, sizeof( altBuf ), "reset the %s to its original value", LE_PropName( s_prop ) );
+	if ( s_pickId < 0 && s_selList.empty() )
+	{
+		Q_strcat( fireBuf, sizeof( fireBuf ), "; on an emissive dot: select its shader" );
+	}
 	*name = nameBuf;
 	*fire = fireBuf;
 	*alt = altBuf;

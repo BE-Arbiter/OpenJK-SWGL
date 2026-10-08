@@ -57,13 +57,17 @@ typedef enum {
 	LEDU_SET = 0,
 	LEDU_ADD,
 	LEDU_REMOVE,
-	LEDU_RESTORE
+	LEDU_RESTORE,
+	LEDU_EMISSIVE,		// emissive scale of a shader; kinds from here on are not lights
+	LEDU_SKY			// sky and sun of the map
 } ledUndoKind_t;
 
 void		LE_UndoClear( void );
 void		LE_UndoBegin( const char *label );		// opens a group; the pushes that follow join it
 void		LE_UndoEnd( void );						// closes the group; an empty group is dropped
 void		LE_UndoPush( int kind, int id, const rtxLightDesc_t *before, const rtxLightDesc_t *after, const char *label );
+void		LE_UndoPushScale( int shader, float before, float after, const char *label );
+void		LE_UndoPushSky( const rtxSkyDesc_t *before, const rtxSkyDesc_t *after, const char *label );
 int			LE_UndoDepth( void );
 int			LE_RedoDepth( void );
 void		LE_UndoBeginMerge( const char *label, unsigned key );	// like Begin; joins the top group when it has this key and is under 500 ms old
@@ -223,5 +227,31 @@ void		LE_DrawLabels( void );
 void		LE_DrawExtraLights( void );
 const char	*LE_ShowModeName( void );
 void		LE_CmdWriteBinds( void );							// ledit_writebinds [force]
+int			LE_EmissivePointCount( void );						// cached emissive polygon centres
+const float	*LE_EmissivePoint( int i, int *apiIndex );			// centre, and its index for GetEmissive
+
+// Emissive multiplier per shader (cg_lightedit_emissive.cpp).
+void		LE_EmissiveInit( void );							// drops the selection and the caches
+qboolean	LE_EmissivePick( void );							// selects the shader of the dot under the crosshair
+qboolean	LE_EmissiveTool( qboolean secDown, int wheel, qboolean fine );	// tool 5 with the emissive selection; qtrue when used
+qboolean	LE_EmissiveHelp( const char **name, const char **fire, const char **alt, char *wheelBuf, int wheelSize );
+void		LE_EmissiveDrawHighlight( void );
+qboolean	LE_EmissiveDrawPanel( int y );						// qfalse when no shader is selected
+void		LE_CmdEmissiveList( void );							// ledit_emissive_list [filter]
+void		LE_CmdEmissive( void );								// ledit_emissive <index|name> <scale>
+void		LE_CmdEmissiveReset( void );						// ledit_emissive_reset <index|name|all>
+
+// Sky and sun of the map (cg_lightedit_sky.cpp).
+void		LE_SkyInit( void );
+qboolean	LE_SkyApply( const rtxSkyDesc_t *desc );			// SetSky, or ResetSky for the mode GLOBAL; no undo entry
+void		LE_SkyDrawSun( void );								// marker at the sun direction
+void		LE_SkyDrawPanel( int y );							// sky lines for the panel
+void		LE_CmdSky( void );									// ledit_sky [global|skybox|physical|hybrid]
+void		LE_CmdSun( void );									// ledit_sun <azimuth> <elevation>
+void		LE_CmdSunHere( void );
+void		LE_CmdSunColor( void );								// ledit_sun_color <r> <g> <b>
+void		LE_CmdSunBrightness( void );
+void		LE_CmdSunAngle( void );
+void		LE_CmdSkyReset( void );
 
 #endif // CG_LIGHTEDIT_LOCAL_H

@@ -14,6 +14,10 @@ typedef struct {
 	int				id;
 	rtxLightDesc_t	before;
 	rtxLightDesc_t	after;
+	float			scaleBefore;	// LEDU_EMISSIVE
+	float			scaleAfter;
+	rtxSkyDesc_t	skyBefore;		// LEDU_SKY
+	rtxSkyDesc_t	skyAfter;
 } ledUndoSub_t;
 
 #define LEDIT_MERGE_MS			500
@@ -93,6 +97,8 @@ void LE_UndoEnd( void )
 	s_merging = qfalse;
 }
 
+static void LE_UndoPushSub( const ledUndoSub_t &sub, const char *label );
+
 // Without an open group, the entry makes a group of its own.
 void LE_UndoPush( int kind, int id, const rtxLightDesc_t *before, const rtxLightDesc_t *after, const char *label )
 {
@@ -109,6 +115,39 @@ void LE_UndoPush( int kind, int id, const rtxLightDesc_t *before, const rtxLight
 	{
 		sub.after = *after;
 	}
+	LE_UndoPushSub( sub, label );
+}
+
+// Entry for the emissive scale of a shader.
+void LE_UndoPushScale( int shader, float before, float after, const char *label )
+{
+	ledUndoSub_t	sub;
+
+	memset( &sub, 0, sizeof( sub ) );
+	sub.kind = LEDU_EMISSIVE;
+	sub.id = shader;
+	sub.scaleBefore = before;
+	sub.scaleAfter = after;
+	LE_UndoPushSub( sub, label );
+}
+
+// Entry for the sky and sun of the map.
+void LE_UndoPushSky( const rtxSkyDesc_t *before, const rtxSkyDesc_t *after, const char *label )
+{
+	ledUndoSub_t	sub;
+
+	memset( &sub, 0, sizeof( sub ) );
+	sub.kind = LEDU_SKY;
+	sub.skyBefore = *before;
+	sub.skyAfter = *after;
+	LE_UndoPushSub( sub, label );
+}
+
+static void LE_UndoPushSub( const ledUndoSub_t &sub, const char *label )
+{
+	const int	kind = sub.kind;
+	const int	id = sub.id;
+
 	if ( s_groupOpen && s_merging )
 	{
 		std::vector<ledUndoSub_t>	&top = s_undo.back().subs;
@@ -119,6 +158,8 @@ void LE_UndoPush( int kind, int id, const rtxLightDesc_t *before, const rtxLight
 			if ( top[i].id == id && top[i].kind == kind )
 			{
 				top[i].after = sub.after;
+				top[i].scaleAfter = sub.scaleAfter;
+				top[i].skyAfter = sub.skyAfter;
 				break;
 			}
 		}
@@ -154,6 +195,10 @@ static qboolean LE_UndoApply( const ledUndoSub_t &e, qboolean undo )
 		return undo ? s_api->Restore( e.id ) : s_api->Remove( e.id );
 	case LEDU_RESTORE:
 		return undo ? s_api->Remove( e.id ) : s_api->Restore( e.id );
+	case LEDU_EMISSIVE:
+		return s_api->SetEmissiveScale( e.id, undo ? e.scaleBefore : e.scaleAfter );
+	case LEDU_SKY:
+		return LE_SkyApply( undo ? &e.skyBefore : &e.skyAfter );
 	}
 	return qfalse;
 }
@@ -178,10 +223,25 @@ static int LE_ApplyGroup( const ledUndoGroup_t &g, qboolean undo )
 		}
 	}
 
+	bool	hasLights = false;
+
+	for ( int i = 0; i < n; i++ )
+	{
+		hasLights = hasLights || g.subs[i].kind < LEDU_EMISSIVE;
+	}
+	if ( !hasLights )
+	{
+		return failed;
+	}
 	LE_SelClear();
 	for ( int i = 0; i < n; i++ )
 	{
 		const ledUndoSub_t	&e = g.subs[i];
+
+		if ( e.kind >= LEDU_EMISSIVE )
+		{
+			continue;
+		}
 		const bool			gone = undo ? ( e.kind == LEDU_ADD || e.kind == LEDU_RESTORE ) : ( e.kind == LEDU_REMOVE );
 
 		if ( !gone && !LE_SelHas( e.id ) )
@@ -194,6 +254,14 @@ static int LE_ApplyGroup( const ledUndoGroup_t &g, qboolean undo )
 
 static const char *LE_GroupDesc( const ledUndoGroup_t &g )
 {
+	if ( g.subs.size() == 1 && g.subs[0].kind == LEDU_EMISSIVE )
+	{
+		return va( "%s (shader %d)", g.label, g.subs[0].id );
+	}
+	if ( g.subs.size() == 1 && g.subs[0].kind == LEDU_SKY )
+	{
+		return g.label;
+	}
 	if ( g.subs.size() == 1 )
 	{
 		return va( "%s (light %d)", g.label, g.subs[0].id );
