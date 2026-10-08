@@ -2,7 +2,7 @@
 
 Le mode light edit permet de placer, déplacer, orienter, régler et supprimer en jeu les lumières que le path tracer RTX de `rdsp-vulkan` utilise. Les changements sont visibles à l'image suivante. Ils sont enregistrés dans `maps/<map>.lgt`, qui est relu à chaque chargement de la map, en mode normal comme en mode édition.
 
-Ce document décrit le MVP et les itérations 2 et 3 : les neuf outils, les spots, la sélection multiple, la grille, les contraintes d'axe et l'accumulation à vue fixe, les raccourcis clavier, le menu, les étiquettes et les filtres d'affichage.
+Ce document décrit le MVP et les itérations 2, 3 et 4 : les neuf outils, les spots, les lumières rectangulaires, les styles de lumière, la sélection multiple, la grille, les contraintes d'axe et l'accumulation à vue fixe, les raccourcis clavier, le menu, les étiquettes et les filtres d'affichage, le multiplicateur des surfaces émissives et le ciel et le soleil de chaque map.
 
 ## 1. Prérequis
 
@@ -86,7 +86,8 @@ Ctrl est souvent lié à l'accroupissement : un raccourci Ctrl fait descendre un
 ### 2. Création
 - Un « fantôme » suit le point d'impact du viseur, décalé le long de la normale de la surface. Avec `ledit_snap 1`, il est accroché à la grille.
 - **Tir** : ajoute une lumière au fantôme avec le préréglage (`ledit_preset_*`, ou le presse-papier de la pipette), puis la sélectionne.
-- **Alt** : change le type des nouvelles lumières, sphère ↔ spot. Un spot posé vise l'opposé de la normale de la surface (cônes 35° / 25°, ou ceux du presse-papier).
+- **Alt** : change le type des nouvelles lumières, sphère → spot → rectangle → sphère. Un spot posé vise l'opposé de la normale de la surface (cônes 35° / 25°, ou ceux du presse-papier).
+- **Rectangle** : un rectangle posé prend la normale de la surface (il éclaire à l'opposé de la surface), ou `0 0 -1` sans impact. Sa taille vient du presse-papier de la pipette, sinon 32 × 32. Le fantôme est un rectangle filaire avec la flèche de la normale.
 - **Molette** : décalage par rapport à la surface, ×2 ou ÷2 (±1 avec la marche), de 2 à 256 unités.
 - Sans impact (ciel), le fantôme est à 256 unités devant la caméra. Dans un solide, il est rouge et la pose est refusée. Un solo actif (outil 9) est terminé avant la pose.
 
@@ -101,30 +102,41 @@ Ctrl est souvent lié à l'accroupissement : un raccourci Ctrl fait descendre un
 - Une position dans un solide n'est pas appliquée : la lumière garde sa dernière position valide.
 - Avec `ledit_snap 1`, la lumière principale est accrochée à la grille (seule la composante de l'axe en mode contraint).
 
-### 4. Orientation (spots)
-- **Tir** : oriente les spots ciblés vers le point visé. Avec `ledit_angle_snap` > 0, le lacet et le tangage de la direction sont arrondis à ce pas.
+### 4. Orientation (spots et rectangles)
+- **Tir** : oriente les spots ciblés vers le point visé. Avec `ledit_angle_snap` > 0, le lacet et le tangage de la direction sont arrondis à ce pas. Sur un rectangle, le tir tourne sa normale vers le point visé (même arrondi).
 - **Alt sur un spot** : choisit l'angle que la molette règle (extérieur ou intérieur).
+- **Alt sur un rectangle** : choisit ce que la molette règle : roulis → largeur → hauteur.
 - **Alt sur une sphère** : convertit les sphères ciblées en spots, dirigés vers le point visé (ou vers le bas).
 - **Molette** : angle choisi ± `ledit_angle_snap` (1° avec la marche). Extérieur 1-89°, intérieur 0 à l'extérieur. Réduire l'extérieur sous l'intérieur abaisse l'intérieur.
+- **Molette sur un rectangle** : roulis ± `ledit_angle_snap` (1° avec la marche) ; largeur ou hauteur ×1,1 (×1,01 avec la marche), de 1 à 2048. Avec `ledit_snap 1`, la taille est arrondie à la grille et bouge d'au moins un pas de grille ; la marche coupe cet arrondi.
 - Affichage : cône filaire du spot principal (axe jusqu'au monde, cercle du bord, 8 génératrices, cercle intérieur, disque éclairé au point d'impact) ; axe et bord seulement pour 3 autres spots sélectionnés au plus.
 
 ### 5. Propriétés
-- `]` / `[` choisit la propriété active : intensité, teinte, saturation, température, rayon d'émission, cône extérieur, cône intérieur. Elle est en jaune dans le panneau, avec une jauge.
+- `]` / `[` choisit la propriété active : intensité, teinte, saturation, température, rayon d'émission, cône extérieur, cône intérieur, largeur, hauteur, roulis, deux faces, style. Elle est en jaune dans le panneau, avec une jauge. Le cycle saute les propriétés qui ne s'appliquent pas à la lumière principale : cônes pour les spots seulement ; largeur, hauteur, roulis et deux faces pour les rectangles seulement ; rayon d'émission pas pour les rectangles.
 - **Molette** sur les cibles :
   - intensité ×1,1 (×1,01 avec la marche) ;
   - teinte ±10° (±1°) ; saturation ±0,05 (±0,01) ;
   - température ±250 K (±50 K) : la couleur devient celle d'un corps noir de 1000 à 12000 K, normalisée ;
   - rayon d'émission ±1 (±0,1), minimum 0,5 ;
-  - cônes comme l'outil 4.
+  - cônes comme l'outil 4 ;
+  - largeur et hauteur ×1,1 (×1,01), arrondies à la grille avec `ledit_snap 1` ; roulis ± `ledit_angle_snap` (1°) ;
+  - deux faces : chaque cran bascule la valeur ;
+  - style ±1 (de 0 à 63, avec bouclage) ; il s'applique à tous les types (voir § 8 bis).
 - **Tir** : copie la propriété active de la lumière visée sur toute la sélection.
 - **Alt** : remet la propriété active à sa valeur d'origine (pour la température, toute la couleur d'origine).
 - Les crans de molette successifs sur les mêmes lumières et la même propriété, à moins de 500 ms d'écart, forment **une** entrée d'undo.
 - La teinte n'agit pas sur une couleur grise (saturation 0) : augmentez d'abord la saturation.
+- **Multiplicateur émissif.** Avec `ledit_show` ≥ 2 et sans lumière visée ni sélectionnée, l'outil 5 règle le multiplicateur d'un shader émissif (voir § 8 ter) :
+  - **Tir** sans lumière visée : choisit le point émissif le plus proche du viseur (14 px au plus, 2048 unités au plus, mêmes règles de rayons X et d'occlusion que le choix des lumières) et sélectionne son shader. Cela vide la sélection de lumières ;
+  - **Molette** : multiplicateur ×1,1 (×1,01 avec la marche), de 0 à 100 ; il s'arrête à 1 quand un cran le franchit ;
+  - **Alt** : remet le multiplicateur à 1 ;
+  - jusqu'à 300 points du shader choisi reçoivent un cadre jaune ;
+  - une lumière visée ou sélectionnée garde la priorité.
 
 ### 6. Pipette
-- **Tir** : copie la lumière visée dans le presse-papier (type, couleur, intensité, rayon, direction, cônes). Le presse-papier devient le préréglage de l'outil 2 jusqu'au changement de map.
+- **Tir** : copie la lumière visée dans le presse-papier (type, couleur, intensité, rayon, direction, cônes, largeur, hauteur, roulis, deux faces, style). Le presse-papier devient le préréglage de l'outil 2 jusqu'au changement de map.
 - **Alt** : colle sur la lumière visée (ou la sélection si elle en fait partie), selon le filtre.
-- **Molette** : filtre du collage : tout / couleur / intensité / forme (type, cônes, rayon). Coller une forme de spot sur une sphère la convertit et prend la direction du presse-papier.
+- **Molette** : filtre du collage : tout / couleur / intensité / forme. « Forme » colle le type, le rayon, les cônes (spot) ou la largeur, la hauteur, le roulis et les deux faces (rectangle). « Tout » colle aussi le style. Coller une forme d'un autre type convertit la cible ; la direction du presse-papier n'est copiée que lors d'une conversion.
 
 ### 7. Clonage
 - **Tir** : duplique la lumière visée (ou la sélection si elle en fait partie). Les copies deviennent la sélection, l'outil 3 s'active et les copies sont saisies tout de suite.
@@ -153,11 +165,14 @@ Ctrl est souvent lié à l'accroupissement : un raccourci Ctrl fait descendre un
   - rouge plein : lumière dans un solide (elle n'émet rien) ;
   - contour gris : lumière muette ou éteinte par le solo.
 - Cadre blanc : lumière sous le viseur. Cadre de chaque lumière sélectionnée ; sphère filaire (sphère) ou cône filaire (spot) sur la lumière principale.
+- **Rectangles** : les rectangles sélectionnés et celui visé (outils 4 et 5) sont dessinés en vert menthe : 4 bords, flèche de la normale et, pour le rectangle principal, un trait court le long de +U (le roulis). Un rectangle à deux faces ajoute les diagonales et une flèche arrière. Trois autres rectangles sélectionnés au plus ont les bords et la flèche.
+- **Soleil** : avec le ciel physique ou hybride, un repère (cadre et point jaunes) marque la direction du soleil projetée à l'écran.
 - Sans `ledit_xray`, les lumières cachées par un mur, et celles à plus de 3000 unités, ne sont pas affichées.
 - **En haut à gauche** : outil actif et aide (Tir / Alt / Molette), avec la valeur courante (décalage, angle, propriété, filtre, nombre de copies, contrainte).
-- **À droite** : panneau de la sélection. Pour une lumière : id, source, type, état, origine, couleur, teinte/saturation/température, intensité, rayon, direction et cônes (spot), nom ; valeur d'origine en gris si elle a changé. Pour plusieurs : « N lights (primary id) », puis la valeur commune ou « - ».
+- **À droite** : panneau de la sélection. Pour une lumière : id, source, type, état, origine, couleur, teinte/saturation/température, intensité, rayon, direction et cônes (spot), nom ; valeur d'origine en gris si elle a changé. Un rectangle s'affiche « rect 32x16 », avec « normal » à la place de « direction », puis largeur, hauteur, roulis et deux faces ; le style s'affiche s'il n'est pas 0. Pour plusieurs : « N lights (primary id) », puis la valeur commune ou « - ».
+  - Sans lumière sélectionnée ni shader émissif choisi, le panneau donne le ciel : « sky: <mode> (map) * » et « sun az A el E xB » ou « no sun ». Avec un shader émissif choisi (outil 5), il donne « emissive shader N », le nom, le nombre de polygones et le multiplicateur. Une lumière visée ou sélectionnée a la priorité.
 - **En bas** : map, compteurs, slots utilisés / limite, profondeur d'undo et de redo, `*` si des changements ne sont pas sauvegardés, grille et snap, `SOLO <id>`, filtre d'icônes, avertissements.
-- **Étiquettes** (`ledit_label`) : nom (ou `#id`), type et intensité à côté de l'icône.
+- **Étiquettes** (`ledit_label`) : nom (ou `#id`), type et intensité à côté de l'icône. Un rectangle donne « rect LxH ». Le style apparaît après l'intensité s'il n'est pas 0 (« I style N »).
 - **Filtres d'affichage** (`ledit_show`) : 2 ajoute les lumières émissives (points gris), 3 ajoute aussi les lumières dynamiques de l'image précédente (points magenta : dlights, sabres). Elles ne sont pas sélectionnables. Le bas de l'écran affiche « show N ».
 - Tout le dessin de l'overlay respecte un budget fixe par image (points et caractères) : un cône, une grande sélection ou beaucoup d'étiquettes ne peuvent pas saturer le buffer de commandes du renderer. Les formes de la sélection et des outils passent en premier, puis les icônes, puis les points émissifs et dynamiques.
 
@@ -167,7 +182,7 @@ Ctrl est souvent lié à l'accroupissement : un raccourci Ctrl fait descendre un
 
 - **En-tête** : map, nombre de lumières, d'émissives, compteurs par source, `* unsaved`.
 - **Filtre** (cvar `ui_ledit_filter` : all, added, entity, lgt, modified, disabled, spots ; un clic passe à la valeur suivante) et **recherche** (`ui_ledit_search`, sous-chaîne du nom, sans casse).
-- **Liste** : id, source (`added`, `ent N`, `lgt N`), type, intensité, état (M modifiée, D désactivée, S dans un solide, m muette), nom. Un clic sur une ligne la choisit et la sélectionne (`ledit_select`).
+- **Liste** : id, source (`added`, `ent N`, `lgt N`), type (« rect LxH » pour un rectangle, suivi de « sN » si le style N n'est pas 0), intensité, état (M modifiée, D désactivée, S dans un solide, m muette), nom. Un clic sur une ligne la choisit et la sélectionne (`ledit_select`).
 - **Boutons** (sur la ligne choisie) : Select, Add to sel., Go to, Delete, Restore, Solo, End solo, Revert, Close.
 - **Couleur** : curseurs teinte (0-360), saturation, valeur, température (1000-12000 K) avec un aperçu. « Load from light » lit la couleur, l'intensité et le rayon de la ligne choisie ; « Apply colour » applique la couleur HSV ; « Use temperature » met la couleur du corps noir dans les curseurs ; « Apply temperature » l'applique.
 - **Valeurs** : champs intensité et rayon, chacun avec « Apply ».
@@ -191,9 +206,13 @@ Toutes, sauf `lightedit`, demandent le mode actif.
 | `ledit_set intensity v` | Intensité (voir § 8). |
 | `ledit_set radius v` | Rayon d'émission. |
 | `ledit_set name texte` | Nom. |
-| `ledit_set type sphere\|spot` | Convertit la sélection. |
-| `ledit_set dir x y z` | Direction (spot). |
+| `ledit_set type sphere\|spot\|rect` | Convertit la sélection. |
+| `ledit_set dir x y z` | Direction (spot) ou normale (rectangle). |
 | `ledit_set cone ext [int]` | Demi-angles des cônes, en degrés. |
+| `ledit_set width w` / `height h` | Taille d'un rectangle (1 à 2048). |
+| `ledit_set roll deg` | Roulis d'un rectangle, en degrés. |
+| `ledit_set twosided 0\|1` | Rectangle à deux faces. |
+| `ledit_set style N` | Style de lumière (0 à 63), tous les types. |
 | `ledit_get` | Affiche les valeurs de la sélection (et les valeurs d'origine si elle est modifiée). |
 | `ledit_delete` | Supprime ou désactive la sélection. |
 | `ledit_deselect` | Vide la sélection. |
@@ -205,8 +224,20 @@ Toutes, sauf `lightedit`, demandent le mode actif.
 | `ledit_goto` | Place la caméra devant la sélection, tournée vers elle, hors des murs (aussi : Utiliser). |
 | `ledit_menu` | Ouvre le menu light edit (aussi : Ctrl+M). |
 | `ledit_writebinds [force]` | Écrit `lightedit_binds.cfg` dans le homepath (refuse d'écraser un fichier existant sans `force`), puis indique `exec lightedit_binds.cfg`. |
+| `ledit_emissive_list [filtre]` | Liste les shaders émissifs : index, nom, polygones, multiplicateur (`*` s'il n'est pas 1). Le filtre est une sous-chaîne du nom. |
+| `ledit_emissive <index\|nom> <échelle>` | Multiplicateur d'un shader (0 à 100). Le nom est le nom exact ou une partie unique du nom. |
+| `ledit_emissive_reset <index\|nom\|all>` | Remet un shader, ou tous, à 1. |
+| `ledit_sky [global\|skybox\|physical\|hybrid]` | Mode du ciel de la map. Sans argument, affiche les valeurs. |
+| `ledit_sun <azimut> <élévation>` | Direction du soleil, en degrés. |
+| `ledit_sun_here` | Le soleil vient de la direction du regard. |
+| `ledit_sun_color <r> <g> <b>` | Couleur du soleil (0 à 10 par composante, 1 = blanc). |
+| `ledit_sun_brightness <x>` | Luminosité du soleil. |
+| `ledit_sun_angle <deg>` | Diamètre angulaire du soleil (1 à 10°). |
+| `ledit_sky_reset` | La map revient au ciel global. |
 
-Commandes de débogage du renderer (utilisables même hors du mode) : `pt_ledit_list`, `pt_ledit_add x y z [intensité] [r g b]`, `pt_ledit_set <id> <origin|color|intensity|radius> <valeurs>`, `pt_ledit_set <id> spot dx dy dz ext int`, `pt_ledit_set <id> sphere`, `pt_ledit_del <id>`, `pt_ledit_restore <id>`, `pt_ledit_mute <id> <0|1>`, `pt_ledit_solo <id|-1>`, `pt_ledit_stats`, `pt_ledit_emissive [n]`, `pt_ledit_dynamic`.
+Commandes de débogage du renderer (utilisables même hors du mode) : `pt_ledit_list` (affiche aussi les rectangles et les slots), `pt_ledit_add x y z [intensité] [r g b] [rect w h] [dir x y z] [roll deg] [twosided 0|1] [style n]`, `pt_ledit_set <id> <origin|color|intensity|radius> <valeurs>`, `pt_ledit_set <id> spot dx dy dz ext int`, `pt_ledit_set <id> sphere`, `pt_ledit_set <id> rect [w h]`, `pt_ledit_set <id> dir x y z`, `pt_ledit_set <id> roll deg`, `pt_ledit_set <id> twosided 0|1`, `pt_ledit_set <id> style n`, `pt_ledit_del <id>`, `pt_ledit_restore <id>`, `pt_ledit_mute <id> <0|1>`, `pt_ledit_solo <id|-1>`, `pt_ledit_stats`, `pt_ledit_emissive [n]`, `pt_ledit_dynamic`, `pt_ledit_emissive_shaders`, `pt_ledit_emissive_scale <index|nom> <échelle>`, `pt_sky_print`, `pt_sky_set <skybox|physical|hybrid|global>` ou `pt_sky_set <clé> <valeurs>` (`sun_azimuth`, `sun_elevation`, `sun_color`, `sun_brightness`, `sun_angle`), `pt_sky_reset`.
+
+Déplacer ou tourner un rectangle reconstruit les listes de lumières par cluster (au plus toutes les 100 ms pendant une saisie), car ces listes écartent les clusters situés derrière le plan du polygone.
 
 ## 7. Cvars
 
@@ -224,6 +255,9 @@ Commandes de débogage du renderer (utilisables même hors du mode) : `pt_ledit_
 | `ledit_preset_color` | `1 0.9 0.8` | Couleur d'une lumière créée. |
 | `pt_light_scale_edit` | 0.1 | Échelle unique des lumières **ajoutées**. |
 | `ledit_active` | — | Lecture seule, 1 pendant le mode. |
+| `pt_light_styles` | 1 | 0 : coupe la modulation des styles de lumière. |
+| `pt_sky_per_map` | 1 | 0 : ignore le ciel réglé pour la map (pour comparer avec le ciel global). |
+| `pt_sky_q3map_sun` | 0 | 1 : une map sans bloc global mais avec `q3map_sun` reçoit le ciel hybride, avec la direction et la couleur de `q3map_sun`. |
 
 Les cvars `ledit_*` sont archivées : elles gardent leur valeur d'une session à l'autre.
 
@@ -236,11 +270,70 @@ Le renderer redémarre l'accumulation (`pt_accumulation_rendering`) dès que la 
 - Une lumière **reconstruite** (`lgt`) garde son unité (unités de lightmap × `pt_lightgen_scale`).
 - Le clonage, la pipette et la copie de l'intensité (outil 5) convertissent l'intensité d'une source à l'autre, pour garder la même luminosité : I2 = I1 × échelle1 / échelle2.
 - Convertir une sphère en spot garde la luminosité sur l'axe du spot.
+- **Rectangle** : l'intensité a la même unité que celle d'une sphère. La couleur est multipliée par 0,8π / (largeur × hauteur) : l'éclairement sur l'axe égale celui d'une sphère de même intensité, et le flux total reste le même quand la taille change.
+- Un rectangle à une face posé sur un sol, normale vers le haut, éclaire le plafond et pas le sol. Une normale vers le bas éclaire le sol.
+- Les axes d'un rectangle : U est horizontal pour une normale non verticale, et vaut l'axe X pour une normale verticale ; le roulis tourne U et V autour de la normale. La largeur suit U, la hauteur suit V.
+
+## 8 bis. Styles de lumière
+
+Chaque lumière a un style de 0 à 63. Le style 0 est fixe. Les autres modulent l'éclairage : l'échelle vaut (r+g+b) / 765 de la couleur que le jeu donne au style à chaque image.
+
+| Style | Nom |
+|---|---|
+| 0 | fixe (steady) |
+| 1 | scintillement (flicker) |
+| 2 | pulsation lente et forte |
+| 3 | bougie |
+| 4 | stroboscope rapide |
+| 5 | pulsation douce |
+| 6 | scintillement 2 |
+| 7 | bougie 2 |
+| 8 | bougie 3 |
+| 9 | stroboscope lent |
+| 10 | néon qui scintille |
+| 11 | pulsation lente |
+| 12 | pulsation rapide |
+| 13 | mélange de test |
+| 14 à 31 | « style N » |
+| 32 à 63 | lumières commutables (« switch N-32 ») |
+
+- Une lumière d'entité du BSP lit la clé `style` de l'entité comme style d'origine.
+- Un style qui scintille rend aussi la lumière plus sombre en moyenne (le niveau `m` de JKA vaut environ la moitié de `z`).
+- La cvar `pt_light_styles` (1 par défaut) : 0 coupe la modulation.
+- Réglage : outil 5 (propriété « style »), `ledit_set style N`, pipette (filtre « tout »).
+
+## 8 ter. Multiplicateur émissif par shader
+
+Un multiplicateur de 0 à 100 règle la lumière que les polygones d'un shader émissif projettent. L'aspect de la surface ne change pas : le multiplicateur est appliqué au chargement, seulement sur la lumière émise.
+
+- Outil 5 avec `ledit_show` ≥ 2 : voir § 4, outil 5. Le panneau donne « emissive shader N », le nom, le nombre de polygones et le multiplicateur.
+- Commandes : `ledit_emissive_list [filtre]`, `ledit_emissive <index|nom> <échelle>`, `ledit_emissive_reset <index|nom|all>`.
+- Les changements passent par l'undo. Des crans de molette consécutifs sur le même shader forment une seule entrée.
+- La sauvegarde écrit un bloc `emissive` par shader dont le multiplicateur n'est pas 1 (§ 10).
+
+## 8 quater. Ciel et soleil de la map
+
+Chaque map peut avoir son propre réglage du ciel. Il n'écrit jamais les cvars archivées (`physical_sky`, `sun_*`).
+
+| Mode | Effet |
+|---|---|
+| `global` | Pas de réglage pour la map : les cvars `physical_sky` et `sun_*` s'appliquent. |
+| `skybox` | Skybox de la map, sans soleil. |
+| `physical` | Ciel physique (terre), avec le soleil du réglage. |
+| `hybrid` | La skybox de la map reste, un soleil analytique éclaire la scène. Corrige l'absence de soleil quand `physical_sky` vaut 0. |
+
+- Convention : la direction vers le soleil vaut (cos az · cos él, sin az · cos él, sin él) dans les axes du monde, comme `sun_azimuth` et `sun_elevation`.
+- Une commande de soleil en mode `global` passe d'abord en `physical` (si `physical_sky` est non nul) ou en `hybrid`. Sur `skybox`, elle passe en `hybrid`.
+- `ledit_sun_color` : 0 à 10 par composante, 1 = blanc. `ledit_sun_angle` : 1 à 10°.
+- Calibrage du mode `hybrid` : couleur du soleil × luminosité × `pt_env_scale` × 0,9 (estimation fixe de la transmittance).
+- L'undo couvre les changements de ciel. `ledit_sky_reset` ou `ledit_sky global` retire le réglage de la map.
+- Renderer : `pt_sky_print`, `pt_sky_set`, `pt_sky_reset` (§ 6) ; cvars `pt_sky_per_map` et `pt_sky_q3map_sun` (§ 7).
+- Corrections liées : `sun_color_r/g/b` rafraîchissent maintenant le ciel ; la radiance du sol atteint les shaders ; le préréglage `physical_sky` n'écrase plus le réglage d'une map.
 
 
 ## 9. Binds conseillés
 
-Les touches des armes, le tir, la molette et `[` / `]` suffisent pour les outils. Le fichier `docs/lightedit_binds.cfg` propose des binds sur le pavé numérique ; `ledit_writebinds` l'écrit dans le homepath, `exec lightedit_binds.cfg` l'applique. Rien n'est exécuté automatiquement. Autre exemple (à adapter) :
+Les touches des armes, le tir, la molette et `[` / `]` suffisent pour les outils. Le fichier `docs/lightedit_binds.cfg` propose des binds sur le pavé numérique ; `ledit_writebinds` l'écrit dans le homepath, `exec lightedit_binds.cfg` l'applique. Il lie aussi `KP_SLASH` à `ledit_sun_here` (le soleil vient de la direction du regard). Rien n'est exécuté automatiquement. Autre exemple (à adapter) :
 
 ```
 bind F6 "lightedit"
@@ -255,7 +348,7 @@ bind F12 "ledit_grid_next"
 
 Vérifiez que la molette est liée à `weapnext` / `weapprev` (`bind MWHEELUP weapnext`, `bind MWHEELDOWN weapprev`) et que `[` / `]` sont liés à `invprev` / `invnext`.
 
-## 10. Le fichier `.lgt` (format v2)
+## 10. Le fichier `.lgt` (format v2, API de version 4)
 
 Emplacement : `maps/<map>.lgt` dans le homepath (par exemple `Documents\My Games\SWGL\SWGL\maps`). Une copie de sécurité `maps/<map>.lgt.bak` est faite avant chaque `ledit_save`.
 
@@ -314,6 +407,34 @@ lights 0
 	cone_outer 35         // demi-angle extérieur, en degrés
 	cone_inner 25         // demi-angle intérieur, en degrés
 }
+{                         // rectangle ajouté
+	source added
+	origin 100 200 300
+	color 1 0.9 0.8
+	intensity 2000
+	type rect
+	dir 0 0 -1            // normale : côté éclairé
+	width 128
+	height 48
+	roll 45               // degrés
+	two_sided 1           // 0 ou 1
+	style 4               // absent si 0 (ou égal au style d'origine)
+}
+{                         // multiplicateur d'un shader émissif
+	source emissive
+	shader "textures/dossier/exemple"   // nom du shader
+	scale 8
+}
+global                    // ciel et soleil de la map
+{
+	source global
+	sky hybrid            // skybox, physical ou hybrid
+	sun_azimuth 120
+	sun_elevation 35
+	sun_color 1 0.9 0.8
+	sun_brightness 1
+	sun_angle 4
+}
 ```
 
 Règles :
@@ -322,6 +443,13 @@ Règles :
 - Chaque clé a 1 ou 3 valeurs. Un ancien binaire (parseur v1) lit le fichier sans se décaler : il ignore les blocs d'intensité négative (surcharges, désactivations) et lit les lumières ajoutées comme des lumières reconstruites.
 - Si `ent` et `check` ne correspondent plus au BSP (map recompilée), la surcharge est ignorée avec un avertissement, mais elle est conservée dans le fichier.
 - Les clés `type`, `dir`, `cone_outer` et `cone_inner` existent aussi pour les blocs lgt édités et les surcharges d'entités. Une surcharge qui change seulement la couleur d'un spot d'origine garde sa direction et ses cônes. `type sphere` note un spot d'origine converti en sphère.
+- Le rectangle utilise les clés `type rect`, `dir`, `width`, `height`, `roll` et `two_sided`. La clé `style` est écrite seulement si elle n'est pas 0 ou si elle diffère du style d'origine.
+- Un bloc `emissive` est écrit pour chaque shader dont le multiplicateur n'est pas 1. Un shader absent de la map garde son bloc dans le fichier (avertissement au chargement).
+- Le bloc `global` est écrit seulement si le mode n'est pas `global`. Seul le premier bloc `global` est lu. Une map qui a des entités `light` et pas de `.lgt` reçoit un fichier qui ne contient que ces blocs.
+- Compatibilité : le parseur v1 saute le mot `global` et rejette les blocs sans `intensity`. Chaque clé a toujours une ou trois valeurs.
+- `pt_lightgen` compte les blocs `emissive` et `global` comme des éditions : il refuse d'écraser le fichier sans `force` ; avec `force`, il les garde.
+- `ledit_save`, `ledit_reload` et `lightedit 0 discard` couvrent aussi ces blocs.
+- Version d'API 4 : le renderer, la DLL du jeu et l'exe doivent venir du même build. Le cgame et l'interface refusent une autre version.
 - Les mutes et le solo (outil 9) ne sont jamais écrits.
 - Les blocs de `source` inconnue sont conservés tels quels.
 - `pt_lightgen <map>` refuse d'écraser un fichier qui contient des éditions. `pt_lightgen <map> force` l'écrase après une copie en `.lgt.bak`.
@@ -330,7 +458,11 @@ Règles :
 ## 11. Limitations connues
 
 - **RTX seulement.** Le raster utilise les lightmaps et la lightgrid, qui ne changent pas.
-- **Pas de lumières rectangulaires**, pas de multiplicateur des surfaces émissives, pas de soleil par map, pas de styles ni de scintillement (itération 4).
+- **Multiplicateur émissif** : il règle la lumière projetée, pas l'aspect de la surface (appliqué au chargement).
+- **Soleil hybride** : le calibrage est une estimation (transmittance fixe de 0,9).
+- **Ciel** : en mode `global`, un changement de ciel affiche les anciennes valeurs pendant une image.
+- **Rectangles** : déplacer ou tourner un rectangle reconstruit les listes de clusters ; sur une très grande map, un à-coup est possible. Le choix d'un rectangle vise son centre seulement.
+- **Menu** : pas d'entrée pour le ciel ni pour les shaders émissifs (commandes seulement).
 - **Clavier** : un raccourci ne marche pas si l'utilisateur a lié une combinaison de touches sur la même touche (le moteur la remplace avant le mode). Le nom d'une lumière se saisit par la console (`ledit_set name`).
 - **Menu** : la liste ne suit pas la sélection faite en jeu ; les largeurs de colonnes sont fixes ; pas de champ de nom ni de cônes dans le menu.
 - **Sélection** : pas de sélection par boîte, ni de « tout sélectionner de la même couleur ».
@@ -371,3 +503,16 @@ Règles :
 20. **Menu** : **Ctrl+M** : le menu s'ouvre à droite ; filtre « Added », recherche `copy` : la liste se réduit ; cliquer une ligne, « Load from light », bouger la teinte, « Apply colour » : la lumière change de couleur, **Ctrl+Z** après fermeture l'annule. **Échap** ferme le menu.
 21. **Étiquettes et filtres** : `ledit_label 2`, `ledit_show 3` : noms et valeurs à côté des icônes, points gris des émissives, points magenta des lumières dynamiques (tirer au blaster hors du mode, puis revenir).
 22. **Sortie** : `lightedit 0`, puis **Ctrl+Z**, **Suppr**, **Entrée** : ces touches reprennent leur bind normal ; après `devmap`, idem.
+
+Itération 4 (rectangles, styles, émissifs, ciel). Les étapes se font en mode `lightedit` (`devmap` puis `lightedit`).
+
+23. **Rectangle** : `devmap t1_fatal`, `lightedit`, touche **2**, **Alt** deux fois (« new lights are rects »), viser un mur, **Tir** : un rectangle de 32 × 32 apparaît, éclairant à l'opposé du mur ; le rectangle filaire vert menthe montre les bords et la flèche de la normale.
+24. **Taille et orientation** : touche **4**, **Tir** sur un autre point : la normale se tourne vers lui. **Molette** (cible par défaut : le roulis) : le trait +U tourne. **Alt** (« the wheel edits the width »), **molette** : la largeur change ; **Alt** à nouveau pour la hauteur.
+25. **Propriétés** : touche **5**, `]` jusqu'à « width » (le cycle saute les cônes), `ledit_set width 128`, `ledit_set height 48`, `ledit_set roll 45`, puis `]` jusqu'à « two-sided », **molette** : le rectangle éclaire des deux côtés (diagonales et flèche arrière). Vérifier avec `ledit_get` et `pt_ledit_list`.
+26. **Style** : `]` jusqu'à « style », **molette** jusqu'à 4 (« fast strobe ») : la lumière clignote. `pt_light_styles 0` : elle reste fixe ; remettre `pt_light_styles 1`.
+27. **Sauvegarde** : `ledit_save`, `lightedit 0`, `devmap t1_fatal` : le message de chargement donne « 1 added » ; le rectangle garde sa taille, son roulis, ses deux faces et son style.
+28. **Pipette** : touche **6**, **Tir** sur le rectangle, touche **2** : la création donne un rectangle de même taille ; **molette** jusqu'au filtre « shape », puis **Alt** sur une sphère : elle devient un rectangle.
+29. **Ciel** (`devmap hoth2`, `lightedit`) : `ledit_sky` affiche le mode ; `ledit_sky skybox` (pas de soleil), `ledit_sky hybrid` (le soleil éclaire la scène et un repère jaune le marque), `ledit_sky physical`. Tester `ledit_sun 120 35`, `ledit_sun_here`, `ledit_sun_color 1 0.7 0.4`, `ledit_sun_brightness 2`, `ledit_sun_angle 4`. Le panneau (rien de sélectionné) donne « sky: hybrid (map) * » et « sun az … el … ». **Ctrl+Z** annule chaque changement. `ledit_save`, `devmap hoth2` : le ciel est relu. `ledit_sky_reset` : retour au ciel global.
+30. **Émissifs** (`devmap kejim_base`, `lightedit`) : `ledit_show 2`, touche **5**, viser un point gris, **Tir** : le panneau donne « emissive shader N » et des cadres jaunes marquent les points du shader. **Molette** jusqu'à environ 8 : la scène s'éclaire. **Alt** : retour à 1. `ledit_emissive_list light` liste les shaders ; `ledit_emissive <nom> 8`, **Ctrl+Z**, `ledit_emissive_reset all`. Refaire `ledit_emissive … 8`, `ledit_save`, `devmap kejim_base` : le multiplicateur est relu (`ledit_emissive_list` marque `*`).
+31. **Fichier** : ouvrir `maps/<map>.lgt` : les blocs `emissive` et `global` sont présents. `pt_lightgen <map>` refuse sans `force`.
+32. **Sortie** : `lightedit 0`.
