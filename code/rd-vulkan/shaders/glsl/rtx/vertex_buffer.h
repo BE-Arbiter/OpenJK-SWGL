@@ -28,7 +28,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 //#define LIGHT_COUNT_HISTORY	16
 #define LIGHT_COUNT_HISTORY     3 // one for previous frame rendered, one for current frame rendering, one for upload
 
-#define MAX_LIGHT_POLYS         4096
+#define MAX_LIGHT_POLYS         16384
 #define LIGHT_POLY_VEC4S        4
 #define MATERIAL_UINTS			6
 #define MAX_MDXM_MATRICES       32768

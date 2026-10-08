@@ -482,7 +482,20 @@ VkResult vkpt_light_buffer_upload_to_staging( qboolean render_world,
 
 	if ( render_world )
 	{
-		assert( world->num_light_polys + num_model_lights < MAX_LIGHT_POLYS);
+		// The light buffer holds MAX_LIGHT_POLYS lights. The model lights past the end are dropped.
+		const int model_light_room = MAX( 0, MAX_LIGHT_POLYS - 1 - world->num_light_polys );
+		if ( num_model_lights > model_light_room )
+		{
+			static int last_logged_world, last_logged_model;
+			if ( last_logged_world != world->num_light_polys || last_logged_model != num_model_lights )
+			{
+				last_logged_world = world->num_light_polys;
+				last_logged_model = num_model_lights;
+				Com_Printf( "RTX light buffer full: %d world lights, %d model lights, room for %d (max %d)\n",
+					world->num_light_polys, num_model_lights, model_light_room, MAX_LIGHT_POLYS );
+			}
+			num_model_lights = model_light_room;
+		}
 
 		int model_light_offset = world->num_light_polys;
 		max_model_lights = MAX(max_model_lights, num_model_lights);
@@ -499,7 +512,9 @@ VkResult vkpt_light_buffer_upload_to_staging( qboolean render_world,
 			copy_bsp_lights( world, lbo );
 		}
 
-		for ( int nlight = 0; nlight < world->num_light_polys; nlight++ )
+		// The world lights past MAX_LIGHT_POLYS do not fit in the buffer. The shaders ignore their indices.
+		const int num_world_lights = MIN( world->num_light_polys, MAX_LIGHT_POLYS );
+		for ( int nlight = 0; nlight < num_world_lights; nlight++ )
 		{
 			light_poly_t* light = world->light_polys + nlight;
 			float* vblight = *(lbo->light_polys + nlight * LIGHT_POLY_VEC4S);
