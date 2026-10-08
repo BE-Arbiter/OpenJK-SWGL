@@ -541,6 +541,17 @@ VkResult vkpt_light_buffer_upload_to_staging( qboolean render_world,
 		vk_rtx_upload_materials( lbo );
 	}
 
+	// Without the PVS debug view, the mask is the PVS of the camera cluster. The primary rays use it
+	// for the surfaces behind a sky surface. A camera outside the world sees every cluster, as R_MarkLeaves.
+	if ( vk.cluster_debug_index < 0 )
+	{
+		const int view_cluster = BSP_PointLeaf( tr.world->nodes, backEnd.refdef.vieworg )->cluster;
+
+		if ( view_cluster < 0 || view_cluster >= tr.world->numClusters )
+			memset( vk.cluster_debug_mask, 0xff, sizeof( vk.cluster_debug_mask ) );
+		else
+			BSP_ClusterVis( tr.world, (byte*)vk.cluster_debug_mask, view_cluster, DVIS_PVS );
+	}
 	memcpy( lbo->cluster_debug_mask, vk.cluster_debug_mask, MAX_LIGHT_LISTS / 8 );
 	memcpy( lbo->sky_visibility, tr.world->sky_visibility, MAX_LIGHT_LISTS / 8);
 

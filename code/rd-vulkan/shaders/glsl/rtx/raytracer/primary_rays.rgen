@@ -185,6 +185,35 @@ main()
 
 			Triangle layer_triangle = get_hit_triangle(ray_payload_geometry);
 			const uint layer_instance = get_instance_index(ray_payload_geometry);
+
+			// The rasterizer draws the sky at the far plane: a surface behind a sky surface is in front of it,
+			// if the camera PVS holds its cluster (cluster_debug_mask) or it has no cluster.
+			if (is_sky(layer_triangle.material_id) && global_ubo.pt_show_sky == 0 && global_ubo.cluster_debug_index < 0)
+			{
+				const RayPayloadGeometry sky_payload = ray_payload_geometry;
+				Ray behind = ray;
+				behind.t_min = sky_payload.hit_distance + 0.01;
+
+				trace_geometry_ray(behind, true, cull_mask & ~(AS_FLAG_SKY | AS_FLAG_CUSTOM_SKY));
+
+				bool use_behind = found_intersection(ray_payload_geometry);
+				if (use_behind)
+				{
+					const int behind_cluster = get_hit_triangle(ray_payload_geometry).cluster;
+					use_behind = behind_cluster < 0
+						|| (light_buffer.cluster_debug_mask[behind_cluster >> 5] & (1u << (behind_cluster & 31))) != 0u;
+				}
+
+				if (!use_behind)
+				{
+					ray_payload_geometry = sky_payload;
+					break;
+				}
+
+				ray.t_min = behind.t_min;
+				have_hit = true;
+				continue;
+			}
 			if (hit == MAX_BLENDED_HITS - 1 || !is_blended_surface(layer_triangle.material_id, layer_instance))
 				break;
 

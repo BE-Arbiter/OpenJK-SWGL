@@ -674,6 +674,7 @@ void		vk_rtx_deform_world_geometry( trRefdef_t *refdef );
 void		vk_rtx_upload_world_deforms( VkCommandBuffer cmd_buf );
 void		vk_rtx_rebuild_world_deforms( VkCommandBuffer cmd_buf );
 mnode_t		*BSP_PointLeaf( mnode_t *node, vec3_t p );
+byte		*BSP_ClusterVis( world_t *bsp, byte *mask, int cluster, int vis );
 byte		*BSP_GetPvs( world_t *bsp, int cluster );
 byte		*BSP_GetPvs2( world_t *bsp, int cluster );
 void		get_triangle_norm( const float* positions, float* normal );
