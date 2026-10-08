@@ -214,6 +214,7 @@ set(SPGameCGameFiles
 	"${SPDir}/cgame/cg_lightedit_move.cpp"
 	"${SPDir}/cgame/cg_lightedit_pipette.cpp"
 	"${SPDir}/cgame/cg_lightedit_props.cpp"
+	"${SPDir}/cgame/cg_lightedit_rect.cpp"
 	"${SPDir}/cgame/cg_lightedit_solo.cpp"
 	"${SPDir}/cgame/cg_lightedit_spot.cpp"
 	"${SPDir}/cgame/cg_lightedit_undo.cpp"

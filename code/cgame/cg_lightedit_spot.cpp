@@ -15,7 +15,17 @@
 #define LEDIT_CONE_DOT_FLOOR	1000		// the cones never use the last 1000 dots of the budget
 #define LEDIT_CONE_EXTRA		3			// selected spots, besides the primary one, that get a cone
 
+typedef enum {
+	LEO_ROLL = 0,
+	LEO_WIDTH,
+	LEO_HEIGHT,
+	LEO_NUM
+} ledRectTarget_t;
+
 static qboolean		s_editInner = qfalse;	// the wheel edits the inner angle
+static int			s_rectTarget = LEO_ROLL;	// what the wheel edits on a rect
+
+static const char	*s_rectTargetNames[LEO_NUM] = { "roll", "width", "height" };
 
 static const vec4_t	colCone		= { 1.00f, 0.90f, 0.30f, 1.0f };
 static const vec4_t	colAim		= { 1.00f, 0.55f, 0.10f, 1.0f };
@@ -23,6 +33,7 @@ static const vec4_t	colAim		= { 1.00f, 0.55f, 0.10f, 1.0f };
 void LE_OrientInit( void )
 {
 	s_editInner = qfalse;
+	s_rectTarget = LEO_ROLL;
 }
 
 /*
@@ -234,7 +245,7 @@ static void LE_OrientAim( const std::vector<int> &ids )
 
 	if ( ids.empty() )
 	{
-		LE_Msg( "light edit: aim at a spot or select one" );
+		LE_Msg( "light edit: aim at a spot or a rect, or select one" );
 		return;
 	}
 	if ( !LE_CrosshairHit( hit, nrm ) )
@@ -251,7 +262,7 @@ static void LE_OrientAim( const std::vector<int> &ids )
 			rtxLightDesc_t	d;
 			vec3_t			dir;
 
-			if ( !LE_GetDesc( ids[i], &d ) || d.type != RTX_LTYPE_SPOT )
+			if ( !LE_GetDesc( ids[i], &d ) || ( d.type != RTX_LTYPE_SPOT && d.type != RTX_LTYPE_RECT ) )
 			{
 				continue;
 			}
@@ -271,7 +282,7 @@ static void LE_OrientAim( const std::vector<int> &ids )
 	}
 	if ( !done )
 	{
-		LE_Msg( "light edit: no spot to aim (sphere: alt converts it to a spot)" );
+		LE_Msg( "light edit: no spot or rect to aim (sphere: alt converts it to a spot)" );
 	}
 }
 
@@ -336,7 +347,7 @@ static void LE_OrientWheel( const std::vector<int> &ids, int wheel, qboolean fin
 
 	if ( ids.empty() )
 	{
-		LE_Msg( "light edit: aim at a spot or select one" );
+		LE_Msg( "light edit: aim at a spot or a rect, or select one" );
 		return;
 	}
 	{
@@ -356,10 +367,36 @@ static void LE_OrientWheel( const std::vector<int> &ids, int wheel, qboolean fin
 			spots++;
 		}
 		LE_UndoEnd();
+
+		LE_UndoBeginMerge( s_rectTargetNames[s_rectTarget], LE_HashTargets( 0x48 + s_rectTarget, ids ) );
+		for ( size_t i = 0; i < ids.size(); i++ )
+		{
+			rtxLightDesc_t	d;
+
+			if ( !LE_GetDesc( ids[i], &d ) || d.type != RTX_LTYPE_RECT )
+			{
+				continue;
+			}
+			if ( s_rectTarget == LEO_ROLL )
+			{
+				d.roll = LE_RollStep( d.roll, wheel, fine );
+			}
+			else if ( s_rectTarget == LEO_WIDTH )
+			{
+				d.width = LE_RectSizeStep( d.width, wheel, fine );
+			}
+			else
+			{
+				d.height = LE_RectSizeStep( d.height, wheel, fine );
+			}
+			LE_DoSet( ids[i], &d, s_rectTargetNames[s_rectTarget] );
+			spots++;
+		}
+		LE_UndoEnd();
 	}
 	if ( !spots )
 	{
-		LE_Msg( "light edit: no spot among the targets" );
+		LE_Msg( "light edit: no spot or rect among the targets" );
 	}
 }
 
@@ -378,6 +415,11 @@ void LE_ToolOrient( qboolean priDown, qboolean secDown, int wheel, qboolean fine
 		if ( subject && subject->type == RTX_LTYPE_SPHERE )
 		{
 			LE_OrientConvert( ids );
+		}
+		else if ( subject && subject->type == RTX_LTYPE_RECT )
+		{
+			s_rectTarget = ( s_rectTarget + 1 ) % LEO_NUM;
+			LE_Msg( "light edit: the wheel edits the %s of the rect", s_rectTargetNames[s_rectTarget] );
 		}
 		else
 		{
@@ -398,16 +440,32 @@ void LE_OrientHelp( const char **name, const char **fire, const char **alt, char
 
 	static char	fireBuf[96], altBuf[96];
 
-	*name = "4 Orient (spots)";
+	*name = "4 Orient (spots, rects)";
 	if ( snap > 0.0f )
 	{
-		Com_sprintf( fireBuf, sizeof( fireBuf ), "aim the spots at the crosshair (direction snapped to %.0f deg)", snap );
+		Com_sprintf( fireBuf, sizeof( fireBuf ), "aim the spots and rects at the crosshair (direction snapped to %.0f deg)", snap );
 	}
 	else
 	{
-		Com_sprintf( fireBuf, sizeof( fireBuf ), "aim the spots at the crosshair" );
+		Com_sprintf( fireBuf, sizeof( fireBuf ), "aim the spots and rects at the crosshair" );
 	}
 	*fire = fireBuf;
+	if ( subject && subject->type == RTX_LTYPE_RECT )
+	{
+		Com_sprintf( altBuf, sizeof( altBuf ), "the wheel edits the %s of the rect; alt switches to the %s",
+			s_rectTargetNames[s_rectTarget], s_rectTargetNames[( s_rectTarget + 1 ) % LEO_NUM] );
+		*alt = altBuf;
+		if ( s_rectTarget == LEO_ROLL )
+		{
+			Com_sprintf( wheelBuf, wheelSize, "roll +-%.0f deg, walk 1 (now %.1f)", LE_AngleStep( qfalse ), subject->roll );
+		}
+		else
+		{
+			Com_sprintf( wheelBuf, wheelSize, "%s x1.1, walk x1.01, grid snap (now %.4g)", s_rectTargetNames[s_rectTarget],
+				s_rectTarget == LEO_WIDTH ? subject->width : subject->height );
+		}
+		return;
+	}
 	if ( subject && subject->type == RTX_LTYPE_SPHERE )
 	{
 		*alt = "sphere: alt converts it to a spot";

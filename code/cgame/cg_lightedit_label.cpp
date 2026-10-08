@@ -66,7 +66,18 @@ static void LE_LabelStrings( const rtxLightDesc_t *d, char *name, int nameSize, 
 	{
 		Com_sprintf( name, nameSize, "#%d", d->id );
 	}
-	Com_sprintf( value, valueSize, "%s %g", d->type == RTX_LTYPE_SPOT ? "spot" : "sphere", d->intensity );
+	char	shape[40];
+
+	LE_ShapeText( d, shape, sizeof( shape ) );
+	Com_sprintf( value, valueSize, "%s %g", shape, d->intensity );
+	if ( d->style )
+	{
+		char	style[40];
+
+		LE_StyleText( d->style, style, sizeof( style ) );
+		Q_strcat( value, valueSize, " style " );
+		Q_strcat( value, valueSize, style );
+	}
 	if ( d->flags & RTX_LFLAG_MUTED )
 	{
 		Q_strcat( value, valueSize, " muted" );

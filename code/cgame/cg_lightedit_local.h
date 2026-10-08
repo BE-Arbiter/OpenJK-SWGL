@@ -116,6 +116,7 @@ int			LE_DotsLeft( void );
 void		LE_DotFloor( int floorDots );						// the dots below this count stay free; 0 clears it
 const rtxLightDesc_t	*LE_RecDesc( int id );						// this frame's descriptor, NULL when unknown
 void		LE_CreateSetSpot( qboolean spot );					// creation type of tool 2
+void		LE_CreateSetType( int type );						// creation type of tool 2: an RTX_LTYPE_*
 
 // Aim, cones and tool 4 (cg_lightedit_spot.cpp).
 qboolean	LE_CrosshairHit( vec3_t pos, vec3_t normal );		// world hit under the crosshair; qfalse for sky or nothing
@@ -137,11 +138,17 @@ typedef enum {
 	LEP_RADIUS,
 	LEP_CONE_OUTER,
 	LEP_CONE_INNER,
+	LEP_WIDTH,
+	LEP_HEIGHT,
+	LEP_ROLL,
+	LEP_TWOSIDED,
+	LEP_STYLE,
 	LEP_NUM
 } ledProp_t;
 
 void		LE_PropsInit( void );
-void		LE_PropCycle( int dir );							// invnext / invprev
+void		LE_PropCycle( int dir );							// invnext / invprev; skips the properties that do not apply to the primary light
+qboolean	LE_PropApplies( int prop, int type );				// qfalse when the property has no meaning for the light type
 int			LE_PropActive( void );
 const char	*LE_PropName( int prop );
 void		LE_ColorToHSV( const vec3_t rgb, float *h, float *s, float *v );
@@ -151,6 +158,17 @@ void		LE_PropsHelp( const char **name, const char **fire, const char **alt, char
 void		LE_PropsDrawGauge( float x, float y, float w, const rtxLightDesc_t *d );
 void		LE_PropValueText( const rtxLightDesc_t *d, int prop, char *out, int size );	// current value, for the numeric entry
 qboolean	LE_PropValueApply( rtxLightDesc_t *d, int prop, const float *val, int count );	// typed values
+
+// Rectangle lights and light styles (cg_lightedit_rect.cpp).
+const char	*LE_TypeName( int type );							// "sphere", "spot" or "rect"
+void		LE_ShapeText( const rtxLightDesc_t *d, char *out, int size );	// type, with the size of a rect
+const char	*LE_StyleName( int style );
+void		LE_StyleText( int style, char *out, int size );		// "3 candle"
+void		LE_ConvertType( rtxLightDesc_t *d, int type );		// sets the type and the fields it needs
+float		LE_RectSizeStep( float size, int wheel, qboolean fine );
+float		LE_RollStep( float roll, int wheel, qboolean fine );
+void		LE_DrawRectWire( const rtxLightDesc_t *d, const vec4_t col, qboolean full );
+void		LE_DrawRectWires( void );							// selected rects, and the aimed one for tools 4 and 5
 
 // Tool 6 (cg_lightedit_pipette.cpp).
 void		LE_PipetteInit( void );

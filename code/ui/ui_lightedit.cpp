@@ -468,7 +468,18 @@ const char *UI_LightEdit_FeederItemText( int index, int column )
 		}
 		break;
 	case 2:
-		Com_sprintf( out, 64, "%s", d.type == RTX_LTYPE_SPOT ? "spot" : "sphere" );
+		if ( d.type == RTX_LTYPE_RECT )
+		{
+			Com_sprintf( out, 64, "rect %.4gx%.4g", d.width, d.height );
+		}
+		else
+		{
+			Com_sprintf( out, 64, "%s", d.type == RTX_LTYPE_SPOT ? "spot" : "sphere" );
+		}
+		if ( d.style )
+		{
+			Q_strcat( out, 64, va( " s%d", d.style ) );
+		}
 		break;
 	case 3:
 		Com_sprintf( out, 64, "%.5g", d.intensity );

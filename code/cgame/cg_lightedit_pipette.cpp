@@ -41,6 +41,11 @@ qboolean LE_PipettePreset( rtxLightDesc_t *d )
 	VectorCopy( s_clip.dir, d->dir );
 	d->coneOuter = s_clip.coneOuter;
 	d->coneInner = s_clip.coneInner;
+	d->width = s_clip.width;
+	d->height = s_clip.height;
+	d->roll = s_clip.roll;
+	d->twoSided = s_clip.twoSided;
+	d->style = s_clip.style;
 	return qtrue;
 }
 
@@ -66,9 +71,9 @@ static void LE_PipetteCopy( void )
 		s_clip.intensity = src.intensity * scaleSrc / scaleNew;
 	}
 	s_clipValid = qtrue;
-	LE_CreateSetSpot( (qboolean)( src.type == RTX_LTYPE_SPOT ) );
+	LE_CreateSetType( src.type );
 	LE_Msg( "light edit: copied light %d (%s, intensity %.1f); tool 2 uses it as its preset", src.id,
-		src.type == RTX_LTYPE_SPOT ? "spot" : "sphere", s_clip.intensity );
+		LE_TypeName( src.type ), s_clip.intensity );
 }
 
 // Gives d the clipboard values that the filter selects. The intensity goes back to the units of the target.
@@ -87,21 +92,31 @@ static void LE_PipetteApply( rtxLightDesc_t *d )
 	}
 	if ( s_filter == LEF_ALL || s_filter == LEF_SHAPE )
 	{
-		if ( s_clip.type == RTX_LTYPE_SPOT )
+		if ( s_clip.type != d->type )
 		{
-			if ( d->type != RTX_LTYPE_SPOT )
+			if ( s_clip.type != RTX_LTYPE_SPHERE )
 			{
-				d->type = RTX_LTYPE_SPOT;
 				VectorCopy( s_clip.dir, d->dir );
 			}
+			LE_ConvertType( d, s_clip.type );
+		}
+		if ( s_clip.type == RTX_LTYPE_SPOT )
+		{
 			d->coneOuter = s_clip.coneOuter;
 			d->coneInner = s_clip.coneInner;
 		}
-		else
+		else if ( s_clip.type == RTX_LTYPE_RECT )
 		{
-			d->type = RTX_LTYPE_SPHERE;
+			d->width = s_clip.width;
+			d->height = s_clip.height;
+			d->roll = s_clip.roll;
+			d->twoSided = s_clip.twoSided;
 		}
 		d->radius = s_clip.radius;
+	}
+	if ( s_filter == LEF_ALL )
+	{
+		d->style = s_clip.style;
 	}
 }
 

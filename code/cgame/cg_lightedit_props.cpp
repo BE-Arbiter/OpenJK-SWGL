@@ -20,7 +20,8 @@ static const vec4_t		colGaugeFill	= { 0.30f, 1.00f, 1.00f, 1.0f };
 static const vec4_t		colGaugeMark	= { 1.00f, 1.00f, 1.00f, 1.0f };
 
 static const char		*s_propNames[LEP_NUM] = {
-	"intensity", "hue", "saturation", "temperature", "radius", "cone outer", "cone inner"
+	"intensity", "hue", "saturation", "temperature", "radius", "cone outer", "cone inner",
+	"width", "height", "roll", "two-sided", "style"
 };
 
 void LE_PropsInit( void )
@@ -38,9 +39,37 @@ const char *LE_PropName( int prop )
 	return s_propNames[Com_Clampi( 0, LEP_NUM - 1, prop )];
 }
 
+// Cones belong to spots, the rect fields to rects, the emitter radius to the other types. Every other property applies to all.
+qboolean LE_PropApplies( int prop, int type )
+{
+	switch ( prop )
+	{
+	case LEP_RADIUS:
+		return (qboolean)( type != RTX_LTYPE_RECT );
+	case LEP_CONE_OUTER:
+	case LEP_CONE_INNER:
+		return (qboolean)( type == RTX_LTYPE_SPOT );
+	case LEP_WIDTH:
+	case LEP_HEIGHT:
+	case LEP_ROLL:
+	case LEP_TWOSIDED:
+		return (qboolean)( type == RTX_LTYPE_RECT );
+	}
+	return qtrue;
+}
+
 void LE_PropCycle( int dir )
 {
-	s_prop = ( s_prop + ( dir > 0 ? 1 : LEP_NUM - 1 ) ) % LEP_NUM;
+	const rtxLightDesc_t	*d = LE_RecDesc( s_sel >= 0 ? s_sel : s_pickId );
+
+	for ( int i = 0; i < LEP_NUM; i++ )
+	{
+		s_prop = ( s_prop + ( dir > 0 ? 1 : LEP_NUM - 1 ) ) % LEP_NUM;
+		if ( !d || LE_PropApplies( s_prop, d->type ) )
+		{
+			break;
+		}
+	}
 	LE_Msg( "light edit: property %s", LE_PropName( s_prop ) );
 }
 
@@ -193,6 +222,10 @@ static qboolean LE_PropAdjust( rtxLightDesc_t *d, int prop, int wheel, qboolean 
 		LE_Blackbody( LE_ColorTemp( d->color ) + n * ( fine ? 50.0f : 250.0f ), d->color );
 		return qtrue;
 	case LEP_RADIUS:
+		if ( !LE_PropApplies( prop, d->type ) )
+		{
+			return qfalse;
+		}
 		d->radius = Q_max( 0.5f, d->radius + n * ( fine ? 0.1f : 1.0f ) );
 		return qtrue;
 	case LEP_CONE_OUTER:
@@ -202,6 +235,38 @@ static qboolean LE_PropAdjust( rtxLightDesc_t *d, int prop, int wheel, qboolean 
 			return qfalse;
 		}
 		LE_ConeAdd( d, (qboolean)( prop == LEP_CONE_INNER ), n * LE_AngleStep( fine ) );
+		return qtrue;
+	case LEP_WIDTH:
+	case LEP_HEIGHT:
+		if ( d->type != RTX_LTYPE_RECT )
+		{
+			return qfalse;
+		}
+		if ( prop == LEP_WIDTH )
+		{
+			d->width = LE_RectSizeStep( d->width, wheel, fine );
+		}
+		else
+		{
+			d->height = LE_RectSizeStep( d->height, wheel, fine );
+		}
+		return qtrue;
+	case LEP_ROLL:
+		if ( d->type != RTX_LTYPE_RECT )
+		{
+			return qfalse;
+		}
+		d->roll = LE_RollStep( d->roll, wheel, fine );
+		return qtrue;
+	case LEP_TWOSIDED:
+		if ( d->type != RTX_LTYPE_RECT )
+		{
+			return qfalse;
+		}
+		d->twoSided = !d->twoSided;
+		return qtrue;
+	case LEP_STYLE:
+		d->style = ( ( d->style + wheel ) % RTX_LSTYLE_MAX + RTX_LSTYLE_MAX ) % RTX_LSTYLE_MAX;
 		return qtrue;
 	}
 	return qfalse;
@@ -236,7 +301,39 @@ static qboolean LE_PropCopy( rtxLightDesc_t *dst, const rtxLightDesc_t *src, int
 		LE_Blackbody( LE_ColorTemp( src->color ), dst->color );
 		return qtrue;
 	case LEP_RADIUS:
+		if ( dst->type == RTX_LTYPE_RECT )
+		{
+			return qfalse;
+		}
 		dst->radius = src->radius;
+		return qtrue;
+	case LEP_WIDTH:
+	case LEP_HEIGHT:
+	case LEP_ROLL:
+	case LEP_TWOSIDED:
+		if ( dst->type != RTX_LTYPE_RECT || src->type != RTX_LTYPE_RECT )
+		{
+			return qfalse;
+		}
+		if ( prop == LEP_WIDTH )
+		{
+			dst->width = src->width;
+		}
+		else if ( prop == LEP_HEIGHT )
+		{
+			dst->height = src->height;
+		}
+		else if ( prop == LEP_ROLL )
+		{
+			dst->roll = src->roll;
+		}
+		else
+		{
+			dst->twoSided = src->twoSided;
+		}
+		return qtrue;
+	case LEP_STYLE:
+		dst->style = src->style;
 		return qtrue;
 	case LEP_CONE_OUTER:
 	case LEP_CONE_INNER:
@@ -281,6 +378,11 @@ void LE_PropValueText( const rtxLightDesc_t *d, int prop, char *out, int size )
 	case LEP_RADIUS:		val = d->radius;		break;
 	case LEP_CONE_OUTER:	val = d->coneOuter;		break;
 	case LEP_CONE_INNER:	val = d->coneInner;		break;
+	case LEP_WIDTH:			val = d->width;			break;
+	case LEP_HEIGHT:		val = d->height;		break;
+	case LEP_ROLL:			val = d->roll;			break;
+	case LEP_TWOSIDED:		val = (float)d->twoSided;	break;
+	case LEP_STYLE:			val = (float)d->style;	break;
 	}
 	Com_sprintf( out, size, "%.2f", val );
 	p = strchr( out, '.' );
@@ -341,7 +443,39 @@ qboolean LE_PropValueApply( rtxLightDesc_t *d, int prop, const float *val, int c
 		LE_Blackbody( val[0], d->color );
 		return qtrue;
 	case LEP_RADIUS:
+		if ( d->type == RTX_LTYPE_RECT )
+		{
+			return qfalse;
+		}
 		d->radius = Q_max( 0.5f, val[0] );
+		return qtrue;
+	case LEP_WIDTH:
+	case LEP_HEIGHT:
+	case LEP_ROLL:
+	case LEP_TWOSIDED:
+		if ( d->type != RTX_LTYPE_RECT )
+		{
+			return qfalse;
+		}
+		if ( prop == LEP_WIDTH )
+		{
+			d->width = Com_Clamp( RTX_LRECT_MIN_SIZE, RTX_LRECT_MAX_SIZE, val[0] );
+		}
+		else if ( prop == LEP_HEIGHT )
+		{
+			d->height = Com_Clamp( RTX_LRECT_MIN_SIZE, RTX_LRECT_MAX_SIZE, val[0] );
+		}
+		else if ( prop == LEP_ROLL )
+		{
+			d->roll = fmodf( fmodf( val[0], 360.0f ) + 360.0f, 360.0f );
+		}
+		else
+		{
+			d->twoSided = ( val[0] != 0.0f ) ? 1 : 0;
+		}
+		return qtrue;
+	case LEP_STYLE:
+		d->style = Com_Clampi( 0, RTX_LSTYLE_MAX - 1, (int)floorf( val[0] + 0.5f ) );
 		return qtrue;
 	case LEP_CONE_OUTER:
 		if ( d->type != RTX_LTYPE_SPOT )
@@ -516,7 +650,12 @@ void LE_PropsHelp( const char **name, const char **fire, const char **alt, char 
 		"+-250 K, walk 50 K",
 		"+-1, walk 0.1 (min 0.5)",
 		"+-angle snap, walk 1 deg (1..89)",
-		"+-angle snap, walk 1 deg (0..outer)"
+		"+-angle snap, walk 1 deg (0..outer)",
+		"x1.1 per notch, walk x1.01, grid snap",
+		"x1.1 per notch, walk x1.01, grid snap",
+		"+-angle snap, walk 1 deg",
+		"toggles",
+		"+-1 (0 steady, 32..63 switch)"
 	};
 
 	static char	nameBuf[48], fireBuf[96], altBuf[96];
@@ -556,6 +695,21 @@ void LE_PropsDrawGauge( float x, float y, float w, const rtxLightDesc_t *d )
 		break;
 	case LEP_CONE_INNER:
 		frac = d->coneInner / 89.0f;
+		break;
+	case LEP_WIDTH:
+		frac = d->width / 256.0f;
+		break;
+	case LEP_HEIGHT:
+		frac = d->height / 256.0f;
+		break;
+	case LEP_ROLL:
+		frac = d->roll / 360.0f;
+		break;
+	case LEP_TWOSIDED:
+		frac = d->twoSided ? 1.0f : 0.0f;
+		break;
+	case LEP_STYLE:
+		frac = (float)d->style / (float)( RTX_LSTYLE_MAX - 1 );
 		break;
 	}
 	frac = Com_Clamp( 0.0f, 1.0f, frac );

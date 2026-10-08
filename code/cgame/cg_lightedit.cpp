@@ -51,7 +51,7 @@ static vec3_t				s_ghost;
 static vec3_t				s_ghostNormal;			// surface normal under the ghost, valid when s_ghostHit
 static qboolean				s_ghostHit = qfalse;
 static qboolean				s_ghostSolid = qfalse;
-static qboolean				s_createSpot = qfalse;	// tool 2 makes spots
+static int					s_createType = RTX_LTYPE_SPHERE;	// type that tool 2 makes
 static rtxLightStats_t		s_stats;
 
 static std::vector<ledRec_t>		s_recs;
@@ -120,6 +120,8 @@ qboolean LE_DescEqual( const rtxLightDesc_t *a, const rtxLightDesc_t *b )
 		&& a->intensity == b->intensity && a->radius == b->radius
 		&& a->type == b->type && VectorCompare( a->dir, b->dir )
 		&& a->coneOuter == b->coneOuter && a->coneInner == b->coneInner
+		&& a->width == b->width && a->height == b->height && a->roll == b->roll
+		&& a->twoSided == b->twoSided && a->style == b->style
 		&& !strncmp( a->name, b->name, RTX_LIGHTEDIT_NAME_LEN ) );
 }
 
@@ -637,8 +639,8 @@ static void LE_ToolCreate( qboolean priDown, qboolean secDown, int wheel, qboole
 
 	if ( secDown )
 	{
-		s_createSpot = (qboolean)!s_createSpot;
-		LE_Msg( "light edit: new lights are %s", s_createSpot ? "spots" : "spheres" );
+		s_createType = ( s_createType + 1 ) % ( RTX_LTYPE_RECT + 1 );
+		LE_Msg( "light edit: new lights are %ss", LE_TypeName( s_createType ) );
 	}
 	if ( priDown )
 	{
@@ -653,19 +655,25 @@ static void LE_ToolCreate( qboolean priDown, qboolean secDown, int wheel, qboole
 		memset( &d, 0, sizeof( d ) );
 		d.coneOuter = 35.0f;
 		d.coneInner = 25.0f;
+		d.width = RTX_LRECT_DEFAULT_SIZE;
+		d.height = RTX_LRECT_DEFAULT_SIZE;
 		if ( !LE_PipettePreset( &d ) )
 		{
 			LE_ParseColor( d.color );
 			d.intensity = ledit_preset_intensity.value;
 			d.radius = ledit_preset_radius.value;
 		}
-		d.type = s_createSpot ? RTX_LTYPE_SPOT : RTX_LTYPE_SPHERE;
 		VectorCopy( s_ghost, d.origin );
 		VectorSet( d.dir, 0.0f, 0.0f, -1.0f );
-		if ( s_createSpot && s_ghostHit )
+		if ( s_createType == RTX_LTYPE_SPOT && s_ghostHit )
 		{
 			VectorNegate( s_ghostNormal, d.dir );
 		}
+		else if ( s_createType == RTX_LTYPE_RECT && s_ghostHit )
+		{
+			VectorCopy( s_ghostNormal, d.dir );
+		}
+		LE_ConvertType( &d, s_createType );
 		LE_SoloEndForAdd();
 		id = s_api->Add( &d );
 		if ( id < 0 )
@@ -682,7 +690,12 @@ static void LE_ToolCreate( qboolean priDown, qboolean secDown, int wheel, qboole
 
 void LE_CreateSetSpot( qboolean spot )
 {
-	s_createSpot = spot;
+	s_createType = spot ? RTX_LTYPE_SPOT : RTX_LTYPE_SPHERE;
+}
+
+void LE_CreateSetType( int type )
+{
+	s_createType = Com_Clampi( RTX_LTYPE_SPHERE, RTX_LTYPE_RECT, type );
 }
 
 static void LE_ToolDelete( qboolean priDown, qboolean secDown )
@@ -827,7 +840,7 @@ void CG_LightEdit_Init( void )
 	s_ghostSolid = qfalse;
 	s_ghostHit = qfalse;
 	VectorSet( s_ghostNormal, 0.0f, 0.0f, 1.0f );
-	s_createSpot = qfalse;
+	s_createType = RTX_LTYPE_SPHERE;
 	LE_GrabReset();
 	LE_CloneInit();
 	LE_OrientInit();
@@ -1133,17 +1146,52 @@ static void LE_Cmd_Set( void )
 		Q_strncpyz( t, CG_Argv( 2 ), sizeof( t ) );
 		if ( !Q_stricmp( t, "spot" ) )
 		{
-			d.type = RTX_LTYPE_SPOT;
+			LE_ConvertType( &d, RTX_LTYPE_SPOT );
 		}
 		else if ( !Q_stricmp( t, "sphere" ) )
 		{
-			d.type = RTX_LTYPE_SPHERE;
+			LE_ConvertType( &d, RTX_LTYPE_SPHERE );
+		}
+		else if ( !Q_stricmp( t, "rect" ) )
+		{
+			LE_ConvertType( &d, RTX_LTYPE_RECT );
 		}
 		else
 		{
-			LE_Msg( "usage: ledit_set type <sphere | spot>" );
+			LE_Msg( "usage: ledit_set type <sphere | spot | rect>" );
 			return;
 		}
+	}
+	else if ( ( !Q_stricmp( what, "width" ) || !Q_stricmp( what, "height" ) || !Q_stricmp( what, "roll" )
+		|| !Q_stricmp( what, "twosided" ) ) && argc >= 3 )
+	{
+		const float	val = atof( CG_Argv( 2 ) );
+
+		if ( d.type != RTX_LTYPE_RECT )
+		{
+			LE_Msg( "light edit: %s applies to rect lights", what );
+			return;
+		}
+		if ( !Q_stricmp( what, "width" ) )
+		{
+			d.width = Com_Clamp( RTX_LRECT_MIN_SIZE, RTX_LRECT_MAX_SIZE, val );
+		}
+		else if ( !Q_stricmp( what, "height" ) )
+		{
+			d.height = Com_Clamp( RTX_LRECT_MIN_SIZE, RTX_LRECT_MAX_SIZE, val );
+		}
+		else if ( !Q_stricmp( what, "roll" ) )
+		{
+			d.roll = fmodf( fmodf( val, 360.0f ) + 360.0f, 360.0f );
+		}
+		else
+		{
+			d.twoSided = ( val != 0.0f ) ? 1 : 0;
+		}
+	}
+	else if ( !Q_stricmp( what, "style" ) && argc >= 3 )
+	{
+		d.style = Com_Clampi( 0, RTX_LSTYLE_MAX - 1, atoi( CG_Argv( 2 ) ) );
 	}
 	else if ( !Q_stricmp( what, "dir" ) && argc >= 5 )
 	{
@@ -1164,7 +1212,7 @@ static void LE_Cmd_Set( void )
 	}
 	else
 	{
-		LE_Msg( "usage: ledit_set <origin x y z | color r g b | intensity v | radius v | name s | type sphere|spot | dir x y z | cone outer [inner]>" );
+		LE_Msg( "usage: ledit_set <origin x y z | color r g b | intensity v | radius v | name s | type sphere|spot|rect | dir x y z | cone outer [inner] | width w | height h | roll r | twosided 0|1 | style n>" );
 		return;
 	}
 	Com_sprintf( label, sizeof( label ), "set %s", what );
@@ -1202,7 +1250,23 @@ static void LE_Cmd_Set( void )
 				}
 				else if ( !Q_stricmp( what, "type" ) )
 				{
-					cur.type = d.type;
+					LE_ConvertType( &cur, d.type );
+				}
+				else if ( !Q_stricmp( what, "style" ) )
+				{
+					cur.style = d.style;
+				}
+				else if ( !Q_stricmp( what, "width" ) || !Q_stricmp( what, "height" ) || !Q_stricmp( what, "roll" )
+					|| !Q_stricmp( what, "twosided" ) )
+				{
+					if ( cur.type != RTX_LTYPE_RECT )
+					{
+						continue;
+					}
+					cur.width = !Q_stricmp( what, "width" ) ? d.width : cur.width;
+					cur.height = !Q_stricmp( what, "height" ) ? d.height : cur.height;
+					cur.roll = !Q_stricmp( what, "roll" ) ? d.roll : cur.roll;
+					cur.twoSided = !Q_stricmp( what, "twosided" ) ? d.twoSided : cur.twoSided;
 				}
 				else if ( !Q_stricmp( what, "dir" ) )
 				{
@@ -1250,7 +1314,22 @@ static void LE_Cmd_Get( void )
 	{
 		CG_Printf( "%d lights selected; the primary light follows\n", (int)s_selList.size() );
 	}
-	CG_Printf( "light %d (%s, %s) flags: %s\n", d.id, LE_SourceStr( &d ), d.type == RTX_LTYPE_SPOT ? "spot" : "sphere", LE_FlagsStr( d.flags ) );
+	{
+		char	shape[40], extra[48], style[40];
+
+		LE_ShapeText( &d, shape, sizeof( shape ) );
+		LE_StyleText( d.style, style, sizeof( style ) );
+		extra[0] = 0;
+		if ( d.type == RTX_LTYPE_RECT )
+		{
+			Com_sprintf( extra, sizeof( extra ), ", roll %.1f, %s", d.roll, d.twoSided ? "two-sided" : "one-sided" );
+		}
+		CG_Printf( "light %d (%s, %s%s) flags: %s\n", d.id, LE_SourceStr( &d ), shape, extra, LE_FlagsStr( d.flags ) );
+		if ( d.style )
+		{
+			CG_Printf( "  style %s\n", style );
+		}
+	}
 	LE_PrintDesc( "  now:     ", &d );
 	if ( ( d.flags & RTX_LFLAG_MODIFIED ) && s_api->GetOriginal( s_sel, &orig ) )
 	{
@@ -1653,7 +1732,7 @@ static void LE_DrawSelection( void )
 			LE_Box( r.sx, r.sy, 13.0f, colWhite );
 			LE_Box( r.sx, r.sy, 14.0f, colDark );
 		}
-		if ( r.d.type != RTX_LTYPE_SPOT )
+		if ( r.d.type == RTX_LTYPE_SPHERE )
 		{
 			LE_Circle3D( r.d.origin, ax[0], ax[1], radius, 32, colCyan );
 			LE_Circle3D( r.d.origin, ax[0], ax[2], radius, 32, colCyan );
@@ -1661,6 +1740,7 @@ static void LE_DrawSelection( void )
 		}
 	}
 	LE_DrawSpotWires();
+	LE_DrawRectWires();
 
 	// The other selected lights get a frame only.
 	for ( size_t i = 0; i < s_selList.size(); i++ )
@@ -1681,7 +1761,24 @@ static void LE_DrawToolWorld( void )
 	{
 		LE_Circle3D( s_ghost, cg.refdef.viewaxis[1], cg.refdef.viewaxis[2], 8.0f, 24,
 			s_ghostSolid ? colRed : colGreen );
-		if ( s_createSpot )
+		if ( s_createType == RTX_LTYPE_RECT )
+		{
+			rtxLightDesc_t	ghost;
+
+			memset( &ghost, 0, sizeof( ghost ) );
+			ghost.width = RTX_LRECT_DEFAULT_SIZE;
+			ghost.height = RTX_LRECT_DEFAULT_SIZE;
+			LE_PipettePreset( &ghost );
+			LE_ConvertType( &ghost, RTX_LTYPE_RECT );
+			VectorCopy( s_ghost, ghost.origin );
+			VectorSet( ghost.dir, 0.0f, 0.0f, -1.0f );
+			if ( s_ghostHit )
+			{
+				VectorCopy( s_ghostNormal, ghost.dir );
+			}
+			LE_DrawRectWire( &ghost, s_ghostSolid ? colRed : colGreen, qfalse );
+		}
+		else if ( s_createType == RTX_LTYPE_SPOT )
 		{
 			vec3_t	dir;
 			float	outer = 35.0f, inner = 25.0f;
@@ -1728,12 +1825,19 @@ static void LE_DrawHelp( void )
 	switch ( s_tool )
 	{
 	case LEDIT_TOOL_CREATE:
-		name = s_createSpot ? "2 Create (spot)" : "2 Create (sphere)";
+	{
+		static char	createName[32], createAlt[96];
+
+		Com_sprintf( createName, sizeof( createName ), "2 Create (%s)", LE_TypeName( s_createType ) );
+		Com_sprintf( createAlt, sizeof( createAlt ), "new lights are %ss: switch to %ss", LE_TypeName( s_createType ),
+			LE_TypeName( ( s_createType + 1 ) % ( RTX_LTYPE_RECT + 1 ) ) );
+		name = createName;
+		alt = createAlt;
 		fire = "add a light at the ghost";
-		alt = s_createSpot ? "new lights are spots: switch to spheres" : "new lights are spheres: switch to spots";
 		Com_sprintf( wheelBuf, sizeof( wheelBuf ), "surface offset x2 or /2, walk +-1 (now %.0f)", s_createOffset );
 		wheel = wheelBuf;
 		break;
+	}
 	case LEDIT_TOOL_MOVE:
 		LE_MoveHelp( &name, &fire, &alt, &wheel );
 		break;
@@ -1783,7 +1887,7 @@ static void LE_DrawHelp( void )
 	s_panelTop = y + 4;
 }
 
-#define LE_PANEL_LINES	16
+#define LE_PANEL_LINES	18
 
 typedef enum {
 	PF_TITLE = 0,
@@ -1798,8 +1902,34 @@ typedef enum {
 	PF_DIR,
 	PF_CONE_OUTER,
 	PF_CONE_INNER,
+	PF_WIDTH,
+	PF_HEIGHT,
+	PF_ROLL,
+	PF_TWOSIDED,
+	PF_STYLE,
 	PF_NAME
 } ledPanelField_t;
+
+// True when the field has a meaning for the light type.
+static qboolean LE_PanelApplies( int type, int field )
+{
+	switch ( field )
+	{
+	case PF_RADIUS:
+		return (qboolean)( type != RTX_LTYPE_RECT );
+	case PF_DIR:
+		return (qboolean)( type != RTX_LTYPE_SPHERE );
+	case PF_CONE_OUTER:
+	case PF_CONE_INNER:
+		return (qboolean)( type == RTX_LTYPE_SPOT );
+	case PF_WIDTH:
+	case PF_HEIGHT:
+	case PF_ROLL:
+	case PF_TWOSIDED:
+		return (qboolean)( type == RTX_LTYPE_RECT );
+	}
+	return qtrue;
+}
 
 // Text of one panel line, "label: value".
 static void LE_PanelText( const rtxLightDesc_t *d, int field, int activeProp, char *out, int size )
@@ -1812,8 +1942,13 @@ static void LE_PanelText( const rtxLightDesc_t *d, int field, int activeProp, ch
 		Com_sprintf( out, size, "source: %s", LE_SourceStr( d ) );
 		break;
 	case PF_TYPE:
-		Com_sprintf( out, size, "type: %s", d->type == RTX_LTYPE_SPOT ? "spot" : "sphere" );
+	{
+		char	shape[40];
+
+		LE_ShapeText( d, shape, sizeof( shape ) );
+		Com_sprintf( out, size, "type: %s", shape );
 		break;
+	}
 	case PF_FLAGS:
 		Com_sprintf( out, size, "flags: %s", d->flags ? LE_FlagsStr( d->flags ) : "-" );
 		break;
@@ -1841,8 +1976,28 @@ static void LE_PanelText( const rtxLightDesc_t *d, int field, int activeProp, ch
 		Com_sprintf( out, size, "emitter radius: %.2f", d->radius );
 		break;
 	case PF_DIR:
-		Com_sprintf( out, size, "direction: %.3f %.3f %.3f", d->dir[0], d->dir[1], d->dir[2] );
+		Com_sprintf( out, size, "%s: %.3f %.3f %.3f", d->type == RTX_LTYPE_RECT ? "normal" : "direction", d->dir[0], d->dir[1], d->dir[2] );
 		break;
+	case PF_WIDTH:
+		Com_sprintf( out, size, "width: %.4g", d->width );
+		break;
+	case PF_HEIGHT:
+		Com_sprintf( out, size, "height: %.4g", d->height );
+		break;
+	case PF_ROLL:
+		Com_sprintf( out, size, "roll: %.1f", d->roll );
+		break;
+	case PF_TWOSIDED:
+		Com_sprintf( out, size, "two-sided: %s", d->twoSided ? "yes" : "no" );
+		break;
+	case PF_STYLE:
+	{
+		char	style[40];
+
+		LE_StyleText( d->style, style, sizeof( style ) );
+		Com_sprintf( out, size, "style: %s", style );
+		break;
+	}
 	case PF_CONE_OUTER:
 		Com_sprintf( out, size, "cone outer: %.1f", d->coneOuter );
 		break;
@@ -1870,6 +2025,11 @@ static qboolean LE_PanelEqual( const rtxLightDesc_t *a, const rtxLightDesc_t *b,
 	case PF_DIR:			return (qboolean)VectorCompare( a->dir, b->dir );
 	case PF_CONE_OUTER:		return (qboolean)( a->coneOuter == b->coneOuter );
 	case PF_CONE_INNER:		return (qboolean)( a->coneInner == b->coneInner );
+	case PF_WIDTH:			return (qboolean)( a->width == b->width );
+	case PF_HEIGHT:			return (qboolean)( a->height == b->height );
+	case PF_ROLL:			return (qboolean)( a->roll == b->roll );
+	case PF_TWOSIDED:		return (qboolean)( a->twoSided == b->twoSided );
+	case PF_STYLE:			return (qboolean)( a->style == b->style );
 	case PF_NAME:			return (qboolean)!strncmp( a->name, b->name, RTX_LIGHTEDIT_NAME_LEN );
 	}
 	return qtrue;
@@ -1891,6 +2051,11 @@ static int LE_PanelActiveField( void )
 	case LEP_RADIUS:		return PF_RADIUS;
 	case LEP_CONE_OUTER:	return PF_CONE_OUTER;
 	case LEP_CONE_INNER:	return PF_CONE_INNER;
+	case LEP_WIDTH:			return PF_WIDTH;
+	case LEP_HEIGHT:		return PF_HEIGHT;
+	case LEP_ROLL:			return PF_ROLL;
+	case LEP_TWOSIDED:		return PF_TWOSIDED;
+	case LEP_STYLE:			return PF_STYLE;
 	}
 	return -1;
 }
@@ -1906,7 +2071,6 @@ static void LE_DrawPanel( void )
 	rtxLightDesc_t			orig;
 	const qboolean			multi = (qboolean)( s_selList.size() > 1 );
 	const qboolean			haveOrig = (qboolean)( !multi && ( d.flags & RTX_LFLAG_MODIFIED ) && s_api->GetOriginal( s_sel, &orig ) );
-	const qboolean			spot = (qboolean)( d.type == RTX_LTYPE_SPOT );
 	const int				activeField = LE_PanelActiveField();
 	const int				activeProp = ( s_tool == LEDIT_TOOL_PROPS ) ? LE_PropActive() : -1;
 	int						fields[LE_PANEL_LINES];
@@ -1929,19 +2093,19 @@ static void LE_DrawPanel( void )
 	fields[n++] = PF_TITLE;
 
 	static const int	order[] = { PF_SOURCE, PF_TYPE, PF_FLAGS, PF_ORIGIN, PF_COLOR, PF_HSV, PF_INTENSITY, PF_RADIUS,
-		PF_DIR, PF_CONE_OUTER, PF_CONE_INNER, PF_NAME };
+		PF_DIR, PF_CONE_OUTER, PF_CONE_INNER, PF_WIDTH, PF_HEIGHT, PF_ROLL, PF_TWOSIDED, PF_STYLE, PF_NAME };
 
 	for ( size_t k = 0; k < ARRAY_LEN( order ); k++ )
 	{
 		const int	f = order[k];
 
-		if ( ( f == PF_DIR || f == PF_CONE_OUTER || f == PF_CONE_INNER ) && !spot )
+		if ( !LE_PanelApplies( d.type, f ) || ( f == PF_STYLE && d.style == 0 && f != activeField ) )
 		{
 			continue;
 		}
 		LE_PanelText( &d, f, activeProp, main[n], sizeof( main[0] ) );
 		if ( haveOrig && f != PF_SOURCE && f != PF_FLAGS && f != PF_HSV && !LE_PanelEqual( &d, &orig, f )
-			&& ( ( f != PF_DIR && f != PF_CONE_OUTER && f != PF_CONE_INNER ) || orig.type == RTX_LTYPE_SPOT ) )
+			&& LE_PanelApplies( orig.type, f ) )
 		{
 			char	*colon;
 
