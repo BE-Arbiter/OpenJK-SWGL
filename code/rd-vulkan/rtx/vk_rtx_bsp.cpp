@@ -2806,7 +2806,7 @@ void vk_rtx_rebuild_world_deforms( VkCommandBuffer cmd_buf )
 		geom->host.num_deform_copies, geom->host.deform_copies );
 
 	BUFFER_BARRIER( cmd_buf, VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
 		geom->buffer[0].buffer, 0, VK_WHOLE_SIZE );
 
 	build_model_blas( cmd_buf, &geom->geom_opaque, geom->vertex_data_offset, &geom->buffer[0] );
