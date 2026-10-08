@@ -248,7 +248,23 @@ main()
 			layer_T *= T;
 			layer++;
 
-			ray.t_min = ray_payload_geometry.hit_distance + 0.01;
+			// A decal is coplanar with the surface under it: trace again up to the layer without the
+			// transparent geometry. A hit on another primitive is the next hit.
+			const uint layer_primitive = ray_payload_geometry.primitive_id;
+			const uint layer_buffer = ray_payload_geometry.buffer_and_instance_idx;
+			const float layer_distance = ray_payload_geometry.hit_distance;
+
+			ray_payload_geometry.barycentric = vec2(0);
+			ray_payload_geometry.primitive_id = ~0u;
+			ray_payload_geometry.buffer_and_instance_idx = 0;
+			ray_payload_geometry.hit_distance = 0;
+
+			traceRayEXT(topLevelAS[TLAS_INDEX_GEOMETRY], gl_RayFlagsSkipProceduralPrimitives, cull_mask & ~AS_FLAG_TRANSPARENT,
+				SBT_RCHIT_GEOMETRY, 0, SBT_RMISS_EMPTY, ray.origin, ray.t_min, ray.direction, layer_distance + 0.01, RT_PAYLOAD_GEOMETRY);
+
+			have_hit = found_intersection(ray_payload_geometry)
+				&& (ray_payload_geometry.primitive_id != layer_primitive || ray_payload_geometry.buffer_and_instance_idx != layer_buffer);
+			ray.t_min = layer_distance + 0.01;
 		}
 		ray.t_min = t_min;
 
