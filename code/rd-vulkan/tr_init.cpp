@@ -803,6 +803,8 @@ static consoleCommand_t	commands[] = {
 	{ "pt_ledit_stats",		RTX_LightEdit_Stats_f },
 	{ "pt_ledit_mute",		RTX_LightEdit_Mute_f },
 	{ "pt_ledit_solo",		RTX_LightEdit_Solo_f },
+	{ "pt_ledit_emissive",	RTX_LightEdit_Emissive_f },
+	{ "pt_ledit_dynamic",	RTX_LightEdit_Dynamic_f },
 #endif
 	{ "vkinfo",				vk_info_f }
 };

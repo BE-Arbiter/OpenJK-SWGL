@@ -17,7 +17,7 @@ by the Free Software Foundation.
 #pragma once
 
 #define RTX_LIGHTEDIT_API_NAME		"rtxLightEdit_v1"
-#define RTX_LIGHTEDIT_API_VERSION	2
+#define RTX_LIGHTEDIT_API_VERSION	3
 
 #define RTX_LIGHTEDIT_NAME_LEN		32
 
@@ -145,4 +145,15 @@ typedef struct rtxLightEditAPI_s {
 	// class (pt_light_scale_*, pt_lightgen_scale). -1 gives the factor of a new added light.
 	// A copy between two lights keeps its brightness with I2 = I1 * scale1 / scale2.
 	float		(*IntensityScale)( int id );
+
+	// Version 3.
+
+	// Emissive polygon lights of the world (read only). center is the polygon centre, color
+	// the emitted colour before the class scale, normalised to max 1.
+	int			(*CountEmissive)( void );
+	qboolean	(*GetEmissive)( int index, vec3_t center, vec3_t color );
+
+	// Dynamic lights of the last traced frame (dlights, sabers, beams), read only. Fills at
+	// most maxCount entries and returns how many it filled.
+	int			(*GetDynamic)( int maxCount, vec3_t *origins, vec3_t *colors );
 } rtxLightEditAPI_t;

@@ -251,6 +251,8 @@ Ghoul2 Insert End
 		return 0;
 	case CG_GET_AMMO_NAME:
 		return CG_GetAmmoName((int)arg0, (char *)arg1, (int)arg2);
+	case CG_KEY_EVENT:
+		return CG_LightEdit_KeyEvent((int)arg0, (qboolean)arg1, (int)arg2) ? 1 : 0;
 	}
 	return -1;
 }

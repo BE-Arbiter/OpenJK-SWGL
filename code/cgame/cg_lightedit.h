@@ -9,5 +9,6 @@ qboolean	CG_LightEdit_ConsoleCommand( const char *cmd );	// qtrue when the comma
 void		CG_LightEdit_Frame( void );					// once per frame, after cg.refdef is set
 qboolean	CG_LightEdit_Draw2D( void );				// qtrue when the overlay replaces the HUD
 qboolean	CG_LightEdit_Active( void );				// qtrue while the cgame side of the mode runs
+qboolean	CG_LightEdit_KeyEvent( int key, qboolean down, int mods );	// qtrue when the key is consumed (CG_KEY_EVENT)
 
 #endif // CG_LIGHTEDIT_H

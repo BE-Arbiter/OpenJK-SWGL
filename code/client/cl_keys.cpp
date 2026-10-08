@@ -1416,6 +1416,11 @@ void CL_KeyDownEvent( int key, unsigned time )
 //		key = A_ESCAPE;
 	}
 
+	// the cgame filter takes a key before the menu and the binds (light edit mode)
+	if ( CL_CgameKeyEvent( key, qtrue ) ) {
+		return;
+	}
+
 	// escape is always handled special
 	if ( key == A_ESCAPE || key == A_PAD0_START) {
 		if ( !kg.keys[A_SHIFT].down && ( Key_GetCatcher( ) & KEYCATCH_CONSOLE ) ) {
@@ -1479,6 +1484,7 @@ void CL_KeyUpEvent( int key, unsigned time )
 	// console mode and menu mode, to keep the character from continuing
 	// an action started before a mode switch.
 	//
+	CL_CgameKeyEvent( key, qfalse );	// the result is ignored: a release always reaches the binds
 	CL_ParseBinding( key, qfalse, time );
 
 	if ( Key_GetCatcher( ) & KEYCATCH_UI )

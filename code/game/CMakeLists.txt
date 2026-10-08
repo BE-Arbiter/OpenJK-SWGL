@@ -208,6 +208,7 @@ set(SPGameCGameFiles
 	"${SPDir}/cgame/cg_lightedit.h"
 	"${SPDir}/cgame/cg_lightedit_clone.cpp"
 	"${SPDir}/cgame/cg_lightedit_grid.cpp"
+	"${SPDir}/cgame/cg_lightedit_keys.cpp"
 	"${SPDir}/cgame/cg_lightedit_local.h"
 	"${SPDir}/cgame/cg_lightedit_move.cpp"
 	"${SPDir}/cgame/cg_lightedit_pipette.cpp"

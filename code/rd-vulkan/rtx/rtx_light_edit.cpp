@@ -1016,6 +1016,18 @@ static qboolean LE_Mute( int id, qboolean muted )
 	if ( !!( rec->flags & RTX_LFLAG_MUTED ) == !!muted )
 		return qtrue;
 
+	// Unmuting a light that then emits needs room in the cluster lists.
+	if ( !muted && !IsRemoved( rec ) && !IsSoloHidden( rec ) )
+	{
+		const int cluster = PointCluster( rec->origin );
+
+		if ( cluster >= 0 && ClusterFull( cluster ) )
+		{
+			RTX_LightEdit_SetError( "cluster full" );
+			return qfalse;
+		}
+	}
+
 	if ( muted )
 		rec->flags |= RTX_LFLAG_MUTED;
 	else
@@ -1042,6 +1054,7 @@ static void LE_Solo( int id )
 
 	g_solo = id;
 
+	const int overfullBefore = g_overfull;
 	qboolean changed = qfalse;
 
 	for ( size_t i = 0; i < g_records.size(); i++ )
@@ -1052,6 +1065,11 @@ static void LE_Solo( int id )
 
 	if ( changed )
 		RequestRebuild();
+
+	// Solo cannot fail: report the clusters that lost lights. Inside a batch the rebuild is
+	// still pending and g_overfull is stale.
+	if ( g_overfull > overfullBefore )
+		RTX_LightEdit_SetError( "cluster full: %i clusters truncated", g_overfull );
 
 	g_generation++;
 }
@@ -1182,6 +1200,72 @@ static qboolean LE_PointInSolid( const vec3_t point )
 	return (qboolean)( PointCluster( point ) < 0 );
 }
 
+// Colour scaled to max 1; a grey 0.5 when all channels are zero.
+static void LE_NormalizeColor( const vec3_t in, vec3_t out )
+{
+	const float m = MAX( in[0], MAX( in[1], in[2] ) );
+
+	if ( m <= 0.0f )
+		VectorSet( out, 0.5f, 0.5f, 0.5f );
+	else
+		VectorScale( in, 1.0f / m, out );
+}
+
+// The emissive lights are the first g_numEmissive entries of light_polys.
+static int LE_CountEmissive( void )
+{
+	return RTX_LightEdit_IsReady() ? g_numEmissive : 0;
+}
+
+static qboolean LE_GetEmissive( int index, vec3_t center, vec3_t color )
+{
+	if ( !RTX_LightEdit_IsReady() || index < 0 || index >= g_numEmissive || index >= g_world->num_light_polys )
+		return qfalse;
+
+	const light_poly_t *light = g_world->light_polys + index;
+
+	if ( !light->material )
+		return qfalse;
+
+	if ( VectorLengthSquared( light->off_center ) > 0.0f )
+		VectorCopy( light->off_center, center );
+	else
+	{
+		for ( int k = 0; k < 3; k++ )
+			center[k] = ( light->positions[k] + light->positions[3 + k] + light->positions[6 + k] ) / 3.0f;
+	}
+
+	LE_NormalizeColor( light->color, color );
+
+	return qtrue;
+}
+
+// Spheres and spots give their position in positions[0..2]; polygon lights in off_center.
+static int LE_GetDynamic( int maxCount, vec3_t *origins, vec3_t *colors )
+{
+	const light_poly_t	*lights;
+	const int			num = vk_rtx_get_model_lights( &lights );
+	int					n = 0;
+
+	if ( !origins || !colors )
+		return 0;
+
+	for ( int i = 0; i < num && n < maxCount; i++ )
+	{
+		const light_poly_t *l = lights + i;
+
+		if ( l->type == LIGHT_SPHERE || l->type == LIGHT_SPOT )
+			VectorCopy( l->positions, origins[n] );
+		else
+			VectorCopy( l->off_center, origins[n] );
+
+		LE_NormalizeColor( l->color, colors[n] );
+		n++;
+	}
+
+	return n;
+}
+
 static rtxLightEditAPI_t g_api = {
 	RTX_LIGHTEDIT_API_VERSION,
 	LE_IsAvailable,
@@ -1208,7 +1292,10 @@ static rtxLightEditAPI_t g_api = {
 	LE_Solo,
 	LE_GetSolo,
 	LE_Generation,
-	LE_IntensityScale
+	LE_IntensityScale,
+	LE_CountEmissive,
+	LE_GetEmissive,
+	LE_GetDynamic
 };
 
 void *RTX_LightEdit_GetExtension( const char *name )
@@ -1401,4 +1488,35 @@ void RTX_LightEdit_Stats_f( void )
 		s.mapName, s.numRecords, s.numEntity, s.numLgt, s.numAdded, s.numModified, s.numDisabled, s.numInSolid, s.numEmissive );
 	Com_Printf( "slots %i (capacity %i, limit %i), %i full clusters, %i rebuilds, %i unsaved changes\n",
 		s.numLightPolys, s.capacity, s.maxLightPolys, s.overfullClusters, s.rebuilds, s.unsavedChanges );
+}
+
+// pt_ledit_emissive [n]: prints the first n emissive lights and the count.
+void RTX_LightEdit_Emissive_f( void )
+{
+	const int	total = LE_CountEmissive();
+	const int	n = MIN( total, ri.Cmd_Argc() > 1 ? atoi( ri.Cmd_Argv( 1 ) ) : 10 );
+
+	for ( int i = 0; i < n; i++ )
+	{
+		vec3_t center, color;
+
+		if ( LE_GetEmissive( i, center, color ) )
+			Com_Printf( "%4i: center %.0f %.0f %.0f colour %.2f %.2f %.2f\n", i,
+				center[0], center[1], center[2], color[0], color[1], color[2] );
+	}
+
+	Com_Printf( "%i emissive lights\n", total );
+}
+
+// pt_ledit_dynamic: prints the dynamic lights of the last frame.
+void RTX_LightEdit_Dynamic_f( void )
+{
+	vec3_t	origins[64], colors[64];
+	const int n = LE_GetDynamic( 64, origins, colors );
+
+	for ( int i = 0; i < n; i++ )
+		Com_Printf( "%4i: origin %.0f %.0f %.0f colour %.2f %.2f %.2f\n", i,
+			origins[i][0], origins[i][1], origins[i][2], colors[i][0], colors[i][1], colors[i][2] );
+
+	Com_Printf( "%i dynamic lights\n", n );
 }

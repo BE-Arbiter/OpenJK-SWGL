@@ -48,6 +48,7 @@ static const mat4_t g_identity_transform = {
 
 static int			num_model_lights;
 static light_poly_t model_lights[MAX_MODEL_LIGHTS];
+static int			last_model_lights;	// count of the last built frame, read by the light edit
 
 static int			num_accumulated_frames = 0;
 
@@ -1015,6 +1016,13 @@ static qboolean camera_inside_model( const trRefdef_t *refdef, trRefEntity_t *en
 	}
 
 	return qtrue;
+}
+
+// Model lights of the last built frame, for the light edit.
+int vk_rtx_get_model_lights( const light_poly_t **out )
+{
+	*out = model_lights;
+	return last_model_lights;
 }
 
 static void instance_model_lights(int num_light_polys, const light_poly_t* light_polys, const float* transform)
@@ -2950,6 +2958,7 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 		add_dlights(refdef->dlights, refdef->num_dlights, model_lights, &num_model_lights, MAX_MODEL_LIGHTS, tr.world, light_entity_ids[entity_frame_num]);
 	}
 
+	last_model_lights = num_model_lights;
 	update_mlight_prev_to_current();
 
 #if 1

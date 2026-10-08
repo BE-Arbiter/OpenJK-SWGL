@@ -711,7 +711,7 @@ CG_LightEdit_Frame
 void CG_LightEdit_Frame( void )
 {
 	int			buttons, wheel;
-	qboolean	prim, sec, priDown, secDown, fine;
+	qboolean	prim, sec, priDown, secDown, fine, useDown;
 	const qboolean	gameActive = G_LightEdit_Active();
 
 	cgi_Cvar_Update( &ledit_xray );
@@ -721,6 +721,7 @@ void CG_LightEdit_Frame( void )
 	cgi_Cvar_Update( &ledit_preset_color );
 	LE_GridUpdate();
 	LE_SoloUpdate();
+	LE_KeysUpdate();
 
 	if ( s_leaving && !gameActive )
 	{
@@ -754,10 +755,15 @@ void CG_LightEdit_Frame( void )
 	priDown = (qboolean)( prim && !( s_prevButtons & BUTTON_ATTACK ) );
 	secDown = (qboolean)( sec && !( s_prevButtons & BUTTON_ALT_ATTACK ) );
 	fine = (qboolean)( ( buttons & BUTTON_WALKING ) != 0 );
+	useDown = (qboolean)( ( buttons & BUTTON_USE ) && !( s_prevButtons & BUTTON_USE ) );
 	s_prevButtons = buttons;
 
 	wheel = Com_Clampi( -8, 8, s_wheel );
 	s_wheel = 0;
+	if ( useDown )
+	{
+		LE_GotoSelection();
+	}
 
 	s_api->GetStats( &s_stats );
 	LE_Snapshot();
@@ -827,6 +833,7 @@ void CG_LightEdit_Init( void )
 	LE_PropsInit();
 	LE_PipetteInit();
 	LE_SoloInit();
+	LE_KeysInit();
 	memset( &s_stats, 0, sizeof( s_stats ) );
 	s_recs.clear();
 	s_hits.clear();
@@ -924,7 +931,7 @@ static void LE_Cmd_LightEdit( void )
 	G_LightEdit_SetMode( qfalse );
 }
 
-static void LE_Cmd_Save( void )
+void LE_Cmd_Save( void )
 {
 	if ( !LE_NeedActive() )
 	{
@@ -959,7 +966,7 @@ static void LE_Cmd_Reload( void )
 	}
 }
 
-static void LE_Cmd_Undo( void )
+void LE_Cmd_Undo( void )
 {
 	if ( LE_NeedActive() )
 	{
@@ -967,7 +974,7 @@ static void LE_Cmd_Undo( void )
 	}
 }
 
-static void LE_Cmd_Redo( void )
+void LE_Cmd_Redo( void )
 {
 	if ( LE_NeedActive() )
 	{
@@ -983,7 +990,7 @@ static void LE_Cmd_History( void )
 	}
 }
 
-static void LE_Cmd_Delete( void )
+void LE_Cmd_Delete( void )
 {
 	if ( LE_NeedActive() && LE_NeedSelection() )
 	{
@@ -991,7 +998,7 @@ static void LE_Cmd_Delete( void )
 	}
 }
 
-static void LE_Cmd_Deselect( void )
+void LE_Cmd_Deselect( void )
 {
 	if ( LE_NeedActive() )
 	{
@@ -1269,6 +1276,8 @@ qboolean CG_LightEdit_ConsoleCommand( const char *cmd )
 		{ "ledit_grid_next",	LE_Cmd_GridNext },
 		{ "ledit_snap_toggle",	LE_Cmd_SnapToggle },
 		{ "ledit_xray_toggle",	LE_Cmd_XrayToggle },
+		{ "ledit_goto",		LE_CmdGoto },
+		{ "ledit_select",	LE_CmdSelect },
 	};
 
 	for ( size_t i = 0; i < ARRAY_LEN( commands ); i++ )
@@ -1316,7 +1325,7 @@ void CG_LightEdit_InitConsoleCommands( void )
 	static const char *names[] = {
 		"lightedit", "ledit_save", "ledit_reload", "ledit_undo", "ledit_redo", "ledit_history",
 		"ledit_delete", "ledit_deselect", "ledit_revert", "ledit_set", "ledit_get",
-		"ledit_grid_next", "ledit_snap_toggle", "ledit_xray_toggle"
+		"ledit_grid_next", "ledit_snap_toggle", "ledit_xray_toggle", "ledit_goto", "ledit_select"
 	};
 
 	for ( size_t i = 0; i < ARRAY_LEN( names ); i++ )
@@ -1698,6 +1707,8 @@ static void LE_DrawHelp( void )
 	y += h;
 	LE_Text( 6, y, va( "Wheel: %s", wheel ), colGrey );
 	y += h;
+	LE_Text( 6, y, "Keys: Ctrl+Z undo  Ctrl+Y redo  Ctrl+S save  Ctrl+D deselect  Del delete  Enter value  Use: go to", colGrey );
+	y += h;
 	if ( cg.time < s_msgEnd )
 	{
 		LE_Text( 6, y + 4, s_msg, colWhite );
@@ -1932,6 +1943,26 @@ static void LE_DrawPanel( void )
 	}
 }
 
+// Numeric entry, above the panel: two text lines on one background rectangle.
+static void LE_DrawEntry( void )
+{
+	static const char	*hint = "Enter apply   Esc cancel   Backspace erase";
+	char				line[80];
+	const int			h = LE_TextH();
+
+	if ( !LE_KeysEntryLine( line, sizeof( line ) ) )
+	{
+		return;
+	}
+	const int	w = Q_max( LE_TextW( line ), LE_TextW( hint ) );
+	const int	x = 640 - 8 - w;
+	const int	y = 90 - 2 * h - 8;
+
+	CG_FillRect( x - 4, y - 3, w + 10, 2 * h + 6, colPanel );
+	LE_Text( x, y, line, colYellow );
+	LE_Text( x, y + h, hint, colGrey );
+}
+
 static void LE_DrawBottom( void )
 {
 	const int	h = LE_TextH();
@@ -1988,6 +2019,7 @@ qboolean CG_LightEdit_Draw2D( void )
 
 	LE_DrawHelp();
 	LE_DrawPanel();
+	LE_DrawEntry();
 	LE_DrawBottom();
 	CG_DrawCenterString();
 	return qtrue;

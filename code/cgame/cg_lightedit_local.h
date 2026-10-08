@@ -149,6 +149,8 @@ float		LE_ColorTemp( const vec3_t rgb );					// nearest blackbody temperature, i
 void		LE_ToolProps( qboolean priDown, qboolean secDown, int wheel, qboolean fine );
 void		LE_PropsHelp( const char **name, const char **fire, const char **alt, char *wheelBuf, int wheelSize );
 void		LE_PropsDrawGauge( float x, float y, float w, const rtxLightDesc_t *d );
+void		LE_PropValueText( const rtxLightDesc_t *d, int prop, char *out, int size );	// current value, for the numeric entry
+qboolean	LE_PropValueApply( rtxLightDesc_t *d, int prop, const float *val, int count );	// typed values
 
 // Tool 6 (cg_lightedit_pipette.cpp).
 void		LE_PipetteInit( void );
@@ -168,6 +170,19 @@ void		LE_ToolSolo( qboolean priDown, qboolean secDown, int wheel );
 void		LE_SoloHelp( const char **name, const char **fire, const char **alt, char *wheelBuf, int wheelSize );
 void		LE_StillAccumFrame( int buttons );
 void		LE_StillAccumRestore( void );
+
+// Keys, numeric entry, go to the selection, select by id (cg_lightedit_keys.cpp).
+void		LE_Cmd_Save( void );
+void		LE_Cmd_Undo( void );
+void		LE_Cmd_Redo( void );
+void		LE_Cmd_Delete( void );
+void		LE_Cmd_Deselect( void );
+void		LE_KeysInit( void );								// closes the entry
+void		LE_KeysUpdate( void );								// once per frame; closes the entry when it is stale
+qboolean	LE_KeysEntryLine( char *out, int size );			// text of the open entry; qfalse when none
+void		LE_GotoSelection( void );							// camera in front of the selection
+void		LE_CmdGoto( void );									// ledit_goto
+void		LE_CmdSelect( void );								// ledit_select <id | none> [add]
 
 float		LE_AngleSnap( void );								// ledit_angle_snap, degrees (cg_lightedit_grid.cpp)
 

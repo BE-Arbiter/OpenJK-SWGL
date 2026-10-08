@@ -103,5 +103,29 @@ void G_LightEdit_FilterUcmd( gentity_t *ent, usercmd_t *ucmd )
 		return;
 	}
 	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE_FORCE | BUTTON_FORCEGRIP
-		| BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_FORCE_FOCUS | BUTTON_FORCEGRASP );
+		| BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_FORCE_FOCUS | BUTTON_FORCEGRASP | BUTTON_USE );
+}
+
+// Moves the camera: the eye goes to `eye`, the view to `angles`. No effect, no telefrag, no velocity.
+void G_LightEdit_Teleport( const vec3_t eye, const vec3_t angles )
+{
+	gentity_t	*ent = &g_entities[0];
+	vec3_t		org, ang;
+
+	if ( !s_active || !ent->inuse || !ent->client )
+	{
+		return;
+	}
+	VectorCopy( eye, org );
+	org[2] -= ent->client->ps.viewheight;
+	VectorSet( ang, angles[PITCH], angles[YAW], 0.0f );
+
+	gi.unlinkentity( ent );
+	VectorCopy( org, ent->client->ps.origin );
+	VectorCopy( org, ent->currentOrigin );
+	VectorClear( ent->client->ps.velocity );
+	ent->client->ps.eFlags ^= EF_TELEPORT_BIT;
+	SetClientViewAngle( ent, ang );
+	PlayerStateToEntityState( &ent->client->ps, &ent->s );
+	gi.linkentity( ent );
 }

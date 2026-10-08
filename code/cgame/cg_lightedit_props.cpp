@@ -260,6 +260,110 @@ static qboolean LE_PropCopy( rtxLightDesc_t *dst, const rtxLightDesc_t *src, int
 
 /*
 =================
+Typed values (numeric entry)
+=================
+*/
+// Text of the current value of a property: what the entry starts with.
+void LE_PropValueText( const rtxLightDesc_t *d, int prop, char *out, int size )
+{
+	float	h, s, v, val = 0.0f;
+	char	*p;
+
+	switch ( prop )
+	{
+	case LEP_INTENSITY:		val = d->intensity;		break;
+	case LEP_HUE:
+	case LEP_SAT:
+		LE_ColorToHSV( d->color, &h, &s, &v );
+		val = ( prop == LEP_HUE ) ? h : s;
+		break;
+	case LEP_TEMP:			val = LE_ColorTemp( d->color );	break;
+	case LEP_RADIUS:		val = d->radius;		break;
+	case LEP_CONE_OUTER:	val = d->coneOuter;		break;
+	case LEP_CONE_INNER:	val = d->coneInner;		break;
+	}
+	Com_sprintf( out, size, "%.2f", val );
+	p = strchr( out, '.' );
+	if ( p )
+	{
+		for ( char *e = out + strlen( out ) - 1; e > p && *e == '0'; e-- )
+		{
+			*e = 0;
+		}
+		if ( p[1] == 0 )
+		{
+			*p = 0;
+		}
+	}
+}
+
+// Gives a light the typed values of a property. Hue takes "hue [saturation [value]]",
+// cone outer takes "outer [inner]". Returns qfalse when the property does not apply.
+qboolean LE_PropValueApply( rtxLightDesc_t *d, int prop, const float *val, int count )
+{
+	float	h, s, v;
+
+	if ( count < 1 )
+	{
+		return qfalse;
+	}
+	switch ( prop )
+	{
+	case LEP_INTENSITY:
+		d->intensity = Q_max( 0.0f, val[0] );
+		return qtrue;
+	case LEP_HUE:
+	case LEP_SAT:
+		LE_ColorToHSV( d->color, &h, &s, &v );
+		if ( prop == LEP_HUE )
+		{
+			h = fmodf( fmodf( val[0], 360.0f ) + 360.0f, 360.0f );
+			if ( count >= 2 )
+			{
+				s = Com_Clamp( 0.0f, 1.0f, val[1] );
+			}
+			if ( count >= 3 )
+			{
+				v = Com_Clamp( 0.0f, 1.0f, val[2] );
+			}
+		}
+		else
+		{
+			s = Com_Clamp( 0.0f, 1.0f, val[0] );
+		}
+		if ( v <= 0.0f )
+		{
+			return qfalse;
+		}
+		LE_HSVToColor( h, s, v, d->color );
+		return qtrue;
+	case LEP_TEMP:
+		LE_Blackbody( val[0], d->color );
+		return qtrue;
+	case LEP_RADIUS:
+		d->radius = Q_max( 0.5f, val[0] );
+		return qtrue;
+	case LEP_CONE_OUTER:
+		if ( d->type != RTX_LTYPE_SPOT )
+		{
+			return qfalse;
+		}
+		d->coneOuter = Com_Clamp( 1.0f, 89.0f, val[0] );
+		d->coneInner = Com_Clamp( 0.0f, d->coneOuter, ( count >= 2 ) ? val[1] : d->coneInner );
+		return qtrue;
+	case LEP_CONE_INNER:
+		if ( d->type != RTX_LTYPE_SPOT )
+		{
+			return qfalse;
+		}
+		d->coneInner = Com_Clamp( 0.0f, d->coneOuter, val[0] );
+		return qtrue;
+	}
+	return qfalse;
+}
+
+/*
+=================
 Tool
 =================
 */
