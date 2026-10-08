@@ -1416,6 +1416,12 @@ void vk_rtx_build_saber_lights( light_poly_t *light_list, int *num_lights,
 	if ( num_sabers == 0 )
 		return;
 
+	// copy_light multiplies a light without material by 10. The scale below replaces that factor.
+	static cvar_t *pt_light_scale_saber;
+	if ( !pt_light_scale_saber )
+		pt_light_scale_saber = ri.Cvar_Get( "pt_light_scale_saber", "10", CVAR_ARCHIVE_ND );
+	const float saber_scale = MAX( 0.f, pt_light_scale_saber->value ) / 10.f;
+
 	for ( i = 0; i < num_sabers; i++ )
 	{
 		trRefEntity_t *saber = sabers[i];
@@ -1437,6 +1443,7 @@ void vk_rtx_build_saber_lights( light_poly_t *light_list, int *num_lights,
         VectorMA(e->origin, e->saberLength, e->axis[0], end);
 
 		vk_rtx_get_saber_lights_color( color, e );
+		VectorScale( color, saber_scale, color );
 
         vkpt_build_cylinder_light( light_list, num_lights, max_lights, worldData, begin, end, color, e->radius, hash, light_entity_ids );
 	}
