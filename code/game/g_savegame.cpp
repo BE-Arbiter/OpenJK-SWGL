@@ -1805,7 +1805,7 @@ void ReadLevel(qboolean qbAutosave, qboolean qbLoadTransition)
 extern int killPlayerTimer;
 qboolean GameAllowedToSaveHere(void)
 {
-	return (qboolean)(!in_camera&&!killPlayerTimer&&!G_LightEdit_Active());
+	return (qboolean)(!in_camera&&!killPlayerTimer&&!G_PlayerFrozen());
 }
 
 //////////////////// eof /////////////////////

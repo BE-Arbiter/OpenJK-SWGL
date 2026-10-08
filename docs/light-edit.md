@@ -35,6 +35,23 @@ Le mode n'est jamais sauvegardé dans une partie. Un changement de map ou le cha
 
 La cvar `ledit_active` (lecture seule) vaut 1 pendant le mode.
 
+## 2 bis. Caméra libre (`tfc`)
+
+La commande `tfc` lance la caméra libre du light edit, sans ses outils. Elle n'exige pas le renderer RTX : elle marche avec tous les renderers. Elle exige les cheats, comme le light edit.
+
+| Commande | Effet |
+|---|---|
+| `tfc` | Bascule le mode. |
+| `tfc 1` / `tfc 0` | Entre dans le mode ou en sort. |
+
+Le mode se comporte comme le light edit pour la caméra et le joueur : la caméra part de la vue actuelle et traverse les murs, le corps reste immobile et est dessiné, et le joueur est en god, notarget et sans Force. Le tir et la Force sont bloqués, et la sauvegarde est refusée.
+
+L'écran n'affiche que la carte et les entités. Le HUD, le viseur, l'arme en vue subjective, les messages au centre et l'overlay du light edit ne sont pas dessinés.
+
+La vitesse de la caméra est la cvar `ledit_cam_speed`, partagée avec le light edit.
+
+`tfc` et `lightedit` s'excluent : entrer dans l'un sort de l'autre. La mort, un changement de map, le chargement d'une partie et `vid_restart` sortent du mode. Une cinématique (`in_camera`) a priorité sur la caméra.
+
 ## 3. Contrôles communs
 
 Le mode réutilise les touches des armes :

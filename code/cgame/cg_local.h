@@ -955,6 +955,7 @@ qboolean CG_ConsoleCommand( void );
 void CG_InitConsoleCommands( void );
 
 #include "cg_lightedit.h"
+#include "cg_freecam.h"
 
 //
 // cg_servercmds.c

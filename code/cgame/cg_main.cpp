@@ -2440,6 +2440,7 @@ void CG_Init( int serverCommandSequence ) {
 	CG_InitConsoleCommands();
 
 	CG_LightEdit_Init();
+	CG_FreeCam_Init();
 
 	CG_TrueViewInit();
 

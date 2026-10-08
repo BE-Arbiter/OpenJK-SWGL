@@ -378,7 +378,7 @@ static void LE_LeaveSide( void )
 		}
 	}
 	s_active = qfalse;
-	LE_CamLeave();
+	LE_CamLeave( LE_CAM_USER_LIGHTEDIT );
 	LE_GrabReset();
 	s_pickId = -1;
 	s_hits.clear();
@@ -395,7 +395,7 @@ static void LE_EnterSide( void )
 		return;
 	}
 	s_active = qtrue;
-	LE_CamEnter();
+	LE_CamEnter( LE_CAM_USER_LIGHTEDIT );
 	s_tool = LEDIT_TOOL_SELECT;
 	LE_SelClear();
 	s_pickId = -1;
@@ -887,6 +887,18 @@ qboolean CG_LightEdit_Active( void )
 	return s_active;
 }
 
+// Leaves light edit for another mode. The unsaved changes stay in memory.
+void CG_LightEdit_Stop( void )
+{
+	if ( !s_active && !G_LightEdit_Active() )
+	{
+		return;
+	}
+	LE_LeaveSide();
+	s_leaving = qtrue;
+	G_LightEdit_SetMode( qfalse );
+}
+
 /*
 =================
 Console commands
@@ -930,6 +942,10 @@ static void LE_Cmd_LightEdit( void )
 		s_api = api;
 		s_leaving = qfalse;
 		G_LightEdit_SetMode( qtrue );
+		if ( G_LightEdit_Active() )
+		{
+			G_FreeCam_SetMode( qfalse );	// light edit leaves the free camera
+		}
 		return;
 	}
 

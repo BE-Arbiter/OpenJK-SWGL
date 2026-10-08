@@ -1,5 +1,5 @@
-// Light edit mode: game-side state.
-// The cgame sends "ledit_mode <0|1>"; the cgame reads G_LightEdit_Active() and the ledit_active cvar.
+// Light edit and free camera (tfc) mode: game-side state.
+// The body is frozen while either mode runs. The cgame reads G_LightEdit_Active(), G_FreeCam_Active() and the ledit_active cvar.
 
 #include "g_local.h"
 #include "g_lightedit.h"
@@ -8,7 +8,11 @@ extern qboolean	CheatsOk( gentity_t *ent );
 
 #define LEDIT_FLAGS	( FL_GODMODE | FL_NOTARGET | FL_NOFORCE )
 
-static qboolean	s_active = qfalse;
+// The modes that freeze the body, as bits of s_sources.
+#define FREEZE_LIGHTEDIT	0x1
+#define FREEZE_FREECAM		0x2
+
+static int		s_sources = 0;
 static int		s_savedFlags = 0;
 static vec3_t	s_frozenAngles;			// the body view angles while the mode runs
 static short	s_rawAngles[3];			// the last command angles before the filter
@@ -26,12 +30,22 @@ static void LightEdit_SetCvar( const char *value )
 
 qboolean G_LightEdit_Active( void )
 {
-	return s_active;
+	return (qboolean)( ( s_sources & FREEZE_LIGHTEDIT ) != 0 );
+}
+
+qboolean G_FreeCam_Active( void )
+{
+	return (qboolean)( ( s_sources & FREEZE_FREECAM ) != 0 );
+}
+
+qboolean G_PlayerFrozen( void )
+{
+	return (qboolean)( s_sources != 0 );
 }
 
 void G_LightEdit_Init( void )
 {
-	s_active = qfalse;
+	s_sources = 0;
 	s_savedFlags = 0;
 	s_haveRaw = qfalse;
 	LightEdit_SetCvar( "0" );
@@ -54,29 +68,54 @@ static void LightEdit_RestoreView( gentity_t *ent )
 	VectorCopy( s_frozenAngles, ent->client->ps.viewangles );
 }
 
-static void LightEdit_Set( gentity_t *ent, qboolean on )
+// The body freezes when the first mode starts and releases when the last one stops.
+// Start the new mode before the old one stops, so that a switch does not release the body.
+static void Freeze_SetSource( gentity_t *ent, int source, qboolean on )
 {
+	const int	before = s_sources;
+
 	if ( on )
 	{
 		if ( !CheatsOk( ent ) )
 		{
 			return;
 		}
-		s_savedFlags = ent->flags & LEDIT_FLAGS;
-		VectorCopy( ent->client->ps.viewangles, s_frozenAngles );
-		s_haveRaw = qfalse;
+		if ( !before )
+		{
+			s_savedFlags = ent->flags & LEDIT_FLAGS;
+			VectorCopy( ent->client->ps.viewangles, s_frozenAngles );
+			s_haveRaw = qfalse;
+		}
+		s_sources |= source;
 		ent->flags |= LEDIT_FLAGS;
-		s_active = qtrue;
-		LightEdit_SetCvar( "1" );
-		gi.SendServerCommand( ent - g_entities, "print \"light edit ON\n\"" );
 	}
 	else
 	{
-		ent->flags = ( ent->flags & ~LEDIT_FLAGS ) | s_savedFlags;
-		LightEdit_RestoreView( ent );
-		s_active = qfalse;
-		LightEdit_SetCvar( "0" );
-		gi.SendServerCommand( ent - g_entities, "print \"light edit OFF\n\"" );
+		s_sources &= ~source;
+		if ( before && !s_sources )
+		{
+			ent->flags = ( ent->flags & ~LEDIT_FLAGS ) | s_savedFlags;
+			LightEdit_RestoreView( ent );
+		}
+	}
+	LightEdit_SetCvar( G_LightEdit_Active() ? "1" : "0" );
+}
+
+static void LightEdit_Set( gentity_t *ent, qboolean on )
+{
+	Freeze_SetSource( ent, FREEZE_LIGHTEDIT, on );
+	if ( G_LightEdit_Active() == on )
+	{
+		gi.SendServerCommand( ent - g_entities, on ? "print \"light edit ON\n\"" : "print \"light edit OFF\n\"" );
+	}
+}
+
+static void FreeCam_Set( gentity_t *ent, qboolean on )
+{
+	Freeze_SetSource( ent, FREEZE_FREECAM, on );
+	if ( G_FreeCam_Active() == on )
+	{
+		gi.SendServerCommand( ent - g_entities, on ? "print \"free camera ON\n\"" : "print \"free camera OFF\n\"" );
 	}
 }
 
@@ -85,11 +124,23 @@ void G_LightEdit_SetMode( qboolean on )
 {
 	gentity_t *ent = &g_entities[0];
 
-	if ( !ent->inuse || !ent->client || on == s_active )
+	if ( !ent->inuse || !ent->client || on == G_LightEdit_Active() )
 	{
 		return;
 	}
 	LightEdit_Set( ent, on );
+}
+
+// The cgame calls this directly, as G_LightEdit_SetMode.
+void G_FreeCam_SetMode( qboolean on )
+{
+	gentity_t *ent = &g_entities[0];
+
+	if ( !ent->inuse || !ent->client || on == G_FreeCam_Active() )
+	{
+		return;
+	}
+	FreeCam_Set( ent, on );
 }
 
 void G_LightEdit_Cmd_f( gentity_t *ent )
@@ -106,18 +157,22 @@ void G_LightEdit_Cmd_f( gentity_t *ent )
 	}
 	else
 	{
-		on = s_active ? qfalse : qtrue;
+		on = G_LightEdit_Active() ? qfalse : qtrue;
 	}
-	if ( on == s_active )
+	if ( on == G_LightEdit_Active() )
 	{
 		return;
 	}
 	LightEdit_Set( ent, on );
+	if ( on )
+	{
+		Freeze_SetSource( ent, FREEZE_FREECAM, qfalse );	// light edit leaves the free camera
+	}
 }
 
 void G_LightEdit_FilterUcmd( gentity_t *ent, usercmd_t *ucmd )
 {
-	if ( !s_active || !ent || ent->s.number != 0 )
+	if ( !G_PlayerFrozen() || !ent || ent->s.number != 0 )
 	{
 		return;
 	}

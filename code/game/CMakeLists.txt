@@ -202,6 +202,8 @@ set(SPGameCGameFiles
 	"${SPDir}/cgame/cg_effects.cpp"
 	"${SPDir}/cgame/cg_ents.cpp"
 	"${SPDir}/cgame/cg_event.cpp"
+	"${SPDir}/cgame/cg_freecam.cpp"
+	"${SPDir}/cgame/cg_freecam.h"
 	"${SPDir}/cgame/cg_headers.cpp"
 	"${SPDir}/cgame/cg_info.cpp"
 	"${SPDir}/cgame/cg_lightedit.cpp"

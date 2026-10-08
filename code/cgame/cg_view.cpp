@@ -2296,6 +2296,7 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView ) {
 	cg.refdef.time = cg.time;
 
 	CG_LightEdit_Frame();
+	CG_FreeCam_Frame();
 
 	CG_DrawSkyBoxPortal();
 

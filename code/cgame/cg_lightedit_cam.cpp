@@ -1,4 +1,4 @@
-// Light edit mode: free camera. The player body stays where it is; the camera flies.
+// Free camera of light edit and of tfc (cg_freecam.cpp). The player body stays where it is; the camera flies.
 // The view angles are the raw mouse angles plus the delta angles of the snapshot (the game freezes the body angles).
 
 #include "cg_headers.h"
@@ -10,37 +10,44 @@
 #define LEDIT_CAM_PITCH_LIMIT	89.0f
 
 static vmCvar_t		ledit_cam_speed;		// units per second at full move input
-static qboolean		s_camOn = qfalse;
+static int			s_camUsers = 0;			// LE_CAM_USER_* bits; the camera runs while one is set
 static vec3_t		s_camOrg;
 static vec3_t		s_camAngOff;			// goto turns the camera with this offset to the mouse angles
 static vec3_t		s_camAng;
 
 void LE_CamInit( void )
 {
-	s_camOn = qfalse;
+	s_camUsers = 0;
 	VectorClear( s_camOrg );
 	VectorClear( s_camAngOff );
 	VectorClear( s_camAng );
 	cgi_Cvar_Register( &ledit_cam_speed, "ledit_cam_speed", "500", CVAR_ARCHIVE );
 }
 
-void LE_CamEnter( void )
+// The camera starts at the view when no user was on. A second user keeps the position.
+void LE_CamEnter( int user )
 {
-	s_camOn = qtrue;
-	VectorCopy( cg.refdef.vieworg, s_camOrg );
-	VectorClear( s_camAngOff );
-	VectorCopy( cg.refdefViewAngles, s_camAng );
+	if ( !s_camUsers )
+	{
+		VectorCopy( cg.refdef.vieworg, s_camOrg );
+		VectorClear( s_camAngOff );
+		VectorCopy( cg.refdefViewAngles, s_camAng );
+	}
+	s_camUsers |= user;
 }
 
-void LE_CamLeave( void )
+void LE_CamLeave( int user )
 {
-	s_camOn = qfalse;
-	VectorClear( s_camAngOff );
+	s_camUsers &= ~user;
+	if ( !s_camUsers )
+	{
+		VectorClear( s_camAngOff );
+	}
 }
 
 qboolean LE_CamActive( void )
 {
-	return (qboolean)( s_camOn && !in_camera );
+	return (qboolean)( s_camUsers != 0 && !in_camera );
 }
 
 // View angles from the mouse: the raw command angles plus the delta angles of the snapshot.

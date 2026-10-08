@@ -366,6 +366,7 @@ qboolean CG_ConsoleCommand( void ) {
 	consoleCommand_t	*command = NULL;
 
 	if ( CG_LightEdit_ConsoleCommand( CG_Argv(0) ) ) return qtrue;
+	if ( CG_FreeCam_ConsoleCommand( CG_Argv(0) ) ) return qtrue;
 
 	const char* commandName = CG_Argv(0);
 	/* Check argv commands */
@@ -494,4 +495,5 @@ void CG_InitConsoleCommands( void ) {
 		cgi_AddCommand( gcmds[i] );
 
 	CG_LightEdit_InitConsoleCommands();
+	CG_FreeCam_InitConsoleCommands();
 }
