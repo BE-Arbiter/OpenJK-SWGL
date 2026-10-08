@@ -1438,7 +1438,19 @@ bool is_blended_surface( uint material_id, uint instance_index )
 
 	MaterialInfo minfo = get_material_info( material_id );
 
-	return minfo.blend_mode != RTX_BLEND_OPAQUE && minfo.alpha_test_func == 0u;
+	return minfo.blend_mode != RTX_BLEND_OPAQUE;
+}
+
+// The alphaFunc of stage 0, as the rasterizer discards the fragment.
+bool layer_alpha_test_pass( MaterialInfo minfo, float a )
+{
+	switch ( minfo.alpha_test_func )
+	{
+		case 1u: return a > 0.0;						// GLS_ATEST_GT_0
+		case 2u: return a < minfo.alpha_test_value;		// GLS_ATEST_LT_80
+		case 3u: return a >= minfo.alpha_test_value;	// GLS_ATEST_GE_80 / GLS_ATEST_GE_C0
+	}
+	return true;
 }
 
 // The stages of a blended surface, in screen units: out = L + T * behind. The tracer does not
@@ -1497,6 +1509,8 @@ void blended_surface_layer(
 
 		vec4 src0, src1, glow_src;
 		sample_material_stage_light( ctx, s, stage, src0, src1, glow_src );
+		if ( s == 0u && !layer_alpha_test_pass( minfo, src1.a ) )
+			continue;
 		blend_stage_layer( fade ? 0x65u : stage.blend, vec4( src0.rgb + light * ( src1.rgb - src0.rgb ), src1.a ), L, T );
 	}
 
