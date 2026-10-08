@@ -2,7 +2,7 @@
 
 Le mode light edit permet de placer, déplacer, orienter, régler et supprimer en jeu les lumières que le path tracer RTX de `rdsp-vulkan` utilise. Les changements sont visibles à l'image suivante. Ils sont enregistrés dans `maps/<map>.lgt`, qui est relu à chaque chargement de la map, en mode normal comme en mode édition.
 
-Ce document décrit le MVP et l'itération 2 : les neuf outils, les spots, la sélection multiple, la grille, les contraintes d'axe et l'accumulation à vue fixe.
+Ce document décrit le MVP et les itérations 2 et 3 : les neuf outils, les spots, la sélection multiple, la grille, les contraintes d'axe et l'accumulation à vue fixe, les raccourcis clavier, le menu, les étiquettes et les filtres d'affichage.
 
 ## 1. Prérequis
 
@@ -47,6 +47,27 @@ Le mode réutilise les touches des armes :
 | `]` / `[` | `invnext` / `invprev` | Propriété active de l'outil 5. |
 | Marche (maintenue) | walk | Pas fin pour la molette. |
 | Saut / accroupi | `+moveup` / `+movedown` | Monter / descendre (noclip). |
+| Utiliser | `+use` | Place la caméra devant la sélection, tournée vers elle (`ledit_goto`). |
+
+### Raccourcis clavier
+
+Ces touches fonctionnent sans bind, seulement en mode light edit, et seulement quand ni la console ni un menu ne sont ouverts. Toutes les autres touches gardent leur bind.
+
+| Touche | Action |
+|---|---|
+| Ctrl+Z | Annuler. |
+| Ctrl+Y ou Ctrl+Shift+Z | Rétablir. |
+| Ctrl+S | Sauvegarder (`ledit_save`). |
+| Ctrl+D | Vider la sélection. |
+| Ctrl+M | Ouvrir le menu light edit (§ 5 bis). |
+| Suppr | Supprimer ou désactiver la sélection. |
+| Entrée (ou Entrée du pavé) | Saisie numérique de la propriété active (voir ci-dessous). |
+
+**Saisie numérique.** Entrée ouvre un champ pour la propriété active de l'outil 5 (l'intensité avec les autres outils), rempli avec la valeur de la lumière principale. Un premier caractère remplace la valeur ; chiffres, `.`, `-` et espace s'ajoutent, Retour arrière efface. Entrée applique la valeur à toute la sélection (une entrée d'undo), Échap annule. Pendant la saisie, les chiffres ne changent pas d'outil. Les valeurs : intensité ; teinte (0-360, ou `teinte sat valeur`) ; saturation (0-1) ; température (K) ; rayon ; cône (`ext [int]`). Le champ se ferme à la sortie du mode, au changement de map, quand la sélection est vide ou après 30 s sans touche.
+
+Échap n'est consommé que pendant une saisie ; sinon il ouvre le menu du jeu, comme d'habitude. La touche de la console et Shift+Échap ne sont jamais interceptés.
+
+Ctrl est souvent lié à l'accroupissement : un raccourci Ctrl fait descendre un peu la caméra en noclip.
 
 ### Cibles d'une action
 
@@ -136,7 +157,22 @@ Le mode réutilise les touches des armes :
 - **En haut à gauche** : outil actif et aide (Tir / Alt / Molette), avec la valeur courante (décalage, angle, propriété, filtre, nombre de copies, contrainte).
 - **À droite** : panneau de la sélection. Pour une lumière : id, source, type, état, origine, couleur, teinte/saturation/température, intensité, rayon, direction et cônes (spot), nom ; valeur d'origine en gris si elle a changé. Pour plusieurs : « N lights (primary id) », puis la valeur commune ou « - ».
 - **En bas** : map, compteurs, slots utilisés / limite, profondeur d'undo et de redo, `*` si des changements ne sont pas sauvegardés, grille et snap, `SOLO <id>`, filtre d'icônes, avertissements.
-- Tout le dessin de l'overlay respecte un budget fixe de points par image : un cône ou une grande sélection ne peut pas saturer le buffer de commandes du renderer.
+- **Étiquettes** (`ledit_label`) : nom (ou `#id`), type et intensité à côté de l'icône.
+- **Filtres d'affichage** (`ledit_show`) : 2 ajoute les lumières émissives (points gris), 3 ajoute aussi les lumières dynamiques de l'image précédente (points magenta : dlights, sabres). Elles ne sont pas sélectionnables. Le bas de l'écran affiche « show N ».
+- Tout le dessin de l'overlay respecte un budget fixe par image (points et caractères) : un cône, une grande sélection ou beaucoup d'étiquettes ne peuvent pas saturer le buffer de commandes du renderer. Les formes de la sélection et des outils passent en premier, puis les icônes, puis les points émissifs et dynamiques.
+
+## 5 bis. Menu light edit
+
+`ledit_menu` (ou Ctrl+M) ouvre un menu sur la moitié droite de l'écran ; la scène reste visible à gauche. Échap ou « Close » le ferme et rend la main au jeu.
+
+- **En-tête** : map, nombre de lumières, d'émissives, compteurs par source, `* unsaved`.
+- **Filtre** (cvar `ui_ledit_filter` : all, added, entity, lgt, modified, disabled, spots ; un clic passe à la valeur suivante) et **recherche** (`ui_ledit_search`, sous-chaîne du nom, sans casse).
+- **Liste** : id, source (`added`, `ent N`, `lgt N`), type, intensité, état (M modifiée, D désactivée, S dans un solide, m muette), nom. Un clic sur une ligne la choisit et la sélectionne (`ledit_select`).
+- **Boutons** (sur la ligne choisie) : Select, Add to sel., Go to, Delete, Restore, Solo, End solo, Revert, Close.
+- **Couleur** : curseurs teinte (0-360), saturation, valeur, température (1000-12000 K) avec un aperçu. « Load from light » lit la couleur, l'intensité et le rayon de la ligne choisie ; « Apply colour » applique la couleur HSV ; « Use temperature » met la couleur du corps noir dans les curseurs ; « Apply temperature » l'applique.
+- **Valeurs** : champs intensité et rayon, chacun avec « Apply ».
+
+Le menu envoie des commandes du mode (`ledit_select`, `ledit_set`, `ledit_goto`, `ledit_delete`, `ledit_revert`, `pt_ledit_restore`, `pt_ledit_solo`) : ses changements passent par l'undo (sauf Restore et Solo). Le texte du menu est intégré à l'exe ; un fichier `ui/lightedit.menu` dans les données du jeu le remplace s'il existe (pour retoucher la mise en page sans recompiler). La liste ne suit pas une sélection faite en jeu : les boutons agissent sur la dernière ligne choisie dans le menu.
 
 Le **rayon d'émission** n'est pas une portée. Une sphère du tracer éclaire en 1/d², sans coupure. Le rayon d'émission règle seulement la douceur des ombres.
 
@@ -165,15 +201,20 @@ Toutes, sauf `lightedit`, demandent le mode actif.
 | `ledit_grid_next` | Pas de grille suivant (1, 2, 4, 8, 16, 32, 64, 128). |
 | `ledit_snap_toggle` | Active ou coupe le snap. |
 | `ledit_xray_toggle` | Active ou coupe le mode « à travers les murs ». |
+| `ledit_select <id> [add]` / `ledit_select none` | Sélectionne une lumière par son id (ou l'ajoute à la sélection), ou vide la sélection. |
+| `ledit_goto` | Place la caméra devant la sélection, tournée vers elle, hors des murs (aussi : Utiliser). |
+| `ledit_menu` | Ouvre le menu light edit (aussi : Ctrl+M). |
+| `ledit_writebinds [force]` | Écrit `lightedit_binds.cfg` dans le homepath (refuse d'écraser un fichier existant sans `force`), puis indique `exec lightedit_binds.cfg`. |
 
-Commandes de débogage du renderer (utilisables même hors du mode) : `pt_ledit_list`, `pt_ledit_add x y z [intensité] [r g b]`, `pt_ledit_set <id> <origin|color|intensity|radius> <valeurs>`, `pt_ledit_set <id> spot dx dy dz ext int`, `pt_ledit_set <id> sphere`, `pt_ledit_del <id>`, `pt_ledit_restore <id>`, `pt_ledit_mute <id> <0|1>`, `pt_ledit_solo <id|-1>`, `pt_ledit_stats`.
+Commandes de débogage du renderer (utilisables même hors du mode) : `pt_ledit_list`, `pt_ledit_add x y z [intensité] [r g b]`, `pt_ledit_set <id> <origin|color|intensity|radius> <valeurs>`, `pt_ledit_set <id> spot dx dy dz ext int`, `pt_ledit_set <id> sphere`, `pt_ledit_del <id>`, `pt_ledit_restore <id>`, `pt_ledit_mute <id> <0|1>`, `pt_ledit_solo <id|-1>`, `pt_ledit_stats`, `pt_ledit_emissive [n]`, `pt_ledit_dynamic`.
 
 ## 7. Cvars
 
 | Cvar | Défaut | Rôle |
 |---|---|---|
 | `ledit_xray` | 0 | 1 : icônes visibles et sélection possible à travers les murs. |
-| `ledit_show` | 1 | 0 : aucune icône ; 1 : lumières éditables. |
+| `ledit_show` | 1 | 0 : aucune icône ; 1 : lumières éditables ; 2 : + lumières émissives (points gris, à moins de 2048 unités) ; 3 : + lumières dynamiques de l'image précédente (points magenta, 64 au plus). Les lumières émissives et dynamiques ne sont pas sélectionnables. |
+| `ledit_label` | 1 | 0 : aucune étiquette ; 1 : la lumière visée et les lumières sélectionnées ; 2 : + les lumières visibles à moins de 1024 unités de l'œil, les plus proches d'abord (24 étiquettes au plus). Une étiquette donne le nom (ou `#id`), puis le type et l'intensité, avec `muted` ou `disabled` si besoin. |
 | `ledit_grid` | 16 | Pas de la grille (1, 2, 4, 8, 16, 32, 64, 128). |
 | `ledit_snap` | 0 | 1 : accroche les positions à la grille (création, déplacement, clonage). |
 | `ledit_angle_snap` | 15 | Pas d'angle (degrés) des cônes et des directions. 0 : libre. |
@@ -199,7 +240,7 @@ Le renderer redémarre l'accumulation (`pt_accumulation_rendering`) dès que la 
 
 ## 9. Binds conseillés
 
-Les touches des armes, le tir, la molette et `[` / `]` suffisent pour les outils. Exemple de binds pour les commandes (à adapter ; rien n'est exécuté automatiquement) :
+Les touches des armes, le tir, la molette et `[` / `]` suffisent pour les outils. Le fichier `docs/lightedit_binds.cfg` propose des binds sur le pavé numérique ; `ledit_writebinds` l'écrit dans le homepath, `exec lightedit_binds.cfg` l'applique. Rien n'est exécuté automatiquement. Autre exemple (à adapter) :
 
 ```
 bind F6 "lightedit"
@@ -290,11 +331,12 @@ Règles :
 
 - **RTX seulement.** Le raster utilise les lightmaps et la lightgrid, qui ne changent pas.
 - **Pas de lumières rectangulaires**, pas de multiplicateur des surfaces émissives, pas de soleil par map, pas de styles ni de scintillement (itération 4).
-- **Pas de saisie clavier directe** (Ctrl+Z, Suppr), pas de menu avec sélecteur de couleur : utiliser des binds sur les commandes `ledit_*` (itération 3).
+- **Clavier** : un raccourci ne marche pas si l'utilisateur a lié une combinaison de touches sur la même touche (le moteur la remplace avant le mode). Le nom d'une lumière se saisit par la console (`ledit_set name`).
+- **Menu** : la liste ne suit pas la sélection faite en jeu ; les largeurs de colonnes sont fixes ; pas de champ de nom ni de cônes dans le menu.
 - **Sélection** : pas de sélection par boîte, ni de « tout sélectionner de la même couleur ».
 - **Limite de lumières** : 4096 lumières en tout dans le tracer (`MAX_LIGHT_POLYS`, constante des shaders), dont 128 gardées pour les lumières dynamiques. Les surfaces émissives comptent aussi : sur kejim_post, environ 90 places restent. Au-delà, l'ajout est refusé (`no free light slot`).
-- **1024 lumières par cluster** : un ajout est refusé si un cluster visible est plein. Un `Restore`, la fin d'un muet ou d'un solo ne refont pas ce contrôle.
-- **Surfaces émissives** (néons, polygones) : non éditables et non affichées ; la pipette ne peut pas les lire.
+- **1024 lumières par cluster** : un ajout est refusé si un cluster visible est plein. `Restore` et la fin d'un muet font le même contrôle. La fin d'un solo ne peut pas être refusée : si un cluster déborde, un message le dit (« cluster full: N clusters truncated »).
+- **Surfaces émissives** (néons, polygones) : non éditables ; affichées en points gris avec `ledit_show 2`, sans test d'occlusion (500 au plus, à moins de 2048 unités) ; la pipette ne peut pas les lire.
 - **Une lumière d'origine dans un solide** reste une sphère : on ne peut la convertir en spot qu'après l'avoir sortie du solide.
 - **Pas d'icônes au-delà de 3000 unités** sans `ledit_xray`. Les modèles (caisses, portes) ne cachent pas les icônes et ne sont pas touchés par le fantôme ni par le point visé de l'outil 4.
 - **Cônes larges** : le cercle du bord est limité à 256 unités de rayon ; il est alors dessiné plus près du sommet du cône.
@@ -323,3 +365,9 @@ Règles :
 14. `ledit_save`, `lightedit 0`, `devmap t1_fatal` : la console affiche « light edit: maps/t1_fatal.lgt: … added » ; les spots sont relus avec leur direction et leurs cônes (`pt_ledit_list`).
 15. `pt_lightgen t1_fatal` : refus (« holds light edits »).
 16. Avec `cl_renderer rdsp_swgl` : `lightedit` répond « needs the RTX renderer » et le jeu continue normalement.
+17. **Clavier** : sélectionner une lumière, **Entrée**, taper `5000`, **Entrée** : l'intensité change ; **Ctrl+Z** : elle revient ; **Ctrl+Y** : elle repart ; **Suppr** : la lumière est supprimée ; **Ctrl+Z** : elle revient. **Entrée**, `9`, **Échap** : rien ne change et le menu du jeu ne s'ouvre pas.
+18. **Console** : ouvrir la console, appuyer sur **Ctrl+Z** : rien n'est annulé. Fermer la console.
+19. **Aller à** : `ledit_select <id>`, puis **Utiliser** (ou `ledit_goto`) : la caméra se place devant la lumière, tournée vers elle.
+20. **Menu** : **Ctrl+M** : le menu s'ouvre à droite ; filtre « Added », recherche `copy` : la liste se réduit ; cliquer une ligne, « Load from light », bouger la teinte, « Apply colour » : la lumière change de couleur, **Ctrl+Z** après fermeture l'annule. **Échap** ferme le menu.
+21. **Étiquettes et filtres** : `ledit_label 2`, `ledit_show 3` : noms et valeurs à côté des icônes, points gris des émissives, points magenta des lumières dynamiques (tirer au blaster hors du mode, puis revenir).
+22. **Sortie** : `lightedit 0`, puis **Ctrl+Z**, **Suppr**, **Entrée** : ces touches reprennent leur bind normal ; après `devmap`, idem.
