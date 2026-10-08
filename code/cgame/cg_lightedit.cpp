@@ -48,6 +48,7 @@ static int					s_wheel = 0;			// wheel steps since the last frame
 static int					s_prevButtons = 0;
 static float				s_createOffset = 16.0f;
 static vec3_t				s_ghost;
+static vec3_t				s_ghostHitPos;			// surface point under the ghost, valid when s_ghostHit
 static vec3_t				s_ghostNormal;			// surface normal under the ghost, valid when s_ghostHit
 static qboolean				s_ghostHit = qfalse;
 static qboolean				s_ghostSolid = qfalse;
@@ -610,6 +611,7 @@ static void LE_UpdateGhost( void )
 	{
 		VectorMA( tr.endpos, s_createOffset, tr.plane.normal, s_ghost );
 		VectorCopy( tr.plane.normal, s_ghostNormal );
+		VectorCopy( tr.endpos, s_ghostHitPos );
 		s_ghostHit = qtrue;
 	}
 	else
@@ -667,7 +669,7 @@ static void LE_ToolCreate( qboolean priDown, qboolean secDown, int wheel, qboole
 		VectorSet( d.dir, 0.0f, 0.0f, -1.0f );
 		if ( s_createType == RTX_LTYPE_SPOT && s_ghostHit )
 		{
-			VectorNegate( s_ghostNormal, d.dir );
+			LE_SpotCreateDir( s_ghost, s_ghostHitPos, s_ghostNormal, d.dir );
 		}
 		else if ( s_createType == RTX_LTYPE_RECT && s_ghostHit )
 		{
@@ -1807,7 +1809,7 @@ static void LE_DrawToolWorld( void )
 			VectorSet( dir, 0.0f, 0.0f, -1.0f );
 			if ( s_ghostHit )
 			{
-				VectorNegate( s_ghostNormal, dir );
+				LE_SpotCreateDir( s_ghost, s_ghostHitPos, s_ghostNormal, dir );
 			}
 			LE_DrawSpotWire( s_ghost, dir, outer, inner, s_ghostSolid ? colRed : colGreen, qfalse );
 		}

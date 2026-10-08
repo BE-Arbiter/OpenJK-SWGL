@@ -78,6 +78,7 @@ void		LE_UndoHistory( void );
 // Grid, snap and constraint maths (cg_lightedit_grid.cpp).
 void		LE_GridInit( void );					// registers the cvars
 void		LE_GridUpdate( void );					// once per frame
+void		LE_SpotCreateDir( const vec3_t ghost, const vec3_t hitPos, const vec3_t normal, vec3_t dir );	// aim of a new spot over a surface hit
 int			LE_GridSize( void );
 qboolean	LE_SnapOn( void );
 void		LE_SnapPoint( vec3_t p, int axisMask );	// rounds the axes whose bit is set; no-op when snap is off

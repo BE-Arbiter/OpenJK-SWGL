@@ -6,6 +6,7 @@
 static vmCvar_t		ledit_grid;
 static vmCvar_t		ledit_snap;
 static vmCvar_t		ledit_angle_snap;		// degrees; 0 turns the angle snap off
+static vmCvar_t		ledit_spot_near;		// units; a new spot this close to a surface faces away from it; 0 turns it off
 
 static const int	s_gridSizes[] = { 1, 2, 4, 8, 16, 32, 64, 128 };
 
@@ -14,6 +15,7 @@ void LE_GridInit( void )
 	cgi_Cvar_Register( &ledit_grid, "ledit_grid", "16", CVAR_ARCHIVE );
 	cgi_Cvar_Register( &ledit_snap, "ledit_snap", "0", CVAR_ARCHIVE );
 	cgi_Cvar_Register( &ledit_angle_snap, "ledit_angle_snap", "15", CVAR_ARCHIVE );
+	cgi_Cvar_Register( &ledit_spot_near, "ledit_spot_near", "64", 0 );
 }
 
 void LE_GridUpdate( void )
@@ -21,6 +23,24 @@ void LE_GridUpdate( void )
 	cgi_Cvar_Update( &ledit_grid );
 	cgi_Cvar_Update( &ledit_snap );
 	cgi_Cvar_Update( &ledit_angle_snap );
+	cgi_Cvar_Update( &ledit_spot_near );
+}
+
+// Aim of a new spot over a surface hit: away from the surface (+normal) when the ghost is
+// within ledit_spot_near of the surface plane, else into it (-normal).
+void LE_SpotCreateDir( const vec3_t ghost, const vec3_t hitPos, const vec3_t normal, vec3_t dir )
+{
+	vec3_t	d;
+
+	VectorSubtract( ghost, hitPos, d );
+	if ( ledit_spot_near.value > 0.0f && fabsf( DotProduct( d, normal ) ) <= ledit_spot_near.value )
+	{
+		VectorCopy( normal, dir );
+	}
+	else
+	{
+		VectorNegate( normal, dir );
+	}
 }
 
 // A value that is not in the list gives 16.

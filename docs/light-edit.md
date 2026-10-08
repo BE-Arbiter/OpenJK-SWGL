@@ -86,9 +86,10 @@ Ctrl est souvent lié à l'accroupissement : un raccourci Ctrl fait descendre un
 ### 2. Création
 - Un « fantôme » suit le point d'impact du viseur, décalé le long de la normale de la surface. Avec `ledit_snap 1`, il est accroché à la grille.
 - **Tir** : ajoute une lumière au fantôme avec le préréglage (`ledit_preset_*`, ou le presse-papier de la pipette), puis la sélectionne.
-- **Alt** : change le type des nouvelles lumières, sphère → spot → rectangle → sphère. Un spot posé vise l'opposé de la normale de la surface (cônes 35° / 25°, ou ceux du presse-papier).
+- **Alt** : change le type des nouvelles lumières, sphère → spot → rectangle → sphère. Un spot posé à plus de `ledit_spot_near` unités de la surface vise l'opposé de la normale (dans la surface) ; plus près, il vise le long de la normale (loin de la surface : sous un plafond, il éclaire la pièce). Le fantôme montre cette direction. Cônes 35° / 25°, ou ceux du presse-papier.
 - **Rectangle** : un rectangle posé prend la normale de la surface (il éclaire à l'opposé de la surface), ou `0 0 -1` sans impact. Sa taille vient du presse-papier de la pipette, sinon 32 × 32. Le fantôme est un rectangle filaire avec la flèche de la normale.
 - **Molette** : décalage par rapport à la surface, ×2 ou ÷2 (±1 avec la marche), de 2 à 256 unités.
+- La distance prise en compte est celle du fantôme au plan de la surface, après l'accrochage à la grille. Sans impact, la direction reste `0 0 -1`.
 - Sans impact (ciel), le fantôme est à 256 unités devant la caméra. Dans un solide, il est rouge et la pose est refusée. Un solo actif (outil 9) est terminé avant la pose.
 
 ### 3. Déplacement (« physgun »)
@@ -252,6 +253,7 @@ Déplacer ou tourner un rectangle reconstruit les listes de lumières par cluste
 | `ledit_still_accum` | 0 | 1 : quand la vue ne bouge plus depuis 500 ms (et sans saisie ni bouton), met `pt_accumulation_rendering 1` pour une image de référence sans bruit ; le premier mouvement rétablit la valeur d'avant. La valeur est aussi rétablie à la sortie du mode. |
 | `ledit_preset_intensity` | 2000 | Intensité d'une lumière créée. |
 | `ledit_preset_radius` | 8 | Rayon d'émission d'une lumière créée. |
+| `ledit_spot_near` | 64 | Distance (unités) sous laquelle un spot créé près d'une surface vise loin d'elle (le long de la normale). 0 : toujours dans la surface. Non archivé. |
 | `ledit_preset_color` | `1 0.9 0.8` | Couleur d'une lumière créée. |
 | `pt_light_scale_edit` | 0.1 | Échelle unique des lumières **ajoutées**. |
 | `ledit_active` | — | Lecture seule, 1 pendant le mode. |
