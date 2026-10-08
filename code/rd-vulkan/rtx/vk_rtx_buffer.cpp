@@ -22,6 +22,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "tr_local.h"
+#include "rtx_light_style.h"
 
 #define     MAX_MAP_CLUSTERS    65536
 
@@ -46,19 +47,8 @@ void vkpt_light_buffer_reset_counts( void )	// not used yet
 static inline void
 copy_light(const light_poly_t* light, float* vblight, const float* sky_radiance, qboolean world)
 {
-	float style_scale = 1.f;
-	float prev_style = 1.f;
-
-#if 0
-	if (light->style != 0 && vkpt_refdef.fd->lightstyles)
-	{
-		style_scale = vkpt_refdef.fd->lightstyles[light->style].white;
-		style_scale = MAX(0, MIN(1, style_scale));
-
-		prev_style = vkpt_refdef.prev_lightstyles[light->style].white;
-		prev_style = MAX(0, MIN(1, prev_style));
-	}
-#endif
+	const float style_scale = RTX_LightStyle_Scale( light->style, qfalse );
+	const float prev_style = RTX_LightStyle_Scale( light->style, qtrue );
 
 	// The light cast by a glow stage and by a q3map_surfacelight surface have their own scale.
 	// pt_glow_scale only sets how bright the glow surface is seen. In the world, a light without

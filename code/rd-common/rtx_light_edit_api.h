@@ -13,11 +13,13 @@ by the Free Software Foundation.
 // The client gets this table from refexport_t::GetExtension( RTX_LIGHTEDIT_API_NAME ).
 // A renderer without the RTX path returns NULL. All calls run on the main thread, between
 // two frames. An id is stable until the next map load: a removed light keeps its id.
+// A client uses the table only when version is RTX_LIGHTEDIT_API_VERSION: the structures
+// change between versions. Build the renderer, the game DLL and the exe together.
 
 #pragma once
 
 #define RTX_LIGHTEDIT_API_NAME		"rtxLightEdit_v1"
-#define RTX_LIGHTEDIT_API_VERSION	3
+#define RTX_LIGHTEDIT_API_VERSION	4
 
 #define RTX_LIGHTEDIT_NAME_LEN		32
 
@@ -30,8 +32,18 @@ typedef enum {
 
 typedef enum {
 	RTX_LTYPE_SPHERE = 0,
-	RTX_LTYPE_SPOT
+	RTX_LTYPE_SPOT,
+	RTX_LTYPE_RECT			// version 4: a rectangle of two polygon lights (four when two-sided)
 } rtxLightType_t;
+
+// Limits of a rectangle light, in world units.
+#define RTX_LRECT_MIN_SIZE		1.0f
+#define RTX_LRECT_MAX_SIZE		2048.0f
+#define RTX_LRECT_DEFAULT_SIZE	32.0f
+
+// Light styles. Style 0 is steady. Styles 1..63 follow styleColors[], which the cgame
+// sets each frame from the CS_LIGHT_STYLES config strings.
+#define RTX_LSTYLE_MAX			64
 
 // Flags of rtxLightDesc_t. Get sets them; Add and Set ignore them.
 #define RTX_LFLAG_MODIFIED		0x0001	// a source light that differs from its original values
@@ -53,12 +65,75 @@ typedef struct {
 	float	intensity;		// units of the source: q3map2 `light` for added and entity lights, lightmap units for lgt
 	float	radius;			// emitter radius, sets the shadow softness only
 
-	vec3_t	dir;			// spot only, unit vector
+	vec3_t	dir;			// spot: unit vector of the axis; rect: unit normal, the lit side
 	float	coneOuter;		// spot only, half angle in degrees, 1..89
 	float	coneInner;		// spot only, half angle in degrees, 0..coneOuter
 
 	char	name[RTX_LIGHTEDIT_NAME_LEN];
+
+	// Version 4.
+	float	width;			// rect only: size along the U axis of RTX_LightRectAxes
+	float	height;			// rect only: size along the V axis
+	float	roll;			// rect only: rotation around dir, in degrees
+	int		twoSided;		// rect only: 1 when both sides emit
+	int		style;			// all types: light style, 0 = steady, 1 .. RTX_LSTYLE_MAX - 1
 } rtxLightDesc_t;
+
+// Axes of a rectangle light. The renderer and the cgame use this function, so the
+// overlay and the tracer agree. U and V are unit vectors, perpendicular to normal.
+static inline void RTX_LightRectAxes( const float *normal, float rollDegrees, float *u, float *v )
+{
+	float	u0[3], v0[3], len, c, s;
+
+	if ( normal[2] > 0.99f || normal[2] < -0.99f )
+	{
+		u0[0] = 1.0f; u0[1] = 0.0f; u0[2] = 0.0f;
+	}
+	else
+	{
+		// u0 = normalize( Z x normal ), horizontal
+		u0[0] = -normal[1]; u0[1] = normal[0]; u0[2] = 0.0f;
+		len = sqrtf( u0[0] * u0[0] + u0[1] * u0[1] );
+		u0[0] /= len; u0[1] /= len;
+	}
+
+	// v0 = normal x u0
+	v0[0] = normal[1] * u0[2] - normal[2] * u0[1];
+	v0[1] = normal[2] * u0[0] - normal[0] * u0[2];
+	v0[2] = normal[0] * u0[1] - normal[1] * u0[0];
+
+	c = cosf( rollDegrees * 0.017453292f );
+	s = sinf( rollDegrees * 0.017453292f );
+
+	for ( int k = 0; k < 3; k++ )
+	{
+		u[k] = u0[k] * c + v0[k] * s;
+		v[k] = v0[k] * c - u0[k] * s;
+	}
+}
+
+// Version 4: sky and sun of the map. The renderer keeps one setting per map and saves it
+// in the `global` block of the .lgt.
+typedef enum {
+	RTX_SKY_GLOBAL = 0,		// no setting for the map: the physical_sky and sun_* cvars apply
+	RTX_SKY_SKYBOX,			// the skybox of the map, no sun
+	RTX_SKY_PHYSICAL,		// the physical sky (earth) and its sun
+	RTX_SKY_HYBRID			// the skybox of the map, with an analytic sun
+} rtxSkyMode_t;
+
+#define RTX_SKY_FROM_FILE		0x0001	// Get only: the .lgt holds a global block
+#define RTX_SKY_FROM_Q3MAP_SUN	0x0002	// Get only: the sun values come from q3map_sun
+#define RTX_SKY_MAP_HAS_SUN		0x0004	// Get only: the sky shader of the map has q3map_sun
+
+typedef struct {
+	int		mode;			// rtxSkyMode_t
+	int		flags;			// RTX_SKY_*, Get only
+	float	sunAzimuth;		// degrees, as the sun_azimuth cvar
+	float	sunElevation;	// degrees, as the sun_elevation cvar
+	vec3_t	sunColor;		// as sun_color_r/g/b
+	float	sunBrightness;	// as sun_brightness
+	float	sunAngle;		// angular diameter in degrees, 1..10, as sun_angle
+} rtxSkyDesc_t;
 
 typedef struct {
 	int		numRecords;			// ids are 0 .. numRecords - 1
@@ -156,4 +231,20 @@ typedef struct rtxLightEditAPI_s {
 	// Dynamic lights of the last traced frame (dlights, sabers, beams), read only. Fills at
 	// most maxCount entries and returns how many it filled.
 	int			(*GetDynamic)( int maxCount, vec3_t *origins, vec3_t *colors );
+
+	// Version 4.
+
+	// Light emission factor of each emissive shader. The factor scales the light that the
+	// polygons of the shader cast; it does not change how bright the surface looks.
+	// Shader indices are stable until the next map load. SetEmissiveScale counts as an edit.
+	int			(*CountEmissiveShaders)( void );
+	qboolean	(*GetEmissiveShader)( int shader, char *name, int nameSize, float *scale, int *numPolys );
+	int			(*EmissiveShaderOf)( int emissiveIndex );	// index of GetEmissive -> shader, or -1
+	qboolean	(*SetEmissiveScale)( int shader, float scale );	// 0 .. 100, 1 = unchanged
+
+	// Sky and sun of the map. GetSky gives the values in effect. SetSky applies them now and
+	// counts as an edit. ResetSky removes the setting of the map (mode RTX_SKY_GLOBAL).
+	qboolean	(*GetSky)( rtxSkyDesc_t *out );
+	qboolean	(*SetSky)( const rtxSkyDesc_t *desc );
+	void		(*ResetSky)( void );
 } rtxLightEditAPI_t;

@@ -24,6 +24,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "tr_local.h"
 #include "conversion.h"
 #include "rtx_light_edit.h"
+#include "rtx_light_style.h"
 #include "ghoul2/G2.h"
 
 static int entity_frame_num = 0;
@@ -2993,6 +2994,7 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 
 	vk_rtx_animate_materials( refdef );
 	vkpt_light_buffer_upload_to_staging( render_world, tr.world, num_model_lights, model_lights, sky_radiance );
+	RTX_LightStyle_EndFrame();
 
 	float shadowmap_view_proj[16];
 	float shadowmap_depth_scale;

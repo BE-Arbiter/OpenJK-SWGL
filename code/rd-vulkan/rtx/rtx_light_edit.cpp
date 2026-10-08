@@ -27,9 +27,9 @@ by the Free Software Foundation.
 #define LEDIT_EPSILON			0.001f
 #define LEDIT_MIN_SPARE			16
 #define LEDIT_GROW_BLOCK		64
-#define LEDIT_DYNAMIC_RESERVE	128		// slots kept for sabers, dlights and brush model lights
-#define LEDIT_MAX_SLOTS			( MAX_LIGHT_POLYS - LEDIT_DYNAMIC_RESERVE )
+#define LEDIT_MAX_SLOTS			RTX_LEDIT_MAX_SLOTS
 #define LEDIT_DRAG_REBUILD_MS	100
+#define LEDIT_RECT_FLUX			2.5133f	// 0.8 * pi, see Convert
 #define LEDIT_ENTITY_RADIUS		16.0f	// as ENTITY_LIGHT_RADIUS in vk_rtx_bsp.cpp
 #define LEDIT_LGT_RADIUS		4.0f	// as LIGHTGEN_EMITTER_RADIUS in vk_rtx_lightgen.cpp
 #define LEDIT_ADD_RADIUS		8.0f
@@ -149,6 +149,26 @@ static void RequestRebuild( void )
 		RTX_LightEdit_RebuildClusters();
 }
 
+int RTX_LightEdit_SlotCount( const rtxLightRecord_t *rec )
+{
+	return rec->type == RTX_LTYPE_RECT ? ( rec->twoSided ? 4 : 2 ) : 1;
+}
+
+int *RTX_LightEdit_SlotPtr( rtxLightRecord_t *rec, int i )
+{
+	return i == 0 ? &rec->lightIndex : &rec->extraSlots[i - 1];
+}
+
+static int SlotsOfValues( int type, int twoSided )
+{
+	return type == RTX_LTYPE_RECT ? ( twoSided ? 4 : 2 ) : 1;
+}
+
+static int ClampStyle( int style )
+{
+	return style < 0 ? 0 : style > RTX_LSTYLE_MAX - 1 ? RTX_LSTYLE_MAX - 1 : style;
+}
+
 /*
 =================
 Spot data
@@ -175,8 +195,41 @@ void RTX_LightEdit_SetSpotData( rtxLightRecord_t *rec, const vec3_t dirIn, float
 	VectorCopy( dir, rec->spot + 2 );
 }
 
+void RTX_LightEdit_SetRectData( rtxLightRecord_t *rec, const vec3_t dirIn, float width, float height,
+	float roll, int twoSided )
+{
+	vec3_t	dir;
+
+	VectorCopy( dirIn, dir );
+
+	if ( VectorNormalize( dir ) < 1e-4f )
+		VectorSet( dir, 0.0f, 0.0f, -1.0f );
+
+	VectorCopy( dir, rec->spot + 2 );
+	rec->width = ClampF( RTX_LRECT_MIN_SIZE, width > 0.0f ? width : RTX_LRECT_DEFAULT_SIZE, RTX_LRECT_MAX_SIZE );
+	rec->height = ClampF( RTX_LRECT_MIN_SIZE, height > 0.0f ? height : RTX_LRECT_DEFAULT_SIZE, RTX_LRECT_MAX_SIZE );
+	rec->roll = roll;
+	rec->twoSided = twoSided ? 1 : 0;
+}
+
+void RTX_LightEdit_SetLoadedStyle( int id, int style )
+{
+	rtxLightRecord_t *rec = RTX_LightEdit_GetRecordRaw( id );
+
+	if ( rec )
+		rec->style = rec->origStyle = ClampStyle( style );
+}
+
 void RTX_LightEdit_GetSpotData( const rtxLightRecord_t *rec, vec3_t dir, float *outer, float *inner )
 {
+	if ( rec->type == RTX_LTYPE_RECT )
+	{
+		VectorCopy( rec->spot + 2, dir );
+		*outer = 35.0f;
+		*inner = 25.0f;
+		return;
+	}
+
 	if ( rec->type != RTX_LTYPE_SPOT )
 	{
 		VectorSet( dir, 0.0f, 0.0f, -1.0f );
@@ -241,6 +294,13 @@ int RTX_LightEdit_NewRecord( int source, int sourceKey )
 	rec.sourceKey = source == RTX_LSRC_ADDED ? -1 : sourceKey;
 	rec.type = RTX_LTYPE_SPHERE;
 	rec.lightIndex = -1;
+
+	for ( int k = 0; k < RTX_LIGHT_MAX_SLOTS - 1; k++ )
+		rec.extraSlots[k] = -1;
+
+	rec.width = rec.origWidth = rec.height = rec.origHeight = RTX_LRECT_DEFAULT_SIZE;
+	VectorSet( rec.spot + 2, 0.0f, 0.0f, -1.0f );
+	VectorSet( rec.origSpot + 2, 0.0f, 0.0f, -1.0f );
 	VectorSet( rec.color, 1.0f, 1.0f, 1.0f );
 	VectorSet( rec.origColor, 1.0f, 1.0f, 1.0f );
 	rec.radius = rec.origRadius = source == RTX_LSRC_ENTITY ? LEDIT_ENTITY_RADIUS
@@ -292,11 +352,20 @@ void RTX_LightEdit_FinalizeLoad( world_t &w )
 
 		const light_poly_t *light = w.light_polys + rec->lightIndex;
 
-		slotted++;
+		for ( int k = 0; k < RTX_LIGHT_MAX_SLOTS; k++ )
+		{
+			if ( *RTX_LightEdit_SlotPtr( rec, k ) >= 0 )
+				slotted++;
+		}
+
+		rec->entClass = light->ent_class;
+
+		// A rectangle of an lgt block keeps the values the file gave it.
+		if ( rec->type == RTX_LTYPE_RECT )
+			continue;
 
 		rec->type = light->type == LIGHT_SPOT ? RTX_LTYPE_SPOT : RTX_LTYPE_SPHERE;
 		rec->radius = rec->origRadius = light->positions[3];
-		rec->entClass = light->ent_class;
 
 		if ( light->type == LIGHT_SPOT )
 		{
@@ -319,10 +388,67 @@ Conversion between a record and its light_poly
 =================
 */
 
+// Two triangles per side. Seen from the lit side the corners go counter-clockwise, so the
+// shader normal cross( p1 - p0, p2 - p0 ) points to the lit side (sample_projected_triangle).
+// Corner order: -u-v, +u-v, +u+v, -u+v.
+static void ConvertRect( const rtxLightRecord_t *rec, float scale, light_poly_t *out )
+{
+	static const int tris[4][3] = { { 0, 1, 2 }, { 0, 2, 3 }, { 0, 2, 1 }, { 0, 3, 2 } };
+	vec3_t	u, v, corner[4];
+	const float	hw = rec->width * 0.5f;
+	const float	hh = rec->height * 0.5f;
+
+	RTX_LightRectAxes( rec->spot + 2, rec->roll, u, v );
+
+	for ( int c = 0; c < 4; c++ )
+	{
+		const float	su = ( c == 0 || c == 3 ) ? -hw : hw;
+		const float	sv = c < 2 ? -hh : hh;
+
+		VectorMA( rec->origin, su, u, corner[c] );
+		VectorMA( corner[c], sv, v, corner[c] );
+	}
+
+	// A polygon gives colour * solid angle, a sphere colour * 0.8 * pi * r^2 / d^2 on its axis
+	// (0.8 is the mean of sqrt( cos ) over its disc). So the colour is I * 0.8 * pi / area.
+	vec3_t	color;
+
+	VectorScale( rec->color, scale * rec->intensity * LEDIT_RECT_FLUX / ( rec->width * rec->height ), color );
+
+	for ( int i = 0; i < RTX_LightEdit_SlotCount( rec ); i++ )
+	{
+		light_poly_t *light = out + i;
+
+		Com_Memset( light, 0, sizeof(*light) );
+
+		for ( int k = 0; k < 3; k++ )
+			VectorCopy( corner[tris[i][k]], light->positions + k * 3 );
+
+		get_triangle_off_center( light->positions, light->off_center, NULL, 1.0f );
+		VectorCopy( color, light->color );
+		light->type = LIGHT_POLYGON;
+		light->emissive_factor = 1.0f;
+		light->material = NULL;
+		light->style = ClampStyle( rec->style );
+		light->ent_class = rec->entClass;
+	}
+}
+
 int RTX_LightEdit_Convert( const rtxLightRecord_t *rec, light_poly_t *out )
 {
 	const float	r = MAX( rec->radius, 0.5f );
 	const float	scale = rec->source == RTX_LSRC_LGT ? pt_lightgen_scale->value : 1.0f;
+	const int	cluster = PointCluster( rec->origin );
+
+	if ( rec->type == RTX_LTYPE_RECT )
+	{
+		ConvertRect( rec, scale, out );
+
+		for ( int i = 0; i < RTX_LightEdit_SlotCount( rec ); i++ )
+			out[i].cluster = cluster;
+
+		return cluster;
+	}
 
 	Com_Memset( out, 0, sizeof(*out) );
 
@@ -348,11 +474,11 @@ int RTX_LightEdit_Convert( const rtxLightRecord_t *rec, light_poly_t *out )
 
 	out->emissive_factor = 1.0f;
 	out->material = NULL;
-	out->style = 0;
+	out->style = ClampStyle( rec->style );
 	out->ent_class = rec->entClass;
-	out->cluster = PointCluster( rec->origin );
+	out->cluster = cluster;
 
-	return out->cluster;
+	return cluster;
 }
 
 void RTX_LightEdit_Tombstone( int slot, const vec3_t origin )
@@ -525,24 +651,66 @@ static qboolean AppendSlotAtLoad( void )
 	return qtrue;
 }
 
-qboolean RTX_LightEdit_EnsureSlot( rtxLightRecord_t *rec )
+// Gives the record its first `count` slots from the spare ones. Nothing changes on failure.
+static qboolean EnsureSlots( rtxLightRecord_t *rec, int count )
 {
-	if ( rec->lightIndex >= 0 )
+	int missing = 0;
+
+	for ( int i = 0; i < count; i++ )
+	{
+		if ( *RTX_LightEdit_SlotPtr( rec, i ) < 0 )
+			missing++;
+	}
+
+	if ( !missing )
 		return qtrue;
 
-	if ( g_firstFree >= g_world->num_light_polys
-		&& !( g_loading ? AppendSlotAtLoad() : RTX_LightEdit_GrowSlots( 1 ) ) )
-		return qfalse;
+	const int spare = g_world->num_light_polys - g_firstFree;
 
-	rec->lightIndex = g_firstFree++;
+	if ( spare < missing )
+	{
+		if ( g_loading )
+		{
+			for ( int i = spare; i < missing; i++ )
+			{
+				if ( !AppendSlotAtLoad() )
+					return qfalse;
+			}
+		}
+		else if ( !RTX_LightEdit_GrowSlots( missing - spare ) )
+			return qfalse;
+
+		if ( g_world->num_light_polys - g_firstFree < missing )
+		{
+			RTX_LightEdit_SetError( "no free light slot (limit %i)", LEDIT_MAX_SLOTS );
+			return qfalse;
+		}
+	}
+
+	for ( int i = 0; i < count; i++ )
+	{
+		int *slot = RTX_LightEdit_SlotPtr( rec, i );
+
+		if ( *slot < 0 )
+			*slot = g_firstFree++;
+	}
 
 	return qtrue;
 }
 
+qboolean RTX_LightEdit_EnsureSlot( rtxLightRecord_t *rec )
+{
+	return EnsureSlots( rec, RTX_LightEdit_SlotCount( rec ) );
+}
+
+// Writes the record to all its slots. A slot the type does not use becomes a tombstone but stays
+// the record's. Gives qtrue when the cluster lists need a rebuild: a slot changed cluster, or a
+// polygon changed (the lists cull a cluster behind the plane of a polygon).
 qboolean RTX_LightEdit_ApplyRecord( rtxLightRecord_t *rec )
 {
-	light_poly_t	tmp;
-	const int		cluster = RTX_LightEdit_Convert( rec, &tmp );
+	light_poly_t	tmp[RTX_LIGHT_MAX_SLOTS];
+	const int		cluster = RTX_LightEdit_Convert( rec, tmp );
+	const int		used = RTX_LightEdit_SlotCount( rec );
 
 	if ( cluster < 0 )
 		rec->flags |= RTX_LFLAG_IN_SOLID;
@@ -551,28 +719,43 @@ qboolean RTX_LightEdit_ApplyRecord( rtxLightRecord_t *rec )
 
 	const qboolean emits = (qboolean)( !IsInactive( rec ) && cluster >= 0 );
 
-	if ( rec->lightIndex < 0 )
+	if ( emits )
 	{
-		if ( !emits )
-			return qfalse;
-
-		if ( !RTX_LightEdit_EnsureSlot( rec ) )
+		if ( !EnsureSlots( rec, used ) )
 			return qfalse;
 	}
+	else if ( rec->lightIndex < 0 )
+		return qfalse;
 
-	light_poly_t	*light = g_world->light_polys + rec->lightIndex;
-	const int		oldCluster = light->cluster;
+	qboolean changed = qfalse;
 
-	if ( emits )
-		*light = tmp;
-	else
-		RTX_LightEdit_Tombstone( rec->lightIndex, rec->origin );
+	for ( int i = 0; i < RTX_LIGHT_MAX_SLOTS; i++ )
+	{
+		const int slot = *RTX_LightEdit_SlotPtr( rec, i );
 
-	return (qboolean)( light->cluster != oldCluster );
+		if ( slot < 0 )
+			continue;
+
+		light_poly_t		*light = g_world->light_polys + slot;
+		const light_poly_t	old = *light;
+
+		if ( emits && i < used )
+			*light = tmp[i];
+		else
+			RTX_LightEdit_Tombstone( slot, rec->origin );
+
+		if ( light->cluster != old.cluster )
+			changed = qtrue;
+		else if ( ( old.type == LIGHT_POLYGON || light->type == LIGHT_POLYGON )
+			&& memcmp( old.positions, light->positions, sizeof(old.positions) ) != 0 )
+			changed = qtrue;
+	}
+
+	return changed;
 }
 
-// True when a cluster of the PVS of `cluster` has no room for one more light.
-static qboolean ClusterFull( int cluster )
+// True when a cluster of the PVS of `cluster` has no room for `extra` more lights.
+static qboolean ClusterFull( int cluster, int extra = 1 )
 {
 	const world_t	&w = *g_world;
 
@@ -586,7 +769,7 @@ static qboolean ClusterFull( int cluster )
 		if ( !( pvs[c >> 3] & ( 1 << ( c & 7 ) ) ) )
 			continue;
 
-		if ( w.cluster_light_offsets[c + 1] - w.cluster_light_offsets[c] >= RTX_MAX_LIGHTS_PER_CLUSTER )
+		if ( w.cluster_light_offsets[c + 1] - w.cluster_light_offsets[c] + extra > RTX_MAX_LIGHTS_PER_CLUSTER )
 			return qtrue;
 	}
 
@@ -629,8 +812,21 @@ static qboolean IsModified( const rtxLightRecord_t *rec )
 			return qtrue;
 	}
 
-	if ( rec->type != rec->origType )
+	if ( rec->type != rec->origType || rec->style != rec->origStyle )
 		return qtrue;
+
+	if ( rec->type == RTX_LTYPE_RECT )
+	{
+		if ( fabsf( rec->width - rec->origWidth ) > LEDIT_EPSILON || fabsf( rec->height - rec->origHeight ) > LEDIT_EPSILON
+			|| fabsf( rec->roll - rec->origRoll ) > LEDIT_EPSILON || rec->twoSided != rec->origTwoSided )
+			return qtrue;
+
+		for ( int k = 0; k < 3; k++ )
+		{
+			if ( fabsf( rec->spot[2 + k] - rec->origSpot[2 + k] ) > LEDIT_EPSILON )
+				return qtrue;
+		}
+	}
 
 	if ( rec->type == RTX_LTYPE_SPOT )
 	{
@@ -677,6 +873,12 @@ static void FillDesc( int id, const rtxLightRecord_t *rec, qboolean original, rt
 	out->intensity = original ? rec->origIntensity : rec->intensity;
 	out->radius = original ? rec->origRadius : rec->radius;
 	Q_strncpyz( out->name, original ? rec->origName : rec->name, sizeof(out->name) );
+
+	out->width = original ? rec->origWidth : rec->width;
+	out->height = original ? rec->origHeight : rec->height;
+	out->roll = original ? rec->origRoll : rec->roll;
+	out->twoSided = original ? rec->origTwoSided : rec->twoSided;
+	out->style = original ? rec->origStyle : rec->style;
 
 	rtxLightRecord_t	view = *rec;
 
@@ -759,10 +961,24 @@ static void CopyValues( rtxLightRecord_t *rec, const rtxLightDesc_t *desc )
 	rec->radius = desc->radius > 0.0f ? MAX( desc->radius, 0.5f ) : rec->radius;
 	Q_strncpyz( rec->name, desc->name, sizeof(rec->name) );
 
-	rec->type = desc->type == RTX_LTYPE_SPOT ? RTX_LTYPE_SPOT : RTX_LTYPE_SPHERE;
+	rec->type = desc->type == RTX_LTYPE_SPOT ? RTX_LTYPE_SPOT : desc->type == RTX_LTYPE_RECT ? RTX_LTYPE_RECT : RTX_LTYPE_SPHERE;
+	rec->style = ClampStyle( desc->style );
 
 	if ( rec->type == RTX_LTYPE_SPOT )
 		RTX_LightEdit_SetSpotData( rec, desc->dir, desc->coneOuter, desc->coneInner );
+	else if ( rec->type == RTX_LTYPE_RECT )
+		RTX_LightEdit_SetRectData( rec, desc->dir, desc->width > 0.0f ? desc->width : rec->width,
+			desc->height > 0.0f ? desc->height : rec->height, desc->roll, desc->twoSided );
+}
+
+// Copies the current rectangle values and the style to the original ones.
+static void SetOriginalShape( rtxLightRecord_t *rec )
+{
+	rec->origWidth = rec->width;
+	rec->origHeight = rec->height;
+	rec->origRoll = rec->roll;
+	rec->origTwoSided = rec->twoSided;
+	rec->origStyle = rec->style;
 }
 
 static int LE_Add( const rtxLightDesc_t *desc )
@@ -787,7 +1003,7 @@ static int LE_Add( const rtxLightDesc_t *desc )
 		return -1;
 	}
 
-	if ( ClusterFull( cluster ) )
+	if ( ClusterFull( cluster, SlotsOfValues( desc->type, desc->twoSided ) ) )
 	{
 		RTX_LightEdit_SetError( "cluster full" );
 		return -1;
@@ -805,6 +1021,7 @@ static int LE_Add( const rtxLightDesc_t *desc )
 	Q_strncpyz( rec->origName, rec->name, sizeof(rec->origName) );
 	rec->origType = rec->type;
 	Com_Memcpy( rec->origSpot, rec->spot, sizeof(rec->origSpot) );
+	SetOriginalShape( rec );
 
 	if ( !RTX_LightEdit_EnsureSlot( rec ) )
 	{
@@ -844,14 +1061,16 @@ static qboolean LE_Set( int id, const rtxLightDesc_t *desc )
 	if ( !IsInactive( rec ) && newCluster >= 0 )
 	{
 		const int oldCluster = rec->lightIndex >= 0 ? g_world->light_polys[rec->lightIndex].cluster : -1;
+		const int newSlots = SlotsOfValues( desc->type, desc->twoSided );
+		const int need = newCluster != oldCluster ? newSlots : newSlots - RTX_LightEdit_SlotCount( rec );
 
-		if ( newCluster != oldCluster && ClusterFull( newCluster ) )
+		if ( need > 0 && ClusterFull( newCluster, need ) )
 		{
 			RTX_LightEdit_SetError( "cluster full" );
 			return qfalse;
 		}
 
-		if ( !RTX_LightEdit_EnsureSlot( rec ) )
+		if ( !EnsureSlots( rec, newSlots ) )
 			return qfalse;
 	}
 
@@ -907,7 +1126,7 @@ static qboolean LE_Restore( int id )
 
 	const int cluster = PointCluster( rec->origin );
 
-	if ( cluster >= 0 && ClusterFull( cluster ) )
+	if ( cluster >= 0 && ClusterFull( cluster, RTX_LightEdit_SlotCount( rec ) ) )
 	{
 		RTX_LightEdit_SetError( "cluster full" );
 		return qfalse;
@@ -942,14 +1161,16 @@ static qboolean LE_Revert( int id )
 	if ( !IsInactive( rec ) && cluster >= 0 )
 	{
 		const int oldCluster = rec->lightIndex >= 0 ? g_world->light_polys[rec->lightIndex].cluster : -1;
+		const int newSlots = SlotsOfValues( rec->origType, rec->origTwoSided );
+		const int need = cluster != oldCluster ? newSlots : newSlots - RTX_LightEdit_SlotCount( rec );
 
-		if ( cluster != oldCluster && ClusterFull( cluster ) )
+		if ( need > 0 && ClusterFull( cluster, need ) )
 		{
 			RTX_LightEdit_SetError( "cluster full" );
 			return qfalse;
 		}
 
-		if ( !RTX_LightEdit_EnsureSlot( rec ) )
+		if ( !EnsureSlots( rec, newSlots ) )
 			return qfalse;
 	}
 
@@ -960,6 +1181,11 @@ static qboolean LE_Revert( int id )
 	Q_strncpyz( rec->name, rec->origName, sizeof(rec->name) );
 	rec->type = rec->origType;
 	Com_Memcpy( rec->spot, rec->origSpot, sizeof(rec->spot) );
+	rec->width = rec->origWidth;
+	rec->height = rec->origHeight;
+	rec->roll = rec->origRoll;
+	rec->twoSided = rec->origTwoSided;
+	rec->style = rec->origStyle;
 
 	if ( RTX_LightEdit_ApplyRecord( rec ) )
 		RequestRebuild();
@@ -1021,7 +1247,7 @@ static qboolean LE_Mute( int id, qboolean muted )
 	{
 		const int cluster = PointCluster( rec->origin );
 
-		if ( cluster >= 0 && ClusterFull( cluster ) )
+		if ( cluster >= 0 && ClusterFull( cluster, RTX_LightEdit_SlotCount( rec ) ) )
 		{
 			RTX_LightEdit_SetError( "cluster full" );
 			return qfalse;
@@ -1266,6 +1492,41 @@ static int LE_GetDynamic( int maxCount, vec3_t *origins, vec3_t *colors )
 	return n;
 }
 
+// Emissive shader scales and the sky: lot R4b.
+static int LE_CountEmissiveShaders( void )
+{
+	return 0;
+}
+
+static qboolean LE_GetEmissiveShader( int shader, char *name, int nameSize, float *scale, int *numPolys )
+{
+	return qfalse;
+}
+
+static int LE_EmissiveShaderOf( int emissiveIndex )
+{
+	return -1;
+}
+
+static qboolean LE_SetEmissiveScale( int shader, float scale )
+{
+	return qfalse;
+}
+
+static qboolean LE_GetSky( rtxSkyDesc_t *out )
+{
+	return qfalse;
+}
+
+static qboolean LE_SetSky( const rtxSkyDesc_t *desc )
+{
+	return qfalse;
+}
+
+static void LE_ResetSky( void )
+{
+}
+
 static rtxLightEditAPI_t g_api = {
 	RTX_LIGHTEDIT_API_VERSION,
 	LE_IsAvailable,
@@ -1295,7 +1556,14 @@ static rtxLightEditAPI_t g_api = {
 	LE_IntensityScale,
 	LE_CountEmissive,
 	LE_GetEmissive,
-	LE_GetDynamic
+	LE_GetDynamic,
+	LE_CountEmissiveShaders,
+	LE_GetEmissiveShader,
+	LE_EmissiveShaderOf,
+	LE_SetEmissiveScale,
+	LE_GetSky,
+	LE_SetSky,
+	LE_ResetSky
 };
 
 void *RTX_LightEdit_GetExtension( const char *name )
@@ -1331,34 +1599,109 @@ void RTX_LightEdit_List_f( void )
 
 		LE_Get( i, &d );
 
-		Com_Printf( "%4i %-6s key %-4i %-6s flags 0x%02x origin %.0f %.0f %.0f intensity %.2f radius %.1f slot %i\n",
-			i, SourceName( d.source ), d.sourceKey, d.type == RTX_LTYPE_SPOT ? "spot" : "sphere", d.flags,
-			d.origin[0], d.origin[1], d.origin[2], d.intensity, d.radius, g_records[i].lightIndex );
+		Com_Printf( "%4i %-6s key %-4i %-6s flags 0x%02x origin %.0f %.0f %.0f intensity %.2f radius %.1f style %i slot %i\n",
+			i, SourceName( d.source ), d.sourceKey, d.type == RTX_LTYPE_SPOT ? "spot" : d.type == RTX_LTYPE_RECT ? "rect" : "sphere",
+			d.flags, d.origin[0], d.origin[1], d.origin[2], d.intensity, d.radius, d.style, g_records[i].lightIndex );
+
+		if ( d.type == RTX_LTYPE_RECT )
+		{
+			Com_Printf( "     rect %.1f x %.1f roll %.1f %s dir %.2f %.2f %.2f slots %i %i %i\n", d.width, d.height, d.roll,
+				d.twoSided ? "two-sided" : "one-sided", d.dir[0], d.dir[1], d.dir[2],
+				g_records[i].extraSlots[0], g_records[i].extraSlots[1], g_records[i].extraSlots[2] );
+		}
 	}
+}
+
+// True when the argument starts like a number.
+static qboolean IsNumberArg( const char *s )
+{
+	return (qboolean)( ( s[0] >= '0' && s[0] <= '9' ) || ( ( s[0] == '-' || s[0] == '.' ) && s[1] ) );
+}
+
+// Reads a rectangle keyword and its values at argument i. Gives the number of arguments it used, 0 when
+// the keyword is unknown.
+static int ParseShapeArgs( rtxLightDesc_t *d, int i )
+{
+	const char *key = ri.Cmd_Argv( i );
+	const int	argc = ri.Cmd_Argc();
+
+	if ( !Q_stricmp( key, "rect" ) )
+	{
+		d->type = RTX_LTYPE_RECT;
+
+		if ( i + 2 < argc && IsNumberArg( ri.Cmd_Argv( i + 1 ) ) && IsNumberArg( ri.Cmd_Argv( i + 2 ) ) )
+		{
+			d->width = atof( ri.Cmd_Argv( i + 1 ) );
+			d->height = atof( ri.Cmd_Argv( i + 2 ) );
+			return 3;
+		}
+
+		return 1;
+	}
+
+	if ( !Q_stricmp( key, "dir" ) && i + 3 < argc )
+	{
+		for ( int k = 0; k < 3; k++ )
+			d->dir[k] = atof( ri.Cmd_Argv( i + 1 + k ) );
+
+		return 4;
+	}
+
+	if ( i + 1 >= argc )
+		return 0;
+
+	if ( !Q_stricmp( key, "roll" ) )
+		d->roll = atof( ri.Cmd_Argv( i + 1 ) );
+	else if ( !Q_stricmp( key, "twosided" ) )
+		d->twoSided = atoi( ri.Cmd_Argv( i + 1 ) ) != 0;
+	else if ( !Q_stricmp( key, "style" ) )
+		d->style = atoi( ri.Cmd_Argv( i + 1 ) );
+	else
+		return 0;
+
+	return 2;
 }
 
 void RTX_LightEdit_Add_f( void )
 {
 	if ( ri.Cmd_Argc() < 4 )
 	{
-		Com_Printf( "usage: pt_ledit_add x y z [intensity] [r g b]\n" );
+		Com_Printf( "usage: pt_ledit_add x y z [intensity] [r g b] [rect w h] [dir x y z] [roll deg] [twosided 0|1] [style n]\n" );
 		return;
 	}
 
 	rtxLightDesc_t	d;
+	float			nums[4];
+	int				numCount = 0;
+	int				arg = 4;
 
 	Com_Memset( &d, 0, sizeof(d) );
 
 	for ( int k = 0; k < 3; k++ )
 		d.origin[k] = atof( ri.Cmd_Argv( 1 + k ) );
 
-	d.intensity = ri.Cmd_Argc() > 4 ? atof( ri.Cmd_Argv( 4 ) ) : 300.0f;
+	while ( arg < ri.Cmd_Argc() && numCount < 4 && IsNumberArg( ri.Cmd_Argv( arg ) ) )
+		nums[numCount++] = atof( ri.Cmd_Argv( arg++ ) );
+
+	d.intensity = numCount > 0 ? nums[0] : 300.0f;
 	VectorSet( d.color, 1.0f, 1.0f, 1.0f );
 
-	if ( ri.Cmd_Argc() > 7 )
+	if ( numCount == 4 )
+		VectorSet( d.color, nums[1], nums[2], nums[3] );
+
+	VectorSet( d.dir, 0.0f, 0.0f, -1.0f );
+
+	while ( arg < ri.Cmd_Argc() )
 	{
-		for ( int k = 0; k < 3; k++ )
-			d.color[k] = atof( ri.Cmd_Argv( 5 + k ) );
+		const int used = ParseShapeArgs( &d, arg );
+
+		if ( !used )
+		{
+			Com_Printf( "light edit: unknown argument %s\n", ri.Cmd_Argv( arg ) );
+			return;
+		}
+
+		arg += used;
 	}
 
 	d.radius = LEDIT_ADD_RADIUS;
@@ -1381,7 +1724,7 @@ void RTX_LightEdit_Set_f( void )
 {
 	if ( ri.Cmd_Argc() < 3 )
 	{
-		Com_Printf( "usage: pt_ledit_set <id> <origin|color|intensity|radius|spot|sphere> <values...>\n" );
+		Com_Printf( "usage: pt_ledit_set <id> <origin|color|intensity|radius|spot|sphere|rect [w h]|dir x y z|roll deg|twosided 0|1|style n> <values...>\n" );
 		return;
 	}
 
@@ -1421,9 +1764,9 @@ void RTX_LightEdit_Set_f( void )
 	}
 	else if ( !Q_stricmp( what, "sphere" ) )
 		d.type = RTX_LTYPE_SPHERE;
-	else
+	else if ( !ParseShapeArgs( &d, 2 ) )
 	{
-		Com_Printf( "usage: pt_ledit_set <id> <origin|color|intensity|radius|spot|sphere> <values...>\n" );
+		Com_Printf( "usage: pt_ledit_set <id> <origin|color|intensity|radius|spot|sphere|rect [w h]|dir x y z|roll deg|twosided 0|1|style n> <values...>\n" );
 		return;
 	}
 

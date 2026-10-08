@@ -20,13 +20,20 @@ by the Free Software Foundation.
 // Lights per cluster list. vk_rtx_bsp.cpp truncates a list at this value.
 #define RTX_MAX_LIGHTS_PER_CLUSTER	1024
 
+// A record uses up to this many slots: a sphere or a spot one, a rectangle two or four.
+#define RTX_LIGHT_MAX_SLOTS			4
+
+// Slots kept for sabers, dlights and brush model lights. Records use the others.
+#define RTX_LEDIT_MAX_SLOTS			( MAX_LIGHT_POLYS - 128 )
+
 // The light of a record in light_polys is built from these values.
 typedef struct {
 	int			source;				// rtxLightSource_t
 	int			sourceKey;			// -1 for added lights
 	int			type;				// rtxLightType_t
 	int			flags;				// RTX_LFLAG_DISABLED, _DELETED, _IN_SOLID, _MUTED only
-	int			lightIndex;			// slot in world->light_polys, or -1
+	int			lightIndex;			// first slot in world->light_polys, or -1
+	int			extraSlots[RTX_LIGHT_MAX_SLOTS - 1];	// more slots of a rectangle, -1 when none
 
 	vec3_t		origin;
 	vec3_t		color;				// 0..1
@@ -35,6 +42,13 @@ typedef struct {
 	char		name[RTX_LIGHTEDIT_NAME_LEN];
 
 	float		spot[5];			// positions[4..8] of a spot: profile, packed cones, direction
+								// a rectangle keeps its normal in spot[2..4]
+
+	float		width;				// rectangle only
+	float		height;
+	float		roll;
+	int			twoSided;
+	int			style;				// light style, all types
 
 	int			entClass;			// LIGHT_ENT_* used in the light_poly
 
@@ -45,6 +59,11 @@ typedef struct {
 	char		origName[RTX_LIGHTEDIT_NAME_LEN];
 	int			origType;
 	float		origSpot[5];
+	float		origWidth;
+	float		origHeight;
+	float		origRoll;
+	int			origTwoSided;
+	int			origStyle;
 
 	float		rays;				// lgt lights only
 	float		error;
@@ -81,11 +100,24 @@ rtxLightRecord_t	*RTX_LightEdit_GetRecord( int id );
 // Appends a record with default values for its source. Gives its id, or -1. No slot yet.
 int					RTX_LightEdit_NewRecord( int source, int sourceKey );
 
-// Gives the record a slot (a spare one when it has none). qfalse when no slot is free.
+// Gives the record all the slots its type needs (spare ones when it has none). qfalse when no
+// slot is free. Slots of a record stay its own for the session.
 qboolean			RTX_LightEdit_EnsureSlot( rtxLightRecord_t *rec );
 
-// Fills the light_poly from the record. Gives the cluster of the origin, -1 in solid.
+// Number of slots the record uses now, and the pointer to its slot number i (-1 when none).
+int					RTX_LightEdit_SlotCount( const rtxLightRecord_t *rec );
+int					*RTX_LightEdit_SlotPtr( rtxLightRecord_t *rec, int i );
+
+// Fills the light_polys from the record: RTX_LightEdit_SlotCount entries, out holds
+// RTX_LIGHT_MAX_SLOTS. Gives the cluster of the origin, -1 in solid.
 int					RTX_LightEdit_Convert( const rtxLightRecord_t *rec, light_poly_t *out );
+
+// Sets the rectangle values of a record, with limits. A zero dir becomes 0 0 -1. It does not change the type.
+void				RTX_LightEdit_SetRectData( rtxLightRecord_t *rec, const vec3_t dir, float width, float height,
+						float roll, int twoSided );
+
+// Sets the style of a record and its original style. For the map load.
+void				RTX_LightEdit_SetLoadedStyle( int id, int style );
 
 // Makes the slot an inert light, keeping the position.
 void				RTX_LightEdit_Tombstone( int slot, const vec3_t origin );

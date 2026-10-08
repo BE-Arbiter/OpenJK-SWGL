@@ -1476,6 +1476,7 @@ static int collect_entity_lights( world_t &worldData )
 		vec3_t		origin = { 0.0f, 0.0f, 0.0f };
 		vec3_t		color = { 1.0f, 1.0f, 1.0f };
 		float		intensity = 300.0f;	// q3map2's default when the key is absent
+		int			style = 0;
 
 		while ( 1 )
 		{
@@ -1523,6 +1524,8 @@ static int collect_entity_lights( world_t &worldData )
 				has_origin = (qboolean)( sscanf( value, "%f %f %f", &origin[0], &origin[1], &origin[2] ) == 3 );
 			else if ( !Q_stricmp( keyname, "light" ) || !Q_stricmp( keyname, "_light" ) )
 				intensity = atof( value );
+			else if ( !Q_stricmp( keyname, "style" ) )
+				style = MAX( 0, MIN( atoi( value ), RTX_LSTYLE_MAX - 1 ) );
 			else if ( !Q_stricmp( keyname, "_color" ) || !Q_stricmp( keyname, "color" ) )
 				sscanf( value, "%f %f %f", &color[0], &color[1], &color[2] );
 		}
@@ -1552,7 +1555,7 @@ static int collect_entity_lights( world_t &worldData )
 		if ( cluster < 0 )
 		{
 			in_solid++;
-			RTX_LightEdit_RegisterLoaded( RTX_LSRC_ENTITY, rank, origin, color, intensity, -1, 0.0f, 0.0f );
+			RTX_LightEdit_SetLoadedStyle( RTX_LightEdit_RegisterLoaded( RTX_LSRC_ENTITY, rank, origin, color, intensity, -1, 0.0f, 0.0f ), style );
 			continue;
 		}
 
@@ -1576,7 +1579,7 @@ static int collect_entity_lights( world_t &worldData )
 		light->type = LIGHT_SPHERE;
 		light->emissive_factor = 1.0f;
 		light->material = NULL;
-		light->style = 0;
+		light->style = style;
 		light->ent_class = is_spot ? LIGHT_ENT_SPOT : LIGHT_ENT_UNSET;
 
 		if ( is_spot )
@@ -1589,8 +1592,8 @@ static int collect_entity_lights( world_t &worldData )
 			spots.push_back( s );
 		}
 
-		RTX_LightEdit_RegisterLoaded( RTX_LSRC_ENTITY, rank, origin, color, intensity,
-			worldData.num_light_polys - 1, 0.0f, 0.0f );
+		RTX_LightEdit_SetLoadedStyle( RTX_LightEdit_RegisterLoaded( RTX_LSRC_ENTITY, rank, origin, color, intensity,
+			worldData.num_light_polys - 1, 0.0f, 0.0f ), style );
 
 		added++;
 	}

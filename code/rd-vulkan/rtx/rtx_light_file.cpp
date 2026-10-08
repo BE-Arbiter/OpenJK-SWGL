@@ -251,16 +251,39 @@ static void ReadLgtValues( const fileBlock_t &b, int key, lgtValues_t &v )
 		Com_sprintf( v.name, sizeof(v.name), "lgt_%i", key );
 }
 
-// Reads type, dir, cone_outer and cone_inner. A block without `type` keeps the type of the record.
+// Reads style, type, dir, the cones of a spot and the size of a rectangle. A key that is absent
+// keeps the value of the record.
 static void ReadSpot( const fileBlock_t &b, rtxLightRecord_t *rec )
 {
 	const fileKV_t	*type = FindKey( b, "type" );
-	const qboolean	wasSpot = (qboolean)( rec->type == RTX_LTYPE_SPOT );
+	const int		oldType = rec->type;
+	const qboolean	wasSpot = (qboolean)( oldType == RTX_LTYPE_SPOT );
 	vec3_t			dir;
 	float			outer, inner;
 
+	if ( FindKey( b, "style" ) )
+		rec->style = MAX( 0, MIN( (int)GetF( b, "style", 0, 0.0f ), RTX_LSTYLE_MAX - 1 ) );
+
 	if ( type )
-		rec->type = ( !type->vals.empty() && !Q_stricmp( type->vals[0].c_str(), "spot" ) ) ? RTX_LTYPE_SPOT : RTX_LTYPE_SPHERE;
+	{
+		const char *name = type->vals.empty() ? "" : type->vals[0].c_str();
+
+		rec->type = !Q_stricmp( name, "spot" ) ? RTX_LTYPE_SPOT : !Q_stricmp( name, "rect" ) ? RTX_LTYPE_RECT : RTX_LTYPE_SPHERE;
+	}
+
+	if ( rec->type == RTX_LTYPE_RECT )
+	{
+		if ( oldType == RTX_LTYPE_RECT || wasSpot )
+			VectorCopy( rec->spot + 2, dir );
+		else
+			VectorSet( dir, 0.0f, 0.0f, -1.0f );
+
+		GetV3( b, "dir", dir );
+
+		RTX_LightEdit_SetRectData( rec, dir, GetF( b, "width", 0, rec->width ), GetF( b, "height", 0, rec->height ),
+			GetF( b, "roll", 0, rec->roll ), GetF( b, "two_sided", 0, (float)rec->twoSided ) != 0.0f );
+		return;
+	}
 
 	if ( rec->type != RTX_LTYPE_SPOT )
 		return;
@@ -281,10 +304,27 @@ static void ReadSpot( const fileBlock_t &b, rtxLightRecord_t *rec )
 	RTX_LightEdit_SetSpotData( rec, dir, outer, inner );
 }
 
+// Makes the current type, spot or rectangle values and style the original ones.
 static void SetOriginalSpot( rtxLightRecord_t *rec )
 {
 	rec->origType = rec->type;
 	Com_Memcpy( rec->origSpot, rec->spot, sizeof(rec->origSpot) );
+	rec->origWidth = rec->width;
+	rec->origHeight = rec->height;
+	rec->origRoll = rec->roll;
+	rec->origTwoSided = rec->twoSided;
+	rec->origStyle = rec->style;
+}
+
+// Gives the record the values of a sphere without a style.
+static void ResetShape( rtxLightRecord_t *rec )
+{
+	rec->type = RTX_LTYPE_SPHERE;
+	rec->style = 0;
+	rec->width = rec->height = RTX_LRECT_DEFAULT_SIZE;
+	rec->roll = 0.0f;
+	rec->twoSided = 0;
+	VectorSet( rec->spot + 2, 0.0f, 0.0f, -1.0f );
 }
 
 /*
@@ -322,19 +362,23 @@ static void LoadLgtBlock( world_t &w, const fileBlock_t &b, int key )
 	ReadSpot( b, rec );
 	SetOriginalSpot( rec );
 
-	light_poly_t	tmp;
-	const int		cluster = RTX_LightEdit_Convert( rec, &tmp );
+	light_poly_t	tmp[RTX_LIGHT_MAX_SLOTS];
+	const int		cluster = RTX_LightEdit_Convert( rec, tmp );
+	const int		numSlots = RTX_LightEdit_SlotCount( rec );
 
-	if ( cluster < 0 )
+	if ( cluster < 0 || w.num_light_polys + numSlots > RTX_LEDIT_MAX_SLOTS )
 	{
 		rec->flags |= RTX_LFLAG_IN_SOLID;
 	}
 	else
 	{
 		rec->flags &= ~RTX_LFLAG_IN_SOLID;
-		rec->lightIndex = w.num_light_polys;
 
-		*AppendLightPoly( w ) = tmp;
+		for ( int i = 0; i < numSlots; i++ )
+		{
+			*RTX_LightEdit_SlotPtr( rec, i ) = w.num_light_polys;
+			*AppendLightPoly( w ) = tmp[i];
+		}
 	}
 
 	// A disabled light keeps its slot until the load ends, so FinalizeLoad reads its class.
@@ -664,9 +708,33 @@ static void PutName( std::string &s, const char *name )
 	}
 }
 
-// Writes type, dir and the cones of a spot. `explicitSphere` writes `type sphere` for a sphere.
+// Writes the style when it differs from `base`.
+static void PutStyle( std::string &s, const rtxLightRecord_t *rec, int base )
+{
+	if ( rec->style != base )
+		Appendf( s, "\tstyle %i\n", rec->style );
+}
+
+// Writes type, dir and the cones of a spot, or the values of a rectangle. `explicitSphere`
+// writes `type sphere` for a sphere.
 static void PutSpot( std::string &s, const rtxLightRecord_t *rec, qboolean explicitSphere )
 {
+	if ( rec->type == RTX_LTYPE_RECT )
+	{
+		vec3_t	dir;
+		float	outer, inner;
+
+		RTX_LightEdit_GetSpotData( rec, dir, &outer, &inner );
+
+		s += "\ttype rect\n";
+		PutVec( s, "dir", dir );
+		PutNum( s, "width", rec->width );
+		PutNum( s, "height", rec->height );
+		PutNum( s, "roll", rec->roll );
+		Appendf( s, "\ttwo_sided %i\n", rec->twoSided ? 1 : 0 );
+		return;
+	}
+
 	if ( rec->type != RTX_LTYPE_SPOT )
 	{
 		if ( explicitSphere )
@@ -744,6 +812,7 @@ static void WriteLgtRecord( std::string &s, const rtxLightRecord_t *rec )
 			PutName( s, rec->name );
 
 		PutSpot( s, rec, qfalse );
+		PutStyle( s, rec, 0 );
 	}
 
 	PutNum( s, "rays", rec->rays );
@@ -770,6 +839,7 @@ static void WriteEntityRecord( std::string &s, const rtxLightRecord_t *rec )
 		PutName( s, rec->name );
 
 	PutSpot( s, rec, (qboolean)( rec->origType == RTX_LTYPE_SPOT ) );
+	PutStyle( s, rec, rec->origStyle );
 
 	s += "\tintensity -1\n}\n";
 }
@@ -784,6 +854,7 @@ static void WriteAddedRecord( std::string &s, const rtxLightRecord_t *rec )
 	PutNum( s, "radius", rec->radius );
 	PutName( s, rec->name );
 	PutSpot( s, rec, qfalse );
+	PutStyle( s, rec, 0 );
 
 	s += "}\n";
 }
@@ -946,6 +1017,11 @@ static void ResetRecord( rtxLightRecord_t *rec )
 	Q_strncpyz( rec->name, rec->origName, sizeof(rec->name) );
 	rec->type = rec->origType;
 	Com_Memcpy( rec->spot, rec->origSpot, sizeof(rec->spot) );
+	rec->width = rec->origWidth;
+	rec->height = rec->origHeight;
+	rec->roll = rec->origRoll;
+	rec->twoSided = rec->origTwoSided;
+	rec->style = rec->origStyle;
 	rec->flags &= ~RTX_LFLAG_DISABLED;
 	rec->edited = 0;
 }
@@ -969,7 +1045,7 @@ static void SetLgtFromBlock( rtxLightRecord_t *rec, const fileBlock_t &b )
 	Q_strncpyz( rec->name, v.name, sizeof(rec->name) );
 	Q_strncpyz( rec->origName, v.name, sizeof(rec->origName) );
 
-	rec->type = RTX_LTYPE_SPHERE;
+	ResetShape( rec );
 	ReadSpot( b, rec );
 	SetOriginalSpot( rec );
 
