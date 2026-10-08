@@ -206,6 +206,7 @@ set(SPGameCGameFiles
 	"${SPDir}/cgame/cg_info.cpp"
 	"${SPDir}/cgame/cg_lightedit.cpp"
 	"${SPDir}/cgame/cg_lightedit.h"
+	"${SPDir}/cgame/cg_lightedit_cam.cpp"
 	"${SPDir}/cgame/cg_lightedit_clone.cpp"
 	"${SPDir}/cgame/cg_lightedit_emissive.cpp"
 	"${SPDir}/cgame/cg_lightedit_grid.cpp"

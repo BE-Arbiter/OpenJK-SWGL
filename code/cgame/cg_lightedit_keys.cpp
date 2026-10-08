@@ -411,7 +411,7 @@ void LE_GotoSelection( void )
 	vectoangles( look, angles );
 
 	LE_EndGrab();
-	G_LightEdit_Teleport( eye, angles );
+	LE_CamSet( eye, angles );
 	LE_Msg( "light edit: went to %d light%s", found, found > 1 ? "s" : "" );
 }
 

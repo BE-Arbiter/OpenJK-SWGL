@@ -9,8 +9,10 @@ extern qboolean	CheatsOk( gentity_t *ent );
 #define LEDIT_FLAGS	( FL_GODMODE | FL_NOTARGET | FL_NOFORCE )
 
 static qboolean	s_active = qfalse;
-static int		s_savedNoclip = 0;
 static int		s_savedFlags = 0;
+static vec3_t	s_frozenAngles;			// the body view angles while the mode runs
+static short	s_rawAngles[3];			// the last command angles before the filter
+static qboolean	s_haveRaw = qfalse;
 static cvar_t	*s_activeCvar = NULL;
 
 static void LightEdit_SetCvar( const char *value )
@@ -30,9 +32,26 @@ qboolean G_LightEdit_Active( void )
 void G_LightEdit_Init( void )
 {
 	s_active = qfalse;
-	s_savedNoclip = 0;
 	s_savedFlags = 0;
+	s_haveRaw = qfalse;
 	LightEdit_SetCvar( "0" );
+}
+
+// The next command angles plus the delta angles give the frozen angles again, whatever the mouse did.
+static void LightEdit_RestoreView( gentity_t *ent )
+{
+	if ( !s_haveRaw )
+	{
+		SetClientViewAngle( ent, s_frozenAngles );
+		return;
+	}
+	for ( int i = 0; i < 3; i++ )
+	{
+		ent->client->pers.cmd_angles[i] = s_rawAngles[i];
+		ent->client->ps.delta_angles[i] = ( ANGLE2SHORT( s_frozenAngles[i] ) - s_rawAngles[i] ) & 0xffff;
+	}
+	VectorCopy( s_frozenAngles, ent->s.angles );
+	VectorCopy( s_frozenAngles, ent->client->ps.viewangles );
 }
 
 static void LightEdit_Set( gentity_t *ent, qboolean on )
@@ -43,9 +62,9 @@ static void LightEdit_Set( gentity_t *ent, qboolean on )
 		{
 			return;
 		}
-		s_savedNoclip = ent->client->noclip;
 		s_savedFlags = ent->flags & LEDIT_FLAGS;
-		ent->client->noclip = qtrue;
+		VectorCopy( ent->client->ps.viewangles, s_frozenAngles );
+		s_haveRaw = qfalse;
 		ent->flags |= LEDIT_FLAGS;
 		s_active = qtrue;
 		LightEdit_SetCvar( "1" );
@@ -53,8 +72,8 @@ static void LightEdit_Set( gentity_t *ent, qboolean on )
 	}
 	else
 	{
-		ent->client->noclip = s_savedNoclip;
 		ent->flags = ( ent->flags & ~LEDIT_FLAGS ) | s_savedFlags;
+		LightEdit_RestoreView( ent );
 		s_active = qfalse;
 		LightEdit_SetCvar( "0" );
 		gi.SendServerCommand( ent - g_entities, "print \"light edit OFF\n\"" );
@@ -102,30 +121,17 @@ void G_LightEdit_FilterUcmd( gentity_t *ent, usercmd_t *ucmd )
 	{
 		return;
 	}
+	// The body stays still and keeps its angles: the camera uses the move input and the raw angles.
+	for ( int i = 0; i < 3; i++ )
+	{
+		s_rawAngles[i] = ucmd->angles[i];
+	}
+	s_haveRaw = qtrue;
+	ucmd->forwardmove = 0;
+	ucmd->rightmove = 0;
+	ucmd->upmove = 0;
+	ucmd->angles[PITCH] = ANGLE2SHORT( s_frozenAngles[PITCH] ) - ent->client->ps.delta_angles[PITCH];
+	ucmd->angles[YAW] = ANGLE2SHORT( s_frozenAngles[YAW] ) - ent->client->ps.delta_angles[YAW];
 	ucmd->buttons &= ~( BUTTON_ATTACK | BUTTON_ALT_ATTACK | BUTTON_USE_FORCE | BUTTON_FORCEGRIP
 		| BUTTON_FORCE_LIGHTNING | BUTTON_FORCE_DRAIN | BUTTON_FORCE_FOCUS | BUTTON_FORCEGRASP | BUTTON_USE );
-}
-
-// Moves the camera: the eye goes to `eye`, the view to `angles`. No effect, no telefrag, no velocity.
-void G_LightEdit_Teleport( const vec3_t eye, const vec3_t angles )
-{
-	gentity_t	*ent = &g_entities[0];
-	vec3_t		org, ang;
-
-	if ( !s_active || !ent->inuse || !ent->client )
-	{
-		return;
-	}
-	VectorCopy( eye, org );
-	org[2] -= ent->client->ps.viewheight;
-	VectorSet( ang, angles[PITCH], angles[YAW], 0.0f );
-
-	gi.unlinkentity( ent );
-	VectorCopy( org, ent->client->ps.origin );
-	VectorCopy( org, ent->currentOrigin );
-	VectorClear( ent->client->ps.velocity );
-	ent->client->ps.eFlags ^= EF_TELEPORT_BIT;
-	SetClientViewAngle( ent, ang );
-	PlayerStateToEntityState( &ent->client->ps, &ent->s );
-	gi.linkentity( ent );
 }

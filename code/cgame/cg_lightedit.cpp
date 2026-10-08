@@ -378,6 +378,7 @@ static void LE_LeaveSide( void )
 		}
 	}
 	s_active = qfalse;
+	LE_CamLeave();
 	LE_GrabReset();
 	s_pickId = -1;
 	s_hits.clear();
@@ -394,6 +395,7 @@ static void LE_EnterSide( void )
 		return;
 	}
 	s_active = qtrue;
+	LE_CamEnter();
 	s_tool = LEDIT_TOOL_SELECT;
 	LE_SelClear();
 	s_pickId = -1;
@@ -765,6 +767,16 @@ void CG_LightEdit_Frame( void )
 		return;
 	}
 
+	if ( cg.snap->ps.stats[STAT_HEALTH] <= 0 )
+	{
+		LE_Msg( "light edit: the player is dead" );
+		LE_LeaveSide();
+		G_LightEdit_SetMode( qfalse );
+		s_leaving = qtrue;
+		return;
+	}
+	LE_CamFrame();
+
 	LE_ReadButtons( &buttons );
 	prim = (qboolean)( ( buttons & BUTTON_ATTACK ) != 0 );
 	sec = (qboolean)( ( buttons & BUTTON_ALT_ATTACK ) != 0 );
@@ -830,6 +842,7 @@ void CG_LightEdit_Init( void )
 	// The map change drops the renderer state: nothing to release here.
 	s_api = LE_GetAPI();
 	s_active = qfalse;
+	LE_CamInit();
 	s_leaving = qfalse;
 	s_tool = LEDIT_TOOL_SELECT;
 	LE_SelClear();

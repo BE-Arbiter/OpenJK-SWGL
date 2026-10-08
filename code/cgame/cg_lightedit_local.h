@@ -255,4 +255,12 @@ void		LE_CmdSunBrightness( void );
 void		LE_CmdSunAngle( void );
 void		LE_CmdSkyReset( void );
 
+// Free camera (cg_lightedit_cam.cpp).
+void		LE_CamInit( void );									// registers ledit_cam_speed, drops the camera
+void		LE_CamEnter( void );								// starts at the current view
+void		LE_CamLeave( void );
+qboolean	LE_CamActive( void );								// qtrue while the camera replaces the player view
+void		LE_CamFrame( void );								// moves the camera and overrides cg.refdef
+void		LE_CamSet( const vec3_t eye, const vec3_t angles );	// puts the camera at eye, looking along angles
+
 #endif // CG_LIGHTEDIT_LOCAL_H

@@ -20,7 +20,8 @@ Ce document décrit le MVP et les itérations 2, 3 et 4 : les neuf outils, les s
 | `lightedit 0 discard` | Sort du mode et abandonne les changements non sauvegardés (relit le `.lgt`). |
 
 À l'entrée :
-- le joueur passe en noclip, god, notarget, et les pouvoirs de la Force sont coupés ;
+- le corps du joueur reste où il est (immobile, angles figés), en god, notarget, et les pouvoirs de la Force sont coupés ;
+- une caméra libre vole à la place : elle part de la vue actuelle, traverse les murs, et le serveur envoie les entités visibles depuis elle (le corps du joueur est dessiné) ;
 - le tir et les pouvoirs ne partent plus (le jeu retire les boutons de tir et de Force) ;
 - l'arme en vue subjective n'est plus dessinée ;
 - le HUD normal est remplacé par l'overlay du mode ;
@@ -28,7 +29,7 @@ Ce document décrit le MVP et les itérations 2, 3 et 4 : les neuf outils, les s
 
 À la sortie, le solo et les lumières muettes sont rétablis, et `pt_accumulation_rendering` reprend sa valeur d'avant si `ledit_still_accum` l'avait changée.
 
-À la sortie, l'état d'origine du joueur (noclip, god, notarget, Force) est restauré. S'il reste des changements non sauvegardés, un message l'indique. Ils restent actifs en mémoire jusqu'au prochain chargement de map, sauf avec `discard`.
+À la sortie, la caméra disparaît, la vue du joueur revient à son angle d'entrée, et l'état d'origine du joueur (god, notarget, Force) est restauré. La mort du joueur sort aussi du mode. S'il reste des changements non sauvegardés, un message l'indique. Ils restent actifs en mémoire jusqu'au prochain chargement de map, sauf avec `discard`.
 
 Le mode n'est jamais sauvegardé dans une partie. Un changement de map ou le chargement d'une partie le désactive.
 
@@ -46,7 +47,7 @@ Le mode réutilise les touches des armes :
 | Molette | `weapnext` / `weapprev` | Valeur de l'outil. |
 | `]` / `[` | `invnext` / `invprev` | Propriété active de l'outil 5. |
 | Marche (maintenue) | walk | Pas fin pour la molette. |
-| Saut / accroupi | `+moveup` / `+movedown` | Monter / descendre (noclip). |
+| Saut / accroupi | `+moveup` / `+movedown` | Monter / descendre (caméra libre). |
 | Utiliser | `+use` | Place la caméra devant la sélection, tournée vers elle (`ledit_goto`). |
 
 ### Raccourcis clavier
@@ -67,7 +68,7 @@ Ces touches fonctionnent sans bind, seulement en mode light edit, et seulement q
 
 Échap n'est consommé que pendant une saisie ; sinon il ouvre le menu du jeu, comme d'habitude. La touche de la console et Shift+Échap ne sont jamais interceptés.
 
-Ctrl est souvent lié à l'accroupissement : un raccourci Ctrl fait descendre un peu la caméra en noclip.
+Ctrl est souvent lié à l'accroupissement : un raccourci Ctrl fait descendre un peu la caméra libre.
 
 ### Cibles d'une action
 
@@ -254,6 +255,7 @@ Déplacer ou tourner un rectangle reconstruit les listes de lumières par cluste
 | `ledit_preset_intensity` | 2000 | Intensité d'une lumière créée. |
 | `ledit_preset_radius` | 8 | Rayon d'émission d'une lumière créée. |
 | `ledit_spot_near` | 64 | Distance (unités) sous laquelle un spot créé près d'une surface vise loin d'elle (le long de la normale). 0 : toujours dans la surface. Non archivé. |
+| `ledit_cam_speed` | 500 | Vitesse de la caméra libre (unités par seconde, déplacement plein). Marche (maintenue) la divise par deux. |
 | `ledit_preset_color` | `1 0.9 0.8` | Couleur d'une lumière créée. |
 | `pt_light_scale_edit` | 0.1 | Échelle unique des lumières **ajoutées**. |
 | `ledit_active` | — | Lecture seule, 1 pendant le mode. |

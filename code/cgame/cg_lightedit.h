@@ -11,4 +11,6 @@ qboolean	CG_LightEdit_Draw2D( void );				// qtrue when the overlay replaces the 
 qboolean	CG_LightEdit_Active( void );				// qtrue while the cgame side of the mode runs
 qboolean	CG_LightEdit_KeyEvent( int key, qboolean down, int mods );	// qtrue when the key is consumed (CG_KEY_EVENT)
 
+qboolean	CG_LightEdit_CameraView( vec3_t org, vec3_t ang );	// qtrue when the camera is the server view point (CG_CAMERA_POS)
+
 #endif // CG_LIGHTEDIT_H

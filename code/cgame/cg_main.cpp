@@ -699,6 +699,10 @@ int CG_CrosshairPlayer( void )
 }
 
 int CG_GetCameraPos( vec3_t camerapos ) {
+	vec3_t	leAng;
+	if ( CG_LightEdit_CameraView( camerapos, leAng ) ) {
+		return 1;
+	}
 	if ( in_camera) {
 		VectorCopy(client_camera.origin, camerapos);
 		return 1;
