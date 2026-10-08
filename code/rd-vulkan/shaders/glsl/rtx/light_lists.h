@@ -22,6 +22,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #define MAX_BRUTEFORCE_SAMPLING 8
 #define MAX_DYNAMIC_SAMPLING    16
+#define SPHERE_LIGHT_MAX_DEPTH  64.0	// how far behind a surface a sphere light is still mirrored in front of it
 
 mat3 
 project_triangle(mat3 positions, vec3 p)
@@ -65,10 +66,24 @@ projected_tri_area(mat3 positions, vec3 p, vec3 n, vec3 V, float phong_exp, floa
 	return pa * brdf;
 }
 
+// The centre of a sphere light for the surface (p, n). A fixed light (positions[1].z == 0) that sits
+// just behind the surface is mirrored in front of it, so a light embedded in a wall lights that wall.
+vec3
+sphere_light_center(mat3 positions, vec3 p, vec3 n)
+{
+	vec3 c = positions[0];
+	float s = dot(c - p, n);
+
+	if (positions[1].z == 0 && s < 0 && s > -SPHERE_LIGHT_MAX_DEPTH)
+		c -= 2 * s * n;
+
+	return c;
+}
+
 float
 projected_sphere_area(mat3 positions, vec3 p, vec3 n, vec3 V, float phong_exp, float phong_scale, float phong_weight)
 {
-	vec3 position = positions[0] - p;
+	vec3 position = sphere_light_center(positions, p, n) - p;
 	float sphere_radius = positions[1].x;
 	float dist = length(position);
 	float rdist = 1.0 / dist;
@@ -167,7 +182,7 @@ float get_spherical_triangle_pdfw(mat3 positions)
  * The implementation is based on the algorithm described in:
  * James Arvo. 1995. Stratified sampling of spherical triangles.
  * Proceedings of the 22nd annual conference on Computer graphics and interactive techniques (SIGGRAPH '95).
- * Association for Computing Machinery, New York, NY, USA, 437–438.
+ * Association for Computing Machinery, New York, NY, USA, 437ï¿½438.
  * https://doi.org/10.1145/218380.218500
  */
 vec3
@@ -240,9 +255,9 @@ sample_projected_triangle(vec3 pt, mat3 positions, vec2 rnd, out vec3 light_norm
 }
 
 vec3
-sample_projected_sphere(vec3 p, mat3 positions, vec2 rnd, out vec3 light_normal, out float pdfw)
+sample_projected_sphere(vec3 p, vec3 n, mat3 positions, vec2 rnd, out vec3 light_normal, out float pdfw)
 {
-	vec3 light_center = positions[0];
+	vec3 light_center = sphere_light_center(positions, p, n);
 	vec3 position = light_center - p;
 	float sphere_radius = positions[1].x;
 	float dist = length(position);
@@ -519,7 +534,7 @@ sample_lights(
 				position_light = sample_projected_triangle(p, light.positions, rng.yz, light_normal, pdfw);
 				break;
 			case LIGHT_SPHERE:
-				position_light = sample_projected_sphere(p, light.positions, rng.yz, light_normal, pdfw);
+				position_light = sample_projected_sphere(p, gn, light.positions, rng.yz, light_normal, pdfw);
 				break;
 			case LIGHT_SPOT:
 				position_light = sample_projected_spotlight(p, light.positions, rng.yz, light_normal, pdfw);

@@ -146,7 +146,7 @@ get_unshadowed_path_contrib(
 			position_light = sample_projected_triangle(position, light.positions, rng, light_normal, pdfw);
 			break;
 		case LIGHT_SPHERE:
-			position_light = sample_projected_sphere(position, light.positions, rng, light_normal, pdfw);
+			position_light = sample_projected_sphere(position, normal, light.positions, rng, light_normal, pdfw);
 			break;
 		case LIGHT_SPOT:
 			position_light = sample_projected_spotlight(position, light.positions, rng, light_normal, pdfw);
@@ -228,7 +228,7 @@ process_selected_light_restir(
 			pos_on_light_polygonal = sample_projected_triangle(position, light.positions, light_position , light_normal, polygonal_light_pdfw);
 			break;
 		case LIGHT_SPHERE:
-			pos_on_light_polygonal = sample_projected_sphere(position, light.positions, light_position , light_normal, polygonal_light_pdfw);
+			pos_on_light_polygonal = sample_projected_sphere(position, geo_normal, light.positions, light_position , light_normal, polygonal_light_pdfw);
 			break;
 		case LIGHT_SPOT:
 			pos_on_light_polygonal = sample_projected_spotlight(position, light.positions, light_position , light_normal, polygonal_light_pdfw);
