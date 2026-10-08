@@ -323,6 +323,8 @@ if(BuildSPEngine)
 	set(SPEngineUIFiles
 		"${SPDir}/ui/ui_atoms.cpp"
 		"${SPDir}/ui/ui_connect.cpp"
+		"${SPDir}/ui/ui_lightedit.cpp"
+		"${SPDir}/ui/ui_lightedit.h"
 		"${SPDir}/ui/ui_main.cpp"
 		"${SPDir}/ui/ui_saber.cpp"
 		"${SPDir}/ui/ui_shared.cpp"

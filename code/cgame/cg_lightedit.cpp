@@ -722,6 +722,7 @@ void CG_LightEdit_Frame( void )
 	LE_GridUpdate();
 	LE_SoloUpdate();
 	LE_KeysUpdate();
+	LE_LabelUpdate();
 
 	if ( s_leaving && !gameActive )
 	{
@@ -834,6 +835,7 @@ void CG_LightEdit_Init( void )
 	LE_PipetteInit();
 	LE_SoloInit();
 	LE_KeysInit();
+	LE_LabelInit();
 	memset( &s_stats, 0, sizeof( s_stats ) );
 	s_recs.clear();
 	s_hits.clear();
@@ -1278,6 +1280,7 @@ qboolean CG_LightEdit_ConsoleCommand( const char *cmd )
 		{ "ledit_xray_toggle",	LE_Cmd_XrayToggle },
 		{ "ledit_goto",		LE_CmdGoto },
 		{ "ledit_select",	LE_CmdSelect },
+		{ "ledit_writebinds",	LE_CmdWriteBinds },
 	};
 
 	for ( size_t i = 0; i < ARRAY_LEN( commands ); i++ )
@@ -1325,7 +1328,8 @@ void CG_LightEdit_InitConsoleCommands( void )
 	static const char *names[] = {
 		"lightedit", "ledit_save", "ledit_reload", "ledit_undo", "ledit_redo", "ledit_history",
 		"ledit_delete", "ledit_deselect", "ledit_revert", "ledit_set", "ledit_get",
-		"ledit_grid_next", "ledit_snap_toggle", "ledit_xray_toggle", "ledit_goto", "ledit_select"
+		"ledit_grid_next", "ledit_snap_toggle", "ledit_xray_toggle", "ledit_goto", "ledit_select",
+		"ledit_writebinds"
 	};
 
 	for ( size_t i = 0; i < ARRAY_LEN( names ); i++ )
@@ -1339,18 +1343,46 @@ void CG_LightEdit_InitConsoleCommands( void )
 Overlay
 =================
 */
-static int LE_TextW( const char *s )
+int LE_TextW( const char *s )
 {
 	return cgi_R_Font_StrLenPixels( s, cgs.media.qhFontSmall, LEDIT_FONT_SCALE, cgs.widthRatioCoef );
 }
 
-static int LE_TextH( void )
+int LE_TextH( void )
 {
 	return cgi_R_Font_HeightPixels( cgs.media.qhFontSmall, LEDIT_FONT_SCALE );
 }
 
-static void LE_Text( int x, int y, const char *s, const vec4_t col )
+// A glyph is about one render command. Every text of the overlay counts against this budget per frame.
+#define LEDIT_GLYPH_BUDGET		1800
+#define LEDIT_GLYPH_RESERVE		1100	// the labels leave this many glyphs to the panel, help and bottom line
+
+static int s_glyphBudget = LEDIT_GLYPH_BUDGET;
+static int s_glyphFloor = 0;
+
+void LE_TextFloor( int floorGlyphs )
 {
+	s_glyphFloor = Q_max( 0, floorGlyphs );
+}
+
+// Draws the text, cut at the end of the glyph budget.
+void LE_Text( int x, int y, const char *s, const vec4_t col )
+{
+	char	cut[256];
+	int		len = (int)strlen( s );
+	const int	left = s_glyphBudget - s_glyphFloor;
+
+	if ( len <= 0 || left <= 0 )
+	{
+		return;
+	}
+	if ( len > left )
+	{
+		Q_strncpyz( cut, s, Q_min( left + 1, (int)sizeof( cut ) ) );
+		s = cut;
+		len = (int)strlen( cut );
+	}
+	s_glyphBudget -= len;
 	cgi_R_Font_DrawString( x, y, s, col, cgs.media.qhFontSmall, -1, LEDIT_FONT_SCALE, cgs.widthRatioCoef );
 }
 
@@ -1400,6 +1432,34 @@ const rtxLightDesc_t *LE_RecDesc( int id )
 		return NULL;
 	}
 	return &s_recs[id].d;
+}
+
+int LE_RecCount( void )
+{
+	return (int)s_recs.size();
+}
+
+qboolean LE_RecScreen( int id, float *sx, float *sy, float *depth, qboolean *occluded )
+{
+	if ( id < 0 || id >= (int)s_recs.size() || !s_recs[id].valid || !s_recs[id].onScreen )
+	{
+		return qfalse;
+	}
+	*sx = s_recs[id].sx;
+	*sy = s_recs[id].sy;
+	*depth = s_recs[id].depth;
+	*occluded = s_recs[id].occluded;
+	return qtrue;
+}
+
+int LE_ShowMode( void )
+{
+	return ledit_show.integer;
+}
+
+qboolean LE_XrayOn( void )
+{
+	return (qboolean)( ledit_xray.integer != 0 );
 }
 
 // Clips a segment to the virtual screen (Liang-Barsky). Returns qfalse when nothing is left.
@@ -1647,6 +1707,17 @@ static void LE_DrawToolWorld( void )
 	}
 }
 
+// Top of the right panel: below the help block, so that the two never overlap.
+static int s_panelTop = 90;
+
+// Height of the numeric entry, which sits between the help block and the panel.
+static int LE_EntryHeight( void )
+{
+	char	line[80];
+
+	return LE_KeysEntryLine( line, sizeof( line ) ) ? 2 * LE_TextH() + 10 : 0;
+}
+
 static void LE_DrawHelp( void )
 {
 	const char	*name, *fire, *alt, *wheel;
@@ -1709,10 +1780,7 @@ static void LE_DrawHelp( void )
 	y += h;
 	LE_Text( 6, y, "Keys: Ctrl+Z undo  Ctrl+Y redo  Ctrl+S save  Ctrl+D deselect  Del delete  Enter value  Use: go to", colGrey );
 	y += h;
-	if ( cg.time < s_msgEnd )
-	{
-		LE_Text( 6, y + 4, s_msg, colWhite );
-	}
+	s_panelTop = y + 4;
 }
 
 #define LE_PANEL_LINES	16
@@ -1922,7 +1990,7 @@ static void LE_DrawPanel( void )
 	}
 	const int	x0 = 640 - 8 - maxw;
 
-	y = 90;
+	y = s_panelTop + LE_EntryHeight();
 	CG_FillRect( x0 - 4, y - 3, maxw + 10, n * h + 6, colPanel );
 	for ( int i = 0; i < n; i++ )
 	{
@@ -1956,7 +2024,7 @@ static void LE_DrawEntry( void )
 	}
 	const int	w = Q_max( LE_TextW( line ), LE_TextW( hint ) );
 	const int	x = 640 - 8 - w;
-	const int	y = 90 - 2 * h - 8;
+	const int	y = s_panelTop;
 
 	CG_FillRect( x - 4, y - 3, w + 10, 2 * h + 6, colPanel );
 	LE_Text( x, y, line, colYellow );
@@ -1981,6 +2049,10 @@ static void LE_DrawBottom( void )
 		LE_Text( 6, y, warn, colRed );
 		y -= h;
 	}
+	if ( cg.time < s_msgEnd )
+	{
+		LE_Text( 6, y - h - 2, s_msg, colWhite );
+	}
 	line = va( "%s | entity %d lgt %d added %d modified %d disabled %d | slots %d/%d | undo %d redo %d%s",
 		s_stats.mapName, s_stats.numEntity, s_stats.numLgt, s_stats.numAdded, s_stats.numModified,
 		s_stats.numDisabled, s_stats.numLightPolys, s_stats.maxLightPolys, LE_UndoDepth(), LE_RedoDepth(),
@@ -1993,6 +2065,10 @@ static void LE_DrawBottom( void )
 	if ( s_tool == LEDIT_TOOL_SOLO || Q_stricmp( LE_FilterName(), "all" ) )
 	{
 		Q_strcat( full, sizeof( full ), va( " | icons: %s", LE_FilterName() ) );
+	}
+	if ( LE_ShowMode() > 1 )
+	{
+		Q_strcat( full, sizeof( full ), va( " | show %d %s", LE_ShowMode(), LE_ShowModeName() ) );
 	}
 	LE_Text( 6, y, full, colWhite );
 }
@@ -2010,6 +2086,11 @@ qboolean CG_LightEdit_Draw2D( void )
 	LE_DrawSelection();
 	LE_DrawToolWorld();
 	LE_DrawIcons();
+	LE_DrawExtraLights();
+	s_glyphBudget = LEDIT_GLYPH_BUDGET;
+	LE_TextFloor( LEDIT_GLYPH_RESERVE );
+	LE_DrawLabels();
+	LE_TextFloor( 0 );
 
 	// crosshair
 	CG_FillRect( 320 - 8, 240, 5, 1, colWhite );

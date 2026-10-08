@@ -186,4 +186,24 @@ void		LE_CmdSelect( void );								// ledit_select <id | none> [add]
 
 float		LE_AngleSnap( void );								// ledit_angle_snap, degrees (cg_lightedit_grid.cpp)
 
+// Text within the glyph budget (cg_lightedit.cpp).
+int			LE_TextW( const char *s );
+int			LE_TextH( void );
+void		LE_Text( int x, int y, const char *s, const vec4_t col );	// stops when the glyph budget is used
+void		LE_TextFloor( int floorGlyphs );					// the glyphs below this count stay free; 0 clears it
+
+// This frame's records and display state (cg_lightedit.cpp).
+int			LE_RecCount( void );
+qboolean	LE_RecScreen( int id, float *sx, float *sy, float *depth, qboolean *occluded );	// qfalse when invalid or off screen
+int			LE_ShowMode( void );								// ledit_show
+qboolean	LE_XrayOn( void );
+
+// Labels, emissive and dynamic dots, bind file (cg_lightedit_label.cpp).
+void		LE_LabelInit( void );								// registers ledit_label, drops the emissive cache
+void		LE_LabelUpdate( void );								// once per frame
+void		LE_DrawLabels( void );
+void		LE_DrawExtraLights( void );
+const char	*LE_ShowModeName( void );
+void		LE_CmdWriteBinds( void );							// ledit_writebinds [force]
+
 #endif // CG_LIGHTEDIT_LOCAL_H
