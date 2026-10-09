@@ -3794,6 +3794,9 @@ static void FindLightingStage( const int stage ) {
 		if ( !st->active ) {
 			break;
 		}
+		if ( st->ss && st->ss->type ) {
+			continue;
+		}
 		if ( b->isLightmap ) {
 			// 1. prefer stages near lightmap
 			if ( selected == i - 1 ) {
