@@ -604,7 +604,14 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 			for ( stageIdx = 0; stageIdx < tess.shader->numUnfoggedPasses; stageIdx++ ) {
 				const shaderStage_t *st = tess.xstages[stageIdx];
 
-				if ( st && st->active && ( st->stateBits & GLS_ATEST_BITS ) && st->bundle[0].image[0] ) {
+				if ( !st || !st->active || ( st->ss && st->ss->type ) )
+						continue;
+
+					// An opaque stage that writes depth covers the whole surface, as in the main pass.
+					if ( ( st->stateBits & GLS_DEPTHMASK_TRUE ) && !( st->stateBits & GLS_ATEST_BITS ) )
+						break;
+
+					if ( ( st->stateBits & GLS_ATEST_BITS ) && st->bundle[0].image[0] ) {
 					atStage = st;
 #ifdef USE_VBO
 					// Which stage's texcoords vk_bind_geometry() should pull out of the VBO.
