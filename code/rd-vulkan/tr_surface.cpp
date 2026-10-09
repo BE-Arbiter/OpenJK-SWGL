@@ -304,9 +304,8 @@ static void RB_SurfaceOrientedQuad( void )
 
 	// calculate the xyz locations for the four corners
 	radius = backEnd.currentEntity->e.radius;
-//	MakeNormalVectors( backEnd.currentEntity->e.axis[0], left, up );
-	VectorCopy( backEnd.currentEntity->e.axis[1], left );
-	VectorCopy( backEnd.currentEntity->e.axis[2], up );
+	// SP cgame sets only axis[0], the normal.
+	MakeNormalVectors( backEnd.currentEntity->e.axis[0], left, up );
 
 	if ( backEnd.currentEntity->e.rotation == 0 )
 	{
