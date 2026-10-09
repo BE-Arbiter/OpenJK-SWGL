@@ -67,6 +67,8 @@ typedef struct {
 	int				time;				// all entities are correct for this time		// These 2 saved out
 	int				timeResidual;		// <= 1000 / sv_frame->value					//   during savegame.
 	float			timeResidualFraction;	// fraction of a msec accumulated
+	qboolean		frameSliced;		// a game frame runs in slices over several SV_Frame calls
+	qboolean		inFrameSlice;		// the game runs a slice now
 	int				nextFrameTime;		// when time > nextFrameTime, process world		// this doesn't get used anywhere! -Ste
 	char			*configstrings[MAX_CONFIGSTRINGS];
 	//
@@ -160,6 +162,9 @@ extern	server_t		sv;					// cleared each map
 extern	game_export_t	*ge;
 
 extern	cvar_t	*sv_fps;
+extern	cvar_t	*sv_frameSlices;
+
+void SV_FinishSlicedFrame( void );
 extern	cvar_t	*sv_timeout;
 extern	cvar_t	*sv_zombietime;
 extern	cvar_t	*sv_reconnectlimit;
