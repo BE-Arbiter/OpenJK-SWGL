@@ -896,70 +896,50 @@ RB_SurfaceCylinder
 ==============
 */
 
-#define NUM_CYLINDER_SEGMENTS 32
+#define NUM_CYLINDER_SEGMENTS 40
 
-// FIXME: use quad stamp?
-static void DoCylinderPart( polyVert_t *verts )
+static void AddCylinderVert( const vec3_t xyz, float s, float t, const byte *rgba )
 {
-	int			vbase;
-	int			i;
-
-	RB_CHECKOVERFLOW( 4, 6 );
-
-	vbase = tess.numVertexes;
-
-	for (i=0; i<4; i++)
-	{
-		VectorCopy( verts->xyz, tess.xyz[tess.numVertexes] );
-		tess.texCoords[0][tess.numVertexes][0] = verts->st[0];
-		tess.texCoords[0][tess.numVertexes][1] = verts->st[1];
-		tess.vertexColors[tess.numVertexes][0] = verts->modulate[0];
-		tess.vertexColors[tess.numVertexes][1] = verts->modulate[1];
-		tess.vertexColors[tess.numVertexes][2] = verts->modulate[2];
-		tess.vertexColors[tess.numVertexes][3] = verts->modulate[3];
-		tess.numVertexes++;
-		verts++;
-	}
-
-	tess.indexes[tess.numIndexes++] = vbase;
-	tess.indexes[tess.numIndexes++] = vbase + 1;
-	tess.indexes[tess.numIndexes++] = vbase + 2;
-
-	tess.indexes[tess.numIndexes++] = vbase + 2;
-	tess.indexes[tess.numIndexes++] = vbase + 3;
-	tess.indexes[tess.numIndexes++] = vbase;
+	VectorCopy( xyz, tess.xyz[tess.numVertexes] );
+	tess.texCoords[0][tess.numVertexes][0] = s;
+	tess.texCoords[0][tess.numVertexes][1] = t;
+	tess.vertexColors[tess.numVertexes][0] = rgba[0];
+	tess.vertexColors[tess.numVertexes][1] = rgba[1];
+	tess.vertexColors[tess.numVertexes][2] = rgba[2];
+	tess.vertexColors[tess.numVertexes][3] = rgba[3];
+	tess.numVertexes++;
 }
 
 // e->origin holds the bottom point
 // e->oldorigin holds the top point
-// e->radius holds the radius
+// e->radius holds the radius, e->backlerp holds the radius of the other end
 
-static void RB_SurfaceCylinder( void )
+// A cylinder with one nearly closed end becomes a cone: better texture mapping, half the indexes.
+static void RB_SurfaceCone( void )
 {
-	static polyVert_t	lower_points[NUM_CYLINDER_SEGMENTS], upper_points[NUM_CYLINDER_SEGMENTS], verts[4];
-	vec3_t		vr, vu, midpoint, v1;
+	static vec3_t points[NUM_CYLINDER_SEGMENTS];
+	vec3_t		vr, vu, midpoint;
+	vec3_t		tapered, base;
 	float		detail, length;
 	int			i;
 	int			segments;
 	refEntity_t *e;
-	int			nextSegment;
 
 	e = &backEnd.currentEntity->e;
 
-	//Work out the detail level of this cylinder
+	// Work out the detail level of this cylinder
 	VectorAdd( e->origin, e->oldorigin, midpoint );
-	VectorScale(midpoint, 0.5f, midpoint);		// Average start and end
+	VectorScale( midpoint, 0.5f, midpoint );
 
 	VectorSubtract( midpoint, backEnd.viewParms.ori.origin, midpoint );
 	length = VectorNormalize( midpoint );
 
-	// this doesn't need to be perfect....just a rough compensation for zoom level is enough
+	// A rough compensation for the zoom level is enough
 	length *= (backEnd.viewParms.fovX / 90.0f);
 
-	detail = 1 - ((float) length / 1024 );
+	detail = 1 - ((float) length / 2048 );
 	segments = NUM_CYLINDER_SEGMENTS * detail;
 
-	// 3 is the absolute minimum, but the pop between 3-8 is too noticeable
 	if ( segments < 8 )
 	{
 		segments = 8;
@@ -970,69 +950,143 @@ static void RB_SurfaceCylinder( void )
 		segments = NUM_CYLINDER_SEGMENTS;
 	}
 
-	//Get the direction vector
 	MakeNormalVectors( e->axis[0], vr, vu );
 
-	VectorScale( vu, e->radius, v1 );	// size1
-	VectorScale( vu, e->rotation, vu );	// size2
+	// Only the larger radius rotates, the smaller one is welded to a point
+	if ( e->radius < e->backlerp )
+	{
+		VectorScale( vu, e->backlerp, vu );
+		VectorCopy( e->origin, base );
+		VectorCopy( e->oldorigin, tapered );
+	}
+	else
+	{
+		VectorScale( vu, e->radius, vu );
+		VectorCopy( e->origin, tapered );
+		VectorCopy( e->oldorigin, base );
+	}
 
-	// Calculate the step around the cylinder
 	detail = 360.0f / (float)segments;
 
 	for ( i = 0; i < segments; i++ )
 	{
-		//Upper ring
-		RotatePointAroundVector( upper_points[i].xyz, e->axis[0], vu, detail * i );
-		VectorAdd( upper_points[i].xyz, e->origin, upper_points[i].xyz );
-
-		//Lower ring
-		RotatePointAroundVector( lower_points[i].xyz, e->axis[0], v1, detail * i );
-		VectorAdd( lower_points[i].xyz, e->oldorigin, lower_points[i].xyz );
+		RotatePointAroundVector( points[i], e->axis[0], vu, detail * i );
+		VectorAdd( points[i], base, points[i] );
 	}
 
-	// Calculate the texture coords so the texture can wrap around the whole cylinder
+	// The texture wraps around the whole cone
 	detail = 1.0f / (float)segments;
+
+	RB_CHECKOVERFLOW( 2 * (segments+1), 3 * segments );
+
+	int vbase = tess.numVertexes;
 
 	for ( i = 0; i < segments; i++ )
 	{
-		if ( i + 1 < segments )
-			nextSegment = i + 1;
-		else
-			nextSegment = 0;
+		AddCylinderVert( points[i], detail * i, 1.0f, e->shaderRGBA );
 
- 		VectorCopy( upper_points[i].xyz, verts[0].xyz );
-		verts[0].st[1] = 1.0f;
-		verts[0].st[0] = detail * i;
-		verts[0].modulate[0] = (byte)(e->shaderRGBA[0]);
-		verts[0].modulate[1] = (byte)(e->shaderRGBA[1]);
-		verts[0].modulate[2] = (byte)(e->shaderRGBA[2]);
-		verts[0].modulate[3] = (byte)(e->shaderRGBA[3]);
+		// The tip repeats per segment: each needs its own texture coordinates
+		AddCylinderVert( tapered, detail * i + detail * 0.5f, 0.0f, e->shaderRGBA );
+	}
 
-		VectorCopy( lower_points[i].xyz, verts[1].xyz );
-		verts[1].st[1] = 0.0f;
-		verts[1].st[0] = detail * i;
-		verts[1].modulate[0] = (byte)(e->shaderRGBA[0]);
-		verts[1].modulate[1] = (byte)(e->shaderRGBA[1]);
-		verts[1].modulate[2] = (byte)(e->shaderRGBA[2]);
-		verts[1].modulate[3] = (byte)(e->shaderRGBA[3]);
+	// The last pair repeats the first points with the wrapped texture coordinates
+	AddCylinderVert( points[0], detail * i, 1.0f, e->shaderRGBA );
+	AddCylinderVert( tapered, detail * i + detail * 0.5f, 0.0f, e->shaderRGBA );
 
-		VectorCopy( lower_points[nextSegment].xyz, verts[2].xyz );
-		verts[2].st[1] = 0.0f;
-		verts[2].st[0] = detail * ( i + 1 );
-		verts[2].modulate[0] = (byte)(e->shaderRGBA[0]);
-		verts[2].modulate[1] = (byte)(e->shaderRGBA[1]);
-		verts[2].modulate[2] = (byte)(e->shaderRGBA[2]);
-		verts[2].modulate[3] = (byte)(e->shaderRGBA[3]);
+	for ( i = 0; i < segments; i++ )
+	{
+		tess.indexes[tess.numIndexes++] = vbase;
+		tess.indexes[tess.numIndexes++] = vbase + 1;
+		tess.indexes[tess.numIndexes++] = vbase + 2;
 
-		VectorCopy( upper_points[nextSegment].xyz, verts[3].xyz );
-		verts[3].st[1] = 1.0f;
-		verts[3].st[0] = detail * ( i + 1 );
-		verts[3].modulate[0] = (byte)(e->shaderRGBA[0]);
-		verts[3].modulate[1] = (byte)(e->shaderRGBA[1]);
-		verts[3].modulate[2] = (byte)(e->shaderRGBA[2]);
-		verts[3].modulate[3] = (byte)(e->shaderRGBA[3]);
+		vbase += 2;
+	}
+}
 
-		DoCylinderPart(verts);
+static void RB_SurfaceCylinder( void )
+{
+	static vec3_t lower_points[NUM_CYLINDER_SEGMENTS], upper_points[NUM_CYLINDER_SEGMENTS];
+	vec3_t		vr, vu, midpoint, v1;
+	float		detail, length;
+	int			i;
+	int			segments;
+	refEntity_t *e;
+
+	e = &backEnd.currentEntity->e;
+
+	// One end nearly closed: draw a cone
+	if ( !( e->radius < 0.3f && e->backlerp < 0.3f) && ( e->radius < 0.3f || e->backlerp < 0.3f ))
+	{
+		RB_SurfaceCone();
+		return;
+	}
+
+	VectorAdd( e->origin, e->oldorigin, midpoint );
+	VectorScale( midpoint, 0.5f, midpoint );
+
+	VectorSubtract( midpoint, backEnd.viewParms.ori.origin, midpoint );
+	length = VectorNormalize( midpoint );
+
+	length *= (backEnd.viewParms.fovX / 90.0f);
+
+	detail = 1 - ((float) length / 2048 );
+	segments = NUM_CYLINDER_SEGMENTS * detail;
+
+	// Fewer than 8 segments pops visibly
+	if ( segments < 8 )
+	{
+		segments = 8;
+	}
+
+	if ( segments > NUM_CYLINDER_SEGMENTS )
+	{
+		segments = NUM_CYLINDER_SEGMENTS;
+	}
+
+	MakeNormalVectors( e->axis[0], vr, vu );
+
+	VectorScale( vu, e->radius, v1 );	// size1
+	VectorScale( vu, e->backlerp, vu );	// size2
+
+	detail = 360.0f / (float)segments;
+
+	for ( i = 0; i < segments; i++ )
+	{
+		RotatePointAroundVector( upper_points[i], e->axis[0], vu, detail * i );
+		VectorAdd( upper_points[i], e->origin, upper_points[i] );
+
+		RotatePointAroundVector( lower_points[i], e->axis[0], v1, detail * i );
+		VectorAdd( lower_points[i], e->oldorigin, lower_points[i] );
+	}
+
+	// The texture wraps around the whole cylinder
+	detail = 1.0f / (float)segments;
+
+	RB_CHECKOVERFLOW( 2 * (segments+1), 6 * segments );
+
+	int vbase = tess.numVertexes;
+
+	for ( i = 0; i < segments; i++ )
+	{
+		AddCylinderVert( upper_points[i], detail * i, 1.0f, e->shaderRGBA );
+		AddCylinderVert( lower_points[i], detail * i, 0.0f, e->shaderRGBA );
+	}
+
+	// The last pair repeats the first points with the wrapped texture coordinates
+	AddCylinderVert( upper_points[0], detail * i, 1.0f, e->shaderRGBA );
+	AddCylinderVert( lower_points[0], detail * i, 0.0f, e->shaderRGBA );
+
+	for ( i = 0; i < segments; i++ )
+	{
+		tess.indexes[tess.numIndexes++] = vbase;
+		tess.indexes[tess.numIndexes++] = vbase + 1;
+		tess.indexes[tess.numIndexes++] = vbase + 2;
+
+		tess.indexes[tess.numIndexes++] = vbase + 2;
+		tess.indexes[tess.numIndexes++] = vbase + 1;
+		tess.indexes[tess.numIndexes++] = vbase + 3;
+
+		vbase += 2;
 	}
 }
 
