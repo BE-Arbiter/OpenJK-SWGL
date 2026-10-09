@@ -41,6 +41,12 @@ Légende : ✅ fait, ❌ sans objet ou non prévu, ⏳ plus tard.
 | 4.2 ✅ | `r_dlightScale` par défaut à 1.0. | `140bca05d` |
 | 4.3 ✅ | `RE_AddLinearLightToScene` lit `r_dlightSaturation`. | `046c4cd46` |
 | 4.4 ❌ | `r_debugStyle` non ajoutée : seul l'éclairage des entités réagissait, pas les lightmaps du monde. | — |
+| 5.1 ✅ | `G2_TransformBone` rétablit l'étape unsquash et `BONE_ANIM_NO_LERP`, `r_ghoul2nolerp`, `r_ghoul2noblend`. Crée `r_ghoul2unsquash` et `r_ghoul2timebase`. | `f8ad3049a` |
+| 5.2 ✅ | `G2_TransformGhoulBones` lisse aussi les appels côté jeu, comme vanilla. `r_ghoul2animsmooth` vaut 0.25. | `0e8f695cd` |
+| 5.3 ✅ | `R_AddGhoulSurfaces` force `lodBias` à 10 avec `RF_G2MINLOD`. | `a31f4a72c` |
+| 5.4 ✅ | `r_lodscale` vaut 10 par défaut. La cvar est archivée : une valeur déjà sauvée (5) reste en place tant que l'utilisateur ne la remet pas à 10. | `ce28ddf05` |
+| 5.5 ✅ | Le test `Cvar_VariableIntegerValue("dedicated")` est supprimé de `G2_TransformGhoulBones` : vanilla n'en a pas, et ce renderer ne tourne jamais en dédié. | `a3ba70b27` |
+| 5.6 ✅ | `r_noghoul2` (`CVAR_CHEAT`) existe et coupe `R_AddGhoulSurfaces`, `RB_TransformBones` et la passe RTX. `r_noserverghoul2` reste active. | `2cf4c4df0` |
 
 Les points 2.2 à 2.11 de cette liste sont validés à la compilation (Debug et Release) et par lecture comparée avec `rd-vanilla`. Ils n’ont pas été testés en jeu.
 
@@ -107,12 +113,12 @@ Ordre de gravité dans chaque tableau : crash / bloquant, puis visuel, puis perf
 
 | # | Gravité | Fichier:fonction (rd-vulkan) | Équivalent vanilla | Manquement | Confiance | Raison (non fait / reporté) |
 |---|---|---|---|---|---|---|
-| 5.1 | visuel | `tr_ghoul2.cpp:G2_TransformBone` | `G2_TransformBone` | Le `tr_ghoul2.cpp` vient de MP. L'étape « unsquash » (`r_Ghoul2UnSqash`, défaut 1 en SP) est commentée : les os gardent l'écrasement dû à l'interpolation. `BONE_ANIM_NO_LERP`, `r_Ghoul2NoLerp` et `r_Ghoul2NoBlend` sont commentés. Ces trois cvars et `r_ghoul2timebase` ne sont pas créées. Effet visible faible, mais c'est un écart SP. | confirmé (effet probable) | — |
-| 5.2 | visuel | `tr_ghoul2.cpp:G2_TransformGhoulBones` | `G2_TransformGhoulBones` | Le lissage d'animation ne s'active que si `HackadelicOnClient` est vrai (MP). Vanilla lisse aussi les appels côté jeu (bolts, collisions). Le jeu et le rendu peuvent voir des positions d'os différentes (sabre, armes). `r_ghoul2animsmooth` vaut 0.3 au lieu de 0.25. | probable | — |
-| 5.3 | visuel / perf | `tr_ghoul2.cpp:R_AddGhoulSurfaces` | `R_AddGhoulSurfaces` | `RF_G2MINLOD` est ignoré. Vanilla force alors `lodBias` à 10 (LOD le plus bas). | confirmé | — |
-| 5.4 | visuel | `tr_init.cpp:R_Register` (`r_lodscale`) | `r_lodscale` = 10 | `r_lodscale` vaut 5 : les LOD grossiers arrivent plus près de la caméra qu'en vanilla. | confirmé | — |
-| 5.5 | perf | `tr_ghoul2.cpp:G2_TransformGhoulBones` | — | `ri.Cvar_VariableIntegerValue("dedicated")` (recherche par chaîne) à chaque transformation de squelette. | confirmé | — |
-| 5.6 | mineur | `tr_ghoul2.cpp:R_AddGhoulSurfaces` | `r_noghoul2` | Le test lit `r_noServerGhoul2` (MP). `r_noghoul2` n'existe pas. | confirmé | — |
+| 5.1 ✅ | visuel | `tr_ghoul2.cpp:G2_TransformBone` | `G2_TransformBone` | Le `tr_ghoul2.cpp` vient de MP. L'étape « unsquash » (`r_Ghoul2UnSqash`, défaut 1 en SP) est commentée : les os gardent l'écrasement dû à l'interpolation. `BONE_ANIM_NO_LERP`, `r_Ghoul2NoLerp` et `r_Ghoul2NoBlend` sont commentés. Ces trois cvars et `r_ghoul2timebase` ne sont pas créées. Effet visible faible, mais c'est un écart SP. | confirmé (effet probable) | — |
+| 5.2 ✅ | visuel | `tr_ghoul2.cpp:G2_TransformGhoulBones` | `G2_TransformGhoulBones` | Le lissage d'animation ne s'active que si `HackadelicOnClient` est vrai (MP). Vanilla lisse aussi les appels côté jeu (bolts, collisions). Le jeu et le rendu peuvent voir des positions d'os différentes (sabre, armes). `r_ghoul2animsmooth` vaut 0.3 au lieu de 0.25. | probable | — |
+| 5.3 ✅ | visuel / perf | `tr_ghoul2.cpp:R_AddGhoulSurfaces` | `R_AddGhoulSurfaces` | `RF_G2MINLOD` est ignoré. Vanilla force alors `lodBias` à 10 (LOD le plus bas). | confirmé | — |
+| 5.4 ✅ | visuel | `tr_init.cpp:R_Register` (`r_lodscale`) | `r_lodscale` = 10 | `r_lodscale` vaut 5 : les LOD grossiers arrivent plus près de la caméra qu'en vanilla. | confirmé | — |
+| 5.5 ✅ | perf | `tr_ghoul2.cpp:G2_TransformGhoulBones` | — | `ri.Cvar_VariableIntegerValue("dedicated")` (recherche par chaîne) à chaque transformation de squelette. | confirmé | — |
+| 5.6 ✅ | mineur | `tr_ghoul2.cpp:R_AddGhoulSurfaces` | `r_noghoul2` | Le test lit `r_noServerGhoul2` (MP). `r_noghoul2` n'existe pas. | confirmé | — |
 
 ## 6. Shaders, BSP, divers
 

@@ -2337,6 +2337,7 @@ extern	cvar_t	*r_noPrecacheGLA;
 #endif
 
 extern	cvar_t	*r_noServerGhoul2;
+extern	cvar_t	*r_noGhoul2;
 /*
 Ghoul2 Insert End
 */

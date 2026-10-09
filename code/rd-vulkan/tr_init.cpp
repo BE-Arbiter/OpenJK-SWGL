@@ -332,12 +332,13 @@ cvar_t	*r_noPrecacheGLA;
 #endif
 
 cvar_t	*r_noServerGhoul2;
+cvar_t	*r_noGhoul2;
 cvar_t	*r_Ghoul2AnimSmooth=0;
 cvar_t	*r_Ghoul2UnSqashAfterSmooth=0;
-//cvar_t	*r_Ghoul2UnSqash;
-//cvar_t	*r_Ghoul2TimeBase=0; from single player
-//cvar_t	*r_Ghoul2NoLerp;
-//cvar_t	*r_Ghoul2NoBlend;
+cvar_t	*r_Ghoul2UnSqash;
+cvar_t	*r_Ghoul2TimeBase=0;
+cvar_t	*r_Ghoul2NoLerp;
+cvar_t	*r_Ghoul2NoBlend;
 cvar_t	*r_Ghoul2BlendMultiplier=0;
 // code/rd-common/tr_font.cpp (shared across all SP renderers) references
 // this as extern -- must be defined by whichever renderer DLL links it in.
@@ -1054,7 +1055,7 @@ void R_Register( void )
 	r_portalOnly						= Cvar_Get( "r_portalOnly",						"0",						CVAR_CHEAT, "" );
 	r_skipBackEnd						= Cvar_Get( "r_skipBackEnd",						"0",						CVAR_CHEAT, "" );
 	r_measureOverdraw					= Cvar_Get( "r_measureOverdraw",					"0",						CVAR_NONE, "" );
-	r_lodscale							= Cvar_Get( "r_lodscale",						"5",						CVAR_ARCHIVE_ND, "" );
+	r_lodscale							= Cvar_Get( "r_lodscale",						"10",						CVAR_ARCHIVE_ND, "" );
 	r_norefresh							= Cvar_Get( "r_norefresh",						"0",						CVAR_CHEAT, "" );
 	r_drawentities						= Cvar_Get( "r_drawentities",					"1",						CVAR_CHEAT, "" );
 	r_ignore							= Cvar_Get( "r_ignore",							"1",						CVAR_CHEAT, "" );
@@ -1273,8 +1274,13 @@ Ghoul2 Insert Start
 	r_noPrecacheGLA						= Cvar_Get( "r_noPrecacheGLA",					"0",						CVAR_CHEAT, "" );
 #endif
 	r_noServerGhoul2					= Cvar_Get( "r_noserverghoul2",					"0",						CVAR_CHEAT, "" );
-	r_Ghoul2AnimSmooth					= Cvar_Get( "r_ghoul2animsmooth",				"0.3",						CVAR_NONE, "" );
+	r_noGhoul2							= Cvar_Get( "r_noghoul2",						"0",						CVAR_CHEAT, "" );
+	r_Ghoul2AnimSmooth					= Cvar_Get( "r_ghoul2animsmooth",				"0.25",						CVAR_NONE, "" );
 	r_Ghoul2UnSqashAfterSmooth			= Cvar_Get( "r_ghoul2unsqashaftersmooth",		"1",						CVAR_NONE, "" );
+	r_Ghoul2UnSqash						= Cvar_Get( "r_ghoul2unsquash",					"1",						CVAR_NONE, "" );
+	r_Ghoul2TimeBase					= Cvar_Get( "r_ghoul2timebase",					"2",						CVAR_NONE, "" );
+	r_Ghoul2NoLerp						= Cvar_Get( "r_ghoul2nolerp",					"0",						CVAR_NONE, "" );
+	r_Ghoul2NoBlend						= Cvar_Get( "r_ghoul2noblend",					"0",						CVAR_NONE, "" );
 	r_Ghoul2BlendMultiplier				= Cvar_Get( "r_ghoul2blendmultiplier",			"1",						CVAR_NONE, "" );
 	com_buildScript						= ri.Cvar_Get( "com_buildScript",				"0",						0 );
 	sv_mapname							= ri.Cvar_Get( "mapname",						"nomap",					CVAR_SERVERINFO | CVAR_ROM );
