@@ -1176,23 +1176,27 @@ static QINLINE void R_Radix(int byte, int size, drawSurf_t *source, drawSurf_t *
 ===============
 R_RadixSort
 
-Radix sort with 4 byte size buckets
+Radix sort of the QSORT_BYTES low bytes of the key, one byte per pass
 ===============
 */
 static void R_RadixSort( drawSurf_t *source, int size )
 {
 	static drawSurf_t scratch[MAX_DRAWSURFS];
+	drawSurf_t *from = source, *to = scratch, *t;
+	int i;
+
+	for ( i = 0; i < QSORT_BYTES; i++ ) {
 #ifdef Q3_LITTLE_ENDIAN
-	R_Radix(0, size, source, scratch);
-	R_Radix(1, size, scratch, source);
-	R_Radix(2, size, source, scratch);
-	R_Radix(3, size, scratch, source);
+		R_Radix( i, size, from, to );
 #else
-	R_Radix(3, size, source, scratch);
-	R_Radix(2, size, scratch, source);
-	R_Radix(1, size, source, scratch);
-	R_Radix(0, size, scratch, source);
-#endif //Q3_LITTLE_ENDIAN
+		R_Radix( (int)sizeof(sortKey_t) - 1 - i, size, from, to );
+#endif
+		t = from; from = to; to = t;
+	}
+
+	// an odd number of passes ends in scratch
+	if ( from != source )
+		Com_Memcpy( source, from, size * sizeof( drawSurf_t ) );
 }
 
 #ifdef USE_PMLIGHT
@@ -1310,7 +1314,7 @@ void R_AddLitSurf( surfaceType_t *surface, shader_t *shader, int fogIndex )
 
 	litsurf = &tr.refdef.litSurfs[tr.refdef.numLitSurfs++];
 
-	litsurf->sort = (shader->sortedIndex << QSORT_SHADERNUM_SHIFT)
+	litsurf->sort = ((sortKey_t)shader->sortedIndex << QSORT_SHADERNUM_SHIFT)
 		| tr.shiftedEntityNum | (fogIndex << QSORT_FOGNUM_SHIFT);
 	litsurf->surface = surface;
 
@@ -1328,7 +1332,7 @@ void R_AddLitSurf( surfaceType_t *surface, shader_t *shader, int fogIndex )
 R_DecomposeLitSort
 =================
 */
-void R_DecomposeLitSort( unsigned sort, int *entityNum, shader_t **shader, int *fogNum ) {
+void R_DecomposeLitSort( sortKey_t sort, int *entityNum, shader_t **shader, int *fogNum ) {
 	*fogNum = (sort >> QSORT_FOGNUM_SHIFT) & FOGNUM_MASK;
 	*shader = tr.sortedShaders[(sort >> QSORT_SHADERNUM_SHIFT) & SHADERNUM_MASK];
 	*entityNum = (sort >> QSORT_REFENTITYNUM_SHIFT) & REFENTITYNUM_MASK;
@@ -1371,9 +1375,9 @@ void R_AddDrawSurf( surfaceType_t *surface, shader_t *shader,
 	// instead of checking for overflow, we just mask the index
 	// so it wraps around
 	index = tr.refdef.numDrawSurfs & DRAWSURF_MASK;
-	// the sort data is packed into a single 32 bit value so it can be
-	// compared quickly during the qsorting process
-	tr.refdef.drawSurfs[index].sort = (shader->sortedIndex << QSORT_SHADERNUM_SHIFT)
+	// the sort data is packed into a single 64 bit value so it can be
+	// compared quickly during the sorting process
+	tr.refdef.drawSurfs[index].sort = ((sortKey_t)shader->sortedIndex << QSORT_SHADERNUM_SHIFT)
 		| tr.shiftedEntityNum | (fogIndex << QSORT_FOGNUM_SHIFT) | (int)dlightMap;
 	tr.refdef.drawSurfs[index].surface = surface;
 #ifdef VK_CUBEMAP
@@ -1389,7 +1393,7 @@ void R_AddDrawSurf( surfaceType_t *surface, shader_t *shader,
 R_DecomposeSort
 =================
 */
-void R_DecomposeSort( unsigned sort, int *entityNum, shader_t **shader, 
+void R_DecomposeSort( sortKey_t sort, int *entityNum, shader_t **shader, 
 											int *fogNum, int *dlightMap )
 {
 	*fogNum = ( sort >> QSORT_FOGNUM_SHIFT ) & FOGNUM_MASK;
@@ -1498,12 +1502,12 @@ static void R_AddEntitySurfaces( void ) {
 		ent->cubemapIndex = ( ent->e.reType == RT_MODEL ) ? R_CubemapForPoint( ent->e.origin ) : 0;
 #endif
 		// preshift the value we are going to OR into the drawsurf sort
-		tr.shiftedEntityNum = tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
+		tr.shiftedEntityNum = (sortKey_t)tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
 
 		// RF_ALPHA_FADE must sort after everything else, including the regular alpha
-		// surfaces - rd-vanilla does the same, deliberately avoiding the top bit.
+		// surfaces - rd-vanilla does the same with the top bit of its key.
 		if ( ent->e.renderfx & RF_ALPHA_FADE )
-			tr.shiftedEntityNum |= 0x80000000;
+			tr.shiftedEntityNum |= QSORT_ALPHAFADE_BIT;
 
 		//
 		// the weapon model must be handled special --
@@ -1655,13 +1659,13 @@ static void R_GenerateDrawSurfs( void ) {
 #ifdef USE_VBO_SS
 	if ( tr.ss.groups_count )
 	{
-		tr.shiftedEntityNum = REFENTITYNUM_WORLD << QSORT_REFENTITYNUM_SHIFT;
+		tr.shiftedEntityNum = (sortKey_t)REFENTITYNUM_WORLD << QSORT_REFENTITYNUM_SHIFT;
 
 		srfSprites_t *ss = (srfSprites_t*)Hunk_Alloc(sizeof(srfSprites_t), h_low);
 		ss->surfaceType = SF_SPRITES;
 		R_AddDrawSurf( (surfaceType_t *)ss, tr.shadowShader, 0, 0 );
 
-		tr.shiftedEntityNum = tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
+		tr.shiftedEntityNum = (sortKey_t)tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
 	}
 #endif
 }

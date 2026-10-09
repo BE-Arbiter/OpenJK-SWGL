@@ -214,6 +214,9 @@ typedef unsigned int glIndex_t;
 // can't be increased without changing bit packing for drawsurfs
 // see QSORT_SHADERNUM_SHIFT
 #define SHADERNUM_BITS	14
+
+// drawsurf sort key, see QSORT_SHADERNUM_SHIFT
+typedef uint64_t sortKey_t;
 #define MAX_SHADERS		(1<<SHADERNUM_BITS)
 #define SHADERNUM_MASK	(MAX_SHADERS-1)
 
@@ -1078,7 +1081,7 @@ typedef enum surfaceType_e {
 } surfaceType_t;
 
 typedef struct drawSurf_s {
-	unsigned			sort;			// bit combination for fast compares
+	sortKey_t			sort;			// bit combination for fast compares
 	surfaceType_t		*surface;		// any of surface*_t
 #ifdef USE_RTX
 	vk_blas_t			*blas;
@@ -1090,7 +1093,7 @@ typedef struct drawSurf_s {
 
 #ifdef USE_PMLIGHT
 typedef struct litSurf_s {
-	unsigned int		sort;			// bit combination for fast compares
+	sortKey_t			sort;			// bit combination for fast compares
 	surfaceType_t		*surface;		// any of surface*_t
 	struct litSurf_s	*next;
 } litSurf_t;
@@ -1129,7 +1132,7 @@ typedef struct srfFlare_s {
 #define SS_MAX_GROUP						1024
 #define SS_MAX_GROUP_CMD					1024
 
-#define SS_ENT_BITS							11
+#define SS_ENT_BITS							REFENTITYNUM_BITS
 #define SS_VBO_BITS							10
 #define SS_FOG_BITS							7
 #define SS_ENT_MASK							((1U << SS_ENT_BITS) - 1)
@@ -1677,15 +1680,16 @@ void		R_Modellist_f ( void );
 
 /*
 
-the drawsurf sort data is packed into a single 32 bit value so it can be
-compared quickly during the qsorting process
+the drawsurf sort data is packed into a single 64 bit value so it can be
+compared quickly during the sorting process (the radix sort reads 5 bytes)
 
 the bits are allocated as follows:
 
-18-31 : sorted shader index
-7-17  : entity index
-2-6   : fog index
-0-1   : dlightmap index
+33    : RF_ALPHA_FADE (drawn last)
+19-32 : sorted shader index
+6-18  : entity index (REFENTITYNUM_BITS)
+1-5   : fog index
+0     : dlightmap index
 */
 
 #define	DLIGHT_BITS 1 // qboolean in opengl1 renderer
@@ -1696,10 +1700,13 @@ the bits are allocated as follows:
 #define	QSORT_FOGNUM_SHIFT	DLIGHT_BITS
 #define	QSORT_REFENTITYNUM_SHIFT ( QSORT_FOGNUM_SHIFT + FOGNUM_BITS )
 #define	QSORT_SHADERNUM_SHIFT	( QSORT_REFENTITYNUM_SHIFT + REFENTITYNUM_BITS )
-#if (QSORT_SHADERNUM_SHIFT+SHADERNUM_BITS) > 32
+#define	QSORT_ALPHAFADE_SHIFT	( QSORT_SHADERNUM_SHIFT + SHADERNUM_BITS )
+#define	QSORT_ALPHAFADE_BIT		( (sortKey_t)1 << QSORT_ALPHAFADE_SHIFT )
+#define	QSORT_BYTES				5	// bytes of the key that R_RadixSort sorts
+#if QSORT_ALPHAFADE_SHIFT >= QSORT_BYTES * 8
 	#error "Need to update sorting, too many bits."
 #endif
-#define QSORT_REFENTITYNUM_MASK ( REFENTITYNUM_MASK << QSORT_REFENTITYNUM_SHIFT )
+#define QSORT_REFENTITYNUM_MASK ( (sortKey_t)REFENTITYNUM_MASK << QSORT_REFENTITYNUM_SHIFT )
 
 /*
 ** performanceCounters_t
@@ -1948,7 +1955,7 @@ typedef struct trGlobals_s {
 	trRefEntity_t			*currentEntity;
 	trRefEntity_t			worldEntity;		// point currentEntity at this when rendering world
 	int						currentEntityNum;
-	int						shiftedEntityNum;	// currentEntityNum << QSORT_REFENTITYNUM_SHIFT
+	sortKey_t				shiftedEntityNum;	// currentEntityNum << QSORT_REFENTITYNUM_SHIFT
 	model_t					*currentModel;
 
 	viewParms_t				viewParms;
@@ -2337,11 +2344,11 @@ Ghoul2 Insert End
 void		R_RenderView( const viewParms_t *parms );
 void		R_AddMD3Surfaces( trRefEntity_t *e );
 void		R_AddPolygonSurfaces( void );
-void		R_DecomposeSort( unsigned sort, int *entityNum, shader_t **shader, int *fogNum, int *dlightMap );
+void		R_DecomposeSort( sortKey_t sort, int *entityNum, shader_t **shader, int *fogNum, int *dlightMap );
 // cubemapIndex -1: the cubemap of the current entity
 void		R_AddDrawSurf( surfaceType_t *surface, shader_t *shader, int fogIndex, int dlightMap, int cubemapIndex = -1 );
 #ifdef USE_PMLIGHT
-void		R_DecomposeLitSort( unsigned sort, int* entityNum, shader_t** shader, int* fogNum );
+void		R_DecomposeLitSort( sortKey_t sort, int* entityNum, shader_t** shader, int* fogNum );
 void		R_AddLitSurf( surfaceType_t* surface, shader_t* shader, int fogIndex );
 #endif
 

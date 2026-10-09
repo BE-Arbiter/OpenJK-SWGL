@@ -774,7 +774,7 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	int				i, fogNum, oldFogNum, entityNum, oldEntityNum, dlighted, oldDlighted, reType, oldReType;
 	Vk_Depth_Range	depthRange;
 	drawSurf_t		*drawSurf;
-	unsigned int	oldSort;
+	sortKey_t		oldSort;
 	float			oldShaderSort, originalTime;
 	CBoneCache		*oldBoneCache = nullptr;
 
@@ -810,7 +810,7 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	oldEntityNum			= -1;
 	backEnd.currentEntity	= &tr.worldEntity;
 	oldShader				= NULL;
-	oldSort					= MAX_UINT;
+	oldSort					= ~(sortKey_t)0;
 	oldShaderSort			= -1;
 	depthRange				= DEPTH_RANGE_NORMAL;
 	oldFogNum				= -1;
@@ -1049,7 +1049,7 @@ static void RB_RenderLitSurfList( dlight_t *dl ) {
 	int				entityNum, oldEntityNum;
 	Vk_Depth_Range	depthRange;
 	const litSurf_t *litSurf;
-	unsigned int	oldSort;
+	sortKey_t		oldSort;
 	double			originalTime; // -EC-
 
 	// save original time for entity shader offsets
@@ -1059,7 +1059,7 @@ static void RB_RenderLitSurfList( dlight_t *dl ) {
 	oldEntityNum			= -1;
 	backEnd.currentEntity	= &tr.worldEntity;
 	oldShader				= NULL;
-	oldSort					= MAX_UINT;
+	oldSort					= ~(sortKey_t)0;
 	depthRange				= DEPTH_RANGE_NORMAL;
 
 	tess.dlightUpdateParams = qtrue;
