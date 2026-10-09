@@ -390,6 +390,10 @@ void RE_RenderWorldEffects( void )
 {
 	drawBufferCommand_t	*cmd;
 
+	if ( !tr.registered ) {
+		return;
+	}
+
 	cmd = (drawBufferCommand_t *)R_GetCommandBuffer( sizeof( *cmd ) );
 	if ( !cmd ) {
 		return;
@@ -400,6 +404,10 @@ void RE_RenderWorldEffects( void )
 void RE_RenderAutoMap( void )
 {
 	drawBufferCommand_t	*cmd;
+
+	if ( !tr.registered ) {
+		return;
+	}
 
 	cmd = (drawBufferCommand_t *)R_GetCommandBuffer( sizeof( *cmd ) );
 	if ( !cmd )
