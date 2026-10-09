@@ -65,8 +65,8 @@ Ordre de gravité dans chaque tableau : crash / bloquant, puis visuel, puis perf
 | 2.6 ✅ | visuel | `tr_shade_calc.cpp:RB_CalcDisintegrateColors` | `RB_CalcDisintegrateColors( colors, rgbGen )` | Le paramètre `rgbGen` a disparu. Avec `CGEN_LIGHTING_DIFFUSE_ENTITY`, vanilla teinte le bord de désintégration par `shaderRGBA`. rd-vulkan ne le fait pas. | confirmé |
 | 2.7 | visuel | `tr_init.cpp:stub_InitDissolve`, `stub_ProcessDissolve` | `RE_InitDissolve`, `RE_ProcessDissolve` | Pas de fondu d'écran en fin de cinématique (`cl_cin.cpp`, `CL_EndScreenDissolve_f`) ni en fin de chargement. | confirmé |
 | 2.8 ✅ | mineur | `tr_surface.cpp:RB_SurfaceBeam` | `RB_SurfaceBeam` | Couleur fixe rouge. Vanilla choisit rouge, vert ou bleu selon `skinNum`. | confirmé |
-| 2.9 | mineur | `tr_main.cpp:R_AddDrawSurf` / `tr_scene.cpp:RE_ClearScene` | idem | `RDF_doLAGoggles`/`RDF_doFullbright` ne sont plus posés ni effacés. Seul le booléen `doLAGoggles` sert. Comme `RE_RenderScene` écrase `rdflags`, l'effet en vanilla est déjà nul. Rien à porter : aucun code de rd-vulkan ne lit ces bits. | confirmé |
-| 2.10 | mineur | `tr_init.cpp` (`tr_distortionPrePost`) | `RB_RenderDrawSurfList` (`tr_stencilled && tr_distortionPrePost`) | La variante « pré/post » de la distorsion n'existe pas. Le cgame SP envoie toujours `qfalse`. | confirmé |
+| 2.9 ❌ | mineur | `tr_main.cpp:R_AddDrawSurf` / `tr_scene.cpp:RE_ClearScene` | idem | `RDF_doLAGoggles`/`RDF_doFullbright` ne sont plus posés ni effacés. Seul le booléen `doLAGoggles` sert. Comme `RE_RenderScene` écrase `rdflags`, l'effet en vanilla est déjà nul. Rien à porter : aucun code de rd-vulkan ne lit ces bits. | confirmé |
+| 2.10 ❌ | mineur | `tr_init.cpp` (`tr_distortionPrePost`) | `RB_RenderDrawSurfList` (`tr_stencilled && tr_distortionPrePost`) | La variante « pré/post » de la distorsion n'existe pas. Le cgame SP envoie toujours `qfalse`. | confirmé |
 | 2.11 ✅ | mineur | `tr_cmds.cpp:RE_StretchPic`, `RE_RotatePic`, `RE_RotatePic2` | idem | Pas de test `tr.registered` avant d'écrire la commande. | confirmé |
 
 ## 3. Brouillard, distance, ciel, météo
