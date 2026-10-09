@@ -425,26 +425,35 @@ int R_MarkFragments( int numPoints, const vec3_t *points, const vec3_t projectio
 			}
 			continue;
 		}
-		else if(*surfaces[i] == SF_TRIANGLES && r_marksOnTriangleMeshes->integer) {
+		else if (*surfaces[i] == SF_TRIANGLES) {
 
 			srfTriangles_t *surf = (srfTriangles_t *) surfaces[i];
 
 			for (k = 0; k < surf->numIndexes; k += 3)
 			{
-				for(j = 0; j < 3; j++)
-				{
-					v = surf->verts[surf->indexes[k + j]].xyz;
-					VectorMA(v, MARKER_OFFSET, surf->verts[surf->indexes[k + j]].normal, clipPoints[0][j]);
-				}
+				const int i1 = surf->indexes[k];
+				const int i2 = surf->indexes[k + 1];
+				const int i3 = surf->indexes[k + 2];
 
-				// add the fragments of this face
-				R_AddMarkFragments(3, clipPoints,
-								   numPlanes, normals, dists,
-								   maxPoints, pointBuffer,
-								   maxFragments, fragmentBuffer, &returnedPoints, &returnedFragments, mins, maxs);
-				if(returnedFragments == maxFragments)
+				// the face normal rejects triangles that face away from the projection
+				VectorSubtract(surf->verts[i1].xyz, surf->verts[i2].xyz, v1);
+				VectorSubtract(surf->verts[i3].xyz, surf->verts[i2].xyz, v2);
+				CrossProduct(v1, v2, normal);
+				VectorNormalizeFast(normal);
+				if (DotProduct(normal, projectionDir) < -0.1)
 				{
-					return returnedFragments;	// not enough space for more fragments
+					VectorMA(surf->verts[i1].xyz, MARKER_OFFSET, normal, clipPoints[0][0]);
+					VectorMA(surf->verts[i2].xyz, MARKER_OFFSET, normal, clipPoints[0][1]);
+					VectorMA(surf->verts[i3].xyz, MARKER_OFFSET, normal, clipPoints[0][2]);
+
+					R_AddMarkFragments(3, clipPoints,
+									   numPlanes, normals, dists,
+									   maxPoints, pointBuffer,
+									   maxFragments, fragmentBuffer, &returnedPoints, &returnedFragments, mins, maxs);
+					if(returnedFragments == maxFragments)
+					{
+						return returnedFragments;	// not enough space for more fragments
+					}
 				}
 			}
 		}
