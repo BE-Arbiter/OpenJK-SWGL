@@ -3073,6 +3073,7 @@ extern void R_BuildMD3( model_t *mod, mdvModel_t *mdvModel );
 #ifdef _G2_GORE
 extern void R_CreateGoreVBO( void );
 extern void R_UpdateGoreVBO( srfG2GoreSurface_t *goreSurface );
+extern void vk_flush_gore_uploads( VkCommandBuffer cmd );
 #endif
 
 extern void VBO_PushData( int itemIndex, shaderCommands_t *input );

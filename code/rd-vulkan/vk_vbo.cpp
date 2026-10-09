@@ -1418,8 +1418,86 @@ void R_BuildMD3( model_t *mod, mdvModel_t *mdvModel )
 #define MAX_GORE_VERTICES	GORE_VERTEX_SIZE / sizeof(g2GoreVert_t)
 #define MAX_GORE_INDIDCES	GORE_INDEX_SIZE / sizeof(glIndex_t)
 
+// Gore uploads wait for the next frame command buffer (vk_flush_gore_uploads).
+// The regions are byte ranges of the staging buffer, copied at the same offset.
+#define MAX_GORE_UPLOADS	256
+
+typedef struct {
+	VkBufferCopy	regions[MAX_GORE_UPLOADS];
+	uint32_t		count;
+} goreUploads_t;
+
+static goreUploads_t	goreVBOUploads;
+static goreUploads_t	goreIBOUploads;
+
+static qboolean R_QueueGoreUpload( goreUploads_t *list, VkDeviceSize offset, VkDeviceSize size )
+{
+	if ( list->count ) {
+		VkBufferCopy *last = &list->regions[list->count - 1];
+
+		// Gore surfaces are put one after the other: extend the last region.
+		if ( last->srcOffset + last->size == offset ) {
+			last->size += size;
+			return qtrue;
+		}
+	}
+
+	if ( list->count >= MAX_GORE_UPLOADS )
+		return qfalse;
+
+	list->regions[list->count].srcOffset = offset;
+	list->regions[list->count].dstOffset = offset;
+	list->regions[list->count].size = size;
+	list->count++;
+
+	return qtrue;
+}
+
+static void vk_record_gore_copies( VkCommandBuffer cmd, VkBuffer src, VkBuffer dst, goreUploads_t *list )
+{
+	VkBufferMemoryBarrier barrier;
+
+	if ( !list->count )
+		return;
+
+	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	barrier.pNext = NULL;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.buffer = dst;
+	barrier.offset = 0;
+	barrier.size = VK_WHOLE_SIZE;
+
+	// Older frames can still read the regions that the ring overwrites.
+	barrier.srcAccessMask = 0;
+	barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	qvkCmdPipelineBarrier( cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 1, &barrier, 0, NULL );
+
+	qvkCmdCopyBuffer( cmd, src, dst, list->count, list->regions );
+
+	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	qvkCmdPipelineBarrier( cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, NULL, 1, &barrier, 0, NULL );
+
+	list->count = 0;
+}
+
+// Records the queued gore copies. Call outside a render pass, before the first draw.
+void vk_flush_gore_uploads( VkCommandBuffer cmd )
+{
+	if ( !tr.goreVBO || !tr.goreIBO ) {
+		goreVBOUploads.count = goreIBOUploads.count = 0;
+		return;
+	}
+
+	vk_record_gore_copies( cmd, tr.goreVBO->staging.buffer, tr.goreVBO->buffer, &goreVBOUploads );
+	vk_record_gore_copies( cmd, tr.goreIBO->staging.buffer, tr.goreIBO->buffer, &goreIBOUploads );
+}
+
 void R_CreateGoreVBO( void )
 {
+	goreVBOUploads.count = goreIBOUploads.count = 0;
+
 	tr.goreVBO = R_CreateDynamicVBO( "Gore VBO", GORE_VERTEX_SIZE );
 
 #if 0
@@ -1511,9 +1589,15 @@ void R_UpdateGoreVBO( srfG2GoreSurface_t *goreSurface )
 	Com_Memcpy((byte *)tr.goreVBO->mapped + vbo_offset, goreSurface->verts, vbo_size);
 	Com_Memcpy((byte *)tr.goreIBO->mapped + ibo_offset, goreSurface->indexes, ibo_size);
 
-	// Upload to GPU
-	R_UpdateDynamicBuffer(tr.goreVBO->buffer, tr.goreVBO->staging.buffer, vbo_offset, vbo_size);
-	R_UpdateDynamicBuffer(tr.goreIBO->buffer, tr.goreIBO->staging.buffer, ibo_offset, ibo_size);
+	// Upload to GPU. Outside a frame, the copy goes into the next frame command buffer.
+	// In a frame, or with a full list, use a separate submit and wait (slow).
+	if ( vk.frame_count
+		|| !R_QueueGoreUpload( &goreVBOUploads, vbo_offset, vbo_size )
+		|| !R_QueueGoreUpload( &goreIBOUploads, ibo_offset, ibo_size ) )
+	{
+		R_UpdateDynamicBuffer(tr.goreVBO->buffer, tr.goreVBO->staging.buffer, vbo_offset, vbo_size);
+		R_UpdateDynamicBuffer(tr.goreIBO->buffer, tr.goreIBO->staging.buffer, ibo_offset, ibo_size);
+	}
 
 	goreSurface->firstVert  = tr.goreVBOCurrentIndex;
 	goreSurface->firstIndex = tr.goreIBOCurrentIndex;

@@ -1796,6 +1796,11 @@ _retry:
 
     VK_CHECK( qvkBeginCommandBuffer( vk.cmd->command_buffer, &begin_info ) );
 
+#ifdef _G2_GORE
+	// the gore marks added since the last frame, before the first render pass
+	vk_flush_gore_uploads( vk.cmd->command_buffer );
+#endif
+
 	if ( vk.swapchain_images_inited[ vk.cmd->swapchain_image_index ] == qfalse ) {
 		// perform initial swapchain image layout transition
 		vk.swapchain_images_inited[ vk.cmd->swapchain_image_index ] = qtrue;
