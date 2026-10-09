@@ -1661,9 +1661,9 @@ static void R_GenerateDrawSurfs( void ) {
 	{
 		tr.shiftedEntityNum = (sortKey_t)REFENTITYNUM_WORLD << QSORT_REFENTITYNUM_SHIFT;
 
-		srfSprites_t *ss = (srfSprites_t*)Hunk_Alloc(sizeof(srfSprites_t), h_low);
-		ss->surfaceType = SF_SPRITES;
-		R_AddDrawSurf( (surfaceType_t *)ss, tr.shadowShader, 0, 0 );
+		// The surface is only a marker. The backend never writes it.
+		static srfSprites_t ss = { SF_SPRITES };
+		R_AddDrawSurf( (surfaceType_t *)&ss, tr.shadowShader, 0, 0 );
 
 		tr.shiftedEntityNum = (sortKey_t)tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
 	}
