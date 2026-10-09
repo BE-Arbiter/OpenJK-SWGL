@@ -6690,6 +6690,8 @@ void CG_CheckSaberInWater( centity_t *cent, centity_t *scent, int saberNum, int 
 	client->ps.saberEventFlags &= ~SEF_INWATER;
 }
 
+#define MAX_SABER_TRAIL_STEP	1024.0f	// max move of a saber trail point in one frame
+
 static void CG_AddSaberBladeGo( centity_t *cent, centity_t *scent, refEntity_t *saber, int renderfx, int modelIndex, vec3_t origin, vec3_t angles, int saberNum, int bladeNum )
 {
 	vec3_t	org_, end,//org_future,
@@ -7518,6 +7520,17 @@ else
 		dirlen0 = VectorLength(dir0);
 		dirlen1 = VectorLength(dir1);
 		dirlen2 = VectorLength(dir2);
+
+		// A jump of more than MAX_SABER_TRAIL_STEP in one frame (teleport, bad old point)
+		// made a glow millions of units long: start the trail again here.
+		// The comparisons are false for NaN.
+		if ( !( dirlen0 < MAX_SABER_TRAIL_STEP ) || !( dirlen1 < MAX_SABER_TRAIL_STEP ) || !( dirlen2 < MAX_SABER_TRAIL_STEP ) )
+		{
+			VectorCopy( saberTrail->tip, saberTrail->dualtip );
+			VectorCopy( saberTrail->base, saberTrail->dualbase );
+			saberTrail->lastTime = cg.time;
+			return;
+		}
 
 		if ( saberMoveData[client->ps.saberMove].trailLength == 0 )
 		{
