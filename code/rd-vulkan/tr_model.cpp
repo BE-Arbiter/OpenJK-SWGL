@@ -1277,11 +1277,7 @@ extern void R_ClearShaderHunkState( void );
 // Resets every renderer pointer into the hunk. Hunk_Clear frees the hunk without notice.
 void RE_HunkClearCrap( void )
 {
-	R_ClearShaderHunkState();
-	CModelCache->DeleteAll();
-
 	memset( tr.models, 0, sizeof( tr.models ) );
-	tr.numModels = 0;
 	memset( tr.shaders, 0, sizeof( tr.shaders ) );
 	memset( tr.sortedShaders, 0, sizeof( tr.sortedShaders ) );
 	tr.numShaders = 0;
@@ -1321,6 +1317,11 @@ void RE_HunkClearCrap( void )
 #endif
 
 	backEndData = NULL;
+
+	// Server model and skin loads run before R_Init and need a valid empty state.
+	R_ClearShaderHunkState();
+	R_ModelInit();
+	R_InitSkins();
 }
 
 

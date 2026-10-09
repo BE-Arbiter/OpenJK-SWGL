@@ -143,12 +143,23 @@ void KillTheShaderHashTable( void )
 	memset(shaderTextHashTable, 0, sizeof(shaderTextHashTable));
 }
 
+static qboolean s_shadersReady;
+static shader_t s_stubShader;
+
 // Drops every shader pointer into the hunk. Called after Hunk_Clear.
+// Leaves one static default shader so server model loads work until R_InitShaders.
 void R_ClearShaderHunkState( void )
 {
 	KillTheShaderHashTable();
 	memset(hashTable, 0, sizeof(hashTable));
 	s_shaderText = NULL;
+	s_shadersReady = qfalse;
+
+	memset(&s_stubShader, 0, sizeof(s_stubShader));
+	Q_strncpyz(s_stubShader.name, "<default>", sizeof(s_stubShader.name));
+	s_stubShader.defaultShader = qtrue;
+	tr.defaultShader = tr.shaders[0] = tr.sortedShaders[0] = &s_stubShader;
+	tr.numShaders = 1;
 }
 
 /*
@@ -3306,7 +3317,7 @@ shader_t *R_FindShader( const char *name, const int *lightmapIndex, const byte *
 	image_t		*image;
 	shader_t	*sh;
 	
-	if (name[0] == '\0') {
+	if (name[0] == '\0' || !s_shadersReady) {
 		return tr.defaultShader;
 	}
 
@@ -3420,7 +3431,7 @@ shader_t *R_FindServerShader( const char *name, const int *lightmapIndex, const 
 
 	vk_debug("find server shader \n");
 
-	if (name[0] == 0) {
+	if (name[0] == 0 || !s_shadersReady) {
 		return tr.defaultShader;
 	}
 
@@ -4976,7 +4987,7 @@ sortedIndex.
 */
 extern bool gServerSkinHack;
 static void FixRenderCommandList( int newShader ) {
-	if ( gServerSkinHack )
+	if ( gServerSkinHack || !backEndData )
 		return;
 
 	renderCommandList_t *cmdList = &backEndData->commands;
@@ -5368,6 +5379,7 @@ void R_InitShaders( qboolean server )
 	vk_debug("Initializing Shaders\n");
 
 	memset(hashTable, 0, sizeof(hashTable));
+	s_shadersReady = qtrue;
 
 	if ( !server )
 	{
