@@ -1663,7 +1663,7 @@ static void R_GenerateDrawSurfs( void ) {
 
 		// The surface is only a marker. The backend never writes it.
 		static srfSprites_t ss = { SF_SPRITES };
-		R_AddDrawSurf( (surfaceType_t *)&ss, tr.shadowShader, 0, 0 );
+		R_AddDrawSurf( (surfaceType_t *)&ss, tr.shadowShader, 0, 0, 0 );
 
 		tr.shiftedEntityNum = (sortKey_t)tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
 	}
