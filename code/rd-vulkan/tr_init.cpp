@@ -1468,13 +1468,28 @@ extern qboolean R_InitializeWireframeAutomap( void ); //tr_world.cpp
 
 extern qhandle_t RE_RegisterServerSkin( const char *name );
 
+// Cached animation.cfg text. It lives in the zone, so Hunk_Clear does not free it.
+static std::map<std::string, char *> s_animationCFGs;
+
+static void RE_AnimationCFGs_DeleteAll( void )
+{
+	for ( std::map<std::string, char *>::iterator it = s_animationCFGs.begin(); it != s_animationCFGs.end(); ++it )
+	{
+		ri.Z_Free( it->second );
+	}
+	s_animationCFGs.clear();
+}
+
 void C_LevelLoadBegin(const char *psMapName, ForceReload_e eForceReload)
 {
 	static char sPrevMapName[MAX_QPATH]={0};
 	bool bDeleteModels = eForceReload == eForceReload_MODELS || eForceReload == eForceReload_ALL;
 
 	if( bDeleteModels )
+	{
 		CModelCache->DeleteAll();
+		RE_AnimationCFGs_DeleteAll();
+	}
 	else if( ri.Cvar_VariableIntegerValue( "sv_pure" ) )
 		CModelCache->DumpNonPure();
 
@@ -1556,7 +1571,6 @@ static void R_ClearStuffToStopGhoul2CrashingThings( void )
 // G_ParseAnimationFile() depends on this to populate animation frame data;
 // previously stubbed to always return 0, which silently made every
 // animation register with numFrames==0 (T-pose, no bone anim ever applied).
-static std::map<std::string, char *> s_animationCFGs;
 static int RE_GetAnimationCFG( const char *psCFGFilename, char *psDest, int iDestSize )
 {
 	char *psText = NULL;
