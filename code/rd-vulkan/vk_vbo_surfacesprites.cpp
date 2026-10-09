@@ -241,9 +241,6 @@ static qboolean vk_create_surface_sprites_ssbo( const world_t &worldData, const 
 			if ( !stage->ss || stage->ss->type == SURFSPRITE_NONE )
 				continue;
 
-			if ( j > 0 && (stage->stateBits & GLS_DEPTHFUNC_EQUAL) )
-				continue;
-
 			SurfaceSpriteBlock block = {};
 			surfaceSprite_t *ss = stage->ss;
 
@@ -654,10 +651,7 @@ static void vk_estimate_surface_sprite_count( const world_t &worldData, uint32_t
 			if ( !stage->ss || stage->ss->type == SURFSPRITE_NONE )
 				continue;
 
-			if ( j > 0 && (stage->stateBits & GLS_DEPTHFUNC_EQUAL) )
-				continue;
-
-			density = vk_adjust_surface_sprites_stage_for_weather( stage->ss->type, stage->ss->density );
+			density =vk_adjust_surface_sprites_stage_for_weather( stage->ss->type, stage->ss->density );
 
 			if ( density == 0.0f )
 				continue;
@@ -704,7 +698,7 @@ static spriteStage_t* vk_build_surface_sprite_stage( const int index, msurface_t
 	for ( i = 0; bundle->image[i]; ++i )
 		hash = UpdateHash( bundle->image[i++]->imgName, hash ); // ~sunny, i++ twice?
 
-	sprite_stage->shader = R_CreateShaderFromTextureBundle( va("*ss_%d_%08x\n", index, hash), bundle, stage->stateBits );
+	sprite_stage->shader = R_CreateShaderFromTextureBundle( va("*ss_%d_%08x_%x\n", index, hash, (unsigned)stage->stateBits), bundle, stage->stateBits );
 	sprite_stage->shader->cullType = shader->cullType;
 	sprite_stage->shader->sort = SS_BANNER;
 
@@ -816,12 +810,6 @@ void R_BuildSurfaceSpritesVBO( const world_t &worldData, int index )
 
 			if ( !stage->ss || stage->ss->type == SURFSPRITE_NONE )
 				continue;
-
-			if ( j > 0 && (stage->stateBits & GLS_DEPTHFUNC_EQUAL) )
-			{
-				ri.Printf(PRINT_WARNING, "depthFunc equal is not supported on surface sprites in rend2/vulkan. Skipping stage\n");
-				continue;
-			}
 
 			density = vk_adjust_surface_sprites_stage_for_weather( stage->ss->type, stage->ss->density );
 
