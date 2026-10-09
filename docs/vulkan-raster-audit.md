@@ -47,6 +47,8 @@ Légende : ✅ fait, ❌ sans objet ou non prévu, ⏳ plus tard.
 | 5.4 ✅ | `r_lodscale` vaut 10 par défaut. La cvar est archivée : une valeur déjà sauvée (5) reste en place tant que l'utilisateur ne la remet pas à 10. | `ce28ddf05` |
 | 5.5 ✅ | Le test `Cvar_VariableIntegerValue("dedicated")` est supprimé de `G2_TransformGhoulBones` : vanilla n'en a pas, et ce renderer ne tourne jamais en dédié. | `a3ba70b27` |
 | 5.6 ✅ | `r_noghoul2` (`CVAR_CHEAT`) existe et coupe `R_AddGhoulSurfaces`, `RB_TransformBones` et la passe RTX. `r_noserverghoul2` reste active. | `2cf4c4df0` |
+| 6.1 ✅ | `ParseShader` saute `hitLocation` et `hitMaterial` avec leur argument, comme vanilla. | `40d96110c` |
+| 6.2 ✅ | Les étages de surface sprites en `depthFunc equal` sont créés et dessinés avec leur état, comme vanilla. Le nom du shader d'étage inclut les `stateBits`. | `79be86c4f` |
 
 Les points 2.2 à 2.11 de cette liste sont validés à la compilation (Debug et Release) et par lecture comparée avec `rd-vanilla`. Ils n’ont pas été testés en jeu.
 
@@ -124,10 +126,10 @@ Ordre de gravité dans chaque tableau : crash / bloquant, puis visuel, puis perf
 
 | # | Gravité | Fichier:fonction (rd-vulkan) | Équivalent vanilla | Manquement | Confiance | Raison (non fait / reporté) |
 |---|---|---|---|---|---|---|
-| 6.1 | visuel | `tr_shader.cpp:ParseShader` | `ParseShader` (`hitLocation`, `hitMaterial`) | Les deux mots-clés ne sont pas parsés. Le parseur rend `qfalse` et le shader entier devient le shader par défaut. Vanilla saute le mot-clé et son argument. L'impact dépend des `.shader` livrés. | probable | — |
-| 6.2 | visuel | `vk_vbo_surfacesprites.cpp` (création des groupes) | `tr_surfacesprites.cpp:RB_DrawSurfaceSprites` | Les étages de surface sprites avec `depthFunc equal` (hors étage 0) sont ignorés, avec un avertissement. Vanilla les dessine. Herbe absente sur ces shaders. | probable | — |
-| 6.3 | mineur | `tr_bsp.cpp:R_LoadEntities` | bloc commenté dans vanilla | `R_RemapShader(value, s, "0")` passe le mot-clé (`s`) au lieu du shader cible (`vs`). `remapshader` et `vertexremapshader` du worldspawn ne font rien. Vanilla SP ne les gère pas non plus. | confirmé | — |
-| 6.4 | mineur | `tr_terrain.cpp` | — | Fichier MP non compilé (absent de `CMakeLists.txt`). Il contient des `tess.texCoords[numVertexes][0]` transposés. Code mort à supprimer ou à corriger avant réactivation. | confirmé | — |
+| 6.1 ✅ | visuel | `tr_shader.cpp:ParseShader` | `ParseShader` (`hitLocation`, `hitMaterial`) | Les deux mots-clés ne sont pas parsés. Le parseur rend `qfalse` et le shader entier devient le shader par défaut. Vanilla saute le mot-clé et son argument. L'impact dépend des `.shader` livrés. | probable | — |
+| 6.2 ✅ | visuel | `vk_vbo_surfacesprites.cpp` (création des groupes) | `tr_surfacesprites.cpp:RB_DrawSurfaceSprites` | Les étages de surface sprites avec `depthFunc equal` (hors étage 0) sont ignorés, avec un avertissement. Vanilla les dessine. Herbe absente sur ces shaders. | probable | — |
+| 6.3 ❌ | mineur | `tr_bsp.cpp:R_LoadEntities` | bloc commenté dans vanilla | `R_RemapShader(value, s, "0")` passe le mot-clé (`s`) au lieu du shader cible (`vs`). `remapshader` et `vertexremapshader` du worldspawn ne font rien. Vanilla SP ne les gère pas non plus. | confirmé | Vanilla SP a désactivé ces remaps ; l'appel actuel est sans effet et le corriger activerait un comportement absent de vanilla. |
+| 6.4 ❌ | mineur | `tr_terrain.cpp` | — | Fichier MP non compilé (absent de `CMakeLists.txt`). Il contient des `tess.texCoords[numVertexes][0]` transposés. Code mort à supprimer ou à corriger avant réactivation. | confirmé | Fichier non compilé et sans équivalent dans rd-vanilla : le SP n'en a pas besoin. |
 
 ---
 
