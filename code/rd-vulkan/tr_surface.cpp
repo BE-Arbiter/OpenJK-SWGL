@@ -573,10 +573,18 @@ static void RB_SurfaceBeam(void)
 
 	vk_bind(tr.whiteImage);
 
+	// skinNum selects the colour: 0 red, 1 green, 2 blue
+	byte beamRGB[3] = { 255, 0, 0 };
+	if (e->skinNum == 1) {
+		beamRGB[0] = 0; beamRGB[1] = 255; beamRGB[2] = 0;
+	} else if (e->skinNum == 2) {
+		beamRGB[0] = 128; beamRGB[1] = 128; beamRGB[2] = 255;
+	}
+
 	for (i = 0; i < (NUM_BEAM_SEGS + 1) * 2; i++) {
-		tess.svars.colors[0][i][0] = 255;
-		tess.svars.colors[0][i][1] = 0;
-		tess.svars.colors[0][i][2] = 0;
+		tess.svars.colors[0][i][0] = beamRGB[0];
+		tess.svars.colors[0][i][1] = beamRGB[1];
+		tess.svars.colors[0][i][2] = beamRGB[2];
 		tess.svars.colors[0][i][3] = 255;
 	}
 
