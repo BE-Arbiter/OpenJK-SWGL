@@ -52,6 +52,8 @@ Légende : ✅ fait, ❌ sans objet ou non prévu, ⏳ plus tard.
 | Revue M2 ✅ | `CullPoints` teste les quatre plans latéraux seulement : les coins de la boîte de ciel dépassent le plan lointain. | `f86a766ec` |
 | Revue m1 ✅ | `RE_RenderWorldEffects` et `RE_RenderAutoMap` testent `tr.registered`, comme vanilla. | `21c2438b4` |
 | Revue m2 ✅ | Le quad orienté RTX dérive ses axes de la normale (`axis[0]`), comme le raster. | `03a6cea81` |
+| Feuilles noires yavin_swamp (G-buffer) ✅ | `RB_RenderGBufferSurfList` saute les stages surface sprite et s'arrête sur un stage opaque qui écrit la profondeur ; `FindLightingStage` saute aussi les stages `ss`. | `c7e279598`, `d495b7f4e` |
+| Normales faces arrière G-buffer ⏳ | Exige de modifier les shaders `gbuffer*.frag` (`gl_FrontFacing`) et de régénérer le SPIR-V. | — |
 
 Les points 2.2 à 2.11 de cette liste sont validés à la compilation (Debug et Release) et par lecture comparée avec `rd-vanilla`. Ils n’ont pas été testés en jeu.
 
