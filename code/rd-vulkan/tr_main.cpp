@@ -76,7 +76,7 @@ int R_CullLocalBox( const vec3_t bounds[2] ) {
 
 	// check against frustum planes
 	anyBack = 0;
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 5; i++) {
 		frust = &tr.viewParms.frustum[i];
 
 		front = back = 0;
@@ -133,7 +133,7 @@ int R_CullPointAndRadius( const vec3_t pt, float radius )
 	}
 
 	// check against frustum planes
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < 5; i++)
 	{
 		frust = &tr.viewParms.frustum[i];
 
@@ -552,10 +552,13 @@ static void R_SetupFrustum( viewParms_t *dest, const float xmin, const float xma
 		SetPlaneSignbits(&dest->frustum[i]);
 	}
 
-	// near clipping plane
-	VectorCopy(dest->ori.axis[0], dest->frustum[4].normal);
+	// far plane at the cull distance, with a little slack so nothing pops
+	// Views without a world (menus, icons) have no cull distance.
+	const float farDist = ( !tr.world || ( tr.refdef.rdflags & RDF_NOWORLDMODEL ) ) ? 1.0e8f : tr.distanceCull * 1.02f;
+
+	VectorScale(dest->ori.axis[0], -1.0f, dest->frustum[4].normal);
 	dest->frustum[4].type = PLANE_NON_AXIAL;
-	dest->frustum[4].dist = DotProduct(ofsorigin, dest->frustum[4].normal) + r_znear->value;
+	dest->frustum[4].dist = DotProduct(ofsorigin, dest->frustum[4].normal) - farDist;
 	SetPlaneSignbits(&dest->frustum[4]);
 }
 

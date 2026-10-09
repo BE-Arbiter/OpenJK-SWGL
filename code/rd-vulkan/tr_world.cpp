@@ -1214,6 +1214,16 @@ static void R_RecursiveWorldNode( mnode_t *node, int planeBits, int dlightBits )
 				}
 			}
 
+			if ( planeBits & 16 ) {
+				r = BoxOnPlaneSide(node->mins, node->maxs, &tr.viewParms.frustum[4]);
+				if (r == 2) {
+					return;						// culled
+				}
+				if ( r == 1 ) {
+					planeBits &= ~16;			// all descendants will also be in front
+				}
+			}
+
 		}
 
 		if ( node->contents != -1 ) {
@@ -1454,7 +1464,7 @@ void R_AddWorldSurfaces ( void ) {
 		tr.refdef.num_dlights = 32 ;
 	}
 
-	R_RecursiveWorldNode( tr.world->nodes, 15, ( 1 << tr.refdef.num_dlights ) - 1 );
+	R_RecursiveWorldNode( tr.world->nodes, 31, ( 1 << tr.refdef.num_dlights ) - 1 );
 
 #ifdef USE_PMLIGHT
 	// "transform" all the dlights so that dl->transformed is actually populated
