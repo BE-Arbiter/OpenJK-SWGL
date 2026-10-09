@@ -2812,7 +2812,9 @@ void RB_StageIteratorGeneric( void )
 			}
 #endif
 
-			pipeline = vk_find_pipeline_ext( 0, &def, qfalse );
+			// Most draws do not change the stage def: keep the stage pipeline then.
+			if ( pipeline >= vk.pipelines_count || memcmp( &def, &vk.pipelines[pipeline].def, sizeof(def) ) != 0 )
+				pipeline = vk_find_pipeline_ext( 0, &def, qfalse );
 		}
 	
 		
