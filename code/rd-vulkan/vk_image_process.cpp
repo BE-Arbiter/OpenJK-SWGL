@@ -54,6 +54,13 @@ void R_SetColorMappings( void)
 		}
 	}
 
+#ifdef USE_RTX
+	// The raster draws at identityLight and the gamma pass scales it back up by the
+	// overbright. The tracer's image is at full level, so that scale would double it.
+	if ( vk.rtxActive )
+		tr.overbrightBits = 0;
+#endif
+
     // clear
     for (i = 0; i < 255; i++)
     {

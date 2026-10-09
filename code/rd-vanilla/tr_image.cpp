@@ -40,11 +40,21 @@ int		gl_filter_max = GL_LINEAR;
 #define FILE_HASH_SIZE		1024	// actually, the shader code needs this (from another module, great).
 //static	image_t*		hashTable[FILE_HASH_SIZE];
 
+// The table WIN_SetGamma gets: gamma, then overbright.
+const unsigned char *R_GetGammaTable( void ) {
+	return s_gammatable;
+}
+
 /*
 ** R_GammaCorrect
 */
 void R_GammaCorrect( byte *buffer, int bufSize ) {
 	int i;
+
+	// The frame already went through the table (RB_ApplySoftwareGamma).
+	if ( ri.WIN_GammaInSoftware && ri.WIN_GammaInSoftware() ) {
+		return;
+	}
 
 	for ( i = 0; i < bufSize; i++ ) {
 		buffer[i] = s_gammatable[buffer[i]];

@@ -107,7 +107,7 @@ void R_AddPolygonSurfaces( void ) {
 	const srfPoly_t	*poly;
 
 	tr.currentEntityNum = REFENTITYNUM_WORLD;
-	tr.shiftedEntityNum = tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
+	tr.shiftedEntityNum = (sortKey_t)tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
 
 	for ( i = 0, poly = tr.refdef.polys; i < tr.refdef.numPolys ; i++, poly++ ) {
 		sh = R_GetShaderByHandle( poly->hShader );
@@ -328,6 +328,12 @@ static void RE_AddDynamicLightToScene( const vec3_t org, float intensity, float 
 	dl->color[2] = b;
 	dl->additive = additive;
 	dl->linear = qfalse;
+#ifdef USE_RTX
+	// The tracer switches on this. Upstream's gamecode sets it; SP's never does, and
+	// backEndData->dlights[] is never cleared, so it would hold whatever the slot held
+	// last frame - a stale spot light with stale cone data.
+	dl->light_type = DLIGHT_SPHERE;
+#endif
 }
 
 /*
@@ -376,6 +382,11 @@ void RE_AddLinearLightToScene( const vec3_t start, const vec3_t end, float inten
 	dl->color[2] = b;
 	dl->additive = 0;
 	dl->linear = qtrue;
+#ifdef USE_RTX
+	// The tracer has no linear/capsule light; a sphere at the start point is the closest
+	// it can do, and it is still better than the stale type this would otherwise carry.
+	dl->light_type = DLIGHT_SPHERE;
+#endif
 }
 
 /*
@@ -411,6 +422,106 @@ to handle mirrors,
 */
 void RE_RenderWorldEffects( void );
 void RE_RenderAutoMap( void );
+#ifdef VK_CUBEMAP
+/*
+=====================
+R_RenderCubemaps
+
+The six faces of up to CUBEMAPS_PER_FRAME probes, before the first world scene of the
+frame. The views hold the world only: no entity, dlight or poly of the scene.
+The axes make the capture agree with the direction ( x, -y, z ) that pbr.glsl samples.
+=====================
+*/
+void R_RenderCubemaps( void )
+{
+	static const float faceAxis[6][3][3] = {
+		{ {  1,  0,  0 }, {  0,  0,  1 }, {  0, -1,  0 } },
+		{ { -1,  0,  0 }, {  0,  0, -1 }, {  0, -1,  0 } },
+		{ {  0, -1,  0 }, { -1,  0,  0 }, {  0,  0, -1 } },
+		{ {  0,  1,  0 }, { -1,  0,  0 }, {  0,  0,  1 } },
+		{ {  0,  0,  1 }, { -1,  0,  0 }, {  0, -1,  0 } },
+		{ {  0,  0, -1 }, {  1,  0,  0 }, {  0, -1,  0 } },
+	};
+	viewParms_t parms;
+	int i, face, last;
+
+	if ( !vk.cubemapActive || !tr.world || tr.numCubemapsCaptured >= tr.numCubemaps )
+		return;
+
+	last = MIN( tr.numCubemaps, tr.numCubemapsCaptured + CUBEMAPS_PER_FRAME );
+
+	tr.refdef.x = tr.refdef.y = 0;
+	tr.refdef.width = tr.refdef.height = REF_CUBEMAP_SIZE;
+	tr.refdef.fov_x = tr.refdef.fov_y = 90.0f;
+	tr.refdef.rdflags = 0;
+	tr.refdef.needScreenMap = qfalse;
+	tr.refdef.switchRenderPass = qfalse;
+
+	// all areas: the probe is not in the area of the player
+	Com_Memset( tr.refdef.areamask, 0, sizeof( tr.refdef.areamask ) );
+	tr.refdef.areamaskModified = qtrue;
+
+	tr.refdef.numDrawSurfs = r_firstSceneDrawSurf;
+	tr.refdef.drawSurfs = backEndData->drawSurfs;
+#ifdef USE_PMLIGHT
+	tr.refdef.numLitSurfs = r_firstSceneLitSurf;
+	tr.refdef.litSurfs = backEndData->litSurfs;
+#endif
+	tr.refdef.num_entities = 0;
+	tr.refdef.entities = &backEndData->entities[r_firstSceneEntity];
+	tr.refdef.num_dlights = 0;
+	tr.refdef.dlights = &backEndData->dlights[r_firstSceneDlight];
+	tr.refdef.numPolys = 0;
+	tr.refdef.polys = &backEndData->polys[r_firstScenePoly];
+
+	tr.frameSceneNum++;
+	tr.sceneCount++;
+
+	for ( i = tr.numCubemapsCaptured; i < last; i++ )
+	{
+		for ( face = 0; face < 6; face++ )
+		{
+			VectorCopy( tr.cubemaps[i].origin, tr.refdef.vieworg );
+			VectorCopy( faceAxis[face][0], tr.refdef.viewaxis[0] );
+			VectorCopy( faceAxis[face][1], tr.refdef.viewaxis[1] );
+			VectorCopy( faceAxis[face][2], tr.refdef.viewaxis[2] );
+
+			Com_Memset( &parms, 0, sizeof( parms ) );
+			parms.viewportWidth = parms.viewportHeight = REF_CUBEMAP_SIZE;
+			parms.scissorWidth = parms.scissorHeight = REF_CUBEMAP_SIZE;
+			parms.portalView = PV_NONE;
+#ifdef USE_PMLIGHT
+			parms.dlights = tr.refdef.dlights;
+			parms.num_dlights = 0;
+#endif
+			parms.zNear = r_znear->value;
+			parms.fovX = parms.fovY = 90.0f;
+
+			VectorCopy( tr.refdef.vieworg, parms.ori.origin );
+			VectorCopy( tr.refdef.viewaxis[0], parms.ori.axis[0] );
+			VectorCopy( tr.refdef.viewaxis[1], parms.ori.axis[1] );
+			VectorCopy( tr.refdef.viewaxis[2], parms.ori.axis[2] );
+			VectorCopy( tr.refdef.vieworg, parms.pvsOrigin );
+
+			parms.targetCube = i + 1;
+			parms.targetCubeFace = face;
+
+			R_RenderView( &parms );
+		}
+
+		R_AddConvolveCubemapCmd( i );
+	}
+
+	tr.numCubemapsCaptured = last;
+
+	// the scene of the frame goes after the captures
+	r_firstSceneDrawSurf = tr.refdef.numDrawSurfs;
+#ifdef USE_PMLIGHT
+	r_firstSceneLitSurf = tr.refdef.numLitSurfs;
+#endif
+}
+#endif
+
 void RE_RenderScene( const refdef_t *fd ) {
 	renderCommand_t	lastRenderCommand;
 	viewParms_t		parms;
@@ -430,6 +541,11 @@ void RE_RenderScene( const refdef_t *fd ) {
 	if (!tr.world && !(fd->rdflags & RDF_NOWORLDMODEL)) {
 		Com_Error(ERR_DROP, "R_RenderScene: NULL worldmodel");
 	}
+
+#ifdef VK_CUBEMAP
+	if ( !( fd->rdflags & ( RDF_NOWORLDMODEL | RDF_SKYBOXPORTAL ) ) )
+		R_RenderCubemaps();
+#endif
 
 	memcpy(tr.refdef.text, fd->text, sizeof(tr.refdef.text));
 

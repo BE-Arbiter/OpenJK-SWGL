@@ -191,6 +191,26 @@ void	R_AddDrawSurfCmd( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	}
 }
 
+#ifdef VK_CUBEMAP
+/*
+=============
+R_AddConvolveCubemapCmd
+
+The prefilter of a probe, after the six views of its capture.
+=============
+*/
+void R_AddConvolveCubemapCmd( int cubemapIndex ) {
+	convolveCubemapCommand_t *cmd;
+
+	cmd = (convolveCubemapCommand_t *)R_GetCommandBuffer( sizeof( *cmd ) );
+	if ( !cmd ) {
+		return;
+	}
+	cmd->commandId = RC_CONVOLVECUBEMAP;
+	cmd->cubemapIndex = cubemapIndex;
+}
+#endif
+
 /*
 =============
 RE_SetColor
@@ -290,6 +310,7 @@ void RE_RotatePic ( float x, float y, float w, float h,
 	cmd->s2 = s2;
 	cmd->t2 = t2;
 	cmd->a = a;
+	cmd->ratio = aspectCorrection;
 }
 
 /*
@@ -317,6 +338,7 @@ void RE_RotatePic2 ( float x, float y, float w, float h,
 	cmd->s2 = s2;
 	cmd->t2 = t2;
 	cmd->a = a;
+	cmd->ratio = aspectCorrection;
 }
 
 /*
@@ -440,6 +462,10 @@ void RE_BeginFrame( stereoFrame_t stereoFrame ) {
 		r_surfaceSprites->modified = qfalse;
 	}
 
+#ifdef USE_RTX
+	vk_rtx_cvar_handler();
+#endif
+
 	//
 	// draw buffer stuff
 	//
@@ -475,7 +501,9 @@ void RE_EndFrame( int *frontEndMsec, int *backEndMsec ) {
 	if ( !tr.registered ) {
 		return;
 	}
-	cmd = (swapBuffersCommand_t *) R_GetCommandBuffer( sizeof( *cmd ) );
+	// Use the space that R_GetCommandBuffer keeps for this command. Without it, a full
+	// buffer stops every later frame: R_InitNextFrame never runs again.
+	cmd = (swapBuffersCommand_t *) R_GetCommandBufferReserved( sizeof( *cmd ), 0 );
 	if ( !cmd ) {
 		return;
 	}

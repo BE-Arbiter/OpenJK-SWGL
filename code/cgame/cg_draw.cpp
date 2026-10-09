@@ -4119,6 +4119,12 @@ static void CG_Draw2D( void )
 		return;
 	}
 
+	// The free camera (tfc) draws the map and the entities only. A cutscene keeps its captions.
+	if ( CG_FreeCam_Active() && !in_camera )
+	{
+		return;
+	}
+
 	if ( cg.snap->ps.pm_type == PM_INTERMISSION )
 	{
 		CG_DrawIntermission();
@@ -4166,6 +4172,11 @@ static void CG_Draw2D( void )
 
 		// allowing center print when in camera mode, probably just an alpha thing - dmv
 		CG_DrawCenterString();
+		return;
+	}
+
+	if ( CG_LightEdit_Draw2D() )
+	{
 		return;
 	}
 

@@ -1173,6 +1173,9 @@ qboolean SG_GameAllowedToSaveHere(qboolean inCamera)
 
 qboolean SG_WriteSavegame(const char *psPathlessBaseName, qboolean qbAutosave)
 {
+	// save a complete game frame
+	SV_FinishSlicedFrame();
+
 	if (!qbAutosave && !SG_GameAllowedToSaveHere(qfalse))	//full check
 		return qfalse;	// this prevents people saving via quick-save now during cinematics
 

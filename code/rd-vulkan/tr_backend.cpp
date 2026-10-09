@@ -774,7 +774,7 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	int				i, fogNum, oldFogNum, entityNum, oldEntityNum, dlighted, oldDlighted, reType, oldReType;
 	Vk_Depth_Range	depthRange;
 	drawSurf_t		*drawSurf;
-	unsigned int	oldSort;
+	sortKey_t		oldSort;
 	float			oldShaderSort, originalTime;
 	CBoneCache		*oldBoneCache = nullptr;
 
@@ -787,7 +787,13 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 							&& !backEnd.isGlowPass
 							&& !backEnd.refractionFill
 							&& backEnd.viewParms.portalView == PV_NONE
+#ifdef VK_CUBEMAP
+							&& !backEnd.viewParms.targetCube
+#endif
 							&& !( backEnd.refdef.rdflags & RDF_NOWORLDMODEL ) );
+#ifdef VK_CUBEMAP
+	int				oldCubemapIndex = -1;
+#endif
 
 #ifdef USE_VANILLA_SHADOWFINISH
 	qboolean		didShadowPass = qfalse;
@@ -804,7 +810,7 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	oldEntityNum			= -1;
 	backEnd.currentEntity	= &tr.worldEntity;
 	oldShader				= NULL;
-	oldSort					= MAX_UINT;
+	oldSort					= ~(sortKey_t)0;
 	oldShaderSort			= -1;
 	depthRange				= DEPTH_RANGE_NORMAL;
 	oldFogNum				= -1;
@@ -847,7 +853,11 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 			}
 		}
 
-		if (drawSurf->sort == oldSort && backEnd.refractionFill == shader->useDistortion ) {
+		if (drawSurf->sort == oldSort && backEnd.refractionFill == shader->useDistortion
+#ifdef VK_CUBEMAP
+			&& drawSurf->cubemapIndex == oldCubemapIndex
+#endif
+			) {
 			// fast path, same as previous sort
 			rb_surfaceTable[*drawSurf->surface](drawSurf->surface);
 			continue;
@@ -866,6 +876,9 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 
 		//if (((oldSort ^ drawSurf->sort) & ~QSORT_REFENTITYNUM_MASK) || !shader->entityMergable) {
 		if ( shader != oldShader || fogNum != oldFogNum || dlighted != oldDlighted
+#ifdef VK_CUBEMAP
+			|| drawSurf->cubemapIndex != oldCubemapIndex
+#endif
 			|| ( entityNum != oldEntityNum && ( !tess.entityMergable || reType != oldReType ) ) )
 		{
 			//if (oldShader != NULL) {
@@ -904,6 +917,10 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 			oldFogNum = fogNum;
 			oldDlighted = dlighted;
 			oldReType = reType;
+#ifdef VK_CUBEMAP
+			tess.cubemapIndex = drawSurf->cubemapIndex;
+			oldCubemapIndex = drawSurf->cubemapIndex;
+#endif
 
 			push_constant = qtrue;
 		}
@@ -1032,7 +1049,7 @@ static void RB_RenderLitSurfList( dlight_t *dl ) {
 	int				entityNum, oldEntityNum;
 	Vk_Depth_Range	depthRange;
 	const litSurf_t *litSurf;
-	unsigned int	oldSort;
+	sortKey_t		oldSort;
 	double			originalTime; // -EC-
 
 	// save original time for entity shader offsets
@@ -1042,7 +1059,7 @@ static void RB_RenderLitSurfList( dlight_t *dl ) {
 	oldEntityNum			= -1;
 	backEnd.currentEntity	= &tr.worldEntity;
 	oldShader				= NULL;
-	oldSort					= MAX_UINT;
+	oldSort					= ~(sortKey_t)0;
 	depthRange				= DEPTH_RANGE_NORMAL;
 
 	tess.dlightUpdateParams = qtrue;
@@ -1245,6 +1262,13 @@ const void *RB_StretchPic ( const void *data ) {
 		vk_bloom();
 	}
 
+#ifdef USE_RTX
+	// The tracer's result still has to reach the 2D pass' colour attachment.
+	if ( vk.rtxActive ) {
+		vk_rtx_begin_blit();
+	}
+#endif
+
 	RB_AddQuadStamp2( cmd->x, cmd->y, cmd->w, cmd->h, cmd->s1, cmd->t1,
 		cmd->s2, cmd->t2, backEnd.color2D );
 
@@ -1287,8 +1311,8 @@ const void *RB_RotatePic ( const void *data )
 		float c = cosf( angle );
 
 		matrix3_t m = {
-			{ c, s, 0.0f },
-			{ -s, c, 0.0f },
+			{ c * cmd->ratio, s, 0.0f },
+			{ -s * cmd->ratio, c, 0.0f },
 			{ cmd->x + cmd->w, cmd->y, 1.0f }
 		};
 
@@ -1380,8 +1404,8 @@ const void *RB_RotatePic2 ( const void *data )
 			float c = cosf( angle );
 
 			matrix3_t m = {
-				{ c, s, 0.0f },
-				{ -s, c, 0.0f },
+				{ c * cmd->ratio, s, 0.0f },
+				{ -s * cmd->ratio, c, 0.0f },
 				{ cmd->x, cmd->y, 1.0f }
 			};
 
@@ -1565,7 +1589,9 @@ static void vk_update_entity_constants( const trRefdef_t *refdef ) {
 	for ( i = 0; i < refdef->num_entities; i++ ) {
 		trRefEntity_t *ent = &refdef->entities[i];
 
-		R_SetupEntityLighting( refdef, ent );
+		// Only models use the entity light (as in rd-vanilla). Sprites, beams and FX do not.
+		if ( ent->e.reType == RT_MODEL )
+			R_SetupEntityLighting( refdef, ent );
 
 		vkUniformEntity_t uniform = {};
 		vk_update_entity_light_constants( uniform, ent );
@@ -1685,8 +1711,46 @@ const void	*RB_DrawSurfs( const void *data ) {
 
 	RB_UpdateUniformConstants( &backEnd.refdef, &backEnd.viewParms );
 
+#ifdef VK_CUBEMAP
+	// one face of a probe: its own pass, and no post-processing
+	if ( backEnd.viewParms.targetCube ) {
+		vk_begin_cubemap_render_pass( backEnd.viewParms.targetCubeFace );
+		RB_BeginDrawingView();
+		RB_RenderDrawSurfList( cmd->drawSurfs, cmd->numDrawSurfs );
+		vk_end_cubemap_render_pass();
+		tess.cubemapIndex = 0;
+		return (const void *)(cmd + 1);
+	}
+#endif
+
 	// clear the z buffer, set the modelview, etc
 	RB_BeginDrawingView();
+
+#ifdef USE_RTX
+	// The tracer draws the sky itself, so the 3D sky portal scene is not traced.
+	// A second trace per frame would overwrite the motion history of the main view.
+	if ( vk.rtxActive && ( backEnd.refdef.rdflags & RDF_SKYBOXPORTAL ) )
+		return (const void *)(cmd + 1);
+
+	// The path tracer replaces the whole rasterised world pass, so it takes over before
+	// anything else runs. Upstream puts this switch further down, past where its own
+	// rasterised list is built - this renderer has a G-buffer prepass ahead of that, and
+	// leaving the switch there would extract depth, normals and GTAO every frame only to
+	// throw the result away.
+	if ( vk.rtxActive && backEnd.viewParms.portalView == PV_NONE
+		&& !( backEnd.refdef.rdflags & RDF_NOWORLDMODEL ) )
+	{
+		vk_end_render_pass();
+
+		vk_rtx_begin_scene( &backEnd.refdef, cmd->drawSurfs, cmd->numDrawSurfs );
+
+		vk_begin_main_render_pass( qfalse );
+
+		backEnd.doneSurfaces = qtrue;	// for bloom
+
+		return (const void *)(cmd + 1);
+	}
+#endif
 
 	// depth+normal(+velocity) G-buffer extraction pass (r_depthPrepass / r_velocityBuffer).
 	// Once per displayed frame, ahead of the main pass, primary view only - portal/
@@ -1786,6 +1850,25 @@ const void	*RB_DrawSurfs( const void *data ) {
 	return (const void*)(cmd + 1);
 }
 
+#ifdef VK_CUBEMAP
+/*
+=============
+RB_ConvolveCubemap
+
+The prefilter of a probe, after the six faces of its capture.
+=============
+*/
+static const void *RB_ConvolveCubemap( const void *data ) {
+	const convolveCubemapCommand_t *cmd = (const convolveCubemapCommand_t *)data;
+
+	RB_EndSurface();
+
+	vk_prefilter_cubemap( cmd->cubemapIndex );
+
+	return (const void *)(cmd + 1);
+}
+#endif
+
 /*
 =============
 RB_DrawBuffer
@@ -1798,6 +1881,11 @@ const void	*RB_DrawBuffer( const void *data ) {
 	cmd = (const drawBufferCommand_t *)data;
 
 	vk_begin_frame();
+
+#ifdef USE_RTX
+	if ( vk.rtxActive )
+		vk_rtx_begin_frame();
+#endif
 
 	vk_set_depthrange(DEPTH_RANGE_NORMAL);
 
@@ -1820,6 +1908,44 @@ RB_SwapBuffers
 
 =============
 */
+byte		*rb_captureRGBA;
+static int	rb_captureWidth, rb_captureHeight;
+
+void RE_CaptureNextFrame( byte *rgba, int width, int height )
+{
+	rb_captureRGBA = rgba;
+	rb_captureWidth = width;
+	rb_captureHeight = height;
+}
+
+// Copies the capture image of the frame into the requested buffer, nearest sampled.
+static void RB_CaptureFrame( void )
+{
+	size_t offset = 0;
+	int padlen;
+	const int srcWidth = gls.captureWidth;
+	const int srcHeight = gls.captureHeight;
+	byte *source = RB_ReadPixels( 0, 0, srcWidth, srcHeight, &offset, &padlen, 0 );
+	const int srcPitch = srcWidth * 3 + padlen;
+
+	for ( int y = 0; y < rb_captureHeight; y++ ) {
+		// RB_ReadPixels puts the bottom row first.
+		const int sy = srcHeight - 1 - ( y * srcHeight ) / rb_captureHeight;
+		const byte *srcRow = source + offset + sy * srcPitch;
+		byte *dst = rb_captureRGBA + y * rb_captureWidth * 4;
+		for ( int x = 0; x < rb_captureWidth; x++, dst += 4 ) {
+			const byte *src = srcRow + ( ( x * srcWidth ) / rb_captureWidth ) * 3;
+			dst[0] = src[0];
+			dst[1] = src[1];
+			dst[2] = src[2];
+			dst[3] = 255;
+		}
+	}
+
+	Hunk_FreeTempMemory( source );
+	rb_captureRGBA = NULL;
+}
+
 const void	*RB_SwapBuffers( const void *data ) {
 	const swapBuffersCommand_t	*cmd;
 
@@ -1839,7 +1965,13 @@ const void	*RB_SwapBuffers( const void *data ) {
 
 	vk_end_frame();
 
+#ifdef USE_RTX
+	// The tracer submits and synchronises its own work; an extra idle here would
+	// serialise the whole frame on it.
+	if ( !vk.rtxActive && backEnd.doneSurfaces && !glState.finishCalled ) {
+#else
 	if ( backEnd.doneSurfaces && !glState.finishCalled ) {
+#endif
 		vk_queue_wait_idle();
 	}
 
@@ -1872,6 +2004,10 @@ const void	*RB_SwapBuffers( const void *data ) {
 		backEnd.screenshotMask = 0;
 	}
 
+	if ( rb_captureRGBA && vk.cmd->waitForFence ) {
+		RB_CaptureFrame();
+	}
+
 	vk_present_frame();
 
 	backEnd.projection2D = qfalse;
@@ -1891,6 +2027,12 @@ const void	*RB_WorldEffects( const void *data )
 	// Always flush the tess buffer
 	if ( tess.shader && tess.numIndexes )
 		RB_EndSurface();
+
+#ifdef USE_RTX
+	// Blit the traced view first. A later blit would paint over the weather particles.
+	if ( vk.rtxActive )
+		vk_rtx_begin_blit();
+#endif
 
 	RB_RenderWorldEffects();
 
@@ -1969,6 +2111,11 @@ void RB_ExecuteRenderCommands( const void *data ) {
 		case RC_CLEARCOLOR:
 			data = RB_ClearColor(data);
 			break;
+#ifdef VK_CUBEMAP
+		case RC_CONVOLVECUBEMAP:
+			data = RB_ConvolveCubemap(data);
+			break;
+#endif
 		case RC_END_OF_LIST:
 		default:
 			// stop rendering

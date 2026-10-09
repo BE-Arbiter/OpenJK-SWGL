@@ -70,8 +70,15 @@ Ghoul2 Insert End
 	CG_DRAW_PLAYER_WEAPON_LABEL_5,
 	CG_DRAW_PLAYER_WEAPON_LABEL_6,
 	CG_DRAW_CHARACTERS,
-	CG_GET_AMMO_NAME	// ( int ammoIndex, char *name, int nameSize ): qtrue if the player uses this ammo type
+	CG_GET_AMMO_NAME,	// ( int ammoIndex, char *name, int nameSize ): qtrue if the player uses this ammo type
+	CG_KEY_EVENT		// ( int key, qboolean down, int mods ): 1 when the cgame consumes the key
 } cgameExport_t;
+
+// Modifier mask of CG_KEY_EVENT.
+#define CG_KEYMOD_CTRL		1
+#define CG_KEYMOD_SHIFT		2
+#define CG_KEYMOD_ALT		4
+#define CG_KEYMOD_REPEAT	8	// a down event that repeats
 
 /*
 ==============================================================

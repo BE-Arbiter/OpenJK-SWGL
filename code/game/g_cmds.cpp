@@ -22,6 +22,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "g_local.h"
+#include "g_lightedit.h"
 #include "objectives.h"
 #include "wp_saber.h"
 #include "g_vehicles.h"
@@ -2146,6 +2147,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Notarget_f (ent);
 	else if (Q_stricmp(cmd, "setForceRegen") == 0)
 			Cmd_ForceRegen_f(ent);
+	else if (Q_stricmp (cmd, "ledit_mode") == 0)
+		G_LightEdit_Cmd_f( ent );
 	else if (Q_stricmp (cmd, "noclip") == 0)
 	{
 		Cmd_Noclip_f (ent);

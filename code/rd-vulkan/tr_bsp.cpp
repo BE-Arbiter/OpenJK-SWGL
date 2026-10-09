@@ -177,6 +177,54 @@ R_LoadLightmaps
 #define	DEFAULT_LIGHTMAP_SIZE	128
 #define MAX_LIGHTMAP_PAGES 2
 
+#ifdef USE_VK_PBR
+/*
+Loads the deluxe map after lightmap i: from the lump, or from the next lm_*.tga file.
+The directions are not color shifted.
+*/
+static void R_LoadDeluxemap( const byte *buf, int i, int xoff, int yoff, int lightmapSize, const world_t &worldData )
+{
+	byte	*externalLightmap = NULL;
+	const byte *buf_p;
+	int		width = lightmapSize, height = lightmapSize;
+	int		numComponents = 3;
+	byte	*image;
+	int		j;
+
+	if ( buf )
+	{
+		buf_p = buf + ( i * 2 + 1 ) * lightmapSize * lightmapSize * 3;
+	}
+	else
+	{
+		R_LoadImage( va( "maps/%s/lm_%04d.tga", worldData.baseName, i * 2 + 1 ), &externalLightmap, &width, &height );
+		if ( !externalLightmap )
+			return;
+		buf_p = externalLightmap;
+		numComponents = 4;
+	}
+
+	image = (byte *)Z_Malloc( width * height * 4, TAG_BSP, qfalse );
+
+	for ( j = 0; j < width * height; j++ )
+	{
+		image[j * 4 + 0] = buf_p[j * numComponents + 0];
+		image[j * 4 + 1] = buf_p[j * numComponents + 1];
+		image[j * 4 + 2] = buf_p[j * numComponents + 2];
+		image[j * 4 + 3] = 255;
+	}
+
+	if ( tr.worldInternalLightmapping )
+		vk_upload_image_data( tr.deluxemaps[0], xoff, yoff, width, height, 1, image, width * height * 4, qtrue );
+	else
+		tr.deluxemaps[i] = R_CreateImage( va( "*deluxemap%d", i ), image, width, height, lightmapFlags );
+
+	Z_Free( image );
+	if ( externalLightmap )
+		Z_Free( externalLightmap );
+}
+#endif
+
 static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 	byte		*buf, *buf_p;
 	dsurface_t  *surf;
@@ -189,6 +237,10 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 
 	const int lightmapSize = DEFAULT_LIGHTMAP_SIZE;
 	tr.worldInternalLightmapping = qfalse;
+#ifdef USE_VK_PBR
+	tr.worldDeluxeMapping = qfalse;
+	tr.deluxemaps = NULL;
+#endif
 
 	len = l->filelen;
 	// test for external lightmaps
@@ -212,6 +264,33 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 
 	if ( numLightmaps == 0 )
 		return;
+
+#ifdef USE_VK_PBR
+	// q3map2 -deluxe puts a deluxe map after each lightmap: no surface uses an odd lightmap.
+	if ( numLightmaps > 1 )
+	{
+		tr.worldDeluxeMapping = qtrue;
+		for ( i = 0, surf = (dsurface_t *)(fileBase + surfs->fileofs);
+			tr.worldDeluxeMapping && i < surfs->filelen / sizeof(dsurface_t);
+			i++, surf++ )
+		{
+			for ( j = 0; j < MAXLIGHTMAPS; j++ )
+			{
+				const int lightmapNum = LittleLong( surf->lightmapNum[j] );
+
+				if ( lightmapNum >= 0 && ( lightmapNum & 1 ) ) {
+					tr.worldDeluxeMapping = qfalse;
+					break;
+				}
+			}
+		}
+		if ( tr.worldDeluxeMapping && !len )
+			numLightmaps++;
+	}
+
+	if ( tr.worldDeluxeMapping )
+		numLightmaps >>= 1;
+#endif
 
 	// we are about to upload textures
 	//R_IssuePendingRenderCommands();
@@ -243,6 +322,11 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 
 	tr.lightmaps = (image_t **)Hunk_Alloc( tr.numLightmaps * sizeof(image_t *), h_low );
 
+#ifdef USE_VK_PBR
+	if ( tr.worldDeluxeMapping && r_deluxeMapping->integer )
+		tr.deluxemaps = (image_t **)Hunk_Alloc( tr.numLightmaps * sizeof(image_t *), h_low );
+#endif
+
 	if ( tr.worldInternalLightmapping )
 	{
 		for ( i = 0; i < tr.numLightmaps; i++ )
@@ -254,8 +338,24 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 				tr.lightmapAtlasSize[1],
 				lightmapFlags
 				);
+#ifdef USE_VK_PBR
+			if ( tr.deluxemaps )
+				tr.deluxemaps[i] = R_CreateImage(
+					va("_deluxeatlas%d", i),
+					NULL,
+					tr.lightmapAtlasSize[0],
+					tr.lightmapAtlasSize[1],
+					lightmapFlags
+					);
+#endif
 		}
 	}
+
+#ifdef USE_VK_PBR
+	const int lightmapStep = tr.worldDeluxeMapping ? 2 : 1;
+#else
+	const int lightmapStep = 1;
+#endif
 
 	for ( i = 0; i < numLightmaps; i++ )
 	{
@@ -281,7 +381,7 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 			
 			if (!tr.worldInternalLightmapping)
 			{
-				Com_sprintf(filename, sizeof(filename), "maps/%s/lm_%04d.tga", worldData.baseName, i );
+				Com_sprintf(filename, sizeof(filename), "maps/%s/lm_%04d.tga", worldData.baseName, i * lightmapStep );
 
 				R_LoadImage(filename, &externalLightmap, &lightmapWidth, &lightmapHeight);
 			}
@@ -318,7 +418,7 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 			}
 			else if ( buf )
 			{
-				buf_p = buf + i * lightmapSize * lightmapSize * 3;
+				buf_p = buf + i * lightmapStep * lightmapSize * lightmapSize * 3;
 			}
 			else
 			{
@@ -387,6 +487,11 @@ static void R_LoadLightmaps( lump_t *l, lump_t *surfs, world_t &worldData ) {
 			if ( externalLightmap )
 				Z_Free( externalLightmap );
 		}
+
+#ifdef USE_VK_PBR
+		if ( tr.deluxemaps )
+			R_LoadDeluxemap( buf, i, xoff, yoff, lightmapSize, worldData );
+#endif
 	}
 
 	if ( r_lightmap->integer == 2 )	{
@@ -400,6 +505,11 @@ static float FatPackU( float input, int lightmapnum )
 {
 	if ( lightmapnum < 0 )
 		return input;
+
+#ifdef USE_VK_PBR
+	if ( tr.worldDeluxeMapping )
+		lightmapnum >>= 1;
+#endif
 
 	if ( tr.lightmapAtlasSize[0] > 0 )
 	{
@@ -417,6 +527,11 @@ static float FatPackV( float input, int lightmapnum )
 	if ( lightmapnum < 0 )
 		return input;
 
+#ifdef USE_VK_PBR
+	if ( tr.worldDeluxeMapping )
+		lightmapnum >>= 1;
+#endif
+
 	if ( tr.lightmapAtlasSize[1] > 0 )
 	{
 		const int lightmapYOffset = lightmapnum / tr.lightmapsPerAtlasSide[0];
@@ -433,6 +548,11 @@ static int FatLightmap(int lightmapnum)
 {
 	if (lightmapnum < 0)
 		return lightmapnum;
+
+#ifdef USE_VK_PBR
+	if ( tr.worldDeluxeMapping )
+		lightmapnum >>= 1;
+#endif
 
 	if (tr.lightmapAtlasSize[0] > 0)
 		return 0;
@@ -462,6 +582,11 @@ static	void R_LoadVisibility( const lump_t *l, world_t &worldData ) {
 	byte	*buf;
 
 	len = ( worldData.numClusters + 63 ) & ~63;
+
+#ifdef USE_RTX
+	worldData.numvisibility = len;
+#endif
+
 	worldData.novis = (unsigned char *)Hunk_Alloc( len, h_low );
 	memset( worldData.novis, 0xff, len );
 
@@ -513,7 +638,11 @@ static shader_t *ShaderForShaderNum( int shaderNum, const int *lightmapNum, cons
 		styles = vertexStyles;
 	}
 
+#ifdef USE_RTX
+	if ( r_vertexLight->integer || vk.rtxActive )
+#else
 	if ( r_vertexLight->integer )
+#endif
 	{
 		lightmapNum = lightmapsVertex;
 		styles = vertexStyles;
@@ -683,6 +812,10 @@ static void ParseFace( const dsurface_t *ds, const mapVert_t *verts, msurface_t 
 	SetPlaneSignbits( &cv->plane );
 	cv->plane.type = PlaneTypeForNormal( cv->plane.normal );
 
+#ifdef USE_VK_PBR
+	vk_mikkt_bsp_face_generate( cv );
+#endif
+
 	surf->data = (surfaceType_t *)cv;
 }
 
@@ -695,7 +828,7 @@ static void ParseMesh ( const dsurface_t *ds, const mapVert_t *verts, msurface_t
 	srfGridMesh_t			*grid;
 	int						i, j;
 	int						width, height, numPoints;
-	drawVert_t				points[MAX_PATCH_SIZE*MAX_PATCH_SIZE];
+	srfVert_t				points[MAX_PATCH_SIZE*MAX_PATCH_SIZE];
 	int						lightmapNum[MAXLIGHTMAPS];
 	vec3_t					bounds[2];
 	vec3_t					tmpVec;
@@ -819,7 +952,7 @@ static void ParseTriSurf( const dsurface_t *ds, const mapVert_t *verts, msurface
 	tri->surfaceType = SF_TRIANGLES;
 	tri->numVerts = numVerts;
 	tri->numIndexes = numIndexes;
-	tri->verts = (drawVert_t *)(tri + 1);
+	tri->verts = (srfVert_t *)(tri + 1);
 	tri->indexes = (int *)(tri->verts + tri->numVerts );
 
 	surf->data = (surfaceType_t *)tri;
@@ -857,7 +990,64 @@ static void ParseTriSurf( const dsurface_t *ds, const mapVert_t *verts, msurface
 			Com_Error( ERR_DROP, "Bad index in triangle surface" );
 		}
 	}
+
+#ifdef USE_VK_PBR
+	vk_mikkt_bsp_tri_generate( tri );
+#endif
 }
+
+#ifdef USE_VK_PBR
+/*
+===============
+vk_generate_light_directions
+
+The light grid direction at each vertex of the world surfaces, for the PBR shading of the
+lightmapped and vertex-lit stages.
+===============
+*/
+static void vk_generate_light_directions( world_t &worldData, const world_t *grid )
+{
+	msurface_t	*sf;
+	int			i, j;
+
+	for ( i = 0, sf = worldData.surfaces; i < worldData.numsurfaces; i++, sf++ )
+	{
+		switch ( *sf->data )
+		{
+			case SF_FACE:
+			{
+				srfSurfaceFace_t *face = (srfSurfaceFace_t *)sf->data;
+
+				face->lightdir = (float *)Hunk_Alloc( face->numPoints * sizeof( vec4_t ), h_low );
+
+				for ( j = 0; j < face->numPoints; j++ ) {
+					const float *normal = face->normals ? face->normals + j * 4 : face->plane.normal;
+					R_LightDirForPoint( face->points[j], normal, grid, face->lightdir + j * 4 );
+				}
+				break;
+			}
+			case SF_TRIANGLES:
+			{
+				srfTriangles_t *tri = (srfTriangles_t *)sf->data;
+
+				for ( j = 0; j < tri->numVerts; j++ )
+					R_LightDirForPoint( tri->verts[j].xyz, tri->verts[j].normal, grid, tri->verts[j].lightdir );
+				break;
+			}
+			case SF_GRID:
+			{
+				srfGridMesh_t *mesh = (srfGridMesh_t *)sf->data;
+
+				for ( j = 0; j < mesh->width * mesh->height; j++ )
+					R_LightDirForPoint( mesh->verts[j].xyz, mesh->verts[j].normal, grid, mesh->verts[j].lightdir );
+				break;
+			}
+			default:
+				break;
+		}
+	}
+}
+#endif
 
 /*
 ===============
@@ -1598,7 +1788,7 @@ static void R_MovePatchSurfacesToHunk( world_t &worldData ) {
 			continue;
 		//
 		n = grid->width * grid->height - 1;
-		size = n * sizeof( drawVert_t ) + sizeof( *grid );
+		size = n * sizeof( srfVert_t ) + sizeof( *grid );
 
 		for (j = 0; j < n; j++) {
 			for (k = 0; k < 3; k++) {
@@ -1709,6 +1899,11 @@ static	void R_LoadSubmodels( const lump_t *l, world_t &worldData, int index ) {
 	count = l->filelen / sizeof(*in);
 
 	worldData.bmodels = out = (bmodel_t *)Hunk_Alloc( count * sizeof(*out), h_low );
+#ifdef USE_RTX
+	// Nothing else in SP needs the count - R_PreparePT walks the array with it, and left
+	// at zero it skips every brush model, so their geometry is never initialised.
+	worldData.num_bmodels = count;
+#endif
 
 	for ( i=0 ; i<count ; i++, in++, out++ ) {
 		model_t *model;
@@ -2240,7 +2435,13 @@ static void R_LoadEntities( const lump_t *l, world_t &worldData ) {
 				break;
 			}
 			*vs++ = 0;
+#ifdef USE_RTX
+			// The tracer computes its own lighting, so the lightmapped variants of these
+			// shaders would double it.
+			if ( r_vertexLight->integer || vk.rtxActive ) {
+#else
 			if (r_vertexLight->integer) {
+#endif
 				R_RemapShader(value, s, "0");
 			}
 			continue;
@@ -2306,6 +2507,178 @@ qboolean R_GetEntityToken( char *buffer, int size ) {
 		return qtrue;
 	}
 }
+
+#ifdef VK_CUBEMAP
+/*
+=================
+R_LoadCubemapEntities
+
+The probes are the entities of one class: the first class of the list that the map has.
+=================
+*/
+static void R_LoadCubemapEntities( const world_t *worldData )
+{
+	static const char *cubemapClasses[] = {
+		"misc_cubemap",
+		"info_player_deathmatch",
+		"info_player_start",
+		"info_player_duel",
+		"info_player_intermission",
+	};
+	cubemap_t probes[MAX_CUBEMAPS];
+	int numProbes[ARRAY_LEN( cubemapClasses )];
+	char classname[MAX_QPATH], name[MAX_QPATH];
+	const char *p, *token;
+	char keyname[MAX_TOKEN_CHARS];
+	vec3_t origin;
+	float radius;
+	qboolean originSet;
+	int i, c;
+
+	tr.numCubemaps = 0;
+	tr.cubemaps = NULL;
+
+	if ( !worldData->entityString )
+		return;
+
+	// the probes of the first class, but the count of every class
+	Com_Memset( numProbes, 0, sizeof( numProbes ) );
+	c = -1;
+
+	COM_BeginParseSession( "R_LoadCubemapEntities" );
+	p = worldData->entityString;
+
+	while ( 1 )
+	{
+		token = COM_ParseExt( &p, qtrue );
+		if ( !*token || *token != '{' )
+			break;
+
+		classname[0] = name[0] = '\0';
+		originSet = qfalse;
+		radius = 1000.0f;
+
+		while ( 1 )
+		{
+			token = COM_ParseExt( &p, qtrue );
+			if ( !*token || *token == '}' )
+				break;
+			Q_strncpyz( keyname, token, sizeof( keyname ) );
+
+			token = COM_ParseExt( &p, qtrue );
+			if ( !*token || *token == '}' )
+				break;
+
+			if ( !Q_stricmp( keyname, "classname" ) )
+				Q_strncpyz( classname, token, sizeof( classname ) );
+			else if ( !Q_stricmp( keyname, "name" ) )
+				Q_strncpyz( name, token, sizeof( name ) );
+			else if ( !Q_stricmp( keyname, "origin" ) )
+				originSet = (qboolean)( sscanf( token, "%f %f %f", &origin[0], &origin[1], &origin[2] ) == 3 );
+			else if ( !Q_stricmp( keyname, "radius" ) )
+				sscanf( token, "%f", &radius );
+		}
+
+		if ( !originSet )
+			continue;
+
+		for ( i = 0; i < (int)ARRAY_LEN( cubemapClasses ); i++ )
+		{
+			if ( Q_stricmp( classname, cubemapClasses[i] ) )
+				continue;
+
+			// a class before the kept one: the probes restart with it
+			if ( c < 0 || i < c ) {
+				c = i;
+				tr.numCubemaps = 0;
+			}
+
+			if ( i == c && tr.numCubemaps < MAX_CUBEMAPS ) {
+				cubemap_t *cubemap = &probes[tr.numCubemaps++];
+				Q_strncpyz( cubemap->name, name, sizeof( cubemap->name ) );
+				VectorCopy( origin, cubemap->origin );
+				cubemap->parallaxRadius = radius;
+			}
+
+			numProbes[i]++;
+			break;
+		}
+	}
+
+	COM_EndParseSession();
+
+	if ( !tr.numCubemaps )
+		return;
+
+	if ( numProbes[c] > MAX_CUBEMAPS )
+		ri.Printf( PRINT_WARNING, "%i %s probes, only %i cubemaps\n", numProbes[c], cubemapClasses[c], MAX_CUBEMAPS );
+
+	tr.cubemaps = (cubemap_t *)Hunk_Alloc( tr.numCubemaps * sizeof( *tr.cubemaps ), h_low );
+	Com_Memcpy( tr.cubemaps, probes, tr.numCubemaps * sizeof( *tr.cubemaps ) );
+	tr.numCubemapsCaptured = 0;
+
+	ri.Printf( PRINT_ALL, "...%i cubemaps (%s)\n", tr.numCubemaps, cubemapClasses[c] );
+}
+
+// The nearest probe of the center of each surface.
+static void R_AssignCubemapsToSurfaces( world_t *worldData )
+{
+	msurface_t *surf;
+	vec3_t center;
+	int i, j;
+
+	for ( i = 0, surf = worldData->surfaces; i < worldData->numsurfaces; i++, surf++ )
+	{
+		surf->cubemapIndex = 0;
+
+		switch ( *surf->data )
+		{
+			case SF_FACE: {
+				const srfSurfaceFace_t *face = (const srfSurfaceFace_t *)surf->data;
+				if ( face->numPoints <= 0 )
+					continue;
+				VectorClear( center );
+				for ( j = 0; j < face->numPoints; j++ )
+					VectorAdd( center, face->points[j], center );
+				VectorScale( center, 1.0f / face->numPoints, center );
+				break;
+			}
+			case SF_GRID: {
+				const srfGridMesh_t *grid = (const srfGridMesh_t *)surf->data;
+				VectorAdd( grid->meshBounds[0], grid->meshBounds[1], center );
+				VectorScale( center, 0.5f, center );
+				break;
+			}
+			case SF_TRIANGLES: {
+				const srfTriangles_t *tri = (const srfTriangles_t *)surf->data;
+				VectorAdd( tri->bounds[0], tri->bounds[1], center );
+				VectorScale( center, 0.5f, center );
+				break;
+			}
+			default:
+				continue;
+		}
+
+		surf->cubemapIndex = R_CubemapForPoint( center );
+	}
+}
+
+// index 0 finds the probes of the map; a sub-BSP uses the probes of the world.
+void R_LoadCubemaps( world_t *worldData, int index )
+{
+	if ( !vk.cubemapActive ) {
+		if ( !index )
+			tr.numCubemaps = 0;
+		return;
+	}
+
+	if ( !index )
+		R_LoadCubemapEntities( worldData );
+
+	if ( tr.numCubemaps )
+		R_AssignCubemapsToSurfaces( worldData );
+}
+#endif
 
 /*
 =================
@@ -2397,6 +2770,22 @@ void RE_LoadWorldMap_Actual( const char *name, world_t &worldData, int index )
 	R_LoadSubmodels (&header->lumps[LUMP_MODELS], worldData, index);
 	R_LoadVisibility( &header->lumps[LUMP_VISIBILITY], worldData );
 
+	// The light grid is loaded before the world VBO: the VBO holds the light directions.
+	if (!index)
+	{
+		R_LoadEntities( &header->lumps[LUMP_ENTITIES], worldData );
+		R_LoadLightGrid( &header->lumps[LUMP_LIGHTGRID], worldData );
+		R_LoadLightGridArray( &header->lumps[LUMP_LIGHTARRAY], worldData );
+	}
+
+#ifdef USE_VK_PBR
+	// A sub-BSP has no light grid: it uses the grid of the world.
+	vk_generate_light_directions( worldData, index ? tr.world : &worldData );
+#endif
+#ifdef VK_CUBEMAP
+	R_LoadCubemaps( &worldData, index );
+#endif
+
 #ifdef USE_VBO
 	R_BuildWorldVBO(s_worldData.surfaces, s_worldData.numsurfaces);
 #endif
@@ -2405,10 +2794,6 @@ void RE_LoadWorldMap_Actual( const char *name, world_t &worldData, int index )
 
 	if (!index)
 	{
-		R_LoadEntities( &header->lumps[LUMP_ENTITIES], worldData );
-		R_LoadLightGrid( &header->lumps[LUMP_LIGHTGRID], worldData );
-		R_LoadLightGridArray( &header->lumps[LUMP_LIGHTARRAY], worldData );
-
 		// only set tr.world now that we know the entire level has loaded properly
 		tr.world = &worldData;
 
@@ -2417,6 +2802,14 @@ void RE_LoadWorldMap_Actual( const char *name, world_t &worldData, int index )
 
 #ifdef USE_VBO_SS
 	R_BuildSurfaceSpritesVBO( worldData, index );
+#endif
+
+#ifdef USE_RTX
+	// Builds everything the tracer needs from the BSP: acceleration structures, the light
+	// polys and their per-cluster lists, sky visibility and the envmap. Only for index 0,
+	// which is the world the tracer renders - SP's sub-BSP instances are not tr.world.
+	if ( vk.rtxActive && !index )
+		R_PreparePT( worldData );
 #endif
 
 	if (CM_GetCachedMapDiskImage())

@@ -41,6 +41,9 @@ extern refimport_t ri;
 // can't be increased without changing bit packing for drawsurfs
 // see QSORT_SHADERNUM_SHIFT
 #define SHADERNUM_BITS	13
+
+// drawsurf sort key, see QSORT_SHADERNUM_SHIFT
+typedef uint64_t sortKey_t;
 #define MAX_SHADERS		(1<<SHADERNUM_BITS)
 
 
@@ -583,7 +586,7 @@ Ghoul2 Insert End
 } surfaceType_t;
 
 typedef struct drawSurf_s {
-	unsigned			sort;			// bit combination for fast compares
+	sortKey_t			sort;			// bit combination for fast compares
 	surfaceType_t		*surface;		// any of surface*_t
 } drawSurf_t;
 
@@ -869,14 +872,22 @@ the bits are allocated as follows:
 7-17  : entity index
 2-6   : fog index
 0-1   : dlightmap index
+
+	64 bit key (the radix sort reads 5 bytes):
+33    : RF_ALPHA_FADE (drawn last)
+20-32 : sorted shader index
+7-19  : entity index (REFENTITYNUM_BITS)
+2-6   : fog index
+0-1   : dlightmap index
 */
 
 #define	QSORT_FOGNUM_SHIFT		2
 #define	QSORT_REFENTITYNUM_SHIFT	7
 #define	QSORT_SHADERNUM_SHIFT	(QSORT_REFENTITYNUM_SHIFT+REFENTITYNUM_BITS)
-// Note: 32nd bit is reserved for RF_ALPHA_FADE voodoo magic
-// see R_AddEntitySurfaces tr.shiftedEntityNum
-#if (QSORT_SHADERNUM_SHIFT+SHADERNUM_BITS) > 31
+#define	QSORT_ALPHAFADE_SHIFT	(QSORT_SHADERNUM_SHIFT+SHADERNUM_BITS)
+#define	QSORT_ALPHAFADE_BIT		((sortKey_t)1 << QSORT_ALPHAFADE_SHIFT)	// see R_AddEntitySurfaces
+#define	QSORT_BYTES				5	// bytes of the key that R_RadixSort sorts
+#if QSORT_ALPHAFADE_SHIFT >= QSORT_BYTES * 8
 	#error "Need to update sorting, too many bits."
 #endif
 
@@ -1013,7 +1024,7 @@ typedef struct {
 	trRefEntity_t			*currentEntity;
 	trRefEntity_t			worldEntity;		// point currentEntity at this when rendering world
 	int						currentEntityNum;
-	unsigned				shiftedEntityNum;	// currentEntityNum << QSORT_REFENTITYNUM_SHIFT (possible with high bit set for RF_ALPHA_FADE)
+	sortKey_t				shiftedEntityNum;	// currentEntityNum << QSORT_REFENTITYNUM_SHIFT (possible with high bit set for RF_ALPHA_FADE)
 	model_t					*currentModel;
 
 	viewParms_t				viewParms;
@@ -1255,7 +1266,7 @@ void R_AddLightningBoltSurfaces( trRefEntity_t *e );
 
 void R_AddPolygonSurfaces( void );
 
-void R_DecomposeSort( unsigned sort, int *entityNum, shader_t **shader,
+void R_DecomposeSort( sortKey_t sort, int *entityNum, shader_t **shader,
 					 int *fogNum, int *dlightMap );
 
 void R_AddDrawSurf( const surfaceType_t *surface, const shader_t *shader, int fogIndex, int dlightMap );

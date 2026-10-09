@@ -32,6 +32,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "tr_WorldEffects.h"
 #include "qcommon/MiniHeap.h"
 #include "tr_cache.h"
+#include "rtx/rtx_light_edit.h"
+#include "rtx/rtx_light_emissive.h"
+#include "rtx/rtx_light_sky.h"
 
 glconfig_t	glConfig;
 glconfigExt_t glConfigExt;
@@ -118,6 +121,24 @@ cvar_t	*r_DynamicGlowHeight;
 cvar_t	*r_DynamicGlowScale;
 
 cvar_t	*r_smartpicmip;
+#ifdef USE_VK_PBR
+cvar_t	*r_baseNormalX;
+cvar_t	*r_baseNormalY;
+cvar_t	*r_baseParallax;
+cvar_t	*r_baseSpecular;
+#endif
+#ifdef VK_COMPUTE_NORMALMAP
+cvar_t	*r_genNormalMaps;
+#endif
+#ifdef USE_VK_PBR
+cvar_t	*r_normalMapping;
+cvar_t	*r_specularMapping;
+#ifdef VK_CUBEMAP
+cvar_t	*r_cubeMapping;
+cvar_t	*r_deluxeMapping;
+cvar_t	*r_deluxeSpecular;
+#endif
+#endif
 
 cvar_t	*r_ignoreGLErrors;
 cvar_t	*r_logFile;
@@ -140,6 +161,7 @@ cvar_t	*r_shadowRange;
 
 
 cvar_t	*r_flares;
+cvar_t	*r_shaderWarnings;
 //cvar_t	*r_flareSize;
 //cvar_t	*r_flareFade;
 //cvar_t	*r_flareCoeff;
@@ -211,6 +233,59 @@ cvar_t	*r_velocityBuffer;
 cvar_t	*r_showGBuffer;
 cvar_t	*r_distortionStyle;
 cvar_t	*r_ssao;
+#ifdef USE_RTX
+cvar_t	*r_rtx;
+cvar_t	*pt_restir;
+cvar_t	*pt_caustics;
+cvar_t	*pt_dof;
+cvar_t	*pt_projection;
+cvar_t	*tm_blend_enable;
+cvar_t	*pt_debug_poly_lights;
+cvar_t	*pt_restir_m_clamp;
+cvar_t	*pt_debug_image;
+cvar_t	*pt_verbose;
+cvar_t	*pt_nrd_max_accum;
+cvar_t	*pt_nrd_max_fast_accum;
+cvar_t	*pt_nrd_prepass_blur;
+cvar_t	*pt_nrd_antifirefly;
+cvar_t	*pt_nrd_hitdist_recon;
+cvar_t	*pt_nrd_direct;
+cvar_t	*pt_nrd_validation;
+cvar_t	*pt_accumulation_rendering;
+cvar_t	*pt_accumulation_rendering_framenum;
+cvar_t	*pt_denoiser;
+cvar_t	*pt_dlight_radius;
+cvar_t	*pt_dlight_min_dist;
+cvar_t	*pt_dlight_lift;
+cvar_t	*pt_lightgen_scale;
+
+#define UBO_CVAR_DO( _handle, _value ) cvar_t *sun_##_handle;
+	UBO_CVAR_LIST
+#undef UBO_CVAR_DO
+
+cvar_t *sun_color[3];
+cvar_t *sun_elevation;
+cvar_t *sun_azimuth;
+cvar_t *sun_angle;
+cvar_t *sun_brightness;
+cvar_t *sun_bounce;
+cvar_t *sun_animate;
+cvar_t *sun_gamepad;
+
+cvar_t *sun_preset;
+cvar_t *sun_latitude;
+
+cvar_t *physical_sky;
+cvar_t *physical_sky_draw_clouds;
+cvar_t *physical_sky_space;
+cvar_t *physical_sky_brightness;
+
+cvar_t *sky_scattering;
+cvar_t *sky_transmittance;
+cvar_t *sky_phase_g;
+cvar_t *sky_amb_phase_g;
+
+#endif
 cvar_t	*r_ssaoRadius;
 cvar_t	*r_ssaoIntensity;
 cvar_t	*r_ssaoSlices;
@@ -718,6 +793,26 @@ static consoleCommand_t	commands[] = {
 	{ "r_cleardecals",		RE_ClearDecals },
 	{ "remapSky",			R_RemapSkyShader_f },
 	{ "clearRemaps",		R_ClearRemaps_f },
+#ifdef USE_RTX
+	{ "show_pvs",			vk_rtx_show_pvs_f },
+	{ "pt_images",			vk_rtx_list_debug_images_f },
+	{ "pt_lightgen",		R_LightGen_f },
+	{ "pt_ledit_list",		RTX_LightEdit_List_f },
+	{ "pt_ledit_add",		RTX_LightEdit_Add_f },
+	{ "pt_ledit_set",		RTX_LightEdit_Set_f },
+	{ "pt_ledit_del",		RTX_LightEdit_Del_f },
+	{ "pt_ledit_restore",	RTX_LightEdit_Restore_f },
+	{ "pt_ledit_stats",		RTX_LightEdit_Stats_f },
+	{ "pt_ledit_mute",		RTX_LightEdit_Mute_f },
+	{ "pt_ledit_solo",		RTX_LightEdit_Solo_f },
+	{ "pt_ledit_emissive",	RTX_LightEdit_Emissive_f },
+	{ "pt_ledit_dynamic",	RTX_LightEdit_Dynamic_f },
+	{ "pt_ledit_emissive_shaders",	RTX_LightEdit_EmissiveShaders_f },
+	{ "pt_ledit_emissive_scale",	RTX_LightEdit_EmissiveScale_f },
+	{ "pt_sky_print",		RTX_LightSky_Print_f },
+	{ "pt_sky_set",			RTX_LightSky_Set_f },
+	{ "pt_sky_reset",		RTX_LightSky_Reset_f },
+#endif
 	{ "vkinfo",				vk_info_f }
 };
 
@@ -765,6 +860,24 @@ void R_Register( void )
 	r_picmip							= Cvar_Get( "r_picmip",							"0",						CVAR_ARCHIVE|CVAR_LATCH, "" );
 	ri.Cvar_CheckRange( r_picmip, 0, 16, qtrue );
 	r_smartpicmip						= Cvar_Get( "r_smartpicmip",						"1",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Applies r_picmip setting to map textures only." );
+#ifdef USE_VK_PBR
+	r_baseNormalX						= Cvar_Get( "r_baseNormalX",						"1.0",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Scale of the x of the normal maps." );
+	r_baseNormalY						= Cvar_Get( "r_baseNormalY",						"1.0",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Scale of the y of the normal maps." );
+	r_baseParallax						= Cvar_Get( "r_baseParallax",						"0.05",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Depth of the parallax of the normal height maps." );
+	r_baseSpecular						= Cvar_Get( "r_baseSpecular",						"0.04",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Specular of the stages without physical map." );
+#endif
+#ifdef VK_COMPUTE_NORMALMAP
+	r_genNormalMaps						= Cvar_Get( "r_genNormalMaps",						"0",						CVAR_ARCHIVE_ND|CVAR_LATCH, "Approximate normal maps from baked diffuse (albedo) textures" );
+#endif
+#ifdef USE_VK_PBR
+	r_normalMapping = Cvar_Get( "r_normalMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "PBR shading of the lit stages with their normal maps" );
+	r_specularMapping = Cvar_Get( "r_specularMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "PBR shading of the lit stages with their specular / physical maps" );
+#ifdef VK_CUBEMAP
+	r_deluxeMapping = Cvar_Get( "r_deluxeMapping", "1", CVAR_ARCHIVE_ND | CVAR_LATCH, "Light direction of the PBR lightmap stages from the deluxe maps of maps compiled with q3map2 -deluxe" );
+	r_deluxeSpecular = Cvar_Get( "r_deluxeSpecular", "1", CVAR_ARCHIVE_ND | CVAR_LATCH, "Scale of the specular light of the stages with a deluxe map" );
+	r_cubeMapping = Cvar_Get( "r_cubeMapping", "0", CVAR_ARCHIVE_ND | CVAR_LATCH, "Reflections of the PBR stages from the cubemaps of the map probes" );
+#endif
+#endif
 	r_colorMipLevels					= Cvar_Get( "r_colorMipLevels",					"0",						CVAR_LATCH, "" );
 	r_detailTextures					= Cvar_Get( "r_detailtextures",					"1",						CVAR_ARCHIVE_ND|CVAR_LATCH, "" );
 	r_texturebits						= Cvar_Get( "r_texturebits",						"0",						CVAR_ARCHIVE_ND|CVAR_LATCH, "" );
@@ -784,6 +897,7 @@ void R_Register( void )
 	r_lodbias							= Cvar_Get( "r_lodbias",							"0",						CVAR_ARCHIVE_ND, "" );
 	r_autolodscalevalue					= Cvar_Get( "r_autolodscalevalue",				"0",						CVAR_ROM, "" );
 
+	r_shaderWarnings					= Cvar_Get( "r_shaderWarnings",					"1",						CVAR_ARCHIVE_ND, "print a warning for a shader that does not load: bit 1 a script that fails to parse, bit 2 no script and no image" );
 	r_flares							= Cvar_Get( "r_flares",							"1",						CVAR_ARCHIVE_ND, "" );
 	//r_flareSize							= Cvar_Get( "r_flareSize",						"40",						CVAR_ARCHIVE_ND, "" );
 	//r_flareFade							= Cvar_Get( "r_flareFade",						"10",						CVAR_ARCHIVE_ND, "" );
@@ -921,6 +1035,87 @@ void R_Register( void )
 	ri.Cvar_CheckRange(r_distortionStyle, 0, 1, qtrue);
 	r_ssao								= Cvar_Get("r_ssao",							"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Screen-space ambient occlusion over the G-buffer: 0 = off, 1 = hemisphere SSAO (cheaper, blunter), 2 = GTAO (horizon search, cosine-weighted). Requires r_depthPrepass 1");
 	ri.Cvar_CheckRange(r_ssao, 0, 2, qtrue);
+#ifdef USE_RTX
+	r_rtx								= ri.Cvar_Get("r_rtx",								"0",	CVAR_ARCHIVE | CVAR_LATCH);
+	pt_restir							= ri.Cvar_Get("pt_restir",							"1",	CVAR_NONE);
+	pt_caustics							= ri.Cvar_Get("pt_caustics",						"1",	CVAR_NONE);
+	pt_dof								= ri.Cvar_Get("pt_dof",								"0",	CVAR_NONE);
+	pt_projection						= ri.Cvar_Get("pt_projection",						"0",	CVAR_NONE);
+	tm_blend_enable						= ri.Cvar_Get("tm_blend_enable",					"1",	CVAR_NONE);
+	pt_debug_poly_lights				= ri.Cvar_Get("pt_debug_poly_lights",				"0",	CVAR_NONE);
+	/* Note: Higher values results in pixel having higher correlation between frames;
+	 * however, this can work against the denoiser, as it's temporal filtering would
+	 * really likes pixels that vary over time... */
+	pt_restir_m_clamp					= ri.Cvar_Get("pt_restir_m_clamp",					"8",	CVAR_NONE);
+	pt_debug_image						= ri.Cvar_Get("pt_debug_image",						"0",	CVAR_NONE);
+	pt_verbose							= ri.Cvar_Get("pt_verbose",							"0",	CVAR_NONE);
+	pt_accumulation_rendering			= ri.Cvar_Get("pt_accumulation_rendering",			"0",	CVAR_NONE);
+	pt_accumulation_rendering_framenum	= ri.Cvar_Get("pt_accumulation_rendering_framenum",	"500",	CVAR_NONE);
+	// 0 none, 1 A-SVGF, 2 NRD ReLAX, 3 NRD ReBLUR
+	// The pt_nrd_* cvars tune NRD (pt_denoiser 2 and 3). They are read every frame.
+	// Frames of history, frames of the fast history, radius of the pre-pass blur of the diffuse in pixels (the specular takes 5/3 of it),
+	// anti-firefly, hit distance reconstruction (0 off, 1 3x3, 2 5x5), 0: the direct diffuse bypasses NRD
+	pt_nrd_max_accum					= ri.Cvar_Get("pt_nrd_max_accum",					"30",	CVAR_NONE);
+	pt_nrd_max_fast_accum				= ri.Cvar_Get("pt_nrd_max_fast_accum",				"6",	CVAR_NONE);
+	pt_nrd_prepass_blur					= ri.Cvar_Get("pt_nrd_prepass_blur",				"30",	CVAR_NONE);
+	pt_nrd_antifirefly					= ri.Cvar_Get("pt_nrd_antifirefly",				"0",	CVAR_NONE);
+	pt_nrd_hitdist_recon				= ri.Cvar_Get("pt_nrd_hitdist_recon",				"1",	CVAR_NONE);
+	pt_nrd_direct						= ri.Cvar_Get("pt_nrd_direct",						"1",	CVAR_NONE);
+	// 1: the validation layer of NRD covers the screen (see "VALIDATION" in the NRD README): tiles of normals, roughness, view Z,
+	// motion vector check, world grid with jitter, history length, hit distances. Blended with the image by its alpha channel.
+	// Colors are exact with sun_tm_enable 0.
+	pt_nrd_validation					= ri.Cvar_Get("pt_nrd_validation",					"0",	CVAR_NONE);
+	pt_denoiser							= ri.Cvar_Get("pt_denoiser",						"1",	CVAR_NONE);
+	/* Size of the sphere a dlight emits from, in world units - not its reach, which is
+	 * dlight_t::radius. An emitter with a body gets half buried in whatever surface the
+	 * light was spawned on, and loses a disc of its own illumination that size. It buys
+	 * only softer shadows, so keep it small. 0 makes the emitter as big as the light's
+	 * reach, which is what the port used to do. */
+	pt_dlight_radius					= ri.Cvar_Get("pt_dlight_radius",					"2",	CVAR_NONE);
+	pt_dlight_min_dist					= ri.Cvar_Get("pt_dlight_min_dist",					"0.433",	CVAR_NONE);	// fraction of the raster radius, 0 disables it
+	pt_dlight_lift						= ri.Cvar_Get("pt_dlight_lift",						"16",	CVAR_NONE);	// units a dlight on a surface moves off it, 0 disables it
+	/* Overall level of the lights read from the map's entity lump. q3map2's `light` key
+	 * is an inverse-square strength with no absolute unit, so the conversion to the
+	 * tracer's radiance needs calibrating by eye. Read at map load only. */
+	/* Converts the .lgt intensity to the tracer radiance. The file stores a lightmap
+	 * luminance times a distance squared, which has no absolute unit. */
+	pt_lightgen_scale					= ri.Cvar_Get("pt_lightgen_scale",				"0.005",	CVAR_ARCHIVE);
+
+#define UBO_CVAR_DO( _handle, _value ) sun_##_handle = ri.Cvar_Get( #_handle,	#_value, CVAR_NONE);
+	UBO_CVAR_LIST
+#undef UBO_CVAR_DO
+
+    static char _rgb[3] = {'r', 'g', 'b'};
+
+    // sun
+    for (int i = 0; i < 3; ++i)
+    {
+        char buff[32]; 
+        snprintf(buff, 32, "sun_color_%c", _rgb[i]);
+        sun_color[i] = ri.Cvar_Get(buff, "1.0", 0);
+    }
+
+    sun_elevation				= ri.Cvar_Get( "sun_elevation",				"34",	0);
+    sun_azimuth					= ri.Cvar_Get( "sun_azimuth",				"258",	0); 
+    sun_angle					= ri.Cvar_Get( "sun_angle",					"1.0",	0); 
+    sun_brightness				= ri.Cvar_Get( "sun_brightness",			"10.0",	0); 
+    sun_bounce					= ri.Cvar_Get( "sun_bounce",				"1.0",	0); 
+    sun_animate					= ri.Cvar_Get( "sun_animate",				"0",	0); 
+	sun_preset					= ri.Cvar_Get( "sun_preset",				va("%d", SUN_PRESET_NONE), CVAR_ARCHIVE);
+	sun_latitude				= ri.Cvar_Get( "sun_latitude",				"32.9",	CVAR_ARCHIVE); // latitude of former HQ of id Software in Richardson, TX
+	sun_gamepad					= ri.Cvar_Get( "sun_gamepad",				"0",	0);
+
+    // sky
+    physical_sky				= ri.Cvar_Get( "physical_sky",				"0",	CVAR_ARCHIVE);
+    physical_sky_draw_clouds	= ri.Cvar_Get( "physical_sky_draw_clouds",	"1",	0);
+    physical_sky_space			= ri.Cvar_Get( "physical_sky_space",		"0",	0);
+	physical_sky_brightness		= ri.Cvar_Get( "physical_sky_brightness",	"0",	0);
+	
+	sky_scattering				= ri.Cvar_Get( "sky_scattering",			"5.0",	0);
+	sky_transmittance			= ri.Cvar_Get( "sky_transmittance",			"10.0", 0);
+	sky_phase_g					= ri.Cvar_Get( "sky_phase_g",				"0.9",	0);
+	sky_amb_phase_g				= ri.Cvar_Get( "sky_amb_phase_g",			"0.3",	0);
+#endif
 	r_ssaoRadius						= Cvar_Get("r_ssaoRadius",					"48",						CVAR_ARCHIVE_ND, "Ambient occlusion sampling radius, in world units");
 	ri.Cvar_CheckRange(r_ssaoRadius, 1, 512, qfalse);
 	r_ssaoIntensity						= Cvar_Get("r_ssaoIntensity",				"1.0",						CVAR_ARCHIVE_ND, "Ambient occlusion power curve; higher darkens");
@@ -1138,8 +1333,12 @@ void R_Init( void ) {
 		R_InitWorldEffects();
 	}
 	RestoreGhoul2InfoArray();
+#ifdef USE_RTX
+	vk_rtx_begin_registration();
+#endif
 
 	vk_debug("----- finished R_Init -----\n" );
+
 }
 
 
@@ -1158,6 +1357,10 @@ void RE_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 	R_ShutdownWorldEffects();
 	R_ShutdownFonts();
 
+#ifdef USE_RTX
+	RTX_LightEdit_Invalidate();
+#endif
+
 	// contains vulkan resources/state, reinitialized on a map change.
 	//if (tr.registered) {
 
@@ -1170,6 +1373,14 @@ void RE_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 
 		vk_delete_textures();
 		vk_release_resources();
+
+#ifdef USE_RTX
+		if ( vk.rtxActive && tr.world )
+		{
+			vk_rtx_destroy_primary_rays_resources();
+			vk_rtx_clear_material_list();
+		}
+#endif
 	//}
 
 	//vk_release_resources(); not merged yet (https://github.com/ec-/Quake3e/commit/d31b84ebf2ab702686e98dff40b7673473026b30)
@@ -1391,6 +1602,16 @@ static void stub_GetModelBounds( refEntity_t *refEnt, vec3_t bounds1, vec3_t bou
 extern void G2Time_ResetTimers(void);
 extern void G2Time_ReportTimers(void);
 #endif
+void RE_CaptureNextFrame( byte *rgba, int width, int height );
+
+static void *RE_GetExtension( const char *name )
+{
+#ifdef USE_RTX
+	return RTX_LightEdit_GetExtension( name );
+#else
+	return NULL;
+#endif
+}
 
 /*
 @@@@@@@@@@@@@@@@@@@@@
@@ -1420,6 +1641,7 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	// template for which fields SP expects and how an SP renderer normally
 	// wires them up.
 	re.Shutdown								= RE_Shutdown;
+	re.GetExtension							= RE_GetExtension;
 
 	re.BeginRegistration					= RE_BeginRegistration;
 	re.RegisterModel						= RE_RegisterModel;
@@ -1560,6 +1782,8 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.G2Time_ReportTimers					= G2Time_ReportTimers;
 #endif
 
+	re.CaptureNextFrame						= RE_CaptureNextFrame;
+
 	// Fields left unassigned here are NULL in a zero-initialized refexport_t
 	// -- any caller reaching them crashes at a null function pointer, so
 	// this list must stay in sync with code/rd-common/tr_public.h.
@@ -1586,6 +1810,7 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.G2API_GetAnimRangeIndex				= G2API_GetAnimRangeIndex;
 	re.G2API_PauseBoneAnimIndex				= G2API_PauseBoneAnimIndex;
 	re.G2API_SetAnimIndex					= G2API_SetAnimIndex;
+	re.G2API_SetAnimOverride				= G2API_SetAnimOverride;
 	re.G2API_SetBoneAnglesIndex				= G2API_SetBoneAnglesIndex;
 	re.G2API_SetBoneAnglesMatrix				= G2API_SetBoneAnglesMatrix;
 	re.G2API_SetBoneAnglesMatrixIndex		= G2API_SetBoneAnglesMatrixIndex;

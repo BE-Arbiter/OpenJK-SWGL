@@ -487,4 +487,10 @@ void vk_info_f( void ) {
 #else
     ri.Printf(PRINT_ALL, "vk_info statistics are not enabled in this build.\n");
 #endif
+#ifdef USE_RTX
+    {
+        const char *yesno[] = { "no ", "yes" };
+        ri.Printf( PRINT_ALL, "RTX Support: %s  RTX Enabled: %s\n", yesno[vk.rtxSupport], yesno[vk.rtxActive] );
+    }
+#endif
 }

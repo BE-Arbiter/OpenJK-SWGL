@@ -80,7 +80,11 @@ set(SPVulkanRendererFiles
 	"${SPDir}/rd-vulkan/vk_flares.cpp"
 	"${SPDir}/rd-vulkan/vk_frame.cpp"
 	"${SPDir}/rd-vulkan/vk_image.cpp"
-	"${SPDir}/rd-vulkan/vk_image_process.cpp"
+	"${SPDir}/rd-vulkan/vk_normalmap.cpp"
+	"${SPDir}/rd-vulkan/vk_mikktspace.cpp"
+	"${SPDir}/rd-vulkan/vk_pbr.cpp"
+	"${SPDir}/rd-vulkan/vk_cubemap.cpp"
+"${SPDir}/rd-vulkan/vk_image_process.cpp"
 	"${SPDir}/rd-vulkan/vk_info.cpp"
 	"${SPDir}/rd-vulkan/vk_init.cpp"
 	"${SPDir}/rd-vulkan/vk_instance.cpp"
@@ -102,9 +106,11 @@ set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererGhoul2Files
 
 set(SPVulkanRendererRdCommonFiles
 	"${SPDir}/rd-common/mdx_format.h"
+	"${SPDir}/rd-common/mdx_merge.h"
 	"${SPDir}/rd-common/tr_common.h"
 	"${SPDir}/rd-common/tr_font.cpp"
 	"${SPDir}/rd-common/tr_font.h"
+	"${SPDir}/rd-common/tr_glamerge.cpp"
 	"${SPDir}/rd-common/tr_image_load.cpp"
 	"${SPDir}/rd-common/tr_image_jpg.cpp"
 	"${SPDir}/rd-common/tr_image_tga.cpp"
@@ -143,9 +149,24 @@ source_group("renderer\\vulkan\\vk_video" FILES ${SPVulkanRendererVulkanVideoAss
 set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererVulkanVideoAssets})
 
 set(SPVulkanRendererUtils
-	"${SPDir}/rd-vulkan/utils/stb_dxt.h")
+	"${SPDir}/rd-vulkan/utils/stb_dxt.h"
+	"${SPDir}/rd-vulkan/utils/stb_image.h")
 source_group("renderer\\utils" FILES ${SPVulkanRendererUtils})
 set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererUtils})
+
+set(SPVulkanRendererUtilsMikktFiles
+	"${SPDir}/rd-vulkan/utils/mikktspace/mikktspace.h"
+	"${SPDir}/rd-vulkan/utils/mikktspace/mikktspace.c")
+source_group("renderer\\utils\\mikktspace" FILES ${SPVulkanRendererUtilsMikktFiles})
+set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererUtilsMikktFiles})
+
+# Path tracer, ported from JKSunny/EternalJK rtx-update (itself from NVIDIA's Q2RTX).
+# Compiled in only when USE_RTX is defined; the raster path is untouched either way.
+file(GLOB SPVulkanRendererRtxFiles
+	"${SPDir}/rd-vulkan/rtx/*.cpp"
+	"${SPDir}/rd-vulkan/rtx/*.h")
+source_group("renderer\\rtx" FILES ${SPVulkanRendererRtxFiles})
+set(SPVulkanRendererFiles ${SPVulkanRendererFiles} ${SPVulkanRendererRtxFiles})
 
 set(SPVulkanRendererCommonFiles
 	"${SPDir}/qcommon/matcomp.cpp"
@@ -194,7 +215,56 @@ set(SPVulkanRendererIncludeDirectories ${SPVulkanRendererIncludeDirectories} ${O
 
 set(SPVulkanDefines ${SharedDefines} "RENDERER")
 
-add_library(${SPVulkan} SHARED ${SPVulkanRendererFiles})
+# NVIDIA NRD v4.17.3, compiled into the renderer DLL (see nrd/README.md).
+# A separate OBJECT library keeps the C++17 setting and the NRD defines away from the renderer files.
+set(SPVulkanNrdDir "${SPDir}/rd-vulkan/nrd")
+set(SPVulkanNrdFiles
+	"${SPVulkanNrdDir}/Source/InstanceImpl.cpp"
+	"${SPVulkanNrdDir}/Source/Reblur.cpp"
+	"${SPVulkanNrdDir}/Source/Reference.cpp"
+	"${SPVulkanNrdDir}/Source/Relax.cpp"
+	"${SPVulkanNrdDir}/Source/Sigma.cpp"
+	"${SPVulkanNrdDir}/Source/Timer.cpp"
+	"${SPVulkanNrdDir}/Source/Wrapper.cpp"
+	"${SPVulkanNrdDir}/ShaderMake/ShaderBlob.cpp")
+set(SPVulkanNrdIncludeDirectories
+	"${SPVulkanNrdDir}/Include"
+	"${SPVulkanNrdDir}/MathLib"
+	"${SPVulkanNrdDir}"
+	"${SPVulkanNrdDir}/Spirv")
+set(SPVulkanNrdDefines
+	WIN32_LEAN_AND_MEAN
+	NOMINMAX
+	_CRT_SECURE_NO_WARNINGS
+	NRD_STATIC_LIBRARY=1
+	NRD_EMBEDS_SPIRV_SHADERS=1
+	NRD_EMBEDS_DXIL_SHADERS=0
+	NRD_EMBEDS_DXBC_SHADERS=0
+	SPIRV_SREG_OFFSET=0
+	SPIRV_BREG_OFFSET=2
+	SPIRV_UREG_OFFSET=3
+	SPIRV_TREG_OFFSET=20
+	NRD_SUPPORTS_VIEWPORT_OFFSET=0
+	NRD_SUPPORTS_CHECKERBOARD=1
+	NRD_SUPPORTS_HISTORY_CONFIDENCE=1
+	NRD_SUPPORTS_DISOCCLUSION_THRESHOLD_MIX=1
+	NRD_SUPPORTS_ANTIFIREFLY=1
+	REBLUR_PERFORMANCE_MODE=0)
+source_group("renderer\nrd" FILES ${SPVulkanNrdFiles})
+add_library(${SPVulkan}_nrd OBJECT ${SPVulkanNrdFiles})
+set_target_properties(${SPVulkan}_nrd PROPERTIES
+	CXX_STANDARD 17
+	CXX_STANDARD_REQUIRED ON
+	POSITION_INDEPENDENT_CODE ON)
+target_include_directories(${SPVulkan}_nrd PRIVATE ${SPVulkanNrdIncludeDirectories})
+target_compile_definitions(${SPVulkan}_nrd PRIVATE ${SPVulkanNrdDefines})
+if(MSVC)
+	target_compile_options(${SPVulkan}_nrd PRIVATE /wd4324)
+endif()
+# The renderer includes NRD.h for vk_rtx_nrd.cpp.
+list(APPEND SPVulkanRendererIncludeDirectories "${SPVulkanNrdDir}/Include")
+
+add_library(${SPVulkan} SHARED ${SPVulkanRendererFiles} $<TARGET_OBJECTS:${SPVulkan}_nrd>)
 
 if(NOT MSVC)
 	# remove "lib" prefix for .so/.dylib files

@@ -44,7 +44,7 @@ typedef uint64_t VkSurfaceKHR;
 #endif // VULKAN_CORE_H_
 #endif // OPENJK_VK_HANDLES_DECLARED
 
-#define	REF_API_VERSION		19
+#define	REF_API_VERSION		20
 
 typedef struct {
 	void				(QDECL *Printf)						( int printLevel, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
@@ -145,6 +145,14 @@ typedef struct {
 	void *				(*VK_GetInstanceProcAddress)		( void );
 	qboolean			(*VK_createSurfaceImpl)				( VkInstance instance, VkSurfaceKHR *surface );
 	void				(*VK_destroyWindow)					( void );
+
+	// g_FastRendererSwitch: set for the second renderer only. That renderer then uses
+	// the ghoul2 instances of the first renderer, not its own.
+	IGhoul2InfoArray &	(*TheGhoul2InfoArray)				( void );
+
+	// g_FastRendererSwitch: the window has no hardware gamma ramp. A renderer that relies on
+	// one applies its ramp to the finished frame instead.
+	qboolean			(*WIN_GammaInSoftware)				( void );
 
 } refimport_t;
 
@@ -395,6 +403,14 @@ typedef struct {
 	// Performance analysis (perform anal)
 	void		(*G2Time_ResetTimers)(void);
 	void		(*G2Time_ReportTimers)(void);
+
+	// g_FastRendererSwitch: the next EndFrame copies its final image into rgba before it
+	// presents. The image is width x height, 4 bytes per pixel, top row first.
+	void		(*CaptureNextFrame)(byte *rgba, int width, int height);
+
+	// Returns the table of a named extension, or NULL when the renderer does not have it.
+	// See rtx_light_edit_api.h.
+	void		*(*GetExtension)(const char *name);
 } refexport_t;
 
 // this is the only function actually exported at the linker level

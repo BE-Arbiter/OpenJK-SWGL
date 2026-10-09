@@ -1201,8 +1201,16 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 	const char *token;
 	int depthMaskBits = GLS_DEPTHMASK_TRUE, blendSrcBits = 0, blendDstBits = 0, atestBits = 0, depthFuncBits = 0;
 	qboolean depthMaskExplicit = qfalse;
+#ifdef USE_VK_PBR
+	char bufferNormalTextureName[MAX_QPATH];
+	char bufferPackedTextureName[MAX_QPATH];
+#endif
 
 	stage->active = qtrue;
+#ifdef USE_VK_PBR
+	stage->normalMapType = PHYS_NONE;
+	stage->physicalMapType = PHYS_NONE;
+#endif
 
 	while (1)
 	{
@@ -1247,6 +1255,9 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 				else
 				{
 					stage->bundle[0].image[0] = tr.lightmaps[shader.lightmapIndex[0]];
+#ifdef USE_VK_PBR
+					stage->bundle[0].deluxeMap = tr.deluxemaps ? tr.deluxemaps[shader.lightmapIndex[0]] : NULL;
+#endif
 				}
 				continue;
 			}
@@ -1266,6 +1277,16 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 				if (shader.noLightScale)
 					flags |= IMGFLAG_NOLIGHTSCALE;
 
+#ifdef USE_RTX
+				// The tracer wants albedo in linear space, so colour textures are
+				// uploaded sRGB and the hardware does the decode on sample. This has to
+				// hold for every colour texture it can sample, not just the ones a map
+				// happens to register while it loads - one left out is read as though it
+				// were already linear, which lifts its midtones and flattens it.
+				if ( vk.rtxActive )
+					flags |= IMGFLAG_RGB;
+#endif
+
 				stage->bundle[0].image[0] = R_FindImageFile(token, flags);
 
 
@@ -1276,6 +1297,84 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 				}
 			}
 		}
+#ifdef USE_VK_PBR
+		//
+		// normalMap <name> || normalHeightMap <name>
+		//
+		else if ( !Q_stricmp( token, "normalMap" ) || !Q_stricmp( token, "normalHeightMap" ) )
+		{
+			const qboolean height = !Q_stricmp( token, "normalHeightMap" ) ? qtrue : qfalse;
+
+			token = COM_ParseExt( text, qfalse );
+			if ( !token[0] )
+			{
+				ri.Printf( PRINT_WARNING, "WARNING: missing parameter for 'normalMap' keyword in shader '%s'\n", shader.name );
+				return qfalse;
+			}
+
+			stage->normalMapType = height ? PHYS_NORMALHEIGHT : PHYS_NORMAL;
+			Q_strncpyz( bufferNormalTextureName, token, sizeof( bufferNormalTextureName ) );
+
+			VectorSet4( stage->normalScale, r_baseNormalX->value, r_baseNormalY->value, 1.0f, r_baseParallax->value );
+		}
+		//
+		// specMap <name> || specularMap <name>
+		//
+		else if ( !Q_stricmp( token, "specMap" ) || !Q_stricmp( token, "specularMap" ) )
+		{
+			token = COM_ParseExt( text, qfalse );
+			if ( !token[0] )
+			{
+				ri.Printf( PRINT_WARNING, "WARNING: missing parameter for 'specularMap' keyword in shader '%s'\n", shader.name );
+				return qfalse;
+			}
+
+			stage->physicalMapType = PHYS_SPECGLOSS;
+			VectorSet4( stage->specularScale, 1.0f, 1.0f, 1.0f, 0.0f );
+
+			if ( !Q_stricmp( token, "$whiteimage" ) )
+			{
+				stage->physicalMap = tr.whiteImage;
+				stage->vk_pbr_flags |= PBR_HAS_SPECULARMAP;
+				continue;
+			}
+
+			Q_strncpyz( bufferPackedTextureName, token, sizeof( bufferPackedTextureName ) );
+		}
+		//
+		// rmoMap <name> || rmosMap <name> || moxrMap <name> || mosrMap <name> || ormMap <name> || ormsMap <name>
+		//
+		else if ( !Q_stricmp( token, "rmoMap" ) || !Q_stricmp( token, "rmosMap" )
+			|| !Q_stricmp( token, "moxrMap" ) || !Q_stricmp( token, "mosrMap" )
+			|| !Q_stricmp( token, "ormMap" ) || !Q_stricmp( token, "ormsMap" ) )
+		{
+			uint32_t type;
+
+			if ( !Q_stricmp( token, "rmoMap" ) )		type = PHYS_RMO;
+			else if ( !Q_stricmp( token, "rmosMap" ) )	type = PHYS_RMOS;
+			else if ( !Q_stricmp( token, "moxrMap" ) )	type = PHYS_MOXR;
+			else if ( !Q_stricmp( token, "mosrMap" ) )	type = PHYS_MOSR;
+			else if ( !Q_stricmp( token, "ormMap" ) )	type = PHYS_ORM;
+			else										type = PHYS_ORMS;
+
+			token = COM_ParseExt( text, qfalse );
+			if ( !token[0] )
+			{
+				ri.Printf( PRINT_WARNING, "WARNING: missing parameter for physical map keyword in shader '%s'\n", shader.name );
+				return qfalse;
+			}
+
+			stage->physicalMapType = type;
+
+			if ( !Q_stricmp( token, "$whiteimage" ) )
+			{
+				stage->physicalMap = tr.whiteImage;
+				continue;
+			}
+
+			Q_strncpyz( bufferPackedTextureName, token, sizeof( bufferPackedTextureName ) );
+		}
+#endif
 		//
 		// clampmap <name>
 		//
@@ -1314,6 +1413,11 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 
 			if (shader.noLightScale)
 				flags |= IMGFLAG_NOLIGHTSCALE;
+
+#ifdef USE_RTX
+			if ( vk.rtxActive )
+				flags |= IMGFLAG_RGB;
+#endif
 
 			stage->bundle[0].image[0] = R_FindImageFile(token, flags);
 
@@ -1371,6 +1475,11 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 
 					if( bClamp )
 						flags |= IMGFLAG_CLAMPTOEDGE;
+
+#ifdef USE_RTX
+					if ( vk.rtxActive )
+						flags |= IMGFLAG_RGB;
+#endif
 
 					images[num] = R_FindImageFile( token, flags );
 					if ( !images[num] )
@@ -1820,6 +1929,31 @@ static qboolean ParseStage(shaderStage_t *stage, const char **text)
 			return qfalse;
 		}
 	}
+
+#ifdef USE_VK_PBR
+	// The maps the keywords name. A normal map is not compressed.
+	if ( stage->physicalMapType != PHYS_NONE || stage->normalMapType != PHYS_NONE )
+	{
+		imgFlags_t flags = IMGFLAG_NOLIGHTSCALE;
+
+		if ( !shader.noMipMaps )
+			flags |= IMGFLAG_MIPMAP;
+
+		if ( !shader.noPicMip )
+			flags |= IMGFLAG_PICMIP;
+
+		if ( shader.noTC )
+			flags |= IMGFLAG_NO_COMPRESSION;
+
+		if ( !stage->physicalMap && stage->physicalMapType != PHYS_NONE )
+			vk_create_phyisical_texture( stage, bufferPackedTextureName, flags );
+
+		flags |= IMGFLAG_NO_COMPRESSION;
+
+		if ( stage->normalMapType != PHYS_NONE )
+			vk_create_normal_texture( stage, bufferNormalTextureName, flags );
+	}
+#endif
 
 	//
 	// if cgen isn't explicitly specified, use either identity or identitylighting
@@ -2514,6 +2648,12 @@ static qboolean ParseShader( const char **text )
 		{
 			token = COM_ParseExt(text, qfalse);
 			tr.sunSurfaceLight = atoi(token);
+#ifdef USE_RTX
+			// The tracer turns this into an emissive factor per surface, so it needs the
+			// value on the shader and not only in the global sun light.
+			// https://q3map2.robotrenegade.com/docs/shader_manual/q3map-global-directives.html#q3map_surfaceLight
+			shader.surfacelight = atoi(token);
+#endif
 		}
 		else if (!Q_stricmp(token, "lightColor"))
 		{
@@ -2913,6 +3053,18 @@ static void ScanAndLoadShaderFiles( void )
 		char filename[MAX_QPATH];
 
 		Com_sprintf(filename, sizeof(filename), "shaders/%s", shaderFiles[i]);
+#ifdef USE_VK_PBR
+		// a .mtr file (materials) in place of the .shader file
+		{
+			char *ext = strrchr( filename, '.' );
+			if ( ext )
+			{
+				strcpy( ext, ".mtr" );
+				if ( ri.FS_ReadFile( filename, NULL ) <= 0 )
+					Com_sprintf( filename, sizeof( filename ), "shaders/%s", shaderFiles[i] );
+			}
+		}
+#endif
 		vk_debug("...loading '%s'\n", filename);
 		summand = ri.FS_ReadFile(filename, (void**)&buffers[i]);
 
@@ -3096,6 +3248,14 @@ static void InitShader( const char *name, const int *lightmapIndex, const byte *
 	for (i = 0; i < MAX_SHADER_STAGES; i++) {
 		stages[i].bundle[0].texMods = texMods[i];
 		stages[i].bundle[0].mGLFogColorOverride = GLFOGOVERRIDE_NONE;
+#ifdef USE_VK_PBR
+		// default normal/specular
+		VectorSet4( stages[i].normalScale, 0.0f, 0.0f, 0.0f, 0.0f );
+		stages[i].specularScale[0] =
+		stages[i].specularScale[1] =
+		stages[i].specularScale[2] = r_baseSpecular->value;
+		stages[i].specularScale[3] = 0.99f;
+#endif
 	}
 
 	shader.contentFlags = CONTENTS_SOLID | CONTENTS_OPAQUE;
@@ -3191,6 +3351,8 @@ shader_t *R_FindShader( const char *name, const int *lightmapIndex, const byte *
 
 			if (!ParseShader(&shaderText)) {
 				// had errors, so use default shader
+				if ( r_shaderWarnings->integer & 1 )
+					ri.Printf( PRINT_WARNING, "WARNING: shader '%s' has a script that failed to parse, using the default shader\n", strippedName );
 				setDefaultShader();
 			}
 			sh = FinishShader();
@@ -3219,10 +3381,20 @@ shader_t *R_FindShader( const char *name, const int *lightmapIndex, const byte *
 			flags |= IMGFLAG_CLAMPTOEDGE;
 		}
 
+#ifdef USE_RTX
+		// A texture with no shader script at all takes this path, which is most of a
+		// JKA map's walls - it was the one site the sRGB flag never reached.
+		if ( vk.rtxActive )
+			flags |= IMGFLAG_RGB;
+#endif
+
 		image = R_FindImageFile(strippedName, flags);
 		if (!image) {
 			vk_debug("shader [%s] image not found, fallback to default shader\n", name);
+			if ( r_shaderWarnings->integer & 2 )
+				ri.Printf( PRINT_WARNING, "WARNING: shader '%s' has no script and no image, using the default shader\n", strippedName );
 			setDefaultShader();
+			shader.missingShader = qtrue;
 			return FinishShader();
 		}
 	}
@@ -3498,6 +3670,17 @@ static int CollapseMultitexture( unsigned int st0bits, shaderStage_t *st0, shade
 
 	if( st1->glow )
 		st0->glow = true;
+
+#ifdef USE_VK_PBR
+	if ( st1->vk_pbr_flags )
+	{
+		st0->vk_pbr_flags = st1->vk_pbr_flags;
+		st0->normalMap = st1->normalMap;
+		st0->physicalMap = st1->physicalMap;
+		VectorCopy4( st1->specularScale, st0->specularScale );
+		VectorCopy4( st1->normalScale, st0->normalScale );
+	}
+#endif
 
 	//
 	// move down subsequent shaders
@@ -3999,7 +4182,18 @@ shader_t *FinishShader( void )
 	{
 		if ( shader.lightmapIndex[0] == LIGHTMAP_BY_VERTEX )
 		{
+#ifdef USE_RTX
+			// Under RTX the world has no lightmaps. Only a filter over the lightmap is the same as
+			// the texture with rgbGen exactVertex: for any other blendFunc, the lightmap stage
+			// stays and gives the vertex light (GL: $lightmap + GL_ONE GL_ONE adds the texture).
+			const int nextBlend = ( lmStage + 1 < MAX_SHADER_STAGES ) ? ( stages[lmStage + 1].stateBits & GLS_BLEND_BITS ) : 0;
+			const qboolean filter = ( nextBlend == ( GLS_SRCBLEND_DST_COLOR | GLS_DSTBLEND_ZERO ) || nextBlend == ( GLS_SRCBLEND_ZERO | GLS_DSTBLEND_SRC_COLOR )
+				|| nextBlend == ( GLS_SRCBLEND_DST_COLOR | GLS_DSTBLEND_SRC_COLOR ) ) ? qtrue : qfalse;
+
+			if ( lmStage == 0 && ( filter || !vk.rtxActive || !stages[1].active ) )
+#else
 			if ( lmStage == 0 )	//< MAX_SHADER_STAGES-1)
+#endif
 			{//copy the rest down over the lightmap slot
 				memmove(&stages[lmStage], &stages[lmStage+1], sizeof(shaderStage_t) * ( MAX_SHADER_STAGES - lmStage - 1 ));
 				memset(&stages[MAX_SHADER_STAGES-1], 0, sizeof(shaderStage_t));
@@ -4041,6 +4235,9 @@ shader_t *FinishShader( void )
 				}
 				else {
 					pStage->bundle[0].image[0] = tr.lightmaps[shader.lightmapIndex[i+1]];
+#ifdef USE_VK_PBR
+					pStage->bundle[0].deluxeMap = tr.deluxemaps ? tr.deluxemaps[shader.lightmapIndex[i+1]] : NULL;
+#endif
 					pStage->bundle[0].tcGen = (texCoordGen_t)( TCGEN_LIGHTMAP + i + 1 );
 				}
 
@@ -4198,7 +4395,11 @@ shader_t *FinishShader( void )
 	//
 	// if we are in r_vertexLight mode, never use a lightmap texture
 	//
+#ifdef USE_RTX
+	if (stage > 1 && ( vk.rtxActive || (r_vertexLight->integer && !r_uiFullScreen->integer))) {
+#else
 	if (stage > 1 && (r_vertexLight->integer && !r_uiFullScreen->integer)) {
+#endif
 		//VertexLightingCollapse();
 		//stage = 1;
 		//rww - since this does bad things, I am commenting it out for now. If you want to attempt a fix, feel free.
@@ -4551,6 +4752,103 @@ shader_t *FinishShader( void )
 				def.face_culling = CT_TWO_SIDED;
 			}
 
+#ifdef USE_VK_PBR
+			// A lit stage without the maps in its shader takes those next to its diffuse
+			// texture (textureMapTypes suffixes), or r_genNormalMaps computes its normal map.
+			{
+				image_t *albedo = pStage->bundle[0].image[0];
+				const colorGen_t rgbGen = pStage->bundle[0].rgbGen;
+				const qboolean lit = ( ( pStage->numTexBundles > 1 && pStage->bundle[1].isLightmap )
+					|| rgbGen == CGEN_LIGHTING_DIFFUSE || rgbGen == CGEN_LIGHTING_DIFFUSE_ENTITY
+					|| rgbGen == CGEN_VERTEX || rgbGen == CGEN_EXACT_VERTEX ) ? qtrue : qfalse;
+
+				// Between RE_Shutdown and R_Init (a save load registers shaders there), the
+				// images are freed but tr.whiteImage etc. still point to them.
+				if ( tr.inited && vk.pbrActive && def.shader_type >= TYPE_GENERIC_BEGIN && lit && !pStage->bundle[0].isLightmap && albedo )
+				{
+					char imageName[MAX_QPATH];
+					imgFlags_t flags = IMGFLAG_NOLIGHTSCALE;
+					uint32_t j;
+
+					if ( !shader.noMipMaps )	flags |= IMGFLAG_MIPMAP;
+					if ( !shader.noPicMip )		flags |= IMGFLAG_PICMIP;
+					if ( shader.noTC )			flags |= IMGFLAG_NO_COMPRESSION;
+
+					if ( !pStage->physicalMap )
+					{
+						for ( j = 0; j < ARRAY_LEN( textureMapTypes ); j++ )
+						{
+							COM_StripExtension( albedo->imgName, imageName, MAX_QPATH );
+							Q_strcat( imageName, MAX_QPATH, textureMapTypes[j].suffix );
+							pStage->physicalMapType = textureMapTypes[j].type;
+
+							if ( vk_create_phyisical_texture( pStage, imageName, flags ) )
+								break;
+						}
+
+						if ( !pStage->physicalMap )
+							pStage->physicalMapType = PHYS_NONE;
+					}
+
+					flags |= IMGFLAG_NO_COMPRESSION;
+
+					if ( !pStage->normalMap )
+					{
+						for ( j = 0; j < ARRAY_LEN( textureMapTypes ); j++ )
+						{
+							COM_StripExtension( albedo->imgName, imageName, MAX_QPATH );
+							Q_strcat( imageName, MAX_QPATH, textureMapTypes[j].suffix );
+							pStage->normalMapType = textureMapTypes[j].type;
+
+							if ( vk_create_normal_texture( pStage, imageName, flags ) )
+								break;
+						}
+
+						if ( !pStage->normalMap )
+							pStage->normalMapType = PHYS_NONE;
+					}
+
+#ifdef VK_COMPUTE_NORMALMAP
+					if ( !pStage->normalMap && r_genNormalMaps->integer )
+						vk_add_compute_normalmap( pStage, albedo, flags );
+#endif
+
+					// A normal map without physical map: white, occlusion and roughness 1,
+					// metalness 0 (specularScale[0]).
+					if ( pStage->normalMap && !pStage->physicalMap )
+					{
+						pStage->specularScale[0] = 0.0f;
+						pStage->specularScale[2] =
+						pStage->specularScale[3] = 1.0f;
+						pStage->specularScale[1] = 0.5f;
+						pStage->physicalMap = tr.whiteImage;
+						pStage->physicalMapType = PHYS_RMO;
+						pStage->vk_pbr_flags |= PBR_HAS_PHYSICALMAP;
+					}
+				}
+			}
+#endif
+
+#ifdef USE_VK_PBR
+			// PBR shading: the world light types here, LIGHTDEF_USE_LIGHT_VECTOR at the model VBO draw
+			def.vk_light_flags = 0;
+			def.vk_pbr_flags = 0;
+			pStage->vk_light_flags = 0;
+
+			if ( vk.pbrActive ) {
+				pStage->vk_light_flags = vk_stage_light_flags( pStage, def.shader_type );
+
+				if ( pStage->vk_light_flags & ( LIGHTDEF_USE_LIGHTMAP | LIGHTDEF_USE_LIGHT_VERTEX ) ) {
+					// the PBR shaders read the color of the stage
+					if ( pStage->vk_light_flags & LIGHTDEF_USE_LIGHTMAP )
+						def.shader_type = TYPE_MULTI_TEXTURE_MUL2;
+
+					def.vk_light_flags = pStage->vk_light_flags;
+					def.vk_pbr_flags = pStage->vk_pbr_flags;
+					pStage->tessFlags |= TESS_RGBA0 | TESS_NNN | TESS_QTANGENT | TESS_LIGHTDIR;
+				}
+			}
+#endif
 
 			def.mirror = qfalse;
 			pStage->vk_pipeline[0] = vk_find_pipeline_ext(0, &def, qtrue);
@@ -4724,7 +5022,8 @@ static void FixRenderCommandList( int newShader ) {
 					sortedIndex = (( drawSurf->sort >> QSORT_SHADERNUM_SHIFT ) & SHADERNUM_MASK);
 					if ( sortedIndex >= newShader ) {
 						sortedIndex = shader->sortedIndex;
-						drawSurf->sort = (sortedIndex << QSORT_SHADERNUM_SHIFT) | (entityNum << QSORT_REFENTITYNUM_SHIFT) | ( fogNum << QSORT_FOGNUM_SHIFT ) | (int)dlightMap;
+						drawSurf->sort = ((sortKey_t)sortedIndex << QSORT_SHADERNUM_SHIFT) | ((sortKey_t)entityNum << QSORT_REFENTITYNUM_SHIFT)
+							| ( fogNum << QSORT_FOGNUM_SHIFT ) | (int)dlightMap | ( drawSurf->sort & QSORT_ALPHAFADE_BIT );
 					}
 				}
 				curCmd = (const void *)(ds_cmd + 1);
@@ -4847,6 +5146,18 @@ shader_t *GeneratePermanentShader( void )
 	newShader->next = hashTable[hash];
 	hashTable[hash] = newShader;
 
+#ifdef USE_RTX
+	// Scan the shader's glow/emissive texture once, so its average colour and the
+	// bounding box of its lit texels can seed a light poly.
+	if ( vk.rtxActive )
+	{
+		uint32_t emissive = vk_rtx_find_emissive_texture( newShader, NULL );
+
+		if ( emissive && !tr.images.items[emissive]->processing_complete )
+			vk_rtx_extract_emissive_texture_info( tr.images.items[emissive] );
+	}
+#endif
+
 	return newShader;
 }
 
@@ -4898,6 +5209,9 @@ void R_CreateDefaultShadingCmds( image_t *image )
 	{
 		// two pass lightmap
 		stages[0].bundle[0].image[0] = tr.lightmaps[shader.lightmapIndex[0]];
+#ifdef USE_VK_PBR
+		stages[0].bundle[0].deluxeMap = tr.deluxemaps ? tr.deluxemaps[shader.lightmapIndex[0]] : NULL;
+#endif
 		stages[0].bundle[0].isLightmap = qtrue;
 		stages[0].active = qtrue;
 		stages[0].bundle[0].rgbGen = CGEN_IDENTITY;	// lightmaps are scaled on creation for identitylight
@@ -5004,6 +5318,13 @@ static void CreateInternalShaders( void )
 	stages[0].bundle[0].rgbGen = CGEN_IDENTITY_LIGHTING;
 	stages[0].stateBits = GLS_DEPTHTEST_DISABLE;
 	tr.cinematicShader = FinishShader();
+
+	InitShader("<beam>", lightmapsNone, stylesDefault);
+	stages[0].bundle[0].image[0] = tr.whiteImage;
+	stages[0].active = qtrue;
+	stages[0].bundle[0].rgbGen = CGEN_EXACT_VERTEX;
+	stages[0].stateBits = GLS_SRCBLEND_ONE | GLS_DSTBLEND_ONE;
+	tr.beamShader = FinishShader();
 }
 
 static void CreateExternalShaders( void )

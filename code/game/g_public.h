@@ -418,6 +418,10 @@ typedef struct {
 	void		(*ClientThink)( int clientNum, usercmd_t *cmd );
 
 	void		(*RunFrame)( int levelTime );
+	// RunFrame in parts, over several client frames: RunFrameBegin, then RunFrameSlice
+	// until it returns qtrue. Each slice thinks about 1 / numSlices of the clients.
+	void		(*RunFrameBegin)( int levelTime, int numSlices );
+	qboolean	(*RunFrameSlice)( void );
 	void		(*ConnectNavs)( const char *mapname, int checkSum );
 
 	// ConsoleCommand will be called when a command has been issued

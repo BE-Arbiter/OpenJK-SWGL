@@ -949,6 +949,19 @@ qhandle_t RE_RegisterModel( const char *name )
 	return q;
 }
 
+// Registers a GLA and returns its data in the model cache, or NULL (see tr_glamerge.cpp).
+const mdxaHeader_t *R_GetRegisteredGLA( const char *path )
+{
+	const qhandle_t handle = RE_RegisterModel( path );
+	if ( !handle )
+	{
+		return NULL;
+	}
+
+	const model_t *mod = R_GetModelByHandle( handle );
+	return mod->type == MOD_MDXA ? mod->data.gla : NULL;
+}
+
 /*
 =================
 R_LoadMD3

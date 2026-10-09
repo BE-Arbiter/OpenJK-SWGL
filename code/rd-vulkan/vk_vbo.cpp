@@ -251,6 +251,13 @@ static qboolean isStaticShader(shader_t *shader)
 	return qtrue;
 }
 
+// the per-vertex data of the world VBO besides the stage data
+#ifdef USE_VK_PBR
+#define VBO_VERTEX_SIZE ( sizeof(tess.xyz[0]) + sizeof(tess.normal[0]) + sizeof(tess.qtangent[0]) + sizeof(tess.lightdir[0]) )
+#else
+#define VBO_VERTEX_SIZE ( sizeof(tess.xyz[0]) + sizeof(tess.normal[0]) )
+#endif
+
 static void VBO_AddGeometry(vbo_t *vbo, vbo_item_t *vi, shaderCommands_t *input)
 {
 	uint32_t size, offs;
@@ -276,6 +283,13 @@ static void VBO_AddGeometry(vbo_t *vbo, vbo_item_t *vi, shaderCommands_t *input)
 
 		// go to first color offset
 		offs = input->shader->normalOffset + input->shader->numVertexes * sizeof(input->normal[0]);
+
+#ifdef USE_VK_PBR
+		// tangents and light directions after the stage data
+		input->shader->qtangentOffset = vbo->vbo_offset;
+		input->shader->lightdirOffset = input->shader->qtangentOffset + input->shader->numVertexes * sizeof(input->qtangent[0]);
+		vbo->vbo_offset += input->shader->numVertexes * ( sizeof(input->qtangent[0]) + sizeof(input->lightdir[0]) );
+#endif
 
 		for (i = 0; i < MAX_VBO_STAGES; i++)
 		{
@@ -377,6 +391,22 @@ static void VBO_AddGeometry(vbo_t *vbo, vbo_item_t *vi, shaderCommands_t *input)
 	}
 	//Com_Printf( "v offs=%i size=%i\n", offs, size );
 	memcpy(vbo->vbo_buffer + offs, input->normal, size);
+
+#ifdef USE_VK_PBR
+	offs = input->shader->qtangentOffset + input->shader->curVertexes * sizeof(input->qtangent[0]);
+	size = input->numVertexes * sizeof(input->qtangent[0]);
+	if (offs + size > vbo->vbo_size) {
+		ri.Error(ERR_DROP, "Tangents overflow");
+	}
+	memcpy(vbo->vbo_buffer + offs, input->qtangent, size);
+
+	offs = input->shader->lightdirOffset + input->shader->curVertexes * sizeof(input->lightdir[0]);
+	size = input->numVertexes * sizeof(input->lightdir[0]);
+	if (offs + size > vbo->vbo_size) {
+		ri.Error(ERR_DROP, "Light directions overflow");
+	}
+	memcpy(vbo->vbo_buffer + offs, input->lightdir, size);
+#endif
 
 	vi->num_indexes += input->numIndexes;
 	vi->num_vertexes += input->numVertexes;
@@ -564,6 +594,10 @@ IBO_t *R_CreateIBO( const char *name, const byte *vbo_data, int vbo_size )
 	vk_release_model_ibo( tr.numIBOs );
 
 	ibo = tr.ibos[tr.numIBOs] = (IBO_t *)Hunk_Alloc(sizeof(*ibo), h_low);
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+	// The tracer reads this buffer as a storage buffer and needs to know its extent.
+	ibo->size = vbo_size;
+#endif
 
 	desc.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	desc.pNext = NULL;
@@ -575,6 +609,10 @@ IBO_t *R_CreateIBO( const char *name, const byte *vbo_data, int vbo_size )
 	// device-local buffer
 	desc.size = vbo_size;
 	desc.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+	if ( vk.rtxActive )
+		desc.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+#endif
 	VK_CREATE_BUFFER(vk.device, &desc, &tr.ibos[tr.numIBOs]->buffer, "ibo device-local buffer");
 
 	// staging buffer
@@ -656,6 +694,9 @@ VBO_t *R_CreateVBO( const char *name, const byte *vbo_data, int vbo_size )
 	vk_release_model_vbo( tr.numVBOs );
 
 	vbo = tr.vbos[tr.numVBOs] = (VBO_t *)Hunk_Alloc(sizeof(*vbo), h_low);
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+	vbo->size = vbo_size;
+#endif
 
 	desc.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	desc.pNext = NULL;
@@ -667,6 +708,10 @@ VBO_t *R_CreateVBO( const char *name, const byte *vbo_data, int vbo_size )
 	// device-local buffer
 	desc.size = vbo_size;
 	desc.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+	if ( vk.rtxActive )
+		desc.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+#endif
 	VK_CREATE_BUFFER(vk.device, &desc, &tr.vbos[tr.numVBOs]->buffer, "vbo device local");
 
 	// staging buffer
@@ -944,6 +989,13 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 	if ( !vk.vboGhoul2Active )
 		return;
 
+#if defined(USE_RTX) && !defined(USE_RTX_GLOBAL_MODEL_VBO)
+	// Without the global model buffer the tracer builds its own per-model VBO in
+	// vk_rtx_build_mdxm_vbo instead, and this one would be dead weight.
+	if ( vk.rtxActive )
+		return;
+#endif
+
 	mdxmVBOModel_t		*vboModel;
 	mdxmSurface_t		*surf;
 	mdxmLOD_t			*lod;
@@ -1051,7 +1103,11 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 			}
 
 			// Build tangent space
-			//VBO_CalculateTangentsMDXM( surf, tangentsf + baseVertexes[n] );
+#ifdef USE_VK_PBR
+			vk_mikkt_mdxm_generate( surf, tangentsf + baseVertexes[n] );
+#else
+			Com_Memset( tangentsf + baseVertexes[n], 0, sizeof( vec4_t ) * surf->numVerts );
+#endif
 
 			surf = (mdxmSurface_t *)((byte *)surf + surf->ofsEnd);
 		}
@@ -1146,7 +1202,7 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 		vbo->offsets[2] = ofsTexcoords;
 		vbo->offsets[8] = ofsBoneRefs;
 		vbo->offsets[9] = ofsWeights;
-		//vbo->offsets[8] = ofsTangents;
+		vbo->offsets[10] = ofsTangents;
 
 		surf = (mdxmSurface_t *)((byte *)lod + sizeof (mdxmLOD_t) + (mdxm->numSurfaces * sizeof (mdxmLODSurfOffset_t)));
 
@@ -1160,6 +1216,12 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 			vboMeshes[n].maxIndex = baseVertexes[n + 1] - 1;
 			vboMeshes[n].numVertexes = surf->numVerts;
 			vboMeshes[n].numIndexes = surf->numTriangles * 3;
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+			vboMeshes[n].rtx_mesh.indexOffset = vboMeshes[n].indexOffset;
+			vboMeshes[n].rtx_mesh.numIndexes = vboMeshes[n].numIndexes;
+			vboMeshes[n].rtx_mesh.meshIndex = n;
+			vboMeshes[n].rtx_mesh.modelIndex = vbo->index;
+#endif
 
 			surf = (mdxmSurface_t *)((byte *)surf + surf->ofsEnd);
 		}
@@ -1170,7 +1232,14 @@ void R_BuildMDXM( model_t *mod, mdxmHeader_t *mdxm )
 		Hunk_FreeTempMemory( indexOffsets );
 		Hunk_FreeTempMemory( baseVertexes );
 
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+		if ( vk.rtxActive ) {
+			vk_rtx_extract_model_lights_mdxm( mod );
+			vk_rtx_bind_model( vbo->index, vbo, ibo );
+		}
+#endif
 		// find the next LOD
+
 		lod = (mdxmLOD_t *)( (byte *)lod + lod->ofsEnd );
 	}
 
@@ -1255,7 +1324,11 @@ void R_BuildMD3( model_t *mod, mdvModel_t *mdvModel )
 	for (i = 0; i < mdvModel->numSurfaces; i++, surf++)
 	{
 		vec4_t *tangentsf = (vec4_t *)Hunk_AllocateTempMemory(sizeof(vec4_t) * surf->numVerts);
-		//VBO_CalculateTangentsMD3( surf, tangentsf + 0 );
+#ifdef USE_VK_PBR
+		vk_mikkt_mdv_generate( surf, tangentsf );
+#else
+		Com_Memset( tangentsf, 0, sizeof( vec4_t ) * surf->numVerts );
+#endif
 
 		for ( k = 0; k < surf->numIndexes; k++)
 		{
@@ -1301,7 +1374,7 @@ void R_BuildMD3( model_t *mod, mdvModel_t *mdvModel )
 	vbo->offsets[0] = ofsPosition;
 	vbo->offsets[5] = ofsNormals;
 	vbo->offsets[2] = ofsTexcoords;
-	vbo->offsets[8] = ofsTangents;
+	vbo->offsets[10] = ofsTangents;
 
 	surf = mdvModel->surfaces;
 	for ( i = 0; i < mdvModel->numSurfaces; i++, surf++, vboSurf++ )
@@ -1317,7 +1390,21 @@ void R_BuildMD3( model_t *mod, mdvModel_t *mdvModel )
 		vboSurf->maxIndex = baseVertexes[i + 1] - 1;
 		vboSurf->numVerts = surf->numVerts;
 		vboSurf->numIndexes = surf->numIndexes;
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+		// Where this surface lives inside the one global model buffer.
+		vboSurf->rtx_mesh.indexOffset = vboSurf->indexOffset;
+		vboSurf->rtx_mesh.numIndexes = vboSurf->numIndexes;
+		vboSurf->rtx_mesh.meshIndex = i;
+		vboSurf->rtx_mesh.modelIndex = vbo->index;
+#endif
 	}
+
+#if defined(USE_RTX) && defined(USE_RTX_GLOBAL_MODEL_VBO)
+	if ( vk.rtxActive ) {
+		vk_rtx_extract_model_lights_mdv( mod, mdvModel );
+		vk_rtx_bind_model( vbo->index, vbo, ibo );
+	}
+#endif
 
 	Hunk_FreeTempMemory(indexOffsets);
 	Hunk_FreeTempMemory(baseVertexes);
@@ -1331,8 +1418,86 @@ void R_BuildMD3( model_t *mod, mdvModel_t *mdvModel )
 #define MAX_GORE_VERTICES	GORE_VERTEX_SIZE / sizeof(g2GoreVert_t)
 #define MAX_GORE_INDIDCES	GORE_INDEX_SIZE / sizeof(glIndex_t)
 
+// Gore uploads wait for the next frame command buffer (vk_flush_gore_uploads).
+// The regions are byte ranges of the staging buffer, copied at the same offset.
+#define MAX_GORE_UPLOADS	256
+
+typedef struct {
+	VkBufferCopy	regions[MAX_GORE_UPLOADS];
+	uint32_t		count;
+} goreUploads_t;
+
+static goreUploads_t	goreVBOUploads;
+static goreUploads_t	goreIBOUploads;
+
+static qboolean R_QueueGoreUpload( goreUploads_t *list, VkDeviceSize offset, VkDeviceSize size )
+{
+	if ( list->count ) {
+		VkBufferCopy *last = &list->regions[list->count - 1];
+
+		// Gore surfaces are put one after the other: extend the last region.
+		if ( last->srcOffset + last->size == offset ) {
+			last->size += size;
+			return qtrue;
+		}
+	}
+
+	if ( list->count >= MAX_GORE_UPLOADS )
+		return qfalse;
+
+	list->regions[list->count].srcOffset = offset;
+	list->regions[list->count].dstOffset = offset;
+	list->regions[list->count].size = size;
+	list->count++;
+
+	return qtrue;
+}
+
+static void vk_record_gore_copies( VkCommandBuffer cmd, VkBuffer src, VkBuffer dst, goreUploads_t *list )
+{
+	VkBufferMemoryBarrier barrier;
+
+	if ( !list->count )
+		return;
+
+	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	barrier.pNext = NULL;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.buffer = dst;
+	barrier.offset = 0;
+	barrier.size = VK_WHOLE_SIZE;
+
+	// Older frames can still read the regions that the ring overwrites.
+	barrier.srcAccessMask = 0;
+	barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	qvkCmdPipelineBarrier( cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 1, &barrier, 0, NULL );
+
+	qvkCmdCopyBuffer( cmd, src, dst, list->count, list->regions );
+
+	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	qvkCmdPipelineBarrier( cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, NULL, 1, &barrier, 0, NULL );
+
+	list->count = 0;
+}
+
+// Records the queued gore copies. Call outside a render pass, before the first draw.
+void vk_flush_gore_uploads( VkCommandBuffer cmd )
+{
+	if ( !tr.goreVBO || !tr.goreIBO ) {
+		goreVBOUploads.count = goreIBOUploads.count = 0;
+		return;
+	}
+
+	vk_record_gore_copies( cmd, tr.goreVBO->staging.buffer, tr.goreVBO->buffer, &goreVBOUploads );
+	vk_record_gore_copies( cmd, tr.goreIBO->staging.buffer, tr.goreIBO->buffer, &goreIBOUploads );
+}
+
 void R_CreateGoreVBO( void )
 {
+	goreVBOUploads.count = goreIBOUploads.count = 0;
+
 	tr.goreVBO = R_CreateDynamicVBO( "Gore VBO", GORE_VERTEX_SIZE );
 
 #if 0
@@ -1389,6 +1554,7 @@ void R_CreateGoreVBO( void )
 	tr.goreVBO->offsets[2] = offsetof(g2GoreVert_t, texcoords);
 	tr.goreVBO->offsets[8] = offsetof(g2GoreVert_t, bonerefs);
 	tr.goreVBO->offsets[9] = offsetof(g2GoreVert_t, weights);
+	tr.goreVBO->offsets[10] = offsetof(g2GoreVert_t, tangents);
 #endif
 	//tr.goreVBO->offsets[8] = ofsTangents;
 
@@ -1423,9 +1589,15 @@ void R_UpdateGoreVBO( srfG2GoreSurface_t *goreSurface )
 	Com_Memcpy((byte *)tr.goreVBO->mapped + vbo_offset, goreSurface->verts, vbo_size);
 	Com_Memcpy((byte *)tr.goreIBO->mapped + ibo_offset, goreSurface->indexes, ibo_size);
 
-	// Upload to GPU
-	R_UpdateDynamicBuffer(tr.goreVBO->buffer, tr.goreVBO->staging.buffer, vbo_offset, vbo_size);
-	R_UpdateDynamicBuffer(tr.goreIBO->buffer, tr.goreIBO->staging.buffer, ibo_offset, ibo_size);
+	// Upload to GPU. Outside a frame, the copy goes into the next frame command buffer.
+	// In a frame, or with a full list, use a separate submit and wait (slow).
+	if ( vk.frame_count
+		|| !R_QueueGoreUpload( &goreVBOUploads, vbo_offset, vbo_size )
+		|| !R_QueueGoreUpload( &goreIBOUploads, ibo_offset, ibo_size ) )
+	{
+		R_UpdateDynamicBuffer(tr.goreVBO->buffer, tr.goreVBO->staging.buffer, vbo_offset, vbo_size);
+		R_UpdateDynamicBuffer(tr.goreIBO->buffer, tr.goreIBO->staging.buffer, ibo_offset, ibo_size);
+	}
 
 	goreSurface->firstVert  = tr.goreVBOCurrentIndex;
 	goreSurface->firstIndex = tr.goreIBOCurrentIndex;
@@ -1473,7 +1645,7 @@ void R_BuildWorldVBO(msurface_t *surf, int surfCount)
 			numStaticVertexes += face->numPoints;
 			numStaticIndexes += face->numIndices;
 
-			vbo_size += face->numPoints * (sf->shader->svarsSize + sizeof(tess.xyz[0]) + sizeof(tess.normal[0]));
+			vbo_size += face->numPoints * (sf->shader->svarsSize + VBO_VERTEX_SIZE);
 			sf->shader->numVertexes += face->numPoints;
 			sf->shader->numIndexes += face->numIndices;
 			continue;
@@ -1484,7 +1656,7 @@ void R_BuildWorldVBO(msurface_t *surf, int surfCount)
 			numStaticVertexes += tris->numVerts;
 			numStaticIndexes += tris->numIndexes;
 
-			vbo_size += tris->numVerts * (sf->shader->svarsSize + sizeof(tess.xyz[0]) + sizeof(tess.normal[0]));
+			vbo_size += tris->numVerts * (sf->shader->svarsSize + VBO_VERTEX_SIZE);
 			sf->shader->numVertexes += tris->numVerts;
 			sf->shader->numIndexes += tris->numIndexes;
 			continue;
@@ -1497,7 +1669,7 @@ void R_BuildWorldVBO(msurface_t *surf, int surfCount)
 			numStaticVertexes += grid->vboExpectVertices;
 			numStaticIndexes += grid->vboExpectIndices;
 
-			vbo_size += grid->vboExpectVertices * (sf->shader->svarsSize + sizeof(tess.xyz[0]) + sizeof(tess.normal[0]));
+			vbo_size += grid->vboExpectVertices * (sf->shader->svarsSize + VBO_VERTEX_SIZE);
 			sf->shader->numVertexes += grid->vboExpectVertices;
 			sf->shader->numIndexes += grid->vboExpectIndices;
 			continue;

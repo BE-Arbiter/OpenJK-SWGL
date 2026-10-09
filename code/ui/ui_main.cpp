@@ -52,6 +52,7 @@ extern stringID_table_t animTable [MAX_ANIMATIONS+1];
 #include "../qcommon/game_version.h"
 #include "../rd-common/mdx_merge.h"
 #include "../client/vmachine.h"
+#include "ui_lightedit.h"
 
 extern qboolean ItemParse_model_g2anim_go( itemDef_t *item, const char *animName );
 extern qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name );
@@ -1431,6 +1432,10 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 	{
 		return (index >= 0 && index < (int)uiAmmoNames.size()) ? uiAmmoNames[index].c_str() : "";
 	}
+	else if (feederID == FEEDER_LIGHTEDIT)
+	{
+		return UI_LightEdit_FeederItemText(index, column);
+	}
 	else if (feederID == FEEDER_ANIM_OVERRIDES)
 	{
 		if (index < 0 || index >= (int)uiAnimOverrides.size())
@@ -1682,6 +1687,10 @@ static qboolean UI_RunMenuScript ( const char **args )
 
 	if (String_Parse(args, &name))
 	{
+		if (UI_LightEdit_RunScript(name))
+		{
+			return qtrue;
+		}
 		if (Q_stricmp(name, "resetdefaults") == 0)
 		{
 			UI_ResetDefaults();
@@ -3173,6 +3182,10 @@ static int UI_FeederCount(float feederID)
 	{
 		return (int)uiAmmoTypes.size();
 	}
+	else if (feederID == FEEDER_LIGHTEDIT)
+	{
+		return UI_LightEdit_FeederCount();
+	}
 	else if (feederID == FEEDER_PLAYER_SPECIES)
 	{
 		return uiInfo.playerSpeciesCount;
@@ -3441,6 +3454,10 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 	else if (feederID == FEEDER_AMMO)
 	{
 		UI_SelectAmmoType(index);
+	}
+	else if (feederID == FEEDER_LIGHTEDIT)
+	{
+		UI_LightEdit_FeederSelection(index);
 	}
 	else if (feederID == FEEDER_PLAYER_SKIN_HEAD)
 	{
@@ -5580,6 +5597,14 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 
 		case UI_DATAPAD_CHARACTERS:
 			ui.Draw_DataPad(DP_CHARACTERS);
+			break;
+
+		case UI_LIGHTEDIT_SWATCH:
+			UI_LightEdit_DrawSwatch(x, y, w, h);
+			break;
+
+		case UI_LIGHTEDIT_STATS:
+			UI_LightEdit_DrawStats(x, y, scale, color, iFontIndex);
 			break;
 
 		case UI_ALLMAPS_SELECTION://saved game thumbnail

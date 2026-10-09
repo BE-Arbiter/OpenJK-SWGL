@@ -94,7 +94,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // The trailing + 4 is the G-buffer family: normal, depth, motion vectors (r_velocityBuffer)
 // and the ambient occlusion target (r_ssao). They are allocated from this same pool, and
 // leaving the count at its pre-G-buffer value overflowed it as soon as bloom was also on.
-#define MAX_ATTACHMENTS_IN_POOL			( 6 + ( ( 1 + VK_NUM_BLUR_PASSES * 2 ) * 2 ) + 1 + 4 ) 
+// The last + 1 is the capture buffer, which the FBO always has now.
+#define MAX_ATTACHMENTS_IN_POOL			( 6 + ( ( 1 + VK_NUM_BLUR_PASSES * 2 ) * 2 ) + 1 + 4 + 1 )
 
 #define VK_DESC_STORAGE					0
 #define VK_DESC_UNIFORM					0
@@ -102,7 +103,16 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define VK_DESC_TEXTURE1				2
 #define VK_DESC_TEXTURE2				3
 #define VK_DESC_FOG_COLLAPSE			4
+#ifdef USE_VK_PBR
+#define VK_DESC_PBR_BRDFLUT				5
+#define VK_DESC_PBR_NORMAL				6
+#define VK_DESC_PBR_PHYSICAL			7
+#define VK_DESC_PBR_CUBEMAP				8
+#define VK_DESC_PBR_DELUXE				9
+#define VK_DESC_COUNT					10
+#else
 #define VK_DESC_COUNT					5
+#endif
 
 #define VK_DESC_TEXTURE_BASE			VK_DESC_TEXTURE0
 #define VK_DESC_FOG_ONLY				VK_DESC_TEXTURE1
@@ -118,8 +128,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 //#define MIN_IMAGE_ALIGN				( 128 * 1024 )
 
-#define VERTEX_BUFFER_SIZE				( 4 * 1024 * 1024 )		/* by default */
-#define VERTEX_BUFFER_SIZE_HI			( 8 * 1024 * 1024 )
+#define VERTEX_BUFFER_SIZE				( 16 * 1024 * 1024 )		/* by default */
+#define VERTEX_BUFFER_SIZE_HI			( 32 * 1024 * 1024 )
 
 #define STAGING_BUFFER_SIZE				( 2 * 1024 * 1024 )		/* by default */
 #define STAGING_BUFFER_SIZE_HI			( 24 * 1024 * 1024 )	/* enough for max.texture size upload with all mip levels at */
@@ -149,6 +159,13 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define TESS_NNN   						( 128 )
 #define TESS_VPOS  						( 256 )	// uniform with eyePos
 #define TESS_ENV   						( 512 )	// mark shader stage with environment mapping
+#define TESS_QTANGENT					( 1024 )	// PBR: tangents, binding 10
+#define TESS_LIGHTDIR					( 2048 )	// PBR: light grid directions, binding 11
+
+// the light of a PBR stage (pbr.glsl)
+#define LIGHTDEF_USE_LIGHTMAP			0x0001	// texture * lightmap
+#define LIGHTDEF_USE_LIGHT_VECTOR		0x0002	// lightingDiffuse model VBO
+#define LIGHTDEF_USE_LIGHT_VERTEX		0x0004	// texture * vertex color
 
 // extra math
 #define DotProduct4( a , b )			((a)[0]*(b)[0] + (a)[1]*(b)[1] + (a)[2]*(b)[2] + (a)[3]*(b)[3])
@@ -351,6 +368,7 @@ extern PFN_vkCmdBlitImage								qvkCmdBlitImage;
 extern PFN_vkCmdClearAttachments						qvkCmdClearAttachments;
 extern PFN_vkCmdCopyBuffer								qvkCmdCopyBuffer;
 extern PFN_vkCmdCopyBufferToImage						qvkCmdCopyBufferToImage;
+extern PFN_vkCmdClearColorImage						qvkCmdClearColorImage;
 extern PFN_vkCmdCopyImage								qvkCmdCopyImage;
 extern PFN_vkCmdCopyImageToBuffer                       qvkCmdCopyImageToBuffer;
 extern PFN_vkCmdDraw									qvkCmdDraw;
@@ -423,6 +441,37 @@ extern PFN_vkGetImageMemoryRequirements2KHR				qvkGetImageMemoryRequirements2KHR
 extern PFN_vkDebugMarkerSetObjectNameEXT				qvkDebugMarkerSetObjectNameEXT;
 
 extern PFN_vkCmdDrawIndexedIndirect						qvkCmdDrawIndexedIndirect;
+extern PFN_vkCmdDispatch								qvkCmdDispatch;
+extern PFN_vkCreateComputePipelines						qvkCreateComputePipelines;
+
+#ifdef USE_RTX
+extern PFN_vkGetPhysicalDeviceProperties2					qvkGetPhysicalDeviceProperties2;
+
+extern PFN_vkCreateAccelerationStructureKHR					qvkCreateAccelerationStructureKHR;
+extern PFN_vkDestroyAccelerationStructureKHR				qvkDestroyAccelerationStructureKHR;
+extern PFN_vkCmdBuildAccelerationStructuresKHR				qvkCmdBuildAccelerationStructuresKHR;
+extern PFN_vkCmdCopyAccelerationStructureKHR				qvkCmdCopyAccelerationStructureKHR;
+extern PFN_vkGetAccelerationStructureDeviceAddressKHR		qvkGetAccelerationStructureDeviceAddressKHR;
+extern PFN_vkCmdWriteAccelerationStructuresPropertiesKHR	qvkCmdWriteAccelerationStructuresPropertiesKHR;
+extern PFN_vkGetAccelerationStructureBuildSizesKHR			qvkGetAccelerationStructureBuildSizesKHR;
+extern PFN_vkGetBufferDeviceAddress							qvkGetBufferDeviceAddress;
+extern PFN_vkCreateRayTracingPipelinesKHR					qvkCreateRayTracingPipelinesKHR;
+extern PFN_vkCmdTraceRaysKHR								qvkCmdTraceRaysKHR;
+extern PFN_vkGetRayTracingShaderGroupHandlesKHR				qvkGetRayTracingShaderGroupHandlesKHR;
+
+extern PFN_vkBindBufferMemory2								qvkBindBufferMemory2;
+extern PFN_vkCmdFillBuffer									qvkCmdFillBuffer;
+extern PFN_vkCmdUpdateBuffer								qvkCmdUpdateBuffer;
+
+extern PFN_vkCreateBufferView								qvkCreateBufferView;
+extern PFN_vkDestroyBufferView								qvkDestroyBufferView;
+
+extern PFN_vkCmdBeginDebugUtilsLabelEXT						qvkCmdBeginDebugUtilsLabelEXT;
+extern PFN_vkCmdEndDebugUtilsLabelEXT						qvkCmdEndDebugUtilsLabelEXT;
+
+typedef float mat3[3][3];
+typedef mat3 prim_positions_t;
+#endif
 
 typedef float mat4_t[16];
 typedef float mat3x4_t[12];
@@ -463,6 +512,9 @@ typedef enum {
 	RENDER_PASS_DGLOW,
 	RENDER_PASS_REFRACTION,
 	RENDER_PASS_GBUFFER,
+#ifdef VK_CUBEMAP
+	RENDER_PASS_CUBEMAP,
+#endif
 	RENDER_PASS_COUNT
 } renderPass_t;
 
@@ -490,6 +542,10 @@ typedef struct {
 		byte rgb;
 		byte alpha;
 	} color;
+#ifdef USE_VK_PBR
+	uint32_t vk_light_flags;	// LIGHTDEF_*: PBR shading
+	uint32_t vk_pbr_flags;		// PBR_HAS_*
+#endif
 } Vk_Pipeline_Def;
 
 typedef struct VK_Pipeline {
@@ -655,6 +711,8 @@ typedef struct vkUniformGlobal_s {
 	vkDeform_t			deform;
 	float				portalRange;
 	vec3_t				pad0;
+	vec4_t				normalScale;		// PBR
+	vec4_t				specularScale;		// PBR
 } vkUniformGlobal_t;
 
 typedef struct vkUniformBones_s {
@@ -748,6 +806,15 @@ typedef struct {
 	vec3_t		prevViewOrigin;
 } Vk_World;
 
+
+#ifdef USE_RTX
+typedef struct semaphore_group_s {
+	VkSemaphore		transfer_finished;
+	VkSemaphore		trace_finished;
+	bool			trace_signaled;
+	bool			prev_trace_signaled;
+} semaphore_group_t;
+#endif
 typedef struct vk_tess_s {
 	VkCommandBuffer		command_buffer;
 
@@ -756,6 +823,10 @@ typedef struct vk_tess_s {
 	qboolean			swapchain_image_acquired;
 #ifdef USE_UPLOAD_QUEUE
 	VkSemaphore			rendering_finished2;
+#endif
+
+#ifdef USE_RTX
+	semaphore_group_t	semaphores;
 #endif
 	VkFence				rendering_finished_fence;
 	qboolean			waitForFence;
@@ -769,8 +840,8 @@ typedef struct vk_tess_s {
 	VkDeviceSize		indirect_buffer_offset;
 
 	VkDescriptorSet		uniform_descriptor;
-	VkDeviceSize		buf_offset[8];
-	VkDeviceSize		vbo_offset[10];
+	VkDeviceSize		buf_offset[12];
+	VkDeviceSize		vbo_offset[12];
 
 	VkBuffer			curr_index_buffer;
 	uint32_t			curr_index_offset;
@@ -794,6 +865,71 @@ typedef struct vk_tess_s {
 
 // Vk_Instance contains engine-specific vulkan resources that persist entire renderer lifetime.
 // This structure is initialized/deinitialized by vk_initialize/vk_shutdown functions correspondingly.
+
+#ifdef USE_RTX
+#ifdef USE_VK_PBR
+#define PBR_HAS_NORMALMAP				( 1 )
+#define PBR_HAS_PHYSICALMAP				( 2 )
+#define PBR_HAS_SPECULARMAP				( 4 )
+#define PBR_HAS_DELUXEMAP				( 8 )
+
+#define PHYS_NONE						( 1 )
+#define PHYS_RMO						( 2 )
+#define PHYS_RMOS						( 4 )
+#define PHYS_MOXR						( 8 )
+#define PHYS_MOSR						( 16 )
+#define PHYS_ORM						( 32 )
+#define PHYS_ORMS						( 64 )
+#define PHYS_NORMAL						( 128 )
+#define PHYS_NORMALHEIGHT				( 256 )
+#define PHYS_SPECGLOSS					( 512 )
+
+#define ByteToFloat(a)					((float)(a) * 1.0f/255.0f)
+#define FloatToByte(a)					(byte)((a) * 255.0f)
+#define sRGBtoRGB(a)					(((a) <= 0.04045f) ? ((a) / 12.92f) : (pow((((a) + 0.055f) / 1.055f), 2.4)))
+#endif
+
+// A PBR map: the suffix it has next to the diffuse texture, and the swizzle of its view. The
+// physical maps are read as occlusion, roughness, metalness, specular; the normal maps as .agb.
+typedef struct textureMapType_s {
+	uint32_t			type;
+	const char			*suffix;
+	VkComponentMapping	swizzle;
+} textureMapType_t;
+
+const textureMapType_t textureMapTypes[] = {
+	{ 0,					"",			{ VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY } },
+#ifdef USE_VK_PBR
+	{ PHYS_RMO,				"_rmo",		{ VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_ONE } },
+	{ PHYS_RMOS,			"_rmos",	{ VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_A } },
+	{ PHYS_MOXR,			"_moxr",	{ VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ONE } },
+	{ PHYS_MOSR,			"_mosr",	{ VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_B } },
+	{ PHYS_ORM,				"_orm",		{ VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY } },
+	{ PHYS_ORMS,			"_orms",	{ VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY } },
+	{ PHYS_NORMAL,			"_n",		{ VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_R } },
+	{ PHYS_NORMALHEIGHT,	"_nh",		{ VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_R } },
+#endif
+};
+
+#include "rtx/vk_rtx.h"
+
+typedef struct shader_s shader_t;
+typedef struct msurface_s msurface_t;
+
+typedef enum {
+	PIPELINE_PRIMARY_RAYS,
+	PIPELINE_REFLECT_REFRACT_1,
+	PIPELINE_REFLECT_REFRACT_2,
+    PIPELINE_DIRECT_LIGHTING,
+    PIPELINE_DIRECT_LIGHTING_CAUSTICS,
+    PIPELINE_INDIRECT_LIGHTING_FIRST,
+    PIPELINE_INDIRECT_LIGHTING_SECOND,
+	PIPELINE_RADIANCE_CACHE_UPDATE,
+	PIPELINE_RESTIR_GI_SPATIAL,
+
+	PIPELINE_COUNT
+} pipeline_index_t;
+#endif
 typedef struct {
 	VkInstance			instance;
 	VkPhysicalDevice	physical_device;
@@ -822,6 +958,162 @@ typedef struct {
 	VkQueue			queue;
 
 	VkPhysicalDeviceMemoryProperties devMemProperties;
+
+#ifdef USE_RTX
+	VkQueue			queue_graphics;
+	VkQueue			queue_transfer;
+	int32_t			queue_idx_graphics;
+	int32_t			queue_idx_transfer;
+
+	uint64_t		frame_counter;
+
+	qboolean		rtxSupport;	// device supports raytracing
+	qboolean		rtxActive;	// raytracing on
+	qboolean		computeDerivatives;	// VK_KHR_compute_shader_derivatives is enabled
+	qboolean		rtx_surf_is_hdr;
+
+	VkPhysicalDeviceProperties							props;
+	VkPhysicalDeviceProperties2							props2;
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR		ray_pipeline_properties;
+	VkPhysicalDeviceAccelerationStructurePropertiesKHR	accel_struct_properties;
+
+	VkExtent2D		extent_screen_images;
+	VkExtent2D		extent_render;
+	VkExtent2D		extent_render_prev;
+	VkExtent2D		extent_unscaled;
+	VkExtent2D		extent_taa_images;
+	VkExtent2D		extent_taa_output;
+
+	uint32_t		shaderGroupHandleSize;
+	uint32_t		shaderGroupBaseAlignment;
+	uint32_t		minAccelerationStructureScratchOffsetAlignment;
+	uint32_t		device_count;
+	uint32_t		gpu_slice_width;
+	uint32_t		gpu_slice_width_prev;
+
+	vec2_t			taa_samples[NUM_TAA_SAMPLES];
+
+	cmd_buf_group_t cmd_buffers_graphics;
+	cmd_buf_group_t cmd_buffers_transfer;
+
+	bool			supports_fp16;
+	int				effective_aa_mode;
+
+	char			cluster_debug_mask[VIS_MAX_BYTES];
+	int				cluster_debug_index;
+
+	vkbuffer_t		buf_shader_binding_table;
+
+	VkPipelineLayout rt_pipeline_layout;
+	VkPipeline		rt_pipelines[PIPELINE_COUNT];
+	VkShaderModule  shader_modules[16];	// at least NUM_PATH_TRACER_SHADER_MODULES
+
+	vkpipeline_t	asvgf_pipeline[ASVGF_NUM_PIPELINES];
+	vkshader_t		*compute_shader[NUM_RTX_COMPUTE_SHADER_MODULES];
+
+	vkpipeline_t	tonemap_pipeline[TM_NUM_PIPELINES];
+	vkshader_t		*tonemap_shader[TM_NUM_SHADERS];
+
+	vkpipeline_t	bloom_pipeline[BLOOM_NUM_PIPELINES];
+	vkshader_t		*bloom_shader[BLOOM_NUM_SHADERS];
+
+	vkpipeline_t	physical_sky_pipeline[PHYSICAL_SKY_NUM_PIPELINES];
+	vkshader_t		*physical_sky_shader[NUM_PHYSICAL_SKY_SHADER_MODULES];
+
+	VkPipeline		pipeline_final_blit;
+	vkshader_t		*final_blit_shader_frag;
+	
+	vkimage_t		img_envmap;
+	vkimage_t		img_blue_noise;
+	vkimage_t		img_physical_sky[NUM_PHYSICAL_SKY_IMAGES];
+	vkimage_t		img_rtx[NUM_RTX_IMAGES];
+
+	VkDescriptorPool desc_pool_textures;
+
+	VkDescriptorSetLayout       desc_set_layout_textures;
+	VkDescriptorSet             desc_set_textures_even;
+	VkDescriptorSet             desc_set_textures_odd;
+
+	VkSampler       tex_sampler, 
+                    tex_sampler_nearest,
+                    tex_sampler_nearest_mipmap_aniso,
+                    tex_sampler_linear_clamp;
+
+	VkDescriptorSetLayout       desc_set_layout_ubo;
+	VkDescriptorSet             desc_set_ubo;
+
+	vkdescriptor_t	rt_descriptor_set		[VK_MAX_SWAPCHAIN_SIZE];
+	vkdescriptor_t	desc_set_vertex_buffer	[VK_MAX_SWAPCHAIN_SIZE];
+	vkdescriptor_t	imageDescriptor;
+
+	struct {
+		VkDescriptorPool		pool;
+		VkDescriptorSetLayout	layout;
+		vkbuffer_t				buffer_vertex;
+
+		struct {
+			VkDescriptorSet		vbos;
+#ifdef USE_RTX_GLOBAL_MODEL_VBO
+			VkDescriptorSet		ibos;
+#endif
+		} descriptor;
+
+		struct {
+			vk_blas_t	dynamic[VK_MAX_SWAPCHAIN_SIZE];
+			vk_blas_t	transparent_models[VK_MAX_SWAPCHAIN_SIZE];
+			vk_blas_t	masked_models[VK_MAX_SWAPCHAIN_SIZE];
+			vk_blas_t	viewer_models[VK_MAX_SWAPCHAIN_SIZE];
+			vk_blas_t	distortion_models[VK_MAX_SWAPCHAIN_SIZE];
+			vk_blas_t	viewer_weapon[VK_MAX_SWAPCHAIN_SIZE];
+			vk_blas_t	explosions[VK_MAX_SWAPCHAIN_SIZE];
+			vk_blas_t   beams[VK_MAX_SWAPCHAIN_SIZE];
+			vk_blas_t   sprites[VK_MAX_SWAPCHAIN_SIZE];
+		} blas;
+	} model_instance;
+
+	Shadowmap		precomputed_shadowmapdata;
+
+
+	// Top AS (Buffers) for each swapchain image
+	vk_tlas_t		tlas_geometry[VK_MAX_SWAPCHAIN_SIZE];
+	vk_tlas_t		tlas_effects[VK_MAX_SWAPCHAIN_SIZE];
+
+	// stores offset and stuff for in shader lookup
+	vkbuffer_t		buf_instances[VK_MAX_SWAPCHAIN_SIZE];
+	
+	vkbuffer_t		buf_readback;
+
+	// radiance cache
+	vkbuffer_t		buf_rc_tags;
+	vkbuffer_t		buf_rc_accum;
+	vkbuffer_t		buf_rc_resolved;
+	vkbuffer_t		buf_rc_last_frame;
+
+	vkbuffer_t		buf_readback_staging[VK_MAX_SWAPCHAIN_SIZE];
+
+	vkbuffer_t      buf_primitive_instanced;
+	vkbuffer_t      buf_positions_instanced;
+
+	vkbuffer_t		buf_light;
+	vkbuffer_t		buf_light_staging[VK_MAX_SWAPCHAIN_SIZE];
+	vkbuffer_t		buf_light_stats[NUM_LIGHT_STATS_BUFFERS];
+	vkbuffer_t		buf_light_counts_history[LIGHT_COUNT_HISTORY];
+
+	vkbuffer_t		buf_mdxm_matrices;
+	vkbuffer_t		buf_mdxm_matrices_staging[VK_MAX_SWAPCHAIN_SIZE];
+	mat3x4_t*		mdxm_matrices_shadow;
+	mat3x4_t*		mdxm_matrices_prev;
+
+	vkbuffer_t		buf_tonemap;
+
+	vkbuffer_t		buf_sun_color;
+
+	vkbuffer_t		buf_accel_scratch;
+	size_t			scratch_buf_ptr;
+
+	vkUniformRTX_t	uniform_buffer;
+	InstanceBuffer	uniform_instance_buffer;
+#endif
 
 	VkSwapchainKHR	swapchain;
 	uint32_t		swapchain_image_count;
@@ -931,6 +1223,13 @@ typedef struct {
 			VkRenderPass blend;
 		} dglow;
 
+#ifdef USE_RTX
+		struct {
+			VkRenderPass blit;
+			VkRenderPass blend;
+		} rtx_final_blit;
+#endif
+
 		struct {
 			VkRenderPass extract; // depth+normal G-buffer extraction pass (r_depthPrepass)
 		} gbuffer;
@@ -967,6 +1266,10 @@ typedef struct {
 			VkFramebuffer extract;
 		} dglow;
 
+#ifdef USE_RTX
+		VkFramebuffer rtx_final_blit;
+#endif
+
 		struct {
 			VkFramebuffer extract; // depth+normal G-buffer extraction pass (r_depthPrepass)
 		} gbuffer;
@@ -982,6 +1285,10 @@ typedef struct {
 
 	vk_tess_t tess[NUM_COMMAND_BUFFERS], *cmd;
 	int cmd_index;
+
+#ifdef USE_RTX
+	uint32_t current_frame_index;
+#endif
 
 	vk_storage_buffer_t storage;
 
@@ -1030,6 +1337,11 @@ typedef struct {
 	VkDeviceSize		indirect_buffer_size_new;
 
 	VkDescriptorPool		descriptor_pool;
+#ifdef VK_COMPUTE_NORMALMAP
+	VkDescriptorSetLayout	set_layout_compute_normalmap;
+	VkPipelineLayout		pipeline_layout_compute_normalmap;
+	VkPipeline				compute_normalmap_pipeline;
+#endif
 	VkDescriptorSetLayout	set_layout_sampler;		// combined image sampler
 	VkDescriptorSetLayout	set_layout_uniform;		// dynamic uniform buffer
 	VkDescriptorSetLayout	set_layout_storage;		// feedback buffer
@@ -1164,6 +1476,7 @@ typedef struct {
 			VkShaderModule fixed[3][2][2][2];
 			VkShaderModule light[2]; // fog[0,1]
 			VkShaderModule fog[3][2];	// vbo[0,1,2], fog mode[0,1]
+			VkShaderModule pbr[3][3][2];	// vbo[0,1,2], light[lightmap,vector,vertex], fog[0,1]
 		}	vert;
 
 		struct {
@@ -1173,6 +1486,7 @@ typedef struct {
 			VkShaderModule fixed[3][2][2];  // tx[0,1], fog[0,1]
 			VkShaderModule light[2][2]; // linear[0,1] fog[0,1]
 			VkShaderModule fog[2];	// vbo[0,1,2], fog mode[0,1]
+			VkShaderModule pbr[3][2];	// light[lightmap,vector,vertex], fog[0,1]
 		}	frag;
 
 		VkShaderModule surface_sprite_fs[2];
@@ -1186,6 +1500,13 @@ typedef struct {
 
 		VkShaderModule color_vs;
 		VkShaderModule color_fs;
+#ifdef VK_COMPUTE_NORMALMAP
+		VkShaderModule normalmap;
+#endif
+#ifdef VK_CUBEMAP
+		VkShaderModule filtercube_vs;
+		VkShaderModule prefilterenvmap_fs;
+#endif
 
 		VkShaderModule bloom_fs;
 		VkShaderModule blur_fs;
@@ -1261,7 +1582,53 @@ typedef struct {
 	qboolean bloomActive;
 	qboolean dglowActive;
 	qboolean refractionActive;
-	qboolean gbufferActive; // depth+normal G-buffer extraction pass (r_depthPrepass)
+#ifdef USE_VK_PBR
+	qboolean pbrActive;		// r_normalMapping or r_specularMapping: PBR shading of the lit stages
+
+	struct {
+		VkImage			empty_cube;
+		VkDeviceMemory	empty_cube_memory;
+		VkImageView		empty_cube_view;
+		VkDescriptorSet	empty_cube_descriptor;
+	} pbr;
+#endif
+#ifdef VK_CUBEMAP
+	qboolean cubemapActive;	// r_cubeMapping: reflections of the map probes on the PBR stages
+
+	// environment cubemaps, vk_cubemap.cpp
+	struct {
+		// the capture target: the faces of mip 0 are the color attachments, the mips feed the prefilter
+		VkImage			color_image;
+		VkDeviceMemory	color_memory;
+		VkImageView		color_face_view[6];
+		VkImageView		color_cube_view;
+		VkDescriptorSet	color_descriptor;
+		VkImage			depth_image;
+		VkDeviceMemory	depth_memory;
+		VkImageView		depth_view;
+		VkRenderPass	render_pass;
+		VkFramebuffer	framebuffer[6];
+		renderPass_t	resumeRenderPass;	// the pass that the capture interrupts
+
+		// the prefilter: one face of the scratch image at a time, then a copy into the mip of the probe
+		VkImage			scratch_image;
+		VkDeviceMemory	scratch_memory;
+		VkImageView		scratch_face_view[6];
+		VkFramebuffer	scratch_framebuffer[6];
+		VkRenderPass	prefilter_render_pass;
+		VkPipelineLayout prefilter_layout;
+		VkPipeline		prefilter_pipeline;
+
+		// the prefiltered cubemap of each probe, released with the map
+		struct {
+			VkImage			image;
+			VkDeviceMemory	memory;
+			VkImageView		view;
+			VkDescriptorSet	descriptor;
+		} probe[MAX_CUBEMAPS];
+	} cubemap;
+#endif
+qboolean gbufferActive; // depth+normal G-buffer extraction pass (r_depthPrepass)
 	qboolean velocityActive; // motion vector attachment on the gbuffer extraction pass (r_velocityBuffer)
 
 	qboolean	offscreenRender;
@@ -1453,6 +1820,11 @@ void		vk_end_render_pass( void );
 // resume the pass after a mid-frame detour (e.g. the gbuffer extraction pass) without
 // discarding content already drawn into it (portal/mirror sub-views, in particular).
 void		vk_begin_main_render_pass( qboolean clearValues = qtrue );
+#ifdef VK_CUBEMAP
+void		vk_begin_cubemap_render_pass( int face );
+void		vk_end_cubemap_render_pass( void );
+void		vk_resume_render_pass( renderPass_t pass );
+#endif
 void		vk_get_pipeline_def( uint32_t pipeline, Vk_Pipeline_Def *def );
 uint32_t	vk_append_uniform( const void *uniform, size_t size, uint32_t min_offset );
 
@@ -1550,3 +1922,7 @@ void		R_DebugGraphics( void );
 	#define VK_ALLOCATE_MEMORY_CHECK(device, info, outMemory, name)		VK_CHECK( qvkAllocateMemory( device, info, NULL, outMemory ) )
 	#define VK_FREE_MEMORY(device, memory)								qvkFreeMemory( device, memory, NULL )
 #endif // USE_VK_OBJECT_TRACKER
+#ifdef USE_RTX
+VkResult	vkpt_final_blit_filtered(VkCommandBuffer cmd_buf);
+void		vk_rtx_create_final_blit_pipeline( void );
+#endif

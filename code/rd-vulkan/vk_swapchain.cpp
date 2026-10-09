@@ -181,6 +181,13 @@ void vk_create_swapchain( VkPhysicalDevice physical_device, VkDevice device,
 
     ri.Printf( PRINT_ALL, "selected presentation mode: %s, image count: %i\n", vk_pmode_to_str( present_mode ), image_count );
 
+#ifdef USE_RTX
+    // The tracer keeps two frames of history; a third swapchain image just adds latency
+    // between the traced frame and its denoised predecessor.
+    if ( vk.rtxActive )
+        image_count = 2;
+#endif
+
     // create swap chain
     desc.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     desc.pNext = NULL;
@@ -193,8 +200,8 @@ void vk_create_swapchain( VkPhysicalDevice physical_device, VkDevice device,
     desc.imageArrayLayers = 1;
     desc.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    if ( !vk.fboActive )
-        desc.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    // The splash screen blits into the swapchain image even when fbo is active.
+    desc.imageUsage |= surface_caps.supportedUsageFlags & ( VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT );
 
     desc.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     desc.queueFamilyIndexCount = 0;

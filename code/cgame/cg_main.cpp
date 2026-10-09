@@ -251,6 +251,8 @@ Ghoul2 Insert End
 		return 0;
 	case CG_GET_AMMO_NAME:
 		return CG_GetAmmoName((int)arg0, (char *)arg1, (int)arg2);
+	case CG_KEY_EVENT:
+		return CG_LightEdit_KeyEvent((int)arg0, (qboolean)arg1, (int)arg2) ? 1 : 0;
 	}
 	return -1;
 }
@@ -697,6 +699,10 @@ int CG_CrosshairPlayer( void )
 }
 
 int CG_GetCameraPos( vec3_t camerapos ) {
+	vec3_t	leAng;
+	if ( CG_LightEdit_CameraView( camerapos, leAng ) ) {
+		return 1;
+	}
 	if ( in_camera) {
 		VectorCopy(client_camera.origin, camerapos);
 		return 1;
@@ -2432,7 +2438,10 @@ void CG_Init( int serverCommandSequence ) {
 	CG_GameStateReceived();
 
 	CG_InitConsoleCommands();
-	
+
+	CG_LightEdit_Init();
+	CG_FreeCam_Init();
+
 	CG_TrueViewInit();
 
 	CG_Set2DRatio();

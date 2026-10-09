@@ -213,6 +213,50 @@ void RB_AddQuadStamp( vec3_t origin, vec3_t left, vec3_t up, color4ub_t color ) 
 	RB_AddQuadStampExt( origin, left, up, color, 0, 0, 1, 1 );
 }
 
+#ifdef USE_RTX
+// Used by the tracer's light-poly debug visualisation.
+void RB_AddTriangle( vec3_t a, vec3_t b, vec3_t c, color4ub_t color )
+{
+	int numIndexes = tess.numIndexes;
+	int numVerts = tess.numVertexes;
+
+	tess.numVertexes += 3;
+	tess.numIndexes += 3;
+
+	tess.indexes[numIndexes + 0] = numVerts + 0;
+	tess.indexes[numIndexes + 1] = numVerts + 1;
+	tess.indexes[numIndexes + 2] = numVerts + 2;
+
+	VectorCopy( a, tess.xyz[numVerts + 0] );
+	VectorCopy( b, tess.xyz[numVerts + 1] );
+	VectorCopy( c, tess.xyz[numVerts + 2] );
+
+	vec3_t normal, tmp;
+	VectorSubtract( b, a, normal );
+	VectorSubtract( c, a, tmp );
+	CrossProduct( normal, tmp, normal );
+	VectorNormalize( normal );
+
+	VectorCopy( normal, tess.normal[numVerts + 0] );
+	VectorCopy( normal, tess.normal[numVerts + 1] );
+	VectorCopy( normal, tess.normal[numVerts + 2] );
+
+	tess.texCoords[0][numVerts + 0][0] = tess.texCoords[1][numVerts + 0][0] = 0.0f;
+	tess.texCoords[0][numVerts + 0][1] = tess.texCoords[1][numVerts + 0][1] = 0.0f;
+
+	tess.texCoords[0][numVerts + 1][0] = tess.texCoords[1][numVerts + 1][0] = 1.0f;
+	tess.texCoords[0][numVerts + 1][1] = tess.texCoords[1][numVerts + 1][1] = 0.0f;
+
+	tess.texCoords[0][numVerts + 2][0] = tess.texCoords[1][numVerts + 2][0] = 0.5f;
+	tess.texCoords[0][numVerts + 2][1] = tess.texCoords[1][numVerts + 2][1] = 1.0f;
+
+	byteAlias_t *baSource = (byteAlias_t *)color;
+	((byteAlias_t *)&tess.vertexColors[numVerts + 0])->ui = baSource->ui;
+	((byteAlias_t *)&tess.vertexColors[numVerts + 1])->ui = baSource->ui;
+	((byteAlias_t *)&tess.vertexColors[numVerts + 2])->ui = baSource->ui;
+}
+#endif
+
 /*
 ==============
 RB_SurfaceSprite
@@ -384,7 +428,7 @@ RB_SurfaceTriangles
 */
 void RB_SurfaceTriangles( const srfTriangles_t *srf ) {
 	int					i;
-	const drawVert_t	*dv;
+	const srfVert_t		*dv;
 	float				*xyz, *normal, *texCoords0, *texCoords1, *texCoords2, *texCoords3, *texCoords4;
 	byte				*color;
 
@@ -445,6 +489,11 @@ void RB_SurfaceTriangles( const srfTriangles_t *srf ) {
 		normal[1] = dv->normal[1];
 		normal[2] = dv->normal[2];
 		normal += 4;
+
+#ifdef USE_VK_PBR
+		VectorCopy4( dv->qtangent, tess.qtangent[tess.numVertexes + i] );
+		VectorCopy4( dv->lightdir, tess.lightdir[tess.numVertexes + i] );
+#endif
 
 		texCoords0[0] = dv->st[0];
 		texCoords0[1] = dv->st[1];
@@ -576,6 +625,9 @@ static void DoSprite( vec3_t origin, float radius, float rotation )
 //------------------
 // RB_SurfaceSaber
 //------------------
+#define MAX_SABER_GLOW_LENGTH	65536.0f	// longer than any map
+#define MAX_SABER_GLOW_SPRITES	512
+
 static void RB_SurfaceSaberGlow()
 {
 	vec3_t		end;
@@ -583,8 +635,22 @@ static void RB_SurfaceSaberGlow()
 
 	e = &backEnd.currentEntity->e;
 
+	// A length of +inf (bad SFX saber trail points) never ends the loop, and a radius
+	// near 0 makes thousands of sprites: skip bad values, cap the sprite count.
+	// The comparisons are false for NaN.
+	if ( !( e->saberLength < MAX_SABER_GLOW_LENGTH ) || !( e->radius > -MAX_SABER_GLOW_LENGTH && e->radius < MAX_SABER_GLOW_LENGTH ) )
+	{
+		static qboolean warned = qfalse;
+		if ( !warned ) {
+			warned = qtrue;
+			ri.Printf( PRINT_DEVELOPER, "RB_SurfaceSaberGlow: skipped a glow, length %f radius %f\n", e->saberLength, e->radius );
+		}
+		return;
+	}
+
 	// Render the glow part of the blade
-	for ( float i = e->saberLength; i > 0; i -= e->radius * 0.65f )
+	int numSprites = 0;
+	for ( float i = e->saberLength; i > 0 && numSprites < MAX_SABER_GLOW_SPRITES; i -= e->radius * 0.65f, numSprites++ )
 	{
 		VectorMA( e->origin, i, e->axis[0], end );
 
@@ -1642,6 +1708,12 @@ void RB_SurfaceFace( srfSurfaceFace_t *surf ) {
 		}
 	}
 
+#ifdef USE_VK_PBR
+	memcpy( &tess.qtangent[ tess.numVertexes ], surf->qtangents, numPoints * sizeof( vec4_t ) );
+	if ( surf->lightdir )
+		memcpy( &tess.lightdir[ tess.numVertexes ], surf->lightdir, numPoints * sizeof( vec4_t ) );
+#endif
+
 	for ( i = 0, v = surf->points[0], ndx = tess.numVertexes; i < numPoints; i++, v += VERTEXSIZE, ndx++ )
 	{
 		VectorCopy( v, tess.xyz[ndx]);
@@ -1784,7 +1856,7 @@ void RB_SurfaceGrid( srfGridMesh_t *cv ) {
 	float	*xyz, *normal;
 	float	*texCoords0, *texCoords1, *texCoords2, *texCoords3, *texCoords4;
 	unsigned char *color;
-	drawVert_t	*dv;
+	srfVert_t	*dv;
 	int		rows, irows, vrows;
 	int		used;
 	int		widthTable[MAX_GRID_SIZE];
@@ -1951,6 +2023,11 @@ void RB_SurfaceGrid( srfGridMesh_t *cv ) {
 					normal[2] = dv->normal[2];
 				}
 				normal += 4;
+
+#ifdef USE_VK_PBR
+				VectorCopy4( dv->qtangent, tess.qtangent[numVertexes + i * lodWidth + j] );
+				VectorCopy4( dv->lightdir, tess.lightdir[numVertexes + i * lodWidth + j] );
+#endif
 
 				*(unsigned *)color = ComputeFinalVertexColor((byte *)dv->color);
 				color += 4;

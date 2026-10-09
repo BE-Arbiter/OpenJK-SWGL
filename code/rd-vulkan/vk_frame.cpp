@@ -50,6 +50,12 @@ void vk_create_sync_primitives( void )
 		// second semaphore to synchronize additional tasks (e.g. image upload)
 		VK_CHECK( qvkCreateSemaphore( vk.device, &desc, NULL, &vk.tess[i].rendering_finished2 ) );
 #endif
+#ifdef USE_RTX
+		VK_CHECK( qvkCreateSemaphore( vk.device, &desc, NULL, &vk.tess[i].semaphores.trace_finished ) );
+		VK_CHECK( qvkCreateSemaphore( vk.device, &desc, NULL, &vk.tess[i].semaphores.transfer_finished ) );
+		vk.tess[i].semaphores.trace_signaled = false;
+		vk.tess[i].semaphores.prev_trace_signaled = false;
+#endif
         fence_desc.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fence_desc.pNext = NULL;
 		//fence_desc.flags = VK_FENCE_CREATE_SIGNALED_BIT; // so it can be used to start rendering
@@ -95,6 +101,10 @@ void vk_destroy_sync_primitives( void )
         qvkDestroySemaphore(vk.device, vk.tess[i].image_acquired, NULL);
 #ifdef USE_UPLOAD_QUEUE
 		qvkDestroySemaphore( vk.device, vk.tess[i].rendering_finished2, NULL );
+#endif
+#ifdef USE_RTX
+		qvkDestroySemaphore( vk.device, vk.tess[i].semaphores.trace_finished, NULL );
+		qvkDestroySemaphore( vk.device, vk.tess[i].semaphores.transfer_finished, NULL );
 #endif
         qvkDestroyFence(vk.device, vk.tess[i].rendering_finished_fence, NULL);
         vk.tess[i].waitForFence = qfalse;
@@ -348,6 +358,28 @@ void vk_create_render_passes()
         VK_SET_OBJECT_NAME( vk.render_pass.refraction.extract, "render pass - refraction extract", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT );        
     }
 
+#ifdef USE_RTX
+    // rtx post blit blend: the refraction pass' attachments, but nothing downstream
+    // reads the depth back, so it is not stored.
+    if ( vk.rtxActive )
+    {
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+
+        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+        if ( vk.msaaActive ) {
+            attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+            attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        }
+
+        VK_CHECK( qvkCreateRenderPass( device, &desc, NULL, &vk.render_pass.rtx_final_blit.blend ) );
+        VK_SET_OBJECT_NAME( vk.render_pass.rtx_final_blit.blend, "render pass - rtx final blit blend", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT );
+    }
+#endif
+
     if ( vk.bloomActive || vk.dglowActive )
     {
         // color buffer
@@ -506,7 +538,25 @@ void vk_create_render_passes()
 
     VK_CHECK(qvkCreateRenderPass(device, &desc, NULL, &vk.render_pass.gamma));
     VK_SET_OBJECT_NAME(vk.render_pass.gamma, "render pass - gamma", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT);
-    
+
+#ifdef USE_RTX
+    // rtx blit: a full-screen pass into the fbo colour image. Upstream derives this
+    // from its gamma pass, which targets that same image - SP's gamma pass renders
+    // straight into the swapchain instead, so the format and layouts come from the
+    // main fbo pass rather than from the gamma state left in `attachments` above.
+    if ( vk.rtxActive )
+    {
+        attachments[0].format = vk.color_format;
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;    // the quad covers it
+        attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachments[0].initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        attachments[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        VK_CHECK(qvkCreateRenderPass(device, &desc, NULL, &vk.render_pass.rtx_final_blit.blit));
+        VK_SET_OBJECT_NAME(vk.render_pass.rtx_final_blit.blit, "render pass - rtx blit", VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT);
+
+    }
+#endif
     // screenmap
     desc.dependencyCount = 2;
     desc.pDependencies = &deps[0];
@@ -815,6 +865,22 @@ void vk_create_framebuffers()
 
     if (vk.fboActive)
     {
+#ifdef USE_RTX
+        // rtx final blit: the tracer's tone-mapped result is filtered back into
+        // the colour attachment before the usual post chain runs.
+        if ( vk.rtxActive )
+        {
+            desc.renderPass = vk.render_pass.rtx_final_blit.blit;
+            desc.attachmentCount = 1;
+            desc.width = glConfig.vidWidth;
+            desc.height = glConfig.vidHeight;
+            attachments[0] = vk.color_image_view;
+
+            VK_CHECK(qvkCreateFramebuffer(vk.device, &desc, NULL, &vk.framebuffers.rtx_final_blit));
+            VK_SET_OBJECT_NAME(vk.framebuffers.rtx_final_blit, "framebuffer - rtx final blit", VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT);
+        }
+#endif
+
         // refraction
         {
             desc.renderPass = vk.render_pass.refraction.extract;
@@ -1034,6 +1100,18 @@ void vk_destroy_render_passes( void )
         vk.render_pass.refraction.extract = VK_NULL_HANDLE;
     }
 
+#ifdef USE_RTX
+    if ( vk.render_pass.rtx_final_blit.blend != VK_NULL_HANDLE ) {
+        qvkDestroyRenderPass( vk.device, vk.render_pass.rtx_final_blit.blend, NULL );
+        vk.render_pass.rtx_final_blit.blend = VK_NULL_HANDLE;
+    }
+
+    if ( vk.render_pass.rtx_final_blit.blit != VK_NULL_HANDLE ) {
+        qvkDestroyRenderPass( vk.device, vk.render_pass.rtx_final_blit.blit, NULL );
+        vk.render_pass.rtx_final_blit.blit = VK_NULL_HANDLE;
+    }
+#endif
+
     if ( vk.render_pass.capture != VK_NULL_HANDLE ) {
         qvkDestroyRenderPass( vk.device, vk.render_pass.capture, NULL );
         vk.render_pass.capture = VK_NULL_HANDLE;
@@ -1086,6 +1164,13 @@ void vk_destroy_framebuffers( void )
             vk.framebuffers.gamma[i] = VK_NULL_HANDLE;
         }
     }
+
+#ifdef USE_RTX
+    if ( vk.framebuffers.rtx_final_blit != VK_NULL_HANDLE ) {
+        qvkDestroyFramebuffer( vk.device, vk.framebuffers.rtx_final_blit, NULL );
+        vk.framebuffers.rtx_final_blit = VK_NULL_HANDLE;
+    }
+#endif
 
     if ( vk.framebuffers.bloom.extract != VK_NULL_HANDLE ) {
         qvkDestroyFramebuffer( vk.device, vk.framebuffers.bloom.extract, NULL );
@@ -1147,7 +1232,19 @@ static qboolean vk_find_screenmap_drawsurfs( void )
             break;
         case RC_DRAW_SURFS:
             ds_cmd = (const drawSurfsCommand_t*)curCmd;
+#ifdef VK_CUBEMAP
+            // the cubemap captures have their own pass: look at the view after them
+            if ( ds_cmd->viewParms.targetCube ) {
+                curCmd = (const void*)(ds_cmd + 1);
+                break;
+            }
+#endif
             return ds_cmd->refdef.needScreenMap;
+#ifdef VK_CUBEMAP
+        case RC_CONVOLVECUBEMAP:
+            curCmd = (const void*)((const convolveCubemapCommand_t*)curCmd + 1);
+            break;
+#endif
         default:
             return qfalse;
         }
@@ -1227,6 +1324,39 @@ static void vk_begin_screenmap_render_pass( void )
 
     vk_begin_render_pass(vk.render_pass.screenmap, frameBuffer, qtrue, vk.renderWidth, vk.renderHeight);
 }
+
+#ifdef VK_CUBEMAP
+// The capture of one cubemap face. The frame starts with the captures, so the interrupted
+// pass (main or screenmap) holds no drawing yet.
+void vk_begin_cubemap_render_pass( int face )
+{
+    vk.cubemap.resumeRenderPass = vk.renderPassIndex;
+    vk_end_render_pass();
+
+    vk.renderPassIndex = RENDER_PASS_CUBEMAP;
+
+    vk.renderWidth = REF_CUBEMAP_SIZE;
+    vk.renderHeight = REF_CUBEMAP_SIZE;
+    vk.renderScaleX = vk.renderScaleY = 1.0f;
+
+    vk_begin_render_pass( vk.cubemap.render_pass, vk.cubemap.framebuffer[face], qtrue, vk.renderWidth, vk.renderHeight );
+}
+
+void vk_end_cubemap_render_pass( void )
+{
+    vk_end_render_pass();
+    vk_resume_render_pass( vk.cubemap.resumeRenderPass );
+}
+
+// Opens again the pass that a cubemap capture or prefilter interrupted.
+void vk_resume_render_pass( renderPass_t pass )
+{
+    if ( pass == RENDER_PASS_SCREENMAP )
+        vk_begin_screenmap_render_pass();
+    else
+        vk_begin_main_render_pass( qfalse );
+}
+#endif
 
 void vk_begin_main_render_pass( qboolean clearValues )
 {
@@ -1603,6 +1733,11 @@ void vk_apply_ssao( void )
     vk.cmd->depth_range = DEPTH_RANGE_COUNT;
 }
 
+// size for the geometry buffer at the next vk_begin_frame, 0 = no change
+static VkDeviceSize geometry_buffer_grow;
+
+static void vk_grow_geometry_buffer( void );
+
 void vk_begin_frame( void )
 {
 	VkCommandBufferBeginInfo begin_info;
@@ -1611,10 +1746,21 @@ void vk_begin_frame( void )
 	if ( vk.frame_count++ ) // might happen during stereo rendering
 		return;
 
+	if ( geometry_buffer_grow > vk.geometry_buffer_size )
+		vk_grow_geometry_buffer();
+
 #ifdef USE_UPLOAD_QUEUE
 	vk_flush_staging_buffer( qtrue );
 #endif
 
+#ifdef VK_COMPUTE_NORMALMAP
+	// the normal maps the shaders loaded since the last frame
+	vk_dispatch_compute_normalmaps();
+#endif
+
+#ifdef USE_RTX
+	vk.current_frame_index = vk.frame_counter % NUM_COMMAND_BUFFERS;
+#endif
 	vk.cmd = &vk.tess[ vk.cmd_index ];
 
 	if ( vk.cmd->waitForFence ) {
@@ -1658,6 +1804,11 @@ _retry:
 
     VK_CHECK( qvkBeginCommandBuffer( vk.cmd->command_buffer, &begin_info ) );
 
+#ifdef _G2_GORE
+	// the gore marks added since the last frame, before the first render pass
+	vk_flush_gore_uploads( vk.cmd->command_buffer );
+#endif
+
 	if ( vk.swapchain_images_inited[ vk.cmd->swapchain_image_index ] == qfalse ) {
 		// perform initial swapchain image layout transition
 		vk.swapchain_images_inited[ vk.cmd->swapchain_image_index ] = qtrue;
@@ -1693,6 +1844,13 @@ _retry:
     vk.cmd->last_pipeline = VK_NULL_HANDLE;
 
     backEnd.screenMapDone = qfalse;
+
+#ifdef USE_RTX
+    // Resets the tracer's command buffer groups for the frame and flushes any pending
+    // writes to its bindless texture array.
+    if ( vk.rtxActive )
+        VK_BeginRenderClear();
+#endif
 
     if (vk_find_screenmap_drawsurfs()) {
         vk_begin_screenmap_render_pass();
@@ -1753,6 +1911,26 @@ void vk_release_geometry_buffers( void )
     vk.geometry_buffer_memory = VK_NULL_HANDLE;
 }
 
+// Between two frames: no command buffer records, so no frame is dropped.
+static void vk_grow_geometry_buffer( void )
+{
+	uint32_t i;
+	const VkDeviceSize size = geometry_buffer_grow;
+
+	geometry_buffer_grow = 0;
+
+	vk_wait_idle();
+
+	vk_release_geometry_buffers();
+
+	vk_create_vertex_buffer( size );
+
+	for ( i = 0; i < NUM_COMMAND_BUFFERS; i++ )
+		vk_update_uniform_descriptor( vk.tess[i].uniform_descriptor, vk.tess[i].vertex_buffer );
+
+	ri.Printf( PRINT_ALL, "...geometry buffer grown to %iK\n", (int)( vk.geometry_buffer_size / 1024 ) );
+}
+
 static void vk_resize_geometry_buffer( void )
 {
     uint32_t i;
@@ -1808,6 +1986,9 @@ void vk_release_resources( void ) {
 #ifdef USE_VBO
 	vk_release_world_vbo();
 	vk_release_model_vbo();
+#endif
+#ifdef VK_CUBEMAP
+    vk_release_cubemaps();
 #endif
     // vk_destroy_samplers();
 
@@ -1884,7 +2065,15 @@ void vk_end_frame( void )
             if ( vk.bloomActive )
                 vk_bloom();
 
-            if ( backEnd.screenshotMask && vk.capture.image )
+#ifdef USE_RTX
+            // Second chance at the blit: RB_StretchPic only reaches it if a 2D element is
+            // drawn after the traced view. frame_ready makes this a no-op when it already
+            // ran, and catches the frame when it did not.
+            if ( vk.rtxActive )
+                vk_rtx_begin_blit();
+#endif
+
+            if ( ( backEnd.screenshotMask || rb_captureRGBA ) && vk.capture.image )
             {
                 vk_end_render_pass();
 
@@ -1996,6 +2185,11 @@ void vk_end_frame( void )
     VK_CHECK( qvkQueueSubmit( vk.queue, 1, &submit_info, vk.cmd->rendering_finished_fence ) );
     vk.cmd->waitForFence = qtrue;
 
+	// A frame used more than 3/4 of the geometry buffer: double it before the next
+	// frame, so that a later frame does not overflow and get dropped.
+	if ( vk.cmd->vertex_buffer_offset > vk.geometry_buffer_size / 4 * 3 )
+		geometry_buffer_grow = vk.geometry_buffer_size * 2;
+
     // presentation may take undefined time to complete, we can't measure it in a reliable way
     backEnd.pc.msec = ri.Milliseconds() - backEnd.pc.msec;
 
@@ -2043,6 +2237,12 @@ void vk_present_frame( void )
 			// or we don't
 			ri.Error( ERR_FATAL, "vkQueuePresentKHR returned %s", vk_result_string( res ) );
 	}
+
+#ifdef USE_RTX
+	// The tracer indexes its per-frame resources off this, and nothing else
+	// advances it - vk.frame_count only counts frames within one submission.
+	vk.frame_counter++;
+#endif
 
 	// pickup next command buffer for rendering
 	vk.cmd_index++;
@@ -2303,3 +2503,29 @@ void vk_read_pixels( byte *buffer, uint32_t width, uint32_t height )
         vk_end_command_buffer( command_buffer, "restore layout" );
     }
 }
+
+#ifdef USE_RTX
+VkResult
+vkpt_final_blit_filtered(VkCommandBuffer cmd_buf)
+{
+	VkDescriptorSet desc_sets[] = {
+		vk.rt_descriptor_set[vk.current_frame_index].set,
+        vk_rtx_get_current_desc_set_textures(),
+		vk.imageDescriptor.set,
+        vk.desc_set_ubo
+	};
+
+	vk_begin_render_pass( vk.render_pass.rtx_final_blit.blit, vk.framebuffers.rtx_final_blit,
+    qfalse, vk.extent_unscaled.width, vk.extent_unscaled.height );
+
+	qvkCmdBindDescriptorSets( cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		vk.rt_pipeline_layout, 0, ARRAY_LEN(desc_sets), desc_sets, 0, 0 );
+
+
+	qvkCmdBindPipeline( cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, vk.pipeline_final_blit );
+	qvkCmdDraw( cmd_buf, 4, 1, 0, 0 );
+	qvkCmdEndRenderPass( cmd_buf );
+
+	return VK_SUCCESS;
+}
+#endif

@@ -396,6 +396,17 @@ void vk_initialize( void )
 	vk_init_library();
 
 	qvkGetDeviceQueue( vk.device, vk.queue_family_index, 0, &vk.queue );
+#ifdef USE_RTX
+	// Upstream selects a separate transfer queue family for the tracer. Sharing the
+	// graphics queue is correct, just less parallel, and avoids rebuilding device
+	// creation around a second queue.
+	if ( vk.rtxActive ) {
+		vk.queue_graphics = vk.queue;
+		vk.queue_transfer = vk.queue;
+		vk.queue_idx_graphics = (int32_t)vk.queue_family_index;
+		vk.queue_idx_transfer = (int32_t)vk.queue_family_index;
+	}
+#endif
 
 	vk_get_vulkan_properties(&props);
 
@@ -490,6 +501,11 @@ void vk_initialize( void )
 	ri.Printf( PRINT_ALL, "VK_MAX_TEXTURE_UNITS: %d\n", glConfig.maxActiveTextures );
 
 	R_InitImageScratch();
+#ifdef USE_RTX
+	// Emissive extraction does not read compressed textures, and a card that can trace
+	// rays has no need of the memory saving.
+	if ( !vk.rtxActive )
+#endif
 	vk_initTextureCompression();
 
 	vk.xscale2D = glConfig.vidWidth * ( 1.0 / 640.0 );
@@ -517,6 +533,14 @@ void vk_initialize( void )
 	//if (r_ext_multisample->integer && !r_ext_supersample->integer)
 	if ( r_ext_multisample->integer )
 		vk.msaaActive = qtrue;
+
+#ifdef USE_RTX
+	// The tracer resolves its own anti-aliasing (TAA, then A-SVGF), and it never goes
+	// through the rasterised main pass MSAA would apply to. Upstream also forces its
+	// cubemap and normal/specular mapping flags here; SP has none of those.
+	if ( vk.rtxActive )
+		vk.msaaActive = qfalse;
+#endif
 
 	// MSAA
 	vkMaxSamples = MIN( props.limits.sampledImageColorSampleCounts, props.limits.sampledImageDepthSampleCounts);
@@ -550,6 +574,17 @@ void vk_initialize( void )
 	// Refraction
 	if ( vk.fboActive && glConfig.maxActiveTextures >= 4 )
 		vk.refractionActive = qtrue;
+
+#ifdef USE_VK_PBR
+	// PBR shading of the lit stages: descriptor sets 5 to 8
+	if ( ( r_normalMapping->integer || r_specularMapping->integer ) && vk.maxBoundDescriptorSets >= VK_DESC_COUNT )
+		vk.pbrActive = qtrue;
+#endif
+#ifdef VK_CUBEMAP
+	// reflections of the map probes: the path tracer has its own
+	if ( vk.pbrActive && vk.fboActive && r_cubeMapping->integer && !vk.rtxActive )
+		vk.cubemapActive = qtrue;
+#endif
 
 	// depth+normal G-buffer extraction pass, foundation for later screen-space techniques
 	if ( vk.fboActive && r_depthPrepass->integer )
@@ -617,6 +652,9 @@ void vk_initialize( void )
 	vk_create_command_buffer();
 	vk_create_descriptor_layout();
 	vk_create_pipeline_layout();
+#ifdef USE_VK_PBR
+	vk_create_pbr_resources();
+#endif
 
 	vk.geometry_buffer_size_new = vk.defaults.geometry_size;
 	vk.indirect_buffer_size_new = sizeof(VkDrawIndexedIndirectCommand) * 1024 * 1024;
@@ -624,6 +662,9 @@ void vk_initialize( void )
 	vk_create_indirect_buffer( vk.indirect_buffer_size_new );
 	vk_create_storage_buffer( &vk.storage, MAX_FLARES * vk.storage_alignment, "storage (flares)" );
 	vk_create_shader_modules();
+#ifdef VK_COMPUTE_NORMALMAP
+	vk_create_compute_normalmap_pipelines();
+#endif
 
 	{
 		VkPipelineCacheCreateInfo ci;
@@ -637,10 +678,28 @@ void vk_initialize( void )
 
 	vk_create_swapchain( vk.physical_device, vk.device, vk.surface, vk.present_format, &vk.swapchain );
 	//vk_texture_mode( r_textureMode->string, qtrue );
+#ifndef USE_RTX
 	vk_render_splash();
+#endif
 	vk_create_attachments();
 	vk_create_render_passes();
 	vk_create_framebuffers();
+#ifdef VK_CUBEMAP
+	vk_create_cubemap_resources();
+#endif
+
+#ifdef USE_RTX
+	// Everything the tracer owns is built here: its buffers, images, pipelines and
+	// acceleration structures. Without it the first frame maps a null readback buffer.
+	if ( vk.rtxActive ) {
+		Com_Memcpy( &vk.props, &props, sizeof(VkPhysicalDeviceProperties) );
+		vk_rtx_initialize();
+	}
+
+	// After the tracer, not before: the splash creates images, and every image is now
+	// bound into vk.imageDescriptor, which vk_rtx_initialize is what creates.
+	vk_render_splash();
+#endif
 
 	// preallocate staging buffer?
 	if ( vk.defaults.staging_size == STAGING_BUFFER_SIZE_HI ) {
@@ -714,9 +773,23 @@ void vk_shutdown( void )
 	vk_clean_surface_sprites();
 #endif
 
+#ifdef VK_COMPUTE_NORMALMAP
+	vk_destroy_compute_normalmap_pipelines();
+#endif
+#ifdef USE_VK_PBR
+	vk_destroy_pbr_resources();
+#endif
+#ifdef VK_CUBEMAP
+	vk_destroy_cubemap_resources();
+#endif
     vk_destroy_shader_modules();
 
 	R_DestroyImageScratch();
+#ifdef USE_RTX
+	if ( vk.rtxActive )
+		vk_rtx_shutdown();
+#endif
+
 
 __cleanup:
 	if (vk.device != VK_NULL_HANDLE) {

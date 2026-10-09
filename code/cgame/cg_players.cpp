@@ -6220,6 +6220,7 @@ void CG_DoSFXSaber( vec3_t blade_muz, vec3_t blade_tip, vec3_t trail_tip, vec3_t
 			VectorCopy( blade_muz, saber.origin );
 			VectorCopy( blade_dir, saber.axis[0] );
 			saber.reType = RT_SABER_GLOW;
+			saber.customSkin = color;	// the renderer's path tracer reads the blade colour from here
 			saber.customShader = glow;
 			saber.shaderRGBA[0] = 0xff * effectalpha;
 			saber.shaderRGBA[1] = 0xff * effectalpha;
@@ -6260,6 +6261,7 @@ void CG_DoSFXSaber( vec3_t blade_muz, vec3_t blade_tip, vec3_t trail_tip, vec3_t
 			VectorCopy( trail_muz, saber.origin );
 			VectorCopy( trail_dir, saber.axis[0] );
 			saber.reType = RT_SABER_GLOW;
+			saber.customSkin = color;	// the renderer's path tracer reads the blade colour from here
 			saber.customShader = glow;
 			saber.shaderRGBA[0] = 0xff * effectalpha;
 			saber.shaderRGBA[1] = 0xff * effectalpha;
@@ -6304,6 +6306,7 @@ void CG_DoSFXSaber( vec3_t blade_muz, vec3_t blade_tip, vec3_t trail_tip, vec3_t
 			VectorMA( blade_muz, ((effectradius*AngleScale)/2), base_dir, saber.origin );
 			VectorCopy( base_dir, saber.axis[0] );
 			saber.reType = RT_SABER_GLOW;
+			saber.customSkin = color;	// the renderer's path tracer reads the blade colour from here
 			saber.customShader = glow;
 			saber.shaderRGBA[0] = 0xff * effectalpha;
 			saber.shaderRGBA[1] = 0xff * effectalpha;
@@ -6381,6 +6384,7 @@ void CG_DoSFXSaber( vec3_t blade_muz, vec3_t blade_tip, vec3_t trail_tip, vec3_t
 			VectorMA( blade_tip, ((effectradius*AngleScale)/2), end_dir, saber.origin );
 			VectorCopy( end_dir, saber.axis[0] );
 			saber.reType = RT_SABER_GLOW;
+			saber.customSkin = color;	// the renderer's path tracer reads the blade colour from here
 			saber.customShader = glow;
 			saber.shaderRGBA[0] = 0xff * effectalpha;
 			saber.shaderRGBA[1] = 0xff * effectalpha;
@@ -6529,6 +6533,7 @@ static void CG_DoSaber( vec3_t origin, vec3_t dir, float length, float lengthMax
 	VectorCopy( origin, saber.origin );
 	VectorCopy( dir, saber.axis[0] );
 	saber.reType = RT_SABER_GLOW;
+	saber.customSkin = color;	// the renderer's path tracer reads the blade colour from here
 	saber.customShader = glow;
 	saber.shaderRGBA[0] = saber.shaderRGBA[1] = saber.shaderRGBA[2] = saber.shaderRGBA[3] = 0xff;
 	saber.renderfx = rfx;
@@ -6684,6 +6689,8 @@ void CG_CheckSaberInWater( centity_t *cent, centity_t *scent, int saberNum, int 
 	//not in water
 	client->ps.saberEventFlags &= ~SEF_INWATER;
 }
+
+#define MAX_SABER_TRAIL_STEP	1024.0f	// max move of a saber trail point in one frame
 
 static void CG_AddSaberBladeGo( centity_t *cent, centity_t *scent, refEntity_t *saber, int renderfx, int modelIndex, vec3_t origin, vec3_t angles, int saberNum, int bladeNum )
 {
@@ -7513,6 +7520,17 @@ else
 		dirlen0 = VectorLength(dir0);
 		dirlen1 = VectorLength(dir1);
 		dirlen2 = VectorLength(dir2);
+
+		// A jump of more than MAX_SABER_TRAIL_STEP in one frame (teleport, bad old point)
+		// made a glow millions of units long: start the trail again here.
+		// The comparisons are false for NaN.
+		if ( !( dirlen0 < MAX_SABER_TRAIL_STEP ) || !( dirlen1 < MAX_SABER_TRAIL_STEP ) || !( dirlen2 < MAX_SABER_TRAIL_STEP ) )
+		{
+			VectorCopy( saberTrail->tip, saberTrail->dualtip );
+			VectorCopy( saberTrail->base, saberTrail->dualbase );
+			saberTrail->lastTime = cg.time;
+			return;
+		}
 
 		if ( saberMoveData[client->ps.saberMove].trailLength == 0 )
 		{

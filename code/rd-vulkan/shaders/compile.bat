@@ -46,6 +46,12 @@ for %%f in (%glsl%*.frag) do (
     del /Q "%tmpf%"
 )
 
+for %%f in (%glsl%*.comp) do (
+    "%cl%" -S comp -V -o "%tmpf%" "%%f"
+    "%bh%" "%tmpf%" %outf% %%~nf_comp_spv
+    del /Q "%tmpf%"
+)
+
 @rem single-texture fragment, depth-fragment
 
 "%cl%" -S frag -V -o "%tmpf%" %glsl%gen_frag.tmpl -DUSE_CLX_IDENT -DUSE_ATEST -DUSE_DF
@@ -186,6 +192,24 @@ for /L %%i in ( 0,1,2 ) do (                @rem vbo, ( 0:none 1:ghoul2 2:mdv/md
     )
 )
 
+@rem PBR shading of the lit stages (pbr.glsl): the world has lightmap and vertex, the model VBOs light vector
+set "light[0]=-DUSE_TX1 -DUSE_LIGHTMAP"
+set "light[1]=-DUSE_LIGHT_VECTOR"
+set "light[2]=-DUSE_LIGHT_VERTEX"
+set "light_id[0]=lightmap"
+set "light_id[1]=vector"
+set "light_id[2]=vertex"
+
+for /L %%l in ( 0,1,1 ) do (                @rem +fog
+    call :compile_pbr_vertex_shader 0, 0, %%l
+    call :compile_pbr_vertex_shader 0, 2, %%l
+    call :compile_pbr_vertex_shader 1, 1, %%l
+    call :compile_pbr_vertex_shader 2, 1, %%l
+    for /L %%j in ( 0,1,2 ) do (            @rem light
+        call :compile_pbr_fragment_shader %%j, %%l
+    )
+)
+
 del /Q "%tmpf%"
 
 "%bs%" %outfb% "}"
@@ -216,6 +240,24 @@ exit /B
     "%bh%" "%tmpf%" %outf% frag_%name%
         "%bs%" %outfb% "    vk.shaders.frag.!mode_id[%3]![%1][%2][%4] = SHADER_MODULE( frag_!vbo_id[%1]!!tx_id[%2]!_!mode_id[%3]!!fog_id[%4]! );"
 	    "%bs%" %outfb% "    vk_set_shader_name( vk.shaders.frag.!mode_id[%3]![%1][%2][%4], ""frag_!vbo_id[%1]!!tx_id[%2]!_!mode_id[%3]!!fog_id[%4]!"" );"
+exit /B
+
+@rem compile the PBR shader variations from templates
+:compile_pbr_vertex_shader
+    "%cl%" -S vert -V -o "%tmpf%" %glsl%gen_vert.tmpl !vbo[%1]! !light[%2]! !fog[%3]!
+    "%bh%" "%tmpf%" %outf% vert_!vbo_id[%1]!pbr_!light_id[%2]!!fog_id[%3]!
+	    "%bs%" %outfb% "    vk.shaders.vert.pbr[%1][%2][%3] = SHADER_MODULE( vert_!vbo_id[%1]!pbr_!light_id[%2]!!fog_id[%3]! );"
+	    "%bs%" %outfb% "    vk_set_shader_name( vk.shaders.vert.pbr[%1][%2][%3], ""vert_!vbo_id[%1]!pbr_!light_id[%2]!!fog_id[%3]!"" );"
+exit /B
+
+:compile_pbr_fragment_shader
+    set "flags=!light[%1]! !fog[%2]!"
+    if %1 neq 0 ( set "flags=!flags! -DUSE_ATEST" )
+
+    "%cl%" -S frag -V -o "%tmpf%" %glsl%gen_frag.tmpl !flags!
+    "%bh%" "%tmpf%" %outf% frag_pbr_!light_id[%1]!!fog_id[%2]!
+	    "%bs%" %outfb% "    vk.shaders.frag.pbr[%1][%2] = SHADER_MODULE( frag_pbr_!light_id[%1]!!fog_id[%2]! );"
+	    "%bs%" %outfb% "    vk_set_shader_name( vk.shaders.frag.pbr[%1][%2], ""frag_pbr_!light_id[%1]!!fog_id[%2]!"" );"
 exit /B
 
 @rem compile generic shader variations from templates

@@ -34,6 +34,17 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 static image_t *hashTable[FILE_HASH_SIZE];
 
+// The index in textureMapTypes of a map type (PHYS_*): its swizzle. 0 is the identity.
+static uint32_t vk_find_texture_type( const uint32_t type )
+{
+	for ( uint32_t i = 0; i < ARRAY_LEN( textureMapTypes ); i++ ) {
+		if ( textureMapTypes[i].type == type )
+			return i;
+	}
+
+	return 0;
+}
+
 int		gl_filter_min = GL_LINEAR_MIPMAP_NEAREST;
 int		gl_filter_max = GL_LINEAR;
 
@@ -230,6 +241,14 @@ void vk_texture_mode( const char *string, const qboolean init ) {
 		img = tr.images.items[i];
 		if ( img->flags & IMGFLAG_MIPMAP ) {
 			vk_update_descriptor_set( img, qtrue );
+#ifdef USE_RTX
+			// The samplers were just destroyed and remade, so the tracer's array holds
+			// dangling ones until it is rebound.
+			if ( vk.rtxActive ) {
+				vk_rtx_bind_descriptor_image_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, img->sampler, img->rtx_view, img->index );
+				vk.imageDescriptor.needsUpdate = qtrue;
+			}
+#endif
 		}
 	}
 }
@@ -492,6 +511,11 @@ void vk_record_image_layout_transition( VkCommandBuffer cmdBuf, VkImage image,
 			src_stage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
 			break;
+		case VK_IMAGE_LAYOUT_GENERAL:
+			// A storage image, written by a compute shader.
+			src_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+			barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+			break;
 		default:
 			ri.Error( ERR_DROP, "unsupported old layout %i", old_layout );
 			src_stage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
@@ -529,6 +553,11 @@ void vk_record_image_layout_transition( VkCommandBuffer cmdBuf, VkImage image,
 			// a consumer, and read back as a depth attachment when its own pass reopens.
 			dst_stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_GENERAL:
+			// A storage image, for a compute shader.
+			dst_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+			barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
 			break;
 		default:
 			ri.Error( ERR_DROP, "unsupported new layout %i", new_layout);
@@ -661,23 +690,33 @@ void vk_generate_image_upload_data(image_t* image, byte* data, Image_Upload_Data
 	upload_data->base_level_width = scaled_width;
 	upload_data->base_level_height = scaled_height;
 
-	if (r_texturebits->integer > 16 || r_texturebits->integer == 0 || (image->flags & IMGFLAG_LIGHTMAP)) {
-		if (!vk.compressed_format || (image->flags & IMGFLAG_NO_COMPRESSION)) {
-			image->internalFormat = VK_FORMAT_R8G8B8A8_UNORM;
+#ifdef USE_RTX
+	// Textures the tracer samples are uploaded sRGB so the hardware does the decode.
+	if ( image->flags & IMGFLAG_RGB )
+	{
+		image->internalFormat = VK_FORMAT_R8G8B8A8_SRGB;
+	}
+	else
+#endif
+	{
+		if (r_texturebits->integer > 16 || r_texturebits->integer == 0 || (image->flags & IMGFLAG_LIGHTMAP)) {
+			if (!vk.compressed_format || (image->flags & IMGFLAG_NO_COMPRESSION)) {
+				image->internalFormat = VK_FORMAT_R8G8B8A8_UNORM;
+			}
+			else {
+				image->internalFormat = vk.compressed_format;
+				compressed = qtrue;
+			}
 		}
 		else {
-			image->internalFormat = vk.compressed_format;
-			compressed = qtrue;
+			qboolean has_alpha = RawImage_HasAlpha(data, width * height);
+
+			image->internalFormat = has_alpha ?
+				VK_FORMAT_B4G4R4A4_UNORM_PACK16 :
+				VK_FORMAT_A1R5G5B5_UNORM_PACK16;
+
+			bytesPerPixel = 2;
 		}
-	}
-	else {
-		qboolean has_alpha = RawImage_HasAlpha(data, width * height);
-
-		image->internalFormat = has_alpha ?
-			VK_FORMAT_B4G4R4A4_UNORM_PACK16 :
-			VK_FORMAT_A1R5G5B5_UNORM_PACK16;
-
-		bytesPerPixel = 2;
 	}
 
 	upload_data->buffer_size = R_CalcUploadSize(
@@ -695,6 +734,17 @@ void vk_generate_image_upload_data(image_t* image, byte* data, Image_Upload_Data
 	if (data == NULL) {
 		Com_Memset(upload_data->buffer, 0, upload_data->buffer_size);
 		upload_data->mip_levels = 1;
+
+		// A mipmapped storage image gets all its levels. Its compute pass fills them.
+		if ( mipmap && ( image->flags & IMGFLAG_STORAGE ) ) {
+			width = scaled_width;
+			height = scaled_height;
+			while ( width > 1 || height > 1 ) {
+				width = ( width > 1 ) ? ( width >> 1 ) : 1;
+				height = ( height > 1 ) ? ( height >> 1 ) : 1;
+				upload_data->mip_levels++;
+			}
+		}
 		return;
 	}
 
@@ -1042,6 +1092,22 @@ void vk_upload_image_data( image_t *image, int x, int y, int width,
 		buf = vk_resample_image_data( image->internalFormat, pixels, size, &n /*bpp*/ );
 	}
 
+#ifdef USE_RTX
+	// Keep the source pixels: vk_rtx_extract_emissive_texture_info scans them on the CPU
+	// to derive a light colour and the extent of the lit texels, then frees this.
+	//
+	// The zone, not Hunk_AllocateTempMemory. That temp region is LIFO and is handed
+	// straight back out to the next caller, but the scan does not run here - it runs
+	// later, from FinishShader, by which time every texture loaded in between has
+	// reused the block. The scan was reading whatever had landed there, so the light
+	// colour it derived was meaningless, which is why an emissive surface could glow
+	// and light nothing. It is also what the matching ri.Z_Free expects to be given.
+	if ( vk.rtxActive && !update ) {
+		image->pix_data = (byte *)Z_Malloc( sizeof(byte) * 4 * width * height, TAG_TEMP_IMAGE, qfalse );
+		Com_Memcpy( image->pix_data, pixels, sizeof(byte) * 4 * width * height );
+	}
+#endif
+
 	//if ( batch_by_format != image->internalFormat )
 	//{
 	//	vk_flush_staging_command_buffer();
@@ -1260,7 +1326,14 @@ void vk_update_descriptor_set( image_t *image, qboolean mipmap ) {
 		sampler_def.noAnisotropy = qtrue;
 	}
 
+#ifdef USE_RTX
+	// The tracer binds textures by sampler+view into its own array, so the sampler has
+	// to be reachable from the image rather than living only in this call.
+	image->sampler = vk_find_sampler( &sampler_def );
+	image_info.sampler = image->sampler;
+#else
 	image_info.sampler = vk_find_sampler(&sampler_def);
+#endif
 	image_info.imageView = image->view;
 	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -1280,6 +1353,16 @@ void vk_update_descriptor_set( image_t *image, qboolean mipmap ) {
 
 void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 	VkFormat format = (VkFormat)image->internalFormat;
+#ifdef USE_RTX
+	// An sRGB texture is for the tracer. The raster reads it through a UNORM view, as vanilla.
+	const qboolean srgb = ( format == VK_FORMAT_R8G8B8A8_SRGB ) ? qtrue : qfalse;
+
+	if ( image->rtx_view && image->rtx_view != image->view )
+		qvkDestroyImageView( vk.device, image->rtx_view, NULL );
+	image->rtx_view = VK_NULL_HANDLE;
+#else
+	const qboolean srgb = qfalse;
+#endif
 
 	if ( image->handle ) {
 		qvkDestroyImage( vk.device, image->handle, NULL );
@@ -1295,7 +1378,7 @@ void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 		VkImageCreateInfo desc;
 		desc.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		desc.pNext = NULL;
-		desc.flags = 0;
+		desc.flags = srgb ? VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT : 0;
 		desc.imageType = VK_IMAGE_TYPE_2D;
 		desc.format = format;
 		desc.extent.width = width;
@@ -1305,7 +1388,10 @@ void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 		desc.arrayLayers = 1;
 		desc.samples = VK_SAMPLE_COUNT_1_BIT;
 		desc.tiling = VK_IMAGE_TILING_OPTIMAL;
-		desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		// TRANSFER_SRC: the splash screen blits from a texture.
+		desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		if ( image->flags & IMGFLAG_STORAGE )
+			desc.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
 		desc.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		desc.queueFamilyIndexCount = 0;
 		desc.pQueueFamilyIndices = NULL;
@@ -1323,21 +1409,30 @@ void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 		desc.flags = 0;
 		desc.image = image->handle;
 		desc.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		desc.format = format;
-		desc.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		desc.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		desc.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		desc.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		desc.format = srgb ? VK_FORMAT_R8G8B8A8_UNORM : format;
+		desc.components = textureMapTypes[image->type].swizzle;	// the channels of a PBR map
 		desc.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		desc.subresourceRange.baseMipLevel = 0;
 		desc.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
 		desc.subresourceRange.baseArrayLayer = 0;
 		desc.subresourceRange.layerCount = 1;
 		VK_CHECK( qvkCreateImageView( vk.device, &desc, NULL, &image->view ) );
+
+#ifdef USE_RTX
+		if ( srgb )
+		{
+			desc.format = format;
+			VK_CHECK( qvkCreateImageView( vk.device, &desc, NULL, &image->rtx_view ) );
+		}
+		else
+			image->rtx_view = image->view;
+#endif
 	}
 
+#ifndef USE_RTX
 	if ( !vk.active ) // splash screen does not require a descriptorset
 		return;
+#endif
 
 	// create associated descriptor set
 	if ( image->descriptor_set == VK_NULL_HANDLE )
@@ -1353,6 +1448,16 @@ void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 	}
 
 	vk_update_descriptor_set( image, mip_levels > 1 ? qtrue : qfalse );
+
+#ifdef USE_RTX
+	// Every game texture also goes into the tracer's bindless array, indexed by
+	// image->index; without this the closest-hit shaders have nothing to sample.
+	if ( vk.rtxActive ) {
+		vk_rtx_bind_descriptor_image_sampler( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, image->sampler, image->rtx_view, image->index );
+		vk_rtx_set_descriptor_update_size( &vk.imageDescriptor, 0, (VkShaderStageFlagBits)VK_GLOBAL_IMAGEARRAY_SHADER_STAGE_FLAGS, image->index + 1 );
+		vk.imageDescriptor.needsUpdate = qtrue;
+	}
+#endif
 
 	VK_SET_OBJECT_NAME( image->handle, image->imgName, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT );
 	VK_SET_OBJECT_NAME( image->view, image->imgName, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT );
@@ -1381,12 +1486,22 @@ void vk_delete_textures( void ) {
 
 	vk_wait_idle();
 
+#ifdef VK_COMPUTE_NORMALMAP
+	// the normal maps still to compute go with their images
+	vk_clear_compute_normalmaps();
+#endif
+
 	if ( tr.images.count == 0 ) {
 		return;
 	}
 
 	for (i = 0; i < tr.images.count; i++) {
 		image_t *img = tr.images.items[i];
+#ifdef USE_RTX
+		if ( img->rtx_view && img->rtx_view != img->view )
+			qvkDestroyImageView( vk.device, img->rtx_view, NULL );
+		img->rtx_view = VK_NULL_HANDLE;
+#endif
 		vk_destroy_image_resources( &img->handle, &img->view );
 
 		// img->descriptor will be released with pool reset
@@ -1398,7 +1513,12 @@ void vk_delete_textures( void ) {
 	Com_Memset(glState.currenttextures, 0, sizeof(glState.currenttextures));
 }
 
-image_t *R_CreateImage( const char *name, byte *pic, int width, int height, imgFlags_t flags ){
+image_t *R_CreateImage( const char *name, byte *pic, int width, int height, imgFlags_t flags )
+{
+	return R_CreateImageType( name, pic, width, height, flags, 0 );
+}
+
+image_t *R_CreateImageType( const char *name, byte *pic, int width, int height, imgFlags_t flags, uint32_t type ){
     image_t				*image;
     int					namelen;
     long				hash;
@@ -1432,8 +1552,9 @@ image_t *R_CreateImage( const char *name, byte *pic, int width, int height, imgF
     image->flags = flags;
     image->width = width;
     image->height = height;
+    image->type = vk_find_texture_type( type );
 
-    if (namelen > 6 && Q_stristr(image->imgName, "maps/") == image->imgName && Q_stristr(image->imgName + 6, "/lm_") != NULL) {
+    if (namelen > 6 && Q_stristr(image->imgName, "maps/") == image->imgName&& Q_stristr(image->imgName + 6, "/lm_") != NULL) {
         // external lightmap atlases stored in maps/<mapname>/lm_XXXX textures
         //image->flags = IMGFLAG_NOLIGHTSCALE | IMGFLAG_NO_COMPRESSION | IMGFLAG_NOSCALE | IMGFLAG_COLORSHIFT;
 		image->flags |= IMGFLAG_NO_COMPRESSION | IMGFLAG_NOSCALE;
@@ -1452,6 +1573,9 @@ image_t *R_CreateImage( const char *name, byte *pic, int width, int height, imgF
 
 	image->handle = VK_NULL_HANDLE;
 	image->view = VK_NULL_HANDLE;
+#ifdef USE_RTX
+	image->rtx_view = VK_NULL_HANDLE;
+#endif
 	image->descriptor_set = VK_NULL_HANDLE;
 
     vk_upload_image( image, pic );
@@ -1465,7 +1589,28 @@ image_t *R_CreateImage( const char *name, byte *pic, int width, int height, imgF
     return image;
 }
 
-image_t *R_FindImageFile( const char *name, imgFlags_t flags ){
+image_t *R_FindImageFile( const char *name, imgFlags_t flags )
+{
+	return R_FindImageFileType( name, flags, 0 );
+}
+
+// The image already loaded under this name, or NULL.
+image_t *R_GetLoadedImage( const char *name, imgFlags_t flags )
+{
+	image_t *image;
+
+	for ( image = hashTable[generateHashValue( name )]; image; image = image->next ) {
+		if ( !Q_stricmp( name, image->imgName ) ) {
+			if ( strcmp( name, "*white" ) && image->flags != flags )
+				ri.Printf( PRINT_DEVELOPER, "WARNING: reused image %s with mixed flags (%i vs %i)\n", name, image->flags, flags );
+			return image;
+		}
+	}
+
+	return NULL;
+}
+
+image_t *R_FindImageFileType( const char *name, imgFlags_t flags, uint32_t type ){
         image_t		*image;
         int			width, height;
         byte		*pic;
@@ -1533,18 +1678,158 @@ image_t *R_FindImageFile( const char *name, imgFlags_t flags ){
             }
 		}
 
-        image = R_CreateImage(name, pic, width, height, flags);
+        image = R_CreateImageType(name, pic, width, height, flags, type);
         ri.Z_Free(pic);
         return image;
 }
+
+#ifdef USE_VK_PBR
+// A spec/gloss map (specMap) with its colour taken from sRGB to linear, as the physical map.
+static image_t *R_BuildSDRSpecGlossImage( shaderStage_t *stage, const char *specImageName, imgFlags_t flags )
+{
+	char	sdrName[MAX_QPATH];
+	int		specWidth, specHeight;
+	byte	*specPic;
+	image_t *image;
+
+	if ( !specImageName )
+		return NULL;
+
+	COM_StripExtension( specImageName, sdrName, sizeof( sdrName ) );
+	Q_strcat( sdrName, sizeof( sdrName ), "_SDR" );
+
+	image = R_GetLoadedImage( sdrName, flags );
+	if ( image != NULL )
+		return image;
+
+	R_LoadImage( specImageName, &specPic, &specWidth, &specHeight );
+	if ( specPic == NULL )
+		return NULL;
+
+	byte *sdrSpecPic = (byte *)R_Malloc( sizeof( unsigned ) * specWidth * specHeight, TAG_TEMP_WORKSPACE, qfalse );
+	for ( int i = 0; i < specWidth * specHeight * 4; i += 4 )
+	{
+		vec3_t c;
+		c[0] = ByteToFloat( specPic[i + 0] );
+		c[1] = ByteToFloat( specPic[i + 1] );
+		c[2] = ByteToFloat( specPic[i + 2] );
+
+		const float sum = c[0] + c[1] + c[2];
+		const float ratio = ( sum > 0.0f ) ? ( sRGBtoRGB( c[0] ) + sRGBtoRGB( c[1] ) + sRGBtoRGB( c[2] ) ) / sum : 0.0f;
+
+		sdrSpecPic[i + 0] = FloatToByte( c[0] * ratio );
+		sdrSpecPic[i + 1] = FloatToByte( c[1] * ratio );
+		sdrSpecPic[i + 2] = FloatToByte( c[2] * ratio );
+		sdrSpecPic[i + 3] = specPic[i + 3];
+	}
+	ri.Z_Free( specPic );
+
+	image = R_CreateImageType( sdrName, sdrSpecPic, specWidth, specHeight, flags, stage->physicalMapType );
+	ri.Z_Free( sdrSpecPic );
+
+	return image;
+}
+
+// The normal map of the stage (normalMap, normalHeightMap, or found next to the diffuse
+// texture).
+qboolean vk_create_normal_texture( shaderStage_t *stage, const char *name, imgFlags_t flags )
+{
+	switch ( stage->normalMapType ) {
+		case PHYS_NORMAL:
+		case PHYS_NORMALHEIGHT:
+			break;
+		default:
+			return qfalse;
+	}
+
+	stage->normalMap = R_FindImageFileType( name, flags, stage->normalMapType );
+
+	if ( !stage->normalMap )
+		return qfalse;
+
+	stage->vk_pbr_flags |= PBR_HAS_NORMALMAP;
+
+	VectorSet4( stage->normalScale, r_baseNormalX->value, r_baseNormalY->value, 1.0f, r_baseParallax->value );
+
+	return qtrue;
+}
+
+// The physical map of the stage: a packed map (rmo, rmos, moxr, mosr, orm, orms) or a
+// spec/gloss map.
+qboolean vk_create_phyisical_texture( shaderStage_t *stage, const char *name, imgFlags_t flags )
+{
+	char	packedName[MAX_QPATH];
+	int		packedWidth, packedHeight;
+	byte	*packedPic;
+	image_t *image;
+
+	if ( !name )
+		return qfalse;
+
+	switch ( stage->physicalMapType ) {
+		case PHYS_RMO:
+		case PHYS_RMOS:
+		case PHYS_MOXR:
+		case PHYS_MOSR:
+		case PHYS_ORM:
+		case PHYS_ORMS:
+			break;
+		case PHYS_SPECGLOSS:
+			stage->physicalMap = R_BuildSDRSpecGlossImage( stage, name, flags );
+			if ( !stage->physicalMap )
+				return qfalse;
+			stage->vk_pbr_flags |= PBR_HAS_SPECULARMAP;
+			return qtrue;
+		default:
+			return qfalse;
+	}
+
+	COM_StripExtension( name, packedName, sizeof( packedName ) );
+	Q_strcat( packedName, sizeof( packedName ), "_ORMS" );
+
+	image = R_GetLoadedImage( packedName, flags );
+	if ( image == NULL )
+	{
+		R_LoadImage( name, &packedPic, &packedWidth, &packedHeight );
+		if ( packedPic == NULL )
+			return qfalse;
+
+		image = R_CreateImageType( packedName, packedPic, packedWidth, packedHeight, flags, stage->physicalMapType );
+		ri.Z_Free( packedPic );
+	}
+
+	switch ( stage->physicalMapType )
+	{
+		case PHYS_RMOS:
+		case PHYS_MOSR:
+		case PHYS_ORMS:
+			stage->specularScale[1] = 1.0f;	// the map has the specular
+			break;
+		default:
+			stage->specularScale[1] = 0.5f;	// base specular 0.04, the shader assumes 0.08
+			break;
+	}
+
+	// occlusion, roughness and metalness are not scaled
+	stage->specularScale[0] =
+	stage->specularScale[2] =
+	stage->specularScale[3] = 1.0f;
+
+	stage->physicalMap = image;
+	stage->vk_pbr_flags |= PBR_HAS_PHYSICALMAP;
+	return qtrue;
+}
+#endif // USE_VK_PBR
 
 void RE_UploadCinematic( int cols, int rows, const byte *data, int client, qboolean dirty )
 {
 	image_t *image;
 
     if ( !tr.scratchImage[client] ) {
-		tr.scratchImage[client] = R_CreateImage(va("*scratch%i", client), (byte*)data, cols, rows, 
-			IMGFLAG_CLAMPTOEDGE | IMGFLAG_RGB | IMGFLAG_NOSCALE | IMGFLAG_NO_COMPRESSION);
+		// Not IMGFLAG_RGB: that makes an sRGB image, and the raster would decode the frame
+		// it draws on screen (cinematics, g_ShowSplit) to linear, which darkens it.
+		tr.scratchImage[client] = R_CreateImage(va("*scratch%i", client), (byte*)data, cols, rows,
+			IMGFLAG_CLAMPTOEDGE | IMGFLAG_NOSCALE | IMGFLAG_NO_COMPRESSION);
 		return;
     }
 
@@ -1777,6 +2062,10 @@ static void R_CreateBuiltinImages( void ) {
 	// we use a solid white image instead of disabling texturing
 	Com_Memset(data, 255, sizeof(data));
 	tr.whiteImage = R_CreateImage("*white", (byte*)data, 8, 8, IMGFLAG_NONE);
+
+#ifdef USE_VK_PBR
+	vk_create_brdf_lut();
+#endif
 
 	Com_Memset(data, 0, sizeof(data));
 	tr.blackImage = R_CreateImage("*black", (byte*)data, 8, 8, IMGFLAG_NONE);

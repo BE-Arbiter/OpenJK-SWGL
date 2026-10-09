@@ -288,7 +288,11 @@ static void R_AddWorldSurface( msurface_t *surf, int dlightBits, qboolean noView
 #ifdef USE_PMLIGHT
 	{
 		surf->vcVisible = tr.viewCount;
+#ifdef VK_CUBEMAP
+		R_AddDrawSurf( surf->data, surf->shader, surf->fogIndex, 0, surf->cubemapIndex );
+#else
 		R_AddDrawSurf( surf->data, surf->shader, surf->fogIndex, 0 );
+#endif
 		
 #if defined(USE_VBO_SS)
 		if ( vk.vboWorldActive && r_surfaceSprites->integer )
@@ -402,7 +406,11 @@ static void R_AddWorldSurface( msurface_t *surf, int dlightBits, qboolean noView
 	else
 #endif
 	{
+#ifdef VK_CUBEMAP
+		R_AddDrawSurf( surf->data, surf->shader, surf->fogIndex, dlightBits, surf->cubemapIndex );
+#else
 		R_AddDrawSurf( surf->data, surf->shader, surf->fogIndex, dlightBits );
+#endif
 	}
 }
 
@@ -1433,7 +1441,7 @@ void R_AddWorldSurfaces ( void ) {
 	}
 
 	tr.currentEntityNum = REFENTITYNUM_WORLD;
-	tr.shiftedEntityNum = tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
+	tr.shiftedEntityNum = (sortKey_t)tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
 
 	// determine which leaves are in the PVS / areamask
 	R_MarkLeaves ();

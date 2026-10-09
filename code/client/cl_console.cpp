@@ -29,6 +29,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "client.h"
 #include "qcommon/stringed_ingame.h"
 #include "qcommon/game_version.h"
+#include "cl_dualref.h"
+
+extern cvar_t *cl_renderer;
 
 int g_console_field_width = 78;
 
@@ -71,6 +74,33 @@ void Con_ClockString( char *buf, int size )
 	struct tm *tms = localtime( &t );
 
 	Com_sprintf( buf, size, "%02d:%02d:%02d", tms->tm_hour, tms->tm_min, tms->tm_sec );
+}
+
+/*
+================
+Con_RendererString
+
+Returns the name of the renderer on screen.
+================
+*/
+static const char *Con_RendererString( void )
+{
+	const char *lib = CL_DualRef_ShownName();
+	const char *name;
+
+	if ( !lib ) {
+		lib = cl_renderer ? cl_renderer->string : "";
+	}
+
+	if ( Q_stristr( lib, "vulkan" ) ) {
+		name = Cvar_VariableIntegerValue( "r_rtxActive" ) ? "Vulkan (RTX)" : "Vulkan";
+	} else if ( Q_stristr( lib, "rend2" ) ) {
+		name = "Rend2";
+	} else {
+		name = "OpenGL";
+	}
+
+	return name;
 }
 
 /*
@@ -797,6 +827,15 @@ void Con_DrawSolidConsole( float frac )
 	for (x=0 ; x<i ; x++) {
 		SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x + 1 ) * con.charWidth,
 			(lines-(con.charHeight+con.charHeight/2)), version[x] );
+	}
+
+	// the renderer on screen, top right, over the cg_drawFPS counter
+	const char *renderer = Con_RendererString();
+	i = strlen( renderer );
+
+	for (x=0 ; x<i ; x++) {
+		SCR_DrawSmallChar( cls.glconfig.vidWidth - ( i - x + 1 ) * con.charWidth,
+			2, renderer[x] );
 	}
 
 	// draw the input prompt, user text, and cursor if desired

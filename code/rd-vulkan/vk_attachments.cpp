@@ -341,8 +341,16 @@ void vk_create_attachments( void )
         }
 
         // post-processing / msaa-resolve
+#ifdef USE_RTX
+        // vkpt_final_blit_simple blits the tracer's output INTO this image, so it needs
+        // TRANSFER_DST as well. Upstream swaps SRC for DST; keeping both leaves the
+        // capture and screenshot paths, which read from it, working.
+        create_color_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT, vk.color_format,
+           usage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, &vk.color_image, &vk.color_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );
+#else
         create_color_attachment( glConfig.vidWidth, glConfig.vidHeight, VK_SAMPLE_COUNT_1_BIT, vk.color_format,
            usage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, &vk.color_image, &vk.color_image_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, qfalse );
+#endif
 
         // screenmap-msaa
         if ( vk.screenMapSamples > VK_SAMPLE_COUNT_1_BIT ) {
@@ -405,9 +413,10 @@ void vk_create_attachments( void )
                 &vk.msaa_image, &vk.msaa_image_view, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, qtrue );
         }
 
-        // SSAA
-        if ( r_ext_supersample->integer ) {
-            // capture buffer
+        // Capture buffer, at the output size. It goes through the same gamma and overbright
+        // pass as the screen. Without it, vk_read_pixels reads the colour image before that
+        // pass, so screenshots and g_ShowSplit do not show what the screen shows.
+        {
             usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
             create_color_attachment( gls.captureWidth, gls.captureHeight, VK_SAMPLE_COUNT_1_BIT, vk.capture_format,
                 usage, &vk.capture.image, &vk.capture.image_view , VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, qfalse );

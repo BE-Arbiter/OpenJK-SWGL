@@ -220,6 +220,7 @@ public:
 	const EG2_Collision	eG2TraceType;
 	bool				hitOne;
 	float				m_fRadius;
+	const float			*surfBounds = nullptr;	// per surface mins/maxs of the collision cache, or NULL
 
 #ifdef _G2_GORE
 	//gore application thing
@@ -412,16 +413,45 @@ int G2_DecideTraceLod(CGhoul2Info &ghoul2, int useLod)
 	return returnLod;
 }
 
+// Skins the vertices of one surface into out, 5 floats per vertex: xyz, st.
+// Only the positions: no trace reads a normal.
+static void G2_SkinSurfaceVerts( const mdxmSurface_t *surface, const vec3_t scale, CBoneCache *boneCache, float *out )
+{
+	const int *piBoneReferences = (const int *)((const byte *)surface + surface->ofsBoneReferences);
+	const int numVerts = surface->numVerts;
+	const mdxmVertex_t *v = (const mdxmVertex_t *)((const byte *)surface + surface->ofsVerts);
+	const mdxmVertexTexCoord_t *pTexCoords = (const mdxmVertexTexCoord_t *)&v[numVerts];
+
+	for ( int j = 0; j < numVerts; j++, v++, out += 5 )
+	{
+		const int iNumWeights = G2_GetVertWeights( v );
+		const float *p = v->vertCoords;
+		float fTotalWeight = 0.0f;
+		float x = 0.0f, y = 0.0f, z = 0.0f;
+
+		for ( int k = 0; k < iNumWeights; k++ )
+		{
+			const int iBoneIndex = G2_GetVertBoneIndex( v, k );
+			const float fBoneWeight = G2_GetVertBoneWeight( v, k, fTotalWeight, iNumWeights );
+			const mdxaBone_t &bone = EvalBoneCache( piBoneReferences[iBoneIndex], boneCache );
+
+			x += fBoneWeight * ( bone.matrix[0][0] * p[0] + bone.matrix[0][1] * p[1] + bone.matrix[0][2] * p[2] + bone.matrix[0][3] );
+			y += fBoneWeight * ( bone.matrix[1][0] * p[0] + bone.matrix[1][1] * p[1] + bone.matrix[1][2] * p[2] + bone.matrix[1][3] );
+			z += fBoneWeight * ( bone.matrix[2][0] * p[0] + bone.matrix[2][1] * p[1] + bone.matrix[2][2] * p[2] + bone.matrix[2][3] );
+		}
+
+		out[0] = x * scale[0];
+		out[1] = y * scale[1];
+		out[2] = z * scale[2];
+		// we will need the S & T coors too for hitlocation and hitmaterial stuff
+		out[3] = pTexCoords[j].texCoords[0];
+		out[4] = pTexCoords[j].texCoords[1];
+	}
+}
+
 void R_TransformEachSurface( const mdxmSurface_t *surface, vec3_t scale, CMiniHeap *G2VertSpace, intptr_t *TransformedVertsArray,CBoneCache *boneCache)
 {
-	int				 j, k;
-	mdxmVertex_t 	*v;
 	float			*TransformedVerts;
-
-	//
-	// deform the vertexes by the lerped bones
-	//
-	int *piBoneReferences = (int*) ((byte*)surface + surface->ofsBoneReferences);
 
 	// alloc some space for the transformed verts to get put in
 	TransformedVerts = (float *)G2VertSpace->MiniHeapAlloc(surface->numVerts * 5 * 4);
@@ -432,96 +462,7 @@ void R_TransformEachSurface( const mdxmSurface_t *surface, vec3_t scale, CMiniHe
 		Com_Error(ERR_DROP, "Ran out of transform space for Ghoul2 Models. Adjust G2_MINIHEAP_SIZE in sv_init.cpp.\n");
 	}
 
-	// whip through and actually transform each vertex
-	const int numVerts = surface->numVerts;
-	v = (mdxmVertex_t *) ((byte *)surface + surface->ofsVerts);
-	mdxmVertexTexCoord_t *pTexCoords = (mdxmVertexTexCoord_t *) &v[numVerts];
-
-	// optimisation issue
-	if ((scale[0] != 1.0) || (scale[1] != 1.0) || (scale[2] != 1.0))
-	{
-		for ( j = 0; j < numVerts; j++ )
-		{
-			vec3_t			tempVert, tempNormal;
-//			mdxmWeight_t	*w;
-
-			VectorClear( tempVert );
-			VectorClear( tempNormal );
-//			w = v->weights;
-
-			const int iNumWeights = G2_GetVertWeights( v );
-
-			float fTotalWeight = 0.0f;
-			for ( k = 0 ; k < iNumWeights ; k++ )
-			{
-				int		iBoneIndex	= G2_GetVertBoneIndex( v, k );
-				float	fBoneWeight	= G2_GetVertBoneWeight( v, k, fTotalWeight, iNumWeights );
-
-				const mdxaBone_t &bone=EvalBoneCache(piBoneReferences[iBoneIndex],boneCache);
-
-				tempVert[0] += fBoneWeight * ( DotProduct( bone.matrix[0], v->vertCoords ) + bone.matrix[0][3] );
-				tempVert[1] += fBoneWeight * ( DotProduct( bone.matrix[1], v->vertCoords ) + bone.matrix[1][3] );
-				tempVert[2] += fBoneWeight * ( DotProduct( bone.matrix[2], v->vertCoords ) + bone.matrix[2][3] );
-
-				tempNormal[0] += fBoneWeight * DotProduct( bone.matrix[0], v->normal );
-				tempNormal[1] += fBoneWeight * DotProduct( bone.matrix[1], v->normal );
-				tempNormal[2] += fBoneWeight * DotProduct( bone.matrix[2], v->normal );
-			}
-			int pos = j * 5;
-
-			// copy tranformed verts into temp space
-			TransformedVerts[pos++] = tempVert[0] * scale[0];
-			TransformedVerts[pos++] = tempVert[1] * scale[1];
-			TransformedVerts[pos++] = tempVert[2] * scale[2];
-			// we will need the S & T coors too for hitlocation and hitmaterial stuff
-			TransformedVerts[pos++] = pTexCoords[j].texCoords[0];
-			TransformedVerts[pos] = pTexCoords[j].texCoords[1];
-
-			v++;// = (mdxmVertex_t *)&v->weights[/*v->numWeights*/surface->maxVertBoneWeights];
-		}
-	}
-	else
-	{
-		int pos = 0;
-	  	for ( j = 0; j < numVerts; j++ )
-		{
-			vec3_t			tempVert, tempNormal;
-//			const mdxmWeight_t	*w;
-
-			VectorClear( tempVert );
-			VectorClear( tempNormal );
-//			w = v->weights;
-
-			const int iNumWeights = G2_GetVertWeights( v );
-
-			float fTotalWeight = 0.0f;
-			for ( k = 0 ; k < iNumWeights ; k++ )
-			{
-				int		iBoneIndex	= G2_GetVertBoneIndex( v, k );
-				float	fBoneWeight	= G2_GetVertBoneWeight( v, k, fTotalWeight, iNumWeights );
-
-				const mdxaBone_t &bone=EvalBoneCache(piBoneReferences[iBoneIndex],boneCache);
-
-				tempVert[0] += fBoneWeight * ( DotProduct( bone.matrix[0], v->vertCoords ) + bone.matrix[0][3] );
-				tempVert[1] += fBoneWeight * ( DotProduct( bone.matrix[1], v->vertCoords ) + bone.matrix[1][3] );
-				tempVert[2] += fBoneWeight * ( DotProduct( bone.matrix[2], v->vertCoords ) + bone.matrix[2][3] );
-
-				tempNormal[0] += fBoneWeight * DotProduct( bone.matrix[0], v->normal );
-				tempNormal[1] += fBoneWeight * DotProduct( bone.matrix[1], v->normal );
-				tempNormal[2] += fBoneWeight * DotProduct( bone.matrix[2], v->normal );
-			}
-
-			// copy tranformed verts into temp space
-			TransformedVerts[pos++] = tempVert[0];
-			TransformedVerts[pos++] = tempVert[1];
-			TransformedVerts[pos++] = tempVert[2];
-			// we will need the S & T coors too for hitlocation and hitmaterial stuff
-			TransformedVerts[pos++] = pTexCoords[j].texCoords[0];
-			TransformedVerts[pos++] = pTexCoords[j].texCoords[1];
-
-			v++;// = (mdxmVertex_t *)&v->weights[/*v->numWeights*/surface->maxVertBoneWeights];
-		}
-	}
+	G2_SkinSurfaceVerts( surface, scale, boneCache, TransformedVerts );
 }
 
 void G2_TransformSurfaces(int surfaceNum, surfaceInfo_v &rootSList,
@@ -563,6 +504,96 @@ void G2_TransformSurfaces(int surfaceNum, surfaceInfo_v &rootSList,
 	{
 		G2_TransformSurfaces(surfInfo->childIndexes[i], rootSList, boneCache, currentModel, lod, scale, G2VertSpace, TransformedVertArray, secondTimeAround);
 	}
+}
+
+// Collects the surfaces that G2_TransformSurfaces skins, in the same order.
+static void G2_CollectCollisionSurfaces( int surfaceNum, const surfaceInfo_v &rootSList, const model_t *currentModel, int lod,
+	std::vector<const mdxmSurface_t *> &list )
+{
+	const mdxmSurface_t				*surface = (mdxmSurface_t *)G2_FindSurface(currentModel, surfaceNum, lod);
+	const mdxmHierarchyOffsets_t	*surfIndexes = (mdxmHierarchyOffsets_t *)((byte *)currentModel->data.glm->header + sizeof(mdxmHeader_t));
+	const mdxmSurfHierarchy_t		*surfInfo = (mdxmSurfHierarchy_t *)((byte *)surfIndexes + surfIndexes->offsets[surface->thisSurfaceIndex]);
+	const surfaceInfo_t				*surfOverride = G2_FindOverrideSurface(surfaceNum, rootSList);
+	const int						offFlags = surfOverride ? surfOverride->offFlags : surfInfo->flags;
+
+	if ( !offFlags )
+		list.push_back( surface );
+
+	if ( offFlags & G2SURFACEFLAG_NODESCENDANTS )
+		return;
+
+	for ( int i = 0; i < surfInfo->numChildren; i++ )
+		G2_CollectCollisionSurfaces( surfInfo->childIndexes[i], rootSList, currentModel, lod, list );
+}
+
+// Changes when a surface is turned on or off (dismemberment) or the model changes.
+static uint32_t G2_CollisionSurfaceSignature( const CGhoul2Info &g )
+{
+	uint32_t h = 2166136261u;
+
+	h = ( h ^ (uint32_t)g.mSurfaceRoot ) * 16777619u;
+	h = ( h ^ (uint32_t)(uintptr_t)g.currentModel ) * 16777619u;
+	h = ( h ^ (uint32_t)g.mSlist.size() ) * 16777619u;
+	for ( size_t i = 0; i < g.mSlist.size(); i++ )
+	{
+		h = ( h ^ (uint32_t)g.mSlist[i].surface ) * 16777619u;
+		h = ( h ^ (uint32_t)g.mSlist[i].offFlags ) * 16777619u;
+	}
+
+	return h;
+}
+
+// Collision traces only: skins the model once per skeleton and keeps the result in its
+// bone cache. The other traces of the frame against this model use it again.
+static void G2_TransformModelForCollision( CGhoul2Info &g, int lod, const vec3_t scale )
+{
+	static std::vector<const mdxmSurface_t *> surfaces;
+	g2CollisionVerts_t	*cache = G2_GetCollisionVerts( g.mBoneCache );
+	const int			touch = G2_GetBoneCacheTouch( g.mBoneCache );
+	const uint32_t		surfSig = G2_CollisionSurfaceSignature( g );
+	const int			numSurfaces = g.currentModel->data.glm->header->numSurfaces;
+
+	if ( cache->touch == touch && cache->lod == lod && cache->surfSig == surfSig
+		&& VectorCompare( cache->scale, scale ) && (int)cache->surfVerts.size() == numSurfaces )
+	{
+		g.mTransformedVertsArray = cache->surfVerts.data();
+		return;
+	}
+
+	surfaces.clear();
+	G2_FindOverrideSurface( -1, g.mSlist ); // reset the quick surface override lookup
+	G2_CollectCollisionSurfaces( g.mSurfaceRoot, g.mSlist, g.currentModel, lod, surfaces );
+
+	size_t numFloats = 0;
+	for ( size_t i = 0; i < surfaces.size(); i++ )
+		numFloats += surfaces[i]->numVerts * 5;
+
+	cache->verts.resize( numFloats );
+	cache->surfVerts.assign( numSurfaces, 0 );
+	cache->surfBounds.assign( numSurfaces * 6, 0.0f );
+
+	float *out = cache->verts.data();
+	for ( size_t i = 0; i < surfaces.size(); i++ )
+	{
+		const mdxmSurface_t *surface = surfaces[i];
+		float *bounds = &cache->surfBounds[surface->thisSurfaceIndex * 6];
+
+		G2_SkinSurfaceVerts( surface, scale, g.mBoneCache, out );
+		cache->surfVerts[surface->thisSurfaceIndex] = (intptr_t)out;
+
+		ClearBounds( bounds, bounds + 3 );
+		for ( int j = 0; j < surface->numVerts; j++ )
+			AddPointToBounds( out + j * 5, bounds, bounds + 3 );
+
+		out += surface->numVerts * 5;
+	}
+
+	cache->touch = touch;
+	cache->lod = lod;
+	cache->surfSig = surfSig;
+	VectorCopy( scale, cache->scale );
+
+	g.mTransformedVertsArray = cache->surfVerts.data();
 }
 
 // main calling point for the model transform for collision detection. At this point all of the skeleton has been transformed.
@@ -651,6 +682,16 @@ void G2_TransformModel(CGhoul2Info_v &ghoul2, const int frameNum, vec3_t scale, 
 #endif
 		{
 			lod = G2_DecideTraceLod(g, useLod);
+
+			// G2_TraceModels does not trace these models
+			if ( g.mFlags & GHOUL2_NOCOLLIDE )
+			{
+				g.mTransformedVertsArray = 0;
+				continue;
+			}
+
+			G2_TransformModelForCollision( g, lod, correctScale );
+			continue;
 		}
 
 		// give us space for the transformed vertex array to be put in
@@ -1526,6 +1567,46 @@ static bool G2_RadiusTracePolys(
 
 
 // look at a surface and then do the trace on each poly
+// Can the trace touch a triangle of this surface? Slab test of the segment against the
+// surface box. A radius trace tests a box of half width radius around the segment, so
+// the box grows by radius * sqrt(2), plus a margin.
+static bool G2_TraceTouchesSurfaceBounds( const CTraceSurface &TS, int surfaceIndex )
+{
+	const float	*b = &TS.surfBounds[surfaceIndex * 6];
+	const float	margin = ( Q_fabs(TS.m_fRadius) < 0.1f ) ? 1.0f : Q_fabs(TS.m_fRadius) * 1.5f + 1.0f;
+	float		tmin = 0.0f, tmax = 1.0f;
+
+	if ( b[0] > b[3] )
+		return false;	// no vertex
+
+	for ( int i = 0; i < 3; i++ )
+	{
+		const float lo = b[i] - margin;
+		const float hi = b[i + 3] + margin;
+		const float d = TS.rayEnd[i] - TS.rayStart[i];
+
+		if ( Q_fabs(d) < 1e-6f )
+		{
+			if ( TS.rayStart[i] < lo || TS.rayStart[i] > hi )
+				return false;
+			continue;
+		}
+
+		float t0 = ( lo - TS.rayStart[i] ) / d;
+		float t1 = ( hi - TS.rayStart[i] ) / d;
+		if ( t0 > t1 )
+		{
+			const float t = t0; t0 = t1; t1 = t;
+		}
+		if ( t0 > tmin ) tmin = t0;
+		if ( t1 < tmax ) tmax = t1;
+		if ( tmin > tmax )
+			return false;
+	}
+
+	return true;
+}
+
 static void G2_TraceSurfaces(CTraceSurface &TS)
 {
 	int	i;
@@ -1561,7 +1642,11 @@ static void G2_TraceSurfaces(CTraceSurface &TS)
 		if (TS.collRecMap)
 		{
 #endif
-			if (!(Q_fabs(TS.m_fRadius) < 0.1))	// if not a point-trace
+			if ( TS.surfBounds && !G2_TraceTouchesSurfaceBounds( TS, surface->thisSurfaceIndex ) )
+			{
+				// the trace does not reach this surface, go on with its children
+			}
+			else if (!(Q_fabs(TS.m_fRadius) < 0.1))	// if not a point-trace
 			{
 				// .. then use radius check
 				//
@@ -1710,6 +1795,15 @@ void G2_TraceModels(CGhoul2Info_v &ghoul2, vec3_t rayStart, vec3_t rayEnd, CColl
 #else
 		CTraceSurface TS(g.mSurfaceRoot, g.mSlist,  g.currentModel, lod, rayStart, rayEnd, collRecMap, entNum, i, skin, cust_shader, g.mTransformedVertsArray, eG2TraceType, fRadius);
 #endif
+		// collision trace on the cached vertices: test the surface boxes first
+		if ( collRecMap && g.mBoneCache && g.mTransformedVertsArray )
+		{
+			const g2CollisionVerts_t *cache = G2_GetCollisionVerts( g.mBoneCache );
+
+			if ( g.mTransformedVertsArray == cache->surfVerts.data() && cache->lod == lod )
+				TS.surfBounds = cache->surfBounds.data();
+		}
+
 		// start the surface recursion loop
 		G2_TraceSurfaces(TS);
 

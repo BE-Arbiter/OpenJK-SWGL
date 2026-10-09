@@ -24,6 +24,33 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #ifndef TR_LOCAL_H
 #define TR_LOCAL_H
 
+// Path tracer, ported from JKSunny/EternalJK. Comment out to build the renderer without it;
+// everything it adds is guarded by this and the raster path never sees it.
+#define USE_RTX
+
+// PBR materials, ported from JKSunny/EternalJK (branch pbr): normal and physical maps from the
+// shader keywords or found next to the diffuse texture, and normal maps computed from the
+// diffuse texture (r_genNormalMaps).
+#define USE_VK_PBR
+
+#ifdef USE_VK_PBR
+	#define VK_COMPUTE_NORMALMAP
+
+	#ifdef VK_COMPUTE_NORMALMAP
+		#define MAX_BATCH_COMPUTE_NORMALMAPS 1024
+	#endif
+
+	// environment cubemaps of the map probes, for the PBR reflections (r_cubeMapping)
+	#define VK_CUBEMAP
+
+	#ifdef VK_CUBEMAP
+		#define REF_CUBEMAP_SIZE		256
+		#define REF_CUBEMAP_MIPS		7		// pbr.glsl reads lod = roughness * 6
+		#define MAX_CUBEMAPS			64
+		#define CUBEMAPS_PER_FRAME		4		// probes captured in one frame
+	#endif
+#endif
+
 #define USE_VBO					// store static world geometry in VBO
 
 #ifdef USE_VBO
@@ -83,6 +110,23 @@ extern mdxaBone_t worldMatrixInv;
 int G2_IsSurfaceOff( CGhoul2Info *ghlInfo, surfaceInfo_v &slist, const char *surfaceName );
 #define IHeapAllocator CMiniHeap
 void RemoveBoneCache( CBoneCache *boneCache );
+
+// Skinned vertices of one ghoul2 model for the collision traces (G2API_CollisionDetect).
+// Valid while the skeleton (CBoneCache::mCurrentTouch), the LOD, the scale and the
+// surface list do not change, so one skinning serves all the traces of a frame.
+struct g2CollisionVerts_t
+{
+	int						touch;			// -1: empty
+	int						lod;
+	vec3_t					scale;
+	uint32_t				surfSig;
+	std::vector<float>		verts;			// 5 floats per vertex: xyz, st
+	std::vector<intptr_t>	surfVerts;		// per surface index: pointer into verts, or 0
+	std::vector<float>		surfBounds;		// per surface index: mins xyz, maxs xyz
+};
+g2CollisionVerts_t *G2_GetCollisionVerts( CBoneCache *boneCache );
+int G2_GetBoneCacheTouch( const CBoneCache *boneCache );
+
 #define GHOUL2_ZONETRANSALLOC 0
 typedef intptr_t g2vert_int_t;
 void G2API_AnimateG2ModelsRag(CGhoul2Info_v &ghoul2, int AcurrentTime, CRagDollUpdateParams *params);
@@ -170,6 +214,9 @@ typedef unsigned int glIndex_t;
 // can't be increased without changing bit packing for drawsurfs
 // see QSORT_SHADERNUM_SHIFT
 #define SHADERNUM_BITS	14
+
+// drawsurf sort key, see QSORT_SHADERNUM_SHIFT
+typedef uint64_t sortKey_t;
 #define MAX_SHADERS		(1<<SHADERNUM_BITS)
 #define SHADERNUM_MASK	(MAX_SHADERS-1)
 
@@ -182,6 +229,20 @@ typedef enum
 	DLIGHT_VERTICAL	= 0,
 	DLIGHT_PROJECTED
 } eDLightTypes;
+
+#ifdef USE_RTX
+typedef enum dlight_type_e
+{
+    DLIGHT_SPHERE = 0,
+    DLIGHT_SPOT
+} dlight_type;
+
+typedef enum dlight_spot_emission_profile_e
+{
+    DLIGHT_SPOT_EMISSION_PROFILE_FALLOFF = 0,
+    DLIGHT_SPOT_EMISSION_PROFILE_AXIS_ANGLE_TEXTURE
+} dlight_spot_emission_profile;
+#endif
 
 typedef struct dlight_s {
 	eDLightTypes	mType;
@@ -197,6 +258,34 @@ typedef struct dlight_s {
 
 	int				additive;			// texture detail is lost tho when the lightmap is dark
 	qboolean		linear;
+#ifdef USE_RTX
+    // VKPT light types support
+    dlight_type light_type;
+	//float		intensity;		// use radius
+    // Spotlight options
+    struct {
+        // Spotlight emission profile
+        dlight_spot_emission_profile emission_profile;
+        // Spotlight direction
+        vec3_t  direction;
+        union {
+            // Options for DLIGHT_SPOT_EMISSION_PROFILE_FALLOFF
+            struct {
+                // Cosine of angle of spotlight cone width (no emission beyond that)
+                float   cos_total_width;
+                // Cosine of angle of start of falloff (full emission below that)
+                float   cos_falloff_start;
+            };
+            // Options for DLIGHT_SPOT_EMISSION_PROFILE_AXIS_ANGLE_TEXTURE
+            struct {
+                // Angle of spotlight cone width (no emission beyond that), in radians
+                float   total_width;
+                // Emission profile texture, indexed by 'angle / total_width'
+                qhandle_t texture;
+            };
+        };
+    } spot;
+#endif
 #ifdef USE_PMLIGHT
 	struct litSurf_s* head;
 	struct litSurf_s* tail;
@@ -240,7 +329,18 @@ typedef struct trRefEntity_s {
 	vec3_t		shadowLightDir;	// normalized direction towards light
 #endif
 	qboolean	intShaderTime;
+#ifdef VK_CUBEMAP
+	int			cubemapIndex;	// 1 + index of the nearest cubemap, 0 for none
+#endif
 } trRefEntity_t;
+
+#ifdef VK_CUBEMAP
+typedef struct cubemap_s {
+	char		name[MAX_QPATH];
+	vec3_t		origin;
+	float		parallaxRadius;
+} cubemap_t;
+#endif
 
 
 typedef struct orientationr_s {
@@ -271,6 +371,7 @@ typedef enum
 	IMGFLAG_NOSCALE			= 0x0080,
 	IMGFLAG_RGB				= 0x0100,
 	IMGFLAG_COLORSHIFT		= 0x0200,
+	IMGFLAG_STORAGE			= 0x0800,	// written by a compute shader
 } imgFlags_t;
 
 #if defined( _WIN32 )
@@ -310,8 +411,21 @@ typedef struct image_s {
 	VkImage					handle;
 	VkImageView				view;
 	VkDescriptorSet			descriptor_set;
+#ifdef USE_RTX
+	VkSampler				sampler;
+	// The tracer samples an sRGB texture through this view, decoded to linear. The raster
+	// uses view, UNORM, and reads the bytes as vanilla does. Equal to view otherwise.
+	VkImageView				rtx_view;
+    byte					*pix_data;
+    vec3_t					light_color; // use this color if this is a light source
+	vec2_t					min_light_texcoord;
+	vec2_t					max_light_texcoord;
+	bool					entire_texture_emissive;
+	bool					processing_complete;
+#endif
 	qboolean				isLightmap;
 	uint32_t				mipLevels;		// gl texture binding
+	uint32_t				type;			// index in textureMapTypes: the swizzle of the view
 	VkSamplerAddressMode	wrapClampMode;	
 } image_t;
 
@@ -588,6 +702,9 @@ struct SurfaceSpriteBlock
 
 typedef struct textureBundle_s {
 	image_t			*image[MAX_IMAGE_ANIMATIONS];
+#ifdef USE_VK_PBR
+	image_t			*deluxeMap;			// light directions of a lightmap bundle, or NULL
+#endif
 
 	texCoordGen_t	tcGen;
 	vec3_t			*tcGenVectors;
@@ -656,6 +773,18 @@ typedef struct shaderStage_s {
 	uint32_t		rgb_offset[NUM_TEXTURE_BUNDLES]; // within current shader
 	uint32_t		tex_offset[NUM_TEXTURE_BUNDLES]; // within current shader
 #endif
+#ifdef USE_VK_PBR
+	// The PBR maps of the stage (PBR_HAS_*), which the path tracer reads.
+	uint32_t		vk_pbr_flags;
+	uint32_t		vk_light_flags;		// LIGHTDEF_*: the light type of a lit stage
+	image_t			*normalMap;
+	image_t			*physicalMap;
+	uint32_t		normalMapType;
+	uint32_t		physicalMapType;
+	vec4_t			normalScale;
+	vec4_t			specularScale;
+	float			parallaxBias;
+#endif
 } shaderStage_t;
 
 struct shaderCommands_s;
@@ -701,6 +830,7 @@ typedef struct shader_s {
 													// still keep a name allocated for it, so if
 													// something calls RE_RegisterShader again with
 													// the same name, we don't try looking for it again
+	qboolean	missingShader;						// no script and no image of this name
 	qboolean	explicitlyDefined;					// found in a .shader file
 	qboolean	entityMergable;						// merge across entites optimizable (smoke, blood)
 
@@ -761,6 +891,10 @@ typedef struct shader_s {
 	int			iboOffset;
 	int			vboOffset;
 	int			normalOffset;
+#ifdef USE_VK_PBR
+	int			qtangentOffset;
+	int			lightdirOffset;
+#endif
 	int			numIndexes;
 	int			numVertexes;
 	int			curVertexes;
@@ -769,6 +903,12 @@ typedef struct shader_s {
 
 	struct shader_s		*remappedShader;			// current shader this one is remapped too
 	struct	shader_s	*next;
+#ifdef USE_RTX
+	qboolean			sun;			// authored by q3map_sun on the sky shader
+	vec3_t				sunColor;
+	int					surfacelight;	// emissive surfaces feed the path tracer's light list
+	struct shader_s		*updatedShader;
+#endif
 } shader_t;
 
 /*
@@ -831,6 +971,9 @@ typedef struct trRefdef_s {
 
 	qboolean			switchRenderPass;
 	qboolean			needScreenMap;
+#ifdef USE_RTX
+	ref_feedback_t		feedback;
+#endif
 } trRefdef_t;
 
 
@@ -904,6 +1047,10 @@ typedef struct viewParms_s {
 	unsigned int	num_dlights;
 	struct dlight_s	*dlights;
 #endif
+#ifdef VK_CUBEMAP
+	int				targetCube;				// 1 + index of the cubemap that the view captures, 0 for none
+	int				targetCubeFace;
+#endif
 } viewParms_t;
 
 /*
@@ -934,13 +1081,19 @@ typedef enum surfaceType_e {
 } surfaceType_t;
 
 typedef struct drawSurf_s {
-	unsigned			sort;			// bit combination for fast compares
+	sortKey_t			sort;			// bit combination for fast compares
 	surfaceType_t		*surface;		// any of surface*_t
+#ifdef USE_RTX
+	vk_blas_t			*blas;
+#endif
+#ifdef VK_CUBEMAP
+	int					cubemapIndex;	// 1 + index of the cubemap, 0 for none
+#endif
 } drawSurf_t;
 
 #ifdef USE_PMLIGHT
 typedef struct litSurf_s {
-	unsigned int		sort;			// bit combination for fast compares
+	sortKey_t			sort;			// bit combination for fast compares
 	surfaceType_t		*surface;		// any of surface*_t
 	struct litSurf_s	*next;
 } litSurf_t;
@@ -979,7 +1132,7 @@ typedef struct srfFlare_s {
 #define SS_MAX_GROUP						1024
 #define SS_MAX_GROUP_CMD					1024
 
-#define SS_ENT_BITS							11
+#define SS_ENT_BITS							REFENTITYNUM_BITS
 #define SS_VBO_BITS							10
 #define SS_FOG_BITS							7
 #define SS_ENT_MASK							((1U << SS_ENT_BITS) - 1)
@@ -1041,6 +1194,19 @@ typedef struct {
 #define	VERTEX_COLOR		( 5 + ( MAXLIGHTMAPS * 2 ) )
 #define	VERTEX_FINAL_COLOR	( 5 + ( MAXLIGHTMAPS * 3 ) )
 
+// drawVert_t of the renderer, with the tangent of the vertex (xyz, w the bitangent sign).
+typedef struct srfVert_s {
+	vec3_t		xyz;
+	float		st[2];
+	float		lightmap[MAXLIGHTMAPS][2];
+	vec3_t		normal;
+#ifdef USE_VK_PBR
+	vec4_t		qtangent;
+	vec4_t		lightdir;		// world space direction to the light, from the light grid
+#endif
+	byte		color[MAXLIGHTMAPS][4];
+} srfVert_t;
+
 
 #ifdef _G2_GORE
 typedef struct
@@ -1098,7 +1264,7 @@ typedef struct srfGridMesh_s {
 	int				width, height;
 	float			*widthLodError;
 	float			*heightLodError;
-	drawVert_t		verts[1];				// variable sized
+	srfVert_t		verts[1];				// variable sized
 } srfGridMesh_t;
 
 typedef struct srfSurfaceFace_s {
@@ -1109,6 +1275,10 @@ typedef struct srfSurfaceFace_s {
 	int				vboItemIndex;
 #endif
 	float			*normals;
+#ifdef USE_VK_PBR
+	float			*qtangents;				// vec4_t for each point
+	float			*lightdir;				// vec4_t for each point
+#endif
 
 	// triangle definitions (no normals at points)
 	int				numPoints;
@@ -1136,8 +1306,7 @@ typedef struct srfTriangles_s {
 	int				*indexes;
 
 	int				numVerts;
-	drawVert_t		*verts;
-//	vec3_t			*tangents;
+	srfVert_t		*verts;
 } srfTriangles_t;
 
 extern	void (*rb_surfaceTable[SF_NUM_SURFACE_TYPES])(void *);
@@ -1171,6 +1340,15 @@ typedef struct msurface_s {
 		spriteStage_t	*stage;
 	} surface_sprites;
 
+#ifdef USE_RTX
+	vk_blas_t			*blas;
+	qboolean			added;
+	qboolean			skip;
+	qboolean			notBrush;
+#endif
+#ifdef VK_CUBEMAP
+	int					cubemapIndex;	// 1 + index of the nearest cubemap, 0 for none
+#endif
 	surfaceType_t		*data;			// any of srf*_t
 } msurface_t;
 
@@ -1199,6 +1377,20 @@ typedef struct bmodel_s {
 	vec3_t		bounds[2];			// for culling
 	msurface_t	*firstSurface;
 	int			numSurfaces;
+#ifdef USE_RTX
+	model_geometry_t geometry;
+
+	vec3_t			center;
+	vec3_t			aabb_min;
+	vec3_t			aabb_max;
+
+	int				num_light_polys;
+	int				allocated_light_polys;
+	light_poly_t	*light_polys;
+
+	bool transparent;
+	bool masked;
+#endif
 } bmodel_t;
 
 typedef struct
@@ -1255,6 +1447,26 @@ typedef struct world_s {
 	int			numClusters;
 	int			clusterBytes;
 	const byte	*vis;					// may be passed in by CM_LoadMap to save space
+#ifdef USE_RTX
+	aabb_t			world_aabb;
+	aabb_t			*cluster_aabbs;
+
+	vkgeometry_t	geometry;
+
+	const byte		*vis2;
+	int				numvisibility;
+
+	int				num_cluster_lights;
+	int				*cluster_light_offsets;
+	int				*cluster_lights;
+
+	int				num_light_polys;
+	int				allocated_light_polys;
+	light_poly_t	*light_polys;
+
+	int				num_bmodels;
+	byte			sky_visibility[VIS_MAX_BYTES];
+#endif
 
 	byte		*novis;					// clusterBytes of 0xff
 
@@ -1333,6 +1545,10 @@ typedef struct srfVBOMDVMesh_s
 	glIndex_t       minIndex;
 	glIndex_t       maxIndex;
 
+#ifdef USE_RTX
+	maliasmesh_t	rtx_mesh;
+#endif
+
 	// static render data
 	VBO_t          *vbo;
 	IBO_t          *ibo;
@@ -1367,6 +1583,14 @@ typedef struct mdxmVBOMesh_s
 	int numIndexes;
 	int numVertexes;
 
+#ifdef USE_RTX
+	maliasmesh_t	rtx_mesh;
+#ifndef USE_RTX_GLOBAL_MODEL_VBO
+	int vertexOffset;
+	model_vbo_t *vbo_rtx;
+#endif
+#endif
+
 	VBO_t *vbo;
 	IBO_t *ibo;
 } mdxmVBOMesh_t;
@@ -1375,6 +1599,10 @@ typedef struct mdxmVBOModel_s
 {
 	int numVBOMeshes;
 	mdxmVBOMesh_t *vboMeshes;
+#ifdef USE_RTX
+	uint32_t	model_index;
+	model_vbo_t vbo_rtx;
+#endif
 
 	VBO_t *vbo;
 	IBO_t *ibo;
@@ -1421,6 +1649,10 @@ typedef struct model_s {
 	} data;
 
 	unsigned char	numLods;
+#ifdef USE_RTX
+	int				num_light_polys;
+	light_poly_t	*light_polys;
+#endif
 	bool			bspInstance;			// model is a bsp instance
 } model_t;
 
@@ -1448,15 +1680,16 @@ void		R_Modellist_f ( void );
 
 /*
 
-the drawsurf sort data is packed into a single 32 bit value so it can be
-compared quickly during the qsorting process
+the drawsurf sort data is packed into a single 64 bit value so it can be
+compared quickly during the sorting process (the radix sort reads 5 bytes)
 
 the bits are allocated as follows:
 
-18-31 : sorted shader index
-7-17  : entity index
-2-6   : fog index
-0-1   : dlightmap index
+33    : RF_ALPHA_FADE (drawn last)
+19-32 : sorted shader index
+6-18  : entity index (REFENTITYNUM_BITS)
+1-5   : fog index
+0     : dlightmap index
 */
 
 #define	DLIGHT_BITS 1 // qboolean in opengl1 renderer
@@ -1467,10 +1700,13 @@ the bits are allocated as follows:
 #define	QSORT_FOGNUM_SHIFT	DLIGHT_BITS
 #define	QSORT_REFENTITYNUM_SHIFT ( QSORT_FOGNUM_SHIFT + FOGNUM_BITS )
 #define	QSORT_SHADERNUM_SHIFT	( QSORT_REFENTITYNUM_SHIFT + REFENTITYNUM_BITS )
-#if (QSORT_SHADERNUM_SHIFT+SHADERNUM_BITS) > 32
+#define	QSORT_ALPHAFADE_SHIFT	( QSORT_SHADERNUM_SHIFT + SHADERNUM_BITS )
+#define	QSORT_ALPHAFADE_BIT		( (sortKey_t)1 << QSORT_ALPHAFADE_SHIFT )
+#define	QSORT_BYTES				5	// bytes of the key that R_RadixSort sorts
+#if QSORT_ALPHAFADE_SHIFT >= QSORT_BYTES * 8
 	#error "Need to update sorting, too many bits."
 #endif
-#define QSORT_REFENTITYNUM_MASK ( REFENTITYNUM_MASK << QSORT_REFENTITYNUM_SHIFT )
+#define QSORT_REFENTITYNUM_MASK ( (sortKey_t)REFENTITYNUM_MASK << QSORT_REFENTITYNUM_SHIFT )
 
 /*
 ** performanceCounters_t
@@ -1684,12 +1920,21 @@ typedef struct trGlobals_s {
 	image_t					*dlightImage;		// inverse-quare highlight for projective adding
 	image_t					*flareImage;
 	image_t					*whiteImage;		// full of 0xff
+#ifdef USE_VK_PBR
+	image_t					*brdfLutImage;		// PBR environment BRDF
+#endif
+#ifdef VK_CUBEMAP
+	int						numCubemaps;
+	cubemap_t				*cubemaps;
+	int						numCubemapsCaptured;
+#endif
 	image_t					*blackImage;			
 	image_t					*identityLightImage;// full of tr.identityLightByte
 
 	shader_t				*defaultShader;
 	shader_t				*whiteShader;
 	shader_t				*cinematicShader;
+	shader_t				*beamShader;	// white, additive, vertex colour: the RT_BEAM tube under RTX
 	shader_t				*shadowShader;
 	shader_t				*distortionShader;
 	shader_t				*projectionShadowShader;
@@ -1699,6 +1944,10 @@ typedef struct trGlobals_s {
 
 	int						numLightmaps;
 	image_t					**lightmaps;
+#ifdef USE_VK_PBR
+	image_t					**deluxemaps;			// NULL when the map has none or r_deluxeMapping is 0
+	qboolean				worldDeluxeMapping;		// each lightmap is followed by its deluxe map
+#endif
 
 	int						lightmapAtlasSize[2];
 	int						lightmapsPerAtlasSide[2];
@@ -1706,7 +1955,7 @@ typedef struct trGlobals_s {
 	trRefEntity_t			*currentEntity;
 	trRefEntity_t			worldEntity;		// point currentEntity at this when rendering world
 	int						currentEntityNum;
-	int						shiftedEntityNum;	// currentEntityNum << QSORT_REFENTITYNUM_SHIFT
+	sortKey_t				shiftedEntityNum;	// currentEntityNum << QSORT_REFENTITYNUM_SHIFT
 	model_t					*currentModel;
 
 	viewParms_t				viewParms;
@@ -1801,6 +2050,15 @@ typedef struct trGlobals_s {
 	int						numFogs; // read before parsing shaders
 
 	vec4_t					clearColor;
+#ifdef VK_COMPUTE_NORMALMAP
+	// Normal maps to compute from their diffuse texture at the next frame.
+	struct {
+		image_t			*normal;
+		VkImageView		storage_view;		// level 0 of the normal map
+		VkDescriptorSet	descriptor_set;
+	}						compute_normalmaps[MAX_BATCH_COMPUTE_NORMALMAPS];
+	uint32_t				compute_normalmaps_batch_num;
+#endif
 } trGlobals_t;
 
 struct glconfigExt_t
@@ -1925,6 +2183,24 @@ extern cvar_t	*r_DynamicGlowHeight;
 extern cvar_t	*r_DynamicGlowScale;
 
 extern cvar_t	*r_smartpicmip;
+#ifdef USE_VK_PBR
+extern cvar_t	*r_baseNormalX;
+extern cvar_t	*r_baseNormalY;
+extern cvar_t	*r_baseParallax;
+extern cvar_t	*r_baseSpecular;
+#endif
+#ifdef VK_COMPUTE_NORMALMAP
+extern cvar_t	*r_genNormalMaps;
+#endif
+#ifdef USE_VK_PBR
+extern cvar_t	*r_normalMapping;
+extern cvar_t	*r_specularMapping;
+#endif
+#ifdef VK_CUBEMAP
+extern cvar_t	*r_cubeMapping;
+extern cvar_t	*r_deluxeMapping;
+extern cvar_t	*r_deluxeSpecular;
+#endif
 
 extern	cvar_t	*r_nobind;				// turns off binding to appropriate textures
 extern	cvar_t	*r_singleShader;		// make most world faces use default shader
@@ -1972,6 +2248,7 @@ extern	cvar_t	*r_g2_shadowsurf;		// -1 = every shadow surface, >= 0 = only that 
 #define R_STENCIL_SHADOWS()	( r_shadows->integer == 2 )
 
 extern	cvar_t	*r_flares;				// light flares
+extern	cvar_t	*r_shaderWarnings;		// 1: scripts that fail to parse, 2: shaders with no script and no image
 //extern	cvar_t	*r_flareSize;			// light flare size
 //extern cvar_t	*r_flareFade;
 //extern cvar_t	*r_flareCoeff;			// coefficient for the flare intensity falloff function. 
@@ -2067,10 +2344,11 @@ Ghoul2 Insert End
 void		R_RenderView( const viewParms_t *parms );
 void		R_AddMD3Surfaces( trRefEntity_t *e );
 void		R_AddPolygonSurfaces( void );
-void		R_DecomposeSort( unsigned sort, int *entityNum, shader_t **shader, int *fogNum, int *dlightMap );
-void		R_AddDrawSurf( surfaceType_t *surface, shader_t *shader, int fogIndex, int dlightMap );
+void		R_DecomposeSort( sortKey_t sort, int *entityNum, shader_t **shader, int *fogNum, int *dlightMap );
+// cubemapIndex -1: the cubemap of the current entity
+void		R_AddDrawSurf( surfaceType_t *surface, shader_t *shader, int fogIndex, int dlightMap, int cubemapIndex = -1 );
 #ifdef USE_PMLIGHT
-void		R_DecomposeLitSort( unsigned sort, int* entityNum, shader_t** shader, int* fogNum );
+void		R_DecomposeLitSort( sortKey_t sort, int* entityNum, shader_t** shader, int* fogNum );
 void		R_AddLitSurf( surfaceType_t* surface, shader_t* shader, int fogIndex );
 #endif
 
@@ -2109,6 +2387,49 @@ void    	R_Init( void );
 
 image_t		*R_FindImageFile( const char *name, imgFlags_t flags );
 image_t		*R_CreateImage( const char *name, byte *pic, int width, int height, imgFlags_t flags );
+// With the type of a map (PHYS_*), which gives the swizzle of its view (textureMapTypes).
+image_t		*R_FindImageFileType( const char *name, imgFlags_t flags, uint32_t type );
+image_t		*R_CreateImageType( const char *name, byte *pic, int width, int height, imgFlags_t flags, uint32_t type );
+image_t		*R_GetLoadedImage( const char *name, imgFlags_t flags );
+#ifdef USE_VK_PBR
+qboolean	vk_create_normal_texture( shaderStage_t *stage, const char *name, imgFlags_t flags );
+qboolean	vk_create_phyisical_texture( shaderStage_t *stage, const char *name, imgFlags_t flags );
+#endif
+#ifdef USE_VK_PBR
+// MikkTSpace tangents, vk_mikktspace.cpp
+void		vk_mikkt_bsp_tri_generate( srfTriangles_t *tri );
+void		vk_mikkt_bsp_face_generate( srfSurfaceFace_t *cv );
+void		vk_mikkt_mdxm_generate( const mdxmSurface_t *surf, vec4_t *tangents );
+void		vk_mikkt_mdv_generate( const mdvSurface_t *surf, vec4_t *tangents );
+void		R_LightDirForPoint( const vec3_t point, const vec3_t normal, const world_t *world, vec4_t lightDir );
+// PBR shading of the raster renderer, vk_pbr.cpp
+void		vk_create_pbr_resources( void );
+void		vk_destroy_pbr_resources( void );
+void		vk_init_pbr_descriptors( void );
+void		vk_create_brdf_lut( void );
+uint32_t	vk_stage_light_flags( const shaderStage_t *pStage, Vk_Shader_Type type );
+#endif
+#ifdef VK_CUBEMAP
+// environment cubemaps, tr_bsp.cpp, tr_light.cpp, tr_scene.cpp, vk_cubemap.cpp
+void		R_LoadCubemaps( world_t *worldData, int index );
+int			R_CubemapForPoint( const vec3_t point );
+void		R_RenderCubemaps( void );
+void		R_AddConvolveCubemapCmd( int cubemapIndex );
+void		vk_create_cubemap_resources( void );
+void		vk_destroy_cubemap_resources( void );
+void		vk_release_cubemaps( void );
+void		vk_prefilter_cubemap( int cubemapIndex );
+void		vk_init_cubemap_descriptors( void );
+VkDescriptorSet vk_cubemap_descriptor( int cubemapIndex );
+#endif
+#ifdef VK_COMPUTE_NORMALMAP
+// normal maps computed from the diffuse texture, vk_normalmap.cpp
+void		vk_create_compute_normalmap_pipelines( void );
+void		vk_destroy_compute_normalmap_pipelines( void );
+void		vk_dispatch_compute_normalmaps( void );
+void		vk_clear_compute_normalmaps( void );
+void		vk_add_compute_normalmap( shaderStage_t *stage, image_t *albedo, imgFlags_t flags );
+#endif
 
 textureMode_t *GetTextureMode( const char *name );
 qboolean	R_GetModeInfo( int *width, int *height, int mode );
@@ -2186,6 +2507,12 @@ struct shaderCommands_s
 	glIndex_t		indexes[SHADER_MAX_INDEXES]						QALIGN(16);
 	vec4_t			xyz[SHADER_MAX_VERTEXES*2]						QALIGN(16);
 	vec4_t			normal[SHADER_MAX_VERTEXES]						QALIGN(16);
+#ifdef USE_RTX
+	vec4_t			qtangent[SHADER_MAX_VERTEXES]					QALIGN(16);
+#ifdef USE_VK_PBR
+	vec4_t			lightdir[SHADER_MAX_VERTEXES]					QALIGN(16);
+#endif
+#endif
 	vec2_t			texCoords[NUM_TEX_COORDS][SHADER_MAX_VERTEXES]	QALIGN(16);
 	vec2_t			texCoords00[SHADER_MAX_VERTEXES]				QALIGN(16);
 	color4ub_t		vertexColors[SHADER_MAX_VERTEXES]				QALIGN(16);
@@ -2205,6 +2532,9 @@ struct shaderCommands_s
 	shader_t		*shader;
 	float			shaderTime;
 	int				fogNum;
+#ifdef VK_CUBEMAP
+	int				cubemapIndex;
+#endif
 	bool			entityMergable;
 	int				numIndexes;
 	int				numVertexes;
@@ -2335,7 +2665,7 @@ CURVE TESSELATION
 ============================================================
 */
 
-srfGridMesh_t	*R_SubdividePatchToGrid( int width, int height, drawVert_t points[MAX_PATCH_SIZE * MAX_PATCH_SIZE] );
+srfGridMesh_t	*R_SubdividePatchToGrid( int width, int height, srfVert_t points[MAX_PATCH_SIZE * MAX_PATCH_SIZE] );
 srfGridMesh_t	*R_GridInsertColumn( srfGridMesh_t *grid, int column, int row, vec3_t point, float loderror );
 srfGridMesh_t	*R_GridInsertRow( srfGridMesh_t *grid, int row, int column, vec3_t point, float loderror );
 void			R_FreeSurfaceGridMesh( srfGridMesh_t *grid );
@@ -2503,6 +2833,7 @@ void	RB_CalcDisintegrateVertDeform( void );
 
 void	RB_CalcScaleTexMatrix( const float scale[2], float *matrix );
 void	RB_CalcScrollTexMatrix( const float scrollSpeed[2], float *matrix );
+void	vk_compute_tex_mods( const textureBundle_t *bundle, float *outMatrix, float *outOffTurb );
 void	RB_CalcRotateTexMatrix( float degsPerSecond, float *matrix );
 void	RB_CalcTurbulentFactors( const waveForm_t *wf, float *amplitude, float *now );
 void	RB_CalcTransformTexMatrix( const texModInfo_t *tmi, float *matrix  );
@@ -2516,6 +2847,7 @@ RENDERER BACK END FUNCTIONS
 */
 void RB_ExecuteRenderCommands( const void *data );
 qboolean R_DistortionScreenCrop( const trRefEntity_t *ent, vec4_t crop );
+qboolean ComputeDistortionPass( int stage, vec4_t params, uint32_t *stateBits );
 
 /*
 =============================================================
@@ -2574,7 +2906,7 @@ typedef struct rotatePicCommand_s {
 	float		w, h;
 	float		s1, t1;
 	float		s2, t2;
-	float		a;
+	float		a, ratio;	// ratio: aspect correction of the rotation, as in rd-vanilla
 } rotatePicCommand_t;
 
 typedef struct drawSurfsCommand_s {
@@ -2590,6 +2922,13 @@ typedef struct
 	int			commandId;
 } clearColorCommand_t;
 
+#ifdef VK_CUBEMAP
+typedef struct {
+	int			commandId;
+	int			cubemapIndex;
+} convolveCubemapCommand_t;
+#endif
+
 
 typedef enum {
 	RC_END_OF_LIST = 0,
@@ -2603,7 +2942,8 @@ typedef enum {
 	RC_WORLD_EFFECTS,
 	RC_AUTO_MAP,
 	RC_VIDEOFRAME,
-	RC_CLEARCOLOR
+	RC_CLEARCOLOR,
+	RC_CONVOLVECUBEMAP
 } renderCommand_t;
 
 // all of the information needed by the back end must be
@@ -2693,6 +3033,8 @@ void		WIN_Shutdown( void );
 void		R_TakeScreenshot( int x, int y, int width, int height, char *fileName );
 void		R_TakeScreenshotJPEG( int x, int y, int width, int height, char *fileName );
 void		R_TakeScreenshotPNG( int x, int y, int width, int height, char *fileName );
+byte		*RB_ReadPixels( int x, int y, int width, int height, size_t *offset, int *padlen, int lineAlign );
+extern byte	*rb_captureRGBA;	// set by RE_CaptureNextFrame
 
 // lights
 #ifdef USE_PMLIGHT
@@ -2725,6 +3067,7 @@ int			RB_GetBoneUboOffset( CRenderableSurface *surf );
 	void	vk_clean_surface_sprites( void );
 	void	vk_push_surface_sprites_cmd( const vk_ss_group_def_t *def, int firstInstance, int instanceCount );
 	void	RB_SurfaceSpritesVBO( srfSprites_t *surf );
+	const sprite_t	*vk_surface_sprites_cpu_instances( const VBO_t *vbo, int *count );
 #endif
 
 static QINLINE unsigned int log2pad(unsigned int v, int roundup)
@@ -2754,6 +3097,7 @@ extern void R_BuildMD3( model_t *mod, mdvModel_t *mdvModel );
 #ifdef _G2_GORE
 extern void R_CreateGoreVBO( void );
 extern void R_UpdateGoreVBO( srfG2GoreSurface_t *goreSurface );
+extern void vk_flush_gore_uploads( VkCommandBuffer cmd );
 #endif
 
 extern void VBO_PushData( int itemIndex, shaderCommands_t *input );
@@ -2767,4 +3111,70 @@ extern void VBO_Flush( void );
 IBO_t *R_CreateIBO( const char *name, const byte *vbo_data, int vbo_size );
 VBO_t *R_CreateVBO( const char *name, const byte *vbo_data, int vbo_size );
 #endif
+#ifdef USE_RTX
+extern  cvar_t  *r_rtx;
+extern  cvar_t  *pt_restir;
+extern  cvar_t  *pt_caustics;
+extern  cvar_t  *pt_dof;
+extern  cvar_t  *pt_projection;
+extern  cvar_t  *tm_blend_enable;
+extern  cvar_t  *pt_debug_poly_lights;
+extern  cvar_t  *pt_restir_m_clamp;
+extern  cvar_t  *pt_debug_image;
+extern  cvar_t  *pt_verbose;
+extern  cvar_t  *pt_accumulation_rendering;
+extern  cvar_t  *pt_accumulation_rendering_framenum;
+extern  cvar_t  *pt_denoiser;
+extern  cvar_t  *pt_nrd_max_accum;
+extern  cvar_t  *pt_nrd_max_fast_accum;
+extern  cvar_t  *pt_nrd_prepass_blur;
+extern  cvar_t  *pt_nrd_antifirefly;
+extern  cvar_t  *pt_nrd_hitdist_recon;
+extern  cvar_t  *pt_nrd_direct;
+extern  cvar_t  *pt_nrd_validation;
+extern  cvar_t  *pt_dlight_radius;
+extern  cvar_t  *pt_dlight_min_dist;
+extern  cvar_t  *pt_dlight_lift;
+extern  cvar_t  *pt_lightgen_scale;
+
+#define UBO_CVAR_DO( _handle, _value ) \
+	extern cvar_t *sun_##_handle;
+	UBO_CVAR_LIST
+#undef UBO_CVAR_DO
+
+extern  cvar_t *sun_color[3];
+extern  cvar_t *sun_elevation;
+extern  cvar_t *sun_azimuth;
+extern  cvar_t *sun_angle;
+extern  cvar_t *sun_brightness;
+extern  cvar_t *sun_bounce;
+extern  cvar_t *sun_animate;
+extern  cvar_t *sun_gamepad;
+
+extern  cvar_t *sun_preset;
+extern  cvar_t *sun_latitude;
+
+extern  cvar_t *physical_sky;
+extern  cvar_t *physical_sky_draw_clouds;
+extern  cvar_t *physical_sky_space;
+extern  cvar_t *physical_sky_brightness;
+
+extern  cvar_t *sky_scattering;
+extern  cvar_t *sky_transmittance;
+extern  cvar_t *sky_phase_g;
+extern  cvar_t *sky_amb_phase_g;
 #endif
+#ifdef USE_RTX
+void RB_AddTriangle( vec3_t a, vec3_t b, vec3_t c, color4ub_t color );
+#endif
+
+#ifdef USE_RTX
+	// Re-included with the linker switch on, now that every type it names is known.
+	// vk_rtx.h closes its own include guard before this section precisely so a second
+	// include reaches it - see the tail of that header.
+	#define VK_RTX_LINKER
+	#include "rtx/vk_rtx.h"
+	#undef VK_RTX_LINKER
+#endif
+
+#endif // TR_LOCAL_H
