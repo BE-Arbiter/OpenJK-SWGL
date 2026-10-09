@@ -49,6 +49,9 @@ Légende : ✅ fait, ❌ sans objet ou non prévu, ⏳ plus tard.
 | 5.6 ✅ | `r_noghoul2` (`CVAR_CHEAT`) existe et coupe `R_AddGhoulSurfaces`, `RB_TransformBones` et la passe RTX. `r_noserverghoul2` reste active. | `2cf4c4df0` |
 | 6.1 ✅ | `ParseShader` saute `hitLocation` et `hitMaterial` avec leur argument, comme vanilla. | `40d96110c` |
 | 6.2 ✅ | Les étages de surface sprites en `depthFunc equal` sont créés et dessinés avec leur état, comme vanilla. Le nom du shader d'étage inclut les `stateBits`. | `79be86c4f` |
+| Revue M2 ✅ | `CullPoints` teste les quatre plans latéraux seulement : les coins de la boîte de ciel dépassent le plan lointain. | `f86a766ec` |
+| Revue m1 ✅ | `RE_RenderWorldEffects` et `RE_RenderAutoMap` testent `tr.registered`, comme vanilla. | `21c2438b4` |
+| Revue m2 ✅ | Le quad orienté RTX dérive ses axes de la normale (`axis[0]`), comme le raster. | `03a6cea81` |
 
 Les points 2.2 à 2.11 de cette liste sont validés à la compilation (Debug et Release) et par lecture comparée avec `rd-vanilla`. Ils n’ont pas été testés en jeu.
 
