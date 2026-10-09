@@ -408,6 +408,9 @@ public:
 	int      prevFrameNum;	// tr.frameCount this was last touched on; -1 = never
 	qboolean prevValid;		// qfalse until a contiguous previous frame exists
 
+	// skinned vertices for the collision traces, see g2CollisionVerts_t
+	g2CollisionVerts_t collVerts;
+
 	CBoneCache(const model_t *amod,const mdxaHeader_t *aheader) :
 		header(aheader),
 		mod(amod)
@@ -423,6 +426,8 @@ public:
 		Matrix16Identity(prevModelMatrix);
 		prevFrameNum = -1;
 		prevValid = qfalse;
+
+		collVerts.touch = -1;
 
 		mSmoothingActive=false;
 		mUnsquash=false;
@@ -584,6 +589,16 @@ void CopyBoneCache(CBoneCache *to, CBoneCache *from)
 	memcpy(to, from, sizeof(CBoneCache));
 }
 #endif
+
+g2CollisionVerts_t *G2_GetCollisionVerts( CBoneCache *boneCache )
+{
+	return &boneCache->collVerts;
+}
+
+int G2_GetBoneCacheTouch( const CBoneCache *boneCache )
+{
+	return boneCache->mCurrentTouch;
+}
 
 const mdxaBone_t &EvalBoneCache(int index,CBoneCache *boneCache)
 {

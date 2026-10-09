@@ -110,6 +110,23 @@ extern mdxaBone_t worldMatrixInv;
 int G2_IsSurfaceOff( CGhoul2Info *ghlInfo, surfaceInfo_v &slist, const char *surfaceName );
 #define IHeapAllocator CMiniHeap
 void RemoveBoneCache( CBoneCache *boneCache );
+
+// Skinned vertices of one ghoul2 model for the collision traces (G2API_CollisionDetect).
+// Valid while the skeleton (CBoneCache::mCurrentTouch), the LOD, the scale and the
+// surface list do not change, so one skinning serves all the traces of a frame.
+struct g2CollisionVerts_t
+{
+	int						touch;			// -1: empty
+	int						lod;
+	vec3_t					scale;
+	uint32_t				surfSig;
+	std::vector<float>		verts;			// 5 floats per vertex: xyz, st
+	std::vector<intptr_t>	surfVerts;		// per surface index: pointer into verts, or 0
+	std::vector<float>		surfBounds;		// per surface index: mins xyz, maxs xyz
+};
+g2CollisionVerts_t *G2_GetCollisionVerts( CBoneCache *boneCache );
+int G2_GetBoneCacheTouch( const CBoneCache *boneCache );
+
 #define GHOUL2_ZONETRANSALLOC 0
 typedef intptr_t g2vert_int_t;
 void G2API_AnimateG2ModelsRag(CGhoul2Info_v &ghoul2, int AcurrentTime, CRagDollUpdateParams *params);
