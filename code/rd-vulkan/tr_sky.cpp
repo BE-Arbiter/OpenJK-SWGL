@@ -339,7 +339,8 @@ static qboolean CullPoints( vec4_t v[], const int count )
 	int				i, j;
 	float			dist;
 
-	for (i = 0; i < 5; i++) {
+	// Side planes only: the sky box corners lie past the far plane.
+	for (i = 0; i < 4; i++) {
 		frust = &backEnd.viewParms.frustum[i];
 		for (j = 0; j < count; j++) {
 			dist = DotProduct(v[j], frust->normal) - frust->dist;
