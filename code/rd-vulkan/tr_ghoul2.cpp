@@ -3083,7 +3083,7 @@ void R_AddGhoulSurfaces( trRefEntity_t *ent ) {
 		return;
 	}
 	// if we don't want server ghoul2 models and this is one, or we just don't want ghoul2 models at all, then return
-	if (r_noServerGhoul2->integer)
+	if (r_noGhoul2->integer || r_noServerGhoul2->integer)
 	{
 		return;
 	}
@@ -3356,7 +3356,7 @@ void RB_TransformBones( const trRefEntity_t *ent, const trRefdef_t *refdef )
 
 	// if we don't want server ghoul2 models and this is one, or we just don't
 	// want ghoul2 models at all, then return
-	if (r_noServerGhoul2->integer)
+	if (r_noGhoul2->integer || r_noServerGhoul2->integer)
 	{
 		return;
 	}
@@ -5328,7 +5328,7 @@ void vk_rtx_AddGhoulSurfaces( trRefEntity_t *ent, int entityNum, int *mdxm_matri
 		return;
 
 	// if we don't want server ghoul2 models and this is one, or we just don't want ghoul2 models at all, then return
-	if ( r_noServerGhoul2->integer )
+	if ( r_noGhoul2->integer || r_noServerGhoul2->integer )
 		return;
 
 	if ( !G2_SetupModelPointers( ghoul2 ) )
