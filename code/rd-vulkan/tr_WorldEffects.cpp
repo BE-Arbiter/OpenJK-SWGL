@@ -590,7 +590,7 @@ public:
 
 	static const char *CachedWeatherFilename()
 	{
-		return va("maps/%s.weather", sv_mapname->string);
+		return va("maps/%s.vkweather", sv_mapname->string);
 	}
 
 	void FillWeatherFileHeader(SWeatherFileHeader &h)
