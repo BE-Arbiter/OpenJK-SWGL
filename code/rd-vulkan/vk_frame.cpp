@@ -1733,6 +1733,11 @@ void vk_apply_ssao( void )
     vk.cmd->depth_range = DEPTH_RANGE_COUNT;
 }
 
+// size for the geometry buffer at the next vk_begin_frame, 0 = no change
+static VkDeviceSize geometry_buffer_grow;
+
+static void vk_grow_geometry_buffer( void );
+
 void vk_begin_frame( void )
 {
 	VkCommandBufferBeginInfo begin_info;
@@ -1740,6 +1745,9 @@ void vk_begin_frame( void )
 
 	if ( vk.frame_count++ ) // might happen during stereo rendering
 		return;
+
+	if ( geometry_buffer_grow > vk.geometry_buffer_size )
+		vk_grow_geometry_buffer();
 
 #ifdef USE_UPLOAD_QUEUE
 	vk_flush_staging_buffer( qtrue );
@@ -1901,6 +1909,26 @@ void vk_release_geometry_buffers( void )
 
     VK_FREE_MEMORY(vk.device, vk.geometry_buffer_memory);
     vk.geometry_buffer_memory = VK_NULL_HANDLE;
+}
+
+// Between two frames: no command buffer records, so no frame is dropped.
+static void vk_grow_geometry_buffer( void )
+{
+	uint32_t i;
+	const VkDeviceSize size = geometry_buffer_grow;
+
+	geometry_buffer_grow = 0;
+
+	vk_wait_idle();
+
+	vk_release_geometry_buffers();
+
+	vk_create_vertex_buffer( size );
+
+	for ( i = 0; i < NUM_COMMAND_BUFFERS; i++ )
+		vk_update_uniform_descriptor( vk.tess[i].uniform_descriptor, vk.tess[i].vertex_buffer );
+
+	ri.Printf( PRINT_ALL, "...geometry buffer grown to %iK\n", (int)( vk.geometry_buffer_size / 1024 ) );
 }
 
 static void vk_resize_geometry_buffer( void )
@@ -2156,6 +2184,11 @@ void vk_end_frame( void )
 
     VK_CHECK( qvkQueueSubmit( vk.queue, 1, &submit_info, vk.cmd->rendering_finished_fence ) );
     vk.cmd->waitForFence = qtrue;
+
+	// A frame used more than 3/4 of the geometry buffer: double it before the next
+	// frame, so that a later frame does not overflow and get dropped.
+	if ( vk.cmd->vertex_buffer_offset > vk.geometry_buffer_size / 4 * 3 )
+		geometry_buffer_grow = vk.geometry_buffer_size * 2;
 
     // presentation may take undefined time to complete, we can't measure it in a reliable way
     backEnd.pc.msec = ri.Milliseconds() - backEnd.pc.msec;

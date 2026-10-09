@@ -128,8 +128,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 //#define MIN_IMAGE_ALIGN				( 128 * 1024 )
 
-#define VERTEX_BUFFER_SIZE				( 4 * 1024 * 1024 )		/* by default */
-#define VERTEX_BUFFER_SIZE_HI			( 8 * 1024 * 1024 )
+#define VERTEX_BUFFER_SIZE				( 16 * 1024 * 1024 )		/* by default */
+#define VERTEX_BUFFER_SIZE_HI			( 32 * 1024 * 1024 )
 
 #define STAGING_BUFFER_SIZE				( 2 * 1024 * 1024 )		/* by default */
 #define STAGING_BUFFER_SIZE_HI			( 24 * 1024 * 1024 )	/* enough for max.texture size upload with all mip levels at */

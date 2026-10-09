@@ -1307,8 +1307,12 @@ avoidGen:
 uint32_t vk_append_uniform( const void *uniform, size_t size, uint32_t min_offset ) {
 	const uint32_t offset = PAD(vk.cmd->vertex_buffer_offset, (VkDeviceSize)vk.uniform_alignment);
 
-	if ( offset + min_offset > vk.geometry_buffer_size )
+	if ( offset + min_offset > vk.geometry_buffer_size ) {
+		// schedule geometry buffer resize, as vk_bind_attr does
+		if ( log2pad( offset + min_offset, 1 ) > vk.geometry_buffer_size_new )
+			vk.geometry_buffer_size_new = log2pad( offset + min_offset, 1 );
 		return ~0U;
+	}
 
 	Com_Memcpy( vk.cmd->vertex_buffer_ptr + offset, uniform, size );
 	vk.cmd->vertex_buffer_offset = offset + min_offset;
