@@ -1054,7 +1054,7 @@ void R_Register( void )
 	r_portalOnly						= Cvar_Get( "r_portalOnly",						"0",						CVAR_CHEAT, "" );
 	r_skipBackEnd						= Cvar_Get( "r_skipBackEnd",						"0",						CVAR_CHEAT, "" );
 	r_measureOverdraw					= Cvar_Get( "r_measureOverdraw",					"0",						CVAR_NONE, "" );
-	r_lodscale							= Cvar_Get( "r_lodscale",						"5",						CVAR_ARCHIVE_ND, "" );
+	r_lodscale							= Cvar_Get( "r_lodscale",						"10",						CVAR_ARCHIVE_ND, "" );
 	r_norefresh							= Cvar_Get( "r_norefresh",						"0",						CVAR_CHEAT, "" );
 	r_drawentities						= Cvar_Get( "r_drawentities",					"1",						CVAR_CHEAT, "" );
 	r_ignore							= Cvar_Get( "r_ignore",							"1",						CVAR_CHEAT, "" );
