@@ -82,6 +82,7 @@ public:
 	void		*Allocate( int iSize, void *pvDiskBuffer, const char *psModelFileName, qboolean *bAlreadyFound, memtag_t eTag );
 	void		DeleteAll( void );
 	void		DumpNonPure();
+	void		PrintInfo();
 
 private:
 	// Model lookups are resolved by name, and G2API_GetBoltMatrix does one per call - CG_Player

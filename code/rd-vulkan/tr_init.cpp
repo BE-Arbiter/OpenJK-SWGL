@@ -772,6 +772,103 @@ void R_ClearRemaps_f( void ) {
 	}
 }
 
+/*
+==================
+R_FogDistance_f
+
+Prints or sets the opacity distance of the global fog.
+==================
+*/
+static void R_FogDistance_f( void ) {
+	fog_t	*fog;
+	float	distance;
+
+	if ( !tr.world ) {
+		ri.Printf( PRINT_ALL, "R_FogDistance_f: World is not initialized\n" );
+		return;
+	}
+
+	if ( tr.world->globalFog == -1 ) {
+		ri.Printf( PRINT_ALL, "R_FogDistance_f: World does not have a global fog\n" );
+		return;
+	}
+
+	fog = &tr.world->fogs[tr.world->globalFog];
+
+	if ( ri.Cmd_Argc() <= 1 ) {
+		distance = 1.0f / ( 8.0f * fog->tcScale );
+		ri.Printf( PRINT_ALL, "R_FogDistance_f: Current Distance: %.0f\n", distance );
+		return;
+	}
+
+	if ( ri.Cmd_Argc() != 2 ) {
+		ri.Printf( PRINT_ALL, "R_FogDistance_f: Invalid number of arguments to set distance\n" );
+		return;
+	}
+
+	distance = atof( ri.Cmd_Argv( 1 ) );
+	if ( distance < 1.0f ) {
+		distance = 1.0f;
+	}
+
+	// vk_update_fog_constants reads depthForOpaque every frame; tcScale feeds the CPU fog paths.
+	fog->parms.depthForOpaque = distance;
+	fog->tcScale = 1.0f / ( distance * 8 );
+}
+
+/*
+==================
+R_FogColor_f
+
+Prints or sets the color of the global fog.
+==================
+*/
+static void R_FogColor_f( void ) {
+	fog_t	*fog;
+	int		n;
+
+	if ( !tr.world ) {
+		ri.Printf( PRINT_ALL, "R_FogColor_f: World is not initialized\n" );
+		return;
+	}
+
+	if ( tr.world->globalFog == -1 ) {
+		ri.Printf( PRINT_ALL, "R_FogColor_f: World does not have a global fog\n" );
+		return;
+	}
+
+	fog = &tr.world->fogs[tr.world->globalFog];
+
+	if ( ri.Cmd_Argc() <= 1 ) {
+		unsigned	i = fog->colorInt;
+
+		ri.Printf( PRINT_ALL, "R_FogColor_f: Current Color: %0f %0f %0f\n",
+			( (byte *)&i )[0] / 255.0,
+			( (byte *)&i )[1] / 255.0,
+			( (byte *)&i )[2] / 255.0 );
+		return;
+	}
+
+	if ( ri.Cmd_Argc() != 4 ) {
+		ri.Printf( PRINT_ALL, "R_FogColor_f: Invalid number of arguments to set color\n" );
+		return;
+	}
+
+	fog->parms.color[0] = atof( ri.Cmd_Argv( 1 ) );
+	fog->parms.color[1] = atof( ri.Cmd_Argv( 2 ) );
+	fog->parms.color[2] = atof( ri.Cmd_Argv( 3 ) );
+	fog->colorInt = ColorBytes4( fog->parms.color[0] * tr.identityLight,
+								 fog->parms.color[1] * tr.identityLight,
+								 fog->parms.color[2] * tr.identityLight, 1.0f );
+
+	// The fog uniform and the clear color read the float copy.
+	for ( n = 0; n < 4; n++ ) {
+		fog->color[n] = ( ( fog->colorInt >> ( n * 8 ) ) & 255 ) / 255.0f;
+	}
+}
+
+extern void R_ReloadFonts_f( void );
+
 typedef struct consoleCommand_s {
 	const char	*cmd;
 	xcommand_t	func;
@@ -787,9 +884,12 @@ static consoleCommand_t	commands[] = {
 	{ "screenshot_tga",		R_ScreenShot_f },
 	{ "gfxinfo",			GfxInfo_f },
 	{ "r_we",				R_WorldEffect_f },
-	//{ "imagecacheinfo",		RE_RegisterImages_Info_f },
+	{ "imagecacheinfo",		RE_RegisterImages_Info_f },
 	{ "modellist",			R_Modellist_f },
-	//{ "modelcacheinfo",		RE_RegisterModels_Info_f },
+	{ "modelcacheinfo",		RE_RegisterModels_Info_f },
+	{ "r_fogDistance",		R_FogDistance_f },
+	{ "r_fogColor",			R_FogColor_f },
+	{ "r_reloadfonts",		R_ReloadFonts_f },
 	{ "r_cleardecals",		RE_ClearDecals },
 	{ "remapSky",			R_RemapSkyShader_f },
 	{ "clearRemaps",		R_ClearRemaps_f },

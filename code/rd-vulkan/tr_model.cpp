@@ -1357,6 +1357,11 @@ void R_Modellist_f( void ) {
 #endif
 }
 
+void RE_RegisterModels_Info_f( void )
+{
+	CModelCache->PrintInfo();
+}
+
 //=============================================================================
 
 /*
