@@ -4762,7 +4762,9 @@ shader_t *FinishShader( void )
 					|| rgbGen == CGEN_LIGHTING_DIFFUSE || rgbGen == CGEN_LIGHTING_DIFFUSE_ENTITY
 					|| rgbGen == CGEN_VERTEX || rgbGen == CGEN_EXACT_VERTEX ) ? qtrue : qfalse;
 
-				if ( vk.pbrActive && def.shader_type >= TYPE_GENERIC_BEGIN && lit && !pStage->bundle[0].isLightmap && albedo )
+				// Between RE_Shutdown and R_Init (a save load registers shaders there), the
+				// images are freed but tr.whiteImage etc. still point to them.
+				if ( tr.inited && vk.pbrActive && def.shader_type >= TYPE_GENERIC_BEGIN && lit && !pStage->bundle[0].isLightmap && albedo )
 				{
 					char imageName[MAX_QPATH];
 					imgFlags_t flags = IMGFLAG_NOLIGHTSCALE;
