@@ -236,8 +236,6 @@ R_ComputeFogNum
 =================
 */
 static int R_ComputeFogNum( mdvModel_t *model, const trRefEntity_t *ent ) {
-	int				i, j;
-	fog_t			*fog;
 	mdvFrame_t		*mdvFrame;
 	vec3_t			localOrigin;
 
@@ -248,22 +246,7 @@ static int R_ComputeFogNum( mdvModel_t *model, const trRefEntity_t *ent ) {
 	// FIXME: non-normalized axis issues
 	mdvFrame = model->frames + ent->e.frame;
 	VectorAdd( ent->e.origin, mdvFrame->localOrigin, localOrigin );
-	for ( i = 1 ; i < tr.world->numfogs ; i++ ) {
-		fog = &tr.world->fogs[i];
-		for ( j = 0 ; j < 3 ; j++ ) {
-			if ( localOrigin[j] - mdvFrame->radius >= fog->bounds[1][j] ) {
-				break;
-			}
-			if ( localOrigin[j] + mdvFrame->radius <= fog->bounds[0][j] ) {
-				break;
-			}
-		}
-		if ( j == 3 ) {
-			return i;
-		}
-	}
-
-	return 0;
+	return R_FogNumForSphere( localOrigin, mdvFrame->radius );
 }
 
 /*

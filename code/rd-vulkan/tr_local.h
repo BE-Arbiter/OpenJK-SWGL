@@ -2351,8 +2351,9 @@ void		R_AddDrawSurf( surfaceType_t *surface, shader_t *shader, int fogIndex, int
 #ifdef USE_PMLIGHT
 void		R_DecomposeLitSort( sortKey_t sort, int* entityNum, shader_t** shader, int* fogNum );
 void		R_AddLitSurf( surfaceType_t* surface, shader_t* shader, int fogIndex );
-qboolean	R_FogParmsMatch( int fog1, int fog2 );
 #endif
+qboolean	R_FogParmsMatch( int fog1, int fog2 );
+int			R_FogNumForSphere( const vec3_t origin, float radius );
 
 shader_t		*GeneratePermanentShader( void );
 

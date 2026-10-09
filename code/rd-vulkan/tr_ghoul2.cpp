@@ -941,29 +941,7 @@ R_AComputeFogNum
 */
 static int R_GComputeFogNum( trRefEntity_t *ent ) {
 
-	int				i, j;
-	fog_t			*fog;
-
-	if ( tr.refdef.rdflags & RDF_NOWORLDMODEL ) {
-		return 0;
-	}
-
-	for ( i = 1 ; i < tr.world->numfogs ; i++ ) {
-		fog = &tr.world->fogs[i];
-		for ( j = 0 ; j < 3 ; j++ ) {
-			if ( ent->e.origin[j] - ent->e.radius >= fog->bounds[1][j] ) {
-				break;
-			}
-			if ( ent->e.origin[j] + ent->e.radius <= fog->bounds[0][j] ) {
-				break;
-			}
-		}
-		if ( j == 3 ) {
-			return i;
-		}
-	}
-
-	return 0;
+	return R_FogNumForSphere( ent->e.origin, ent->e.radius );
 }
 
 // work out lod for this entity.

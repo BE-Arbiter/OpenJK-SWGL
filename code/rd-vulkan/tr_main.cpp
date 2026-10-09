@@ -1110,30 +1110,43 @@ R_SpriteFogNum
 See if a sprite is inside a fog volume
 =================
 */
-static int R_SpriteFogNum( const trRefEntity_t *ent ) {
-	int		i, j;
-	fog_t	*fog;
+int R_FogNumForSphere( const vec3_t origin, float radius ) {
+	int		partialFog = 0;
 
-	if (tr.refdef.rdflags & RDF_NOWORLDMODEL) {
+	if ( tr.refdef.rdflags & RDF_NOWORLDMODEL ) {
 		return 0;
 	}
 
-	for (i = 1; i < tr.world->numfogs; i++) {
-		fog = &tr.world->fogs[i];
-		for (j = 0; j < 3; j++) {
-			if (ent->e.origin[j] - ent->e.radius >= fog->bounds[1][j]) {
-				break;
-			}
-			if (ent->e.origin[j] + ent->e.radius <= fog->bounds[0][j]) {
-				break;
-			}
-		}
-		if (j == 3) {
+	if ( tr.refdef.doLAGoggles ) {
+		return tr.world->numfogs;
+	}
+
+	for ( int i = 1; i < tr.world->numfogs; i++ ) {
+		const fog_t *fog = &tr.world->fogs[i];
+		const qboolean lowInside = (qboolean)( origin[0] - radius >= fog->bounds[0][0] && origin[1] - radius >= fog->bounds[0][1] && origin[2] - radius >= fog->bounds[0][2]
+			&& origin[0] - radius <= fog->bounds[1][0] && origin[1] - radius <= fog->bounds[1][1] && origin[2] - radius <= fog->bounds[1][2] );
+		const qboolean highInside = (qboolean)( origin[0] + radius >= fog->bounds[0][0] && origin[1] + radius >= fog->bounds[0][1] && origin[2] + radius >= fog->bounds[0][2]
+			&& origin[0] + radius <= fog->bounds[1][0] && origin[1] + radius <= fog->bounds[1][1] && origin[2] + radius <= fog->bounds[1][2] );
+
+		if ( lowInside && highInside ) {
 			return i;
+		}
+		if ( lowInside || highInside ) {
+			// Take a partial volume only when it is the one the view origin is in.
+			if ( tr.refdef.fogIndex == i || R_FogParmsMatch( tr.refdef.fogIndex, i ) ) {
+				return i;
+			}
+			if ( !partialFog ) {
+				partialFog = i;
+			}
 		}
 	}
 
-	return 0;
+	return partialFog;
+}
+
+static int R_SpriteFogNum( const trRefEntity_t *ent ) {
+	return R_FogNumForSphere( ent->e.origin, ent->e.radius );
 }
 
 /*
