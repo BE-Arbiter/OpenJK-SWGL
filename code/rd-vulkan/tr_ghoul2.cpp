@@ -161,6 +161,9 @@ qboolean G2_SetupModelPointers(CGhoul2Info_v &ghoul2);
 
 extern cvar_t	*r_Ghoul2AnimSmooth;
 extern cvar_t	*r_Ghoul2UnSqashAfterSmooth;
+extern cvar_t	*r_Ghoul2UnSqash;
+extern cvar_t	*r_Ghoul2NoLerp;
+extern cvar_t	*r_Ghoul2NoBlend;
 
 #if 0
 static inline int G2_Find_Bone_ByNum(const model_t *mod, boneInfo_v &blist, const int boneNum)
@@ -1597,7 +1600,7 @@ void G2_TransformBone (int child,CBoneCache &BC)
 				TB.blendMode = false;
 			}
 		}
-		else if (/*r_Ghoul2NoBlend->integer||*/((boneList[boneListIndex].flags) & (BONE_ANIM_OVERRIDE_LOOP | BONE_ANIM_OVERRIDE)))
+		else if (r_Ghoul2NoBlend->integer||((boneList[boneListIndex].flags) & (BONE_ANIM_OVERRIDE_LOOP | BONE_ANIM_OVERRIDE)))
 		// turn off blending if we are just doing a straing animation override
 		{
 			TB.blendMode = false;
@@ -1611,13 +1614,10 @@ void G2_TransformBone (int child,CBoneCache &BC)
 #if DEBUG_G2_TIMING
 		printTiming=true;
 #endif
-		/*
 		if ((r_Ghoul2NoLerp->integer)||((boneList[boneListIndex].flags) & (BONE_ANIM_NO_LERP)))
 		{
 			TB.backlerp = 0.0f;
 		}
-		*/
-		//rwwFIXMEFIXME: Use?
 	}
 	// figure out where the location of the bone animation data is
 	assert(TB.newFrame>=0&&TB.newFrame<BC.header->numFrames);
@@ -2044,7 +2044,6 @@ void G2_TransformBone (int child,CBoneCache &BC)
 		  	Multiply_3x4Matrix(&BC.mFinalBones[child].boneMatrix, &tempMatrix, &boneList[boneListIndex].matrix);
 		}
 	}
-	/*
 	if (r_Ghoul2UnSqash->integer)
 	{
 		mdxaBone_t tempMatrix;
@@ -2060,8 +2059,6 @@ void G2_TransformBone (int child,CBoneCache &BC)
 		VectorScale(&tempMatrix.matrix[2][0],maxl,&tempMatrix.matrix[2][0]);
 		Multiply_3x4Matrix(&BC.mFinalBones[child].boneMatrix,&tempMatrix,&skel->BasePoseMatInv);
 	}
-	*/
-	//rwwFIXMEFIXME: Care?
 
 }
 
