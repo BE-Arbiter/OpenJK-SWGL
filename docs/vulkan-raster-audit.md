@@ -37,6 +37,10 @@ Légende : ✅ fait, ❌ sans objet ou non prévu, ⏳ plus tard.
 | 3.4 ✅, 3.5 ✅, 3.6 ✅ | Météo : lot vidé à `SHADER_MAX_VERTEXES`, orientation par vitesse, filtre NEAREST, coupure pendant les cinématiques, 50 zones météo, 12 zones de vent, cellule de 32 (magic du cache `WVK2`). | `9fd167c0e` |
 | 3.7 ⏳ | UBO de brouillard limité à 16 volumes : demande de modifier le GLSL. | — |
 | 3.8 ✅ | Plan lointain du frustum à `distanceCull*1.02`. | `f3b7191a6` |
+| 4.1 ✅ | `R_SetupEntityLighting` ajoute +96 d'ambiant avec `RF_MORELIGHT` (sinon +32) ; bloc `RF_MINLIGHT` mort retiré. | `76705f647` |
+| 4.2 ✅ | `r_dlightScale` par défaut à 1.0. | `140bca05d` |
+| 4.3 ✅ | `RE_AddLinearLightToScene` lit `r_dlightSaturation`. | `046c4cd46` |
+| 4.4 ❌ | `r_debugStyle` non ajoutée : seul l'éclairage des entités réagissait, pas les lightmaps du monde. | — |
 
 Les points 2.2 à 2.11 de cette liste sont validés à la compilation (Debug et Release) et par lecture comparée avec `rd-vanilla`. Ils n’ont pas été testés en jeu.
 
@@ -94,10 +98,10 @@ Ordre de gravité dans chaque tableau : crash / bloquant, puis visuel, puis perf
 
 | # | Gravité | Fichier:fonction (rd-vulkan) | Équivalent vanilla | Manquement | Confiance |
 |---|---|---|---|---|---|
-| 4.1 | visuel | `tr_light.cpp:R_SetupEntityLighting` | `R_SetupEntityLighting` | `RF_MORELIGHT` (SP : +96 de lumière ambiante au lieu de +32) est ignoré. Le cgame SP le pose sur l'arme en vue et sur certains effets joueur (`cg_players.cpp` l.4653, 8283, 9523) : ils sont plus sombres qu'en vanilla. À la place, le code garde la logique MP de `RF_MINLIGHT` (teinte jaune ou bleue des items « holo »). Le cgame SP ne pose plus ce drapeau, donc ce code est mort. | confirmé |
-| 4.2 | visuel | `tr_init.cpp:R_Register` | — | `r_dlightScale` vaut 0.8 par défaut : le rayon des lumières dynamiques est 20 % plus petit qu'en vanilla. | confirmé |
-| 4.3 | mineur | `tr_scene.cpp:RE_AddLinearLightToScene` | — | La saturation utilise `r_mapGreyScale` au lieu de `r_dlightSaturation` (copier-coller). Aucun appelant SP. | confirmé |
-| 4.4 | mineur | `tr_main.cpp:R_RenderView` | `R_RenderView` (`r_debugStyle`) | La cvar de debug `r_debugStyle` n'existe pas. | confirmé |
+| 4.1 ✅ | visuel | `tr_light.cpp:R_SetupEntityLighting` | `R_SetupEntityLighting` | `RF_MORELIGHT` (SP : +96 de lumière ambiante au lieu de +32) est ignoré. Le cgame SP le pose sur l'arme en vue et sur certains effets joueur (`cg_players.cpp` l.4653, 8283, 9523) : ils sont plus sombres qu'en vanilla. À la place, le code garde la logique MP de `RF_MINLIGHT` (teinte jaune ou bleue des items « holo »). Le cgame SP ne pose plus ce drapeau, donc ce code est mort. **Traité : +96 avec `RF_MORELIGHT`, sinon +32, et le bloc `RF_MINLIGHT` mort est retiré. Correction de l'audit : le cgame ne pose pas le drapeau sur l'arme en vue, seulement sur la coque de Force Sight (4653) et sur les PNJ avec `SCF_MORELIGHT` (8283, 9523). Impact RTX : `R_SetupEntityLighting` y est aussi appelé, ces entités s'éclairent plus.** | confirmé |
+| 4.2 ✅ | visuel | `tr_init.cpp:R_Register` | — | `r_dlightScale` vaut 0.8 par défaut : le rayon des lumières dynamiques est 20 % plus petit qu'en vanilla. **Traité : défaut à 1.0 (vanilla n'a pas cette cvar, le rayon n'y est pas mis à l'échelle). La cvar est `CVAR_ARCHIVE_ND` : une valeur différente du défaut déjà sauvée dans la config reste en place. Impact RTX : le tracer divise par cette valeur, donc il reste cohérent.** | confirmé |
+| 4.3 ✅ | mineur | `tr_scene.cpp:RE_AddLinearLightToScene` | — | La saturation utilise `r_mapGreyScale` au lieu de `r_dlightSaturation` (copier-coller). Aucun appelant SP. **Traité : la saturation lit `r_dlightSaturation`. Sans appelant SP, donc sans effet visible.** | confirmé |
+| 4.4 ❌ | mineur | `tr_main.cpp:R_RenderView` | `R_RenderView` (`r_debugStyle`) | La cvar de debug `r_debugStyle` n'existe pas. **Non prévu : cvar `CVAR_CHEAT` de debug. Un essai (styles noirs dans `R_RenderView`) n'a touché que l'éclairage des entités ; les lightmaps du monde restent inchangées, car vanilla saute les stages lightmap dans `RB_IterateStagesGeneric`, structure absente ici. Retiré.** | confirmé |
 
 ## 5. Ghoul2 et modèles
 
