@@ -1678,6 +1678,43 @@ A view may be either the actual camera view,
 or a mirror / remote location
 ================
 */
+qboolean R_FogParmsMatch( int fog1, int fog2 )
+{
+	for ( int i = 0; i < 2; i++ )
+	{
+		if ( tr.world->fogs[fog1].parms.color[i] != tr.world->fogs[fog2].parms.color[i] )
+		{
+			return qfalse;
+		}
+	}
+	return qtrue;
+}
+
+// Sets tr.refdef.fogIndex to the fog brush that contains the view origin.
+static void R_SetViewFogIndex( void )
+{
+	tr.refdef.fogIndex = 0;
+
+	// Fog 0 is the light amp goggles fog
+	if ( tr.world->numfogs > 1 && ( ri.SV_PointContents( tr.refdef.vieworg, 0 ) & CONTENTS_FOG ) )
+	{
+		for ( int i = 1; i < tr.world->numfogs; i++ )
+		{
+			const fog_t *fog = &tr.world->fogs[i];
+			if ( tr.refdef.vieworg[0] >= fog->bounds[0][0]
+				&& tr.refdef.vieworg[1] >= fog->bounds[0][1]
+				&& tr.refdef.vieworg[2] >= fog->bounds[0][2]
+				&& tr.refdef.vieworg[0] <= fog->bounds[1][0]
+				&& tr.refdef.vieworg[1] <= fog->bounds[1][1]
+				&& tr.refdef.vieworg[2] <= fog->bounds[1][2] )
+			{
+				tr.refdef.fogIndex = i;
+				break;
+			}
+		}
+	}
+}
+
 void R_RenderView( const viewParms_t *parms ) {
 	int		firstDrawSurf;
 	int		numDrawSurfs;
@@ -1697,7 +1734,12 @@ void R_RenderView( const viewParms_t *parms ) {
 	R_RotateForViewer( &tr.ori, &tr.viewParms );
 
 	R_SetupProjection(&tr.viewParms, r_zproj->value, qtrue);
-	
+
+	if ( tr.world && !( tr.refdef.rdflags & RDF_NOWORLDMODEL ) )
+	{
+		R_SetViewFogIndex();
+	}
+
 	R_GenerateDrawSurfs();
 
 	// if we overflowed MAX_DRAWSURFS, the drawsurfs

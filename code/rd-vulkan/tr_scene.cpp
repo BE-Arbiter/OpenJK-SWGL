@@ -161,33 +161,41 @@ void RE_AddPolyToScene( qhandle_t hShader, int numVerts, const polyVert_t *verts
 		r_numpolys++;
 		r_numpolyverts += numVerts;
 
-		// if no world is loaded
-		if ( tr.world == NULL ) {
-			fogIndex = 0;
-		}
+		fogIndex = 0;
+
 		// see if it is in a fog volume
-		else if ( tr.world->numfogs == 1 ) {
-			fogIndex = 0;
-		} else {
+		if ( tr.world != NULL && tr.world->numfogs > 1 ) {
 			// find which fog volume the poly is in
 			VectorCopy( poly->verts[0].xyz, bounds[0] );
 			VectorCopy( poly->verts[0].xyz, bounds[1] );
 			for ( i = 1 ; i < poly->numVerts ; i++ ) {
 				AddPointToBounds( poly->verts[i].xyz, bounds[0], bounds[1] );
 			}
-			for ( fogIndex = 1 ; fogIndex < tr.world->numfogs ; fogIndex++ ) {
-				fog = &tr.world->fogs[fogIndex];
-				if ( bounds[1][0] >= fog->bounds[0][0]
-					&& bounds[1][1] >= fog->bounds[0][1]
-					&& bounds[1][2] >= fog->bounds[0][2]
-					&& bounds[0][0] <= fog->bounds[1][0]
-					&& bounds[0][1] <= fog->bounds[1][1]
-					&& bounds[0][2] <= fog->bounds[1][2] ) {
+			for ( int fI = 1 ; fI < tr.world->numfogs ; fI++ ) {
+				fog = &tr.world->fogs[fI];
+				if ( bounds[0][0] >= fog->bounds[0][0]
+					&& bounds[0][1] >= fog->bounds[0][1]
+					&& bounds[0][2] >= fog->bounds[0][2]
+					&& bounds[1][0] <= fog->bounds[1][0]
+					&& bounds[1][1] <= fog->bounds[1][1]
+					&& bounds[1][2] <= fog->bounds[1][2] ) {
+					// completely in this one
+					fogIndex = fI;
 					break;
 				}
-			}
-			if ( fogIndex == tr.world->numfogs ) {
-				fogIndex = 0;
+				else if ( ( bounds[0][0] >= fog->bounds[0][0] && bounds[0][1] >= fog->bounds[0][1] && bounds[0][2] >= fog->bounds[0][2] &&
+					bounds[0][0] <= fog->bounds[1][0] && bounds[0][1] <= fog->bounds[1][1] && bounds[0][2] <= fog->bounds[1][2] ) ||
+					( bounds[1][0] >= fog->bounds[0][0] && bounds[1][1] >= fog->bounds[0][1] && bounds[1][2] >= fog->bounds[0][2] &&
+					bounds[1][0] <= fog->bounds[1][0] && bounds[1][1] <= fog->bounds[1][1] && bounds[1][2] <= fog->bounds[1][2] ) ) {
+					// partially in this one: take it first if the viewpoint is in the same fog
+					if ( tr.refdef.fogIndex == fI || R_FogParmsMatch( tr.refdef.fogIndex, fI ) ) {
+						fogIndex = fI;
+						break;
+					}
+					else if ( !fogIndex ) {
+						fogIndex = fI;
+					}
+				}
 			}
 		}
 		poly->fogIndex = fogIndex;

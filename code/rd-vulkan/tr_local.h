@@ -943,6 +943,7 @@ typedef struct trRefdef_s {
 	int					frametime;
 	int					rdflags;					// RDF_NOWORLDMODEL, etc
 	qboolean			doLAGoggles;				// SP light amp goggles, set by RE_LAGoggles, cleared by RE_ClearScene
+	int					fogIndex;					// fog brush that contains vieworg, 0 for none
 
 	// 1 bits will prevent the associated area from rendering at all
 	byte				areamask[MAX_MAP_AREA_BYTES];
@@ -2350,6 +2351,7 @@ void		R_AddDrawSurf( surfaceType_t *surface, shader_t *shader, int fogIndex, int
 #ifdef USE_PMLIGHT
 void		R_DecomposeLitSort( sortKey_t sort, int* entityNum, shader_t** shader, int* fogNum );
 void		R_AddLitSurf( surfaceType_t* surface, shader_t* shader, int fogIndex );
+qboolean	R_FogParmsMatch( int fog1, int fog2 );
 #endif
 
 shader_t		*GeneratePermanentShader( void );
