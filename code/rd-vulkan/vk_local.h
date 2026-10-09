@@ -1840,6 +1840,7 @@ void		R_MipMap2( unsigned* const out, unsigned* const in, int inWidth, int inHei
 void		vk_texture_mode( const char *string, const qboolean init );
 void		vk_destroy_samplers( void );
 VkSampler	vk_find_sampler( const Vk_Sampler_Def *def );
+VkDescriptorSet	vk_get_nearest_descriptor( const struct image_s *image, VkDescriptorSet set, VkSampler *cachedSampler );
 void		vk_delete_textures( void );
 #if 0
 void		vk_record_buffer_memory_barrier( VkCommandBuffer cb, VkBuffer buffer, 
