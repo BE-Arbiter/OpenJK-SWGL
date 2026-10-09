@@ -2391,7 +2391,7 @@ static void R_LoadEntities( const lump_t *l, world_t &worldData ) {
 	w->lightGridSize[2] = 128;
 
 	VectorSet(tr.sunAmbient, 1, 1, 1);
-	tr.distanceCull = 6000;//DEFAULT_DISTANCE_CULL;
+	tr.distanceCull = 12000;//DEFAULT_DISTANCE_CULL;
 
 	p = (char *)(fileBase + l->fileofs);
 
