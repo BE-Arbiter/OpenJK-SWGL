@@ -21,6 +21,7 @@ Branche `feature/vulkan-raster`. Les points marqués ✅ sont traités et valid�
 | 2.1 ✅ | `RB_SurfaceOrientedQuad` dérive ses axes de la normale, comme vanilla. | `046c59df4` |
 | 1.6 ✅ | `COutside::Cache` écrit et relit `maps/<map>.vkweather` (nom distinct de celui de vanilla). L'en-tête porte un magic, le checksum de la map et la taille de cellule ; chaque zone porte ses dimensions et ses extents. Un fichier de vanilla, d'une autre grille, tronqué ou abîmé est ignoré et la grille est recalculée. | `65d146543` |
 | 1.7 ✅ (partiel) | `devmapall` et `devmapmdl` vident `s_animationCFGs`. Non fait : `bAllowScreenDissolve` reste ignoré (pas de dissolve) et les lightmaps ne sont pas supprimés (déjà détruits à chaque map). `ri.CM_DeleteCachedMap` sur `devmapbsp` et `devmapall` reste absent. | `314e5df99` |
+| 1.10 ✅ | `r_fogDistance`, `r_fogColor`, `r_reloadfonts`, `imagecacheinfo` et `modelcacheinfo` sont enregistrées. Le brouillard met aussi à jour `fog->color[]`, que l'uniforme et la couleur d'effacement lisent. `imagecacheinfo` liste `tr.images` sans niveau d'usage (rd-vulkan n'en garde pas). `modelcacheinfo` liste `CModelCache`. | `6044072e2` |
 
 Mesure de la fuite 1.3 : la zone totale reste entre 329 et 352 Mo sur 8 allers-retours entre deux maps, contre +50 Mo par map avant. Non testés : un second `vid_restart` et le retour du double renderer vers le simple.
 
@@ -41,7 +42,7 @@ Ordre de gravité dans chaque tableau : crash / bloquant, puis visuel, puis perf
 | 1.7 ✅ (partiel) | mineur | `tr_init.cpp:RE_LevelLoadBegin` | `RE_RegisterMedia_LevelLoadBegin` | `bAllowScreenDissolve` est ignoré. `eForceReload_BSP` ne supprime pas les lightmaps. Le cache `s_animationCFGs` n'est jamais vidé (vanilla appelle `RE_AnimationCFGs_DeleteAll` au rechargement forcé). Traité : le vidage de `s_animationCFGs`. Non traité : `bAllowScreenDissolve` (le dissolve n'existe pas dans rd-vulkan) et la suppression des lightmaps (inutile : `RE_Shutdown` détruit déjà toutes les images à chaque map). | confirmé |
 | 1.8 ✅ | mineur | `tr_init.cpp:stub_R_ClearStuffToStopGhoul2CrashingThings` | `R_ClearStuffToStopGhoul2CrashingThings` (`memset(&tr)`) | No-op. `Hunk_Clear` l'appelle. `R_Init` remet `tr` à zéro ensuite, donc l'effet est faible. | confirmé |
 | 1.9 ❌ | mineur | `tr_init.cpp:stub_Scissor`, `stub_GetScreenShot`, `stub_GetModelBounds` | `RE_Scissor`, `RE_GetScreenShot`, `RE_GetModelBounds` | Stubs vides. En JKA, `CG_Scissor` n'a pas d'appelant. `GetScreenShot` ne sert qu'au code `JK2_MODE`. `GetModelBounds` n'a pas d'appelant. | confirmé |
-| 1.10 | mineur | `tr_init.cpp:commands[]` | `tr_init.cpp:commands[]` | Absentes : `r_fogDistance`, `r_fogColor`, `r_reloadfonts`, `imagecacheinfo`, `modelcacheinfo`. `screenshot_png` et `screenshot_tga` appellent `R_ScreenShot_f`. | confirmé |
+| 1.10 ✅ | mineur | `tr_init.cpp:commands[]` | `tr_init.cpp:commands[]` | Absentes : `r_fogDistance`, `r_fogColor`, `r_reloadfonts`, `imagecacheinfo`, `modelcacheinfo`. `screenshot_png` et `screenshot_tga` appellent `R_ScreenShot_f`. Les cinq commandes sont portées. Pas un défaut : `R_ScreenShot_f` choisit le format d'après `Cmd_Argv(0)`, donc `screenshot_png` écrit bien un `.png` et `screenshot_tga` un `.tga`. | confirmé |
 
 ## 2. Scène, refEntity, effets FX
 
