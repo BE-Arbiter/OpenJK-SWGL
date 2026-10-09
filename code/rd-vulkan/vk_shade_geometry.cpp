@@ -1042,7 +1042,7 @@ void ComputeColors( const int b, color4ub_t *dest, const shaderStage_t *pStage, 
 	if (tess.shader != tr.projectionShadowShader && tess.shader != tr.shadowShader &&
 		(backEnd.currentEntity->e.renderfx & (RF_DISINTEGRATE1 | RF_DISINTEGRATE2)))
 	{
-		RB_CalcDisintegrateColors( (unsigned char*) dest );
+		RB_CalcDisintegrateColors( (unsigned char*) dest, pStage->bundle[b].rgbGen );
 		RB_CalcDisintegrateVertDeform();
 
 		// We've done some custom alpha and color stuff, so we can skip the rest.  Let it do fog though

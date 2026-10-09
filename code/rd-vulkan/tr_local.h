@@ -2830,7 +2830,7 @@ void	RB_CalcAlphaFromOneMinusEntity( unsigned char *dstColors );
 void	RB_CalcColorFromEntity( unsigned char *dstColors );
 void	RB_CalcColorFromOneMinusEntity( unsigned char *dstColors );
 void	RB_CalcSpecularAlpha( unsigned char *alphas );
-void	RB_CalcDisintegrateColors( unsigned char *colors );
+void	RB_CalcDisintegrateColors( unsigned char *colors, colorGen_t rgbGen );
 void	RB_CalcDiffuseColor( unsigned char *colors );
 void	RB_CalcDiffuseEntityColor( unsigned char *colors );
 void	RB_CalcDisintegrateVertDeform( void );
