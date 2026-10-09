@@ -51,6 +51,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #define POINTCACHE_CELL_SIZE	96.0f
 
+extern cvar_t	*sv_mapname;
+
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -564,6 +566,137 @@ public:
 
 
 
+	// Cache file layout: one header, then per zone one record followed by its point cache.
+	// This grid differs from rd-vanilla (cell size, zone limit), so the header carries a
+	// magic and the cell size. rd-vanilla and older files fail the magic test.
+#define COUTSIDE_FILE_MAGIC		0x314B5657	// "WVK1": change when the layout or the grid changes
+	struct SWeatherFileHeader
+	{
+		int		mMagic;
+		int		mChecksum;
+		float	mCellSize;
+		int		mZoneCount;
+	};
+	struct SWeatherFileZone
+	{
+		int		mWidth;
+		int		mHeight;
+		int		mDepth;
+		int		mByteSize;
+		int		mMarkedOutside;
+		float	mMins[3];
+		float	mMaxs[3];
+	};
+
+	static const char *CachedWeatherFilename()
+	{
+		return va("maps/%s.weather", sv_mapname->string);
+	}
+
+	void FillWeatherFileHeader(SWeatherFileHeader &h)
+	{
+		h.mMagic     = COUTSIDE_FILE_MAGIC;
+		h.mChecksum  = ri.Cvar_VariableIntegerValue("sv_mapChecksum");
+		h.mCellSize  = POINTCACHE_CELL_SIZE;
+		h.mZoneCount = mWeatherZones.size();
+	}
+
+	void FillWeatherFileZone(const SWeatherZone &wz, SWeatherFileZone &r)
+	{
+		r.mWidth         = wz.mWidth;
+		r.mHeight        = wz.mHeight;
+		r.mDepth         = wz.mDepth;
+		r.mByteSize      = wz.mWidth * wz.mHeight * wz.mDepth * (int)sizeof(uint32_t);
+		r.mMarkedOutside = SWeatherZone::mMarkedOutside;
+		VectorCopy(wz.mExtents.mMins.v, r.mMins);
+		VectorCopy(wz.mExtents.mMaxs.v, r.mMaxs);
+	}
+
+	// Writes the cache of every zone. A failed write removes nothing: the loader rejects short files.
+	void WriteCachedWeatherFile()
+	{
+		fileHandle_t f = ri.FS_FOpenFileWrite(CachedWeatherFilename(), qtrue);
+		if (!f)
+		{
+			ri.Printf(PRINT_WARNING, "(Unable to open weather file \"%s\" for writing!)\n", CachedWeatherFilename());
+			return;
+		}
+
+		SWeatherFileHeader header;
+		FillWeatherFileHeader(header);
+		bool ok = (ri.FS_Write(&header, sizeof(header), f) == (int)sizeof(header));
+		for (int zone = 0; ok && zone < mWeatherZones.size(); zone++)
+		{
+			SWeatherFileZone rec;
+			FillWeatherFileZone(mWeatherZones[zone], rec);
+			ok = (ri.FS_Write(&rec, sizeof(rec), f) == (int)sizeof(rec)) &&
+				 (ri.FS_Write(mWeatherZones[zone].mPointCache, rec.mByteSize, f) == rec.mByteSize);
+		}
+		ri.FS_FCloseFile(f);
+
+		if (!ok)
+		{
+			ri.Printf(PRINT_WARNING, "(Unable to write weather file \"%s\")\n", CachedWeatherFilename());
+		}
+	}
+
+	// Fills the point caches from the file. Returns false, with every cache cleared, when the
+	// file is missing, was made for another map, grid or zone list, or is damaged.
+	bool ReadCachedWeatherFile()
+	{
+		fileHandle_t f = 0;
+		const int fileLen = ri.FS_FOpenFileRead(CachedWeatherFilename(), &f, qfalse);
+		if (!f)
+		{
+			ri.Printf(PRINT_ALL, "( No cached weather file found, generating... )\n");
+			return false;
+		}
+
+		SWeatherFileHeader expected;
+		FillWeatherFileHeader(expected);
+
+		int expectedLen = (int)sizeof(SWeatherFileHeader);
+		for (int zone = 0; zone < mWeatherZones.size(); zone++)
+		{
+			expectedLen += (int)sizeof(SWeatherFileZone) + mWeatherZones[zone].mWidth * mWeatherZones[zone].mHeight * mWeatherZones[zone].mDepth * (int)sizeof(uint32_t);
+		}
+
+		SWeatherFileHeader header;
+		bool ok = (fileLen == expectedLen) &&
+				  (ri.FS_Read(&header, sizeof(header), f) == (int)sizeof(header)) &&
+				  !memcmp(&header, &expected, sizeof(header));
+
+		bool markedOutside = false;
+		for (int zone = 0; ok && zone < mWeatherZones.size(); zone++)
+		{
+			SWeatherZone &wz = mWeatherZones[zone];
+			SWeatherFileZone expectedRec, rec;
+			FillWeatherFileZone(wz, expectedRec);
+
+			ok = (ri.FS_Read(&rec, sizeof(rec), f) == (int)sizeof(rec)) &&
+				 rec.mWidth == expectedRec.mWidth && rec.mHeight == expectedRec.mHeight &&
+				 rec.mDepth == expectedRec.mDepth && rec.mByteSize == expectedRec.mByteSize &&
+				 !memcmp(rec.mMins, expectedRec.mMins, sizeof(rec.mMins)) &&
+				 !memcmp(rec.mMaxs, expectedRec.mMaxs, sizeof(rec.mMaxs)) &&
+				 (ri.FS_Read(wz.mPointCache, rec.mByteSize, f) == rec.mByteSize);
+			markedOutside = (rec.mMarkedOutside != 0);
+		}
+		ri.FS_FCloseFile(f);
+
+		if (!ok)
+		{
+			ri.Printf(PRINT_WARNING, "( Cached weather file \"%s\" out of date or damaged, regenerating... )\n", CachedWeatherFilename());
+			for (int zone = 0; zone < mWeatherZones.size(); zone++)
+			{
+				memset(mWeatherZones[zone].mPointCache, 0, mWeatherZones[zone].mWidth * mWeatherZones[zone].mHeight * mWeatherZones[zone].mDepth * sizeof(uint32_t));
+			}
+			return false;
+		}
+
+		SWeatherZone::mMarkedOutside = markedOutside;
+		return true;
+	}
+
 	////////////////////////////////////////////////////////////////////////////////////
 	// Cache - Will Scan the World, Creating The Cache
 	////////////////////////////////////////////////////////////////////////////////////
@@ -589,6 +722,12 @@ public:
 		{
 			ri.Printf( PRINT_ALL, "WARNING: No Weather Zones Encountered\n");
 			AddWeatherZone(tr.world->bmodels[0].bounds[0], tr.world->bmodels[0].bounds[1]);
+		}
+
+		if (ReadCachedWeatherFile())
+		{
+			mCacheInit = true;
+			return;
 		}
 
 		// Iterate Over All Weather Zones
@@ -658,6 +797,8 @@ public:
 			mCacheInit = true;
 			SWeatherZone::mMarkedOutside = false;		// Assume All Is Outside, Except Solid
 		}
+
+		WriteCachedWeatherFile();
 	}
 
 
