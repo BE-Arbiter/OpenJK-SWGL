@@ -76,12 +76,6 @@ Ordre de gravité dans chaque tableau : crash / bloquant, puis visuel, puis perf
 | 2.9 ❌ | mineur | `tr_main.cpp:R_AddDrawSurf` / `tr_scene.cpp:RE_ClearScene` | idem | `RDF_doLAGoggles`/`RDF_doFullbright` ne sont plus posés ni effacés. Seul le booléen `doLAGoggles` sert. Comme `RE_RenderScene` écrase `rdflags`, l'effet en vanilla est déjà nul. Rien à porter : aucun code de rd-vulkan ne lit ces bits. | confirmé |
 | 2.10 ❌ | mineur | `tr_init.cpp` (`tr_distortionPrePost`) | `RB_RenderDrawSurfList` (`tr_stencilled && tr_distortionPrePost`) | La variante « pré/post » de la distorsion n'existe pas. Le cgame SP envoie toujours `qfalse`. | confirmé |
 | 2.11 ✅ | mineur | `tr_cmds.cpp:RE_StretchPic`, `RE_RotatePic`, `RE_RotatePic2` | idem | Pas de test `tr.registered` avant d'écrire la commande. | confirmé |
-| 3.1 ✅ | `R_FogNumForSphere` choisit le volume de brouillard des sprites, de ghoul2 et des MD3 comme vanilla. | `1db6c6b7a` |
-| 3.2 ⏳ | Brouillard linéaire (`rangedFog`, `linFogStart`) : demande de modifier les shaders de brouillard. | — |
-| 3.3 ✅ | `distanceCull` par défaut à 12000. | `f7ff752d4` |
-| 3.4 ✅, 3.5 ✅, 3.6 ✅ | Météo : lot vidé à `SHADER_MAX_VERTEXES`, orientation par vitesse, filtre NEAREST, coupure pendant les cinématiques, 50 zones météo, 12 zones de vent, cellule de 32 (magic du cache `WVK2`). | `9fd167c0e` |
-| 3.7 ⏳ | UBO de brouillard limité à 16 volumes : demande de modifier le GLSL. | — |
-| 3.8 ✅ | Plan lointain du frustum à `distanceCull*1.02`. | `f3b7191a6` |
 
 ## 3. Brouillard, distance, ciel, météo
 
