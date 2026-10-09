@@ -3181,7 +3181,14 @@ void R_AddGhoulSurfaces( trRefEntity_t *ent ) {
 			{
 				G2_TransformGhoulBones(ghoul2[i].mBlist, rootMatrix, ghoul2[i],currentTime);
 			}
-			whichLod = G2_ComputeLOD( ent, ghoul2[i].currentModel, ghoul2[i].mLodBias );
+			if ( ent->e.renderfx & RF_G2MINLOD )
+			{
+				whichLod = G2_ComputeLOD( ent, ghoul2[i].currentModel, 10 );
+			}
+			else
+			{
+				whichLod = G2_ComputeLOD( ent, ghoul2[i].currentModel, ghoul2[i].mLodBias );
+			}
 			G2_FindOverrideSurface(-1,ghoul2[i].mSlist); //reset the quick surface override lookup;
 
 #ifdef _G2_GORE
