@@ -408,8 +408,8 @@ static void fx_oriented_quad( void )
 	const refEntity_t *e = fx_ent;
 	vec3_t	left, up;
 
-	VectorCopy( e->axis[1], left );
-	VectorCopy( e->axis[2], up );
+	// SP cgame sets only axis[0], the normal.
+	MakeNormalVectors( e->axis[0], left, up );
 
 	if ( e->rotation == 0 )
 	{
