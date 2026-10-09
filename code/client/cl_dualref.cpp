@@ -662,6 +662,11 @@ static void DR_DrawSplit( int shown, int other )
 	R.SetColor( NULL );
 }
 
+const char *CL_DualRef_ShownName( void )
+{
+	return dr_active ? dr_names[dr_shown] : NULL;
+}
+
 // Name of renderer r, with the state of the path tracer for the Vulkan renderer.
 static const char *DR_Label( int r )
 {
