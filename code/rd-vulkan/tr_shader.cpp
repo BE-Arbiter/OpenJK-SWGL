@@ -2818,6 +2818,14 @@ static qboolean ParseShader( const char **text )
 			ParseSort(text);
 			continue;
 		}
+		// hitLocation / hitMaterial: skip the file name argument, as rd-vanilla does
+		else if (!Q_stricmp(token, "hitLocation") || !Q_stricmp(token, "hitMaterial"))
+		{
+			token = COM_ParseExt(text, qfalse);
+			if (token[0] == 0)
+				break;
+			continue;
+		}
 		else
 		{
 			vk_debug("WARNING: unknown general shader parameter '%s' in '%s'\n", token, shader.name);
