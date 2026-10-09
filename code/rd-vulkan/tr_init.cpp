@@ -1498,6 +1498,7 @@ void C_LevelLoadEnd( void )
 	CModelCache->LevelLoadEnd( qfalse );
 	ri.SND_RegisterAudio_LevelLoadEnd( qfalse );
 	ri.S_RestartMusic();
+	*( ri.gbAlreadyDoingLoad() ) = qfalse;
 }
 
 // ---------------------------------------------------------------------
