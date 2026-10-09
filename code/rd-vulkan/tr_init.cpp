@@ -1273,7 +1273,7 @@ Ghoul2 Insert Start
 	r_noPrecacheGLA						= Cvar_Get( "r_noPrecacheGLA",					"0",						CVAR_CHEAT, "" );
 #endif
 	r_noServerGhoul2					= Cvar_Get( "r_noserverghoul2",					"0",						CVAR_CHEAT, "" );
-	r_Ghoul2AnimSmooth					= Cvar_Get( "r_ghoul2animsmooth",				"0.3",						CVAR_NONE, "" );
+	r_Ghoul2AnimSmooth					= Cvar_Get( "r_ghoul2animsmooth",				"0.25",						CVAR_NONE, "" );
 	r_Ghoul2UnSqashAfterSmooth			= Cvar_Get( "r_ghoul2unsqashaftersmooth",		"1",						CVAR_NONE, "" );
 	r_Ghoul2UnSqash						= Cvar_Get( "r_ghoul2unsquash",					"1",						CVAR_NONE, "" );
 	r_Ghoul2TimeBase					= Cvar_Get( "r_ghoul2timebase",					"2",						CVAR_NONE, "" );

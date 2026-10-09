@@ -2117,35 +2117,12 @@ void G2_TransformGhoulBones(boneInfo_v &rootBoneList,mdxaBone_t &rootMatrix, CGh
 	ghoul2.mBoneCache->mUnsquash=false;
 
 	// master smoothing control
-	if (HackadelicOnClient && smooth)
+	if (smooth)
 	{
-		ghoul2.mBoneCache->mLastTouch=ghoul2.mBoneCache->mLastLastTouch;
-		/*
-		float val=r_Ghoul2AnimSmooth->value;
-		if (smooth&&val>0.0f&&val<1.0f)
-		{
-		//	if (HackadelicOnClient)
-		//	{
-				ghoul2.mBoneCache->mLastTouch=ghoul2.mBoneCache->mLastLastTouch;
-		//	}
-
-			ghoul2.mBoneCache->mSmoothFactor=val;
-			ghoul2.mBoneCache->mSmoothingActive=true;
-			if (r_Ghoul2UnSqashAfterSmooth->integer)
-			{
-				ghoul2.mBoneCache->mUnsquash=true;
-			}
-		}
-		else
-		{
-			ghoul2.mBoneCache->mSmoothFactor=1.0f;
-		}
-		*/
-
-		// master smoothing control
 		float val=r_Ghoul2AnimSmooth->value;
 		if (val>0.0f&&val<1.0f)
 		{
+			ghoul2.mBoneCache->mLastTouch=ghoul2.mBoneCache->mLastLastTouch;
 			//if (ghoul2.mFlags&GHOUL2_RESERVED_FOR_RAGDOLL)
 			if(ghoul2.mFlags & GHOUL2_RAG_STARTED)
 			{
@@ -2181,6 +2158,10 @@ void G2_TransformGhoulBones(boneInfo_v &rootBoneList,mdxaBone_t &rootMatrix, CGh
 			{
 				ghoul2.mBoneCache->mUnsquash=true;
 			}
+		}
+		else
+		{
+			ghoul2.mBoneCache->mSmoothFactor=1.0f;
 		}
 	}
 	else
