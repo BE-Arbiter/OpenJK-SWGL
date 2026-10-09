@@ -1237,7 +1237,7 @@ void R_Register( void )
 #ifdef USE_PMLIGHT
 	r_dlightMode						= Cvar_Get("r_dlightMode",						"2",						CVAR_ARCHIVE, "");
 	ri.Cvar_CheckRange(r_dlightMode, 0, 2, qtrue);
-	r_dlightScale						= Cvar_Get("r_dlightScale",						"0.8",						CVAR_ARCHIVE_ND, "");
+	r_dlightScale						= Cvar_Get("r_dlightScale",						"1.0",					CVAR_ARCHIVE_ND, "");
 	ri.Cvar_CheckRange(r_dlightScale, 0.1f, 1, qfalse);
 	r_dlightIntensity					= Cvar_Get("r_dlightIntensity",					"1.0",						CVAR_ARCHIVE_ND, "");
 	ri.Cvar_CheckRange(r_dlightIntensity, 0.1f, 1, qfalse);
