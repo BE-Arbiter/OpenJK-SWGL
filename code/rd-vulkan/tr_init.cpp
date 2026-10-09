@@ -1545,7 +1545,11 @@ static float *get_tr_distortionStretch( void ) { return &tr_distortionStretch; }
 static qboolean *get_tr_distortionPrePost( void ) { return &tr_distortionPrePost; }
 static qboolean *get_tr_distortionNegate( void ) { return &tr_distortionNegate; }
 
-static void stub_R_ClearStuffToStopGhoul2CrashingThings( void ) {}
+// Called by Hunk_Clear. Safe on a renderer that is stopped or never started.
+static void R_ClearStuffToStopGhoul2CrashingThings( void )
+{
+	RE_HunkClearCrap();
+}
 
 // Ported from code/rd-vanilla/tr_skin.cpp's RE_GetAnimationCFG -- reads and
 // caches models/players/<x>/animation.cfg. code/game/NPC_stats.cpp's
@@ -1694,7 +1698,7 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.AnyLanguage_ReadCharFromString		= AnyLanguage_ReadCharFromString;
 
 	re.R_InitWorldEffects					= R_InitWorldEffects;
-	re.R_ClearStuffToStopGhoul2CrashingThings	= stub_R_ClearStuffToStopGhoul2CrashingThings;
+	re.R_ClearStuffToStopGhoul2CrashingThings	= R_ClearStuffToStopGhoul2CrashingThings;
 	re.inPVS								= R_inPVS;
 	re.GetLightStyle						= RE_GetLightStyle;
 	re.SetLightStyle						= RE_SetLightStyle;

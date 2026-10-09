@@ -143,6 +143,14 @@ void KillTheShaderHashTable( void )
 	memset(shaderTextHashTable, 0, sizeof(shaderTextHashTable));
 }
 
+// Drops every shader pointer into the hunk. Called after Hunk_Clear.
+void R_ClearShaderHunkState( void )
+{
+	KillTheShaderHashTable();
+	memset(hashTable, 0, sizeof(hashTable));
+	s_shaderText = NULL;
+}
+
 /*
 ===============
 NameToAFunc
