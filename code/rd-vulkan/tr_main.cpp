@@ -1495,7 +1495,7 @@ static void R_AddEntitySurfaces( void ) {
 
 		assert(ent->e.renderfx >= 0);
 #ifdef VK_CUBEMAP
-		ent->cubemapIndex = R_CubemapForPoint( ent->e.origin );
+		ent->cubemapIndex = ( ent->e.reType == RT_MODEL ) ? R_CubemapForPoint( ent->e.origin ) : 0;
 #endif
 		// preshift the value we are going to OR into the drawsurf sort
 		tr.shiftedEntityNum = tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;

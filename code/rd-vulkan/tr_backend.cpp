@@ -1589,7 +1589,9 @@ static void vk_update_entity_constants( const trRefdef_t *refdef ) {
 	for ( i = 0; i < refdef->num_entities; i++ ) {
 		trRefEntity_t *ent = &refdef->entities[i];
 
-		R_SetupEntityLighting( refdef, ent );
+		// Only models use the entity light (as in rd-vanilla). Sprites, beams and FX do not.
+		if ( ent->e.reType == RT_MODEL )
+			R_SetupEntityLighting( refdef, ent );
 
 		vkUniformEntity_t uniform = {};
 		vk_update_entity_light_constants( uniform, ent );
