@@ -5664,6 +5664,35 @@ void UI_RunMenuCommand(const char *command)
 		return;
 	}
 
+	// "loadframe show|hide": the red frame of loadscreen.menu shares its name with the
+	// invisible background item, so it is found by its border instead of by name
+	if (!Q_stricmpn(command, "loadframe ", 10))
+	{
+		menuDef_t *loadMenu = Menus_FindByName("loadscreen");
+		const qboolean show = (qboolean)(Q_stricmp(command + 10, "show") == 0);
+
+		if (loadMenu)
+		{
+			for (int i = 0; i < loadMenu->itemCount; i++)
+			{
+				itemDef_t *frame = loadMenu->items[i];
+
+				if (frame->window.border && frame->window.name && Q_stricmp(frame->window.name, "background") == 0)
+				{
+					if (show)
+					{
+						frame->window.flags |= WINDOW_VISIBLE;
+					}
+					else
+					{
+						frame->window.flags &= ~WINDOW_VISIBLE;
+					}
+				}
+			}
+		}
+		return;
+	}
+
 	context.parent = Menu_GetFocused();
 	Item_RunScript(&context, command);
 }
