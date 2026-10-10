@@ -92,6 +92,7 @@ void CG_DrawDataPadLoadoutFrame( centity_t *cent );
 void CG_DrawDataPadObjectives(const centity_t *cent );
 void CG_DrawDataPadWeaponSelect( void );
 void CG_LDO_DrawWeapons( void );
+void CG_DrawWeaponSlot( int slot, int x, int y, int w, int h );
 void CG_DrawDataPadForceSelect( void );
 qboolean CG_GetAmmoName( int ammoIndex, char *name, int nameSize );
 
@@ -162,52 +163,10 @@ Ghoul2 Insert End
 		}
 		return 0;
 
-	case CG_DRAW_NPC_WEAPON_LABEL:
+	case CG_DRAW_WEAPON_SLOT:
 		if (cg.snap)
 		{
-			CG_DrawNpcWeaponLabel();
-		}
-		return 0;
-
-	case CG_DRAW_PLAYER_WEAPON_LABEL_1:
-		if (cg.snap)
-		{
-			CG_DrawPCWeaponLabel(1);
-		}
-		return 0;
-
-	case CG_DRAW_PLAYER_WEAPON_LABEL_2:
-		if (cg.snap)
-		{
-			CG_DrawPCWeaponLabel(2);
-		}
-		return 0;
-
-	case CG_DRAW_PLAYER_WEAPON_LABEL_3:
-		if (cg.snap)
-		{
-			CG_DrawPCWeaponLabel(3);
-		}
-		return 0;
-
-	case CG_DRAW_PLAYER_WEAPON_LABEL_4:
-		if (cg.snap)
-		{
-			CG_DrawPCWeaponLabel(4);
-		}
-		return 0;
-
-	case CG_DRAW_PLAYER_WEAPON_LABEL_5:
-		if (cg.snap)
-		{
-			CG_DrawPCWeaponLabel(5);
-		}
-		return 0;
-
-	case CG_DRAW_PLAYER_WEAPON_LABEL_6:
-		if (cg.snap)
-		{
-			CG_DrawPCWeaponLabel(6);
+			CG_DrawWeaponSlot((int)arg0, (int)arg1, (int)arg2, (int)arg3, (int)arg4);
 		}
 		return 0;
 
@@ -450,6 +409,7 @@ vmCvar_t		cg_hudRatio;
 
 vmCvar_t		ui_loadout_base_weapon;
 vmCvar_t		ui_loadout_weapon;
+vmCvar_t		ui_loadout_slot;
 vmCvar_t		ui_npc_weapon;
 vmCvar_t		ui_npc_weapon_label;
 
@@ -625,6 +585,7 @@ static cvarTable_t cvarTable[] = {
 	//Loadout Menu cvar
 	{ &ui_loadout_base_weapon , "ui_loadout_base_weapon","weapon_none", CVAR_TEMP},
 	{ &ui_loadout_weapon , "ui_loadout_weapon","0", CVAR_TEMP},
+	{ &ui_loadout_slot , "ui_loadout_slot","0", CVAR_TEMP},	// 1-6 a player weapon, 7 the NPC weapon: the loadout menu picks the weapon of this slot
 	{ &ui_npc_weapon, "ui_npc_weapon",	"WP_BLASTER", CVAR_ARCHIVE },
 	{ &ui_npc_weapon_label, "ui_npc_weapon_label",	"Blaster", CVAR_ARCHIVE },
 	//For PC

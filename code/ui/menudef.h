@@ -172,13 +172,13 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define UI_STARTMAPCINEMATIC	255
 #define UI_MAPS_SELECTION		256
 #define UI_DATAPAD_LOADOUT		257
-#define UI_NPC_WEAPON_LABEL		258
-#define UI_PLAYER_WEAPON_LABEL_1 259
-#define UI_PLAYER_WEAPON_LABEL_2 260
-#define UI_PLAYER_WEAPON_LABEL_3 261
-#define UI_PLAYER_WEAPON_LABEL_4 262
-#define UI_PLAYER_WEAPON_LABEL_5 263
-#define UI_PLAYER_WEAPON_LABEL_6 264
+#define UI_NPC_WEAPON_SLOT		258
+#define UI_PLAYER_WEAPON_SLOT_1 259
+#define UI_PLAYER_WEAPON_SLOT_2 260
+#define UI_PLAYER_WEAPON_SLOT_3 261
+#define UI_PLAYER_WEAPON_SLOT_4 262
+#define UI_PLAYER_WEAPON_SLOT_5 263
+#define UI_PLAYER_WEAPON_SLOT_6 264
 #define UI_DATAPAD_CHARACTERS	 265
 #define UI_LIGHTEDIT_SWATCH		266		// colour swatch of the light edit menu
 #define UI_LIGHTEDIT_STATS		267		// map name and counters of the light edit menu

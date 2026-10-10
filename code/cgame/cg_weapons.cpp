@@ -2525,6 +2525,95 @@ static qboolean CG_LDO_ItemInCategory( const gitem_t *item, int category )
 	}
 }
 
+/*
+The character menu opens the loadout menu to pick the weapon of one of its slots (ui_loadout_slot):
+1-6 a weapon of the player, LOADOUT_SLOT_NPC the weapon of the NPC, 0 the loadout menu gives the weapons.
+*/
+#define LOADOUT_SLOT_NPC	7
+
+extern vmCvar_t		ui_loadout_slot;
+extern vmCvar_t		ui_npc_weapon;
+extern int WP_GetWeaponID(const char* weaponName);
+vmCvar_t* CG_GetUiWeaponCvar(int index);
+char* CG_GetUiWeaponName(int index);
+
+static int CG_LDO_Slot(void)
+{
+	cgi_Cvar_Update(&ui_loadout_slot);
+	const int slot = ui_loadout_slot.integer;
+	return (slot >= 1 && slot <= LOADOUT_SLOT_NPC) ? slot : 0;
+}
+
+static vmCvar_t* CG_LDO_SlotCvar(int slot)
+{
+	return (slot == LOADOUT_SLOT_NPC) ? &ui_npc_weapon : CG_GetUiWeaponCvar(slot);
+}
+
+// The weapon of a slot, WP_NONE when it has none.
+static int CG_LDO_SlotWeapon(int slot)
+{
+	vmCvar_t *cvar = CG_LDO_SlotCvar(slot);
+	if (!cvar)
+	{
+		return WP_NONE;
+	}
+	cgi_Cvar_Update(cvar);
+	const int weapon = WP_GetWeaponID(cvar->string);
+	return (weapon > WP_NONE && weapon < weaponCount) ? weapon : WP_NONE;
+}
+
+// Sets the weapon of the slot, then goes back to the character menu.
+static void CG_LDO_SetSlotWeapon(int slot, const char *weaponName)
+{
+	if (slot == LOADOUT_SLOT_NPC)
+	{
+		cgi_Cvar_Set("ui_npc_weapon", weaponName);
+		CG_NPC_UpdateLabel();
+	}
+	else
+	{
+		cgi_Cvar_Set(CG_GetUiWeaponName(slot), weaponName);
+		CG_PC_UpdateLabel(slot);
+	}
+	cgi_Cvar_Set("ui_loadout_slot", "0");
+	cgi_UI_Run_Command("close IngameSWGLEquipment");
+	cgi_UI_Run_Command("uiScript char_weapon");
+}
+
+// The icon of a weapon is lit when the player has it, or when it is the weapon of the slot.
+static qboolean CG_LDO_WeaponLit(int weapon)
+{
+	const int slot = CG_LDO_Slot();
+	if (slot)
+	{
+		return (qboolean)(weapon == CG_LDO_SlotWeapon(slot));
+	}
+	return (qboolean)(cg.snap->ps.weapons[weapon] != 0);
+}
+
+// Empties the player weapon slot (an NPC always has a weapon).
+void CG_LDO_ClearSlot_f(void)
+{
+	const int slot = CG_LDO_Slot();
+	if (slot && slot != LOADOUT_SLOT_NPC)
+	{
+		CG_LDO_SetSlotWeapon(slot, "WP_NONE");
+	}
+}
+
+// Escape goes back to the character menu when the menu picks the weapon of a slot, else leaves the menus.
+void CG_LDO_Escape_f(void)
+{
+	if (CG_LDO_Slot())
+	{
+		cgi_Cvar_Set("ui_loadout_slot", "0");
+		cgi_UI_Run_Command("close IngameSWGLEquipment");
+		return;
+	}
+	cgi_UI_Run_Command("close all");
+	cgi_UI_Run_Command("uiScript closeingame");
+}
+
 /* 1 -> XXX is base weapons*/
 /* -1 -> Ammo */
 /* -2 -> Inventory*/
@@ -2577,7 +2666,8 @@ void CG_LDO_SelectBaseWeapon_f(void)
 		cg.LoadoutBaseWeaponSelect = -WB_OTHERS;
 	}
 	else{
-		cg.LoadoutBaseWeaponSelect = 0;
+		// Picking the weapon of a slot starts with all the weapons.
+		cg.LoadoutBaseWeaponSelect = CG_LDO_Slot() ? -3 : 0;
 	}
 
 }
@@ -2667,6 +2757,16 @@ void CG_LDO_SelectWeapon_f(void)
 void CG_LDO_SwitchWeapon_f(void) {
 	if (cg.LoadoutWeaponSelect == 0)
 	{
+		return;
+	}
+	// The menu picks the weapon of a slot of the character menu: nothing is given.
+	const int slot = CG_LDO_Slot();
+	if (slot)
+	{
+		if (!CG_LDO_IsItemCategory(cg.LoadoutBaseWeaponSelect))
+		{
+			CG_LDO_SetSlotWeapon(slot, weaponData[cg.LoadoutWeaponSelect].classname);
+		}
 		return;
 	}
 	gentity_t* ent = cg_entities[0].gent;
@@ -2779,7 +2879,7 @@ int CG_LDO_GetMaxPages(void) {
 			if (iw < 0) {
 				continue;
 			}
-			if (weaponData[i].playerUsable)
+			if (iw > 0 && weaponData[iw].playerUsable)
 			{
 				totalIcons++;
 			}
@@ -2799,7 +2899,7 @@ int CG_LDO_GetMaxPages(void) {
 				if (iw < 0) {
 					break;;
 				}
-				if (weaponData[i].playerUsable)
+				if (iw > 0 && weaponData[iw].playerUsable)
 				{
 					totalIcons++;
 				}
@@ -2960,24 +3060,6 @@ void CG_NPC_UpdateLabel(void) {
 	cgi_Cvar_Set("ui_npc_weapon_label", label);
 }
 
-void CG_DrawNpcWeaponLabel(void) {
-	CG_NPC_UpdateLabel();
-	const short textboxXPos = 508;
-	const short textboxYPos = 88;
-	const int	textboxWidth = 106;
-	const int	textboxHeight = 16;
-	const float	textScale = 0.75f;
-
-	CG_DisplayBoxedText(
-		textboxXPos, textboxYPos,
-		textboxWidth, textboxHeight,
-		label,
-		CG_MagicFontToReal(4),
-		textScale,
-		colorTable[CT_WHITE]
-	);
-}
-
 /*For the SIX player cyclers*/
 //vmCvar for use and utility method
 extern vmCvar_t		ui_weaponOne;
@@ -3085,28 +3167,47 @@ void CG_PC_UpdateLabel(int index) {
 	cgi_Cvar_Set(CG_GetUiWeapon_labelName(index), label);
 }
 
-const short offsetFromPlayerLabel = 61;
-const short offsetPerIndex = 15;
-void CG_DrawPCWeaponLabel(int index) {
-	if (index <= 0 || index >= 7)
+/*
+===============
+CG_DrawWeaponSlot
+The icon of the weapon of a slot of the character menu (1-6 a player weapon, LOADOUT_SLOT_NPC the NPC weapon),
+on the background of the icons of the loadout menu. A weapon without icon shows its name.
+===============
+*/
+void CG_DrawWeaponSlot(int slot, int x, int y, int w, int h) {
+	if (slot < 1 || slot > LOADOUT_SLOT_NPC)
 	{
 		return;
 	}
-	CG_PC_UpdateLabel(index);
-	const short textboxXPos = 508;
-	const short textboxYPos = 27 + offsetFromPlayerLabel + ((index-1)*offsetPerIndex);
-	const int	textboxWidth = 106;
-	const int	textboxHeight = 16;
-	const float	textScale = 0.75f;
+	// The UI leaves the color of the item painted before (its text color): the icons are drawn untinted.
+	cgi_R_SetColor(NULL);
+	CG_DrawPic(x, y, w, h, cgi_R_RegisterShaderNoMip("gfx/menus/w_icon_background"));
 
-	CG_DisplayBoxedText(
-		textboxXPos, textboxYPos,
-		textboxWidth, textboxHeight,
-		label,
-		CG_MagicFontToReal(4),
-		textScale,
-		colorTable[CT_WHITE]
-	);
+	const int weapon = CG_LDO_SlotWeapon(slot);
+	if (weapon == WP_NONE)
+	{
+		return;
+	}
+	// A random weapon (weapon_clonerandom: the NPC gets one of the clone weapons) shows a "?".
+	qhandle_t icon;
+	if (strstr(weaponData[weapon].classname, "random"))
+	{
+		icon = cgi_R_RegisterShaderNoMip("gfx/menus/w_icon_random");
+	}
+	else
+	{
+		CG_RegisterWeapon(weapon);
+		icon = cg_weapons[weapon].weaponIcon;
+	}
+	if (icon)
+	{
+		const int size = Q_min(w, h);
+		CG_DrawPic(x + (w - size) / 2, y + (h - size) / 2, size, size, icon);
+		return;
+	}
+	char name[256];
+	CG_WeaponName(weapon, name, sizeof(name));
+	CG_DisplayBoxedText(x + 2, y + 2, w - 4, h - 4, name, CG_MagicFontToReal(4), 0.5f, colorTable[CT_WHITE]);
 }
 
 
@@ -3243,7 +3344,7 @@ void CG_LDO_DrawWeapons(void) {
 				weaponInfo_t* weaponInfo;
 				CG_RegisterWeapon(iw);
 				weaponInfo = &cg_weapons[iw];
-				if (cg.snap->ps.weapons[iw])
+				if (CG_LDO_WeaponLit(iw))
 				{
 					CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIcon);
 				}
@@ -3311,7 +3412,7 @@ void CG_LDO_DrawWeapons(void) {
 				weaponInfo_t* weaponInfo;
 				CG_RegisterWeapon(iw);
 				weaponInfo = &cg_weapons[iw];
-				if (cg.snap->ps.weapons[iw])
+				if (CG_LDO_WeaponLit(iw))
 				{
 					CG_DrawPic(posX + 7, posY, sizeY, sizeY, weaponInfo->weaponIcon);
 				}

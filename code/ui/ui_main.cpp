@@ -925,6 +925,7 @@ vmCvar_t	ui_npc_sabertwo;
 vmCvar_t	ui_npc_sabertwocolor;
 vmCvar_t	ui_npc_weapon;
 vmCvar_t	ui_npc_weapon_label;
+vmCvar_t	ui_npc_random_weapon;
 vmCvar_t	ui_npc_spawnscript;
 vmCvar_t	ui_npc_fleescript;
 vmCvar_t	ui_npc_deathscript;
@@ -1107,6 +1108,7 @@ static cvarTable_t cvarTable[] =
 	{ &ui_npc_sabertwocolor,	"ui_npc_sabertwocolor",	"red", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_weapon,			"ui_npc_weapon",	"WP_BLASTER", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_weapon_label,			"ui_npc_weapon_label",	"Blaster", NULL, CVAR_ARCHIVE},
+	{ &ui_npc_random_weapon,	"ui_npc_random_weapon",	"weapon_clonerandom", NULL, CVAR_ARCHIVE},	// random weapon of the NPC selector, set by npcSetRandomWeapon
 	{ &ui_lightning_color,		"ui_lightning_color",	"blue", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_spawnscript,		"ui_npc_spawnscript",	"none", NULL, 0},
 	{ &ui_npc_fleescript,		"ui_npc_fleescript",	"none", NULL, 0},
@@ -1892,6 +1894,16 @@ static qboolean UI_RunMenuScript ( const char **args )
 			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSwitchSelectWeapon\n");
 			return qtrue;
 		}
+		if (Q_stricmp(name, "loadoutClearSlot") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutClearSlot\n");
+			return qtrue;
+		}
+		if (Q_stricmp(name, "loadoutEscape") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutEscape\n");
+			return qtrue;
+		}
 		if (Q_stricmp(name, "characterButtonClick") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "characterButtonClick\n");
@@ -1990,6 +2002,11 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if (Q_stricmp(name, "uiNpcWeaponLabelUpd") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "uiNpcWeaponLabelUpd\n");
+		}
+		else if (Q_stricmp(name, "npcSetRandomWeapon") == 0)
+		{
+			// The weapon of the NPC is the random weapon of the selector (the loadout menu lists the weapons of the player only).
+			Cvar_Set("ui_npc_weapon", Cvar_VariableString("ui_npc_random_weapon"));
 		}
 		else if (Q_stricmp(name, "loadoutNextPage") == 0)
 		{
@@ -5574,34 +5591,23 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 			ui.Draw_DataPad(DP_LOADOUT);
 			break;
 
-		case UI_NPC_WEAPON_LABEL:
-			ui.Draw_DataPad(DP_NPC_WEAPON_LABEL);
+		// The icon of the weapon of a slot of the character menu, drawn by the cgame (it has the weapon data).
+		case UI_NPC_WEAPON_SLOT:
+			VM_Call(CG_DRAW_WEAPON_SLOT, (intptr_t)7, (intptr_t)x, (intptr_t)y, (intptr_t)w, (intptr_t)h);
 			UI_UpdateSaberVisibility();
 			break;
 
-		case UI_PLAYER_WEAPON_LABEL_1:
-			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_1);
-			UI_UpdateSaberVisibility();
-			break;
-
-		case UI_PLAYER_WEAPON_LABEL_2:
-			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_2);
-			break;
-
-		case UI_PLAYER_WEAPON_LABEL_3:
-			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_3);
-			break;
-
-		case UI_PLAYER_WEAPON_LABEL_4:
-			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_4);
-			break;
-
-		case UI_PLAYER_WEAPON_LABEL_6:
-			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_6);
-			break;
-
-		case UI_PLAYER_WEAPON_LABEL_5:
-			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_5);
+		case UI_PLAYER_WEAPON_SLOT_1:
+		case UI_PLAYER_WEAPON_SLOT_2:
+		case UI_PLAYER_WEAPON_SLOT_3:
+		case UI_PLAYER_WEAPON_SLOT_4:
+		case UI_PLAYER_WEAPON_SLOT_5:
+		case UI_PLAYER_WEAPON_SLOT_6:
+			VM_Call(CG_DRAW_WEAPON_SLOT, (intptr_t)(ownerDraw - UI_PLAYER_WEAPON_SLOT_1 + 1), (intptr_t)x, (intptr_t)y, (intptr_t)w, (intptr_t)h);
+			if (ownerDraw == UI_PLAYER_WEAPON_SLOT_1)
+			{
+				UI_UpdateSaberVisibility();
+			}
 			break;
 
 		case UI_DATAPAD_CHARACTERS:

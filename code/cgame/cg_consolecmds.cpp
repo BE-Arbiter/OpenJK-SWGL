@@ -301,6 +301,8 @@ static consoleCommand_t	commands[] = {
 	{ "loadoutSwitchSelectWeapon",		CG_LDO_SwitchWeapon_f },
 	{ "loadoutNextPage",		CG_LDO_NextPage_f },
 	{ "loadoutPreviousPage",		CG_LDO_PreviousPage_f},
+	{ "loadoutClearSlot",		CG_LDO_ClearSlot_f},
+	{ "loadoutEscape",		CG_LDO_Escape_f},
 	{ "uiNpcWeaponNext",		CG_NPC_NextWeapon_f},
 	{ "uiNpcWeaponPrev",		CG_NPC_PrevWeapon_f},
 	{ "uiNpcWeaponLabelUpd",		CG_NPC_UpdateLabel}, 
