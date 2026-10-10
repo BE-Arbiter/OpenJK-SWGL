@@ -466,7 +466,7 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 				const int rfx = backEnd.currentEntity->e.renderfx;
 
 				if ( !( rfx & ( RF_NOSHADOW | RF_DEPTHHACK ) )
-					&& ( *drawSurf->surface != SF_MDX || ( rfx & RF_SHADOW_PLANE ) ) ) {
+					&& ( rfx & RF_SHADOW_PLANE ) ) {
 					// entityNum + 1, so the shadow volume shader can tell whose pixel this is.
 					pushData.surfaceFlags[0] = (float)( entityNum + 1 );
 				}

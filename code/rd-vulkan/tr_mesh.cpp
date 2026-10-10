@@ -255,6 +255,55 @@ R_AddMD3Surfaces
 
 =================
 */
+// Map MD3s (crates, TIE fighters...) never get a shadowPlane from the game, and the
+// stencil volume is extruded down to it, so without one the volume ends at world z=0
+// and leaves stray fragments. Find the floor under the model once and remember it:
+// most of these entities are static, so the cache is keyed on the exact placement.
+typedef struct {
+	const void	*world;
+	qhandle_t	hModel;
+	vec3_t		origin;
+	float		plane;
+	qboolean	found;
+} md3ShadowPlane_t;
+
+#define MD3_SHADOWPLANE_CACHE	128
+#define MD3_SHADOWPLANE_TRACE	2048.0f
+
+static qboolean R_FindMD3ShadowPlane( const trRefEntity_t *ent, float *plane )
+{
+	static md3ShadowPlane_t cache[MD3_SHADOWPLANE_CACHE];
+	md3ShadowPlane_t *c;
+	trace_t	trace;
+	vec3_t	start, end;
+	unsigned hash;
+
+	hash = (unsigned)( (int)ent->e.origin[0] * 73856093 ^ (int)ent->e.origin[1] * 19349663 ^ (int)ent->e.origin[2] * 83492791 ^ ent->e.hModel );
+	c = &cache[hash % MD3_SHADOWPLANE_CACHE];
+
+	if ( c->world == tr.world && c->hModel == ent->e.hModel && VectorCompare( c->origin, ent->e.origin ) ) {
+		*plane = c->plane;
+		return c->found;
+	}
+
+	VectorCopy( ent->e.origin, start );
+	start[2] += 1.0f;
+	VectorCopy( start, end );
+	end[2] -= MD3_SHADOWPLANE_TRACE;
+
+	ri.SV_Trace( &trace, start, vec3_origin, vec3_origin, end, ENTITYNUM_NONE, CONTENTS_SOLID, G2_NOCOLLIDE, 0 );
+
+	c->world = tr.world;
+	c->hModel = ent->e.hModel;
+	VectorCopy( ent->e.origin, c->origin );
+	// startsolid: the origin is buried in the floor or a wall, so there is no usable ground
+	c->found = ( !trace.startsolid && !trace.allsolid && trace.fraction < 1.0f ) ? qtrue : qfalse;
+	c->plane = trace.endpos[2] + 1.0f;
+
+	*plane = c->plane;
+	return c->found;
+}
+
 void R_AddMD3Surfaces( trRefEntity_t *ent ) {
 	vec3_t			bounds[2];
 	int				i;
@@ -338,6 +387,18 @@ void R_AddMD3Surfaces( trRefEntity_t *ent ) {
 	}
 #endif
 
+	// Stencil volumes need a floor to be capped on, as rd-vanilla's RF_SHADOW_PLANE
+	// requirement says. Entities the game did not give one get it from a trace.
+	if ( !personalModel && R_STENCIL_SHADOWS()
+		&& !( ent->e.renderfx & ( RF_SHADOW_PLANE | RF_NOSHADOW | RF_DEPTHHACK ) ) ) {
+		float plane;
+
+		if ( R_FindMD3ShadowPlane( ent, &plane ) ) {
+			ent->e.shadowPlane = plane;
+			ent->e.renderfx |= RF_SHADOW_PLANE;
+		}
+	}
+
 	//
 	// see if we are in a fog volume
 	//
@@ -385,6 +446,7 @@ void R_AddMD3Surfaces( trRefEntity_t *ent ) {
 		if ( !personalModel
 			&& R_STENCIL_SHADOWS()
 			&& fogNum == 0
+			&& (ent->e.renderfx & RF_SHADOW_PLANE )
 			&& !(ent->e.renderfx & ( RF_NOSHADOW | RF_DEPTHHACK ) )
 			&& shader->sort == SS_OPAQUE ) {
 			R_AddDrawSurf( (surfaceType_t *)surface, tr.shadowShader, 0, qfalse );
