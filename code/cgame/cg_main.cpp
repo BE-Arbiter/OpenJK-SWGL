@@ -3249,15 +3249,9 @@ void CG_LoadHudMenu(void)
 
 //	cgi_UI_Menu_Reset();
 
-	// The JK2 HUD needs the JKO assets; without them go back to the default HUD.
-	if ( CG_JK2HudRequested() && !CG_JK2HudActive() )
-	{
-		CG_Printf( S_COLOR_YELLOW "JK2 HUD needs the JKO assets, using default\n" );
-		cgi_Cvar_Set( "cg_hudFiles", "ui/jahud.txt" );
-		cgi_Cvar_Update( &cg_hudFiles );
-	}
-
-	hudSet = cg_hudFiles.string;
+	// The JK2 HUD is drawn by code (cg_hud_jk2.cpp), it has no menu file: load the default one, used when its assets are missing.
+	// cg_hudFiles is kept: its assets are only registered later (CG_RegisterJK2Hud), so it cannot be checked here.
+	hudSet = CG_JK2HudRequested() ? "ui/jahud.txt" : cg_hudFiles.string;
 	if (hudSet[0] == '\0')
 	{
 		hudSet = "ui/jahud.txt";
