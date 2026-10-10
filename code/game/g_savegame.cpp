@@ -166,7 +166,9 @@ static const save_field_t savefields_gClient[] =
 };
 
 // TODO FIXME mrwonko: this has no business being a global variable. WTF Raven?
-static std::list<sstring_t> strList;
+// std::string, not sstring_t: that one keeps MAX_QPATH characters only, and the reader
+// expects the full length announced by GetStringNum (a long target_print message broke the load)
+static std::list<std::string> strList;
 
 
 /////////// char * /////////////
