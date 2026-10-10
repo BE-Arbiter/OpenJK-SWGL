@@ -1280,6 +1280,11 @@ void FireWeapon( gentity_t *ent, int attack_index)
 			//snipers must use the angles they actually did their shot trace with
 			AngleVectors( ent->lastAngles, forwardVec, vrightVec, up );
 		}
+		else
+		{
+			// the player's unscoped alt-fire still needs a fresh aim, forwardVec is stale otherwise
+			AngleVectors( ent->client->ps.viewangles, forwardVec, vrightVec, up );
+		}
 	}
 	else if ( ent->s.weapon == WP_ATST_SIDE || ent->s.weapon == WP_ATST_MAIN )
 	{
