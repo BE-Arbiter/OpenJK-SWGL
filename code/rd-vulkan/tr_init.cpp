@@ -1105,7 +1105,7 @@ void R_Register( void )
 	ri.Cvar_CheckRange(r_ext_supersample, 0, 1, qtrue);
 	r_ext_alpha_to_coverage				= Cvar_Get("r_ext_alpha_to_coverage",			"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
 	ri.Cvar_CheckRange(r_ext_alpha_to_coverage, 0, 1, qtrue);
-	r_fbo								= Cvar_Get("r_fbo",								"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
+	r_fbo								= Cvar_Get("r_fbo",								"1",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Render to an offscreen buffer. Dynamic glow, bloom, ambient occlusion, supersampling and cubemaps need it");
 	r_hdr								= Cvar_Get("r_hdr",								"1",						CVAR_ARCHIVE | CVAR_LATCH, "Colour buffer format: 0 = 8-bit, 1 = 16-bit precision. Both clamp at white; a float target would break the destination-reading blend modes this renderer uses - see get_hdr_format()");
 	ri.Cvar_CheckRange(r_hdr, -1, 1, qtrue);
 	r_mapGreyScale						= Cvar_Get("r_mapGreyScale",						"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
@@ -1185,6 +1185,11 @@ void R_Register( void )
 #define UBO_CVAR_DO( _handle, _value ) sun_##_handle = ri.Cvar_Get( #_handle,	#_value, CVAR_NONE);
 	UBO_CVAR_LIST
 #undef UBO_CVAR_DO
+	// The setup menu sets flt_taa, so it must persist. Cvar_Get adds the flag to the existing cvar.
+	ri.Cvar_Get( "flt_taa", "1", CVAR_ARCHIVE_ND );
+	// The setup menu shows the bloom of the tracer before r_rtx takes effect. Same values as vk_rtx_bloom.cpp.
+	ri.Cvar_Get( "pt_bloom", "1", CVAR_ARCHIVE_ND );
+	ri.Cvar_Get( "pt_bloom_intensity", "1.0", CVAR_ARCHIVE_ND );
 
     static char _rgb[3] = {'r', 'g', 'b'};
 
@@ -1251,7 +1256,7 @@ void R_Register( void )
 	r_nomip								= Cvar_Get("r_nomip",							"0",						CVAR_ARCHIVE | CVAR_LATCH, "Apply picmip only on worldspawn textures");
 	ri.Cvar_CheckRange(r_nomip, 0, 1, qtrue);
 #ifdef USE_VBO
-	r_vbo								= Cvar_Get("r_vbo",								"0",						CVAR_ARCHIVE | CVAR_LATCH, "Cache static world surfaces");
+	r_vbo								= Cvar_Get("r_vbo",								"1",						CVAR_ARCHIVE | CVAR_LATCH, "Cache static world surfaces");
 	r_vbo_models						= Cvar_Get("r_vbo_models",						"0",						CVAR_ARCHIVE | CVAR_LATCH, "Cache ghoul2 and md3 model surfaces");
 #endif
 	r_renderWidth						= Cvar_Get("r_renderWidth",						"800",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");

@@ -389,6 +389,10 @@ int		Cvar_VariableIntegerValue( const char *var_name );
 char	*Cvar_VariableString( const char *var_name );
 void	Cvar_VariableStringBuffer( const char *var_name, char *buffer, int bufsize );
 // returns an empty string if not defined
+void	Cvar_PendingStringBuffer( const char *var_name, char *buffer, int bufsize );
+void	Cvar_SetLatched( const char *var_name, const char *value );
+// as Cvar_Set, but a latched cvar gets the value at the next restart
+// as Cvar_VariableStringBuffer, but gives the latched value of a latched cvar
 
 int	Cvar_Flags(const char *var_name);
 // returns CVAR_NONEXISTENT if cvar doesn't exist or the flags of that particular CVAR.

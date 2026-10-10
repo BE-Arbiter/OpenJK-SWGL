@@ -456,6 +456,13 @@ static rserr_t GLimp_SetMode(glconfig_t *glConfig, const windowDesc_t *windowDes
 		screen = NULL;
 	}
 
+	// A borderless window has no title bar to move it, so center it on its display.
+	// At the desktop resolution it then covers the display.
+	if ( noborder && !fullscreen && !fakeFullscreen )
+	{
+		x = y = SDL_WINDOWPOS_CENTERED_DISPLAY( display >= 0 ? display : 0 );
+	}
+
 	if ( fakeFullscreen )
 	{
 		SDL_Rect bounds;

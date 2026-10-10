@@ -558,7 +558,8 @@ void vk_initialize( void )
 	ri.Printf( PRINT_ALL, "MSAA max: %dx, using %dx\n", vkMaxSamples, vkSamples );
 
 	// Anisotropy
-	ri.Printf( PRINT_ALL, "Anisotropy max: %dx, using %dx\n\n", r_ext_max_anisotropy->integer, r_ext_texture_filter_anisotropic->integer );
+	ri.Printf( PRINT_ALL, "Anisotropy max: %dx, using %dx\n\n", (int)vk.maxAnisotropy,
+		( r_ext_texture_filter_anisotropic->integer && vk.samplerAnisotropy ) ? (int)MIN( r_ext_max_anisotropy->integer, vk.maxAnisotropy ) : 0 );
 		
 	// Bloom
 	if ( vk.fboActive && r_bloom->integer )

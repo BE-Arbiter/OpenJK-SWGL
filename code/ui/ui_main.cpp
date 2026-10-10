@@ -4335,6 +4335,15 @@ void UI_Shutdown( void )
 	UI_FreeAllSpecies();
 }
 
+// Menu items set a latched cvar for the next restart (Cvar_SetLatched), so they show the latched value.
+static float UI_Cvar_PendingValue( const char *var_name )
+{
+	char buf[MAX_CVAR_VALUE_STRING];
+
+	Cvar_PendingStringBuffer( var_name, buf, sizeof( buf ) );
+	return atof( buf );
+}
+
 /*
 =================
 UI_Init
@@ -4393,8 +4402,8 @@ void _UI_Init( qboolean inGameLoad )
 	uiInfo.uiDC.feederSelection		= &UI_FeederSelection;
 	uiInfo.uiDC.fillRect			= &UI_FillRect;
 	uiInfo.uiDC.getBindingBuf		= &Key_GetBindingBuf;
-	uiInfo.uiDC.getCVarString		= Cvar_VariableStringBuffer;
-	uiInfo.uiDC.getCVarValue		= trap_Cvar_VariableValue;
+	uiInfo.uiDC.getCVarString		= Cvar_PendingStringBuffer;
+	uiInfo.uiDC.getCVarValue		= UI_Cvar_PendingValue;
 	uiInfo.uiDC.getOverstrikeMode	= &trap_Key_GetOverstrikeMode;
 	uiInfo.uiDC.getValue			= &UI_GetValue;
 	uiInfo.uiDC.keynumToStringBuf	= &Key_KeynumToStringBuf;
@@ -4413,7 +4422,7 @@ void _UI_Init( qboolean inGameLoad )
 	uiInfo.uiDC.deferScript			= &UI_DeferMenuScript;
 	uiInfo.uiDC.setBinding			= &trap_Key_SetBinding;
 	uiInfo.uiDC.setColor			= &UI_SetColor;
-	uiInfo.uiDC.setCVar				= Cvar_Set;
+	uiInfo.uiDC.setCVar				= Cvar_SetLatched;
 	uiInfo.uiDC.setOverstrikeMode	= &trap_Key_SetOverstrikeMode;
 	uiInfo.uiDC.startLocalSound		= &trap_S_StartLocalSound;
 	uiInfo.uiDC.stopCinematic		= &UI_StopCinematic;
@@ -5988,6 +5997,20 @@ you to discard your changes if you did something you didnt want
 */
 void UI_UpdateVideoSetup ( void )
 {
+	// Window mode: 0 windowed, 1 borderless window, 2 full screen.
+	const int windowMode = Cvar_VariableIntegerValue( "ui_r_windowmode" );
+	Cvar_Set ( "ui_r_fullscreen", windowMode == 2 ? "1" : "0" );
+	Cvar_Set ( "r_noborder", windowMode == 1 ? "1" : "0" );
+
+	// rd-vulkan takes the anisotropy level from r_ext_max_anisotropy. The other renderers
+	// take it from r_ext_texture_filter_anisotropic, which the menu sets.
+	char aniso[MAX_CVAR_VALUE_STRING];
+	Cvar_PendingStringBuffer( "r_ext_texture_filter_anisotropic", aniso, sizeof( aniso ) );
+	if ( atof( aniso ) >= 1.0f )
+	{
+		Cvar_Set ( "r_ext_max_anisotropy", va( "%d", Com_Clampi( 1, 16, (int)( atof( aniso ) + 0.5f ) ) ) );
+	}
+
 	Cvar_Set ( "r_mode", Cvar_VariableString ( "ui_r_mode" ) );
 	Cvar_Set ( "r_fullscreen", Cvar_VariableString ( "ui_r_fullscreen" ) );
 	Cvar_Set ( "r_colorbits", Cvar_VariableString ( "ui_r_colorbits" ) );
@@ -6023,6 +6046,7 @@ void UI_GetVideoSetup ( void )
 	// Make sure the cvars are registered as read only.
 	Cvar_Register ( NULL, "ui_r_mode",					"0", CVAR_ROM );
 	Cvar_Register ( NULL, "ui_r_fullscreen",			"0", CVAR_ROM );
+	Cvar_Register ( NULL, "ui_r_windowmode",			"0", CVAR_ROM );
 	Cvar_Register ( NULL, "ui_r_colorbits",				"0", CVAR_ROM );
 	Cvar_Register ( NULL, "ui_r_lodbias",				"0", CVAR_ROM );
 	Cvar_Register ( NULL, "ui_r_picmip",				"0", CVAR_ROM );
@@ -6042,6 +6066,8 @@ void UI_GetVideoSetup ( void )
 	Cvar_Set ( "ui_r_mode", Cvar_VariableString ( "r_mode" ) );
 	Cvar_Set ( "ui_r_colorbits", Cvar_VariableString ( "r_colorbits" ) );
 	Cvar_Set ( "ui_r_fullscreen", Cvar_VariableString ( "r_fullscreen" ) );
+	Cvar_Set ( "ui_r_windowmode", Cvar_VariableIntegerValue( "r_fullscreen" ) ? "2" :
+								  Cvar_VariableIntegerValue( "r_noborder" ) ? "1" : "0" );
 	Cvar_Set ( "ui_r_lodbias", Cvar_VariableString ( "r_lodbias" ) );
 	Cvar_Set ( "ui_r_picmip", Cvar_VariableString ( "r_picmip" ) );
 	Cvar_Set ( "ui_r_texturebits", Cvar_VariableString ( "r_texturebits" ) );
