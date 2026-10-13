@@ -1351,6 +1351,57 @@ void vk_update_descriptor_set( image_t *image, qboolean mipmap ) {
 	qvkUpdateDescriptorSets(vk.device, 1, &descriptor_write, 0, NULL);
 }
 
+// Returns a descriptor set that samples the image with nearest filtering. Pass the set and
+// the sampler slot from the previous call: the set is rewritten when the sampler was remade.
+VkDescriptorSet vk_get_nearest_descriptor( const image_t *image, VkDescriptorSet set, VkSampler *cachedSampler ) {
+	Vk_Sampler_Def sampler_def;
+	VkDescriptorImageInfo image_info;
+	VkWriteDescriptorSet descriptor_write;
+	VkSampler sampler;
+
+	Com_Memset( &sampler_def, 0, sizeof( sampler_def ) );
+	sampler_def.address_mode = image->wrapClampMode;
+	sampler_def.gl_mag_filter = GL_NEAREST;
+	sampler_def.gl_min_filter = GL_NEAREST;
+	sampler_def.noAnisotropy = qtrue;
+
+	sampler = vk_find_sampler( &sampler_def );
+	if ( set != VK_NULL_HANDLE && sampler == *cachedSampler ) {
+		return set;
+	}
+
+	if ( set == VK_NULL_HANDLE ) {
+		VkDescriptorSetAllocateInfo desc;
+
+		desc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		desc.pNext = NULL;
+		desc.descriptorPool = vk.descriptor_pool;
+		desc.descriptorSetCount = 1;
+		desc.pSetLayouts = &vk.set_layout_sampler;
+		VK_CHECK( qvkAllocateDescriptorSets( vk.device, &desc, &set ) );
+	}
+
+	image_info.sampler = sampler;
+	image_info.imageView = image->view;
+	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptor_write.dstSet = set;
+	descriptor_write.dstBinding = 0;
+	descriptor_write.dstArrayElement = 0;
+	descriptor_write.descriptorCount = 1;
+	descriptor_write.pNext = NULL;
+	descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptor_write.pImageInfo = &image_info;
+	descriptor_write.pBufferInfo = NULL;
+	descriptor_write.pTexelBufferView = NULL;
+
+	qvkUpdateDescriptorSets( vk.device, 1, &descriptor_write, 0, NULL );
+
+	*cachedSampler = sampler;
+	return set;
+}
+
 void vk_create_image( image_t *image, int width, int height, int mip_levels ) {
 	VkFormat format = (VkFormat)image->internalFormat;
 #ifdef USE_RTX

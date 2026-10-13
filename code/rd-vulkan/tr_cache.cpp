@@ -230,6 +230,23 @@ void CModelCacheManager::DumpNonPure( void )
 	ri.Printf( PRINT_DEVELOPER, "CCacheManager::DumpNonPure(): Ok\n");
 }
 
+/*
+ * Lists the cached model files and their size.
+ */
+void CModelCacheManager::PrintInfo()
+{
+	int iTotalBytes = 0;
+	int iFile = 0;
+
+	for ( const auto& file : files )
+	{
+		ri.Printf( PRINT_ALL, "%d/%d: \"%s\" (%d bytes), lvl %d\n", iFile++, (int)files.size(), file.path, file.iAllocSize, file.iLevelLastUsedOn );
+		iTotalBytes += file.iAllocSize;
+	}
+
+	ri.Printf( PRINT_ALL, "%d bytes total (%.2fMB)\n", iTotalBytes, (float)iTotalBytes / 1024.0f / 1024.0f );
+}
+
 qhandle_t CModelCacheManager::GetModelHandle( const char *fileName )
 {
 	char path[MAX_QPATH];

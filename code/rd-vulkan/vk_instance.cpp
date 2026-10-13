@@ -165,6 +165,7 @@ PFN_vkCmdBeginDebugUtilsLabelEXT					qvkCmdBeginDebugUtilsLabelEXT;
 PFN_vkCmdBuildAccelerationStructuresKHR				qvkCmdBuildAccelerationStructuresKHR;
 PFN_vkCmdEndDebugUtilsLabelEXT						qvkCmdEndDebugUtilsLabelEXT;
 PFN_vkCmdFillBuffer									qvkCmdFillBuffer;
+PFN_vkCmdUpdateBuffer								qvkCmdUpdateBuffer;
 PFN_vkCmdTraceRaysKHR								qvkCmdTraceRaysKHR;
 PFN_vkCmdCopyAccelerationStructureKHR				qvkCmdCopyAccelerationStructureKHR;
 PFN_vkCmdWriteAccelerationStructuresPropertiesKHR	qvkCmdWriteAccelerationStructuresPropertiesKHR;
@@ -1398,6 +1399,7 @@ __initStart:
 		INIT_DEVICE_FUNCTION(vkCmdBuildAccelerationStructuresKHR)
 		INIT_DEVICE_FUNCTION(vkCmdEndDebugUtilsLabelEXT)
 		INIT_DEVICE_FUNCTION(vkCmdFillBuffer)
+		INIT_DEVICE_FUNCTION(vkCmdUpdateBuffer)
 		INIT_DEVICE_FUNCTION(vkCmdTraceRaysKHR)
 		INIT_DEVICE_FUNCTION(vkCmdCopyAccelerationStructureKHR)
 		INIT_DEVICE_FUNCTION(vkCmdWriteAccelerationStructuresPropertiesKHR)
@@ -1525,6 +1527,7 @@ void vk_deinit_library( void )
 
 	qvkBindBufferMemory2 = NULL;
 	qvkCmdFillBuffer = NULL;
+	qvkCmdUpdateBuffer = NULL;
 
 	qvkCreateBufferView = NULL;
 	qvkDestroyBufferView = NULL;

@@ -110,6 +110,23 @@ extern mdxaBone_t worldMatrixInv;
 int G2_IsSurfaceOff( CGhoul2Info *ghlInfo, surfaceInfo_v &slist, const char *surfaceName );
 #define IHeapAllocator CMiniHeap
 void RemoveBoneCache( CBoneCache *boneCache );
+
+// Skinned vertices of one ghoul2 model for the collision traces (G2API_CollisionDetect).
+// Valid while the skeleton (CBoneCache::mCurrentTouch), the LOD, the scale and the
+// surface list do not change, so one skinning serves all the traces of a frame.
+struct g2CollisionVerts_t
+{
+	int						touch;			// -1: empty
+	int						lod;
+	vec3_t					scale;
+	uint32_t				surfSig;
+	std::vector<float>		verts;			// 5 floats per vertex: xyz, st
+	std::vector<intptr_t>	surfVerts;		// per surface index: pointer into verts, or 0
+	std::vector<float>		surfBounds;		// per surface index: mins xyz, maxs xyz
+};
+g2CollisionVerts_t *G2_GetCollisionVerts( CBoneCache *boneCache );
+int G2_GetBoneCacheTouch( const CBoneCache *boneCache );
+
 #define GHOUL2_ZONETRANSALLOC 0
 typedef intptr_t g2vert_int_t;
 void G2API_AnimateG2ModelsRag(CGhoul2Info_v &ghoul2, int AcurrentTime, CRagDollUpdateParams *params);
@@ -197,6 +214,9 @@ typedef unsigned int glIndex_t;
 // can't be increased without changing bit packing for drawsurfs
 // see QSORT_SHADERNUM_SHIFT
 #define SHADERNUM_BITS	14
+
+// drawsurf sort key, see QSORT_SHADERNUM_SHIFT
+typedef uint64_t sortKey_t;
 #define MAX_SHADERS		(1<<SHADERNUM_BITS)
 #define SHADERNUM_MASK	(MAX_SHADERS-1)
 
@@ -923,6 +943,7 @@ typedef struct trRefdef_s {
 	int					frametime;
 	int					rdflags;					// RDF_NOWORLDMODEL, etc
 	qboolean			doLAGoggles;				// SP light amp goggles, set by RE_LAGoggles, cleared by RE_ClearScene
+	int					fogIndex;					// fog brush that contains vieworg, 0 for none
 
 	// 1 bits will prevent the associated area from rendering at all
 	byte				areamask[MAX_MAP_AREA_BYTES];
@@ -1061,7 +1082,7 @@ typedef enum surfaceType_e {
 } surfaceType_t;
 
 typedef struct drawSurf_s {
-	unsigned			sort;			// bit combination for fast compares
+	sortKey_t			sort;			// bit combination for fast compares
 	surfaceType_t		*surface;		// any of surface*_t
 #ifdef USE_RTX
 	vk_blas_t			*blas;
@@ -1073,7 +1094,7 @@ typedef struct drawSurf_s {
 
 #ifdef USE_PMLIGHT
 typedef struct litSurf_s {
-	unsigned int		sort;			// bit combination for fast compares
+	sortKey_t			sort;			// bit combination for fast compares
 	surfaceType_t		*surface;		// any of surface*_t
 	struct litSurf_s	*next;
 } litSurf_t;
@@ -1112,7 +1133,7 @@ typedef struct srfFlare_s {
 #define SS_MAX_GROUP						1024
 #define SS_MAX_GROUP_CMD					1024
 
-#define SS_ENT_BITS							11
+#define SS_ENT_BITS							REFENTITYNUM_BITS
 #define SS_VBO_BITS							10
 #define SS_FOG_BITS							7
 #define SS_ENT_MASK							((1U << SS_ENT_BITS) - 1)
@@ -1660,15 +1681,16 @@ void		R_Modellist_f ( void );
 
 /*
 
-the drawsurf sort data is packed into a single 32 bit value so it can be
-compared quickly during the qsorting process
+the drawsurf sort data is packed into a single 64 bit value so it can be
+compared quickly during the sorting process (the radix sort reads 5 bytes)
 
 the bits are allocated as follows:
 
-18-31 : sorted shader index
-7-17  : entity index
-2-6   : fog index
-0-1   : dlightmap index
+33    : RF_ALPHA_FADE (drawn last)
+19-32 : sorted shader index
+6-18  : entity index (REFENTITYNUM_BITS)
+1-5   : fog index
+0     : dlightmap index
 */
 
 #define	DLIGHT_BITS 1 // qboolean in opengl1 renderer
@@ -1679,10 +1701,13 @@ the bits are allocated as follows:
 #define	QSORT_FOGNUM_SHIFT	DLIGHT_BITS
 #define	QSORT_REFENTITYNUM_SHIFT ( QSORT_FOGNUM_SHIFT + FOGNUM_BITS )
 #define	QSORT_SHADERNUM_SHIFT	( QSORT_REFENTITYNUM_SHIFT + REFENTITYNUM_BITS )
-#if (QSORT_SHADERNUM_SHIFT+SHADERNUM_BITS) > 32
+#define	QSORT_ALPHAFADE_SHIFT	( QSORT_SHADERNUM_SHIFT + SHADERNUM_BITS )
+#define	QSORT_ALPHAFADE_BIT		( (sortKey_t)1 << QSORT_ALPHAFADE_SHIFT )
+#define	QSORT_BYTES				5	// bytes of the key that R_RadixSort sorts
+#if QSORT_ALPHAFADE_SHIFT >= QSORT_BYTES * 8
 	#error "Need to update sorting, too many bits."
 #endif
-#define QSORT_REFENTITYNUM_MASK ( REFENTITYNUM_MASK << QSORT_REFENTITYNUM_SHIFT )
+#define QSORT_REFENTITYNUM_MASK ( (sortKey_t)REFENTITYNUM_MASK << QSORT_REFENTITYNUM_SHIFT )
 
 /*
 ** performanceCounters_t
@@ -1932,7 +1957,7 @@ typedef struct trGlobals_s {
 	trRefEntity_t			*currentEntity;
 	trRefEntity_t			worldEntity;		// point currentEntity at this when rendering world
 	int						currentEntityNum;
-	int						shiftedEntityNum;	// currentEntityNum << QSORT_REFENTITYNUM_SHIFT
+	sortKey_t				shiftedEntityNum;	// currentEntityNum << QSORT_REFENTITYNUM_SHIFT
 	model_t					*currentModel;
 
 	viewParms_t				viewParms;
@@ -2104,6 +2129,7 @@ extern	cvar_t	*r_drawfog;				// disable/enable fog rendering
 extern	cvar_t	*r_speeds;				// various levels of information display
 extern  cvar_t	*r_detailTextures;		// enables/disables detail texturing stages
 extern	cvar_t	*r_novis;				// disable/enable usage of PVS
+extern	cvar_t	*r_visGenerate;			// generate a PVS for a map without a vis lump
 extern	cvar_t	*r_nocull;
 extern	cvar_t	*r_facePlaneCull;		// enables culling of planar surfaces with back side test
 extern	cvar_t	*r_cullRoofFaces;		//attempted smart method of culling out upwards facing surfaces on roofs for automap shots -rww
@@ -2313,6 +2339,7 @@ extern	cvar_t	*r_noPrecacheGLA;
 #endif
 
 extern	cvar_t	*r_noServerGhoul2;
+extern	cvar_t	*r_noGhoul2;
 /*
 Ghoul2 Insert End
 */
@@ -2321,13 +2348,15 @@ Ghoul2 Insert End
 void		R_RenderView( const viewParms_t *parms );
 void		R_AddMD3Surfaces( trRefEntity_t *e );
 void		R_AddPolygonSurfaces( void );
-void		R_DecomposeSort( unsigned sort, int *entityNum, shader_t **shader, int *fogNum, int *dlightMap );
+void		R_DecomposeSort( sortKey_t sort, int *entityNum, shader_t **shader, int *fogNum, int *dlightMap );
 // cubemapIndex -1: the cubemap of the current entity
 void		R_AddDrawSurf( surfaceType_t *surface, shader_t *shader, int fogIndex, int dlightMap, int cubemapIndex = -1 );
 #ifdef USE_PMLIGHT
-void		R_DecomposeLitSort( unsigned sort, int* entityNum, shader_t** shader, int* fogNum );
+void		R_DecomposeLitSort( sortKey_t sort, int* entityNum, shader_t** shader, int* fogNum );
 void		R_AddLitSurf( surfaceType_t* surface, shader_t* shader, int fogIndex );
 #endif
+qboolean	R_FogParmsMatch( int fog1, int fog2 );
+int			R_FogNumForSphere( const vec3_t origin, float radius );
 
 shader_t		*GeneratePermanentShader( void );
 
@@ -2416,6 +2445,8 @@ void		R_GammaCorrect( byte *buffer, int bufSize );
 void		R_Set2DRatio( void );
 
 void		R_ImageList_f( void );
+void		RE_RegisterImages_Info_f( void );
+void		RE_RegisterModels_Info_f( void );
 void		R_SkinList_f( void );
 void		R_FontList_f( void );
 
@@ -2829,7 +2860,7 @@ void	RB_CalcAlphaFromOneMinusEntity( unsigned char *dstColors );
 void	RB_CalcColorFromEntity( unsigned char *dstColors );
 void	RB_CalcColorFromOneMinusEntity( unsigned char *dstColors );
 void	RB_CalcSpecularAlpha( unsigned char *alphas );
-void	RB_CalcDisintegrateColors( unsigned char *colors );
+void	RB_CalcDisintegrateColors( unsigned char *colors, colorGen_t rgbGen );
 void	RB_CalcDiffuseColor( unsigned char *colors );
 void	RB_CalcDiffuseEntityColor( unsigned char *colors );
 void	RB_CalcDisintegrateVertDeform( void );
@@ -3100,6 +3131,7 @@ extern void R_BuildMD3( model_t *mod, mdvModel_t *mdvModel );
 #ifdef _G2_GORE
 extern void R_CreateGoreVBO( void );
 extern void R_UpdateGoreVBO( srfG2GoreSurface_t *goreSurface );
+extern void vk_flush_gore_uploads( VkCommandBuffer cmd );
 #endif
 
 extern void VBO_PushData( int itemIndex, shaderCommands_t *input );

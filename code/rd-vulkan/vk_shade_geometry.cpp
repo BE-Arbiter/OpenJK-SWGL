@@ -1042,7 +1042,7 @@ void ComputeColors( const int b, color4ub_t *dest, const shaderStage_t *pStage, 
 	if (tess.shader != tr.projectionShadowShader && tess.shader != tr.shadowShader &&
 		(backEnd.currentEntity->e.renderfx & (RF_DISINTEGRATE1 | RF_DISINTEGRATE2)))
 	{
-		RB_CalcDisintegrateColors( (unsigned char*) dest );
+		RB_CalcDisintegrateColors( (unsigned char*) dest, pStage->bundle[b].rgbGen );
 		RB_CalcDisintegrateVertDeform();
 
 		// We've done some custom alpha and color stuff, so we can skip the rest.  Let it do fog though
@@ -1307,8 +1307,12 @@ avoidGen:
 uint32_t vk_append_uniform( const void *uniform, size_t size, uint32_t min_offset ) {
 	const uint32_t offset = PAD(vk.cmd->vertex_buffer_offset, (VkDeviceSize)vk.uniform_alignment);
 
-	if ( offset + min_offset > vk.geometry_buffer_size )
+	if ( offset + min_offset > vk.geometry_buffer_size ) {
+		// schedule geometry buffer resize, as vk_bind_attr does
+		if ( log2pad( offset + min_offset, 1 ) > vk.geometry_buffer_size_new )
+			vk.geometry_buffer_size_new = log2pad( offset + min_offset, 1 );
 		return ~0U;
+	}
 
 	Com_Memcpy( vk.cmd->vertex_buffer_ptr + offset, uniform, size );
 	vk.cmd->vertex_buffer_offset = offset + min_offset;
@@ -2812,7 +2816,9 @@ void RB_StageIteratorGeneric( void )
 			}
 #endif
 
-			pipeline = vk_find_pipeline_ext( 0, &def, qfalse );
+			// Most draws do not change the stage def: keep the stage pipeline then.
+			if ( pipeline >= vk.pipelines_count || memcmp( &def, &vk.pipelines[pipeline].def, sizeof(def) ) != 0 )
+				pipeline = vk_find_pipeline_ext( 0, &def, qfalse );
 		}
 	
 		

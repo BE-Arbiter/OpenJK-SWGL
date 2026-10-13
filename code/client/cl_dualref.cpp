@@ -662,6 +662,11 @@ static void DR_DrawSplit( int shown, int other )
 	R.SetColor( NULL );
 }
 
+const char *CL_DualRef_ShownName( void )
+{
+	return dr_active ? dr_names[dr_shown] : NULL;
+}
+
 // Name of renderer r, with the state of the path tracer for the Vulkan renderer.
 static const char *DR_Label( int r )
 {
@@ -729,6 +734,18 @@ SETUP AND COMMANDS
 ==============================================================================
 */
 
+// Only one renderer has a given extension, and it can be either one.
+static void *DR_GetExtension( const char *name )
+{
+	for ( int i = 0; i < 2; i++ ) {
+		void *ext = dr_re[i].GetExtension ? dr_re[i].GetExtension( name ) : NULL;
+		if ( ext ) {
+			return ext;
+		}
+	}
+	return NULL;
+}
+
 const refexport_t *CL_DualRef_Init( const refexport_t *first, const char *firstName, const refexport_t *second, const char *secondName )
 {
 	static refexport_t dual;
@@ -743,6 +760,7 @@ const refexport_t *CL_DualRef_Init( const refexport_t *first, const char *firstN
 	dual.CaptureNextFrame = NULL;
 
 	dual.Shutdown = DR_Shutdown;
+	dual.GetExtension = DR_GetExtension;
 	dual.BeginRegistration = DR_BeginRegistration;
 	dual.RegisterModel = DR_RegisterModel;
 	dual.RegisterSkin = DR_RegisterSkin;

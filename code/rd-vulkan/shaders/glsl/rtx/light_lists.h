@@ -22,6 +22,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #define MAX_BRUTEFORCE_SAMPLING 8
 #define MAX_DYNAMIC_SAMPLING    16
+#define SPHERE_LIGHT_MAX_DEPTH  64.0	// how far behind a surface a sphere light is still mirrored in front of it
 
 mat3 
 project_triangle(mat3 positions, vec3 p)
@@ -65,11 +66,71 @@ projected_tri_area(mat3 positions, vec3 p, vec3 n, vec3 V, float phong_exp, floa
 	return pa * brdf;
 }
 
+// The centre of a sphere light for the surface (p, n). A fixed light (positions[1].z == 0) that sits
+// just behind the surface is mirrored in front of it, so a light embedded in a wall lights that wall.
+vec3
+sphere_light_center(mat3 positions, vec3 p, vec3 n)
+{
+	vec3 c = positions[0];
+	float s = dot(c - p, n);
+
+	if (positions[1].z == 0 && s < 0 && s > -SPHERE_LIGHT_MAX_DEPTH)
+		c -= 2 * s * n;
+
+	return c;
+}
+
+// True when the surface point p is inside a fixed sphere light (a light against a wall: the wall
+// crosses the sphere). Such a point sees the emitter over a hemisphere around sphere_inside_axis.
+bool
+sphere_light_contains(mat3 positions, vec3 center, vec3 p)
+{
+	vec3 d = center - p;
+	return positions[1].z == 0 && dot(d, d) < square(positions[1].x);
+}
+
+// Weight of a sphere light at a distance, in the units of the solid angle it covers. The exact value
+// falls with an infinite slope at the sphere surface, which shows as an edge on a wall that crosses a
+// large sphere. A fixed light uses a soft near field instead, R^2 / (d^2 + R^2 / 2), which meets the
+// exact value from 5 R. A dlight (positions[1].z > 0) keeps the exact value.
+float
+sphere_light_area(mat3 positions, float dist)
+{
+	float r = positions[1].x;
+	float exact = 2 * (1 - sqrt(max(0, 1 - square(r / max(dist, positions[1].z)))));
+
+	exact = min(exact, 2 * M_PI); //max solid angle
+	if (positions[1].z != 0)
+		return exact;
+
+	return mix(square(r) / (dist * dist + 0.5 * square(r)), exact, smoothstep(r, 5.0 * r, dist));
+}
+
+// Axis of that hemisphere: the direction to the centre on the sphere surface, where the outside
+// sampling ends, turning to the surface normal at the centre. No step at the sphere surface.
+vec3
+sphere_inside_axis(mat3 positions, vec3 center, vec3 p, vec3 n)
+{
+	vec3 d = center - p;
+	float dist = max(length(d), 1e-4);
+	float t = 1.0 - min(dist / positions[1].x, 1.0);
+
+	return normalize(d / dist * (1.0 - t) + n * t);
+}
+
 float
 projected_sphere_area(mat3 positions, vec3 p, vec3 n, vec3 V, float phong_exp, float phong_scale, float phong_weight)
 {
-	vec3 position = positions[0] - p;
+	vec3 center = sphere_light_center(positions, p, n);
 	float sphere_radius = positions[1].x;
+
+	if (sphere_light_contains(positions, center, p))
+	{
+		float specular_in = phong(n, sphere_inside_axis(positions, center, p, n), V, phong_exp) * phong_scale;
+		return sphere_light_area(positions, length(center - p)) * mix(1.0, specular_in, phong_weight);
+	}
+
+	vec3 position = center - p;
 	float dist = length(position);
 	float rdist = 1.0 / dist;
 	vec3 L = position * rdist;
@@ -81,10 +142,7 @@ projected_sphere_area(mat3 positions, vec3 p, vec3 n, vec3 V, float phong_exp, f
 	float brdf = mix(1.0, specular, phong_weight);
 
 	// positions[1].z: the minimum distance of a dlight (add_dlights), 0 on other lights.
-	float irradiance = 2 * (1 - sqrt(max(0, 1 - square(sphere_radius / max(dist, positions[1].z)))));
-	irradiance = min(irradiance,  2 * M_PI); //max solid angle
-
-	return irradiance * brdf;
+	return sphere_light_area(positions, dist) * brdf;
 }
 
 float
@@ -167,7 +225,7 @@ float get_spherical_triangle_pdfw(mat3 positions)
  * The implementation is based on the algorithm described in:
  * James Arvo. 1995. Stratified sampling of spherical triangles.
  * Proceedings of the 22nd annual conference on Computer graphics and interactive techniques (SIGGRAPH '95).
- * Association for Computing Machinery, New York, NY, USA, 437–438.
+ * Association for Computing Machinery, New York, NY, USA, 437ï¿½438.
  * https://doi.org/10.1145/218380.218500
  */
 vec3
@@ -240,18 +298,39 @@ sample_projected_triangle(vec3 pt, mat3 positions, vec2 rnd, out vec3 light_norm
 }
 
 vec3
-sample_projected_sphere(vec3 p, mat3 positions, vec2 rnd, out vec3 light_normal, out float pdfw)
+sample_projected_sphere(vec3 p, vec3 n, mat3 positions, vec2 rnd, out vec3 light_normal, out float pdfw)
 {
-	vec3 light_center = positions[0];
-	vec3 position = light_center - p;
+	vec3 light_center = sphere_light_center(positions, p, n);
 	float sphere_radius = positions[1].x;
+
+	if (sphere_light_contains(positions, light_center, p))
+	{
+		// Uniform direction over the hemisphere around the axis, to the point where it leaves the
+		// sphere. The normal there points inwards, toward p, like the normal of a sphere seen from outside.
+		float y = rnd.x;
+		float r = sqrt(max(0, 1 - y * y));
+		float phi = 2.0 * M_PI * rnd.y;
+		mat3 basis = construct_ONB_frisvad(sphere_inside_axis(positions, light_center, p, n));
+		vec3 dir = basis[0] * (r * cos(phi)) + basis[1] * y + basis[2] * (r * sin(phi));
+
+		vec3 oc = p - light_center;
+		float b = dot(oc, dir);
+		float t = -b + sqrt(max(0, b * b - (dot(oc, oc) - square(sphere_radius))));
+
+		vec3 hit = p + dir * t;
+		// The callers weight a sample by -dot(light_normal, L), which a point outside the sphere
+		// sees going to 0 at the surface. Inside, it grows from 0 at the surface to 1 at the centre.
+		light_normal = -dir * (1.0 - min(length(light_center - p) / sphere_radius, 1.0));
+		pdfw = 1.0 / sphere_light_area(positions, length(light_center - p));
+		return hit;
+	}
+
+	vec3 position = light_center - p;
 	float dist = length(position);
 	float rdist = 1.0 / dist;
 	vec3 L = position * rdist;
 
-	float projected_area = 2 * (1 - sqrt(max(0, 1 - square(sphere_radius / max(dist, positions[1].z)))));
-	projected_area = min(projected_area,  2 * M_PI); //max solid angle
-	pdfw = 1.0 / projected_area;
+	pdfw = 1.0 / sphere_light_area(positions, dist);
 
 	mat3 onb = construct_ONB_frisvad(L);
 	vec3 diskpt;
@@ -519,7 +598,7 @@ sample_lights(
 				position_light = sample_projected_triangle(p, light.positions, rng.yz, light_normal, pdfw);
 				break;
 			case LIGHT_SPHERE:
-				position_light = sample_projected_sphere(p, light.positions, rng.yz, light_normal, pdfw);
+				position_light = sample_projected_sphere(p, gn, light.positions, rng.yz, light_normal, pdfw);
 				break;
 			case LIGHT_SPOT:
 				position_light = sample_projected_spotlight(p, light.positions, rng.yz, light_normal, pdfw);

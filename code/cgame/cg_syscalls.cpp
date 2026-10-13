@@ -267,6 +267,10 @@ qhandle_t cgi_R_RegisterShaderNoMip(const char* name) {
 	return Q_syscall(CG_R_REGISTERSHADERNOMIP, name);
 }
 
+void* cgi_R_GetExtension(const char* name) {
+	return (void*)Q_syscall(CG_R_GETEXTENSION, name);
+}
+
 qhandle_t cgi_R_RegisterFont(const char* name) {
 	return Q_syscall(CG_R_REGISTERFONT, name);
 }

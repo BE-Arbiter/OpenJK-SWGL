@@ -5664,6 +5664,35 @@ void UI_RunMenuCommand(const char *command)
 		return;
 	}
 
+	// "loadframe show|hide": the red frame of loadscreen.menu shares its name with the
+	// invisible background item, so it is found by its border instead of by name
+	if (!Q_stricmpn(command, "loadframe ", 10))
+	{
+		menuDef_t *loadMenu = Menus_FindByName("loadscreen");
+		const qboolean show = (qboolean)(Q_stricmp(command + 10, "show") == 0);
+
+		if (loadMenu)
+		{
+			for (int i = 0; i < loadMenu->itemCount; i++)
+			{
+				itemDef_t *frame = loadMenu->items[i];
+
+				if (frame->window.border && frame->window.name && Q_stricmp(frame->window.name, "background") == 0)
+				{
+					if (show)
+					{
+						frame->window.flags |= WINDOW_VISIBLE;
+					}
+					else
+					{
+						frame->window.flags &= ~WINDOW_VISIBLE;
+					}
+				}
+			}
+		}
+		return;
+	}
+
 	context.parent = Menu_GetFocused();
 	Item_RunScript(&context, command);
 }
@@ -7551,6 +7580,33 @@ static void Item_ListBox_DropdownPaint(itemDef_t *item)
 	Item_ListBox_DropdownBorder(&outer, listPtr->dropdownBorder, item->window.borderColor, (qboolean)!below, below);
 }
 
+// A skin without an icon file: write its name in the cell, shrunk to fit.
+static void Item_ListBox_PaintSkinName(itemDef_t *item, listBoxDef_t *listPtr, int index, float x, float y)
+{
+	qhandle_t handle;
+	const char *name = DC->feederItemText(item->special, index, 0, &handle);
+	if (!name || !name[0])
+	{
+		return;
+	}
+	if (!Q_stricmpn(name, "model_", 6))
+	{
+		name += 6;
+	}
+
+	const float cellW = listPtr->elementWidth - 4;
+	float scale = 0.5f;
+	const int width = DC->textWidth(name, scale, DC->Assets.qhMediumFont);
+	if (width > cellW && width > 0)
+	{
+		scale *= cellW / width;
+	}
+	const float textW = DC->textWidth(name, scale, DC->Assets.qhMediumFont);
+	const float textH = DC->textHeight(name, scale, DC->Assets.qhMediumFont);
+	DC->drawText(x + (listPtr->elementWidth - textW) * 0.5f, y + (listPtr->elementHeight - textH) * 0.5f,
+		scale, item->window.foreColor, name, 0, item->textStyle, DC->Assets.qhMediumFont);
+}
+
 /*
 =================
 Item_ListBox_Paint
@@ -7650,6 +7706,11 @@ void Item_ListBox_Paint(itemDef_t *item)
 					{	// or the tint leaks into everything painted after the list
 						ui.R_SetColor(NULL);
 					}
+				}
+				else if ((int)item->special == FEEDER_PLAYER_SKIN_HEAD || (int)item->special == FEEDER_PLAYER_SKIN_TORSO
+					|| (int)item->special == FEEDER_PLAYER_SKIN_LEGS)
+				{
+					Item_ListBox_PaintSkinName(item, listPtr, i, x, y);
 				}
 
 				if (i == item->cursorPos)
@@ -7770,6 +7831,10 @@ void Item_ListBox_Paint(itemDef_t *item)
 									ui.R_SetColor(NULL);
 								}
 							}
+							else if ((int)item->special == FEEDER_MODEL_SKINS)
+							{
+								Item_ListBox_PaintSkinName(item, listPtr, i, x, y);
+							}
 							else
 							{
 								continue;
@@ -7888,6 +7953,10 @@ void Item_ListBox_Paint(itemDef_t *item)
 							if (image)
 							{
 								DC->drawHandlePic(x + 1, y + 1, listPtr->elementWidth - 2, listPtr->elementHeight - 2, image);
+							}
+							else if ((int)item->special == FEEDER_MODEL_SKINS)
+							{
+								Item_ListBox_PaintSkinName(item, listPtr, i, x, y);
 							}
 
 							if (i == item->cursorPos)
@@ -8754,6 +8823,21 @@ void Item_OwnerDraw_Paint(itemDef_t *item)
 	}
 }
 
+// Value of a YESNO or MULTI item without text: textRect is not set (it needs a text), so draw in the rect of the item.
+static void Item_DrawValueInRect(itemDef_t *item, vec4_t color, const char *value)
+{
+	float x = item->window.rect.x + item->textalignx + item->xoffset;
+	if (item->textalignment == ITEM_ALIGN_RIGHT)
+	{
+		x -= DC->textWidth(value, item->textscale, item->font);
+	}
+	else if (item->textalignment == ITEM_ALIGN_CENTER)
+	{
+		x -= DC->textWidth(value, item->textscale, item->font) / 2;
+	}
+	DC->drawText(x, item->window.rect.y + item->textaligny, item->textscale, color, value, 0, item->textStyle, item->font);
+}
+
 void Item_YesNo_Paint(itemDef_t *item)
 {
 	vec4_t color;
@@ -8783,7 +8867,7 @@ void Item_YesNo_Paint(itemDef_t *item)
 	}
 	else
 	{
-		DC->drawText(item->textRect.x, item->textRect.y, item->textscale, color, yesnovalue , 0, item->textStyle, item->font);
+		Item_DrawValueInRect(item, color, yesnovalue);
 	}
 
 }
@@ -8831,8 +8915,7 @@ void Item_Multi_Paint(itemDef_t *item)
 	}
 	else
 	{
-//JLF added xoffset
-		DC->drawText(item->textRect.x +item->xoffset, item->textRect.y, item->textscale, color, text, 0, item->textStyle, item->font);
+		Item_DrawValueInRect(item, color, text);
 	}
 }
 
@@ -11417,6 +11500,24 @@ itemDef_t *Menu_SetPrevCursorItem(menuDef_t *menu)
 	return NULL;
 
 }
+// Start the edition of a text field. The cursor goes to the end of the text.
+static void Item_TextField_BeginEdit(itemDef_t *item)
+{
+	char buff[1024] = { 0 };
+	editFieldDef_t *editPtr = (editFieldDef_t*)item->typeData;
+	if (item->cvar)
+	{
+		DC->getCVarString(item->cvar, buff, sizeof(buff));
+	}
+	item->cursorPos = (int)strlen(buff);
+	if (editPtr)
+	{
+		editPtr->paintOffset = (editPtr->maxPaintChars && item->cursorPos > editPtr->maxPaintChars) ? item->cursorPos - editPtr->maxPaintChars : 0;
+	}
+	g_editingField = qtrue;
+	g_editItem = item;
+}
+
 /*
 =================
 Item_TextField_HandleKey
@@ -11577,7 +11678,7 @@ qboolean Item_TextField_HandleKey(itemDef_t *item, int key)
 			newItem = Menu_SetNextCursorItem((menuDef_t *) item->parent);
 			if (newItem && (newItem->type == ITEM_TYPE_EDITFIELD || newItem->type == ITEM_TYPE_NUMERICFIELD))
 			{
-				g_editItem = newItem;
+				Item_TextField_BeginEdit(newItem);
 			}
 		}
 
@@ -11586,7 +11687,7 @@ qboolean Item_TextField_HandleKey(itemDef_t *item, int key)
 			newItem = Menu_SetPrevCursorItem((menuDef_t *) item->parent);
 			if (newItem && (newItem->type == ITEM_TYPE_EDITFIELD || newItem->type == ITEM_TYPE_NUMERICFIELD))
 			{
-				g_editItem = newItem;
+				Item_TextField_BeginEdit(newItem);
 			}
 		}
 
@@ -13711,9 +13812,7 @@ void Menu_HandleKey(menuDef_t *menu, int key, qboolean down)
 				{
 					if (Rect_ContainsPoint(&item->window.rect, DC->cursorx, DC->cursory))
 					{
-						item->cursorPos = 0;
-						g_editingField = qtrue;
-						g_editItem = item;
+						Item_TextField_BeginEdit(item);
 						//DC->setOverstrikeMode(qtrue);
 					}
 				}
@@ -13811,9 +13910,7 @@ void Menu_HandleKey(menuDef_t *menu, int key, qboolean down)
 			{
 				if (item->type == ITEM_TYPE_EDITFIELD || item->type == ITEM_TYPE_NUMERICFIELD)
 				{
-					item->cursorPos = 0;
-					g_editingField = qtrue;
-					g_editItem = item;
+					Item_TextField_BeginEdit(item);
 					//DC->setOverstrikeMode(qtrue);
 				}
 				else

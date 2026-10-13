@@ -44,7 +44,7 @@ typedef uint64_t VkSurfaceKHR;
 #endif // VULKAN_CORE_H_
 #endif // OPENJK_VK_HANDLES_DECLARED
 
-#define	REF_API_VERSION		19
+#define	REF_API_VERSION		20
 
 typedef struct {
 	void				(QDECL *Printf)						( int printLevel, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
@@ -410,6 +410,10 @@ typedef struct {
 
 	// Editor of the cloth and hair physics (.phys). NULL when the renderer has none.
 	int			(*PhysCommand)(const char *cmd, const char *arg, char *out, int outSize);
+
+	// Returns the table of a named extension, or NULL when the renderer does not have it.
+	// See rtx_light_edit_api.h.
+	void		*(*GetExtension)(const char *name);
 } refexport_t;
 
 // this is the only function actually exported at the linker level

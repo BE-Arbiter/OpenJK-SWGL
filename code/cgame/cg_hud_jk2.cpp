@@ -89,6 +89,22 @@ qboolean CG_JK2HudActive( void )
 
 /*
 ================
+CG_WarnJK2HudMissing
+
+The JK2 HUD is chosen but its assets are missing: the default HUD is drawn.
+cg_hudFiles is not changed, so the choice is kept for when the assets are there.
+================
+*/
+static void CG_WarnJK2HudMissing( void )
+{
+	if ( CG_JK2HudRequested() && !CG_JK2HudActive() )
+	{
+		CG_Printf( S_COLOR_YELLOW "JK2 HUD needs the JKO assets, using default\n" );
+	}
+}
+
+/*
+================
 CG_RegisterJK2Hud
 ================
 */
@@ -99,6 +115,7 @@ void CG_RegisterJK2Hud( void )
 	cgs.media.jk2HudLoaded = qfalse;
 	if ( !cg_validJKO.integer )
 	{
+		CG_WarnJK2HudMissing();
 		return;
 	}
 
@@ -133,6 +150,7 @@ void CG_RegisterJK2Hud( void )
 	cgs.media.jk2HudLoaded = ( cgs.media.jk2HudLeftFrame && cgs.media.jk2HudRightFrame
 		&& cgs.media.jk2HudLeftInner && cgs.media.jk2HudRightInner
 		&& cgs.media.jk2ProngOff && cgs.media.jk2BackgroundWeapon ) ? qtrue : qfalse;
+	CG_WarnJK2HudMissing();
 }
 
 // Left of the gauge is anchored to the left of the screen, right of the gauge to the right

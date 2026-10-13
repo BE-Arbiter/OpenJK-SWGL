@@ -143,6 +143,25 @@ void KillTheShaderHashTable( void )
 	memset(shaderTextHashTable, 0, sizeof(shaderTextHashTable));
 }
 
+static qboolean s_shadersReady;
+static shader_t s_stubShader;
+
+// Drops every shader pointer into the hunk. Called after Hunk_Clear.
+// Leaves one static default shader so server model loads work until R_InitShaders.
+void R_ClearShaderHunkState( void )
+{
+	KillTheShaderHashTable();
+	memset(hashTable, 0, sizeof(hashTable));
+	s_shaderText = NULL;
+	s_shadersReady = qfalse;
+
+	memset(&s_stubShader, 0, sizeof(s_stubShader));
+	Q_strncpyz(s_stubShader.name, "<default>", sizeof(s_stubShader.name));
+	s_stubShader.defaultShader = qtrue;
+	tr.defaultShader = tr.shaders[0] = tr.sortedShaders[0] = &s_stubShader;
+	tr.numShaders = 1;
+}
+
 /*
 ===============
 NameToAFunc
@@ -2799,6 +2818,14 @@ static qboolean ParseShader( const char **text )
 			ParseSort(text);
 			continue;
 		}
+		// hitLocation / hitMaterial: skip the file name argument, as rd-vanilla does
+		else if (!Q_stricmp(token, "hitLocation") || !Q_stricmp(token, "hitMaterial"))
+		{
+			token = COM_ParseExt(text, qfalse);
+			if (token[0] == 0)
+				break;
+			continue;
+		}
 		else
 		{
 			vk_debug("WARNING: unknown general shader parameter '%s' in '%s'\n", token, shader.name);
@@ -3298,7 +3325,7 @@ shader_t *R_FindShader( const char *name, const int *lightmapIndex, const byte *
 	image_t		*image;
 	shader_t	*sh;
 	
-	if (name[0] == '\0') {
+	if (name[0] == '\0' || !s_shadersReady) {
 		return tr.defaultShader;
 	}
 
@@ -3412,7 +3439,7 @@ shader_t *R_FindServerShader( const char *name, const int *lightmapIndex, const 
 
 	vk_debug("find server shader \n");
 
-	if (name[0] == 0) {
+	if (name[0] == 0 || !s_shadersReady) {
 		return tr.defaultShader;
 	}
 
@@ -3766,6 +3793,9 @@ static void FindLightingStage( const int stage ) {
 		const textureBundle_t *b = &st->bundle[0];
 		if ( !st->active ) {
 			break;
+		}
+		if ( st->ss && st->ss->type ) {
+			continue;
 		}
 		if ( b->isLightmap ) {
 			// 1. prefer stages near lightmap
@@ -4762,7 +4792,9 @@ shader_t *FinishShader( void )
 					|| rgbGen == CGEN_LIGHTING_DIFFUSE || rgbGen == CGEN_LIGHTING_DIFFUSE_ENTITY
 					|| rgbGen == CGEN_VERTEX || rgbGen == CGEN_EXACT_VERTEX ) ? qtrue : qfalse;
 
-				if ( vk.pbrActive && def.shader_type >= TYPE_GENERIC_BEGIN && lit && !pStage->bundle[0].isLightmap && albedo )
+				// Between RE_Shutdown and R_Init (a save load registers shaders there), the
+				// images are freed but tr.whiteImage etc. still point to them.
+				if ( tr.inited && vk.pbrActive && def.shader_type >= TYPE_GENERIC_BEGIN && lit && !pStage->bundle[0].isLightmap && albedo )
 				{
 					char imageName[MAX_QPATH];
 					imgFlags_t flags = IMGFLAG_NOLIGHTSCALE;
@@ -4966,7 +4998,7 @@ sortedIndex.
 */
 extern bool gServerSkinHack;
 static void FixRenderCommandList( int newShader ) {
-	if ( gServerSkinHack )
+	if ( gServerSkinHack || !backEndData )
 		return;
 
 	renderCommandList_t *cmdList = &backEndData->commands;
@@ -5020,7 +5052,8 @@ static void FixRenderCommandList( int newShader ) {
 					sortedIndex = (( drawSurf->sort >> QSORT_SHADERNUM_SHIFT ) & SHADERNUM_MASK);
 					if ( sortedIndex >= newShader ) {
 						sortedIndex = shader->sortedIndex;
-						drawSurf->sort = (sortedIndex << QSORT_SHADERNUM_SHIFT) | (entityNum << QSORT_REFENTITYNUM_SHIFT) | ( fogNum << QSORT_FOGNUM_SHIFT ) | (int)dlightMap;
+						drawSurf->sort = ((sortKey_t)sortedIndex << QSORT_SHADERNUM_SHIFT) | ((sortKey_t)entityNum << QSORT_REFENTITYNUM_SHIFT)
+							| ( fogNum << QSORT_FOGNUM_SHIFT ) | (int)dlightMap | ( drawSurf->sort & QSORT_ALPHAFADE_BIT );
 					}
 				}
 				curCmd = (const void *)(ds_cmd + 1);
@@ -5366,6 +5399,7 @@ void R_InitShaders( qboolean server )
 	vk_debug("Initializing Shaders\n");
 
 	memset(hashTable, 0, sizeof(hashTable));
+	s_shadersReady = qtrue;
 
 	if ( !server )
 	{

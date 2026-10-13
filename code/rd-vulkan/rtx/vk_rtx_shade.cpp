@@ -23,6 +23,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 #include "conversion.h"
+#include "rtx_light_edit.h"
+#include "rtx_light_style.h"
+#include "rtx_light_sky.h"
 #include "ghoul2/G2.h"
 
 static int entity_frame_num = 0;
@@ -47,6 +50,7 @@ static const mat4_t g_identity_transform = {
 
 static int			num_model_lights;
 static light_poly_t model_lights[MAX_MODEL_LIGHTS];
+static int			last_model_lights;	// count of the last built frame, read by the light edit
 
 static int			num_accumulated_frames = 0;
 
@@ -1016,6 +1020,13 @@ static qboolean camera_inside_model( const trRefdef_t *refdef, trRefEntity_t *en
 	return qtrue;
 }
 
+// Model lights of the last built frame, for the light edit.
+int vk_rtx_get_model_lights( const light_poly_t **out )
+{
+	*out = model_lights;
+	return last_model_lights;
+}
+
 static void instance_model_lights(int num_light_polys, const light_poly_t* light_polys, const float* transform)
 {
 	for (int nlight = 0; nlight < num_light_polys; nlight++)
@@ -1754,6 +1765,15 @@ static qboolean accumulation_view_unchanged( const trRefdef_t *refdef )
 
 	if ( fabsf( refdef->fov_x - prev_fov_x ) > epsilon || fabsf( refdef->fov_y - prev_fov_y ) > epsilon )
 		same = qfalse;
+
+	// A change of the light list restarts the accumulation too.
+	static int prev_light_generation;
+
+	if ( prev_light_generation != RTX_LightEdit_Generation() )
+	{
+		prev_light_generation = RTX_LightEdit_Generation();
+		same = qfalse;
+	}
 
 	VectorCopy( refdef->vieworg, prev_vieworg );
 	Com_Memcpy( prev_viewaxis, refdef->viewaxis, sizeof( prev_viewaxis ) );
@@ -2896,7 +2916,7 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 	{
 		vk_rtx_evaluate_sun_light( &sun_light, sky_matrix, refdef->time );
 
-		if ( !vkpt_physical_sky_needs_update() )
+		if ( !vkpt_physical_sky_needs_update() && !RTX_LightSky_Hybrid() )
 			sun_light.visible = (qboolean)(sun_light.visible && sun_visible_prev);
 	}
 	
@@ -2940,6 +2960,7 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 		add_dlights(refdef->dlights, refdef->num_dlights, model_lights, &num_model_lights, MAX_MODEL_LIGHTS, tr.world, light_entity_ids[entity_frame_num]);
 	}
 
+	last_model_lights = num_model_lights;
 	update_mlight_prev_to_current();
 
 #if 1
@@ -2974,6 +2995,7 @@ void vk_rtx_begin_scene( trRefdef_t *refdef, drawSurf_t *drawSurfs, int numDrawS
 
 	vk_rtx_animate_materials( refdef );
 	vkpt_light_buffer_upload_to_staging( render_world, tr.world, num_model_lights, model_lights, sky_radiance );
+	RTX_LightStyle_EndFrame();
 
 	float shadowmap_view_proj[16];
 	float shadowmap_depth_scale;

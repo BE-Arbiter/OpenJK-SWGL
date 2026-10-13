@@ -1330,7 +1330,7 @@ void RB_CalcDiffuseEntityColor( unsigned char *colors )
 }
 
 //---------------------------------------------------------
-void RB_CalcDisintegrateColors( unsigned char *colors )
+void RB_CalcDisintegrateColors( unsigned char *colors, colorGen_t rgbGen )
 {
 	int			i, numVertexes;
 	float		dis, threshold;
@@ -1371,25 +1371,52 @@ void RB_CalcDisintegrateColors( unsigned char *colors )
 			else if ( dis < threshold * threshold + 150 )
 			{
 				// darken more
-				colors[i*4+0] = 0x6f;
-				colors[i*4+1] = 0x6f;
-				colors[i*4+2] = 0x6f;
+				if ( rgbGen == CGEN_LIGHTING_DIFFUSE_ENTITY )
+				{
+					colors[i*4+0] = backEnd.currentEntity->e.shaderRGBA[0]*0x6f/255.0f;
+					colors[i*4+1] = backEnd.currentEntity->e.shaderRGBA[1]*0x6f/255.0f;
+					colors[i*4+2] = backEnd.currentEntity->e.shaderRGBA[2]*0x6f/255.0f;
+				}
+				else
+				{
+					colors[i*4+0] = 0x6f;
+					colors[i*4+1] = 0x6f;
+					colors[i*4+2] = 0x6f;
+				}
 				colors[i*4+3] = 0xff;
 			}
 			else if ( dis < threshold * threshold + 180 )
 			{
 				// darken at edge of burn
-				colors[i*4+0] = 0xaf;
-				colors[i*4+1] = 0xaf;
-				colors[i*4+2] = 0xaf;
+				if ( rgbGen == CGEN_LIGHTING_DIFFUSE_ENTITY )
+				{
+					colors[i*4+0] = backEnd.currentEntity->e.shaderRGBA[0]*0xaf/255.0f;
+					colors[i*4+1] = backEnd.currentEntity->e.shaderRGBA[1]*0xaf/255.0f;
+					colors[i*4+2] = backEnd.currentEntity->e.shaderRGBA[2]*0xaf/255.0f;
+				}
+				else
+				{
+					colors[i*4+0] = 0xaf;
+					colors[i*4+1] = 0xaf;
+					colors[i*4+2] = 0xaf;
+				}
 				colors[i*4+3] = 0xff;
 			}
 			else
 			{
 				// not burning at all yet
-				colors[i*4+0] = 0xff;
-				colors[i*4+1] = 0xff;
-				colors[i*4+2] = 0xff;
+				if ( rgbGen == CGEN_LIGHTING_DIFFUSE_ENTITY )
+				{
+					colors[i*4+0] = backEnd.currentEntity->e.shaderRGBA[0];
+					colors[i*4+1] = backEnd.currentEntity->e.shaderRGBA[1];
+					colors[i*4+2] = backEnd.currentEntity->e.shaderRGBA[2];
+				}
+				else
+				{
+					colors[i*4+0] = 0xff;
+					colors[i*4+1] = 0xff;
+					colors[i*4+2] = 0xff;
+				}
 				colors[i*4+3] = 0xff;
 			}
 		}

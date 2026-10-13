@@ -189,13 +189,14 @@ typedef struct {
 	uint32_t	blend_mode;
 } rtx_material_t;
 
-// Class of a world light entity. It picks the pt_light_scale_ent_* cvar. Lights with a material
-// ignore it.
+// Class of a world light entity. Only LIGHT_ENT_EDIT has a scale (pt_light_scale_edit). Lights
+// with a material ignore it.
 enum {
 	LIGHT_ENT_UNSET = 0,	// not yet classified
 	LIGHT_ENT_SPOT,			// the entity has a target
 	LIGHT_ENT_SKY,			// the cluster sees the sky
-	LIGHT_ENT_AMBIENT		// every other light entity
+	LIGHT_ENT_AMBIENT,		// every other light entity
+	LIGHT_ENT_EDIT			// added in the light editor, one scale (pt_light_scale_edit)
 };
 
 typedef struct light_poly_s {
@@ -208,6 +209,7 @@ typedef struct light_poly_s {
 	float			emissive_factor;
 	int				type;
 	int				ent_class;
+	int				surface;		// emissive polygon: index of its world surface, set by collect_light_polys
 } light_poly_t;
 
 // passes information back from the RTX renderer to the engine for various development maros
@@ -532,7 +534,6 @@ uint32_t	vk_rtx_debug_image_index( void );
 // shipped without their light entities. Writes maps/<name>.lgt; nothing reads it yet.
 void		R_LightGen_f( void );
 void		R_LightGen_EnsureForMap( const char *mapname );
-int			R_LightGen_Load( world_t &worldData );
 
 VkDescriptorSet vk_rtx_get_current_desc_set_textures( void);
 
@@ -674,11 +675,13 @@ void		vk_rtx_deform_world_geometry( trRefdef_t *refdef );
 void		vk_rtx_upload_world_deforms( VkCommandBuffer cmd_buf );
 void		vk_rtx_rebuild_world_deforms( VkCommandBuffer cmd_buf );
 mnode_t		*BSP_PointLeaf( mnode_t *node, vec3_t p );
+byte		*BSP_ClusterVis( world_t *bsp, byte *mask, int cluster, int vis );
 byte		*BSP_GetPvs( world_t *bsp, int cluster );
 byte		*BSP_GetPvs2( world_t *bsp, int cluster );
 void		get_triangle_norm( const float* positions, float* normal );
 qboolean	get_triangle_off_center(const float* positions, float* center, float* anti_center, float offset );
 int			vk_get_surface_cluster( world_t &worldData, surfaceType_t *surf );
+float		vk_rtx_light_scale( const light_poly_t *light, qboolean world );
 
 // material
 uint32_t		MAT_SetKind(uint32_t material, uint32_t kind);

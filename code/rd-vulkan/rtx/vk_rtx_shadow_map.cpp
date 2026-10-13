@@ -414,7 +414,18 @@ VkResult vk_rtx_shadow_map_destroy_pipelines( void )
 	return VK_SUCCESS;
 }
 
-VkResult vk_rtx_shadow_map_render( VkCommandBuffer cmd_buf, world_t &worldData, float *view_projection_matrix, 
+// Draws one part of a world geometry. The vertex data is prim_positions_t, as in world_static.
+static void shadow_map_draw_world_part( VkCommandBuffer cmd_buf, const vk_geometry_data_t *geom, const model_geometry_t *part )
+{
+	if ( geom->buffer[0].buffer == VK_NULL_HANDLE || part->prim_counts[0] == 0 )
+		return;
+
+	VkDeviceSize vertex_offset = geom->vertex_data_offset;
+	qvkCmdBindVertexBuffers( cmd_buf, 0, 1, &geom->buffer[0].buffer, &vertex_offset );
+	qvkCmdDraw( cmd_buf, part->prim_counts[0] * 3, 1, part->prim_offsets[0] * 3, 0 );
+}
+
+VkResult vk_rtx_shadow_map_render( VkCommandBuffer cmd_buf, world_t &worldData, float *view_projection_matrix,
 	uint32_t static_offset, uint32_t num_static_verts, 
 	uint32_t dynamic_offset, uint32_t num_dynamic_verts,
 	uint32_t transparent_offset, uint32_t num_transparent_verts )
@@ -475,6 +486,10 @@ VkResult vk_rtx_shadow_map_render( VkCommandBuffer cmd_buf, world_t &worldData, 
 	qvkCmdBindVertexBuffers( cmd_buf, 0, 1, &tr.world->geometry.world_static.buffer[0].buffer, &vertex_offset );
 	qvkCmdDraw( cmd_buf, num_static_verts, 1, static_offset, 0 );
 
+	// World surfaces with a tcMod, an animMap or a deform are not in world_static.
+	shadow_map_draw_world_part( cmd_buf, &tr.world->geometry.world_dynamic_material, &tr.world->geometry.world_dynamic_material.geom_opaque );
+	shadow_map_draw_world_part( cmd_buf, &tr.world->geometry.world_dynamic_geometry, &tr.world->geometry.world_dynamic_geometry.geom_opaque );
+
 	vertex_offset = 0;
 	qvkCmdBindVertexBuffers(cmd_buf, 0, 1, &vk.buf_positions_instanced.buffer, &vertex_offset);
 	qvkCmdDraw(cmd_buf, num_dynamic_verts, 1, dynamic_offset, 0);
@@ -505,6 +520,9 @@ VkResult vk_rtx_shadow_map_render( VkCommandBuffer cmd_buf, world_t &worldData, 
 	qvkCmdBindVertexBuffers(cmd_buf, 0, 1, &tr.world->geometry.world_static.buffer[0].buffer, &vertex_offset);
 
 	qvkCmdDraw(cmd_buf, num_transparent_verts, 1, transparent_offset, 0);
+
+	shadow_map_draw_world_part( cmd_buf, &tr.world->geometry.world_dynamic_material, &tr.world->geometry.world_dynamic_material.geom_transparent );
+	shadow_map_draw_world_part( cmd_buf, &tr.world->geometry.world_dynamic_geometry, &tr.world->geometry.world_dynamic_geometry.geom_transparent );
 
 	qvkCmdEndRenderPass( cmd_buf );
 

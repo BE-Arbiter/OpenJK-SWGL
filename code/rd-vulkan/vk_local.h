@@ -128,8 +128,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 //#define MIN_IMAGE_ALIGN				( 128 * 1024 )
 
-#define VERTEX_BUFFER_SIZE				( 4 * 1024 * 1024 )		/* by default */
-#define VERTEX_BUFFER_SIZE_HI			( 8 * 1024 * 1024 )
+#define VERTEX_BUFFER_SIZE				( 16 * 1024 * 1024 )		/* by default */
+#define VERTEX_BUFFER_SIZE_HI			( 32 * 1024 * 1024 )
 
 #define STAGING_BUFFER_SIZE				( 2 * 1024 * 1024 )		/* by default */
 #define STAGING_BUFFER_SIZE_HI			( 24 * 1024 * 1024 )	/* enough for max.texture size upload with all mip levels at */
@@ -461,6 +461,7 @@ extern PFN_vkGetRayTracingShaderGroupHandlesKHR				qvkGetRayTracingShaderGroupHa
 
 extern PFN_vkBindBufferMemory2								qvkBindBufferMemory2;
 extern PFN_vkCmdFillBuffer									qvkCmdFillBuffer;
+extern PFN_vkCmdUpdateBuffer								qvkCmdUpdateBuffer;
 
 extern PFN_vkCreateBufferView								qvkCreateBufferView;
 extern PFN_vkDestroyBufferView								qvkDestroyBufferView;
@@ -1839,6 +1840,7 @@ void		R_MipMap2( unsigned* const out, unsigned* const in, int inWidth, int inHei
 void		vk_texture_mode( const char *string, const qboolean init );
 void		vk_destroy_samplers( void );
 VkSampler	vk_find_sampler( const Vk_Sampler_Def *def );
+VkDescriptorSet	vk_get_nearest_descriptor( const struct image_s *image, VkDescriptorSet set, VkSampler *cachedSampler );
 void		vk_delete_textures( void );
 #if 0
 void		vk_record_buffer_memory_barrier( VkCommandBuffer cb, VkBuffer buffer, 

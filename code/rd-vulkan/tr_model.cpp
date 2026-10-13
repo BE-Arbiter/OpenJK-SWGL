@@ -831,7 +831,7 @@ static qhandle_t RE_RegisterModel_Actual( const char *name ) {
 	}
 
 	if ( strlen( name ) >= MAX_QPATH ) {
-		ri.Printf( PRINT_ALL, "Model name exceeds MAX_QPATH\n" );
+		ri.Printf(PRINT_ALL, "Model name exceeds MAX_QPATH: %s\n", name );
 		return 0;
 	}
 
@@ -1273,14 +1273,55 @@ void R_ModelInit( void )
 	mod->type = MOD_BAD;
 }
 
-extern void KillTheShaderHashTable( void );
+extern void R_ClearShaderHunkState( void );
+// Resets every renderer pointer into the hunk. Hunk_Clear frees the hunk without notice.
 void RE_HunkClearCrap( void )
-{ //get your dirty sticky assets off me, you damn dirty hunk!
-	KillTheShaderHashTable();
-	tr.numModels = 0;
-	CModelCache->DeleteAll();
+{
+	memset( tr.models, 0, sizeof( tr.models ) );
+	memset( tr.shaders, 0, sizeof( tr.shaders ) );
+	memset( tr.sortedShaders, 0, sizeof( tr.sortedShaders ) );
 	tr.numShaders = 0;
+	memset( tr.skins, 0, sizeof( tr.skins ) );
 	tr.numSkins = 0;
+
+	tr.defaultShader = tr.whiteShader = tr.cinematicShader = tr.beamShader = NULL;
+	tr.shadowShader = tr.distortionShader = tr.projectionShadowShader = NULL;
+	tr.flareShader = tr.sunShader = NULL;
+
+	tr.world = NULL;
+	tr.worldMapLoaded = qfalse;
+	memset( tr.bspModels, 0, sizeof( tr.bspModels ) );
+	tr.numBSPModels = 0;
+	tr.numLightmaps = 0;
+	tr.lightmaps = NULL;
+#ifdef USE_VK_PBR
+	tr.deluxemaps = NULL;
+#endif
+#ifdef VK_CUBEMAP
+	tr.numCubemaps = 0;
+	tr.cubemaps = NULL;
+#endif
+
+	memset( tr.vbos, 0, sizeof( tr.vbos ) );
+	memset( tr.ibos, 0, sizeof( tr.ibos ) );
+	tr.numVBOs = 0;
+	tr.numIBOs = 0;
+#ifdef _G2_GORE
+	tr.goreVBO = NULL;
+	tr.goreIBO = NULL;
+#endif
+#ifdef USE_VBO_SS
+	tr.ss.groups_count = 0;
+	tr.ss.vbo = NULL;
+	tr.ss.ibo = NULL;
+#endif
+
+	backEndData = NULL;
+
+	// Server model and skin loads run before R_Init and need a valid empty state.
+	R_ClearShaderHunkState();
+	R_ModelInit();
+	R_InitSkins();
 }
 
 
@@ -1314,6 +1355,11 @@ void R_Modellist_f( void ) {
 		ri.Printf( PRINT_ALL, "\n%8i : %s\n", tr.world->dataSize, tr.world->name );
 	}
 #endif
+}
+
+void RE_RegisterModels_Info_f( void )
+{
+	CModelCache->PrintInfo();
 }
 
 //=============================================================================

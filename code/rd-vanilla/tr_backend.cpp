@@ -649,7 +649,7 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	int				depthRange, oldDepthRange;
 	int				i;
 	drawSurf_t		*drawSurf;
-	unsigned int	oldSort;
+	sortKey_t		oldSort;
 	float			originalTime;
 	trRefEntity_t	*curEnt;
 	postRender_t	*pRender;
@@ -673,7 +673,7 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	oldFogNum = -1;
 	oldDepthRange = qfalse;
 	oldDlighted = qfalse;
-	oldSort = (unsigned int) -1;
+	oldSort = ~(sortKey_t)0;
 	depthRange = qfalse;
 
 	backEnd.pc.c_surfaces += numDrawSurfs;
@@ -744,7 +744,7 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 				fogNum = oldFogNum;
 				dlighted = oldDlighted;
 
-				oldSort = (unsigned int)-1; //invalidate this thing, cause we may want to postrender more surfs of the same sort
+				oldSort = ~(sortKey_t)0; //invalidate this thing, cause we may want to postrender more surfs of the same sort
 
 				//continue without bothering to begin a draw surf
 				continue;

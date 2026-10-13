@@ -23,6 +23,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "tr_local.h"
 #include "conversion.h"
+#include "rtx_light_edit.h"
+#include "rtx_light_file.h"
+#include <algorithm>
 #include <vector>
 #include <unordered_map>
 
@@ -377,14 +380,6 @@ mnode_t *BSP_PointLeaf( mnode_t *node, vec3_t p )
 
 }
 
-static void merge_pvs_rows( world_t* world, char* src, char* dst )
-{
-	for (int i = 0; i < world->clusterBytes; i++)
-	{
-		dst[i] |= src[i];
-	}
-}
-
 int vk_get_surface_cluster( world_t &worldData, surfaceType_t *surf ) 
 {
 	int i, j;
@@ -416,25 +411,6 @@ int vk_get_surface_cluster( world_t &worldData, surfaceType_t *surf )
 				int VAR = (_byte_idx << 3) | _bit_idx;
 
 #define FOREACH_BIT_END  } } } }
-
-static void build_pvs2( world_t *world )
-{
-	size_t matrix_size = world->clusterBytes * world->numClusters;
-
-	world->vis2 = (const byte*)Z_Malloc(matrix_size, qtrue);
-
-	for (int cluster = 0; cluster < world->numClusters; cluster++)
-	{
-		char* pvs = (char*)world->vis + cluster * world->clusterBytes;
-		char* dest_pvs = (char*)world->vis2 + cluster * world->clusterBytes;
-		memcpy(dest_pvs, pvs, world->clusterBytes);
-
-		FOREACH_BIT_BEGIN(pvs, world->clusterBytes, vis_cluster)
-			char* pvs2 = (char*)world->vis + vis_cluster * world->clusterBytes;
-			merge_pvs_rows(world, pvs2, dest_pvs);
-		FOREACH_BIT_END
-	}
-}
 
 // Computes a point at a small distance above the center of the triangle.
 // Returns qfalse if the triangle is degenerate, qtrue otherwise.
@@ -1299,23 +1275,30 @@ static void collect_light_polys( world_t &worldData, int model_idx, int* num_lig
 		if ( model_idx < 0 && belongs_to_model( worldData, surf ) )
 			continue;
 
+		const int first_light = *num_lights;
+
 		face = (srfSurfaceFace_t *)surf->data;
 		if ( face->surfaceType == SF_FACE ) {
 			collect_face_light_polys(  face, surf->shader, worldData, model_idx, num_lights, allocated_lights, lights );
-			continue;
+		}
+		else
+		{
+			tris = (srfTriangles_t *)surf->data;
+			if ( tris->surfaceType == SF_TRIANGLES) {
+				collect_tri_light_polys( tris, surf->shader , worldData, model_idx, num_lights, allocated_lights, lights );
+			}
+			else
+			{
+				grid = (srfGridMesh_t *)surf->data;
+				if ( grid->surfaceType == SF_GRID ) {
+					collect_grid_light_polys(  grid, surf->shader, worldData, model_idx, num_lights, allocated_lights, lights );
+				}
+			}
 		}
 
-		tris = (srfTriangles_t *)surf->data;
-		if ( tris->surfaceType == SF_TRIANGLES) {
-			collect_tri_light_polys( tris, surf->shader , worldData, model_idx, num_lights, allocated_lights, lights );
-			continue;
-		}
-
-		grid = (srfGridMesh_t *)surf->data;
-		if ( grid->surfaceType == SF_GRID ) { 
-			collect_grid_light_polys(  grid, surf->shader, worldData, model_idx, num_lights, allocated_lights, lights );
-			continue;
-		}
+		// The light edit groups the polygons by surface.
+		for ( int light = first_light; light < *num_lights; light++ )
+			(*lights)[light].surface = (int)i;
 	}
 }
 
@@ -1442,6 +1425,7 @@ static int collect_entity_lights( world_t &worldData )
 	int			in_solid = 0;
 	int			entities = 0;
 	int			lightish = 0;
+	int			light_rank = 0;		// index among all `light` entities, kept or not
 
 	if ( !p )
 	{
@@ -1466,12 +1450,14 @@ static int collect_entity_lights( world_t &worldData )
 		qboolean	is_light = qfalse;
 		qboolean	is_spot = qfalse;
 		qboolean	has_origin = qfalse;
+		int			rank = -1;
 		char		targetname[64] = "";
 		char		target[64] = "";
 		float		spot_radius = SPOT_DEFAULT_RADIUS;
 		vec3_t		origin = { 0.0f, 0.0f, 0.0f };
 		vec3_t		color = { 1.0f, 1.0f, 1.0f };
 		float		intensity = 300.0f;	// q3map2's default when the key is absent
+		int			style = 0;
 
 		while ( 1 )
 		{
@@ -1492,6 +1478,9 @@ static int collect_entity_lights( world_t &worldData )
 			if ( !Q_stricmp( keyname, "classname" ) )
 			{
 				is_light = (qboolean)( Q_stricmp( value, "light" ) == 0 );
+
+				if ( is_light )
+					rank = light_rank++;
 
 				// Anything light-ish, so the log can tell "my parser is broken" from
 				// "q3map2 stripped the light entities out of this BSP".
@@ -1516,6 +1505,8 @@ static int collect_entity_lights( world_t &worldData )
 				has_origin = (qboolean)( sscanf( value, "%f %f %f", &origin[0], &origin[1], &origin[2] ) == 3 );
 			else if ( !Q_stricmp( keyname, "light" ) || !Q_stricmp( keyname, "_light" ) )
 				intensity = atof( value );
+			else if ( !Q_stricmp( keyname, "style" ) )
+				style = MAX( 0, MIN( atoi( value ), RTX_LSTYLE_MAX - 1 ) );
 			else if ( !Q_stricmp( keyname, "_color" ) || !Q_stricmp( keyname, "color" ) )
 				sscanf( value, "%f %f %f", &color[0], &color[1], &color[2] );
 		}
@@ -1545,6 +1536,7 @@ static int collect_entity_lights( world_t &worldData )
 		if ( cluster < 0 )
 		{
 			in_solid++;
+			RTX_LightEdit_SetLoadedStyle( RTX_LightEdit_RegisterLoaded( RTX_LSRC_ENTITY, rank, origin, color, intensity, -1, 0.0f, 0.0f ), style );
 			continue;
 		}
 
@@ -1560,7 +1552,7 @@ static int collect_entity_lights( world_t &worldData )
 
 		// A sphere light's irradiance is colour * r^2 / d^2, so dividing the colour by
 		// r^2 here makes the emitter's size irrelevant at a distance. copy_light applies
-		// the pt_light_scale_ent_* cvars at each frame.
+		// pt_light_scale_edit at each frame for an added light.
 		VectorScale( color, intensity
 			/ ( ENTITY_LIGHT_RADIUS * ENTITY_LIGHT_RADIUS ), light->color );
 
@@ -1568,7 +1560,7 @@ static int collect_entity_lights( world_t &worldData )
 		light->type = LIGHT_SPHERE;
 		light->emissive_factor = 1.0f;
 		light->material = NULL;
-		light->style = 0;
+		light->style = style;
 		light->ent_class = is_spot ? LIGHT_ENT_SPOT : LIGHT_ENT_UNSET;
 
 		if ( is_spot )
@@ -1580,6 +1572,9 @@ static int collect_entity_lights( world_t &worldData )
 			s.radius = spot_radius > 0.0f ? spot_radius : SPOT_DEFAULT_RADIUS;
 			spots.push_back( s );
 		}
+
+		RTX_LightEdit_SetLoadedStyle( RTX_LightEdit_RegisterLoaded( RTX_LSRC_ENTITY, rank, origin, color, intensity,
+			worldData.num_light_polys - 1, 0.0f, 0.0f ), style );
 
 		added++;
 	}
@@ -1619,68 +1614,193 @@ static int collect_entity_lights( world_t &worldData )
 	return added;
 }
 
-static void collect_cluster_lights( world_t &worldData )
+// A rough sampling weight of a light for a cluster: light_sampling_mass of light_lists.h at the point
+// of the cluster box nearest to the light, without the BRDF, the light style and the shadow statistics.
+static float light_cluster_weight( const light_poly_t *light, float lum, const aabb_t *aabb )
 {
-#define MAX_LIGHTS_PER_CLUSTER 1024
-	int *cluster_lights = (int *)Z_Malloc( MAX_LIGHTS_PER_CLUSTER * worldData.numClusters * sizeof(int), TAG_GENERAL, qfalse );
-	int *cluster_light_counts = (int *)Z_Malloc( worldData.numClusters * sizeof(int), TAG_GENERAL, qtrue );
+	vec3_t center, nearest, d;
 
-	// Construct an array of visible lights for each cluster.
-	// The array is in `cluster_lights`, with MAX_LIGHTS_PER_CLUSTER stride.
+	if ( light->type == LIGHT_POLYGON )
+	{
+		VectorAdd( light->positions + 0, light->positions + 3, center );
+		VectorAdd( center, light->positions + 6, center );
+		VectorScale( center, 1.0f / 3.0f, center );
+	}
+	else
+		VectorCopy( light->positions + 0, center );
 
+	for ( int i = 0; i < 3; i++ )
+		nearest[i] = Com_Clamp( aabb->mins[i], aabb->maxs[i], center[i] );
+
+	VectorSubtract( center, nearest, d );
+	const float dist2 = MAX( DotProduct( d, d ), 16.0f * 16.0f );	// a light in the cluster is near, not infinite
+
+	float solid_angle;
+	if ( light->type == LIGHT_POLYGON )
+	{
+		vec3_t e1, e2, n;
+		VectorSubtract( light->positions + 3, light->positions + 0, e1 );
+		VectorSubtract( light->positions + 6, light->positions + 0, e2 );
+		CrossProduct( e1, e2, n );
+		solid_angle = 0.5f * VectorLength( n ) / dist2;
+	}
+	else if ( light->type == LIGHT_SPHERE )
+		solid_angle = M_PI * light->positions[3] * light->positions[3] / dist2;
+	else
+		solid_angle = 2.0f / dist2;
+
+	return lum * MIN( solid_angle, 2.0f * (float)M_PI );
+}
+
+// The static light lists take at most this part of the light list buffer: the model lights take the rest each frame.
+#define STATIC_LIGHT_LIST_NODES		( MAX_LIGHT_LIST_NODES / 2 )
+
+// Gives the number of clusters whose list was cut. A quiet call prints nothing.
+// A cluster takes the lights of the clusters in its PVS. When the lists do not fit in
+// STATIC_LIGHT_LIST_NODES, or a list is longer than RTX_MAX_LIGHTS_PER_CLUSTER, a cluster
+// keeps the lights with the largest light_cluster_weight.
+static int collect_cluster_lights( world_t &worldData, qboolean quiet = qfalse )
+{
+	const int num_clusters = worldData.numClusters;
+	std::vector<int> counts( num_clusters + 1, 0 );
+	std::vector<int> offsets( num_clusters + 1, 0 );
+	std::vector<int> candidates;
+
+	// Pass 0 counts the lights of each cluster, pass 1 writes them.
+	for ( int pass = 0; pass < 2; pass++ )
+	{
+		if ( pass == 1 )
+		{
+			for ( int c = 0; c < num_clusters; c++ )
+				offsets[c + 1] = offsets[c] + counts[c];
+
+			candidates.resize( offsets[num_clusters] );
+			std::fill( counts.begin(), counts.end(), 0 );
+		}
+
+		int *count = counts.data();
+		int *list = candidates.data();
+
+		for ( int nlight = 0; nlight < worldData.num_light_polys; nlight++ )
+		{
+			light_poly_t *light = worldData.light_polys + nlight;
+
+			if ( light->cluster < 0 )
+				continue;
+
+			const byte *pvs = (const byte*)BSP_GetPvs( &worldData, light->cluster );
+			if ( !pvs )
+				continue;
+
+			FOREACH_BIT_BEGIN( pvs, worldData.clusterBytes, other_cluster )
+				if ( other_cluster < num_clusters && light_affects_cluster( light, worldData.cluster_aabbs + other_cluster ) )
+				{
+					if ( pass == 1 )
+						list[offsets[other_cluster] + count[other_cluster]] = nlight;
+					count[other_cluster]++;
+				}
+			FOREACH_BIT_END
+		}
+	}
+
+	// The largest list length that fits in the buffer.
+	auto total_for = [&]( int cap ) -> long long
+	{
+		long long total = 0;
+		for ( int c = 0; c < num_clusters; c++ )
+			total += MIN( counts[c], cap );
+		return total;
+	};
+
+	const long long total_all = offsets[num_clusters];
+	int cap = RTX_MAX_LIGHTS_PER_CLUSTER;
+
+	if ( total_for( cap ) > STATIC_LIGHT_LIST_NODES )
+	{
+		int lo = 1, hi = cap;
+		while ( lo < hi )
+		{
+			const int mid = ( lo + hi + 1 ) / 2;
+			if ( total_for( mid ) <= STATIC_LIGHT_LIST_NODES )
+				lo = mid;
+			else
+				hi = mid - 1;
+		}
+		cap = lo;
+	}
+
+	// The luminance of each light, with the scale of the light buffer.
+	std::vector<float> lums( worldData.num_light_polys );
 	for ( int nlight = 0; nlight < worldData.num_light_polys; nlight++ )
 	{
-		light_poly_t *light = worldData.light_polys + nlight;
-
-		if ( light->cluster < 0 )
-			continue;
-
-		const byte *pvs = (const byte*)BSP_GetPvs( &worldData, light->cluster);
-
-		FOREACH_BIT_BEGIN( pvs, worldData.clusterBytes, other_cluster )
-			aabb_t *cluster_aabb = worldData.cluster_aabbs + other_cluster;
-			if (light_affects_cluster(light, cluster_aabb))
-			{
-				int *num_cluster_lights = cluster_light_counts + other_cluster;
-				if ( *num_cluster_lights < MAX_LIGHTS_PER_CLUSTER )
-				{
-					cluster_lights[other_cluster * MAX_LIGHTS_PER_CLUSTER + *num_cluster_lights] = nlight;
-					(*num_cluster_lights)++;
-				}
-			}
-		FOREACH_BIT_END
+		const light_poly_t *light = worldData.light_polys + nlight;
+		lums[nlight] = fabsf( 0.299f * light->color[0] + 0.587f * light->color[1] + 0.114f * light->color[2] ) * vk_rtx_light_scale( light, qtrue );
 	}
 
-	// Count the total number of cluster <-> light relations to allocate memory
-	worldData.num_cluster_lights = 0;
-	for (int cluster = 0; cluster < worldData.numClusters; cluster++)
-	{
-		worldData.num_cluster_lights += cluster_light_counts[cluster];
-	}
+	worldData.num_cluster_lights = (int)total_for( cap );
+	worldData.cluster_lights = (int*)Z_Malloc( MAX( 1, worldData.num_cluster_lights ) * sizeof(int), TAG_GENERAL, qtrue );
+	worldData.cluster_light_offsets = (int*)Z_Malloc( ( num_clusters + 1 ) * sizeof(int), TAG_GENERAL, qtrue );
 
-	worldData.cluster_lights = (int*)Z_Malloc(worldData.num_cluster_lights * sizeof(int), TAG_GENERAL, qtrue );
-	worldData.cluster_light_offsets = (int*)Z_Malloc((worldData.numClusters + 1) * sizeof(int), TAG_GENERAL, qtrue );
-
-	Com_Printf( S_COLOR_MAGENTA "\n\n\nTotal interactions: %d,\n\n", worldData.num_cluster_lights );
-
-	// Compact the previously constructed array into worldData.cluster_lights
+	std::vector< std::pair<float, int> > ranked;
+	int cut_clusters = 0;
 	int list_offset = 0;
-	for ( int cluster = 0; cluster < worldData.numClusters; cluster++ )
-	{
-		assert(list_offset >= 0);
-		worldData.cluster_light_offsets[cluster] = list_offset;
-		int count = cluster_light_counts[cluster];
-		memcpy(
-			worldData.cluster_lights + list_offset, 
-			cluster_lights + MAX_LIGHTS_PER_CLUSTER * cluster, 
-			count * sizeof(int));
-		list_offset += count;
-	}
-	worldData.cluster_light_offsets[worldData.numClusters] = list_offset;
 
-	Z_Free(cluster_lights);
-	Z_Free(cluster_light_counts);
-#undef MAX_LIGHTS_PER_CLUSTER
+	for ( int c = 0; c < num_clusters; c++ )
+	{
+		const int *src = candidates.data() + offsets[c];
+		int *dst = worldData.cluster_lights + list_offset;
+		const int count = counts[c];
+
+		worldData.cluster_light_offsets[c] = list_offset;
+
+		if ( count <= cap )
+		{
+			memcpy( dst, src, count * sizeof(int) );
+			list_offset += count;
+			continue;
+		}
+
+		// Keep the `cap` strongest lights, in the order of the light index.
+		const aabb_t *aabb = worldData.cluster_aabbs + c;
+		ranked.resize( count );
+		for ( int i = 0; i < count; i++ )
+			ranked[i] = std::make_pair( -light_cluster_weight( worldData.light_polys + src[i], lums[src[i]], aabb ), src[i] );
+
+		std::nth_element( ranked.begin(), ranked.begin() + cap, ranked.end() );
+		for ( int i = 0; i < cap; i++ )
+			dst[i] = ranked[i].second;
+		std::sort( dst, dst + cap );
+
+		list_offset += cap;
+		cut_clusters++;
+	}
+	worldData.cluster_light_offsets[num_clusters] = list_offset;
+
+	if ( !quiet )
+	{
+		Com_Printf( S_COLOR_MAGENTA "\n\n\nTotal interactions: %d,\n\n", worldData.num_cluster_lights );
+
+		if ( cut_clusters )
+			Com_Printf( S_COLOR_YELLOW "rtx: %lld light list entries for %d entries of room: %d lights per cluster at most, %d of %d lists cut to their strongest lights\n",
+				total_all, STATIC_LIGHT_LIST_NODES, cap, cut_clusters, num_clusters );
+	}
+
+	return cut_clusters;
+}
+
+// Frees the previous lists first. Used by the light editor.
+int vk_rtx_rebuild_cluster_lights( world_t &worldData, qboolean quiet )
+{
+	if ( worldData.cluster_lights )
+		Z_Free( worldData.cluster_lights );
+
+	if ( worldData.cluster_light_offsets )
+		Z_Free( worldData.cluster_light_offsets );
+
+	worldData.cluster_lights = NULL;
+	worldData.cluster_light_offsets = NULL;
+
+	return collect_cluster_lights( worldData, quiet );
 }
 
 // A surface that only Force Sight shows goes to its own BLAS, which the TLAS holds only while Force Sight is on.
@@ -2310,11 +2430,12 @@ static void vk_rtx_collect_surfaces( uint32_t *prim_ctr, vk_geometry_data_t *geo
 			{	// ~sunny, debug
 				// A glass shader that blends is composed with its GL factors as a layer in
 				// primary_rays. The Q2RTX glass refracts and reflects it like a mirror.
-				if ( strstr( shader->name, "glass" ) && ( !mat || mat->blend_mode == RTX_BLEND_OPAQUE ) )
-					material_id = MAT_SetKind(material_id, MATERIAL_KIND_GLASS);
+				// Disabled: name rules of the reflection test.
+				//if ( strstr( shader->name, "glass" ) && ( !mat || mat->blend_mode == RTX_BLEND_OPAQUE ) )
+				//	material_id = MAT_SetKind(material_id, MATERIAL_KIND_GLASS);
 
-				if ( strstr( shader->name, "botton") || strstr( shader->name, "door02") ) 
-					material_id = MAT_SetKind(material_id, MATERIAL_KIND_GLASS);
+				//if ( strstr( shader->name, "botton") || strstr( shader->name, "door02") )
+				//	material_id = MAT_SetKind(material_id, MATERIAL_KIND_GLASS);
 
 				//if ( shader->sort == SS_PORTAL && strstr( shader->name, "mirror" ) != NULL ) 
 				//	material_id |= MATERIAL_FLAG_MIRROR;
@@ -2769,7 +2890,7 @@ void vk_rtx_rebuild_world_deforms( VkCommandBuffer cmd_buf )
 		geom->host.num_deform_copies, geom->host.deform_copies );
 
 	BUFFER_BARRIER( cmd_buf, VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
 		geom->buffer[0].buffer, 0, VK_WHOLE_SIZE );
 
 	build_model_blas( cmd_buf, &geom->geom_opaque, geom->vertex_data_offset, &geom->buffer[0] );
@@ -2977,7 +3098,7 @@ static void classify_entity_lights( world_t &worldData )
 	{
 		light_poly_t *light = worldData.light_polys + i;
 
-		if ( light->material )
+		if ( light->material || light->ent_class == LIGHT_ENT_EDIT )
 			continue;
 
 		if ( light->ent_class != LIGHT_ENT_SPOT )
@@ -3175,8 +3296,6 @@ void R_PreparePT( world_t &worldData )
 	}
 	world_submodels->num_primitives = prim_ctr;
 
-	build_pvs2( &worldData );
-
 	for ( i = 0; i < worldData.num_bmodels; i++ ) 
 	{
 		bmodel_t *bmodel = &worldData.bmodels[i];
@@ -3197,18 +3316,22 @@ void R_PreparePT( world_t &worldData )
 
 	vk_compute_cluster_aabbs( worldData );
 
+	RTX_LightEdit_Reset( worldData );
+
 	collect_light_polys( worldData, -1, &worldData.num_light_polys, &worldData.allocated_light_polys, &worldData.light_polys );
 
 	Com_Printf( "rtx: %i light polys collected from %i world surfaces\n",
 		worldData.num_light_polys, worldData.numsurfaces );
 
 	// A map that kept its own lights needs no reconstruction. One that did not gets its
-	// lights rebuilt from the baked lightmaps, then loaded.
-	if ( collect_entity_lights( worldData ) == 0 )
-	{
+	// lights rebuilt from the baked lightmaps. The .lgt file is read in both cases: the
+	// lgt lights only when the map has no entity light, the edits always.
+	const int entity_lights = collect_entity_lights( worldData );
+
+	if ( entity_lights == 0 )
 		R_LightGen_EnsureForMap( worldData.baseName );
-		R_LightGen_Load( worldData );
-	}
+
+	RTX_LightFile_Load( worldData, entity_lights > 0 ? qtrue : qfalse );
 
 #ifdef DEBUG_POLY_LIGHTS
 	debug_light_polys->num_primitives = worldData.num_light_polys;
@@ -3254,6 +3377,8 @@ void R_PreparePT( world_t &worldData )
 	vk_debug( "rtx world: sky visibility\n" );
 	compute_sky_visibility( worldData );
 	classify_entity_lights( worldData );
+	RTX_LightEdit_FinalizeLoad( worldData );
+	RTX_LightFile_Apply( worldData );
 
 	vk_debug( "rtx world: light buffers\n" );
 	vkpt_light_buffers_create( worldData  );

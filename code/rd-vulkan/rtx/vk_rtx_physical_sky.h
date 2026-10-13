@@ -86,6 +86,7 @@ int			active_sun_preset( void );
 void		vkpt_physical_sky_latch_local_time( void );
 void		vk_rtx_reset_envmap( void );
 qboolean	vkpt_physical_sky_needs_update( void );
+qboolean	vkpt_physical_sky_current_sun( float *azimuth, float *elevation );
 VkResult	vkpt_physical_sky_record_cmd_buffer( VkCommandBuffer cmd_buf );
 
 void		physical_sky_cvar_changed( void );

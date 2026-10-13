@@ -1992,6 +1992,13 @@ typedef enum //# animNumber_e
 	BOTH_SABERTAVION_STANCE,
 	BOTH_SABERDESSAN_STANCE,
 
+	// Melee combo (g_debugMelee)
+	BOTH_MELEE_COMBO_1,		//# Combo 1: first punch
+	BOTH_MELEE_COMBO_2,		//# Combo 2: second punch
+	BOTH_MELEE_COMBO_3,			//# Combo 3: knee strike
+	BOTH_MELEE_COMBO_4,			//# Combo 4: kick
+	BOTH_MELEE_COMBO_5,			//# Combo 5: elbow strike
+
 	//# #eol
 	MAX_ANIMATIONS,
 	MAX_TOTALANIMATIONS,

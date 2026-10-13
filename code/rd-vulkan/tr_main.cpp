@@ -76,7 +76,7 @@ int R_CullLocalBox( const vec3_t bounds[2] ) {
 
 	// check against frustum planes
 	anyBack = 0;
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 5; i++) {
 		frust = &tr.viewParms.frustum[i];
 
 		front = back = 0;
@@ -133,7 +133,7 @@ int R_CullPointAndRadius( const vec3_t pt, float radius )
 	}
 
 	// check against frustum planes
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < 5; i++)
 	{
 		frust = &tr.viewParms.frustum[i];
 
@@ -552,10 +552,13 @@ static void R_SetupFrustum( viewParms_t *dest, const float xmin, const float xma
 		SetPlaneSignbits(&dest->frustum[i]);
 	}
 
-	// near clipping plane
-	VectorCopy(dest->ori.axis[0], dest->frustum[4].normal);
+	// far plane at the cull distance, with a little slack so nothing pops
+	// Views without a world (menus, icons) have no cull distance.
+	const float farDist = ( !tr.world || ( tr.refdef.rdflags & RDF_NOWORLDMODEL ) ) ? 1.0e8f : tr.distanceCull * 1.02f;
+
+	VectorScale(dest->ori.axis[0], -1.0f, dest->frustum[4].normal);
 	dest->frustum[4].type = PLANE_NON_AXIAL;
-	dest->frustum[4].dist = DotProduct(ofsorigin, dest->frustum[4].normal) + r_znear->value;
+	dest->frustum[4].dist = DotProduct(ofsorigin, dest->frustum[4].normal) - farDist;
 	SetPlaneSignbits(&dest->frustum[4]);
 }
 
@@ -1110,30 +1113,43 @@ R_SpriteFogNum
 See if a sprite is inside a fog volume
 =================
 */
-static int R_SpriteFogNum( const trRefEntity_t *ent ) {
-	int		i, j;
-	fog_t	*fog;
+int R_FogNumForSphere( const vec3_t origin, float radius ) {
+	int		partialFog = 0;
 
-	if (tr.refdef.rdflags & RDF_NOWORLDMODEL) {
+	if ( tr.refdef.rdflags & RDF_NOWORLDMODEL ) {
 		return 0;
 	}
 
-	for (i = 1; i < tr.world->numfogs; i++) {
-		fog = &tr.world->fogs[i];
-		for (j = 0; j < 3; j++) {
-			if (ent->e.origin[j] - ent->e.radius >= fog->bounds[1][j]) {
-				break;
-			}
-			if (ent->e.origin[j] + ent->e.radius <= fog->bounds[0][j]) {
-				break;
-			}
-		}
-		if (j == 3) {
+	if ( tr.refdef.doLAGoggles ) {
+		return tr.world->numfogs;
+	}
+
+	for ( int i = 1; i < tr.world->numfogs; i++ ) {
+		const fog_t *fog = &tr.world->fogs[i];
+		const qboolean lowInside = (qboolean)( origin[0] - radius >= fog->bounds[0][0] && origin[1] - radius >= fog->bounds[0][1] && origin[2] - radius >= fog->bounds[0][2]
+			&& origin[0] - radius <= fog->bounds[1][0] && origin[1] - radius <= fog->bounds[1][1] && origin[2] - radius <= fog->bounds[1][2] );
+		const qboolean highInside = (qboolean)( origin[0] + radius >= fog->bounds[0][0] && origin[1] + radius >= fog->bounds[0][1] && origin[2] + radius >= fog->bounds[0][2]
+			&& origin[0] + radius <= fog->bounds[1][0] && origin[1] + radius <= fog->bounds[1][1] && origin[2] + radius <= fog->bounds[1][2] );
+
+		if ( lowInside && highInside ) {
 			return i;
+		}
+		if ( lowInside || highInside ) {
+			// Take a partial volume only when it is the one the view origin is in.
+			if ( tr.refdef.fogIndex == i || R_FogParmsMatch( tr.refdef.fogIndex, i ) ) {
+				return i;
+			}
+			if ( !partialFog ) {
+				partialFog = i;
+			}
 		}
 	}
 
-	return 0;
+	return partialFog;
+}
+
+static int R_SpriteFogNum( const trRefEntity_t *ent ) {
+	return R_FogNumForSphere( ent->e.origin, ent->e.radius );
 }
 
 /*
@@ -1176,23 +1192,27 @@ static QINLINE void R_Radix(int byte, int size, drawSurf_t *source, drawSurf_t *
 ===============
 R_RadixSort
 
-Radix sort with 4 byte size buckets
+Radix sort of the QSORT_BYTES low bytes of the key, one byte per pass
 ===============
 */
 static void R_RadixSort( drawSurf_t *source, int size )
 {
 	static drawSurf_t scratch[MAX_DRAWSURFS];
+	drawSurf_t *from = source, *to = scratch, *t;
+	int i;
+
+	for ( i = 0; i < QSORT_BYTES; i++ ) {
 #ifdef Q3_LITTLE_ENDIAN
-	R_Radix(0, size, source, scratch);
-	R_Radix(1, size, scratch, source);
-	R_Radix(2, size, source, scratch);
-	R_Radix(3, size, scratch, source);
+		R_Radix( i, size, from, to );
 #else
-	R_Radix(3, size, source, scratch);
-	R_Radix(2, size, scratch, source);
-	R_Radix(1, size, source, scratch);
-	R_Radix(0, size, scratch, source);
-#endif //Q3_LITTLE_ENDIAN
+		R_Radix( (int)sizeof(sortKey_t) - 1 - i, size, from, to );
+#endif
+		t = from; from = to; to = t;
+	}
+
+	// an odd number of passes ends in scratch
+	if ( from != source )
+		Com_Memcpy( source, from, size * sizeof( drawSurf_t ) );
 }
 
 #ifdef USE_PMLIGHT
@@ -1310,7 +1330,7 @@ void R_AddLitSurf( surfaceType_t *surface, shader_t *shader, int fogIndex )
 
 	litsurf = &tr.refdef.litSurfs[tr.refdef.numLitSurfs++];
 
-	litsurf->sort = (shader->sortedIndex << QSORT_SHADERNUM_SHIFT)
+	litsurf->sort = ((sortKey_t)shader->sortedIndex << QSORT_SHADERNUM_SHIFT)
 		| tr.shiftedEntityNum | (fogIndex << QSORT_FOGNUM_SHIFT);
 	litsurf->surface = surface;
 
@@ -1328,7 +1348,7 @@ void R_AddLitSurf( surfaceType_t *surface, shader_t *shader, int fogIndex )
 R_DecomposeLitSort
 =================
 */
-void R_DecomposeLitSort( unsigned sort, int *entityNum, shader_t **shader, int *fogNum ) {
+void R_DecomposeLitSort( sortKey_t sort, int *entityNum, shader_t **shader, int *fogNum ) {
 	*fogNum = (sort >> QSORT_FOGNUM_SHIFT) & FOGNUM_MASK;
 	*shader = tr.sortedShaders[(sort >> QSORT_SHADERNUM_SHIFT) & SHADERNUM_MASK];
 	*entityNum = (sort >> QSORT_REFENTITYNUM_SHIFT) & REFENTITYNUM_MASK;
@@ -1371,9 +1391,9 @@ void R_AddDrawSurf( surfaceType_t *surface, shader_t *shader,
 	// instead of checking for overflow, we just mask the index
 	// so it wraps around
 	index = tr.refdef.numDrawSurfs & DRAWSURF_MASK;
-	// the sort data is packed into a single 32 bit value so it can be
-	// compared quickly during the qsorting process
-	tr.refdef.drawSurfs[index].sort = (shader->sortedIndex << QSORT_SHADERNUM_SHIFT)
+	// the sort data is packed into a single 64 bit value so it can be
+	// compared quickly during the sorting process
+	tr.refdef.drawSurfs[index].sort = ((sortKey_t)shader->sortedIndex << QSORT_SHADERNUM_SHIFT)
 		| tr.shiftedEntityNum | (fogIndex << QSORT_FOGNUM_SHIFT) | (int)dlightMap;
 	tr.refdef.drawSurfs[index].surface = surface;
 #ifdef VK_CUBEMAP
@@ -1389,7 +1409,7 @@ void R_AddDrawSurf( surfaceType_t *surface, shader_t *shader,
 R_DecomposeSort
 =================
 */
-void R_DecomposeSort( unsigned sort, int *entityNum, shader_t **shader, 
+void R_DecomposeSort( sortKey_t sort, int *entityNum, shader_t **shader, 
 											int *fogNum, int *dlightMap )
 {
 	*fogNum = ( sort >> QSORT_FOGNUM_SHIFT ) & FOGNUM_MASK;
@@ -1495,15 +1515,15 @@ static void R_AddEntitySurfaces( void ) {
 
 		assert(ent->e.renderfx >= 0);
 #ifdef VK_CUBEMAP
-		ent->cubemapIndex = R_CubemapForPoint( ent->e.origin );
+		ent->cubemapIndex = ( ent->e.reType == RT_MODEL ) ? R_CubemapForPoint( ent->e.origin ) : 0;
 #endif
 		// preshift the value we are going to OR into the drawsurf sort
-		tr.shiftedEntityNum = tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
+		tr.shiftedEntityNum = (sortKey_t)tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
 
 		// RF_ALPHA_FADE must sort after everything else, including the regular alpha
-		// surfaces - rd-vanilla does the same, deliberately avoiding the top bit.
+		// surfaces - rd-vanilla does the same with the top bit of its key.
 		if ( ent->e.renderfx & RF_ALPHA_FADE )
-			tr.shiftedEntityNum |= 0x80000000;
+			tr.shiftedEntityNum |= QSORT_ALPHAFADE_BIT;
 
 		//
 		// the weapon model must be handled special --
@@ -1655,13 +1675,13 @@ static void R_GenerateDrawSurfs( void ) {
 #ifdef USE_VBO_SS
 	if ( tr.ss.groups_count )
 	{
-		tr.shiftedEntityNum = REFENTITYNUM_WORLD << QSORT_REFENTITYNUM_SHIFT;
+		tr.shiftedEntityNum = (sortKey_t)REFENTITYNUM_WORLD << QSORT_REFENTITYNUM_SHIFT;
 
-		srfSprites_t *ss = (srfSprites_t*)Hunk_Alloc(sizeof(srfSprites_t), h_low);
-		ss->surfaceType = SF_SPRITES;
-		R_AddDrawSurf( (surfaceType_t *)ss, tr.shadowShader, 0, 0 );
+		// The surface is only a marker. The backend never writes it.
+		static srfSprites_t ss = { SF_SPRITES };
+		R_AddDrawSurf( (surfaceType_t *)&ss, tr.shadowShader, 0, 0, 0 );
 
-		tr.shiftedEntityNum = tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
+		tr.shiftedEntityNum = (sortKey_t)tr.currentEntityNum << QSORT_REFENTITYNUM_SHIFT;
 	}
 #endif
 }
@@ -1674,6 +1694,43 @@ A view may be either the actual camera view,
 or a mirror / remote location
 ================
 */
+qboolean R_FogParmsMatch( int fog1, int fog2 )
+{
+	for ( int i = 0; i < 2; i++ )
+	{
+		if ( tr.world->fogs[fog1].parms.color[i] != tr.world->fogs[fog2].parms.color[i] )
+		{
+			return qfalse;
+		}
+	}
+	return qtrue;
+}
+
+// Sets tr.refdef.fogIndex to the fog brush that contains the view origin.
+static void R_SetViewFogIndex( void )
+{
+	tr.refdef.fogIndex = 0;
+
+	// Fog 0 is the light amp goggles fog
+	if ( tr.world->numfogs > 1 && ( ri.SV_PointContents( tr.refdef.vieworg, 0 ) & CONTENTS_FOG ) )
+	{
+		for ( int i = 1; i < tr.world->numfogs; i++ )
+		{
+			const fog_t *fog = &tr.world->fogs[i];
+			if ( tr.refdef.vieworg[0] >= fog->bounds[0][0]
+				&& tr.refdef.vieworg[1] >= fog->bounds[0][1]
+				&& tr.refdef.vieworg[2] >= fog->bounds[0][2]
+				&& tr.refdef.vieworg[0] <= fog->bounds[1][0]
+				&& tr.refdef.vieworg[1] <= fog->bounds[1][1]
+				&& tr.refdef.vieworg[2] <= fog->bounds[1][2] )
+			{
+				tr.refdef.fogIndex = i;
+				break;
+			}
+		}
+	}
+}
+
 void R_RenderView( const viewParms_t *parms ) {
 	int		firstDrawSurf;
 	int		numDrawSurfs;
@@ -1693,7 +1750,12 @@ void R_RenderView( const viewParms_t *parms ) {
 	R_RotateForViewer( &tr.ori, &tr.viewParms );
 
 	R_SetupProjection(&tr.viewParms, r_zproj->value, qtrue);
-	
+
+	if ( tr.world && !( tr.refdef.rdflags & RDF_NOWORLDMODEL ) )
+	{
+		R_SetViewFogIndex();
+	}
+
 	R_GenerateDrawSurfs();
 
 	// if we overflowed MAX_DRAWSURFS, the drawsurfs

@@ -32,6 +32,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "tr_WorldEffects.h"
 #include "qcommon/MiniHeap.h"
 #include "tr_cache.h"
+#include "rtx/rtx_light_edit.h"
+#include "rtx/rtx_light_emissive.h"
+#include "rtx/rtx_light_sky.h"
 
 glconfig_t	glConfig;
 glconfigExt_t glConfigExt;
@@ -69,6 +72,7 @@ cvar_t	*r_drawfog;
 cvar_t	*r_speeds;
 cvar_t	*r_fullbright;
 cvar_t	*r_novis;
+cvar_t	*r_visGenerate;
 cvar_t	*r_nocull;
 cvar_t	*r_facePlaneCull;
 cvar_t	*r_cullRoofFaces; //attempted smart method of culling out upwards facing surfaces on roofs for automap shots -rww
@@ -329,12 +333,13 @@ cvar_t	*r_noPrecacheGLA;
 #endif
 
 cvar_t	*r_noServerGhoul2;
+cvar_t	*r_noGhoul2;
 cvar_t	*r_Ghoul2AnimSmooth=0;
 cvar_t	*r_Ghoul2UnSqashAfterSmooth=0;
-//cvar_t	*r_Ghoul2UnSqash;
-//cvar_t	*r_Ghoul2TimeBase=0; from single player
-//cvar_t	*r_Ghoul2NoLerp;
-//cvar_t	*r_Ghoul2NoBlend;
+cvar_t	*r_Ghoul2UnSqash;
+cvar_t	*r_Ghoul2TimeBase=0;
+cvar_t	*r_Ghoul2NoLerp;
+cvar_t	*r_Ghoul2NoBlend;
 cvar_t	*r_Ghoul2BlendMultiplier=0;
 // code/rd-common/tr_font.cpp (shared across all SP renderers) references
 // this as extern -- must be defined by whichever renderer DLL links it in.
@@ -769,6 +774,103 @@ void R_ClearRemaps_f( void ) {
 	}
 }
 
+/*
+==================
+R_FogDistance_f
+
+Prints or sets the opacity distance of the global fog.
+==================
+*/
+static void R_FogDistance_f( void ) {
+	fog_t	*fog;
+	float	distance;
+
+	if ( !tr.world ) {
+		ri.Printf( PRINT_ALL, "R_FogDistance_f: World is not initialized\n" );
+		return;
+	}
+
+	if ( tr.world->globalFog == -1 ) {
+		ri.Printf( PRINT_ALL, "R_FogDistance_f: World does not have a global fog\n" );
+		return;
+	}
+
+	fog = &tr.world->fogs[tr.world->globalFog];
+
+	if ( ri.Cmd_Argc() <= 1 ) {
+		distance = 1.0f / ( 8.0f * fog->tcScale );
+		ri.Printf( PRINT_ALL, "R_FogDistance_f: Current Distance: %.0f\n", distance );
+		return;
+	}
+
+	if ( ri.Cmd_Argc() != 2 ) {
+		ri.Printf( PRINT_ALL, "R_FogDistance_f: Invalid number of arguments to set distance\n" );
+		return;
+	}
+
+	distance = atof( ri.Cmd_Argv( 1 ) );
+	if ( distance < 1.0f ) {
+		distance = 1.0f;
+	}
+
+	// vk_update_fog_constants reads depthForOpaque every frame; tcScale feeds the CPU fog paths.
+	fog->parms.depthForOpaque = distance;
+	fog->tcScale = 1.0f / ( distance * 8 );
+}
+
+/*
+==================
+R_FogColor_f
+
+Prints or sets the color of the global fog.
+==================
+*/
+static void R_FogColor_f( void ) {
+	fog_t	*fog;
+	int		n;
+
+	if ( !tr.world ) {
+		ri.Printf( PRINT_ALL, "R_FogColor_f: World is not initialized\n" );
+		return;
+	}
+
+	if ( tr.world->globalFog == -1 ) {
+		ri.Printf( PRINT_ALL, "R_FogColor_f: World does not have a global fog\n" );
+		return;
+	}
+
+	fog = &tr.world->fogs[tr.world->globalFog];
+
+	if ( ri.Cmd_Argc() <= 1 ) {
+		unsigned	i = fog->colorInt;
+
+		ri.Printf( PRINT_ALL, "R_FogColor_f: Current Color: %0f %0f %0f\n",
+			( (byte *)&i )[0] / 255.0,
+			( (byte *)&i )[1] / 255.0,
+			( (byte *)&i )[2] / 255.0 );
+		return;
+	}
+
+	if ( ri.Cmd_Argc() != 4 ) {
+		ri.Printf( PRINT_ALL, "R_FogColor_f: Invalid number of arguments to set color\n" );
+		return;
+	}
+
+	fog->parms.color[0] = atof( ri.Cmd_Argv( 1 ) );
+	fog->parms.color[1] = atof( ri.Cmd_Argv( 2 ) );
+	fog->parms.color[2] = atof( ri.Cmd_Argv( 3 ) );
+	fog->colorInt = ColorBytes4( fog->parms.color[0] * tr.identityLight,
+								 fog->parms.color[1] * tr.identityLight,
+								 fog->parms.color[2] * tr.identityLight, 1.0f );
+
+	// The fog uniform and the clear color read the float copy.
+	for ( n = 0; n < 4; n++ ) {
+		fog->color[n] = ( ( fog->colorInt >> ( n * 8 ) ) & 255 ) / 255.0f;
+	}
+}
+
+extern void R_ReloadFonts_f( void );
+
 typedef struct consoleCommand_s {
 	const char	*cmd;
 	xcommand_t	func;
@@ -784,10 +886,13 @@ static consoleCommand_t	commands[] = {
 	{ "screenshot_tga",		R_ScreenShot_f },
 	{ "gfxinfo",			GfxInfo_f },
 	{ "r_we",				R_WorldEffect_f },
-	//{ "imagecacheinfo",		RE_RegisterImages_Info_f },
+	{ "imagecacheinfo",		RE_RegisterImages_Info_f },
 	{ "modellist",			R_Modellist_f },
-	{ "ph_reload",			G2Phys_Reload_f },
-	//{ "modelcacheinfo",		RE_RegisterModels_Info_f },
+	{ "ph_reload",				G2Phys_Reload_f },
+	{ "modelcacheinfo",		RE_RegisterModels_Info_f },
+	{ "r_fogDistance",		R_FogDistance_f },
+	{ "r_fogColor",			R_FogColor_f },
+	{ "r_reloadfonts",		R_ReloadFonts_f },
 	{ "r_cleardecals",		RE_ClearDecals },
 	{ "remapSky",			R_RemapSkyShader_f },
 	{ "clearRemaps",		R_ClearRemaps_f },
@@ -795,6 +900,22 @@ static consoleCommand_t	commands[] = {
 	{ "show_pvs",			vk_rtx_show_pvs_f },
 	{ "pt_images",			vk_rtx_list_debug_images_f },
 	{ "pt_lightgen",		R_LightGen_f },
+	{ "pt_ledit_list",		RTX_LightEdit_List_f },
+	{ "pt_ledit_add",		RTX_LightEdit_Add_f },
+	{ "pt_ledit_set",		RTX_LightEdit_Set_f },
+	{ "pt_ledit_del",		RTX_LightEdit_Del_f },
+	{ "pt_ledit_restore",	RTX_LightEdit_Restore_f },
+	{ "pt_ledit_stats",		RTX_LightEdit_Stats_f },
+	{ "pt_ledit_mute",		RTX_LightEdit_Mute_f },
+	{ "pt_ledit_solo",		RTX_LightEdit_Solo_f },
+	{ "pt_ledit_compact",	RTX_LightEdit_Compact_f },
+	{ "pt_ledit_emissive",	RTX_LightEdit_Emissive_f },
+	{ "pt_ledit_dynamic",	RTX_LightEdit_Dynamic_f },
+	{ "pt_ledit_emissive_shaders",	RTX_LightEdit_EmissiveShaders_f },
+	{ "pt_ledit_emissive_scale",	RTX_LightEdit_EmissiveScale_f },
+	{ "pt_sky_print",		RTX_LightSky_Print_f },
+	{ "pt_sky_set",			RTX_LightSky_Set_f },
+	{ "pt_sky_reset",		RTX_LightSky_Reset_f },
 #endif
 	{ "vkinfo",				vk_info_f }
 };
@@ -937,12 +1058,13 @@ void R_Register( void )
 	r_portalOnly						= Cvar_Get( "r_portalOnly",						"0",						CVAR_CHEAT, "" );
 	r_skipBackEnd						= Cvar_Get( "r_skipBackEnd",						"0",						CVAR_CHEAT, "" );
 	r_measureOverdraw					= Cvar_Get( "r_measureOverdraw",					"0",						CVAR_NONE, "" );
-	r_lodscale							= Cvar_Get( "r_lodscale",						"5",						CVAR_ARCHIVE_ND, "" );
+	r_lodscale							= Cvar_Get( "r_lodscale",						"10",						CVAR_ARCHIVE_ND, "" );
 	r_norefresh							= Cvar_Get( "r_norefresh",						"0",						CVAR_CHEAT, "" );
 	r_drawentities						= Cvar_Get( "r_drawentities",					"1",						CVAR_CHEAT, "" );
 	r_ignore							= Cvar_Get( "r_ignore",							"1",						CVAR_CHEAT, "" );
 	r_nocull							= Cvar_Get( "r_nocull",							"0",						CVAR_CHEAT, "" );
 	r_novis								= Cvar_Get( "r_novis",							"0",						CVAR_CHEAT, "" );
+	r_visGenerate						= Cvar_Get( "r_visGenerate",					"1",						CVAR_ARCHIVE_ND, "Generate a PVS for a map without a vis lump, cached in maps/<name>.vis" );
 	r_showcluster						= Cvar_Get( "r_showcluster",						"0",						CVAR_CHEAT, "" );
 	r_speeds							= Cvar_Get( "r_speeds",							"0",						CVAR_CHEAT, "" );
 	r_verbose							= Cvar_Get( "r_verbose",							"0",						CVAR_CHEAT, "" );
@@ -987,7 +1109,7 @@ void R_Register( void )
 	ri.Cvar_CheckRange(r_ext_supersample, 0, 1, qtrue);
 	r_ext_alpha_to_coverage				= Cvar_Get("r_ext_alpha_to_coverage",			"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
 	ri.Cvar_CheckRange(r_ext_alpha_to_coverage, 0, 1, qtrue);
-	r_fbo								= Cvar_Get("r_fbo",								"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
+	r_fbo								= Cvar_Get("r_fbo",								"1",						CVAR_ARCHIVE_ND | CVAR_LATCH, "Render to an offscreen buffer. Dynamic glow, bloom, ambient occlusion, supersampling and cubemaps need it");
 	r_hdr								= Cvar_Get("r_hdr",								"1",						CVAR_ARCHIVE | CVAR_LATCH, "Colour buffer format: 0 = 8-bit, 1 = 16-bit precision. Both clamp at white; a float target would break the destination-reading blend modes this renderer uses - see get_hdr_format()");
 	ri.Cvar_CheckRange(r_hdr, -1, 1, qtrue);
 	r_mapGreyScale						= Cvar_Get("r_mapGreyScale",						"0",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
@@ -1041,7 +1163,7 @@ void R_Register( void )
 	pt_nrd_max_accum					= ri.Cvar_Get("pt_nrd_max_accum",					"30",	CVAR_NONE);
 	pt_nrd_max_fast_accum				= ri.Cvar_Get("pt_nrd_max_fast_accum",				"6",	CVAR_NONE);
 	pt_nrd_prepass_blur					= ri.Cvar_Get("pt_nrd_prepass_blur",				"30",	CVAR_NONE);
-	pt_nrd_antifirefly					= ri.Cvar_Get("pt_nrd_antifirefly",				"0",	CVAR_NONE);
+	pt_nrd_antifirefly					= ri.Cvar_Get("pt_nrd_antifirefly",				"-1",	CVAR_NONE);	// -1: the default of each denoiser
 	pt_nrd_hitdist_recon				= ri.Cvar_Get("pt_nrd_hitdist_recon",				"1",	CVAR_NONE);
 	pt_nrd_direct						= ri.Cvar_Get("pt_nrd_direct",						"1",	CVAR_NONE);
 	// 1: the validation layer of NRD covers the screen (see "VALIDATION" in the NRD README): tiles of normals, roughness, view Z,
@@ -1067,6 +1189,11 @@ void R_Register( void )
 #define UBO_CVAR_DO( _handle, _value ) sun_##_handle = ri.Cvar_Get( #_handle,	#_value, CVAR_NONE);
 	UBO_CVAR_LIST
 #undef UBO_CVAR_DO
+	// The setup menu sets flt_taa, so it must persist. Cvar_Get adds the flag to the existing cvar.
+	ri.Cvar_Get( "flt_taa", "1", CVAR_ARCHIVE_ND );
+	// The setup menu shows the bloom of the tracer before r_rtx takes effect. Same values as vk_rtx_bloom.cpp.
+	ri.Cvar_Get( "pt_bloom", "1", CVAR_ARCHIVE_ND );
+	ri.Cvar_Get( "pt_bloom_intensity", "1.0", CVAR_ARCHIVE_ND );
 
     static char _rgb[3] = {'r', 'g', 'b'};
 
@@ -1120,7 +1247,7 @@ void R_Register( void )
 #ifdef USE_PMLIGHT
 	r_dlightMode						= Cvar_Get("r_dlightMode",						"2",						CVAR_ARCHIVE, "");
 	ri.Cvar_CheckRange(r_dlightMode, 0, 2, qtrue);
-	r_dlightScale						= Cvar_Get("r_dlightScale",						"0.8",						CVAR_ARCHIVE_ND, "");
+	r_dlightScale						= Cvar_Get("r_dlightScale",						"1.0",					CVAR_ARCHIVE_ND, "");
 	ri.Cvar_CheckRange(r_dlightScale, 0.1f, 1, qfalse);
 	r_dlightIntensity					= Cvar_Get("r_dlightIntensity",					"1.0",						CVAR_ARCHIVE_ND, "");
 	ri.Cvar_CheckRange(r_dlightIntensity, 0.1f, 1, qfalse);
@@ -1133,7 +1260,7 @@ void R_Register( void )
 	r_nomip								= Cvar_Get("r_nomip",							"0",						CVAR_ARCHIVE | CVAR_LATCH, "Apply picmip only on worldspawn textures");
 	ri.Cvar_CheckRange(r_nomip, 0, 1, qtrue);
 #ifdef USE_VBO
-	r_vbo								= Cvar_Get("r_vbo",								"0",						CVAR_ARCHIVE | CVAR_LATCH, "Cache static world surfaces");
+	r_vbo								= Cvar_Get("r_vbo",								"1",						CVAR_ARCHIVE | CVAR_LATCH, "Cache static world surfaces");
 	r_vbo_models						= Cvar_Get("r_vbo_models",						"0",						CVAR_ARCHIVE | CVAR_LATCH, "Cache ghoul2 and md3 model surfaces");
 #endif
 	r_renderWidth						= Cvar_Get("r_renderWidth",						"800",						CVAR_ARCHIVE_ND | CVAR_LATCH, "");
@@ -1156,8 +1283,13 @@ Ghoul2 Insert Start
 	r_noPrecacheGLA						= Cvar_Get( "r_noPrecacheGLA",					"0",						CVAR_CHEAT, "" );
 #endif
 	r_noServerGhoul2					= Cvar_Get( "r_noserverghoul2",					"0",						CVAR_CHEAT, "" );
-	r_Ghoul2AnimSmooth					= Cvar_Get( "r_ghoul2animsmooth",				"0.3",						CVAR_NONE, "" );
+	r_noGhoul2							= Cvar_Get( "r_noghoul2",						"0",						CVAR_CHEAT, "" );
+	r_Ghoul2AnimSmooth					= Cvar_Get( "r_ghoul2animsmooth",				"0.25",						CVAR_NONE, "" );
 	r_Ghoul2UnSqashAfterSmooth			= Cvar_Get( "r_ghoul2unsqashaftersmooth",		"1",						CVAR_NONE, "" );
+	r_Ghoul2UnSqash						= Cvar_Get( "r_ghoul2unsquash",					"1",						CVAR_NONE, "" );
+	r_Ghoul2TimeBase					= Cvar_Get( "r_ghoul2timebase",					"2",						CVAR_NONE, "" );
+	r_Ghoul2NoLerp						= Cvar_Get( "r_ghoul2nolerp",					"0",						CVAR_NONE, "" );
+	r_Ghoul2NoBlend						= Cvar_Get( "r_ghoul2noblend",					"0",						CVAR_NONE, "" );
 	r_Ghoul2BlendMultiplier				= Cvar_Get( "r_ghoul2blendmultiplier",			"1",						CVAR_NONE, "" );
 	com_buildScript						= ri.Cvar_Get( "com_buildScript",				"0",						0 );
 	sv_mapname							= ri.Cvar_Get( "mapname",						"nomap",					CVAR_SERVERINFO | CVAR_ROM );
@@ -1343,6 +1475,10 @@ void RE_Shutdown( qboolean destroyWindow, qboolean restarting ) {
 	R_ShutdownFonts();
 	G2Phys_Shutdown();
 
+#ifdef USE_RTX
+	RTX_LightEdit_Invalidate();
+#endif
+
 	// contains vulkan resources/state, reinitialized on a map change.
 	//if (tr.registered) {
 
@@ -1450,13 +1586,28 @@ extern qboolean R_InitializeWireframeAutomap( void ); //tr_world.cpp
 
 extern qhandle_t RE_RegisterServerSkin( const char *name );
 
+// Cached animation.cfg text. It lives in the zone, so Hunk_Clear does not free it.
+static std::map<std::string, char *> s_animationCFGs;
+
+static void RE_AnimationCFGs_DeleteAll( void )
+{
+	for ( std::map<std::string, char *>::iterator it = s_animationCFGs.begin(); it != s_animationCFGs.end(); ++it )
+	{
+		ri.Z_Free( it->second );
+	}
+	s_animationCFGs.clear();
+}
+
 void C_LevelLoadBegin(const char *psMapName, ForceReload_e eForceReload)
 {
 	static char sPrevMapName[MAX_QPATH]={0};
 	bool bDeleteModels = eForceReload == eForceReload_MODELS || eForceReload == eForceReload_ALL;
 
 	if( bDeleteModels )
+	{
 		CModelCache->DeleteAll();
+		RE_AnimationCFGs_DeleteAll();
+	}
 	else if( ri.Cvar_VariableIntegerValue( "sv_pure" ) )
 		CModelCache->DumpNonPure();
 
@@ -1480,6 +1631,7 @@ void C_LevelLoadEnd( void )
 	CModelCache->LevelLoadEnd( qfalse );
 	ri.SND_RegisterAudio_LevelLoadEnd( qfalse );
 	ri.S_RestartMusic();
+	*( ri.gbAlreadyDoingLoad() ) = qfalse;
 }
 
 // ---------------------------------------------------------------------
@@ -1526,14 +1678,17 @@ static float *get_tr_distortionStretch( void ) { return &tr_distortionStretch; }
 static qboolean *get_tr_distortionPrePost( void ) { return &tr_distortionPrePost; }
 static qboolean *get_tr_distortionNegate( void ) { return &tr_distortionNegate; }
 
-static void stub_R_ClearStuffToStopGhoul2CrashingThings( void ) {}
+// Called by Hunk_Clear. Safe on a renderer that is stopped or never started.
+static void R_ClearStuffToStopGhoul2CrashingThings( void )
+{
+	RE_HunkClearCrap();
+}
 
 // Ported from code/rd-vanilla/tr_skin.cpp's RE_GetAnimationCFG -- reads and
 // caches models/players/<x>/animation.cfg. code/game/NPC_stats.cpp's
 // G_ParseAnimationFile() depends on this to populate animation frame data;
 // previously stubbed to always return 0, which silently made every
 // animation register with numFrames==0 (T-pose, no bone anim ever applied).
-static std::map<std::string, char *> s_animationCFGs;
 static int RE_GetAnimationCFG( const char *psCFGFilename, char *psDest, int iDestSize )
 {
 	char *psText = NULL;
@@ -1586,6 +1741,15 @@ extern void G2Time_ReportTimers(void);
 #endif
 void RE_CaptureNextFrame( byte *rgba, int width, int height );
 
+static void *RE_GetExtension( const char *name )
+{
+#ifdef USE_RTX
+	return RTX_LightEdit_GetExtension( name );
+#else
+	return NULL;
+#endif
+}
+
 /*
 @@@@@@@@@@@@@@@@@@@@@
 GetRefAPI
@@ -1614,6 +1778,7 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	// template for which fields SP expects and how an SP renderer normally
 	// wires them up.
 	re.Shutdown								= RE_Shutdown;
+	re.GetExtension							= RE_GetExtension;
 
 	re.BeginRegistration					= RE_BeginRegistration;
 	re.RegisterModel						= RE_RegisterModel;
@@ -1665,7 +1830,7 @@ Q_EXPORT refexport_t* QDECL GetRefAPI( int apiVersion, refimport_t *rimp ) {
 	re.AnyLanguage_ReadCharFromString		= AnyLanguage_ReadCharFromString;
 
 	re.R_InitWorldEffects					= R_InitWorldEffects;
-	re.R_ClearStuffToStopGhoul2CrashingThings	= stub_R_ClearStuffToStopGhoul2CrashingThings;
+	re.R_ClearStuffToStopGhoul2CrashingThings	= R_ClearStuffToStopGhoul2CrashingThings;
 	re.inPVS								= R_inPVS;
 	re.GetLightStyle						= RE_GetLightStyle;
 	re.SetLightStyle						= RE_SetLightStyle;

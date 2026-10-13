@@ -161,6 +161,9 @@ qboolean G2_SetupModelPointers(CGhoul2Info_v &ghoul2);
 
 extern cvar_t	*r_Ghoul2AnimSmooth;
 extern cvar_t	*r_Ghoul2UnSqashAfterSmooth;
+extern cvar_t	*r_Ghoul2UnSqash;
+extern cvar_t	*r_Ghoul2NoLerp;
+extern cvar_t	*r_Ghoul2NoBlend;
 
 #if 0
 static inline int G2_Find_Bone_ByNum(const model_t *mod, boneInfo_v &blist, const int boneNum)
@@ -410,6 +413,9 @@ public:
 
 	void *physInst;			// cloth and hair state of the model, owned by tr_ghoul2_phys.cpp
 
+	// skinned vertices for the collision traces, see g2CollisionVerts_t
+	g2CollisionVerts_t collVerts;
+
 	CBoneCache(const model_t *amod,const mdxaHeader_t *aheader) :
 		header(aheader),
 		mod(amod),
@@ -426,6 +432,8 @@ public:
 		Matrix16Identity(prevModelMatrix);
 		prevFrameNum = -1;
 		prevValid = qfalse;
+
+		collVerts.touch = -1;
 
 		mSmoothingActive=false;
 		mUnsquash=false;
@@ -608,6 +616,16 @@ void CopyBoneCache(CBoneCache *to, CBoneCache *from)
 	memcpy(to, from, sizeof(CBoneCache));
 }
 #endif
+
+g2CollisionVerts_t *G2_GetCollisionVerts( CBoneCache *boneCache )
+{
+	return &boneCache->collVerts;
+}
+
+int G2_GetBoneCacheTouch( const CBoneCache *boneCache )
+{
+	return boneCache->mCurrentTouch;
+}
 
 const mdxaBone_t &EvalBoneCache(int index,CBoneCache *boneCache)
 {
@@ -953,29 +971,7 @@ R_AComputeFogNum
 */
 static int R_GComputeFogNum( trRefEntity_t *ent ) {
 
-	int				i, j;
-	fog_t			*fog;
-
-	if ( tr.refdef.rdflags & RDF_NOWORLDMODEL ) {
-		return 0;
-	}
-
-	for ( i = 1 ; i < tr.world->numfogs ; i++ ) {
-		fog = &tr.world->fogs[i];
-		for ( j = 0 ; j < 3 ; j++ ) {
-			if ( ent->e.origin[j] - ent->e.radius >= fog->bounds[1][j] ) {
-				break;
-			}
-			if ( ent->e.origin[j] + ent->e.radius <= fog->bounds[0][j] ) {
-				break;
-			}
-		}
-		if ( j == 3 ) {
-			return i;
-		}
-	}
-
-	return 0;
+	return R_FogNumForSphere( ent->e.origin, ent->e.radius );
 }
 
 // work out lod for this entity.
@@ -1631,7 +1627,7 @@ void G2_TransformBone (int child,CBoneCache &BC)
 				TB.blendMode = false;
 			}
 		}
-		else if (/*r_Ghoul2NoBlend->integer||*/((boneList[boneListIndex].flags) & (BONE_ANIM_OVERRIDE_LOOP | BONE_ANIM_OVERRIDE)))
+		else if (r_Ghoul2NoBlend->integer||((boneList[boneListIndex].flags) & (BONE_ANIM_OVERRIDE_LOOP | BONE_ANIM_OVERRIDE)))
 		// turn off blending if we are just doing a straing animation override
 		{
 			TB.blendMode = false;
@@ -1645,13 +1641,10 @@ void G2_TransformBone (int child,CBoneCache &BC)
 #if DEBUG_G2_TIMING
 		printTiming=true;
 #endif
-		/*
 		if ((r_Ghoul2NoLerp->integer)||((boneList[boneListIndex].flags) & (BONE_ANIM_NO_LERP)))
 		{
 			TB.backlerp = 0.0f;
 		}
-		*/
-		//rwwFIXMEFIXME: Use?
 	}
 	// figure out where the location of the bone animation data is
 	assert(TB.newFrame>=0&&TB.newFrame<BC.header->numFrames);
@@ -2078,7 +2071,6 @@ void G2_TransformBone (int child,CBoneCache &BC)
 		  	Multiply_3x4Matrix(&BC.mFinalBones[child].boneMatrix, &tempMatrix, &boneList[boneListIndex].matrix);
 		}
 	}
-	/*
 	if (r_Ghoul2UnSqash->integer)
 	{
 		mdxaBone_t tempMatrix;
@@ -2094,8 +2086,6 @@ void G2_TransformBone (int child,CBoneCache &BC)
 		VectorScale(&tempMatrix.matrix[2][0],maxl,&tempMatrix.matrix[2][0]);
 		Multiply_3x4Matrix(&BC.mFinalBones[child].boneMatrix,&tempMatrix,&skel->BasePoseMatInv);
 	}
-	*/
-	//rwwFIXMEFIXME: Care?
 
 }
 
@@ -2154,35 +2144,12 @@ void G2_TransformGhoulBones(boneInfo_v &rootBoneList,mdxaBone_t &rootMatrix, CGh
 	ghoul2.mBoneCache->mUnsquash=false;
 
 	// master smoothing control
-	if (HackadelicOnClient && smooth && !ri.Cvar_VariableIntegerValue( "dedicated" ))
+	if (smooth)
 	{
-		ghoul2.mBoneCache->mLastTouch=ghoul2.mBoneCache->mLastLastTouch;
-		/*
-		float val=r_Ghoul2AnimSmooth->value;
-		if (smooth&&val>0.0f&&val<1.0f)
-		{
-		//	if (HackadelicOnClient)
-		//	{
-				ghoul2.mBoneCache->mLastTouch=ghoul2.mBoneCache->mLastLastTouch;
-		//	}
-
-			ghoul2.mBoneCache->mSmoothFactor=val;
-			ghoul2.mBoneCache->mSmoothingActive=true;
-			if (r_Ghoul2UnSqashAfterSmooth->integer)
-			{
-				ghoul2.mBoneCache->mUnsquash=true;
-			}
-		}
-		else
-		{
-			ghoul2.mBoneCache->mSmoothFactor=1.0f;
-		}
-		*/
-
-		// master smoothing control
 		float val=r_Ghoul2AnimSmooth->value;
 		if (val>0.0f&&val<1.0f)
 		{
+			ghoul2.mBoneCache->mLastTouch=ghoul2.mBoneCache->mLastLastTouch;
 			//if (ghoul2.mFlags&GHOUL2_RESERVED_FOR_RAGDOLL)
 			if(ghoul2.mFlags & GHOUL2_RAG_STARTED)
 			{
@@ -2218,6 +2185,10 @@ void G2_TransformGhoulBones(boneInfo_v &rootBoneList,mdxaBone_t &rootMatrix, CGh
 			{
 				ghoul2.mBoneCache->mUnsquash=true;
 			}
+		}
+		else
+		{
+			ghoul2.mBoneCache->mSmoothFactor=1.0f;
 		}
 	}
 	else
@@ -3150,7 +3121,7 @@ void R_AddGhoulSurfaces( trRefEntity_t *ent ) {
 		return;
 	}
 	// if we don't want server ghoul2 models and this is one, or we just don't want ghoul2 models at all, then return
-	if (r_noServerGhoul2->integer)
+	if (r_noGhoul2->integer || r_noServerGhoul2->integer)
 	{
 		return;
 	}
@@ -3248,7 +3219,14 @@ void R_AddGhoulSurfaces( trRefEntity_t *ent ) {
 			{
 				G2_TransformGhoulBones(ghoul2[i].mBlist, rootMatrix, ghoul2[i],currentTime);
 			}
-			whichLod = G2_ComputeLOD( ent, ghoul2[i].currentModel, ghoul2[i].mLodBias );
+			if ( ent->e.renderfx & RF_G2MINLOD )
+			{
+				whichLod = G2_ComputeLOD( ent, ghoul2[i].currentModel, 10 );
+			}
+			else
+			{
+				whichLod = G2_ComputeLOD( ent, ghoul2[i].currentModel, ghoul2[i].mLodBias );
+			}
 			G2_FindOverrideSurface(-1,ghoul2[i].mSlist); //reset the quick surface override lookup;
 
 #ifdef _G2_GORE
@@ -3421,7 +3399,7 @@ void RB_TransformBones( const trRefEntity_t *ent, const trRefdef_t *refdef )
 
 	// if we don't want server ghoul2 models and this is one, or we just don't
 	// want ghoul2 models at all, then return
-	if (r_noServerGhoul2->integer)
+	if (r_noGhoul2->integer || r_noServerGhoul2->integer)
 	{
 		return;
 	}
@@ -5424,7 +5402,7 @@ void vk_rtx_AddGhoulSurfaces( trRefEntity_t *ent, int entityNum, int *mdxm_matri
 		return;
 
 	// if we don't want server ghoul2 models and this is one, or we just don't want ghoul2 models at all, then return
-	if ( r_noServerGhoul2->integer )
+	if ( r_noGhoul2->integer || r_noServerGhoul2->integer )
 		return;
 
 	if ( !G2_SetupModelPointers( ghoul2 ) )

@@ -140,6 +140,7 @@ if(BuildSPEngine)
 		"${SPDir}/client/cl_console.cpp"
 		"${SPDir}/client/cl_input.cpp"
 		"${SPDir}/client/cl_keys.cpp"
+		"${SPDir}/client/cl_lightedit_keys.cpp"
 		"${SPDir}/client/cl_main.cpp"
 		"${SPDir}/client/cl_mp3.cpp"
 		"${SPDir}/client/cl_parse.cpp"
@@ -322,6 +323,8 @@ if(BuildSPEngine)
 	set(SPEngineUIFiles
 		"${SPDir}/ui/ui_atoms.cpp"
 		"${SPDir}/ui/ui_connect.cpp"
+		"${SPDir}/ui/ui_lightedit.cpp"
+		"${SPDir}/ui/ui_lightedit.h"
 		"${SPDir}/ui/ui_main.cpp"
 		"${SPDir}/ui/ui_phys.cpp"
 		"${SPDir}/ui/ui_saber.cpp"

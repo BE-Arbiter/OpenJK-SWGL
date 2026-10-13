@@ -2397,6 +2397,11 @@ unsigned int AnyLanguage_ReadCharFromString_JK2(char **text, qboolean *pbIsTrail
 }
 #endif
 
+// This renderer has no extension tables.
+static void *RE_GetExtension( const char *name ) {
+	return NULL;
+}
+
 /*
 @@@@@@@@@@@@@@@@@@@@@
 GetRefAPI
@@ -2611,6 +2616,8 @@ Q_EXPORT refexport_t* QDECL GetRefAPI ( int apiVersion, refimport_t *rimp ) {
 	re.G2Time_ReportTimers = G2Time_ReportTimers;
 	re.G2Time_ResetTimers = G2Time_ResetTimers;
 #endif
+
+	re.GetExtension = RE_GetExtension;
 
 	//Swap_Init();
 

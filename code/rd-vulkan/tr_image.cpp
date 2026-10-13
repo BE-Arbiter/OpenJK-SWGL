@@ -231,6 +231,28 @@ void R_ImageList_f( void ) {
 }
 
 /*
+===============
+RE_RegisterImages_Info_f
+
+Lists the registered images with their upload size.
+===============
+*/
+void RE_RegisterImages_Info_f( void ) {
+	double texels = 0;
+	uint32_t i;
+
+	for ( i = 0; i < tr.images.count; i++ )
+	{
+		const image_t *image = tr.images.items[i];
+
+		ri.Printf( PRINT_ALL, "%d: (%4dx%4dy) \"%s\"\n", i, image->uploadWidth, image->uploadHeight, image->imgName ? image->imgName : "" );
+		texels += (double)image->uploadWidth * image->uploadHeight;
+	}
+
+	ri.Printf( PRINT_ALL, "%d Images. %.0f (%.2fMB) texels total, (not including mipmaps)\n", tr.images.count, texels, texels / 1024.0 / 1024.0 );
+}
+
+/*
 =================
 R_InitFogTable
 =================

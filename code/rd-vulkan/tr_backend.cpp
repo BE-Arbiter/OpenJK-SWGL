@@ -466,7 +466,7 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 				const int rfx = backEnd.currentEntity->e.renderfx;
 
 				if ( !( rfx & ( RF_NOSHADOW | RF_DEPTHHACK ) )
-					&& ( *drawSurf->surface != SF_MDX || ( rfx & RF_SHADOW_PLANE ) ) ) {
+					&& ( rfx & RF_SHADOW_PLANE ) ) {
 					// entityNum + 1, so the shadow volume shader can tell whose pixel this is.
 					pushData.surfaceFlags[0] = (float)( entityNum + 1 );
 				}
@@ -604,7 +604,14 @@ static void RB_RenderGBufferSurfList( const drawSurf_t *drawSurfs, int numDrawSu
 			for ( stageIdx = 0; stageIdx < tess.shader->numUnfoggedPasses; stageIdx++ ) {
 				const shaderStage_t *st = tess.xstages[stageIdx];
 
-				if ( st && st->active && ( st->stateBits & GLS_ATEST_BITS ) && st->bundle[0].image[0] ) {
+				if ( !st || !st->active || ( st->ss && st->ss->type ) )
+						continue;
+
+					// An opaque stage that writes depth covers the whole surface, as in the main pass.
+					if ( ( st->stateBits & GLS_DEPTHMASK_TRUE ) && !( st->stateBits & GLS_ATEST_BITS ) )
+						break;
+
+					if ( ( st->stateBits & GLS_ATEST_BITS ) && st->bundle[0].image[0] ) {
 					atStage = st;
 #ifdef USE_VBO
 					// Which stage's texcoords vk_bind_geometry() should pull out of the VBO.
@@ -774,7 +781,7 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	int				i, fogNum, oldFogNum, entityNum, oldEntityNum, dlighted, oldDlighted, reType, oldReType;
 	Vk_Depth_Range	depthRange;
 	drawSurf_t		*drawSurf;
-	unsigned int	oldSort;
+	sortKey_t		oldSort;
 	float			oldShaderSort, originalTime;
 	CBoneCache		*oldBoneCache = nullptr;
 
@@ -810,7 +817,7 @@ void RB_RenderDrawSurfList( drawSurf_t *drawSurfs, int numDrawSurfs ) {
 	oldEntityNum			= -1;
 	backEnd.currentEntity	= &tr.worldEntity;
 	oldShader				= NULL;
-	oldSort					= MAX_UINT;
+	oldSort					= ~(sortKey_t)0;
 	oldShaderSort			= -1;
 	depthRange				= DEPTH_RANGE_NORMAL;
 	oldFogNum				= -1;
@@ -1049,7 +1056,7 @@ static void RB_RenderLitSurfList( dlight_t *dl ) {
 	int				entityNum, oldEntityNum;
 	Vk_Depth_Range	depthRange;
 	const litSurf_t *litSurf;
-	unsigned int	oldSort;
+	sortKey_t		oldSort;
 	double			originalTime; // -EC-
 
 	// save original time for entity shader offsets
@@ -1059,7 +1066,7 @@ static void RB_RenderLitSurfList( dlight_t *dl ) {
 	oldEntityNum			= -1;
 	backEnd.currentEntity	= &tr.worldEntity;
 	oldShader				= NULL;
-	oldSort					= MAX_UINT;
+	oldSort					= ~(sortKey_t)0;
 	depthRange				= DEPTH_RANGE_NORMAL;
 
 	tess.dlightUpdateParams = qtrue;
@@ -1589,7 +1596,9 @@ static void vk_update_entity_constants( const trRefdef_t *refdef ) {
 	for ( i = 0; i < refdef->num_entities; i++ ) {
 		trRefEntity_t *ent = &refdef->entities[i];
 
-		R_SetupEntityLighting( refdef, ent );
+		// Only models use the entity light (as in rd-vanilla). Sprites, beams and FX do not.
+		if ( ent->e.reType == RT_MODEL )
+			R_SetupEntityLighting( refdef, ent );
 
 		vkUniformEntity_t uniform = {};
 		vk_update_entity_light_constants( uniform, ent );

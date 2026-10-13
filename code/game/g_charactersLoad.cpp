@@ -249,6 +249,51 @@ void CHA_ParseSkin(const char** holdBuf,characterSkin_s **list,int* count,int* c
 	}
 }
 
+// Read a list: { "a", "b" ... }. The commas are optional.
+static void CHA_ParseList(const char** holdBuf, characterList_t* list, const char* listName)
+{
+	const char* token = COM_ParseExt(holdBuf, qtrue);
+	if (Q_stricmp(token, "{"))
+	{
+		gi.Printf(S_COLOR_RED"Error: Invalid syntax in %s, expected \"{\" and found \"%s\" instead. \n", listName, token);
+		return;
+	}
+	while (*holdBuf)
+	{
+		token = COM_ParseExt(holdBuf, qtrue);
+		if (!token[0] || !Q_stricmp(token, "}"))
+		{
+			break;
+		}
+		char item[64];
+		Q_strncpyz(item, token, sizeof(item));
+		size_t length = strlen(item);
+		while (length && item[length - 1] == ',')
+		{
+			item[--length] = '\0';
+		}
+		if (!length)
+		{
+			continue;
+		}
+		char (*items)[64] = (char (*)[64])realloc(list->items, sizeof(list->items[0]) * (list->count + 1));
+		if (!items)
+		{
+			gi.Printf(S_COLOR_YELLOW"WARNING: failed to reallocate memory for %s\n", listName);
+			return;
+		}
+		list->items = items;
+		Q_strncpyz(list->items[list->count++], item, sizeof(list->items[0]));
+	}
+}
+
+static void CHA_FreeList(characterList_t* list)
+{
+	free(list->items);
+	list->items = NULL;
+	list->count = 0;
+}
+
 void CHA_ParseVariant(const char** holdBuf)
 {
 	const char* token;
@@ -358,6 +403,37 @@ void CHA_ParseVariant(const char** holdBuf)
 			CHA_ParseForcePowers(holdBuf);
 			continue;
 		}
+		if (!Q_stricmp(token, "npcRandom"))
+		{
+			CHA_ParseList(holdBuf, &currentVariant->npcRandom, "npcRandom");
+			continue;
+		}
+		if (!Q_stricmp(token, "skinRandom"))
+		{
+			token = COM_ParseExt(holdBuf, qfalse);
+			currentVariant->skinRandom = (qboolean)(!Q_stricmp(token, "true") || atoi(token) != 0);
+			continue;
+		}
+		if (!Q_stricmp(token, "saberRandom"))
+		{
+			CHA_ParseList(holdBuf, &currentVariant->saberRandom, "saberRandom");
+			continue;
+		}
+		if (!Q_stricmp(token, "saberDualRandom"))
+		{
+			CHA_ParseList(holdBuf, &currentVariant->saberDualRandom, "saberDualRandom");
+			continue;
+		}
+		if (!Q_stricmp(token, "saberStaffRandom"))
+		{
+			CHA_ParseList(holdBuf, &currentVariant->saberStaffRandom, "saberStaffRandom");
+			continue;
+		}
+		if (!Q_stricmp(token, "saberColorRandom"))
+		{
+			CHA_ParseList(holdBuf, &currentVariant->saberColorRandom, "saberColorRandom");
+			continue;
+		}
 		if (!Q_stricmp(token, "weapon"))
 		{
 			if (weaponIndex >= 6) 
@@ -372,6 +448,24 @@ void CHA_ParseVariant(const char** holdBuf)
 	}
 }
 
+static void CHA_FreeCharacter(characterInfo_t* character)
+{
+	for (int v = 0; v < character->variantCount && character->variantList; v++)
+	{
+		characterVariant_t* variant = &character->variantList[v];
+		free(variant->presetList);
+		free(variant->headSkinList);
+		free(variant->torsoSkinList);
+		free(variant->lowerSkinList);
+		CHA_FreeList(&variant->npcRandom);
+		CHA_FreeList(&variant->saberRandom);
+		CHA_FreeList(&variant->saberDualRandom);
+		CHA_FreeList(&variant->saberStaffRandom);
+		CHA_FreeList(&variant->saberColorRandom);
+	}
+	free(character->variantList);
+}
+
 void CHA_ParseCharacter(const char** holdBuf)
 {
 	const char* token;
@@ -383,6 +477,15 @@ void CHA_ParseCharacter(const char** holdBuf)
 
 		if (!Q_stricmp(token, "}"))	// End of data for this character
 		{
+			// The lists stop at the first character without a code: a bad block must not hide the next ones.
+			characterInfo_t* character = &charactersData[loadedCharacters];
+			if (!character->code[0])
+			{
+				gi.Printf(S_COLOR_YELLOW"WARNING: character without a code in a .cha file, ignored (\"%s\")\n", character->name);
+				CHA_FreeCharacter(character);
+				memset(character, 0, sizeof(*character));
+				break;
+			}
 			loadedCharacters++;
 			break;
 		}
@@ -457,17 +560,57 @@ static void CHA_FreeCharacters()
 {
 	for (int i = 0; i < MAX_CHARACTERS; i++)
 	{
-		characterInfo_t *character = &charactersData[i];
-		for (int v = 0; v < character->variantCount && character->variantList; v++)
-		{
-			characterVariant_t *variant = &character->variantList[v];
-			free(variant->presetList);
-			free(variant->headSkinList);
-			free(variant->torsoSkinList);
-			free(variant->lowerSkinList);
-		}
-		free(character->variantList);
+		CHA_FreeCharacter(&charactersData[i]);
 	}
+}
+
+static int CHA_SortTagsByCode(const void* a, const void* b)
+{
+	return Q_stricmp(((const characterTag_t*)a)->code, ((const characterTag_t*)b)->code);
+}
+
+// Collect the distinct tags of all the characters, sorted by raw code. "none" is not a tag.
+static void CHA_BuildTagList()
+{
+	memset(tagsData, 0, sizeof(tagsData));
+	loadedTags = 0;
+	for (int c = 0; c < loadedCharacters; c++)
+	{
+		const char *list = charactersData[c].tags;
+		while (*list)
+		{
+			while (*list == ',' || *list == ' ')
+			{
+				list++;
+			}
+			const char *end = list;
+			while (*end && *end != ',')
+			{
+				end++;
+			}
+			size_t length = end - list;
+			while (length && list[length - 1] == ' ')
+			{
+				length--;
+			}
+			if (length && length < sizeof(tagsData[0].code) && !(length == 4 && !Q_stricmpn(list, "none", 4)))
+			{
+				char code[sizeof(tagsData[0].code)];
+				Q_strncpyz(code, list, (int)length + 1);
+				qboolean known = qfalse;
+				for (int t = 0; t < loadedTags && !known; t++)
+				{
+					known = (qboolean)!Q_stricmp(tagsData[t].code, code);
+				}
+				if (!known && loadedTags < MAX_TAGS)
+				{
+					Q_strncpyz(tagsData[loadedTags++].code, code, sizeof(tagsData[0].code));
+				}
+			}
+			list = end;
+		}
+	}
+	qsort(tagsData, loadedTags, sizeof(characterTag_t), CHA_SortTagsByCode);
 }
 
 void CHA_ParseCharacterFiles()
@@ -508,5 +651,6 @@ void CHA_ParseCharacterFiles()
 	}
 
 	qsort(charactersData, loadedCharacters, sizeof(characterInfo_t), CHA_SortCharactersByName);
+	CHA_BuildTagList();
 }
 #pragma endregion

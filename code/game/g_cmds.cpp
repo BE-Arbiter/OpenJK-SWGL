@@ -22,6 +22,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "g_local.h"
+#include "g_lightedit.h"
 #include "objectives.h"
 #include "wp_saber.h"
 #include "g_vehicles.h"
@@ -1595,6 +1596,26 @@ void Cmd_UseSentry_f(gentity_t *ent)
 
 /*
 ================
+Cmd_UseJetpack_f
+================
+*/
+void Cmd_UseJetpack_f(gentity_t *ent)
+{
+	G_JetpackToggle( ent );
+}
+
+/*
+================
+Cmd_UseWristFlamer_f
+================
+*/
+void Cmd_UseWristFlamer_f(gentity_t *ent)
+{
+	G_WristFlamerToggle( ent );
+}
+
+/*
+================
 Cmd_UseInventory_f
 ================
 */
@@ -1617,6 +1638,12 @@ void Cmd_UseInventory_f(gentity_t *ent)
 			return;
 		case INV_SENTRY :
 			Cmd_UseSentry_f(ent);
+			return;
+		case INV_JETPACK :
+			Cmd_UseJetpack_f(ent);
+			return;
+		case INV_WRIST_FLAMER :
+			Cmd_UseWristFlamer_f(ent);
 			return;
 		default :
 			return;
@@ -2120,6 +2147,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Notarget_f (ent);
 	else if (Q_stricmp(cmd, "setForceRegen") == 0)
 			Cmd_ForceRegen_f(ent);
+	else if (Q_stricmp (cmd, "ledit_mode") == 0)
+		G_LightEdit_Cmd_f( ent );
 	else if (Q_stricmp (cmd, "noclip") == 0)
 	{
 		Cmd_Noclip_f (ent);
@@ -2369,6 +2398,10 @@ void ClientCommand( int clientNum ) {
 		Cmd_UseGoggles_f( ent );
 	else if (Q_stricmp (cmd, "use_sentry") == 0)
 		Cmd_UseSentry_f( ent );
+	else if (Q_stricmp (cmd, "use_jetpack") == 0)
+		Cmd_UseJetpack_f( ent );
+	else if (Q_stricmp (cmd, "use_wristflamer") == 0)
+		Cmd_UseWristFlamer_f( ent );
 	else if (Q_stricmp (cmd, "fx") == 0)
 		Cmd_Fx( ent );
 	else if (Q_stricmp (cmd, "invuse") == 0)
@@ -2455,12 +2488,20 @@ void ClientCommand( int clientNum ) {
 		
 		memset(ent->client->ps.weapons, 0, sizeof(ent->client->ps.weapons)); // Clear all weapons
 
-		ent->client->ps.weapons[WP_GetWeaponID(g_weaponOne->string)] = 1;
-		ent->client->ps.weapons[WP_GetWeaponID(g_weaponTwo->string)] = 1;
-		ent->client->ps.weapons[WP_GetWeaponID(g_weaponThree->string)] = 1;
-		ent->client->ps.weapons[WP_GetWeaponID(g_weaponFour->string)] = 1;
-		ent->client->ps.weapons[WP_GetWeaponID(g_weaponFive->string)] = 1;
-		ent->client->ps.weapons[WP_GetWeaponID(g_weaponSix->string)] = 1;
+		// Each weapon, and 150 more ammo of each ammo type (not more than its max).
+		const cvar_t *slots[] = { g_weaponOne, g_weaponTwo, g_weaponThree, g_weaponFour, g_weaponFive, g_weaponSix };
+		qboolean ammoGiven[MAX_AMMO] = { qfalse };
+		for (const cvar_t *slot : slots)
+		{
+			const int weapon = WP_GetWeaponID(slot->string);
+			ent->client->ps.weapons[weapon] = 1;
+			const int ammoIndex = weaponData[weapon].ammoIndex;
+			if (weapon > WP_NONE && ammoIndex > AMMO_NONE && ammoIndex < ammoCount && !ammoGiven[ammoIndex])
+			{
+				ammoGiven[ammoIndex] = qtrue;
+				ent->client->ps.ammo[ammoIndex] = Q_min(ent->client->ps.ammo[ammoIndex] + 150, ammoData[ammoIndex].max);
+			}
+		}
 
 		CG_NextWeapon_f();
 	}
@@ -2637,6 +2678,7 @@ const char* getStringValueForweaponCategory(const weaponCategory_t* wc)
 
 	switch (*wc)
 	{
+	case WC_UNSET:      return "WC_UNSET";
 	case WC_NONE:       return "WC_NONE";
 	case WC_MELEE:      return "WC_MELEE";
 	case WC_STUN_BATON: return "WC_STUN_BATON";

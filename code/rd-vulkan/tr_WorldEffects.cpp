@@ -44,12 +44,14 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 // Defines
 ////////////////////////////////////////////////////////////////////////////////////////
 #define GLS_ALPHA				(GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA)
-#define	MAX_WIND_ZONES			10
-#define MAX_WEATHER_ZONES		10
+#define	MAX_WIND_ZONES			12
+#define MAX_WEATHER_ZONES		50	// so we can more zones that are smaller
 #define	MAX_PUFF_SYSTEMS		2
 #define	MAX_PARTICLE_CLOUDS		5
 
-#define POINTCACHE_CELL_SIZE	96.0f
+#define POINTCACHE_CELL_SIZE	32.0f
+
+extern cvar_t	*sv_mapname;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -564,6 +566,137 @@ public:
 
 
 
+	// Cache file layout: one header, then per zone one record followed by its point cache.
+	// The header carries a magic and the cell size. rd-vanilla files and files made for another
+	// grid fail the test.
+#define COUTSIDE_FILE_MAGIC		0x324B5657	// "WVK2": change when the layout or the grid changes
+	struct SWeatherFileHeader
+	{
+		int		mMagic;
+		int		mChecksum;
+		float	mCellSize;
+		int		mZoneCount;
+	};
+	struct SWeatherFileZone
+	{
+		int		mWidth;
+		int		mHeight;
+		int		mDepth;
+		int		mByteSize;
+		int		mMarkedOutside;
+		float	mMins[3];
+		float	mMaxs[3];
+	};
+
+	static const char *CachedWeatherFilename()
+	{
+		return va("maps/%s.vkweather", sv_mapname->string);
+	}
+
+	void FillWeatherFileHeader(SWeatherFileHeader &h)
+	{
+		h.mMagic     = COUTSIDE_FILE_MAGIC;
+		h.mChecksum  = ri.Cvar_VariableIntegerValue("sv_mapChecksum");
+		h.mCellSize  = POINTCACHE_CELL_SIZE;
+		h.mZoneCount = mWeatherZones.size();
+	}
+
+	void FillWeatherFileZone(const SWeatherZone &wz, SWeatherFileZone &r)
+	{
+		r.mWidth         = wz.mWidth;
+		r.mHeight        = wz.mHeight;
+		r.mDepth         = wz.mDepth;
+		r.mByteSize      = wz.mWidth * wz.mHeight * wz.mDepth * (int)sizeof(uint32_t);
+		r.mMarkedOutside = SWeatherZone::mMarkedOutside;
+		VectorCopy(wz.mExtents.mMins.v, r.mMins);
+		VectorCopy(wz.mExtents.mMaxs.v, r.mMaxs);
+	}
+
+	// Writes the cache of every zone. A failed write removes nothing: the loader rejects short files.
+	void WriteCachedWeatherFile()
+	{
+		fileHandle_t f = ri.FS_FOpenFileWrite(CachedWeatherFilename(), qtrue);
+		if (!f)
+		{
+			ri.Printf(PRINT_WARNING, "(Unable to open weather file \"%s\" for writing!)\n", CachedWeatherFilename());
+			return;
+		}
+
+		SWeatherFileHeader header;
+		FillWeatherFileHeader(header);
+		bool ok = (ri.FS_Write(&header, sizeof(header), f) == (int)sizeof(header));
+		for (int zone = 0; ok && zone < mWeatherZones.size(); zone++)
+		{
+			SWeatherFileZone rec;
+			FillWeatherFileZone(mWeatherZones[zone], rec);
+			ok = (ri.FS_Write(&rec, sizeof(rec), f) == (int)sizeof(rec)) &&
+				 (ri.FS_Write(mWeatherZones[zone].mPointCache, rec.mByteSize, f) == rec.mByteSize);
+		}
+		ri.FS_FCloseFile(f);
+
+		if (!ok)
+		{
+			ri.Printf(PRINT_WARNING, "(Unable to write weather file \"%s\")\n", CachedWeatherFilename());
+		}
+	}
+
+	// Fills the point caches from the file. Returns false, with every cache cleared, when the
+	// file is missing, was made for another map, grid or zone list, or is damaged.
+	bool ReadCachedWeatherFile()
+	{
+		fileHandle_t f = 0;
+		const int fileLen = ri.FS_FOpenFileRead(CachedWeatherFilename(), &f, qfalse);
+		if (!f)
+		{
+			ri.Printf(PRINT_ALL, "( No cached weather file found, generating... )\n");
+			return false;
+		}
+
+		SWeatherFileHeader expected;
+		FillWeatherFileHeader(expected);
+
+		int expectedLen = (int)sizeof(SWeatherFileHeader);
+		for (int zone = 0; zone < mWeatherZones.size(); zone++)
+		{
+			expectedLen += (int)sizeof(SWeatherFileZone) + mWeatherZones[zone].mWidth * mWeatherZones[zone].mHeight * mWeatherZones[zone].mDepth * (int)sizeof(uint32_t);
+		}
+
+		SWeatherFileHeader header;
+		bool ok = (fileLen == expectedLen) &&
+				  (ri.FS_Read(&header, sizeof(header), f) == (int)sizeof(header)) &&
+				  !memcmp(&header, &expected, sizeof(header));
+
+		bool markedOutside = false;
+		for (int zone = 0; ok && zone < mWeatherZones.size(); zone++)
+		{
+			SWeatherZone &wz = mWeatherZones[zone];
+			SWeatherFileZone expectedRec, rec;
+			FillWeatherFileZone(wz, expectedRec);
+
+			ok = (ri.FS_Read(&rec, sizeof(rec), f) == (int)sizeof(rec)) &&
+				 rec.mWidth == expectedRec.mWidth && rec.mHeight == expectedRec.mHeight &&
+				 rec.mDepth == expectedRec.mDepth && rec.mByteSize == expectedRec.mByteSize &&
+				 !memcmp(rec.mMins, expectedRec.mMins, sizeof(rec.mMins)) &&
+				 !memcmp(rec.mMaxs, expectedRec.mMaxs, sizeof(rec.mMaxs)) &&
+				 (ri.FS_Read(wz.mPointCache, rec.mByteSize, f) == rec.mByteSize);
+			markedOutside = (rec.mMarkedOutside != 0);
+		}
+		ri.FS_FCloseFile(f);
+
+		if (!ok)
+		{
+			ri.Printf(PRINT_WARNING, "( Cached weather file \"%s\" out of date or damaged, regenerating... )\n", CachedWeatherFilename());
+			for (int zone = 0; zone < mWeatherZones.size(); zone++)
+			{
+				memset(mWeatherZones[zone].mPointCache, 0, mWeatherZones[zone].mWidth * mWeatherZones[zone].mHeight * mWeatherZones[zone].mDepth * sizeof(uint32_t));
+			}
+			return false;
+		}
+
+		SWeatherZone::mMarkedOutside = markedOutside;
+		return true;
+	}
+
 	////////////////////////////////////////////////////////////////////////////////////
 	// Cache - Will Scan the World, Creating The Cache
 	////////////////////////////////////////////////////////////////////////////////////
@@ -589,6 +722,12 @@ public:
 		{
 			ri.Printf( PRINT_ALL, "WARNING: No Weather Zones Encountered\n");
 			AddWeatherZone(tr.world->bmodels[0].bounds[0], tr.world->bmodels[0].bounds[1]);
+		}
+
+		if (ReadCachedWeatherFile())
+		{
+			mCacheInit = true;
+			return;
 		}
 
 		// Iterate Over All Weather Zones
@@ -658,6 +797,8 @@ public:
 			mCacheInit = true;
 			SWeatherZone::mMarkedOutside = false;		// Assume All Is Outside, Except Solid
 		}
+
+		WriteCachedWeatherFile();
 	}
 
 
@@ -834,6 +975,9 @@ private:
 	int			mParticleCountRender;
 	int			mGLModeEnum;
 
+	VkDescriptorSet	mNearestDescriptor;		// image with nearest filtering, for mFilterMode 1
+	VkSampler		mNearestSampler;
+
 	bool		mPopulated;
 
 
@@ -934,6 +1078,16 @@ public:
 			// TODO: Free Image?
 		}
 		mImage				= 0;
+		if (mNearestDescriptor)
+		{
+			if (vk.active)
+			{
+				vk_wait_idle();		// the set can be in use by a frame in flight
+				qvkFreeDescriptorSets(vk.device, vk.descriptor_pool, 1, &mNearestDescriptor);
+			}
+			mNearestDescriptor = VK_NULL_HANDLE;
+		}
+		mNearestSampler		= VK_NULL_HANDLE;
 		if (mParticleCount)
 		{
 			delete [] mParticles;
@@ -991,6 +1145,7 @@ public:
 	{
 		mImage = 0;
 		mParticleCount = 0;
+		mNearestDescriptor = VK_NULL_HANDLE;
 		Reset();
 	}
 
@@ -1120,11 +1275,6 @@ public:
 				mSpawnPlaneNorm	= force;
 				mSpawnSpeed		= VectorNormalize(mSpawnPlaneNorm.v);
 				MakeNormalVectors(mSpawnPlaneNorm.v, mSpawnPlaneRight.v, mSpawnPlaneUp.v);
-				if (mOrientWithVelocity)
-				{
-					mCameraDown = mSpawnPlaneNorm;
-					mCameraDown *= (mHeight * -1);
-				}
 			}
 
 			// Optimization For Quad Position Calculation
@@ -1294,22 +1444,72 @@ public:
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////
+	// Flush - Draws the batched particles and empties the batch
+	////////////////////////////////////////////////////////////////////////////////////
+	void		Flush()
+	{
+		if (!tess.numIndexes)
+		{
+			return;
+		}
+
+		vk_select_texture(0);
+		vk_bind(mImage);
+
+		// Nearest filtering needs its own descriptor, because the image samples with linear.
+		if (mFilterMode==1 && mImage)
+		{
+			mNearestDescriptor = vk_get_nearest_descriptor(mImage, mNearestDescriptor, &mNearestSampler);
+			vk_update_descriptor(vk.ctmu + VK_DESC_TEXTURE_BASE, mNearestDescriptor);
+		}
+
+		tess.svars.texcoordPtr[0] = tess.texCoords[0];
+
+		vk_bind_pipeline(vk.std_pipeline.worldeffect_pipeline[mBlendMode]);
+		vk_bind_index();
+		vk_bind_geometry(TESS_XYZ | TESS_RGBA0 | TESS_ST0);
+		vk_draw_geometry(DEPTH_RANGE_NORMAL, qtrue);
+
+		tess.numVertexes = 0;
+		tess.numIndexes = 0;
+	}
+
+	////////////////////////////////////////////////////////////////////////////////////
 	// Render -
 	////////////////////////////////////////////////////////////////////////////////////
 	void		Render()
 	{
 		int					i, particleNum;
 		CWeatherParticle	*part = 0;
+		CVec3				partDirection;
 
-		// quick start to continue on later. some time.
 		for (particleNum = 0; particleNum < mParticleCount; particleNum++) {
 			part = &(mParticles[particleNum]);
 
 			if (!part->mFlags.get_bit(CWeatherParticle::FLAG_RENDER))
 				continue;
 
+			// Draw the full batch and start a new one.
 			if (tess.numVertexes > SHADER_MAX_VERTEXES - 4)
-				break;
+				Flush();
+
+			// Oriented with velocity: each particle has its own vertex offsets.
+			if (mOrientWithVelocity)
+			{
+				partDirection = part->mVelocity;
+				VectorNormalize(partDirection.v);
+				mCameraDown = partDirection;
+				mCameraDown *= (mHeight * -1);
+				if (mVertexCount==4)
+				{
+					mCameraLeftPlusUp  = (mCameraLeft - mCameraDown);
+					mCameraLeftMinusUp = (mCameraLeft + mCameraDown);
+				}
+				else
+				{
+					mCameraLeftPlusUp  = (mCameraDown + mCameraLeft);
+				}
+			}
 
 			// blend Mode Zero -> Apply Alpha Just To Alpha Channel
 			if (mBlendMode == 0) {
@@ -1384,15 +1584,7 @@ public:
 			}
 		}
 
-		vk_select_texture(0);
-		vk_bind(mImage);
-
-		tess.svars.texcoordPtr[0] = tess.texCoords[0];
-
-		vk_bind_pipeline(vk.std_pipeline.worldeffect_pipeline[mBlendMode]);
-		vk_bind_index();
-		vk_bind_geometry(TESS_XYZ | TESS_RGBA0 | TESS_ST0);
-		vk_draw_geometry(DEPTH_RANGE_NORMAL, qtrue);
+		Flush();
 
 		mParticlesRendered += mParticleCountRender;
 	}
@@ -1438,16 +1630,11 @@ void RB_RenderWorldEffects(void)
 	if (!tr.world ||
 		(tr.refdef.rdflags & RDF_NOWORLDMODEL) ||
 		(backEnd.refdef.rdflags & RDF_SKYBOXPORTAL) ||
-		!mParticleClouds.size())
+		!mParticleClouds.size() ||
+		ri.CL_IsRunningInGameCinematic())
 	{	//  no world rendering or no world or no particle clouds
 		return;
 	}
-
-	float				tmp[16];
-
-	Com_Memcpy(tmp, vk_world.modelview_transform, 64);
-	Com_Memcpy(vk_world.modelview_transform, backEnd.viewParms.world.modelViewMatrix, 64);
-	vk_update_mvp(NULL);
 
 	// Calculate Elapsed Time For Scale Purposes
 	//-------------------------------------------
@@ -1491,7 +1678,12 @@ void RB_RenderWorldEffects(void)
 		// Update All Particle Clouds
 		//----------------------------
 		mParticlesRendered = 0;
-		
+
+		float	tmp[16];
+		Com_Memcpy(tmp, vk_world.modelview_transform, 64);
+		Com_Memcpy(vk_world.modelview_transform, backEnd.viewParms.world.modelViewMatrix, 64);
+		vk_update_mvp(NULL);
+
 		for (int i=0; i<mParticleClouds.size(); i++)
 		{
 			tess.numVertexes = 0;

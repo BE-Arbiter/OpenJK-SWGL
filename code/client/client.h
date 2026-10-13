@@ -445,4 +445,5 @@ void CL_PhysMenu_f(void);
 void CL_System_f(void);
 void CL_EndScreenDissolve_f(void);
 int Key_GetCatcher( void );
+qboolean CL_CgameKeyEvent( int key, qboolean down );	// cl_lightedit_keys.cpp
 void Key_SetCatcher( int catcher );

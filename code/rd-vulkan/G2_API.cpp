@@ -333,9 +333,10 @@ int	G2API_GetTime(int argTime) // this may or may not return arg depending on gh
 }
 
 
-// must be a power of two
-#define MAX_G2_MODELS (512)
-#define G2_MODEL_BITS (9)
+// must be a power of two. The SP renderers hand this array to each other on a renderer
+// switch, so rd-vanilla, rd-vulkan and rd-rend2 (REND2_SP) must use the same value.
+#define MAX_G2_MODELS (2048)
+#define G2_MODEL_BITS (11)
 #define G2_INDEX_MASK (MAX_G2_MODELS-1)
 
 void RemoveBoneCache(CBoneCache *boneCache);

@@ -52,6 +52,7 @@ extern stringID_table_t animTable [MAX_ANIMATIONS+1];
 #include "../qcommon/game_version.h"
 #include "../rd-common/mdx_merge.h"
 #include "../client/vmachine.h"
+#include "ui_lightedit.h"
 
 extern qboolean ItemParse_model_g2anim_go( itemDef_t *item, const char *animName );
 extern qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name );
@@ -924,6 +925,7 @@ vmCvar_t	ui_npc_sabertwo;
 vmCvar_t	ui_npc_sabertwocolor;
 vmCvar_t	ui_npc_weapon;
 vmCvar_t	ui_npc_weapon_label;
+vmCvar_t	ui_npc_random_weapon;
 vmCvar_t	ui_npc_spawnscript;
 vmCvar_t	ui_npc_fleescript;
 vmCvar_t	ui_npc_deathscript;
@@ -1106,6 +1108,7 @@ static cvarTable_t cvarTable[] =
 	{ &ui_npc_sabertwocolor,	"ui_npc_sabertwocolor",	"red", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_weapon,			"ui_npc_weapon",	"WP_BLASTER", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_weapon_label,			"ui_npc_weapon_label",	"Blaster", NULL, CVAR_ARCHIVE},
+	{ &ui_npc_random_weapon,	"ui_npc_random_weapon",	"weapon_clonerandom", NULL, CVAR_ARCHIVE},	// random weapon of the NPC selector, set by npcSetRandomWeapon
 	{ &ui_lightning_color,		"ui_lightning_color",	"blue", NULL, CVAR_ARCHIVE},
 	{ &ui_npc_spawnscript,		"ui_npc_spawnscript",	"none", NULL, 0},
 	{ &ui_npc_fleescript,		"ui_npc_fleescript",	"none", NULL, 0},
@@ -1435,6 +1438,14 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 	{
 		return (index >= 0 && index < (int)uiAmmoNames.size()) ? uiAmmoNames[index].c_str() : "";
 	}
+	else if (feederID == FEEDER_LIGHTEDIT)
+	{
+		return UI_LightEdit_FeederItemText(index, column);
+	}
+	else if (feederID == FEEDER_LIGHTEDIT_EMI)
+	{
+		return UI_LightEdit_EmiFeederItemText(index, column);
+	}
 	else if (feederID == FEEDER_ANIM_OVERRIDES)
 	{
 		if (index < 0 || index >= (int)uiAnimOverrides.size())
@@ -1686,7 +1697,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 
 	if (String_Parse(args, &name))
 	{
-		if (Q_stricmpn(name, "phys", 4) == 0 && UI_Phys_Script(name, args))
+		if ((Q_stricmpn(name, "phys", 4) == 0 && UI_Phys_Script(name, args)) || UI_LightEdit_RunScript(name))
 		{
 			return qtrue;
 		}
@@ -1891,6 +1902,16 @@ static qboolean UI_RunMenuScript ( const char **args )
 			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutSwitchSelectWeapon\n");
 			return qtrue;
 		}
+		if (Q_stricmp(name, "loadoutClearSlot") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutClearSlot\n");
+			return qtrue;
+		}
+		if (Q_stricmp(name, "loadoutEscape") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "loadoutEscape\n");
+			return qtrue;
+		}
 		if (Q_stricmp(name, "characterButtonClick") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "characterButtonClick\n");
@@ -1929,6 +1950,22 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "characterUpdateSearch\n");
 		}
+		else if (Q_stricmp(name, "characterTagPreviousPage") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterTagPreviousPage\n");
+		}
+		else if (Q_stricmp(name, "characterTagNextPage") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterTagNextPage\n");
+		}
+		else if (Q_stricmp(name, "characterToggleTags") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterToggleTags\n");
+		}
+		else if (Q_stricmp(name, "characterResetSearch") == 0)
+		{
+			ui.Cmd_ExecuteText( EXEC_APPEND, "characterResetSearch\n");
+		}
 		else if (Q_stricmp(name, "characterConfigsRefresh") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "characterConfigsRefresh\n");
@@ -1936,6 +1973,17 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if (Q_stricmp(name, "characterBack") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "characterBack\n");
+		}
+		else if (Q_stricmp(name, "characterEscape") == 0)
+		{
+			// Escape does the action of the Back button of the shown screen: character screen -> grid, grid -> profile menu.
+			menuDef_t *charMenu = Menus_FindByName("IngameSWGLChars");
+			const char *backName = !Q_stricmp(Cvar_VariableString("ui_character_screen"), "character") ? "CharacterBack" : "SelectionBack";
+			itemDef_t *back = charMenu ? (itemDef_t *)Menu_FindItemByName(charMenu, backName) : NULL;
+			if (back && back->action)
+			{
+				Item_RunScript(back, back->action);
+			}
 		}
 		else if (Q_stricmpn(name, "uiPcWeaponNext", 14) == 0)
 		{
@@ -1973,6 +2021,11 @@ static qboolean UI_RunMenuScript ( const char **args )
 		else if (Q_stricmp(name, "uiNpcWeaponLabelUpd") == 0)
 		{
 			ui.Cmd_ExecuteText( EXEC_APPEND, "uiNpcWeaponLabelUpd\n");
+		}
+		else if (Q_stricmp(name, "npcSetRandomWeapon") == 0)
+		{
+			// The weapon of the NPC is the random weapon of the selector (the loadout menu lists the weapons of the player only).
+			Cvar_Set("ui_npc_weapon", Cvar_VariableString("ui_npc_random_weapon"));
 		}
 		else if (Q_stricmp(name, "loadoutNextPage") == 0)
 		{
@@ -2451,7 +2504,11 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s\n", Cvar_VariableString("ui_npc_type")));
 			ui.Cmd_ExecuteText(EXEC_NOW, va("playermodel %s %s %s %s\n", Cvar_VariableString("ui_char_model"), Cvar_VariableString("ui_char_skin_head"), Cvar_VariableString("ui_char_skin_torso"), Cvar_VariableString("ui_char_skin_legs")));
-			ui.Cmd_ExecuteText(EXEC_NOW, va("playerteam %s\n", Cvar_VariableString("ui_team")));
+			// "Change team" off: the character keeps the current team.
+			if (Cvar_VariableIntegerValue("g_allowAlignmentChange"))
+			{
+				ui.Cmd_ExecuteText(EXEC_NOW, va("playerteam %s\n", Cvar_VariableString("ui_team")));
+			}
 			if (Cvar_VariableIntegerValue("g_adoptcharstats") >= 1)
 			{
 				ui.Cmd_ExecuteText(EXEC_NOW, va("give health %s\n", Cvar_VariableString("ui_health")));
@@ -3166,6 +3223,14 @@ static int UI_FeederCount(float feederID)
 	{
 		return (int)uiAmmoTypes.size();
 	}
+	else if (feederID == FEEDER_LIGHTEDIT)
+	{
+		return UI_LightEdit_FeederCount();
+	}
+	else if (feederID == FEEDER_LIGHTEDIT_EMI)
+	{
+		return UI_LightEdit_EmiFeederCount();
+	}
 	else if (feederID == FEEDER_PLAYER_SPECIES)
 	{
 		return uiInfo.playerSpeciesCount;
@@ -3439,6 +3504,14 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 	else if (feederID == FEEDER_AMMO)
 	{
 		UI_SelectAmmoType(index);
+	}
+	else if (feederID == FEEDER_LIGHTEDIT)
+	{
+		UI_LightEdit_FeederSelection(index);
+	}
+	else if (feederID == FEEDER_LIGHTEDIT_EMI)
+	{
+		UI_LightEdit_EmiFeederSelection(index);
 	}
 	else if (feederID == FEEDER_PLAYER_SKIN_HEAD)
 	{
@@ -4162,8 +4235,12 @@ static void UI_BuildPlayerModel_List(qboolean inGameLoad)
 				filelen = strlen(fileptr);
 				COM_StripExtension(fileptr, skinname, sizeof(skinname));
 
-				if (IsImageFile(dirptr, skinname, (qboolean)(building != 0)))
-				{ //if it exists
+				// The icon is optional: the skin list writes the name when it is missing.
+				if (building)
+				{
+					IsImageFile(dirptr, skinname, qtrue);
+				}
+				{
 					if (Q_stricmpn(skinname, "head_", 5) == 0)
 					{
 						if (species->SkinHeadCount >= species->SkinHeadMax)
@@ -4270,8 +4347,11 @@ static void UI_BuildPlayerModel_List(qboolean inGameLoad)
 				filelen = strlen(fileptr);
 				COM_StripExtension(fileptr, skinname, sizeof(skinname));
 
-				if (IsImageFile(dirptr, skinname, (qboolean)(building != 0)))
-				{ //if it exists
+				if (building)
+				{
+					IsImageFile(dirptr, skinname, qtrue);
+				}
+				{
 					if (Q_stricmpn(skinname, "model_", 6) == 0)
 					{
 						if (species->SkinCount >= species->SkinMax)
@@ -4311,6 +4391,15 @@ UI_Shutdown
 void UI_Shutdown( void )
 {
 	UI_FreeAllSpecies();
+}
+
+// Menu items set a latched cvar for the next restart (Cvar_SetLatched), so they show the latched value.
+static float UI_Cvar_PendingValue( const char *var_name )
+{
+	char buf[MAX_CVAR_VALUE_STRING];
+
+	Cvar_PendingStringBuffer( var_name, buf, sizeof( buf ) );
+	return atof( buf );
 }
 
 /*
@@ -4371,8 +4460,8 @@ void _UI_Init( qboolean inGameLoad )
 	uiInfo.uiDC.feederSelection		= &UI_FeederSelection;
 	uiInfo.uiDC.fillRect			= &UI_FillRect;
 	uiInfo.uiDC.getBindingBuf		= &Key_GetBindingBuf;
-	uiInfo.uiDC.getCVarString		= Cvar_VariableStringBuffer;
-	uiInfo.uiDC.getCVarValue		= trap_Cvar_VariableValue;
+	uiInfo.uiDC.getCVarString		= Cvar_PendingStringBuffer;
+	uiInfo.uiDC.getCVarValue		= UI_Cvar_PendingValue;
 	uiInfo.uiDC.getOverstrikeMode	= &trap_Key_GetOverstrikeMode;
 	uiInfo.uiDC.getValue			= &UI_GetValue;
 	uiInfo.uiDC.keynumToStringBuf	= &Key_KeynumToStringBuf;
@@ -4391,7 +4480,7 @@ void _UI_Init( qboolean inGameLoad )
 	uiInfo.uiDC.deferScript			= &UI_DeferMenuScript;
 	uiInfo.uiDC.setBinding			= &trap_Key_SetBinding;
 	uiInfo.uiDC.setColor			= &UI_SetColor;
-	uiInfo.uiDC.setCVar				= Cvar_Set;
+	uiInfo.uiDC.setCVar				= Cvar_SetLatched;
 	uiInfo.uiDC.setOverstrikeMode	= &trap_Key_SetOverstrikeMode;
 	uiInfo.uiDC.startLocalSound		= &trap_S_StartLocalSound;
 	uiInfo.uiDC.stopCinematic		= &UI_StopCinematic;
@@ -5548,38 +5637,39 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 			ui.Draw_DataPad(DP_LOADOUT);
 			break;
 
-		case UI_NPC_WEAPON_LABEL:
-			ui.Draw_DataPad(DP_NPC_WEAPON_LABEL);
+		// The icon of the weapon of a slot of the character menu, drawn by the cgame (it has the weapon data).
+		case UI_NPC_WEAPON_SLOT:
+			VM_Call(CG_DRAW_WEAPON_SLOT, (intptr_t)7, (intptr_t)x, (intptr_t)y, (intptr_t)w, (intptr_t)h);
 			UI_UpdateSaberVisibility();
 			break;
 
-		case UI_PLAYER_WEAPON_LABEL_1:
-			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_1);
-			UI_UpdateSaberVisibility();
-			break;
-
-		case UI_PLAYER_WEAPON_LABEL_2:
-			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_2);
-			break;
-
-		case UI_PLAYER_WEAPON_LABEL_3:
-			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_3);
-			break;
-
-		case UI_PLAYER_WEAPON_LABEL_4:
-			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_4);
-			break;
-
-		case UI_PLAYER_WEAPON_LABEL_6:
-			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_6);
-			break;
-
-		case UI_PLAYER_WEAPON_LABEL_5:
-			ui.Draw_DataPad(DP_PLAYER_WEAPON_LABEL_5);
+		case UI_PLAYER_WEAPON_SLOT_1:
+		case UI_PLAYER_WEAPON_SLOT_2:
+		case UI_PLAYER_WEAPON_SLOT_3:
+		case UI_PLAYER_WEAPON_SLOT_4:
+		case UI_PLAYER_WEAPON_SLOT_5:
+		case UI_PLAYER_WEAPON_SLOT_6:
+			VM_Call(CG_DRAW_WEAPON_SLOT, (intptr_t)(ownerDraw - UI_PLAYER_WEAPON_SLOT_1 + 1), (intptr_t)x, (intptr_t)y, (intptr_t)w, (intptr_t)h);
+			if (ownerDraw == UI_PLAYER_WEAPON_SLOT_1)
+			{
+				UI_UpdateSaberVisibility();
+			}
 			break;
 
 		case UI_DATAPAD_CHARACTERS:
 			ui.Draw_DataPad(DP_CHARACTERS);
+			break;
+
+		case UI_LIGHTEDIT_SWATCH:
+			UI_LightEdit_DrawSwatch(x, y, w, h);
+			break;
+
+		case UI_LIGHTEDIT_STATS:
+			UI_LightEdit_DrawStats(x, y, scale, color, iFontIndex);
+			break;
+
+		case UI_LIGHTEDIT_SKY:
+			UI_LightEdit_DrawSky(x, y, scale, color, iFontIndex);
 			break;
 
 		case UI_ALLMAPS_SELECTION://saved game thumbnail
@@ -5974,6 +6064,20 @@ you to discard your changes if you did something you didnt want
 */
 void UI_UpdateVideoSetup ( void )
 {
+	// Window mode: 0 windowed, 1 borderless window, 2 full screen.
+	const int windowMode = Cvar_VariableIntegerValue( "ui_r_windowmode" );
+	Cvar_Set ( "ui_r_fullscreen", windowMode == 2 ? "1" : "0" );
+	Cvar_Set ( "r_noborder", windowMode == 1 ? "1" : "0" );
+
+	// rd-vulkan takes the anisotropy level from r_ext_max_anisotropy. The other renderers
+	// take it from r_ext_texture_filter_anisotropic, which the menu sets.
+	char aniso[MAX_CVAR_VALUE_STRING];
+	Cvar_PendingStringBuffer( "r_ext_texture_filter_anisotropic", aniso, sizeof( aniso ) );
+	if ( atof( aniso ) >= 1.0f )
+	{
+		Cvar_Set ( "r_ext_max_anisotropy", va( "%d", Com_Clampi( 1, 16, (int)( atof( aniso ) + 0.5f ) ) ) );
+	}
+
 	Cvar_Set ( "r_mode", Cvar_VariableString ( "ui_r_mode" ) );
 	Cvar_Set ( "r_fullscreen", Cvar_VariableString ( "ui_r_fullscreen" ) );
 	Cvar_Set ( "r_colorbits", Cvar_VariableString ( "ui_r_colorbits" ) );
@@ -6009,6 +6113,7 @@ void UI_GetVideoSetup ( void )
 	// Make sure the cvars are registered as read only.
 	Cvar_Register ( NULL, "ui_r_mode",					"0", CVAR_ROM );
 	Cvar_Register ( NULL, "ui_r_fullscreen",			"0", CVAR_ROM );
+	Cvar_Register ( NULL, "ui_r_windowmode",			"0", CVAR_ROM );
 	Cvar_Register ( NULL, "ui_r_colorbits",				"0", CVAR_ROM );
 	Cvar_Register ( NULL, "ui_r_lodbias",				"0", CVAR_ROM );
 	Cvar_Register ( NULL, "ui_r_picmip",				"0", CVAR_ROM );
@@ -6028,6 +6133,8 @@ void UI_GetVideoSetup ( void )
 	Cvar_Set ( "ui_r_mode", Cvar_VariableString ( "r_mode" ) );
 	Cvar_Set ( "ui_r_colorbits", Cvar_VariableString ( "r_colorbits" ) );
 	Cvar_Set ( "ui_r_fullscreen", Cvar_VariableString ( "r_fullscreen" ) );
+	Cvar_Set ( "ui_r_windowmode", Cvar_VariableIntegerValue( "r_fullscreen" ) ? "2" :
+								  Cvar_VariableIntegerValue( "r_noborder" ) ? "1" : "0" );
 	Cvar_Set ( "ui_r_lodbias", Cvar_VariableString ( "r_lodbias" ) );
 	Cvar_Set ( "ui_r_picmip", Cvar_VariableString ( "r_picmip" ) );
 	Cvar_Set ( "ui_r_texturebits", Cvar_VariableString ( "r_texturebits" ) );
@@ -6115,6 +6222,9 @@ static void UI_UpdateCharacterCvars(void)
 static void UI_UpdateNPCCvars()
 {
 	Cvar_Set("g_NPCtype", Cvar_VariableString("ui_npc_type"));
+	// Character variant of the NPC: its random parts (.cha) are picked at the spawn.
+	Cvar_Set("g_NPCcharKey", Cvar_VariableString("g_charKey"));
+	Cvar_Set("g_NPCvariant", Cvar_VariableString("ui_variant_code"));
 	Cvar_Set("g_NPCmodel", Cvar_VariableString("ui_char_model"));
 	Cvar_Set("g_NPChead", Cvar_VariableString("ui_char_skin_head"));
 	Cvar_Set("g_NPCtorso", Cvar_VariableString("ui_char_skin_torso"));

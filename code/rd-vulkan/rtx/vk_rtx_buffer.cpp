@@ -22,6 +22,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "tr_local.h"
+#include "rtx_light_style.h"
+#include "rtx_light_emissive.h"
 
 #define     MAX_MAP_CLUSTERS    65536
 
@@ -43,51 +45,33 @@ void vkpt_light_buffer_reset_counts( void )	// not used yet
 	max_model_lights = 0;
 }
 
+// The factor of the light color in the light buffer.
+// The light cast by a glow stage and by a q3map_surfacelight surface have their own scale.
+// pt_glow_scale only sets how bright the glow surface is seen. In the world, a light without
+// material is a light entity. add_dlights applies pt_light_scale_dlight.
+float vk_rtx_light_scale( const light_poly_t *light, qboolean world )
+{
+	float mat_scale = 10.f;
+	if ( light->material )
+		mat_scale = RTX_LightEmissive_Scale( light->material );
+	else if ( world )
+	{
+		static cvar_t *pt_light_scale_edit;
+		if ( !pt_light_scale_edit )
+			pt_light_scale_edit = ri.Cvar_Get( "pt_light_scale_edit", "0.1", CVAR_ARCHIVE_ND );
+
+		mat_scale = light->ent_class == LIGHT_ENT_EDIT ? MAX( 0.f, pt_light_scale_edit->value ) : 1.f;
+	}
+
+	return mat_scale;
+}
+
 static inline void
 copy_light(const light_poly_t* light, float* vblight, const float* sky_radiance, qboolean world)
 {
-	float style_scale = 1.f;
-	float prev_style = 1.f;
-
-#if 0
-	if (light->style != 0 && vkpt_refdef.fd->lightstyles)
-	{
-		style_scale = vkpt_refdef.fd->lightstyles[light->style].white;
-		style_scale = MAX(0, MIN(1, style_scale));
-
-		prev_style = vkpt_refdef.prev_lightstyles[light->style].white;
-		prev_style = MAX(0, MIN(1, prev_style));
-	}
-#endif
-
-	// The light cast by a glow stage and by a q3map_surfacelight surface have their own scale.
-	// pt_glow_scale only sets how bright the glow surface is seen. In the world, a light without
-	// material is a light entity. add_dlights applies pt_light_scale_dlight.
-	static cvar_t *pt_light_scale_glow, *pt_light_scale_surface;
-	if ( !pt_light_scale_glow )
-	{
-		pt_light_scale_glow		= ri.Cvar_Get( "pt_light_scale_glow", "0.1", CVAR_ARCHIVE_ND );
-		pt_light_scale_surface	= ri.Cvar_Get( "pt_light_scale_surface", "0.4", CVAR_ARCHIVE_ND );
-	}
-
-	float mat_scale = 10.f;
-	if ( light->material )
-		mat_scale = MAX( 0.f, light->material->glow_emissive ? pt_light_scale_glow->value : pt_light_scale_surface->value );
-	else if ( world )
-	{
-		static cvar_t *pt_light_scale_ent_spot, *pt_light_scale_ent_sky, *pt_light_scale_ent_ambient;
-		if ( !pt_light_scale_ent_spot )
-		{
-			pt_light_scale_ent_spot		= ri.Cvar_Get( "pt_light_scale_ent_spot",		"0.5", CVAR_ARCHIVE_ND );
-			pt_light_scale_ent_sky		= ri.Cvar_Get( "pt_light_scale_ent_sky",		"2", CVAR_ARCHIVE_ND );
-			pt_light_scale_ent_ambient	= ri.Cvar_Get( "pt_light_scale_ent_ambient",	"0.01", CVAR_ARCHIVE_ND );
-		}
-
-		const cvar_t *class_scale = light->ent_class == LIGHT_ENT_SPOT ? pt_light_scale_ent_spot
-			: light->ent_class == LIGHT_ENT_SKY ? pt_light_scale_ent_sky : pt_light_scale_ent_ambient;
-
-		mat_scale = MAX( 0.f, class_scale->value );
-	}
+	const float style_scale = RTX_LightStyle_Scale( light->style, qfalse );
+	const float prev_style = RTX_LightStyle_Scale( light->style, qtrue );
+	const float mat_scale = vk_rtx_light_scale( light, world );
 
 	VectorCopy(light->positions + 0, vblight + 0);
 	VectorCopy(light->positions + 3, vblight + 4);
@@ -488,7 +472,20 @@ VkResult vkpt_light_buffer_upload_to_staging( qboolean render_world,
 
 	if ( render_world )
 	{
-		assert( world->num_light_polys + num_model_lights < MAX_LIGHT_POLYS);
+		// The light buffer holds MAX_LIGHT_POLYS lights. The model lights past the end are dropped.
+		const int model_light_room = MAX( 0, MAX_LIGHT_POLYS - 1 - world->num_light_polys );
+		if ( num_model_lights > model_light_room )
+		{
+			static int last_logged_world, last_logged_model;
+			if ( last_logged_world != world->num_light_polys || last_logged_model != num_model_lights )
+			{
+				last_logged_world = world->num_light_polys;
+				last_logged_model = num_model_lights;
+				Com_Printf( "RTX light buffer full: %d world lights, %d model lights, room for %d (max %d)\n",
+					world->num_light_polys, num_model_lights, model_light_room, MAX_LIGHT_POLYS );
+			}
+			num_model_lights = model_light_room;
+		}
 
 		int model_light_offset = world->num_light_polys;
 		max_model_lights = MAX(max_model_lights, num_model_lights);
@@ -505,7 +502,9 @@ VkResult vkpt_light_buffer_upload_to_staging( qboolean render_world,
 			copy_bsp_lights( world, lbo );
 		}
 
-		for ( int nlight = 0; nlight < world->num_light_polys; nlight++ )
+		// The world lights past MAX_LIGHT_POLYS do not fit in the buffer. The shaders ignore their indices.
+		const int num_world_lights = MIN( world->num_light_polys, MAX_LIGHT_POLYS );
+		for ( int nlight = 0; nlight < num_world_lights; nlight++ )
 		{
 			light_poly_t* light = world->light_polys + nlight;
 			float* vblight = *(lbo->light_polys + nlight * LIGHT_POLY_VEC4S);
@@ -532,6 +531,17 @@ VkResult vkpt_light_buffer_upload_to_staging( qboolean render_world,
 		vk_rtx_upload_materials( lbo );
 	}
 
+	// Without the PVS debug view, the mask is the PVS of the camera cluster. The primary rays use it
+	// for the surfaces behind a sky surface. A camera outside the world sees every cluster, as R_MarkLeaves.
+	if ( vk.cluster_debug_index < 0 )
+	{
+		const int view_cluster = BSP_PointLeaf( tr.world->nodes, backEnd.refdef.vieworg )->cluster;
+
+		if ( view_cluster < 0 || view_cluster >= tr.world->numClusters )
+			memset( vk.cluster_debug_mask, 0xff, sizeof( vk.cluster_debug_mask ) );
+		else
+			BSP_ClusterVis( tr.world, (byte*)vk.cluster_debug_mask, view_cluster, DVIS_PVS );
+	}
 	memcpy( lbo->cluster_debug_mask, vk.cluster_debug_mask, MAX_LIGHT_LISTS / 8 );
 	memcpy( lbo->sky_visibility, tr.world->sky_visibility, MAX_LIGHT_LISTS / 8);
 

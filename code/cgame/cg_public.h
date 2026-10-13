@@ -224,6 +224,8 @@ Ghoul2 Insert End
 
 	CG_OPENJK_MENU_PAINT,
 	CG_OPENJK_GETMENU_BYNAME,
+
+	CG_R_GETEXTENSION,
 } cgameImport_t;
 
 #ifdef JK2_MODE
@@ -349,6 +351,8 @@ Ghoul2 Insert End
 
 	CG_OPENJK_MENU_PAINT_JK2,
 	CG_OPENJK_GETMENU_BYNAME_JK2,
+
+	CG_R_GETEXTENSION_JK2,
 } cgameJK2Import_t;
 #endif
 
