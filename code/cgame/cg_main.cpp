@@ -416,6 +416,7 @@ vmCvar_t		cg_hudRatio;
 vmCvar_t		ui_loadout_base_weapon;
 vmCvar_t		ui_loadout_weapon;
 vmCvar_t		ui_loadout_slot;
+vmCvar_t		ui_char_random_saber_color;
 vmCvar_t		ui_npc_weapon;
 vmCvar_t		ui_npc_weapon_label;
 
@@ -593,6 +594,7 @@ static cvarTable_t cvarTable[] = {
 	{ &ui_loadout_base_weapon , "ui_loadout_base_weapon","weapon_none", CVAR_TEMP},
 	{ &ui_loadout_weapon , "ui_loadout_weapon","0", CVAR_TEMP},
 	{ &ui_loadout_slot , "ui_loadout_slot","0", CVAR_TEMP},	// 1-6 a player weapon, 7 the NPC weapon: the loadout menu picks the weapon of this slot
+	{ &ui_char_random_saber_color , "ui_char_random_saber_color","0", CVAR_TEMP},
 	{ &ui_npc_weapon, "ui_npc_weapon",	"WP_BLASTER", CVAR_ARCHIVE },
 	{ &ui_npc_weapon_label, "ui_npc_weapon_label",	"Blaster", CVAR_ARCHIVE },
 	//For PC

@@ -2317,10 +2317,25 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			UI_RefreshCharConfigs(NULL);
 		}
-		else if (Q_stricmp(name, "animOverrideRefresh") == 0 || Q_stricmp(name, "movesetRefresh") == 0 || Q_stricmp(name, "previewStance") == 0)
+		else if (Q_stricmp(name, "animOverrideRefresh") == 0 || Q_stricmp(name, "movesetRefresh") == 0 || Q_stricmp(name, "previewStance") == 0 || Q_stricmp(name, "saberEscape") == 0)
 		{
-			// The chain of else if is at the depth limit of the compiler: one branch for the three scripts.
-			if (Q_stricmp(name, "previewStance") == 0)
+			// The chain of else if is at the depth limit of the compiler: one branch for the four scripts.
+			if (Q_stricmp(name, "saberEscape") == 0)
+			{
+				// Escape in the saber menu: back to the character menu when it was opened from there, else to the game selection.
+				if (Cvar_VariableIntegerValue("ui_saber_edit"))
+				{
+					Cvar_Set("ui_saber_edit", "0");
+					Menus_CloseByName("ingameswglsaber");
+					UI_RunMenuCommand("uiScript char_weapon");
+				}
+				else
+				{
+					Menus_CloseAll();
+					Menus_OpenByName("GameSelectionMenu");
+				}
+			}
+			else if (Q_stricmp(name, "previewStance") == 0)
 			{
 				UI_PreviewNextStance();
 			}

@@ -2534,6 +2534,7 @@ The character menu opens the loadout menu to pick the weapon of one of its slots
 
 extern vmCvar_t		ui_loadout_slot;
 extern vmCvar_t		ui_npc_weapon;
+extern vmCvar_t		ui_char_random_saber_color;
 extern int WP_GetWeaponID(const char* weaponName);
 vmCvar_t* CG_GetUiWeaponCvar(int index);
 char* CG_GetUiWeaponName(int index);
@@ -2579,6 +2580,17 @@ static void CG_LDO_SetSlotWeapon(int slot, const char *weaponName)
 	cgi_Cvar_Set("ui_loadout_slot", "0");
 	cgi_UI_Run_Command("close IngameSWGLEquipment");
 	cgi_UI_Run_Command("uiScript char_weapon");
+
+	// A saber goes on to the saber menu, like the Edit Saber button (a random saber color has nothing to edit).
+	if (!Q_stricmp(weaponName, "weapon_saber") || !Q_stricmp(weaponName, "WP_SABER"))
+	{
+		cgi_Cvar_Update(&ui_char_random_saber_color);
+		if (!ui_char_random_saber_color.integer)
+		{
+			cgi_Cvar_Set("ui_saber_edit", "1");
+			cgi_UI_Run_Command("open ingameswglsaber");
+		}
+	}
 }
 
 // The icon of a weapon is lit when the player has it, or when it is the weapon of the slot.
