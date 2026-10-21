@@ -200,6 +200,8 @@ static void UI_UpdateTeamSelect(void);
 
 static void UI_UpdateSaberVisibility(qboolean weaponsTab);
 static void UI_PreviewNextStance(void);
+extern qboolean UI_SaberTypeForSaber(const char *saberName, char *saberType);
+extern saberType_t TranslateSaberType(const char *name);
 
 // State of the preview of the character menu (see UI_UpdateCharPreview): what it shows now, and whether it hides the sabers.
 static char uiPreviewSig[256];
@@ -6419,6 +6421,20 @@ static int UI_PreviewStanceIndex(void)
 	return (index >= 0 && index < UI_PREVIEW_STANCES) ? index : 2;
 }
 
+// SS_DUAL or SS_STAFF when the sabers of the menu force the stance, else 0. The player has no choice there either.
+static int UI_PreviewForcedStance(void)
+{
+	char saberType[MAX_QPATH] = { 0 };
+	const char *saber2 = Cvar_VariableString("ui_saber2");
+
+	if (saber2[0] && Q_stricmp(saber2, "empty") && Q_stricmp(saber2, "none"))
+	{
+		return SS_DUAL;
+	}
+	UI_SaberTypeForSaber(Cvar_VariableString("ui_saber"), saberType);
+	return (saberType[0] && TranslateSaberType(saberType) == SABER_STAFF) ? SS_STAFF : 0;
+}
+
 static itemDef_t *UI_PreviewItem(void)
 {
 	menuDef_t *menu = Menus_FindByName("IngameSWGLChars");
@@ -6574,7 +6590,8 @@ static void UI_UpdateCharPreview(menuDef_t *menu)
 	char model[MAX_QPATH];
 	int torsoAnim;
 	const int kind = UI_PreviewWeapon(model, sizeof(model), &torsoAnim);
-	const int stance = UI_PreviewStanceIndex();
+	const int forcedStance = (kind == CHARPREVIEW_SABER) ? UI_PreviewForcedStance() : 0;
+	const int stance = forcedStance ? 100 + forcedStance : UI_PreviewStanceIndex();
 
 	// The count of ghoul2 models is in the signature: a model that the menu rebuilds loses the weapon.
 	auto makeSig = [&](char *sig, int sigSize) {
@@ -6596,7 +6613,14 @@ static void UI_UpdateCharPreview(menuDef_t *menu)
 		return;
 	}
 
-	Cvar_Set("ui_char_preview_stance_label", va("Stance: %s  (click to change)", uiPreviewStanceNames[stance]));
+	if (forcedStance)
+	{
+		Cvar_Set("ui_char_preview_stance_label", va("Stance: %s  (set by the weapon)", (forcedStance == SS_DUAL) ? "Dual" : "Staff"));
+	}
+	else
+	{
+		Cvar_Set("ui_char_preview_stance_label", va("Stance: %s  (click to change)", uiPreviewStanceNames[stance]));
+	}
 	UI_SaberAttachToChar(item);
 	makeSig(uiPreviewSig, sizeof(uiPreviewSig));
 
@@ -6606,7 +6630,15 @@ static void UI_UpdateCharPreview(menuDef_t *menu)
 	case CHARPREVIEW_SABER:
 		// Same stances and fallbacks as PM_ReadyPoseForSaberAnimLevel.
 		baseAnim = BOTH_STAND2;
-		if (uiPreviewStances[stance] == SS_FAST)
+		if (forcedStance)
+		{
+			baseAnim = (forcedStance == SS_DUAL) ? BOTH_SABERDUAL_STANCE : BOTH_SABERSTAFF_STANCE;
+			if (!UI_PreviewHasAnim(ghoul2, baseAnim))
+			{
+				baseAnim = BOTH_STAND2;
+			}
+		}
+		else if (uiPreviewStances[stance] == SS_FAST)
 		{
 			baseAnim = BOTH_SABERFAST_STANCE;
 		}
