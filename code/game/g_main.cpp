@@ -244,6 +244,7 @@ cvar_t *g_NPCsabertwo;
 cvar_t *g_NPCsabertwocolor;
 cvar_t *g_NPChealth;
 cvar_t *g_NPCspawnscript;
+cvar_t *g_NPCmoveset;
 cvar_t *g_NPCfleescript;
 cvar_t *g_NPCdeathscript;
 cvar_t *g_NPChead;
@@ -810,6 +811,7 @@ void G_InitCvars( void ) {
 	g_NPCteam = gi.cvar("g_NPCteam", "enemy", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_NPChealth = gi.cvar("g_NPChealth", "100", CVAR_ARCHIVE | CVAR_NORESTART);
 	g_NPCspawnscript = gi.cvar("g_NPCspawnscript", "none", 0);
+	g_NPCmoveset = gi.cvar("g_NPCmoveset", "none", 0);
 	g_NPCfleescript = gi.cvar("g_NPCfleescript", "none", 0);
 	g_NPCdeathscript = gi.cvar("g_NPCdeathscript", "none", 0);
 	g_NPChead = gi.cvar("g_NPChead", "model_default", CVAR_ARCHIVE | CVAR_NORESTART);

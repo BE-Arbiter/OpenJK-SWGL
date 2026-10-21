@@ -113,6 +113,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #define FEEDER_AMMO							0x1f			// Ammo types of the player (cheat menu)
 #define FEEDER_LIGHTEDIT					0x20			// Lights of the light edit menu
 #define FEEDER_LIGHTEDIT_EMI				0x21			// Emissive shaders of the light edit menu
+#define FEEDER_CHAR_MOVESET					0x22			// Movesets (animation overrides) of the character (character menu)
 
 #define UI_VERSION				200
 #define UI_HANDICAP				200

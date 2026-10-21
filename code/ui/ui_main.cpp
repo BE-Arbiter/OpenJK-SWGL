@@ -219,7 +219,7 @@ static void UI_LoadCharacterCfg(void);
 static void Com_FlushCharacterFile(void);
 static void UI_LoadCharacterDefaultCfg(void);
 static void UI_RefreshCharConfigs(const char *select);
-static void UI_RefreshAnimOverrides(void);
+static void UI_RefreshAnimOverrides(qboolean rebuildList);
 
 // Arguments of "animoverride" for FEEDER_ANIM_OVERRIDES: "none", "default", then the override folders.
 static std::vector<std::string> uiAnimOverrides;
@@ -930,6 +930,7 @@ vmCvar_t	ui_npc_spawnscript;
 vmCvar_t	ui_npc_fleescript;
 vmCvar_t	ui_npc_deathscript;
 vmCvar_t	ui_npc_targetname;
+vmCvar_t	ui_char_moveset;
 vmCvar_t	ui_npc_menu;
 vmCvar_t	ui_mission_topic;
 vmCvar_t	ui_mission;
@@ -1114,6 +1115,7 @@ static cvarTable_t cvarTable[] =
 	{ &ui_npc_fleescript,		"ui_npc_fleescript",	"none", NULL, 0},
 	{ &ui_npc_deathscript,		"ui_npc_deathscript",	"none", NULL, 0},
 	{ &ui_npc_targetname,		"ui_npc_targetname",	"", NULL, 0},
+	{ &ui_char_moveset,			"ui_char_moveset",		"none", NULL, 0},	// moveset chosen in the character menu: "none", "default" or an override folder
 	{ &ui_saber_edit,			"ui_saber_edit",		"0", NULL},
 	{ &ui_char_model_angle, "ui_char_model_angle", "180", NULL, 0},
 	{ &ui_npc_menu, "ui_npc_menu", "0", NULL, 0},
@@ -1442,7 +1444,7 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 	{
 		return UI_LightEdit_EmiFeederItemText(index, column);
 	}
-	else if (feederID == FEEDER_ANIM_OVERRIDES)
+	else if (feederID == FEEDER_ANIM_OVERRIDES || feederID == FEEDER_CHAR_MOVESET)
 	{
 		if (index < 0 || index >= (int)uiAnimOverrides.size())
 		{
@@ -1450,7 +1452,8 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 		}
 		if (index == 0)
 		{
-			return "Model default";
+			// In the character menu, "none" keeps the moveset of the .npc, else of the model.
+			return feederID == FEEDER_CHAR_MOVESET ? "NPC / model default" : "Model default";
 		}
 		if (index == 1)
 		{
@@ -2301,7 +2304,11 @@ static qboolean UI_RunMenuScript ( const char **args )
 		}
 		else if (Q_stricmp(name, "animOverrideRefresh") == 0)
 		{
-			UI_RefreshAnimOverrides();
+			UI_RefreshAnimOverrides(qtrue);
+		}
+		else if (Q_stricmp(name, "movesetRefresh") == 0)
+		{
+			UI_RefreshAnimOverrides(qfalse);
 		}
 		else if (Q_stricmp(name, "ammoRefresh") == 0)
 		{
@@ -2531,6 +2538,11 @@ static qboolean UI_RunMenuScript ( const char **args )
 				ui.Cmd_ExecuteText(EXEC_NOW, va("give force %s\n", Cvar_VariableString("ui_force")));
 			}			
 			ui.Cmd_ExecuteText(EXEC_NOW, va("lightningColor %s\n", Cvar_VariableString("ui_lightning_color")));
+			// "none" keeps the moveset of the .npc or of the model.
+			if (Q_stricmp(Cvar_VariableString("ui_char_moveset"), "none"))
+			{
+				ui.Cmd_ExecuteText(EXEC_NOW, va("animoverride %s\n", Cvar_VariableString("ui_char_moveset")));
+			}
 		}
 		else if (Q_stricmp(name, "anglesesc") == 0)
 		{
@@ -3225,7 +3237,7 @@ static int UI_FeederCount(float feederID)
 	{
 		return uiCharConfigCount;
 	}
-	else if (feederID == FEEDER_ANIM_OVERRIDES)
+	else if (feederID == FEEDER_ANIM_OVERRIDES || feederID == FEEDER_CHAR_MOVESET)
 	{
 		return (int)uiAnimOverrides.size();
 	}
@@ -3504,6 +3516,13 @@ static void UI_FeederSelection(float feederID, int index, itemDef_t *item)
 		{
 			Cvar_Set("ui_animoverride", uiAnimOverrides[index].c_str());
 			ui.Cmd_ExecuteText(EXEC_APPEND, va("animoverride %s\n", uiAnimOverrides[index].c_str()));
+		}
+	}
+	else if (feederID == FEEDER_CHAR_MOVESET)
+	{
+		if (index >= 0 && index < (int)uiAnimOverrides.size())
+		{
+			Cvar_Set("ui_char_moveset", uiAnimOverrides[index].c_str());
 		}
 	}
 	else if (feederID == FEEDER_AMMO)
@@ -6222,6 +6241,7 @@ static void UI_UpdateNPCCvars()
 	Cvar_Set("g_NPCsabertwo", Cvar_VariableString("ui_saber2"));
 	Cvar_Set("g_NPCsabertwocolor", Cvar_VariableString("ui_saber2_color"));
 	Cvar_Set("g_NPCLightningColor", Cvar_VariableString("ui_lightning_color"));
+	Cvar_Set("g_NPCmoveset", Cvar_VariableString("ui_char_moveset"));
 	Cvar_Set("g_NPCspawnscript", Cvar_VariableString("ui_npc_spawnscript"));
 	Cvar_Set("g_NPCfleescript", Cvar_VariableString("ui_npc_fleescript"));
 	Cvar_Set("g_NPCdeathscript", Cvar_VariableString("ui_npc_deathscript"));
@@ -10004,13 +10024,13 @@ static void UI_RefreshCharConfigs(const char *select)
 
 /*
 =================
-UI_RefreshAnimOverrides
+UI_BuildAnimOverrides
 
-Lists the animation overrides for FEEDER_ANIM_OVERRIDES: each models/players/<name>/<name>.gla
-that the renderer can append to _humanoid.gla (see mdx_merge.h). Selects the value of ui_animoverride.
+Lists the animation overrides for FEEDER_ANIM_OVERRIDES and FEEDER_CHAR_MOVESET: each models/players/<name>/<name>.gla
+that the renderer can append to _humanoid.gla (see mdx_merge.h).
 =================
 */
-static void UI_RefreshAnimOverrides(void)
+static void UI_BuildAnimOverrides(void)
 {
 	std::vector<byte> baseBuf, weaponsBuf, extraBuf;
 	std::vector<std::string> names;
@@ -10059,22 +10079,75 @@ static void UI_RefreshAnimOverrides(void)
 	uiAnimOverrides.push_back("none");
 	uiAnimOverrides.push_back("default");
 	uiAnimOverrides.insert(uiAnimOverrides.end(), names.begin(), names.end());
+}
 
-	int selected = 0;
-	const char *current = UI_Cvar_VariableString("ui_animoverride");
-	for (int i = 0; i < (int)uiAnimOverrides.size(); i++)
+/*
+=================
+UI_RefreshAnimOverrides
+
+Selects the value of the cheat menu list (ui_animoverride) and of the character menu list (ui_char_moveset).
+The list is built again only with rebuildList: the character menu refreshes it at every character change.
+=================
+*/
+static void UI_RefreshAnimOverrides(qboolean rebuildList)
+{
+	if (rebuildList || uiAnimOverrides.empty())
 	{
-		if (!Q_stricmp(uiAnimOverrides[i].c_str(), current))
+		UI_BuildAnimOverrides();
+	}
+
+	// The selection is the override forced on the player now. A new character has none.
+	const char *forcedGLA = "";
+	const client_t *cl = &svs.clients[0];	// 0 because only ever us as a player
+	if (cl->gentity && cl->gentity->client)
+	{
+		for (int i = 0; i < cl->gentity->ghoul2.size() && !forcedGLA[0]; i++)
 		{
-			selected = i;
+			forcedGLA = cl->gentity->ghoul2[i].mAnimOverride;
 		}
 	}
+
+	int selected = 0;
+	for (int i = 1; forcedGLA[0] && i < (int)uiAnimOverrides.size(); i++)
+	{
+		char path[MAX_QPATH];
+		if (i == 1)
+		{
+			Q_strncpyz(path, GLA_HUMANOID_PATH, sizeof(path));
+		}
+		else
+		{
+			GLA_OverridePath(uiAnimOverrides[i].c_str(), path, sizeof(path));
+		}
+		if (!Q_stricmp(path, forcedGLA))
+		{
+			selected = i;
+			break;
+		}
+	}
+	Cvar_Set("ui_animoverride", uiAnimOverrides[selected].c_str());
 
 	menuDef_t *menu = Menus_FindByName("IngameSWGLCheat");
 	itemDef_t *item = menu ? (itemDef_t *)Menu_FindItemByName(menu, "animOverrideList") : NULL;
 	if (item)
 	{
 		item->cursorPos = selected;
+	}
+
+	int movesetSelected = 0;
+	const char *moveset = UI_Cvar_VariableString("ui_char_moveset");
+	for (int i = 0; i < (int)uiAnimOverrides.size(); i++)
+	{
+		if (!Q_stricmp(uiAnimOverrides[i].c_str(), moveset))
+		{
+			movesetSelected = i;
+		}
+	}
+	menu = Menus_FindByName("IngameSWGLChars");
+	item = menu ? (itemDef_t *)Menu_FindItemByName(menu, "charMovesetList") : NULL;
+	if (item)
+	{
+		item->cursorPos = movesetSelected;
 	}
 }
 

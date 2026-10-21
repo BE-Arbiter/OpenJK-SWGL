@@ -80,6 +80,8 @@ extern cvar_t *g_NPCsabertwo;
 extern cvar_t *g_NPCsabertwocolor;
 extern cvar_t *g_NPChealth;
 extern cvar_t *g_NPCspawnscript;
+extern cvar_t *g_NPCmoveset;
+extern char g_spawnAnimOverride[MAX_QPATH];
 extern cvar_t *g_NPCfleescript;
 extern cvar_t* g_NPCdeathscript;
 extern cvar_t* g_NPCmodel;
@@ -774,7 +776,10 @@ static void Svcmd_Spawn_f(void)
 	NPC_PrecacheByClassName(NPCspawner->NPC_type);
 
 	// The random NPCs of the menu come from the .cha file (CHA_RandomizeSpawner).
+	// The moveset of the menu goes in place of the one of the .npc and of the model, for this spawn only.
+	Q_strncpyz(g_spawnAnimOverride, Q_stricmp(g_NPCmoveset->string, "none") ? g_NPCmoveset->string : "", sizeof(g_spawnAnimOverride));
 	NPC_Spawn(NPCspawner, NPCspawner, NPCspawner);
+	g_spawnAnimOverride[0] = 0;
 
 }
 

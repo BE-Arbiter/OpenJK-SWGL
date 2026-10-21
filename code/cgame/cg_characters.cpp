@@ -213,6 +213,9 @@ void ChangeCharacter(int characterIndex, int variantIndex = 0)
 	cgi_UI_Run_Command("uiScript char_weapon");
 	cgi_UI_Run_Command("uiScript \"char_default_skin\" \"model_default\"");
 	cgi_UI_Run_Command("uiScript charConfigRefresh");
+	// The moveset comes from the .npc or from the model until the player picks one.
+	cgi_Cvar_Set("ui_char_moveset", "none");
+	cgi_UI_Run_Command("uiScript movesetRefresh");
 }
 
 // Go from the selection grid to the character screen. Back goes to this grid again.

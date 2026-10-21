@@ -34,6 +34,10 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include <ctime>
 
 extern qboolean G_CheckInSolid(gentity_t *self, qboolean fix);
+extern qboolean G_SetAnimOverride(gentity_t *ent, const char *overrideName);
+
+// Moveset forced on the NPC of the spawn command of the character menu. Empty: the .npc or the model decides.
+char g_spawnAnimOverride[MAX_QPATH];
 extern void ClientUserinfoChanged(int clientNum);
 extern qboolean SpotWouldTelefrag2(gentity_t *mover, vec3_t dest);
 extern void Jedi_Cloak(gentity_t *self);
@@ -2011,6 +2015,11 @@ gentity_t *NPC_Spawn_Do(gentity_t *ent, qboolean fullSpawnNow)
 			G_SetOrigin(ent, saveOrg);
 		}
 		return NULL;
+	}
+
+	if (g_spawnAnimOverride[0] && !G_SetAnimOverride(newent, g_spawnAnimOverride))
+	{
+		gi.Printf(S_COLOR_RED "NPC %s: animOverride %s is not used\n", ent->NPC_type, g_spawnAnimOverride);
 	}
 
 	if (ent->NPC_type)
