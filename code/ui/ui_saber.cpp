@@ -1073,6 +1073,9 @@ void UI_GetSaberForMenu( char *saber, int saberNum )
 
 }
 
+extern qboolean UI_CharPreviewAttachWeapon( itemDef_t *item );
+extern qboolean UI_CharPreviewHidesSaber( itemDef_t *item );
+
 void UI_SaberDrawBlades(itemDef_t* item, vec3_t origin, float curYaw)
 {
 	//NOTE: only allows one saber type in view at a time
@@ -1080,6 +1083,11 @@ void UI_SaberDrawBlades(itemDef_t* item, vec3_t origin, float curYaw)
 	int saberNum = 0;
 	int saberModel = 0;
 	int	numSabers = 1;
+
+	if (UI_CharPreviewHidesSaber(item))
+	{
+		return;
+	}
 
 	if ((item->flags & ITF_ISCHARACTER)//hacked sabermoves sabers in character's hand
 		&& (uiInfo.movesTitleIndex == 4 /*MD_DUAL_SABERS*/
@@ -1144,6 +1152,11 @@ void UI_SaberAttachToChar( itemDef_t *item )
 	if ( item->ghoul2.size() > 1 && item->ghoul2[1].mModelindex >=0)
 	{//remove any extra models
 		DC->g2_RemoveGhoul2Model(item->ghoul2, 1);
+	}
+
+	if (UI_CharPreviewAttachWeapon(item))
+	{//the weapon of the character menu is not a saber
+		return;
 	}
 
 	if (charMenu)

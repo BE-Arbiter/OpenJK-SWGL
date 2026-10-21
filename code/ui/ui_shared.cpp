@@ -3304,6 +3304,7 @@ ItemParse_asset_model
 ===============
 */
 extern void UI_SaberAttachToChar( itemDef_t *item );
+extern void UI_CharPreviewReset( void );
 
 qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name )
 {
@@ -3324,6 +3325,11 @@ qboolean ItemParse_asset_model_go( itemDef_t *item, const char *name )
 		if (g2Model >= 0)
 		{
 			item->flags |= ITF_G2VALID;
+			if (item->flags & ITF_ISCHARACTER)
+			{
+				// A new model 0 has no weapon and no torso animation: the preview plays its pose again.
+				UI_CharPreviewReset();
+			}
 
 			if (modelPtr->g2anim)
 			{ //does the menu request this model be playing an animation?

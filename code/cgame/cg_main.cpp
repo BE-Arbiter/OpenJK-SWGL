@@ -95,6 +95,8 @@ void CG_LDO_DrawWeapons( void );
 void CG_DrawWeaponSlot( int slot, int x, int y, int w, int h );
 void CG_DrawDataPadForceSelect( void );
 qboolean CG_GetAmmoName( int ammoIndex, char *name, int nameSize );
+qboolean NPC_GetAnimOverride( const char *NPCName, char *out, int outSize );
+int CG_GetPreviewWeapon( qboolean npcMode, char *model, int modelSize, int *torsoAnim );
 
 /*
 ================
@@ -210,6 +212,10 @@ Ghoul2 Insert End
 		return 0;
 	case CG_GET_AMMO_NAME:
 		return CG_GetAmmoName((int)arg0, (char *)arg1, (int)arg2);
+	case CG_GET_NPC_ANIM_OVERRIDE:
+		return NPC_GetAnimOverride((const char *)arg0, (char *)arg1, (int)arg2);
+	case CG_GET_PREVIEW_WEAPON:
+		return CG_GetPreviewWeapon((qboolean)arg0, (char *)arg1, (int)arg2, (int *)arg3);
 	case CG_KEY_EVENT:
 		return CG_LightEdit_KeyEvent((int)arg0, (qboolean)arg1, (int)arg2) ? 1 : 0;
 	}

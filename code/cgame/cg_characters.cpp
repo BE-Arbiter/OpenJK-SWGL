@@ -215,6 +215,7 @@ void ChangeCharacter(int characterIndex, int variantIndex = 0)
 	cgi_UI_Run_Command("uiScript charConfigRefresh");
 	// The moveset comes from the .npc or from the model until the player picks one.
 	cgi_Cvar_Set("ui_char_moveset", "none");
+	cgi_Cvar_Set("ui_char_preview_stance", "2");	// Medium
 	cgi_UI_Run_Command("uiScript movesetRefresh");
 }
 

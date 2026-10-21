@@ -65,8 +65,15 @@ Ghoul2 Insert End
 	CG_DRAW_WEAPON_SLOT,		// ( int slot, int x, int y, int w, int h ): icon of the weapon of a slot, 1-6 a player weapon, 7 the NPC weapon
 	CG_DRAW_CHARACTERS,
 	CG_GET_AMMO_NAME,	// ( int ammoIndex, char *name, int nameSize ): qtrue if the player uses this ammo type
-	CG_KEY_EVENT		// ( int key, qboolean down, int mods ): 1 when the cgame consumes the key
+	CG_KEY_EVENT,		// ( int key, qboolean down, int mods ): 1 when the cgame consumes the key
+	CG_GET_NPC_ANIM_OVERRIDE,	// ( const char *npcName, char *out, int outSize ): 1 and the animOverride of the .npc entry
+	CG_GET_PREVIEW_WEAPON	// ( qboolean npcMode, char *model, int modelSize, int *torsoAnim ): CHARPREVIEW_ kind of the weapon of the character menu, its .glm and its idle torso animation
 } cgameExport_t;
+
+// Kinds of CG_GET_PREVIEW_WEAPON.
+#define CHARPREVIEW_NONE	0
+#define CHARPREVIEW_SABER	1
+#define CHARPREVIEW_OTHER	2
 
 // Modifier mask of CG_KEY_EVENT.
 #define CG_KEYMOD_CTRL		1

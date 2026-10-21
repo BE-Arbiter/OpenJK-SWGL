@@ -2298,12 +2298,13 @@ void G2API_SetSurfaceOnOffFromSkin (CGhoul2Info *ghlInfo, qhandle_t renderSkin)
 =================
 R_SkinSurfaceShader
 
-The shader a skin gives to the surface called name, or the default shader. Looking for
-the name in the skin costs a string compare per skin surface, for every surface of every
-character in every frame, so the index that matched is remembered.
+The shader a skin gives to the surface called name, or fallback (the shader of the surface, as in
+rd-vanilla: a skin that does not list a surface, such as the skin of a character on a weapon
+attached to it, leaves its own shader). Looking for the name in the skin costs a string compare
+per skin surface, for every surface of every character in every frame, so the index that matched is remembered.
 =================
 */
-shader_t *R_SkinSurfaceShader( const skin_t *skin, const char *name )
+shader_t *R_SkinSurfaceShader( const skin_t *skin, const char *name, shader_t *fallback )
 {
 	struct skinLookup_t {
 		const skin_t	*skin;
@@ -2332,10 +2333,10 @@ shader_t *R_SkinSurfaceShader( const skin_t *skin, const char *name )
 	else if ( c->index >= 0 && strcmp( skin->surfaces[c->index]->name, name ) ) {
 		// the strings behind the pointers changed: look again
 		c->skin = NULL;
-		return R_SkinSurfaceShader( skin, name );
+		return R_SkinSurfaceShader( skin, name, fallback );
 	}
 
-	return c->index >= 0 ? (shader_t *)skin->surfaces[c->index]->shader : tr.defaultShader;
+	return c->index >= 0 ? (shader_t *)skin->surfaces[c->index]->shader : fallback;
 }
 
 void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from SP.
@@ -2379,7 +2380,7 @@ void RenderSurfaces(CRenderSurface &RS) //also ended up just ripping right from 
 		else if ( RS.skin )
 		{
 			// match the surface name to something in the skin file
-			shader = R_SkinSurfaceShader( RS.skin, surfInfo->name );
+			shader = R_SkinSurfaceShader( RS.skin, surfInfo->name, R_GetShaderByHandle( surfInfo->shaderIndex ) );
 		}
 		else
 		{
@@ -3748,9 +3749,7 @@ static void R_G2_SnapAddRtxMeshes( CRenderSurface &RS )
 			shader = RS.cust_shader;
 		else if ( RS.skin )
 		{
-			// match the surface name to something in the skin file
-			shader = tr.defaultShader;
-
+			// match the surface name to something in the skin file; else the shader of the surface, as in rd-vanilla
 			for ( int j = 0; j < RS.skin->numSurfaces; j++ )
 			{
 				// the names have both been lowercased

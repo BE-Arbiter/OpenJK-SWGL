@@ -29,6 +29,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "../game/g_vehicles.h"
 
 #include "../game/anims.h"
+#include "../client/vmachine.h"
 
 extern void CG_LightningBolt( centity_t *cent, vec3_t origin );
 
@@ -3210,6 +3211,101 @@ void CG_DrawWeaponSlot(int slot, int x, int y, int w, int h) {
 	CG_DisplayBoxedText(x + 2, y + 2, w - 4, h - 4, name, CG_MagicFontToReal(4), 0.5f, colorTable[CT_WHITE]);
 }
 
+
+/*
+===================
+CG_GetPreviewWeapon
+
+Weapon in the hand of the character of the character menu. Returns a CHARPREVIEW_ kind, writes the .glm of the weapon
+and the torso animation the game plays with it when the character is idle.
+An NPC has the weapon of its slot. The player has the saber if a slot has one, else the first weapon of a slot.
+===================
+*/
+int CG_GetPreviewWeapon(qboolean npcMode, char *model, int modelSize, int *torsoAnim)
+{
+	int weapon = WP_NONE;
+
+	model[0] = 0;
+	*torsoAnim = -1;
+	if (npcMode)
+	{
+		weapon = CG_LDO_SlotWeapon(LOADOUT_SLOT_NPC);
+	}
+	else
+	{
+		for (int slot = 1; slot < LOADOUT_SLOT_NPC; slot++)
+		{
+			const int slotWeapon = CG_LDO_SlotWeapon(slot);
+			if (slotWeapon == WP_SABER)
+			{
+				weapon = WP_SABER;
+				break;
+			}
+			if (weapon == WP_NONE)
+			{
+				weapon = slotWeapon;
+			}
+		}
+	}
+
+	if (weapon == WP_NONE || strstr(weaponData[weapon].classname, "random"))
+	{
+		return CHARPREVIEW_NONE;
+	}
+	if (weapon == WP_SABER)
+	{
+		return CHARPREVIEW_SABER;
+	}
+
+	// Same .glm as G_CreateG2AttachedWeaponModel.
+	if (weaponData[weapon].weaponMdl[0])
+	{
+		Q_strncpyz(model, weaponData[weapon].weaponMdl, modelSize);
+		char *spot = strstr(model, ".md3");
+		if (spot)
+		{
+			*spot = 0;
+			if (!strstr(model, "_w") && !strstr(model, "noweap"))
+			{
+				Q_strcat(model, modelSize, "_w");
+			}
+			Q_strcat(model, modelSize, ".glm");
+		}
+	}
+
+	// The idle torso animation of PM_TorsoAnimation, by category. -1: the legs animation only.
+	switch (weaponData[weapon].weaponCategory)
+	{
+	case WC_MINIGUN:
+		*torsoAnim = TORSO_Z6_AIM;
+		break;
+	case WC_SHOULDER:
+		*torsoAnim = TORSO_PLX_AIM;
+		break;
+	case WC_PISTOL:
+		*torsoAnim = TORSO_WEAPONIDLE2;
+		break;
+	case WC_MELEE:
+		*torsoAnim = BOTH_STAND6;
+		break;
+	case WC_MELEE_1H:
+		*torsoAnim = BOTH_STAND3;
+		break;
+	case WC_SNIPER:
+		*torsoAnim = TORSO_WEAPONREADY3;
+		break;
+	case WC_GRENADE:
+	case WC_EXPLOSIVE:
+		*torsoAnim = BOTH_STAND1;
+		break;
+	case WC_NONE:
+		break;
+	default:
+		*torsoAnim = TORSO_WEAPONIDLE3;
+		break;
+	}
+	return CHARPREVIEW_OTHER;
+}
 
 void CG_PC_NextWeapon_f(int index) {
 	if (index <= 0 || index >= 7)

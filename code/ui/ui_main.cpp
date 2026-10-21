@@ -198,7 +198,12 @@ static void UI_UpdateNPCCvars(void);
 
 static void UI_UpdateTeamSelect(void);
 
-static void UI_UpdateSaberVisibility(void);
+static void UI_UpdateSaberVisibility(qboolean weaponsTab);
+static void UI_PreviewNextStance(void);
+
+// State of the preview of the character menu (see UI_UpdateCharPreview): what it shows now, and whether it hides the sabers.
+static char uiPreviewSig[256];
+static qboolean uiPreviewHideSaber;
 
 static void UI_HiltChange(int i);
 
@@ -931,6 +936,9 @@ vmCvar_t	ui_npc_fleescript;
 vmCvar_t	ui_npc_deathscript;
 vmCvar_t	ui_npc_targetname;
 vmCvar_t	ui_char_moveset;
+vmCvar_t	ui_char_preview_stance;
+vmCvar_t	ui_char_preview_stance_label;
+vmCvar_t	ui_char_aim[4];	// "pitch roll" in degrees of the torso of the preview, by weapon class (see uiPreviewAims)
 vmCvar_t	ui_npc_menu;
 vmCvar_t	ui_mission_topic;
 vmCvar_t	ui_mission;
@@ -1115,6 +1123,12 @@ static cvarTable_t cvarTable[] =
 	{ &ui_npc_fleescript,		"ui_npc_fleescript",	"none", NULL, 0},
 	{ &ui_npc_deathscript,		"ui_npc_deathscript",	"none", NULL, 0},
 	{ &ui_npc_targetname,		"ui_npc_targetname",	"", NULL, 0},
+	{ &ui_char_preview_stance,	"ui_char_preview_stance",	"2", NULL, 0},	// saber stance of the character preview: index of uiPreviewStances
+	{ &ui_char_preview_stance_label,	"ui_char_preview_stance_label",	"", NULL, 0},
+	{ &ui_char_aim[0],		"ui_char_aim_minigun",	"20 0", NULL, 0},
+	{ &ui_char_aim[1],		"ui_char_aim_shoulder",	"15 0", NULL, 0},
+	{ &ui_char_aim[2],		"ui_char_aim_pistol",	"15 0", NULL, 0},
+	{ &ui_char_aim[3],		"ui_char_aim_rifle",	"0 -10", NULL, 0},	// rifles and sniper rifles
 	{ &ui_char_moveset,			"ui_char_moveset",		"none", NULL, 0},	// moveset chosen in the character menu: "none", "default" or an override folder
 	{ &ui_saber_edit,			"ui_saber_edit",		"0", NULL},
 	{ &ui_char_model_angle, "ui_char_model_angle", "180", NULL, 0},
@@ -2254,7 +2268,7 @@ static qboolean UI_RunMenuScript ( const char **args )
 				if (modelPtr)
 				{
 					ItemParse_model_g2anim_go(item, uiInfo.movesBaseAnim);
-					uiInfo.moveAnimTime = 2000;
+					uiInfo.moveAnimTime = 0;
 
 					Com_sprintf(skin, sizeof(skin), "models/players/%s/|%s|%s|%s",
 						Cvar_VariableString("ui_char_model"),
@@ -2263,7 +2277,8 @@ static qboolean UI_RunMenuScript ( const char **args )
 						Cvar_VariableString("ui_char_skin_legs")
 					);
 
-					UI_SaberAttachToChar(item);
+					// The preview update attaches the weapon and plays its pose.
+					uiPreviewSig[0] = 0;
 				}
 			}
 		}
@@ -2302,13 +2317,17 @@ static qboolean UI_RunMenuScript ( const char **args )
 		{
 			UI_RefreshCharConfigs(NULL);
 		}
-		else if (Q_stricmp(name, "animOverrideRefresh") == 0)
+		else if (Q_stricmp(name, "animOverrideRefresh") == 0 || Q_stricmp(name, "movesetRefresh") == 0 || Q_stricmp(name, "previewStance") == 0)
 		{
-			UI_RefreshAnimOverrides(qtrue);
-		}
-		else if (Q_stricmp(name, "movesetRefresh") == 0)
-		{
-			UI_RefreshAnimOverrides(qfalse);
+			// The chain of else if is at the depth limit of the compiler: one branch for the three scripts.
+			if (Q_stricmp(name, "previewStance") == 0)
+			{
+				UI_PreviewNextStance();
+			}
+			else
+			{
+				UI_RefreshAnimOverrides((qboolean)(Q_stricmp(name, "animOverrideRefresh") == 0));
+			}
 		}
 		else if (Q_stricmp(name, "ammoRefresh") == 0)
 		{
@@ -5655,7 +5674,7 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 		// The icon of the weapon of a slot of the character menu, drawn by the cgame (it has the weapon data).
 		case UI_NPC_WEAPON_SLOT:
 			VM_Call(CG_DRAW_WEAPON_SLOT, (intptr_t)7, (intptr_t)x, (intptr_t)y, (intptr_t)w, (intptr_t)h);
-			UI_UpdateSaberVisibility();
+			UI_UpdateSaberVisibility(qtrue);
 			break;
 
 		case UI_PLAYER_WEAPON_SLOT_1:
@@ -5667,12 +5686,13 @@ static void UI_OwnerDraw(float x, float y, float w, float h, float text_x, float
 			VM_Call(CG_DRAW_WEAPON_SLOT, (intptr_t)(ownerDraw - UI_PLAYER_WEAPON_SLOT_1 + 1), (intptr_t)x, (intptr_t)y, (intptr_t)w, (intptr_t)h);
 			if (ownerDraw == UI_PLAYER_WEAPON_SLOT_1)
 			{
-				UI_UpdateSaberVisibility();
+				UI_UpdateSaberVisibility(qtrue);
 			}
 			break;
 
 		case UI_DATAPAD_CHARACTERS:
 			ui.Draw_DataPad(DP_CHARACTERS);
+			UI_UpdateSaberVisibility(qfalse);
 			break;
 
 		case UI_LIGHTEDIT_SWATCH:
@@ -6366,19 +6386,286 @@ static void UI_UpdateTeamSelect(void)
 	}
 }
 
-static void UI_UpdateSaberVisibility(void)
-{
-	menuDef_t* menu = Menu_GetFocused();
+/*
+=================
+Preview of the character of the character menu
 
-	if(Q_stricmp(menu->window.name, "IngameSWGLChars"))
+The weapon of the slot is in the hand of the character, with the pose the game gives to it.
+The pose of a saber is the saber stance chosen with ui_char_preview_stance.
+=================
+*/
+static const int uiPreviewStances[] = { SS_TAVION, SS_FAST, SS_MEDIUM, SS_STRONG, SS_DESANN };
+static const char *uiPreviewStanceNames[] = { "Tavion", "Light", "Medium", "Heavy", "Desann" };
+#define UI_PREVIEW_STANCES	((int)(sizeof(uiPreviewStances) / sizeof(uiPreviewStances[0])))
+
+static int UI_PreviewStanceIndex(void)
+{
+	const int index = Cvar_VariableIntegerValue("ui_char_preview_stance");
+	return (index >= 0 && index < UI_PREVIEW_STANCES) ? index : 2;
+}
+
+static itemDef_t *UI_PreviewItem(void)
+{
+	menuDef_t *menu = Menus_FindByName("IngameSWGLChars");
+	return menu ? (itemDef_t *)Menu_FindItemByName(menu, "character") : NULL;
+}
+
+// Kind of the weapon of the preview (CHARPREVIEW_), its .glm and the idle torso animation of the game with it (-1: none).
+static int UI_PreviewWeapon(char *model, int modelSize, int *torsoAnim)
+{
+	char buffer[MAX_QPATH];
+	int torso = -1;
+	const int kind = (int)VM_Call(CG_GET_PREVIEW_WEAPON, (intptr_t)(Cvar_VariableIntegerValue("ui_npc_menu") >= 1), (intptr_t)buffer, (intptr_t)sizeof(buffer), (intptr_t)&torso);
+	Q_strncpyz(model, buffer, modelSize);
+	if (torsoAnim)
+	{
+		*torsoAnim = torso;
+	}
+	return kind;
+}
+
+// The moveset of the spawn: the choice of the menu, else the animOverride of the .npc (the player too: "playermodel <npc>" reads it),
+// else the one of the model. "default" is _humanoid.gla.
+static void UI_PreviewApplyMoveset(CGhoul2Info *ghoul2)
+{
+	const char *moveset = Cvar_VariableString("ui_char_moveset");
+	char npcMoveset[MAX_QPATH];
+	char glaPath[MAX_QPATH] = { 0 };
+
+	if (!moveset[0] || !Q_stricmp(moveset, "none"))
+	{
+		if (VM_Call(CG_GET_NPC_ANIM_OVERRIDE, (intptr_t)Cvar_VariableString("ui_npc_type"), (intptr_t)npcMoveset, (intptr_t)sizeof(npcMoveset)))
+		{
+			moveset = npcMoveset;
+		}
+	}
+
+	if (!Q_stricmp(moveset, "default"))
+	{
+		Q_strncpyz(glaPath, GLA_HUMANOID_PATH, sizeof(glaPath));
+	}
+	else if (moveset[0] && Q_stricmp(moveset, "none"))
+	{
+		GLA_OverridePath(moveset, glaPath, sizeof(glaPath));
+	}
+	re.G2API_SetAnimOverride(ghoul2, glaPath);
+}
+
+// "pitch roll" of the torso for the idle torso animation of a weapon class: the cvar ui_char_aim_<class>. Other animations: no lean.
+static const char *UI_PreviewAimText(int torsoAnim)
+{
+	switch (torsoAnim)
+	{
+	case TORSO_Z6_AIM:			return ui_char_aim[0].string;
+	case TORSO_PLX_AIM:			return ui_char_aim[1].string;
+	case TORSO_WEAPONIDLE2:		return ui_char_aim[2].string;
+	case TORSO_WEAPONREADY3:
+	case TORSO_WEAPONIDLE3:		return ui_char_aim[3].string;
+	}
+	return "0 0";
+}
+
+// qtrue if the model has this animation.
+static qboolean UI_PreviewHasAnim(CGhoul2Info *ghoul2, int anim)
+{
+	const char *glaName = re.G2API_GetGLAName(ghoul2);
+	int animIndex;
+
+	if (!glaName || !glaName[0])
+	{
+		return qfalse;
+	}
+	UI_ParseAnimFileSet(glaName, &animIndex);
+	return (qboolean)(animIndex != -1 && ui_knownAnimFileSets[animIndex].animations[anim].numFrames > 0);
+}
+
+// Plays the animation on a bone with the flags of PM_SetAnimFinal.
+static void UI_PreviewSetAnim(CGhoul2Info *ghoul2, const char *boneName, int animNum)
+{
+	const char *glaName = re.G2API_GetGLAName(ghoul2);
+	int animIndex;
+
+	if (!glaName || !glaName[0])
+	{
+		return;
+	}
+	UI_ParseAnimFileSet(glaName, &animIndex);
+	if (animIndex == -1)
 	{
 		return;
 	}
 
+	const animation_t *anim = &ui_knownAnimFileSets[animIndex].animations[animNum];
+	if (anim->numFrames > 0)
+	{
+		re.G2API_SetBoneAnim(ghoul2, boneName, anim->firstFrame, anim->firstFrame + anim->numFrames, ((anim->loopFrames != -1) ? BONE_ANIM_OVERRIDE_LOOP : BONE_ANIM_OVERRIDE_FREEZE) | BONE_ANIM_BLEND, 50.0f / anim->frameLerp, uiInfo.uiDC.realTime, -1, 150);
+	}
+}
+
+// The character model was loaded again: the next update of the preview plays its pose again.
+void UI_CharPreviewReset(void)
+{
+	uiPreviewSig[0] = 0;
+}
+
+// qtrue if the preview shows a saber: the blades are drawn only then.
+qboolean UI_CharPreviewHidesSaber(itemDef_t *item)
+{
+	return (qboolean)(uiPreviewHideSaber && item && item == UI_PreviewItem());
+}
+
+// Puts the weapon of the slot in the hand of the preview, when it is not a saber. qfalse: the caller attaches the sabers.
+qboolean UI_CharPreviewAttachWeapon(itemDef_t *item)
+{
+	if (!item || item != UI_PreviewItem())
+	{
+		return qfalse;
+	}
+
+	char model[MAX_QPATH];
+	const int kind = UI_PreviewWeapon(model, sizeof(model), NULL);
+	uiPreviewHideSaber = (qboolean)(kind != CHARPREVIEW_SABER);
+	if (kind == CHARPREVIEW_SABER)
+	{
+		return qfalse;
+	}
+	if (model[0])
+	{
+		const int g2Weapon = DC->g2_InitGhoul2Model(item->ghoul2, model, 0, 0, 0, 0, 0);
+		if (g2Weapon > 0)
+		{
+			const int boltNum = DC->g2_AddBolt(&item->ghoul2[0], "*r_hand");
+			re.G2API_AttachG2Model(&item->ghoul2[g2Weapon], &item->ghoul2[0], boltNum, 0);
+		}
+	}
+	return qtrue;
+}
+
+// "previewStance": next saber stance of the preview.
+static void UI_PreviewNextStance(void)
+{
+	Cvar_Set("ui_char_preview_stance", va("%d", (UI_PreviewStanceIndex() + 1) % UI_PREVIEW_STANCES));
+}
+
+// Attaches the weapon and plays the pose of the preview when one of them changed.
+static void UI_UpdateCharPreview(menuDef_t *menu)
+{
+	itemDef_t *item = (itemDef_t *)Menu_FindItemByName(menu, "character");
+	if (!item || !item->typeData || !item->ghoul2.size() || item->ghoul2[0].mModelindex < 0)
+	{
+		return;
+	}
+
+	char model[MAX_QPATH];
+	int torsoAnim;
+	const int kind = UI_PreviewWeapon(model, sizeof(model), &torsoAnim);
+	const int stance = UI_PreviewStanceIndex();
+
+	// The count of ghoul2 models is in the signature: a model that the menu rebuilds loses the weapon.
+	auto makeSig = [&](char *sig, int sigSize) {
+		Com_sprintf(sig, sigSize, "%d|%s|%d|%d|%d|%s|%s|%s|%s|%s|%s", kind, model, stance, (int)item->ghoul2[0].mModel, (int)item->ghoul2.size(),
+			UI_PreviewAimText(torsoAnim), Cvar_VariableString("ui_char_model"), Cvar_VariableString("ui_saber"), Cvar_VariableString("ui_saber2"), Cvar_VariableString("ui_char_moveset"), Cvar_VariableString("ui_npc_type"));
+		};
+	char sig[sizeof(uiPreviewSig)];
+	makeSig(sig, sizeof(sig));
+	if (!strcmp(sig, uiPreviewSig))
+	{
+		return;
+	}
+
+	// The animations are the ones of the GLA the model has now: the moveset first. A model that is not ready has no animation set yet: try again at the next frame.
+	CGhoul2Info *ghoul2 = &item->ghoul2[0];
+	UI_PreviewApplyMoveset(ghoul2);
+	if (!UI_PreviewHasAnim(ghoul2, BOTH_STAND1))
+	{
+		return;
+	}
+
+	Cvar_Set("ui_char_preview_stance_label", va("Stance: %s  (click to change)", uiPreviewStanceNames[stance]));
+	UI_SaberAttachToChar(item);
+	makeSig(uiPreviewSig, sizeof(uiPreviewSig));
+
+	int baseAnim = BOTH_STAND1;
+	switch (kind)
+	{
+	case CHARPREVIEW_SABER:
+		// Same stances and fallbacks as PM_ReadyPoseForSaberAnimLevel.
+		baseAnim = BOTH_STAND2;
+		if (uiPreviewStances[stance] == SS_FAST)
+		{
+			baseAnim = BOTH_SABERFAST_STANCE;
+		}
+		else if (uiPreviewStances[stance] == SS_STRONG)
+		{
+			baseAnim = BOTH_SABERSLOW_STANCE;
+		}
+		else if (uiPreviewStances[stance] == SS_TAVION)
+		{
+			baseAnim = UI_PreviewHasAnim(ghoul2, BOTH_SABERTAVION_STANCE) ? BOTH_SABERTAVION_STANCE : BOTH_SABERFAST_STANCE;
+		}
+		else if (uiPreviewStances[stance] == SS_DESANN && UI_PreviewHasAnim(ghoul2, BOTH_SABERDESSAN_STANCE))
+		{
+			baseAnim = BOTH_SABERDESSAN_STANCE;
+		}
+		break;
+	}
+	if (kind != CHARPREVIEW_OTHER || !UI_PreviewHasAnim(ghoul2, torsoAnim))
+	{
+		torsoAnim = -1;
+	}
+
+	((modelDef_t *)item->typeData)->g2anim = baseAnim;
+	uiInfo.moveAnimTime = 0;
+	UI_PreviewSetAnim(ghoul2, "model_root", baseAnim);
+	if (torsoAnim >= 0)
+	{
+		UI_PreviewSetAnim(ghoul2, "lower_lumbar", torsoAnim);
+	}
+	else
+	{
+		re.G2API_StopBoneAnim(ghoul2, "lower_lumbar");
+	}
+
+	// The game pitches the spine with the view angle (CG_G2ClientSpineAngles): the preview aims a little down with a weapon.
+	static const struct { const char *bone; float share; } spine[] = { { "lower_lumbar", 0.4f }, { "upper_lumbar", 0.4f }, { "thoracic", 0.2f } };
+	float aimPitch = 0.0f, aimRoll = 0.0f;
+	sscanf(UI_PreviewAimText(torsoAnim), "%f %f", &aimPitch, &aimRoll);
+	for (int i = 0; i < 3; i++)
+	{
+		if (aimPitch != 0.0f || aimRoll != 0.0f)
+		{
+			const vec3_t angles = { aimPitch * spine[i].share, 0.0f, aimRoll * spine[i].share };
+			re.G2API_SetBoneAngles(ghoul2, spine[i].bone, angles, BONE_ANGLES_POSTMULT, POSITIVE_X, NEGATIVE_Y, NEGATIVE_Z, NULL, 0, uiInfo.uiDC.realTime);
+		}
+		else
+		{
+			re.G2API_StopBoneAngles(ghoul2, spine[i].bone);
+		}
+	}
+}
+
+// weaponsTab: called from the weapon slots of the weapons tab, else from the ownerdraw that every tab of the character menu draws.
+static void UI_UpdateSaberVisibility(qboolean weaponsTab)
+{
+	menuDef_t* menu = Menu_GetFocused();
+
+	if (!menu || Q_stricmp(menu->window.name, "IngameSWGLChars"))
+	{
+		return;
+	}
+
+	// The preview is on the character screen only; the saber items belong to the weapons tab.
+	const itemDef_t *preview = (itemDef_t *)Menu_FindItemByName(menu, "character");
+	const qboolean onCharScreen = (qboolean)(preview && (preview->window.flags & WINDOW_VISIBLE));
+
 	auto SetSaberVisibility = [&](qboolean visible) {
-		Menu_ShowItemByName(menu, "saber", visible);
-		Menu_ShowItemByName(menu, "saber2", visible);
-		Menu_ShowItemByName(menu, "SaberEdit", visible);
+		if (weaponsTab)
+		{
+			Menu_ShowItemByName(menu, "saber", visible);
+			Menu_ShowItemByName(menu, "saber2", visible);
+			Menu_ShowItemByName(menu, "SaberEdit", visible);
+		}
+		Menu_ShowItemByName(menu, "previewStance", (qboolean)(visible && onCharScreen));
 		};
 
 	qboolean showSabers = qfalse;
@@ -6410,6 +6697,7 @@ static void UI_UpdateSaberVisibility(void)
 	}
 
 	SetSaberVisibility(showSabers);
+	UI_UpdateCharPreview(menu);
 }
 
 static void UI_RandomRGB(void)
@@ -9245,6 +9533,9 @@ static void UI_UpdateCharacter( qboolean changedModel )
 		UI_FeederSelection(FEEDER_COLORCHOICES, 0, item);
 	}
 	UI_UpdateCharacterSkin();
+
+	// The new model walks (ui_char_anim) until its pose is set.
+	UI_UpdateCharPreview(menu);
 }
 
 void UI_UpdateSaberType( void )
@@ -9837,7 +10128,7 @@ static qboolean UI_ExecCharacterCfgFile(const char *tryFile)
 				if (modelPtr)
 				{
 					ItemParse_model_g2anim_go(item, uiInfo.movesBaseAnim);
-					uiInfo.moveAnimTime = 2000;
+					uiInfo.moveAnimTime = 0;
 
 					Com_sprintf(skin, sizeof(skin), "models/players/%s/|%s|%s|%s",
 						Cvar_VariableString("ui_char_model"),
@@ -9846,7 +10137,7 @@ static qboolean UI_ExecCharacterCfgFile(const char *tryFile)
 						Cvar_VariableString("ui_char_skin_legs")
 					);
 
-					UI_SaberAttachToChar(item);
+					uiPreviewSig[0] = 0;
 				}
 			}
 		}

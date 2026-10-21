@@ -2353,6 +2353,77 @@ extern void G_InitPlayerFromCvars( gentity_t *ent );
 extern void G_SetG2PlayerModel( gentity_t * const ent, const char *modelName, const char *customSkin, const char *surfOff, const char *surfOn );
 void setYounglingSkin(gentity_t* NPC, char *custom_skin, int custom_skin_size);
 void NPC_AssignRandom(gentity_t* ent, char* playerModel);
+/*
+======================
+NPC_GetAnimOverride
+
+Writes the animOverride of the .npc entry NPCName in out. Returns qfalse if the entry has none.
+For the character menu, which shows the moveset the spawn will give.
+======================
+*/
+qboolean NPC_GetAnimOverride( const char *NPCName, char *out, int outSize )
+{
+	const char	*token;
+	const char	*p = NPCParms;
+	qboolean	found = qfalse;
+
+	out[0] = 0;
+	if ( !NPCName || !NPCName[0] )
+	{
+		return qfalse;
+	}
+
+	COM_BeginParseSession();
+	while ( p )
+	{
+		token = COM_ParseExt( &p, qtrue );
+		if ( !token[0] )
+		{
+			COM_EndParseSession();
+			return qfalse;
+		}
+		if ( !Q_stricmp( token, NPCName ) )
+		{
+			break;
+		}
+		SkipBracedSection( &p );
+	}
+
+	if ( p && !G_ParseLiteral( &p, "{" ) )
+	{
+		// The keys are at depth 1; a value never is "animOverride".
+		int depth = 1;
+		while ( depth > 0 )
+		{
+			token = COM_ParseExt( &p, qtrue );
+			if ( !token[0] )
+			{
+				break;
+			}
+			if ( !Q_stricmp( token, "{" ) )
+			{
+				depth++;
+			}
+			else if ( !Q_stricmp( token, "}" ) )
+			{
+				depth--;
+			}
+			else if ( depth == 1 && !Q_stricmp( token, "animOverride" ) )
+			{
+				const char *value;
+				if ( !COM_ParseString( &p, &value ) )
+				{
+					Q_strncpyz( out, value, outSize );
+					found = (qboolean)( out[0] != 0 );
+				}
+				break;
+			}
+		}
+	}
+	COM_EndParseSession();
+	return found;
+}
+
 qboolean NPC_ParseParms( const char *NPCName, gentity_t *NPC )
 {
 	const char	*token;
