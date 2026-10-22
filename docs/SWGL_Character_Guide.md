@@ -60,7 +60,7 @@ Character fields:
 | `nameKey` | String reference (see section 5) used when `name` is empty. Also searched by the name filter. |
 | `icon` | Icon of the grid square. |
 | `factions` | Faction codes separated by commas, max 255 characters, e.g. `REB,GE`. A character can be in several. |
-| `tags` | Tag codes separated by commas, e.g. `CT_JEDI,CT_HERO`. `none` means no tag. Tags need no declaration: every distinct tag of every character becomes an entry of the Tags screen, sorted by code. |
+| `tags` | Tag codes separated by commas, e.g. `swgl_jedi,swgl_named`. `none` means no tag. Tags need no declaration: every distinct tag of every character becomes an entry of the Tags screen, sorted by code. |
 
 Variant fields (`Variant { ... }`, as many as you want; a page shows 4 and has arrows):
 
@@ -216,7 +216,16 @@ and use `factions MYMOD` in the `.cha` of your characters. The stock factions ar
 
 ## 3. Tags
 
-A tag is just a word in the `tags` of a character. The Tags screen lists every distinct tag, sorted by code, and a character is shown if it has **at least one** selected tag. To show a translated name, add a string `SWGL_TAGS_<CODE>` (a file `swgl_tags.str` with `REFERENCE <CODE>`); there is none in the stock pk3, so the raw code is displayed. The maximum is 256 tags.
+A tag is just a word in the `tags` of a character. The Tags screen lists every distinct tag, sorted by code, and a character is shown if it has **all** the selected tags (selecting `jedi` and `female` shows the female Jedi only). The maximum is 256 tags.
+
+Tags are written `swgl_<name>` (for example `swgl_jedi`, `swgl_era_prequel`). The screen looks for the string `TAG_<tag>`, here `TAG_SWGL_JEDI`: it is the key `JEDI` of the file `strings/English/tag_swgl.str`.
+
+```
+REFERENCE		JEDI
+LANG_ENGLISH		"Jedi"
+```
+
+A mod uses its own prefix (`mymod_boss`, key `BOSS` in `tag_mymod.str`). Without a string the raw tag is displayed.
 
 ## 4. Names and biographies (`.str`)
 

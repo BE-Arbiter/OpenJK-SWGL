@@ -461,6 +461,23 @@ void CG_Characters_SearchChanged_f()
 {
 	RefreshAfterFilterChange();
 }
+// Displayed name of a tag: the string TAG_<tag> (tag swgl_jedi: key JEDI of tag_swgl.str), else the raw tag.
+static void TagDisplayName(const char *code, char *text, int size)
+{
+	if (!cgi_SP_GetStringTextString(va("TAG_%s", code), text, size))
+	{
+		Q_strncpyz(text, code, size);
+	}
+}
+
+static int CompareTagNames(const void *a, const void *b)
+{
+	char nameA[128], nameB[128];
+	TagDisplayName(((const characterTag_t *)a)->code, nameA, sizeof(nameA));
+	TagDisplayName(((const characterTag_t *)b)->code, nameB, sizeof(nameB));
+	return Q_stricmp(nameA, nameB);
+}
+
 // characterToggleTags: the Tags button. On the tags screen it goes back to the character grid, else it opens the tags.
 void CG_Characters_ToggleTags_f()
 {
@@ -473,6 +490,8 @@ void CG_Characters_ToggleTags_f()
 	}
 	else
 	{
+		// Sorted by displayed name; the selection moves with its tag.
+		qsort(tagsData, loadedTags, sizeof(characterTag_t), CompareTagNames);
 		cgi_Cvar_Set("ui_character_screen", "tags");
 		cgi_UI_Run_Command("hide characterButtons");
 		cgi_UI_Run_Command("show tagButtons");
@@ -521,20 +540,13 @@ qboolean filterFunction(characterInfo_t *character)
 	{
 		return qfalse;
 	}
-	//Tag filter: the character needs at least one of the selected tags
-	qboolean hasSelectedTag = qfalse;
-	qboolean hasTag = qfalse;
-	for (int i = 0; i < loadedTags && !hasTag; i++)
+	//Tag filter: the character needs every selected tag
+	for (int i = 0; i < loadedTags; i++)
 	{
-		if (tagsData[i].selectedFilter)
+		if (tagsData[i].selectedFilter && !CHA_ListHasItem(character->tags, tagsData[i].code))
 		{
-			hasSelectedTag = qtrue;
-			hasTag = CHA_ListHasItem(character->tags, tagsData[i].code);
+			return qfalse;
 		}
-	}
-	if (hasSelectedTag && !hasTag)
-	{
-		return qfalse;
 	}
 	//Search if the name is found in this character's name, if not, return false
 	if (ui_c_filter_name.string != NULL && ui_c_filter_name.string[0] != '\0'
@@ -741,11 +753,7 @@ void CG_DrawTags() {
 		char text[128];
 
 		CG_DrawPic(rowX, y, rowW, rowH, tag->selectedFilter ? rowSelected : row);
-		// Translation SWGL_TAGS_<tag>, else the raw tag.
-		if (!cgi_SP_GetStringTextString(va("SWGL_TAGS_%s", tag->code), text, sizeof(text)))
-		{
-			Q_strncpyz(text, tag->code, sizeof(text));
-		}
+		TagDisplayName(tag->code, text, sizeof(text));
 		CG_DrawTextInBox(rowX + textInset, y + (rowH - 16) / 2 - textLift, rowW - 2 * textInset, 16,
 			text, cgs.media.qhFontSmall, tag->selectedFilter ? selectedColor : textColor);
 	}

@@ -2217,8 +2217,9 @@ const void	*RB_DrawSurfs( const void *data ) {
 		backEnd.isGlowPass = qfalse;
 	}
 
-	//TODO Maybe check for rdf_noworld stuff but q3mme has full 3d ui
-	backEnd.doneSurfaces = qtrue; // for bloom
+	// Menu and HUD model scenes do not start the bloom: it would blur the blade of the saber menu over the whole screen.
+	if ( !( backEnd.refdef.rdflags & RDF_NOWORLDMODEL ) )
+		backEnd.doneSurfaces = qtrue; // for bloom
 
 	return (const void*)(cmd + 1);
 }

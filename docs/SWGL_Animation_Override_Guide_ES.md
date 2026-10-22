@@ -155,4 +155,4 @@ Las animaciones en curso se reinician al instante con los nuevos fotogramas. El 
 
 Referencias de código: `rd-common/mdx_merge.h` (reglas de fusión y constantes), `rd-common/tr_glamerge.cpp` (GLA virtual, lectura de `animoverride.cfg`), `game/NPC_stats.cpp` (`G_ParseMergedAnimations`, `G_SetAnimOverride`, `G_RestoreAnimOverrides`, clave `animOverride`), `game/g_cmds.cpp` (`Cmd_AnimOverride_f`).
 
-Sustituciones originales para copiar, en `SWGL_Animations.pk3`: `_malak` (ejemplo de un solo archivo, sobre todo poses), `_kotor`, `_clones`, `_dvader`, `_jedi`, `_jedi2`, `_lanakin`, `_oldben`, `_palpatine`, `_shaak`, `_sidious`, `_vader`, `_zombie` y otras. Cada una tiene su GLA, su `.cfg` y el `animoverride.cfg` correspondiente en la carpeta del modelo.
+Sustituciones originales para copiar, en `SWGL_Animations.pk3`: `_malak` (ejemplo de un solo archivo, sobre todo poses), `_kotor`, `_clones`, `_jedi`, `_jedi2`, `_lanakin`, `_oldben`, `_palpatine`, `_shaak`, `_sidious`, `_vader`, `_zombie` y otras. Cada una tiene su GLA, su `.cfg` y el `animoverride.cfg` correspondiente en la carpeta del modelo.

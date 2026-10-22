@@ -10384,18 +10384,29 @@ static void UI_BuildAnimOverrides(void)
 			numFrames += LittleLong(weapons->numFrames);
 		}
 
-		std::vector<char> dirList(256 * 1024);
-		const int numDirs = ui.FS_GetFileList("models/players", "/", dirList.data(), (int)dirList.size());
-		const char *dir = dirList.data();
-		for (int i = 0; i < numDirs; i++, dir += strlen(dir) + 1)
+		// The "/" list shows only the folders that have a folder entry in their pk3. The ".gla" list ("<name>/<file>.gla") shows the other folders.
+		std::vector<std::string> folders;
+		std::vector<char> fileList(256 * 1024);
+		const char *extensions[] = { "/", ".gla" };
+		for (const char *extension : extensions)
+		{
+			const int numFiles = ui.FS_GetFileList("models/players", extension, fileList.data(), (int)fileList.size());
+			const char *file = fileList.data();
+			for (int i = 0; i < numFiles; i++, file += strlen(file) + 1)
+			{
+				const char *slash = strchr(file, '/');
+				const std::string folder = slash ? std::string(file, slash - file) : std::string(file);
+				if (std::none_of(folders.begin(), folders.end(), [&](const std::string &f) { return !Q_stricmp(f.c_str(), folder.c_str()); }))
+				{
+					folders.push_back(folder);
+				}
+			}
+		}
+
+		for (const std::string &folder : folders)
 		{
 			char name[MAX_QPATH];
-			Q_strncpyz(name, dir, sizeof(name));
-			const size_t len = strlen(name);
-			if (len && name[len - 1] == '/')
-			{
-				name[len - 1] = 0;
-			}
+			Q_strncpyz(name, folder.c_str(), sizeof(name));
 			// _humanoid*.gla are skeletons, not overrides.
 			if (!name[0] || name[0] == '.' || !Q_stricmpn(name, "_humanoid", 9))
 			{

@@ -155,4 +155,4 @@ The current animations restart at once, with the new frames. The setting lasts u
 
 Code references: `rd-common/mdx_merge.h` (merge rules and constants), `rd-common/tr_glamerge.cpp` (virtual GLA, reading of `animoverride.cfg`), `game/NPC_stats.cpp` (`G_ParseMergedAnimations`, `G_SetAnimOverride`, `G_RestoreAnimOverrides`, `animOverride` key), `game/g_cmds.cpp` (`Cmd_AnimOverride_f`).
 
-Stock overrides to copy from, in `SWGL_Animations.pk3`: `_malak` (one-file example, mostly poses), `_kotor`, `_clones`, `_dvader`, `_jedi`, `_jedi2`, `_lanakin`, `_oldben`, `_palpatine`, `_shaak`, `_sidious`, `_vader`, `_zombie` and others. Each has its GLA, its `.cfg`, and the matching `animoverride.cfg` in the model folder.
+Stock overrides to copy from, in `SWGL_Animations.pk3`: `_malak` (one-file example, mostly poses), `_kotor`, `_clones`, `_jedi`, `_jedi2`, `_lanakin`, `_oldben`, `_palpatine`, `_shaak`, `_sidious`, `_vader`, `_zombie` and others. Each has its GLA, its `.cfg`, and the matching `animoverride.cfg` in the model folder.
