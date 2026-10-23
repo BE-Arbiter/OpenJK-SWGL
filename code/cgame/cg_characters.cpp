@@ -41,8 +41,16 @@ static int shownVariant = 0;
 static int variantPage = 0;					// page of the variant squares on the character screen
 static char shownTitle[128];				// name at the top of the character screen (CG_DrawCharacterTitle)
 static const int variantsPerPage = 4;		// squares of a page: buttons variantButton1..4 of the menu
-static const int tagsPerPage = 9;			// rows of a page: buttons tagButton1..9 of the menu
+static const int tagRowsPerPage = 9;		// rows of a page: buttons tagButton1..9 of the menu
 static int tagPage = 0;					// page of the tag rows (the character grid behind keeps ui_character_page)
+// Pages of the tags: each row is the title of a type (header), a tag or an empty row. A page can hold several types.
+typedef struct tagRow_s {
+	int tag;			// index in tagsData: the tag of the row, or for a header one tag of its type; -1: empty row
+	qboolean header;
+} tagRow_t;
+static tagRow_t tagPageRows[MAX_TAGS][tagRowsPerPage];
+static int tagPageRowCount[MAX_TAGS];
+static int numTagPages = 0;
 static int configPage = 0;					// page of the My Characters grid
 static int factionPage = 0;					// page of the faction rows of the left column
 static const int factionsPerPage = 9;		// rows of a page: buttons factionButton1..9 of the menu
@@ -259,11 +267,13 @@ void CG_Characters_CharacterClick_f()
 	cgi_Cvar_Update(&ui_character_selected);
 	if (Q_stricmp(ui_character_screen.string, "tags") == 0)
 	{
-		const int selectedTag = (tagPage * tagsPerPage) + ui_character_selected.integer - 1;
-		if (selectedTag < 0 || selectedTag >= loadedTags)
+		// The button N of the menu is the row N of the page; a type title is not a tag.
+		const int row = ui_character_selected.integer - 1;
+		if (tagPage < 0 || tagPage >= numTagPages || row < 0 || row >= tagPageRowCount[tagPage] || tagPageRows[tagPage][row].header || tagPageRows[tagPage][row].tag < 0)
 		{
 			return;
 		}
+		const int selectedTag = tagPageRows[tagPage][row].tag;
 		tagsData[selectedTag].selectedFilter = tagsData[selectedTag].selectedFilter ? qfalse : qtrue;
 		RefreshAfterFilterChange();
 		return;
@@ -461,7 +471,7 @@ void CG_Characters_SearchChanged_f()
 {
 	RefreshAfterFilterChange();
 }
-// Displayed name of a tag: the string TAG_<tag> (tag swgl_jedi: key JEDI of tag_swgl.str), else the raw tag.
+// Displayed name of a tag: the string TAG_<tag> (tag fs_jedi: key JEDI of tag_fs.str), else the raw tag.
 static void TagDisplayName(const char *code, char *text, int size)
 {
 	if (!cgi_SP_GetStringTextString(va("TAG_%s", code), text, size))
@@ -470,12 +480,134 @@ static void TagDisplayName(const char *code, char *text, int size)
 	}
 }
 
-static int CompareTagNames(const void *a, const void *b)
+// Type of a tag: the code up to the first '_' (era_legacy: era). A code without '_' has the type "".
+static void TagType(const char *code, char *type, int size)
 {
-	char nameA[128], nameB[128];
-	TagDisplayName(((const characterTag_t *)a)->code, nameA, sizeof(nameA));
-	TagDisplayName(((const characterTag_t *)b)->code, nameB, sizeof(nameB));
+	const char *underscore = strchr(code, '_');
+	const int length = underscore ? (int)(underscore - code) : 0;
+	Q_strncpyz(type, code, Q_min(size, length + 1));
+}
+
+// Displayed title of a tag type: the string TAGTYPE_<type> of tagtype.str, else the raw type.
+static void TagTypeDisplayName(const char *type, char *text, int size)
+{
+	if (!type[0])
+	{
+		Q_strncpyz(text, "Other", size);
+	}
+	else if (!cgi_SP_GetStringTextString(va("TAGTYPE_%s", type), text, size))
+	{
+		Q_strncpyz(text, type, size);
+	}
+}
+
+// Order of the pages: the types of this list first, in this order, then the other types by name.
+static const char *tagTypeOrder[] = { "era", "fs", "role", "canon", "sex", "kind" };
+
+static int TagTypeRank(const char *type)
+{
+	for (int i = 0; i < (int)ARRAY_LEN(tagTypeOrder); i++)
+	{
+		if (!Q_stricmp(type, tagTypeOrder[i]))
+		{
+			return i;
+		}
+	}
+	return (int)ARRAY_LEN(tagTypeOrder);
+}
+
+// By type (rank, then name), then by displayed name.
+static int CompareTags(const void *a, const void *b)
+{
+	char typeA[16], typeB[16], nameA[128], nameB[128];
+	const characterTag_t *tagA = (const characterTag_t *)a;
+	const characterTag_t *tagB = (const characterTag_t *)b;
+	TagType(tagA->code, typeA, sizeof(typeA));
+	TagType(tagB->code, typeB, sizeof(typeB));
+	const int rankDifference = TagTypeRank(typeA) - TagTypeRank(typeB);
+	if (rankDifference)
+	{
+		return rankDifference;
+	}
+	const int typeDifference = Q_stricmp(typeA, typeB);
+	if (typeDifference)
+	{
+		return typeDifference;
+	}
+	TagDisplayName(tagA->code, nameA, sizeof(nameA));
+	TagDisplayName(tagB->code, nameB, sizeof(nameB));
 	return Q_stricmp(nameA, nameB);
+}
+
+// Sort the tags and fill the pages with the types: a type is not cut unless it does not fit in one page.
+// A cut type starts again with its title on the next page.
+static void AddTagRow(int tag, qboolean header)
+{
+	const int page = numTagPages - 1;
+	tagRow_t *row = &tagPageRows[page][tagPageRowCount[page]++];
+	row->tag = tag;
+	row->header = header;
+}
+
+static void BuildTagPages()
+{
+	qsort(tagsData, loadedTags, sizeof(characterTag_t), CompareTags);
+
+	numTagPages = 0;
+	for (int i = 0; i < loadedTags; )
+	{
+		char type[16], otherType[16];
+		TagType(tagsData[i].code, type, sizeof(type));
+		int count = 0;
+		while (i + count < loadedTags)
+		{
+			TagType(tagsData[i + count].code, otherType, sizeof(otherType));
+			if (Q_stricmp(type, otherType))
+			{
+				break;
+			}
+			count++;
+		}
+
+		// Two types on one page are separated by an empty row. The title and its tags go to a new page if they do not
+		// fit in the free rows of this one, unless they do not fit in a page at all: then they fill the free rows
+		// (at least the separator, a title and 3 tags) and go on.
+		int free = numTagPages ? tagRowsPerPage - tagPageRowCount[numTagPages - 1] : 0;
+		int separator = (free && free < tagRowsPerPage) ? 1 : 0;
+		if (count + 1 + separator > free && (count + 1 <= tagRowsPerPage || free < 4 + separator))
+		{
+			free = 0;
+		}
+		for (int done = 0; done < count; )
+		{
+			if (free == 0)
+			{
+				if (numTagPages >= MAX_TAGS)
+				{
+					break;
+				}
+				tagPageRowCount[numTagPages++] = 0;
+				free = tagRowsPerPage;
+				separator = 0;
+			}
+			if (separator)
+			{
+				AddTagRow(-1, qfalse);
+				free--;
+				separator = 0;
+			}
+			const int chunk = Q_min(count - done, free - 1);
+			AddTagRow(i + done, qtrue);
+			for (int k = 0; k < chunk; k++)
+			{
+				AddTagRow(i + done + k, qfalse);
+			}
+			done += chunk;
+			free = 0;
+		}
+		i += count;
+	}
+	tagPage = Com_Clamp(0, Q_max(0, numTagPages - 1), tagPage);
 }
 
 // characterToggleTags: the Tags button. On the tags screen it goes back to the character grid, else it opens the tags.
@@ -490,8 +622,8 @@ void CG_Characters_ToggleTags_f()
 	}
 	else
 	{
-		// Sorted by displayed name; the selection moves with its tag.
-		qsort(tagsData, loadedTags, sizeof(characterTag_t), CompareTagNames);
+		// Sorted by type, then by displayed name; the selection moves with its tag.
+		BuildTagPages();
 		cgi_Cvar_Set("ui_character_screen", "tags");
 		cgi_UI_Run_Command("hide characterButtons");
 		cgi_UI_Run_Command("show tagButtons");
@@ -718,9 +850,10 @@ void CG_DrawFactionList() {
 	cgi_R_SetColor(NULL);
 }
 
-// Tags screen: the character grid behind, then the panel tag_bg (113 90 120 255) with one row of 104 x 22 per tag
-// (selected tags highlighted) and the page arrows of the tags at the bottom of the panel.
-// The buttons tagButton1..9, tagPrev and tagNext of IngameSWGLChars.menu have the same rects.
+// Tags screen: the character grid behind, then the panel tag_bg (113 90 120 255) with 9 rows of 104 x 22: the title
+// of a type (centered text and underline), a tag (selected tags highlighted) or an empty row. The page arrows of the
+// tags are at the bottom of the panel. The buttons tagButton1..9, tagPrev and tagNext of IngameSWGLChars.menu have the
+// same rects as the rows; a title row or an empty row does nothing when clicked.
 void CG_DrawTags() {
 	int panelX = 113, panelY = 90, panelW = 120, panelH = 255;
 	int rowX = 121, rowY = 98, rowW = 104, rowH = 22, rowPitch = 24;
@@ -732,6 +865,9 @@ void CG_DrawTags() {
 	vec4_t textColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 	vec4_t selectedColor = { 1.0f, 0.682f, 0.0f, 1.0f };
 	vec4_t pageTextColor = { 1.0f, 0.682f, 0.0f, 1.0f };
+	vec4_t titleColor = { 0.87f, 0.61f, 0.0f, 1.0f };	// as the title Faction of the menu
+	float titleScale = 0.55f;
+	int titleLift = 0;		// raise the title text if the font draws it low in the row
 
 	// The current page of the characters, behind the tags.
 	CG_DrawCharacters();
@@ -740,22 +876,42 @@ void CG_DrawTags() {
 	const qhandle_t row = cgi_R_RegisterShaderNoMip("gfx/menus/w_tag_bg");
 	const qhandle_t rowSelected = cgi_R_RegisterShaderNoMip("gfx/menus/w_tag_bg_s");
 
-	const int pages = Q_max(1, (loadedTags + tagsPerPage - 1) / tagsPerPage);
+	const int pages = Q_max(1, numTagPages);
 	tagPage = Com_Clamp(0, pages - 1, tagPage);
 
+	cgi_R_SetColor(NULL);
 	CG_DrawPic(panelX, panelY, panelW, panelH, panel);
-	const int beginIndex = tagPage * tagsPerPage;
-	const int endIndex = Q_min(loadedTags, beginIndex + tagsPerPage);
-	for (int i = beginIndex; i < endIndex; i++)
+	for (int r = 0; r < tagRowsPerPage; r++)
 	{
-		const characterTag_t *tag = &tagsData[i];
-		const int y = rowY + (i - beginIndex) * rowPitch;
-		char text[128];
+		const int y = rowY + r * rowPitch;
+		const tagRow_t *tagRow = (numTagPages && r < tagPageRowCount[tagPage]) ? &tagPageRows[tagPage][r] : NULL;
 
-		CG_DrawPic(rowX, y, rowW, rowH, tag->selectedFilter ? rowSelected : row);
-		TagDisplayName(tag->code, text, sizeof(text));
-		CG_DrawTextInBox(rowX + textInset, y + (rowH - 16) / 2 - textLift, rowW - 2 * textInset, 16,
-			text, cgs.media.qhFontSmall, tag->selectedFilter ? selectedColor : textColor);
+		if (!tagRow || tagRow->tag < 0)
+		{
+			continue;
+		}
+		if (tagRow->header)
+		{
+			char type[16], title[128];
+			TagType(tagsData[tagRow->tag].code, type, sizeof(type));
+			TagTypeDisplayName(type, title, sizeof(title));
+			const int titleWidth = cgi_R_Font_StrLenPixels(title, cgs.media.qhFontTitle, titleScale, cgs.widthRatioCoef);
+			const int titleHeight = cgi_R_Font_HeightPixels(cgs.media.qhFontTitle, titleScale);
+			cgi_R_Font_DrawString(rowX + (rowW - titleWidth) / 2, y + (rowH - 1 - titleHeight) / 2 - titleLift, title,
+				titleColor, cgs.media.qhFontTitle, -1, titleScale, cgs.widthRatioCoef);
+			CG_FillRect(rowX + 3, y + rowH - 1, rowW - 6, 1, titleColor);
+			cgi_R_SetColor(NULL);
+		}
+		else
+		{
+			const characterTag_t *tag = &tagsData[tagRow->tag];
+			char text[128];
+
+			CG_DrawPic(rowX, y, rowW, rowH, tag->selectedFilter ? rowSelected : row);
+			TagDisplayName(tag->code, text, sizeof(text));
+			CG_DrawTextInBox(rowX + textInset, y + (rowH - 16) / 2 - textLift, rowW - 2 * textInset, 16,
+				text, cgs.media.qhFontSmall, tag->selectedFilter ? selectedColor : textColor);
+		}
 	}
 	cgi_R_SetColor(NULL);
 
@@ -768,7 +924,7 @@ void CG_DrawTags() {
 // characterTagPreviousPage / characterTagNextPage: page of the tag rows, with wrap-around.
 static void ChangeTagPage(int step)
 {
-	const int pages = Q_max(1, (loadedTags + tagsPerPage - 1) / tagsPerPage);
+	const int pages = Q_max(1, numTagPages);
 	tagPage = (tagPage + step + pages) % pages;
 }
 

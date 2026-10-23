@@ -1475,13 +1475,21 @@ const char *UI_FeederItemText(float feederID, int index, int column, qhandle_t *
 		{
 			return "Humanoid";
 		}
-		// "_plx1" and "plx1" are the same override.
+		// "_plx1" and "plx1" are the same override. SWGL_ANIMATIONS.str gives its display name (key SWGL_ANIMATIONS_<NAME>).
 		const char *name = uiAnimOverrides[index].c_str();
 		while (*name == '_')
 		{
 			name++;
 		}
-		return name;
+		char key[MAX_QPATH];
+		Com_sprintf(key, sizeof(key), "SWGL_ANIMATIONS_%s", name);
+		Q_strupr(key);
+#ifdef JK2_MODE
+		const char *text = ui.SP_GetStringTextString(key);
+#else
+		const char *text = SE_GetString(key);
+#endif
+		return text[0] ? text : name;
 	}
 	else if (feederID == FEEDER_LANGUAGES)
 	{
