@@ -1717,9 +1717,72 @@ void Phys_ClothRestDistances( physCloth_t &cloth, const physTopology_t &topo, co
 	Phys_RestDistances( topo.bindPos.empty() ? NULL : &topo.bindPos[0], topo.numParticles, bindColliders, numColliders, cloth.restDist );
 }
 
+// Puts pos on the surface of the collider (core + radius), on the side that the direction side points to.
+// A capsule keeps the position of pos along its axis. A box uses the face that side points to most.
+static void Phys_ExitOnSide( float *pos, const physCollider_w &c, const float *side, float radius )
+{
+	if ( c.shape == PHYS_SHAPE_BOX )
+	{
+		float d[3], local[3];
+		int best = 0;
+		float bestDot = 0.0f;
+
+		Vec3Sub( pos, c.a, d );
+
+		for ( int k = 0; k < 3; k++ )
+		{
+			local[k] = Vec3Dot( d, c.axis[k] );
+
+			if ( local[k] < -c.half[k] )		local[k] = -c.half[k];
+			else if ( local[k] > c.half[k] )	local[k] = c.half[k];
+
+			const float dot = Vec3Dot( side, c.axis[k] );
+
+			if ( fabsf( dot ) > fabsf( bestDot ) )
+			{
+				bestDot = dot;
+				best = k;
+			}
+		}
+
+		local[best] = bestDot >= 0.0f ? c.half[best] + radius : -c.half[best] - radius;
+
+		for ( int k = 0; k < 3; k++ )
+			pos[k] = c.a[k] + c.axis[0][k] * local[0] + c.axis[1][k] * local[1] + c.axis[2][k] * local[2];
+		return;
+	}
+
+	float q[3], ab[3], dir[3];
+
+	Phys_NearestOnSegment( pos, c.a, c.b, q );
+	Vec3Sub( c.b, c.a, ab );
+
+	// The radial part of side, so the particle does not slide along the capsule.
+	const float len2 = Vec3Dot( ab, ab );
+	const float along = len2 > 1e-6f ? Vec3Dot( side, ab ) / len2 : 0.0f;
+
+	for ( int k = 0; k < 3; k++ )
+		dir[k] = side[k] - ab[k] * along;
+
+	float dirLen = sqrtf( Vec3Dot( dir, dir ) );
+
+	if ( dirLen < 0.1f )
+	{
+		dir[0] = side[0];
+		dir[1] = side[1];
+		dir[2] = side[2];
+		dirLen = 1.0f;
+	}
+
+	for ( int k = 0; k < 3; k++ )
+		pos[k] = q[k] + dir[k] / dirLen * radius;
+}
+
 // Pushes pos out of one collider. rest: distance from the core in the bind pose, < 0 = none. A particle that is
 // inside the collider in the bind pose can stay at that depth, so a collider of the stock skeleton does not push
 // the rest shape of the cloth out.
+// A particle deep inside, on the side opposite to its animated position, went through the collider. It leaves
+// on the side of the animated position (the backstop of APEX and Chaos), not on the nearest side.
 static bool Phys_Collide( float *pos, const float *tgt, const physCollider_w &c, float margin, float rest )
 {
 	float radius = c.radius + margin;
@@ -1737,14 +1800,19 @@ static bool Phys_Collide( float *pos, const float *tgt, const physCollider_w &c,
 	if ( dist >= radius )
 		return false;
 
+	float nT[3];
+	bool hasNT;
+	const float distT = Phys_CoreDistance( c, tgt, nT, hasNT );
+
+	if ( hasN && hasNT && dist < radius * 0.5f && distT > dist && Vec3Dot( n, nT ) < 0.0f )
+	{
+		Phys_ExitOnSide( pos, c, nT, radius );
+		return true;
+	}
+
 	if ( !hasN )
 	{
 		// On the axis: leave on the side of the animated position.
-		float nT[3];
-		bool hasNT;
-
-		Phys_CoreDistance( c, tgt, nT, hasNT );
-
 		n[0] = hasNT ? nT[0] : 0.0f;
 		n[1] = hasNT ? nT[1] : -1.0f;
 		n[2] = hasNT ? nT[2] : 0.0f;
