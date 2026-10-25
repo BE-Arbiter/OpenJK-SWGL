@@ -241,6 +241,7 @@ struct physCloth_t
 	std::vector<unsigned char> pinned;
 	std::vector<int>	tether;				// per particle: the nearest pinned particle in the bind pose, -1 = none
 	std::vector<float>	tetherLength;		// per particle: distance to that particle in the bind pose
+	bool				loose;				// no pinned particle: the model frame is the world
 
 	// Model frame of the last frame (Phys_ClothFrame), and its speed.
 	float				frameOrigin[3];
@@ -266,7 +267,7 @@ struct physCloth_t
 	std::vector<float>	shapeRot;			// 4 per particle: turn of its zone, quaternion x y z w
 	std::vector<float>	shapeGoal, shapeCount;
 
-	physCloth_t() : numParticles( 0 ), valid( false ), accum( 0.0f ), frameSpeedValid( false ) {}
+	physCloth_t() : numParticles( 0 ), valid( false ), accum( 0.0f ), loose( false ), frameSpeedValid( false ) {}
 };
 
 // freeFactor: 0 = pinned, 1 = free, per particle. topo gives the bind pose of the tethers.

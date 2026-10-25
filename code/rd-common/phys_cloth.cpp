@@ -1395,6 +1395,7 @@ void Phys_ClothInit( physCloth_t &cloth, const physGroupDef_t &def, const physTo
 	cloth.accum = 0.0f;
 	cloth.maxDist.assign( numParticles, 0.0f );
 	cloth.pinned.assign( numParticles, 1 );
+	cloth.loose = true;
 
 	for ( int i = 0; i < numParticles; i++ )
 	{
@@ -1404,6 +1405,10 @@ void Phys_ClothInit( physCloth_t &cloth, const physGroupDef_t &def, const physTo
 		{
 			cloth.pinned[i] = 0;
 			cloth.maxDist[i] = def.maxDist * f;
+		}
+		else
+		{
+			cloth.loose = false;
 		}
 	}
 
@@ -2011,10 +2016,20 @@ void Phys_ClothStep( physCloth_t &cloth, const physTopology_t &topo, const physG
 	const float scale = Phys_NormalizeAxes( axis, unitAxis );	// the rest lengths are in model units
 
 	Phys_ClothFrame( cloth, topo, target, entOrigin, axis, PHYS_SHAPE_ITERATIONS, origin, unitAxis );
-	const float angle = Phys_FrameTurn( cloth.frameAxis, unitAxis, dt, turn, frameOmega );
+	float angle = Phys_FrameTurn( cloth.frameAxis, unitAxis, dt, turn, frameOmega );
 
 	for ( int k = 0; k < 3; k++ )
 		frameVel[k] = ( origin[k] - cloth.frameOrigin[k] ) / dt;
+
+	// No pinned particle: nothing holds the cloth, so the turn of the entity does not move it. A teleport of the
+	// entity still moves it.
+	if ( cloth.loose )
+	{
+		angle = 0.0f;
+		memset( turn, 0, sizeof( turn ) );
+		memset( frameOmega, 0, sizeof( frameOmega ) );
+		turn[0][0] = turn[1][1] = turn[2][2] = 1.0f;
+	}
 
 	if ( Vec3Dot( frameVel, frameVel ) > PHYS_MAX_FRAME_SPEED * PHYS_MAX_FRAME_SPEED || angle > PHYS_MAX_FRAME_TURN )
 	{
@@ -2054,6 +2069,9 @@ void Phys_ClothStep( physCloth_t &cloth, const physTopology_t &topo, const physG
 		// The colliders do not sweep across the jump.
 		prevColliders = NULL;
 	}
+
+	if ( cloth.loose )
+		memset( frameVel, 0, sizeof( frameVel ) );
 
 	if ( !cloth.frameSpeedValid )
 	{
