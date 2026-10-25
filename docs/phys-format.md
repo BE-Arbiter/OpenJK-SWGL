@@ -95,16 +95,19 @@ These values tell how the character wears the cloth.
 
 | Keyword | Default cloth / hair | Meaning |
 | --- | --- | --- |
-| `hold` | 0.3 / 0.5 | 0 to 1. Pull back to the animated shape. Up: the cloth stays on the animation. Down: the cloth swings freely. 0: no pull. |
-| `bounce` | 0.8 / 0.5 | 0 to 1. 0: the cloth stops without a bounce. Up: the cloth swings for a long time. |
-| `inertia` | 0.7 / 0.5 | 0 to 1. Up: the cloth trails behind when the character starts, stops or jumps. Down: the cloth moves with the body. A turn on the spot has no effect. |
+| `hold` | 0 / 0.5 | 0 to 1. Pull back to the animated shape, as the anim drive of the Unreal cloth. Up: the cloth stays on the animation. 0: no pull, as the Unity cloth. |
+| `bounce` | 0.8 / 0.5 | 0 to 1. 0: the cloth stops without a bounce. Up: the cloth swings for a long time. The brake applies to the speed relative to the model frame. |
+| `inertia` | 0.7 / 0.5 | 0 to 1. Part of the change of the speed of the model frame (move and turn) that the cloth does not take, as the inertia of NvCloth. Up: the cloth trails behind when the character starts, stops, jumps or turns. Down: the cloth moves with the body. The model frame is the pinned particles of the group, as one rigid piece (the reference bone of Chaos), not the entity: the entity turns with the legs. |
+| `shape` | 0 | 0 to 1. Each zone of the cloth keeps its animated shape (shape matching, Muller et al. 2005). Up: a tube (lekku, tail, sleeve) stays round when it swings. 0: off. |
 | `reach <r> [<across>]` | 24 / 8 | Largest distance from the animation, in units. `r` is along the cloth. `across` is across the cloth (default `r`). A small `across` keeps the thickness of the garment, and the cloth does not go into the legs or the body. |
-| `shape` | 0 | 0 to 1. Each zone of the cloth keeps its animated shape. Up: a tube (lekku, tail, sleeve) stays round when it swings. 0: off. |
 | `mode cloth` or `mode lag` | cloth | `cloth`: each part of the cloth moves on its own. `lag`: the free part moves as one soft piece around the fixed part. Use `lag` for hair that is part of the head surface. In `lag` mode, `hold`, `bounce`, `air` and `reach` apply. |
 
-At rest, the weight pulls the cloth down from the animation by about
+With `hold`, at rest the weight pulls the cloth down from the animation by about
 `weight * 2 / (hold * hold)` units. Keep this value less than `reach`.
 If it is more, the cloth hangs on its limit.
+
+Each free point stays within its bind pose distance of the nearest fixed point (tether, as in NvCloth
+and the Unreal cloth). Thus the cloth does not stretch away from the fixed part.
 
 ## Collisions
 
@@ -117,7 +120,6 @@ If it is more, the cloth hangs on its limit.
 | `collide capsule <boneA> <boneB> <radius>` | Adds a capsule between two bones. The short form `collide <boneA> <boneB> <radius>` is the same. |
 | `collide sphere <bone> <radius> [<x> <y> <z>]` | Adds a sphere on a bone. The offset is in the bind pose of the model. |
 | `collide box <bone> <sx> <sy> <sz> [<round>] [<x> <y> <z>]` | Adds a box on a bone. `sx`, `sy` and `sz` are the half sizes along X, Y and Z of the bind pose. `round` is the radius of the edges and the corners (0: sharp). The offset moves the center from the bone. The box moves and turns with the bone. |
-| `passback 0` or `passback 1` | 0 (default): the point goes out of the collider on the nearest side. 1: a point that moves toward its animated position has no collision. Thus an arm or a leg can go through the cloth. Do not use it in a new file. |
 
 `collide radius` and `collide remove` do not change a `capsule`, `sphere` or `box` line.
 
@@ -126,8 +128,6 @@ How the collisions work:
 - A point never goes nearer to a collider than in the bind pose of the model. Thus a collider that already holds a part of the cloth at rest (a collar, hair on the head) does not push it out.
 - The animation does not change the colliders. When an arm or a leg goes through the animated cloth, it pushes the simulated cloth.
 - The colliders move smoothly between two frames. The cloth step is 1/480 s, so in one step a fast arm or leg moves less than its radius. Thus it does not jump over the cloth.
-- With `passback 1`, an arm or a leg can go through the cloth when the cloth moves toward its animated position.
-- The middle of each edge is tested too. Thus a triangle does not cut through a collider.
 - A collider with an unknown bone is not used.
 - The floor is the shadow plane of the entity (`refEntity_t::shadowPlane`), if the entity has `RF_SHADOW_PLANE`.
 
@@ -156,7 +156,8 @@ One `air` value replaces `drag`, `aero` and `wind`. Thus an old file with one of
 | `lagdamp` | `bounce` = 1 - value |
 | `drag`, `aero`, `wind` | `air` |
 | `proxy` | `detail` = 4 / value |
-| `maxspeed`, `margin`, `iterations` | no change. The editor keeps these lines but has no slider for them. Do not use them in a new file. |
+| `maxspeed`, `margin`, `iterations` | no change. The editor keeps these lines but has no slider for them. Do not use them in a new file. `maxspeed` applies only to `mode lag`. |
+| `passback` | read and ignored. The editor does not write it. |
 
 ## Editor in game
 
@@ -187,7 +188,7 @@ Settings:
 Preview:
 
 - **Show: Pins** shows the pin lines of the selected group. A white dot is the bone. For `gradient`: a red ring at `<fixed>`, a green ring at `<free>`, and the axis in white. For `radius`: a red sphere (fixed) and a green sphere (free). For `bones`: a magenta dot on each bone.
-- **Show: Pins + particles** also shows one dot on each point: red is fixed, yellow is half free, green is free, violet goes back through a collider (`passback`).
+- **Show: Pins + particles** also shows one dot on each point: red is fixed, yellow is half free, green is free.
 - **Show: All + reach** also shows the `reach` limit of some free points, in blue.
 - The **Pins** list shows the pin lines. Select a line to show it bright and to change its fixed and free values.
 - **Colliders: Show** shows the colliders of the group. Orange: `body` (`collide humanoid`). Yellow: `fit` (`collide model`). Green: `line` (a collide line). Cyan: the selected collider.

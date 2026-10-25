@@ -75,12 +75,10 @@ struct physGroupInst_t
 	physLag_t							lag;
 	std::vector<float>					proxyTarget;	// per simulation particle, world space
 	std::vector<float>					worldPos;		// per particle, world space
-	std::vector<float>					prevWorldPos;	// worldPos of the last frame: gives the direction of the move
 	bool								primed;			// the solver has a start state
 	std::vector<physCollider_w>			worldColliders;	// of this frame
 	std::vector<physCollider_w>			prevWorldColliders;	// of the last frame: the steps move the colliders between the two
 	std::vector<float>					restDist;		// Phys_RestDistances of the particles
-	std::vector<int>					passState;		// per particle: the collider it goes back through, -1 = none
 	std::vector<float>					freeFactor;		// per particle
 	std::vector<float>					target;			// per particle, world space
 	std::vector<float>					modelPos;		// per particle, model space
@@ -768,13 +766,11 @@ static void Phys_BuildGroup( physGroupInst_t &gi, const model_t *glm, CBoneCache
 	{
 		// The soft transform of the lag mode has no per particle state. A cloth runs on a coarse mesh.
 		Phys_BuildProxy( gi.proxy, gi.topo, &gi.freeFactor[0], def.proxy > 0.0f ? def.proxy : PHYS_DEFAULT_PROXY );
-		Phys_ClothInit( gi.cloth, def, &gi.proxy.freeFactor[0], gi.proxy.numProxy );
+		Phys_ClothInit( gi.cloth, def, gi.proxy.topo, &gi.proxy.freeFactor[0] );
 		gi.proxyTarget.assign( gi.proxy.numProxy * 3, 0.0f );
 	}
 
 	gi.worldPos.assign( n * 3, 0.0f );
-	gi.prevWorldPos.assign( n * 3, 0.0f );
-	gi.passState.assign( n, -1 );
 
 	gi.target.assign( n * 3, 0.0f );
 	gi.modelPos.assign( n * 3, 0.0f );
@@ -1344,18 +1340,15 @@ static void Phys_DrawGroupView( const physGroupInst_t &gi, const trRefEntity_t *
 
 	Phys_DrawBegin( ent, PHYS_LINE_WIDTH, PHYS_EYE_BIAS );
 
-	// Free factor: red (fixed), yellow, green (free). Violet: the particle goes back through a collider.
+	// Free factor: red (fixed), yellow, green (free).
 	if ( s_viewFlags & PHYS_VIEW_PARTICLES )
 	{
-		static const byte back[4] = { 190, 70, 255, 255 };
-
 		for ( int i = 0; i < n; i++ )
 		{
 			const float f = gi.freeFactor[i];
 			const byte col[4] = { (byte)( f < 0.5f ? 255 : 510.0f * ( 1.0f - f ) ), (byte)( f < 0.5f ? 510.0f * f : 255 ), 0, 255 };
-			const bool returning = i < (int)gi.passState.size() && gi.passState[i] >= 0;
 
-			Phys_Point( &gi.modelPos[i * 3], returning ? 0.5f : 0.4f, returning ? back : col );
+			Phys_Point( &gi.modelPos[i * 3], 0.4f, col );
 		}
 	}
 
@@ -1677,10 +1670,9 @@ static void Phys_UpdateGroup( physInstance_t *inst, physGroupInst_t &gi, const t
 		{
 			Phys_ProxyTargets( gi.proxy, &gi.target[0], &gi.proxyTarget[0] );
 			Phys_ProxyReset( gi.proxy );
-			Phys_ClothReset( gi.cloth, &gi.proxyTarget[0] );
+			Phys_ClothReset( gi.cloth, gi.proxy.topo, &gi.proxyTarget[0], ent->e.origin, ent->e.axis );
 		}
 
-		std::fill( gi.passState.begin(), gi.passState.end(), -1 );
 		gi.primed = true;
 	}
 	else if ( dt > 0.0f )
@@ -1712,37 +1704,24 @@ static void Phys_UpdateGroup( physInstance_t *inst, physGroupInst_t &gi, const t
 		else
 		{
 			Phys_ProxyTargets( gi.proxy, &gi.target[0], &gi.proxyTarget[0] );
-			Phys_ClothStep( gi.cloth, gi.proxy.topo, def, dt, &gi.proxyTarget[0], windVel,
+			Phys_ClothStep( gi.cloth, gi.proxy.topo, def, dt, &gi.proxyTarget[0], windVel, ent->e.origin, ent->e.axis,
 				colliderData, prevColliderData,
 				(int)colliders.size(), hasGround, ent->e.shadowPlane );
 		}
 	}
 
-	// Solved positions of every particle, in world space. After a reset there is no move.
-	gi.prevWorldPos = gi.worldPos;
-
+	// Solved positions of every particle, in world space.
 	if ( def.lag )
 	{
 		Phys_LagApply( gi.lag, &gi.target[0], &gi.freeFactor[0], n, &gi.worldPos[0] );
-
-		if ( reset )
-			gi.prevWorldPos = gi.worldPos;
-
 		Phys_LagCollide( gi.lag, def, &gi.target[0], &gi.freeFactor[0], n, colliderData, (int)colliders.size(), restDist, hasGround, ent->e.shadowPlane,
-			&gi.worldPos[0], &gi.prevWorldPos[0], &gi.passState[0] );
+			&gi.worldPos[0] );
 	}
 	else
 	{
-		if ( !def.passback )
-			std::fill( gi.passState.begin(), gi.passState.end(), -1 );
-
+		// The full mesh follows the simulation mesh. The colliders push out the full vertices that a coarse cell takes in.
 		Phys_ProxyApply( gi.proxy, &gi.cloth.drawX[0], &gi.proxyTarget[0], &gi.target[0], &gi.freeFactor[0], &gi.worldPos[0] );
-
-		if ( reset )
-			gi.prevWorldPos = gi.worldPos;
-
-		Phys_ProjectColliders( &gi.worldPos[0], &gi.target[0], &gi.freeFactor[0], n, def.margin, colliderData, (int)colliders.size(), restDist, hasGround, ent->e.shadowPlane,
-			def.passback ? &gi.prevWorldPos[0] : NULL, def.passback ? &gi.passState[0] : NULL );
+		Phys_ProjectColliders( &gi.worldPos[0], &gi.target[0], &gi.freeFactor[0], n, def.margin, colliderData, (int)colliders.size(), restDist, hasGround, ent->e.shadowPlane );
 	}
 
 	// ph_debug 4: distance of the free particles from the animation, twice per second.
@@ -2209,7 +2188,6 @@ static physGroupDef_t Phys_WithLiveValues( const physGroupDef_t &oldGroup, const
 	g.inertia = newGroup.inertia;
 	g.shape = newGroup.shape;
 	g.maxDistN = newGroup.maxDistN;
-	g.passback = newGroup.passback;
 	g.range = newGroup.range;
 	g.maxSpeed = newGroup.maxSpeed;
 	g.margin = newGroup.margin;
@@ -2442,7 +2420,7 @@ int G2Phys_UICommand( const char *cmd, const char *arg, char *out, int outSize )
 			{ "air", g.air },						{ "hold", g.hold },
 			{ "bounce", g.bounce },					{ "inertia", g.inertia },
 			{ "shape", g.shape },					{ "detail", g.detail },
-			{ "subdivide", (float)g.subdivide },	{ "passback", g.passback ? 1.0f : 0.0f } };
+			{ "subdivide", (float)g.subdivide } };
 		std::string text;
 
 		for ( size_t i = 0; i < ARRAY_LEN( values ); i++ )

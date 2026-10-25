@@ -82,20 +82,19 @@ struct physGroupDef_t
 	float	air;		// 0 to 1: drag, push of the air on the faces and effect of the map wind
 	float	hold;		// 0 to 1: pull back to the animated shape, 1 = 20 radians per second
 	float	bounce;		// 0 to 1: 0 = stops without a bounce, 1 = no brake
-	float	inertia;	// part of the motion of the pinned particles that the free particles do not follow, 0 to 1
+	float	inertia;	// part of the change of the model frame speed that the cloth does not take, 0 to 1 (NvCloth inertia)
 	float	shape;		// each particle zone keeps its animated shape, so a tube stays round: 0 = off, 1 = full
 	float	maxDist;	// reach: backstop radius of a free vertex, in the surface plane
 	float	maxDistN;	// reach across the cloth, along the surface normal, 0 = same as maxDist
 	float	detail;		// density of the simulation mesh, 1 = cells of 4 units
-	bool	passback;	// a particle that crossed a collider goes back through it, not out on the wrong side
 	float	range;		// maximum distance from the view that runs the solver
 	int		subdivide;	// levels of Loop subdivision of the drawn mesh, 0 to PHYS_MAX_SUBDIVIDE
 
 	// Solver values. They are not keywords of the file.
 	float	proxy;		// cell size of the simulation mesh, in units
-	float	maxSpeed;	// largest speed relative to the animation, units per second
+	float	maxSpeed;	// mode lag: largest speed relative to the animation, units per second
 	float	gravity;	// multiplier of 800 units per second squared
-	float	damping;	// loss of the speed relative to the animation, 1 per second
+	float	damping;	// loss of the speed relative to the model frame, 1 per second
 	float	drag;		// pull of the speed toward the wind, 1 per second
 	float	aero;		// push of the relative air flow on a triangle, 1 per second
 	float	wind;		// multiplier of the map wind
@@ -240,36 +239,51 @@ struct physCloth_t
 	float				accum;				// time not simulated yet, less than one step
 	std::vector<float>	maxDist;			// per particle backstop, 0 = pinned
 	std::vector<unsigned char> pinned;
-	std::vector<int>	passState;			// per particle: the collider it goes back through, -1 = none
+	std::vector<int>	tether;				// per particle: the nearest pinned particle in the bind pose, -1 = none
+	std::vector<float>	tetherLength;		// per particle: distance to that particle in the bind pose
+
+	// Model frame of the last frame (Phys_ClothFrame), and its speed.
+	float				frameOrigin[3];
+	float				frameAxis[3][3];	// unit axes
+	float				frameVel[3];
+	float				frameOmega[3];		// turn speed, radians per second, around this axis
+	float				frameQ[4];			// turn of the pinned particles from the bind pose, quaternion x y z w
+
+	// Frame state that the cloth took at the end of the last step. The next step starts from it, so no part
+	// of a speed change is lost when a frame ends between two steps.
+	float				appliedOrigin[3];
+	float				appliedVel[3];
+	float				appliedOmega[3];
+	bool				frameSpeedValid;	// false after a reset: the next frame measures the speed and takes no change
 
 	// Work buffers of Phys_ClothStep, kept between frames so a step does not allocate.
-	std::vector<float>	p, tgt, tgtVel, acc, targetNormal, lambda, lambdaFollow;
-	std::vector<float>	push;				// move out of the colliders in this step, 3 per particle
-	std::vector<unsigned char> hit;
+	std::vector<float>	p, tgt, acc, targetNormal, lambda, lambdaFollow;
 	std::vector<physCollider_w> stepColliders;	// the colliders at the time of the step
 	std::vector<float>	restDist;			// Phys_RestDistances of the particles, empty = none
-	std::vector<float>	edgeRestDist;		// Phys_RestDistances of the edge middles, empty = none
 
 	// Shape: each particle and its neighbors keep the animated shape of their zone.
 	std::vector<int>	adjStart, adj;		// neighbors of each particle, from the edges
 	std::vector<float>	shapeRot;			// 4 per particle: turn of its zone, quaternion x y z w
 	std::vector<float>	shapeGoal, shapeCount;
 
-	physCloth_t() : numParticles( 0 ), valid( false ), accum( 0.0f ) {}
+	physCloth_t() : numParticles( 0 ), valid( false ), accum( 0.0f ), frameSpeedValid( false ) {}
 };
 
-// freeFactor: 0 = pinned, 1 = free, per particle.
-void	Phys_ClothInit( physCloth_t &cloth, const physGroupDef_t &def, const float *freeFactor, int numParticles );
+// freeFactor: 0 = pinned, 1 = free, per particle. topo gives the bind pose of the tethers.
+void	Phys_ClothInit( physCloth_t &cloth, const physGroupDef_t &def, const physTopology_t &topo, const float *freeFactor );
 
-// Snap every particle to the target. Clears the velocity.
-void	Phys_ClothReset( physCloth_t &cloth, const float *target );
+// Snap every particle to the target. Clears the velocity. origin and axis: the entity frame.
+void	Phys_ClothReset( physCloth_t &cloth, const physTopology_t &topo, const float *target, const float origin[3], const float axis[3][3] );
 
 // Runs fixed steps of PHYS_CLOTH_STEP for the time dt. The time that is less than one step stays for the next
 // call. drawX gets the result at the time of target.
+// origin and axis: the entity frame of this frame. The model frame is the frame of the pinned particles
+// (Phys_ClothFrame). The cloth takes a part of the change of its speed (inertia), and the damping reduces
+// the speed relative to it, as in NvCloth.
 // prevColliders: the colliders of the last frame, NULL = they do not move. Each step uses the colliders
 // at its time, so a fast collider does not jump over the particles.
 void	Phys_ClothStep( physCloth_t &cloth, const physTopology_t &topo, const physGroupDef_t &def,
-						float dt, const float *target, const float windVel[3],
+						float dt, const float *target, const float windVel[3], const float origin[3], const float axis[3][3],
 						const physCollider_w *colliders, const physCollider_w *prevColliders, int numColliders,
 						bool hasGround, float groundZ );
 
@@ -301,24 +315,20 @@ void	Phys_LagApply( const physLag_t &lag, const float *target, const float *free
 // bindColliders: the colliders in the bind pose, in the space of bindPos.
 void	Phys_RestDistances( const float *bindPos, int n, const physCollider_w *bindColliders, int numColliders, std::vector<float> &out );
 
-// Rest distances of the particles and of the edge middles of a cloth. The middle of an edge on a curved part
-// (a shoulder) can be deeper than its two particles.
+// Rest distances of the particles of a cloth.
 void	Phys_ClothRestDistances( physCloth_t &cloth, const physTopology_t &topo, const physCollider_w *bindColliders, int numColliders );
 
 // Pushes the free particles out of the colliders and above the floor.
 // restDist (from Phys_RestDistances, NULL = none): a particle can be as deep as in the bind pose.
-// prevPos (per particle, NULL = no pass back): positions before this move. A particle that moves toward its
-// target has no collision. passState (debug view): the collider that lets the particle through, -1 = none.
 void	Phys_ProjectColliders( float *pos, const float *target, const float *freeFactor, int n, float margin,
-							   const physCollider_w *colliders, int numColliders, const float *restDist, bool hasGround, float groundZ,
-							   const float *prevPos = 0, int *passState = 0 );
+							   const physCollider_w *colliders, int numColliders, const float *restDist, bool hasGround, float groundZ );
 
 // Lag mode, after Phys_LagApply: a contact moves the mass center and removes the speed into the collider,
 // then the positions are rebuilt. Only what is left is pushed out of the colliders one particle at a time.
-// restDist, prevPos, passState: see Phys_ProjectColliders. Pass back is used when def.passback is set.
+// restDist: see Phys_ProjectColliders.
 void	Phys_LagCollide( physLag_t &lag, const physGroupDef_t &def, const float *target, const float *freeFactor, int n,
 						 const physCollider_w *colliders, int numColliders, const float *restDist, bool hasGround, float groundZ,
-						 float *outPos, const float *prevPos = 0, int *passState = 0 );
+						 float *outPos );
 
 // Area weighted particle normals from the given positions (3 per particle).
 void	Phys_ComputeNormals( const physTopology_t &topo, const float *pos, float *normals );
